@@ -879,8 +879,15 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
   end
 
   local traceid = extract_trace_id(request_handle:headers())
+  request_handle:logInfo(string.format("[Zadig Grayscale STORE] Extracted trace ID: %s", traceid or "nil"))
 
   local env = request_handle:headers():get("x-env")
+  if env then
+    request_handle:logInfo(string.format("[Zadig Grayscale STORE] Storing x-env: %s for trace ID: %s", env, traceid))
+  else
+    request_handle:logWarn("[Zadig Grayscale STORE] No x-env header found in request")
+  end
+  
   local headers, body = request_handle:httpCall(
     "cache",
     {
@@ -898,16 +905,21 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
   local header_key = "%s"
   local key = traceid .. "-" .. header_key
   local value = request_handle:headers():get(header_key)
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%%s/%%s", key, value),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
+  if value then
+    request_handle:logInfo(string.format("[Zadig Grayscale STORE] Storing header '%%s': %%s", header_key, value))
+    local headers, body = request_handle:httpCall(
+      "cache",
+      {
+        [":method"] = "POST",
+        [":path"] = string.format("/api/cache/%%s/%%s", key, value),
+        [":authority"] = "cache",
+      },
+      "",
+      5000
+    )
+  else
+    request_handle:logWarn(string.format("[Zadig Grayscale STORE] Header '%%s' not found in request, skipping storage", header_key))
+  end
 	`
 		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
 		inlineCodeMid += tmpInlineCodeMid
@@ -975,9 +987,11 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
   end
 
   local traceid = extract_trace_id(request_handle:headers())
+  request_handle:logInfo(string.format("[Zadig Grayscale GET] Extracted trace ID: %s", traceid or "nil"))
 
   -- Only add x-env header if not already present
   if not request_handle:headers():get("x-env") then
+    request_handle:logInfo("[Zadig Grayscale GET] x-env header not found, retrieving from cache")
     local headers, body = request_handle:httpCall(
       "cache",
       {
@@ -991,7 +1005,12 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
 
     if headers and headers["x-data"] then
       request_handle:headers():add("x-env", headers["x-data"])
+      request_handle:logInfo(string.format("[Zadig Grayscale GET] Added x-env header: %s", headers["x-data"]))
+    else
+      request_handle:logWarn("[Zadig Grayscale GET] No x-env data returned from cache")
     end
+  else
+    request_handle:logInfo(string.format("[Zadig Grayscale GET] x-env header already present: %s", request_handle:headers():get("x-env")))
   end
 `
 
@@ -1001,6 +1020,7 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
   -- Only add header if not already present
   local header_key = "%s"
   if not request_handle:headers():get(header_key) then
+    request_handle:logInfo(string.format("[Zadig Grayscale GET] Header '%%s' not found, retrieving from cache", header_key))
     local key = traceid .. "-" .. header_key
     local headers, body = request_handle:httpCall(
       "cache",
@@ -1015,7 +1035,12 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
 
     if headers and headers["x-data"] then
       request_handle:headers():add(header_key, headers["x-data"])
+      request_handle:logInfo(string.format("[Zadig Grayscale GET] Added header '%%s': %%s", header_key, headers["x-data"]))
+    else
+      request_handle:logWarn(string.format("[Zadig Grayscale GET] No data returned from cache for header '%%s'", header_key))
     end
+  else
+    request_handle:logInfo(string.format("[Zadig Grayscale GET] Header '%%s' already present: %%s", header_key, request_handle:headers():get(header_key)))
   end
 	`
 		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
