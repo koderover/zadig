@@ -879,33 +879,38 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
   end
 
   local traceid = extract_trace_id(request_handle:headers())
-  request_handle:logInfo(string.format("[Zadig Grayscale STORE] Extracted trace ID: %s", traceid or "nil"))
+  
+  if not traceid then
+    request_handle:logWarn("[Zadig Grayscale STORE] No trace ID found in request headers, skipping cache storage")
+    return
+  end
+  
+  request_handle:logInfo(string.format("[Zadig Grayscale STORE] Extracted trace ID: %s", traceid))
 
   local env = request_handle:headers():get("x-env")
   if env then
     request_handle:logInfo(string.format("[Zadig Grayscale STORE] Storing x-env: %s for trace ID: %s", env, traceid))
+    local headers, body = request_handle:httpCall(
+      "cache",
+      {
+        [":method"] = "POST",
+        [":path"] = string.format("/api/cache/%s/%s", traceid, env),
+        [":authority"] = "cache",
+      },
+      "",
+      5000
+    )
   else
     request_handle:logWarn("[Zadig Grayscale STORE] No x-env header found in request")
   end
-  
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
 `
 	inlineCodeMid := ``
 	for _, headerKey := range headerKeys {
 		tmpInlineCodeMid := `
   local header_key = "%s"
-  local key = traceid .. "-" .. header_key
   local value = request_handle:headers():get(header_key)
   if value then
+    local key = traceid .. "-" .. header_key
     request_handle:logInfo(string.format("[Zadig Grayscale STORE] Storing header '%%s': %%s", header_key, value))
     local headers, body = request_handle:httpCall(
       "cache",
@@ -987,7 +992,13 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
   end
 
   local traceid = extract_trace_id(request_handle:headers())
-  request_handle:logInfo(string.format("[Zadig Grayscale GET] Extracted trace ID: %s", traceid or "nil"))
+  
+  if not traceid then
+    request_handle:logWarn("[Zadig Grayscale GET] No trace ID found in request headers, skipping cache retrieval")
+    return
+  end
+  
+  request_handle:logInfo(string.format("[Zadig Grayscale GET] Extracted trace ID: %s", traceid))
 
   -- Only add x-env header if not already present
   if not request_handle:headers():get("x-env") then
