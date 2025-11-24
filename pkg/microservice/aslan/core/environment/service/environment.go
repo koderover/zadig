@@ -1793,7 +1793,7 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 			}
 		}
 	}
-	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, log)
+	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, nil, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, production bool, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -1871,7 +1871,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 				rcList = append(rcList, rc)
 			}
 
-			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, log)
+			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, nil, log)
 		}
 	}
 }
@@ -1907,13 +1907,12 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 }
 
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
-	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*900)
+	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
 	if err != nil {
 		log.Infof("sync helm env variables is processing, project: %s, env: %s", productName, envName)
 		return nil
 	}
-	defer syncLock.Unlock()
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -1979,15 +1978,16 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	}
 
 	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
-	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, log)
+	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, syncLock, log)
 	if err != nil {
+		syncLock.Unlock()
 		return err
 	}
 	return err
 }
 
 func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender,
-	_ []*commontypes.GlobalVariableKV, defaultValue string, yamlData *templatemodels.CustomYaml, log *zap.SugaredLogger) error {
+	_ []*commontypes.GlobalVariableKV, defaultValue string, yamlData *templatemodels.CustomYaml, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -2019,10 +2019,13 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	// only update renderset value to db, no need to upgrade chart release
 	if len(updatedSvcs) == 0 {
 		log.Infof("no need to update svc")
+		if syncLock != nil {
+			syncLock.Unlock()
+		}
 		return commonrepo.NewProductColl().UpdateProductVariables(productResp)
 	}
 
-	return updateHelmProductVariable(productResp, username, requestID, log)
+	return updateHelmProductVariable(productResp, username, requestID, syncLock, log)
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, userName, requestID string, log *zap.SugaredLogger) error {
@@ -2037,26 +2040,44 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, false, productResp.GlobalVariables, log)
 }
 
-func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, log *zap.SugaredLogger) error {
+func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
 	envName, productName := productResp.EnvName, productResp.ProductName
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
+		if syncLock != nil {
+			syncLock.Unlock()
+		}
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
 	err = commonrepo.NewProductColl().UpdateProductVariables(productResp)
 	if err != nil {
+		if syncLock != nil {
+			syncLock.Unlock()
+		}
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
 	// set product status to updating
 	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
+		if syncLock != nil {
+			syncLock.Unlock()
+		}
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("panic in updateHelmProductVariable async function, project: %s, env: %s, panic: %v", productName, envName, r)
+			}
+			if syncLock != nil {
+				syncLock.Unlock()
+			}
+		}()
+
 		err := kube.DeployMultiHelmRelease(productResp, helmClient, nil, userName, log)
 		if err != nil {
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
