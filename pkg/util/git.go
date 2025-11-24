@@ -22,23 +22,35 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 // git@github.com or git@github.com:2000
 // return github.com
-func GetSSHHost(address string) string {
+func GetSSHUserAndHostAndPort(address string) (string, string, int) {
 	address = strings.TrimPrefix(address, "ssh://")
 	addressArr := strings.Split(address, "@")
+	user := ""
 	if len(addressArr) == 2 {
+		user = addressArr[0]
 		address = addressArr[1]
 	}
 	hostArr := strings.Split(address, ":")
-	return hostArr[0]
+	if len(hostArr) == 2 {
+		port, err := strconv.Atoi(hostArr[1])
+		if err != nil {
+			log.Errorf("GetSSHHostAndPort: failed to convert port to int, address: %s, err: %s", address, err)
+			return user, hostArr[0], 0
+		}
+		return user, hostArr[0], port
+	}
+	return user, hostArr[0], 0
 }
 
 func WriteSSHFile(sshKey, hostName string) (string, error) {

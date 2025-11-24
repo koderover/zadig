@@ -53,7 +53,7 @@ type Client struct {
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 	sshKeyPath := ""
 	if c.AuthType == types.SSHAuthType {
-		hostName := util.GetSSHHost(c.Address)
+		_, hostName, _ := util.GetSSHUserAndHostAndPort(c.Address)
 		hostName = strings.Replace(hostName, ".", "", -1)
 		hostName = strings.Replace(hostName, ":", "", -1)
 		pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
@@ -180,7 +180,11 @@ func (c *Client) initRepo(repoDir, namespace, projectName string) error {
 func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]string, error) {
 	var cmd *exec.Cmd
 	if c.Config.AuthType == types.SSHAuthType {
-		remote := fmt.Sprintf("%s:%s/%s.git", c.Config.Address, namespace, projectName)
+		user, hostName, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
+		remote := fmt.Sprintf("git@%s:%s/%s.git", hostName, namespace, projectName)
+		if user != "" {
+			remote = fmt.Sprintf("%s@%s:%s/%s.git", user, hostName, namespace, projectName)
+		}
 
 		script := `
         ssh-agent sh -c '
@@ -189,6 +193,15 @@ func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]s
                 git ls-remote --heads ` + remote + `
         '
 		`
+		if port != 0 {
+			script = fmt.Sprintf(`
+        ssh-agent sh -c '
+            echo "$SSH_PRIVATE_KEY" | ssh-add -;
+            GIT_SSH_COMMAND="ssh -p %d -o IdentityFile=none -o StrictHostKeyChecking=no" \
+                git ls-remote --heads %s
+        '
+		`, port, remote)
+		}
 
 		cmd = exec.Command("sh", "-c", script)
 		cmd.Env = append(os.Environ(), "SSH_PRIVATE_KEY="+c.Config.SSHKey)
@@ -251,7 +264,11 @@ func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]s
 func (c *Client) listRemoteTags(namespace, projectName, keyword string) ([]string, error) {
 	var cmd *exec.Cmd
 	if c.Config.AuthType == types.SSHAuthType {
-		remote := fmt.Sprintf("%s:%s/%s.git", c.Config.Address, namespace, projectName)
+		user, hostName, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
+		remote := fmt.Sprintf("git@%s:%s/%s.git", hostName, namespace, projectName)
+		if user != "" {
+			remote = fmt.Sprintf("%s@%s:%s/%s.git", user, hostName, namespace, projectName)
+		}
 
 		script := `
         ssh-agent sh -c '
@@ -260,6 +277,15 @@ func (c *Client) listRemoteTags(namespace, projectName, keyword string) ([]strin
                 git ls-remote --tags --refs ` + remote + `
         '
 		`
+		if port != 0 {
+			script = fmt.Sprintf(`
+        ssh-agent sh -c '
+            echo "$SSH_PRIVATE_KEY" | ssh-add -;
+            GIT_SSH_COMMAND="ssh -p %d -o IdentityFile=none -o StrictHostKeyChecking=no" \
+                git ls-remote --tags --refs %s
+        '
+		`, port, remote)
+		}
 
 		cmd = exec.Command("sh", "-c", script)
 		cmd.Env = append(os.Environ(), "SSH_PRIVATE_KEY="+c.Config.SSHKey)
