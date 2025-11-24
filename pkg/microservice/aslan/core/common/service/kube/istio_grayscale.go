@@ -843,16 +843,42 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
     return res
   end
 
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
+  -- Extract trace ID from various tracing headers
+  local function extract_trace_id(headers)
+    -- W3C traceparent format: 00-{trace-id}-{parent-id}-{trace-flags}
+    local traceparent = headers:get("traceparent")
+    if traceparent then
+      local parts = split_str(traceparent, "-")
+      if #parts >= 2 then
+        return parts[2]
+      end
     end
+
+    -- SkyWalking format: sw8
+    local sw8 = headers:get("sw8")
+    if sw8 then
+      local parts = split_str(sw8, "-")
+      if #parts >= 2 then
+        return parts[2]
+      end
+    end
+
+    -- Zipkin B3 format
+    local b3_traceid = headers:get("x-b3-traceid")
+    if b3_traceid then
+      return b3_traceid
+    end
+
+    -- Generic request ID fallback
+    local request_id = headers:get("x-request-id")
+    if request_id then
+      return request_id
+    end
+
+    return nil
   end
+
+  local traceid = extract_trace_id(request_handle:headers())
 
   local env = request_handle:headers():get("x-env")
   local headers, body = request_handle:httpCall(
@@ -913,48 +939,84 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
     return res
   end
 
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
+  -- Extract trace ID from various tracing headers
+  local function extract_trace_id(headers)
+    -- W3C traceparent format: 00-{trace-id}-{parent-id}-{trace-flags}
+    local traceparent = headers:get("traceparent")
+    if traceparent then
+      local parts = split_str(traceparent, "-")
+      if #parts >= 2 then
+        return parts[2]
+      end
     end
+
+    -- SkyWalking format: sw8
+    local sw8 = headers:get("sw8")
+    if sw8 then
+      local parts = split_str(sw8, "-")
+      if #parts >= 2 then
+        return parts[2]
+      end
+    end
+
+    -- Zipkin B3 format
+    local b3_traceid = headers:get("x-b3-traceid")
+    if b3_traceid then
+      return b3_traceid
+    end
+
+    -- Generic request ID fallback
+    local request_id = headers:get("x-request-id")
+    if request_id then
+      return request_id
+    end
+
+    return nil
   end
 
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%s", traceid),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
+  local traceid = extract_trace_id(request_handle:headers())
 
-  request_handle:headers():add("x-env", headers["x-data"]);
+  -- Only add x-env header if not already present
+  if not request_handle:headers():get("x-env") then
+    local headers, body = request_handle:httpCall(
+      "cache",
+      {
+        [":method"] = "GET",
+        [":path"] = string.format("/api/cache/%s", traceid),
+        [":authority"] = "cache",
+      },
+      "",
+      5000
+    )
+
+    if headers and headers["x-data"] then
+      request_handle:headers():add("x-env", headers["x-data"])
+    end
+  end
 `
 
 	inlineCodeMid := ``
 	for _, headerKey := range headerKeys {
 		tmpInlineCodeMid := `
+  -- Only add header if not already present
   local header_key = "%s"
-  local key = traceid .. "-" .. header_key
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%%s", key),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
+  if not request_handle:headers():get(header_key) then
+    local key = traceid .. "-" .. header_key
+    local headers, body = request_handle:httpCall(
+      "cache",
+      {
+        [":method"] = "GET",
+        [":path"] = string.format("/api/cache/%%s", key),
+        [":authority"] = "cache",
+      },
+      "",
+      5000
+    )
 
-  request_handle:headers():add(header_key, headers["x-data"]);
+    if headers and headers["x-data"] then
+      request_handle:headers():add(header_key, headers["x-data"])
+    end
+  end
 	`
 		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
 		inlineCodeMid += tmpInlineCodeMid
