@@ -631,7 +631,7 @@ func (c *FreestyleJobCtl) createFilesPVCs(ctx context.Context, mountPathFiles ma
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				VolumeMode:  &filesystemVolume,
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: storageQuantity,
 					},

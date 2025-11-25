@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	typesregistry "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/pkg/errors"
@@ -75,7 +76,7 @@ func buildRegistryMap(registries []*DockerRegistry) map[string]*DockerRegistry {
 	return ret
 }
 
-func base64EncodeAuth(auth *types.AuthConfig) (string, error) {
+func base64EncodeAuth(auth *typesregistry.AuthConfig) (string, error) {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(auth); err != nil {
 		return "", err
@@ -147,7 +148,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 			if !ok {
 				return nil, fmt.Errorf("failed to find source registry for image: %s", singleImage.ImageUrl)
 			}
-			encodedAuth, err := base64EncodeAuth(&types.AuthConfig{
+			encodedAuth, err := base64EncodeAuth(&typesregistry.AuthConfig{
 				Username:      registryInfo.UserName,
 				Password:      registryInfo.Password,
 				ServerAddress: registryInfo.Host,
@@ -184,7 +185,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 
 	// push image
 	for _, registry := range targetRegistries {
-		encodedAuth, err := base64EncodeAuth(&types.AuthConfig{
+		encodedAuth, err := base64EncodeAuth(&typesregistry.AuthConfig{
 			Username:      registry.UserName,
 			Password:      registry.Password,
 			ServerAddress: registry.Host,

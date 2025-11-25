@@ -460,7 +460,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return nil
 	}
 
-	manifestBytes, err := helmClient.TemplateChart(chartSpec)
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
 	if err != nil {
 		return fmt.Errorf("failed template chart %q for release %q in namespace %q: %s", chartSpec.ChartName, chartSpec.ReleaseName, chartSpec.Namespace, err)
 	}
