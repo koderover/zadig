@@ -39,12 +39,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/docker/api/types"
+	typesregistry "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
@@ -53,7 +53,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"golang.org/x/net/proxy"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -147,13 +146,8 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 
 	proxyDialer, err := sockets.DialerFromEnvironment(direct)
 	if err == nil {
-		switch pd := proxyDialer.(type) {
-		case proxy.ContextDialer:
-			base.DialContext = pd.DialContext
-		default:
-			//noinspection GoDeprecation
-			base.Dial = proxyDialer.Dial
-		}
+		// *net.Dialer already implements DialContext method
+		base.DialContext = proxyDialer.DialContext
 	}
 
 	authTransport := transport.NewTransport(base)
@@ -184,7 +178,7 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 		return
 	}
 
-	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
+	creds := registry.NewStaticCredentialStore(&typesregistry.AuthConfig{
 		Username:      c.endpoint.Ak,
 		Password:      c.endpoint.Sk,
 		ServerAddress: c.endpoint.Addr,
@@ -291,7 +285,7 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 }
 
 func (c *authClient) validateRegistry() (err error) {
-	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
+	creds := registry.NewStaticCredentialStore(&typesregistry.AuthConfig{
 		Username:      c.endpoint.Ak,
 		Password:      c.endpoint.Sk,
 		ServerAddress: c.endpoint.Addr,

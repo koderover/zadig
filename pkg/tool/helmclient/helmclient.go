@@ -518,7 +518,7 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 		}
 	}
 
-	values, err := spec.GetValuesMap()
+	values, err := spec.GetValuesMap(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +553,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 		}
 	}
 
-	values, err := spec.GetValuesMap()
+	values, err := spec.GetValuesMap(nil)
 	if err != nil {
 		return nil, err
 	}

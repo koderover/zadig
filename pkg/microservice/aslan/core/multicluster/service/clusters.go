@@ -1311,7 +1311,7 @@ func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, origi
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: storageQuantity,
 						},
@@ -1483,7 +1483,7 @@ func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 				StorageClassName: &nfsProperties.StorageClass,
 				AccessModes:      accessMode,
 				VolumeMode:       &filesystemVolume,
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: storageQuantity,
 					},
