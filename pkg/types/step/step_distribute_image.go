@@ -28,6 +28,7 @@ type StepImageDistributeSpec struct {
 	SourceRegistry   *RegistryNamespace           `bson:"source_registry"                json:"source_registry"               yaml:"source_registry"`
 	TargetRegistry   *RegistryNamespace           `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
 	DistributeTarget []*DistributeTaskTarget      `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
+	Architecture     string                       `bson:"architecture"                   json:"architecture"                  yaml:"architecture"`
 }
 
 type DistributeTaskTarget struct {
