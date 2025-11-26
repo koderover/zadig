@@ -235,7 +235,7 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 		cmds = append(cmds, &Command{Cmd: RemoteAdd(repo.RemoteName, giteeURL), DisableTrace: true})
 	} else if repo.Source == setting.SourceFromOther {
 		if repo.AuthType == types.SSHAuthType {
-			host := util.GetSSHHost(repo.Address)
+			_, host, _ := util.GetSSHUserAndHostAndPort(repo.Address)
 			if !hostNames.Has(host) {
 				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %v", err)

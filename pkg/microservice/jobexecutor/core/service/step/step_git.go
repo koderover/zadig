@@ -258,7 +258,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	} else if repo.Source == types.ProviderOther {
 		// other
 		if repo.AuthType == types.SSHAuthType {
-			host := util.GetSSHHost(repo.Address)
+			_, host, _ := util.GetSSHUserAndHostAndPort(repo.Address)
 			if !hostNames.Has(host) {
 				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %v", err)
