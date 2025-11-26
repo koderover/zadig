@@ -192,7 +192,10 @@ func (s *DistributeImageStep) loginTargetRegistry() error {
 
 func dockerPullCmd(fullImage string, architecture string) *exec.Cmd {
 	args := []string{"-c"}
-	dockerPullCommand := fmt.Sprintf("docker pull %s --platform=%s", fullImage, architecture)
+	dockerPullCommand := fmt.Sprintf("docker pull %s", fullImage)
+	if architecture != "" {
+		dockerPullCommand += fmt.Sprintf(" --platform=%s", architecture)
+	}
 	args = append(args, dockerPullCommand)
 	return exec.Command("sh", args...)
 }
