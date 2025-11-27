@@ -72,10 +72,11 @@ func CreateBuildJobController(job *commonmodels.Job, workflow *commonmodels.Work
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BuildJobController{
@@ -376,6 +377,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			Infrastructure: buildInfo.Infrastructure,
 			VMLabels:       buildInfo.VMLabels,
 			ErrorPolicy:    j.errorPolicy,
+			ExecutePolicy:  j.executePolicy,
 		}
 		customEnvs := applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList()
 		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, build.ServiceName, build.ServiceModule)
@@ -804,6 +806,15 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				}
 				outputKeys = outputKeys.Insert(output.Name)
 			}
+			// Add status variable for each service/module
+			if getServiceSpecificVariables {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
 		}
 		if getPlaceHolderVariables {
 			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
@@ -815,6 +826,13 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 					IsCredential: false,
 				})
 			}
+			// Add placeholder status variable
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 		}
 	}
 

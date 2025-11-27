@@ -19,6 +19,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -44,10 +45,11 @@ func CreateNacosJobController(job *commonmodels.Job, workflow *commonmodels.Work
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return NacosJobController{
@@ -254,7 +256,8 @@ func (j NacosJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			AuthConfig:    info.NacosAuthConfig,
 			NacosDatas:    transNacosDatas(j.jobSpec.NacosDatas),
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 
@@ -270,7 +273,16 @@ func (j NacosJobController) SetRepoCommitInfo() error {
 }
 
 func (j NacosJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j NacosJobController) GetUsedRepos() ([]*types.Repository, error) {

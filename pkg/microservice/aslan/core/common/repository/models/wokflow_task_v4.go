@@ -116,7 +116,8 @@ type JobTask struct {
 	Infrastructure   string                   `bson:"infrastructure"      json:"infrastructure"`
 	VMLabels         []string                 `bson:"vm_labels"           json:"vm_labels"`
 
-	ErrorPolicy *JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ErrorPolicy   *JobErrorPolicy   `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ExecutePolicy *JobExecutePolicy `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
 	// ErrorHandler is the user ID who did the error handling
 	ErrorHandlerUserID   string `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`

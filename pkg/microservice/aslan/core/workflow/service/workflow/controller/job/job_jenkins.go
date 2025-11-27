@@ -20,6 +20,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -41,10 +42,11 @@ func CreateJenkinsJobController(job *commonmodels.Job, workflow *commonmodels.Wo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return JenkinsJobController{
@@ -141,8 +143,9 @@ func (j JenkinsJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 					Parameters: job.Parameters,
 				},
 			},
-			Timeout:     0,
-			ErrorPolicy: j.errorPolicy,
+			Timeout:       0,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		})
 	}
 
@@ -158,7 +161,16 @@ func (j JenkinsJobController) SetRepoCommitInfo() error {
 }
 
 func (j JenkinsJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j JenkinsJobController) GetUsedRepos() ([]*types.Repository, error) {

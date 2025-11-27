@@ -57,10 +57,11 @@ func CreateDistributeImageJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return DistributeImageJobController{
@@ -280,10 +281,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobZadigDistributeImage),
-		Spec:        jobTaskSpec,
-		Timeout:     getTimeout(j.jobSpec.Timeout),
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobZadigDistributeImage),
+		Spec:          jobTaskSpec,
+		Timeout:       getTimeout(j.jobSpec.Timeout),
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 
@@ -319,6 +321,24 @@ func (j DistributeImageJobController) GetVariableList(jobName string, getAggrega
 				Type:         "string",
 				IsCredential: false,
 			})
+			// Add placeholder status variable
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+		if getServiceSpecificVariables {
+			for _, target := range j.jobSpec.Targets {
+				targetKey := strings.Join([]string{j.name, target.ServiceName, target.ServiceModule}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", targetKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
 		}
 	}
 

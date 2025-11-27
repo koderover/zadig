@@ -16,6 +16,7 @@ package job
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -40,10 +41,11 @@ func CreateGrayReleaseJobController(job *commonmodels.Job, workflow *commonmodel
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return GrayReleaseJobController{
@@ -241,7 +243,8 @@ func (j GrayReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask,
 				TotalReplica:     target.Replica,
 				GrayReplica:      int(grayReplica),
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}
@@ -257,7 +260,16 @@ func (j GrayReleaseJobController) SetRepoCommitInfo() error {
 }
 
 func (j GrayReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j GrayReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {

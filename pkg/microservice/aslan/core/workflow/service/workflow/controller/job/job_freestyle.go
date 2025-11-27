@@ -49,10 +49,11 @@ func CreateFreestyleJobController(job *commonmodels.Job, workflow *commonmodels.
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return FreestyleJobController{
@@ -237,6 +238,13 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 					IsCredential: false,
 				})
 			}
+			// Add status variable for normal freestyle job
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 		} else {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
 				if getServiceSpecificVariables {
@@ -251,6 +259,16 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 						IsCredential: false,
 					})
 				}
+			}
+			// Add placeholder status variable for service freestyle type
+			if getPlaceHolderVariables {
+				jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
 			}
 		}
 	}
@@ -606,16 +624,17 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	jobTask := &commonmodels.JobTask{
-		Key:         jobKey,
-		Name:        jobName,
-		DisplayName: jobDisplayName,
-		OriginName:  j.name,
-		JobInfo:     jobInfo,
-		JobType:     string(config.JobFreestyle),
-		Spec:        jobTaskSpec,
-		Timeout:     j.jobSpec.AdvancedSetting.Timeout,
-		Outputs:     j.jobSpec.AdvancedSetting.Outputs,
-		ErrorPolicy: j.errorPolicy,
+		Key:           jobKey,
+		Name:          jobName,
+		DisplayName:   jobDisplayName,
+		OriginName:    j.name,
+		JobInfo:       jobInfo,
+		JobType:       string(config.JobFreestyle),
+		Spec:          jobTaskSpec,
+		Timeout:       j.jobSpec.AdvancedSetting.Timeout,
+		Outputs:       j.jobSpec.AdvancedSetting.Outputs,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 
 		Infrastructure: j.jobSpec.Runtime.Infrastructure,
 		VMLabels:       j.jobSpec.Runtime.VMLabels,

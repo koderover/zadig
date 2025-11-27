@@ -41,10 +41,11 @@ func CreatePluginJobController(job *commonmodels.Job, workflow *commonmodels.Wor
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return PluginJobController{
@@ -128,10 +129,11 @@ func (j PluginJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobPlugin),
-		Spec:        jobTaskSpec,
-		Outputs:     j.jobSpec.Plugin.Outputs,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobPlugin),
+		Spec:          jobTaskSpec,
+		Outputs:       j.jobSpec.Plugin.Outputs,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	renderedParams := []*commonmodels.Param{}
@@ -155,7 +157,16 @@ func (j PluginJobController) SetRepoCommitInfo() error {
 }
 
 func (j PluginJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j PluginJobController) GetUsedRepos() ([]*types.Repository, error) {

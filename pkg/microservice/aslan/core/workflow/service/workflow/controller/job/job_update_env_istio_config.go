@@ -15,6 +15,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -36,10 +37,11 @@ func CreateUpdateEnvIstioConfigJobController(job *commonmodels.Job, workflow *co
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return UpdateEnvIstioConfigJobController{
@@ -191,9 +193,10 @@ func (j UpdateEnvIstioConfigJobController) ToTask(taskID int64) ([]*commonmodels
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobUpdateEnvIstioConfig),
-		Spec:        j.jobSpec,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobUpdateEnvIstioConfig),
+		Spec:          j.jobSpec,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 
@@ -209,7 +212,16 @@ func (j UpdateEnvIstioConfigJobController) SetRepoCommitInfo() error {
 }
 
 func (j UpdateEnvIstioConfigJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j UpdateEnvIstioConfigJobController) GetUsedRepos() ([]*types.Repository, error) {

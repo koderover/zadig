@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -42,10 +43,11 @@ func CreateHelmChartDeployJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return HelmChartDeployJobController{
@@ -230,9 +232,10 @@ func (j HelmChartDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 				JobNameKey:     j.name,
 				"release_name": deploy.ReleaseName,
 			},
-			JobType:     string(config.JobZadigHelmChartDeploy),
-			Spec:        jobTaskSpec,
-			ErrorPolicy: j.errorPolicy,
+			JobType:       string(config.JobZadigHelmChartDeploy),
+			Spec:          jobTaskSpec,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}
@@ -249,7 +252,16 @@ func (j HelmChartDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j HelmChartDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j HelmChartDeployJobController) GetUsedRepos() ([]*types.Repository, error) {

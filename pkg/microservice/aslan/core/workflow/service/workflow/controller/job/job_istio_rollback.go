@@ -16,6 +16,7 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -42,10 +43,11 @@ func CreateIstioRollbackJobController(job *commonmodels.Job, workflow *commonmod
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return IstioRollbackJobController{
@@ -183,7 +185,8 @@ func (j IstioRollbackJobController) ToTask(taskID int64) ([]*commonmodels.JobTas
 				Targets:     target,
 				Timeout:     j.jobSpec.Timeout,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}
@@ -200,7 +203,16 @@ func (j IstioRollbackJobController) SetRepoCommitInfo() error {
 }
 
 func (j IstioRollbackJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j IstioRollbackJobController) GetUsedRepos() ([]*types.Repository, error) {
