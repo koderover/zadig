@@ -124,6 +124,7 @@ func (j DistributeImageJobController) Update(useUserInput bool, ticket *commonmo
 	j.jobSpec.StrategyID = latestSpec.StrategyID
 	j.jobSpec.EnableTargetImageTagRule = latestSpec.EnableTargetImageTagRule
 	j.jobSpec.TargetImageTagRule = latestSpec.TargetImageTagRule
+	j.jobSpec.Architecture = latestSpec.Architecture
 
 	return nil
 }
@@ -232,6 +233,7 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		Type:           j.jobSpec.DistributeMethod,
 		SourceRegistry: getRegistry(sourceReg),
 		TargetRegistry: getRegistry(targetReg),
+		Architecture:   j.jobSpec.Architecture,
 	}
 	for _, target := range j.jobSpec.Targets {
 		// for other job refer current latest image.

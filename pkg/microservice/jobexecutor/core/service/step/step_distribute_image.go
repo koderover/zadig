@@ -77,7 +77,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
-				pushCmd := dockerPullCmd(target.TargetImage)
+				pushCmd := dockerPullCmd(target.TargetImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pushCmd.Stdout = &out
 				pushCmd.Stderr = &out
@@ -103,7 +103,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
-				pullCmd := dockerPullCmd(target.SourceImage)
+				pullCmd := dockerPullCmd(target.SourceImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pullCmd.Stdout = &out
 				pullCmd.Stderr = &out
@@ -190,16 +190,19 @@ func (s *DistributeImageStep) loginTargetRegistry() error {
 	return nil
 }
 
-func dockerPullCmd(fullImage string) *exec.Cmd {
+func dockerPullCmd(fullImage string, architecture string) *exec.Cmd {
 	args := []string{"-c"}
-	dockerPushCommand := "docker pull " + fullImage
-	args = append(args, dockerPushCommand)
+	dockerPullCommand := fmt.Sprintf("docker pull %s", fullImage)
+	if architecture != "" {
+		dockerPullCommand += fmt.Sprintf(" --platform=%s", architecture)
+	}
+	args = append(args, dockerPullCommand)
 	return exec.Command("sh", args...)
 }
 
 func dockerTagCmd(sourceImage, targetImage string) *exec.Cmd {
 	args := []string{"-c"}
-	dockerPushCommand := fmt.Sprintf("docker tag %s %s", sourceImage, targetImage)
-	args = append(args, dockerPushCommand)
+	dockerTagCommand := fmt.Sprintf("docker tag %s %s", sourceImage, targetImage)
+	args = append(args, dockerTagCommand)
 	return exec.Command("sh", args...)
 }
