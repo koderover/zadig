@@ -105,6 +105,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deployV2.GET("/service/failure", GetTopDeployFailuresByService)
 	}
 
+	testV2 := qualityV2.Group("test")
+	{
+		testV2.GET("/count", GetTestCount)
+		testV2.POST("/dailyHealthTrend", GetDailyTestHealthTrend)
+		testV2.GET("/recentTask", GetRecentTestTask)
+	}
+
 }
 
 type OpenAPIRouter struct{}

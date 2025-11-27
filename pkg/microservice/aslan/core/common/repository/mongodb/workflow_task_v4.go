@@ -37,6 +37,7 @@ type ListWorkflowTaskV4Option struct {
 	ProjectName     string
 	ProjectNames    []string
 	WorkflowNames   []string
+	Type            config.CustomWorkflowTaskType
 	CreateTime      int64
 	BeforeCreatTime bool
 	Limit           int
@@ -117,6 +118,12 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	}
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
+	}
+	if len(opt.ProjectNames) > 0 {
+		query["project_name"] = bson.M{"$in": opt.ProjectNames}
+	}
+	if opt.Type != "" {
+		query["type"] = opt.Type
 	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
