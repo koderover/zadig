@@ -105,6 +105,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deployV2.GET("/service/failure", GetTopDeployFailuresByService)
 	}
 
+	rollbackV2 := qualityV2.Group("rollback")
+	{
+		rollbackV2.POST("/weekly", CreateWeeklyRollbackStat)
+		rollbackV2.GET("/total", GetRollbackTotalStat)
+		rollbackV2.GET("/service/top", GetTopRollbackedService)
+		rollbackV2.GET("/trend/weekly", GetRollbackWeeklyTrend)
+		rollbackV2.GET("/stat", GetRollbackStat)
+	}
+
 	testV2 := qualityV2.Group("test")
 	{
 		testV2.GET("/count", GetTestCount)
