@@ -46,8 +46,8 @@ func NewCustomStageCtl(stage *commonmodels.StageTask, workflowCtx *commonmodels.
 	}
 }
 
-func (c *CustomStageCtl) Run(ctx context.Context, concurrency int, workflowStopped bool) {
-	var workerConcurrency = 1	
+func (c *CustomStageCtl) Run(ctx context.Context, concurrency int) {
+	var workerConcurrency = 1
 	if c.stage.Parallel {
 		if len(c.stage.Jobs) > int(concurrency) {
 			workerConcurrency = int(concurrency)
@@ -56,7 +56,7 @@ func (c *CustomStageCtl) Run(ctx context.Context, concurrency int, workflowStopp
 		}
 
 	}
-	jobcontroller.RunJobs(ctx, c.stage.Jobs, c.workflowCtx, workerConcurrency, workflowStopped, c.logger, c.ack)
+	jobcontroller.RunJobs(ctx, c.stage.Jobs, c.workflowCtx, workerConcurrency, c.logger, c.ack)
 }
 
 func (c *CustomStageCtl) AfterRun() {
