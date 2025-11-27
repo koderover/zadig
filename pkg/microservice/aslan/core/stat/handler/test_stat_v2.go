@@ -26,6 +26,18 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// filterEmptyStrings removes empty strings from a slice
+// This handles the case where frontend passes projects= to mean "all projects"
+func filterEmptyStrings(slice []string) []string {
+	result := make([]string, 0, len(slice))
+	for _, s := range slice {
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
 type GetTestCountResp struct {
 	Count int `json:"count"`
 }
@@ -35,7 +47,8 @@ func GetTestCount(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// Get projects from query parameters
-	projects := c.QueryArray("projects")
+	// Filter out empty strings (frontend passes projects= to mean "all projects")
+	projects := filterEmptyStrings(c.QueryArray("projects"))
 
 	resp, err := service.GetTestCount(projects, ctx.Logger)
 	if err != nil {
@@ -73,7 +86,8 @@ func GetRecentTestTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// Get projects from query parameters
-	projects := c.QueryArray("projects")
+	// Filter out empty strings (frontend passes projects= to mean "all projects")
+	projects := filterEmptyStrings(c.QueryArray("projects"))
 
 	// Get number from query parameter, default to 10
 	number := 10
