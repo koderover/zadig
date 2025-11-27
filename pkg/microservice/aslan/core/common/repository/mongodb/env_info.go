@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -102,6 +103,7 @@ type ListEnvInfoOption struct {
 	StartTime    int64
 	EndTime      int64
 	Operation    config.EnvOperation
+	Production   *bool
 }
 
 func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*models.EnvInfo, int64, error) {
@@ -124,6 +126,10 @@ func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*mode
 	}
 	if opt.Operation != "" {
 		findOption["operation"] = opt.Operation
+	}
+	// 根据 production 参数过滤环境信息
+	if opt.Production != nil {
+		findOption["production"] = *opt.Production
 	}
 	findOption["create_time"] = bson.M{
 		"$gte": opt.StartTime,
@@ -204,4 +210,89 @@ func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*mode
 	}
 
 	return res, total, nil
+}
+
+type RollbackServiceCount struct {
+	Production  bool   `bson:"production"             json:"production"`
+	ProjectName string `bson:"project_name,omitempty" json:"project_name,omitempty"`
+	ServiceName string `bson:"service_name,omitempty" json:"service_name,omitempty"`
+	Count       int    `bson:"count"                  json:"count"`
+}
+
+func (c *EnvInfoColl) GetTopRollbackedService(ctx context.Context, startTime, endTime int64, productionType config.ProductionType, projects []string, top int) ([]*RollbackServiceCount, error) {
+	// 参数验证
+	if startTime > endTime {
+		return nil, fmt.Errorf("invalid time range: startTime (%d) should be less than or equal to endTime (%d)", startTime, endTime)
+	}
+	if top <= 0 {
+		return nil, fmt.Errorf("invalid top parameter: top (%d) should be greater than 0", top)
+	}
+
+	// 构建查询条件：只查询 rollback 操作
+	query := bson.M{
+		"operation":   config.EnvOperationRollback,
+		"create_time": bson.M{"$gte": startTime, "$lte": endTime},
+	}
+
+	// 根据生产环境类型过滤
+	switch productionType {
+	case config.Production:
+		query["production"] = true
+	case config.Testing:
+		query["production"] = false
+	case config.Both:
+		break
+	default:
+		return nil, fmt.Errorf("invalid production type: %s", productionType)
+	}
+
+	if len(projects) > 0 {
+		query["project_name"] = bson.M{"$in": projects}
+	}
+
+	// 构建聚合管道
+	pipeline := []bson.M{
+		// 匹配 rollback 操作记录
+		{"$match": query},
+		// 按项目、服务和生产环境类型分组，统计 rollback 次数
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"production":   "$production",
+					"project_name": "$project_name",
+					"service_name": "$service_name",
+				},
+				"count": bson.M{"$sum": 1},
+			},
+		},
+		// 按 rollback 次数降序排序
+		{"$sort": bson.M{"count": -1}},
+		// 限制返回数量
+		{"$limit": top},
+		// 投影字段，映射到返回结构
+		{
+			"$project": bson.M{
+				"_id":          0,
+				"production":   "$_id.production",
+				"project_name": "$_id.project_name",
+				"service_name": "$_id.service_name",
+				"count":        1,
+			},
+		},
+	}
+
+	// 执行聚合查询
+	cursor, err := c.Aggregate(mongotool.SessionContext(ctx, c.Session), pipeline)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to aggregate rollback service statistics")
+	}
+	defer cursor.Close(mongotool.SessionContext(ctx, c.Session))
+
+	// 解析结果
+	result := make([]*RollbackServiceCount, 0)
+	if err := cursor.All(mongotool.SessionContext(ctx, c.Session), &result); err != nil {
+		return nil, errors.Wrap(err, "failed to decode rollback service statistics")
+	}
+
+	return result, nil
 }

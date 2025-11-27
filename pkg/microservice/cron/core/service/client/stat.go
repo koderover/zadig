@@ -51,6 +51,13 @@ func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 		if err != nil {
 			log.Errorf("creating weekly deploy stats error :%v", err)
 		}
+
+		url = fmt.Sprintf("%s/api/stat/v2/quality/rollback/weekly", configbase.AslanServiceAddress())
+		log.Info("start creating weekly rollback stats..")
+		_, err = c.sendPostRequest(url, nil, log)
+		if err != nil {
+			log.Errorf("creating weekly rollback stats error :%v", err)
+		}
 	}
 
 	// if it is the first day of a month, do the monthly deploy stats
@@ -65,11 +72,11 @@ func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 
 	// if it is the first day of a month, do the monthly release stats
 	if time.Now().Day() == 1 {
-		url = fmt.Sprintf("%s/api/stat/v2/quality/release/weekly", configbase.AslanServiceAddress())
-		log.Info("start creating monthly deploy stats..")
+		url = fmt.Sprintf("%s/api/stat/v2/quality/release/monthly", configbase.AslanServiceAddress())
+		log.Info("start creating monthly release stats..")
 		_, err = c.sendPostRequest(url, nil, log)
 		if err != nil {
-			log.Errorf("creating monthly deploy stats error :%v", err)
+			log.Errorf("creating monthly release stats error :%v", err)
 		}
 	}
 
