@@ -636,11 +636,11 @@ func generateInformerKey(clusterID, namespace string) string {
 
 // disableKeepAlive configures REST config to not keep connections alive
 func disableKeepAlive(cfg *rest.Config) {
-	if cfg.Transport == nil {
-		cfg.Transport = &http.Transport{
-			DisableKeepAlives: true,
+	// Use WrapTransport instead of directly setting Transport to avoid conflicts with TLS configuration
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if transport, ok := rt.(*http.Transport); ok {
+			transport.DisableKeepAlives = true
 		}
-	} else if t, ok := cfg.Transport.(*http.Transport); ok {
-		t.DisableKeepAlives = true
+		return rt
 	}
 }
