@@ -31,13 +31,13 @@ type ReleasePlan struct {
 	ManagerID             string                            `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
 	ApproverID            string                            `bson:"approver_id"      yaml:"approver_id"                  json:"approver_id"`
 	StartTime             int64                             `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
-	EndTime               int64                             `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
+	EndTime               int64                             `bson:"end_time"         yaml:"end_time"                     json:"end_time"`
 	ScheduleExecuteTime   int64                             `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
-	Description           string                            `bson:"description"       yaml:"description"                   json:"description"`
-	CreatedBy             string                            `bson:"created_by"       yaml:"created_by"                   json:"created_by"`
-	CreateTime            int64                             `bson:"create_time"       yaml:"create_time"                   json:"create_time"`
-	UpdatedBy             string                            `bson:"updated_by"       yaml:"updated_by"                   json:"updated_by"`
-	UpdateTime            int64                             `bson:"update_time"       yaml:"update_time"                   json:"update_time"`
+	Description           string                            `bson:"description"       yaml:"description"                 json:"description"`
+	CreatedBy             string                            `bson:"created_by"        yaml:"created_by"                  json:"created_by"`
+	CreateTime            int64                             `bson:"create_time"       yaml:"create_time"                 json:"create_time"`
+	UpdatedBy             string                            `bson:"updated_by"        yaml:"updated_by"                  json:"updated_by"`
+	UpdateTime            int64                             `bson:"update_time"       yaml:"update_time"                 json:"update_time"`
 	JiraSprintAssociation *ReleasePlanJiraSprintAssociation `bson:"jira_sprint_association"       yaml:"jira_sprint_association"                   json:"jira_sprint_association"`
 
 	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
@@ -46,17 +46,20 @@ type ReleasePlan struct {
 
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 
-	PlanningTime  int64 `bson:"planning_time"       yaml:"planning_time"                   json:"planning_time"`
-	ApprovalTime  int64 `bson:"approval_time"       yaml:"approval_time"                   json:"approval_time"`
-	ExecutingTime int64 `bson:"executing_time"      yaml:"executing_time"                  json:"executing_time"`
-	SuccessTime   int64 `bson:"success_time"        yaml:"success_time"                    json:"success_time"`
+	PlanningTime       int64 `bson:"planning_time"            yaml:"planning_time"                   json:"planning_time"`
+	FinishPlanningTime int64 `bson:"finish_planning_time"     yaml:"finish_planning_time"            json:"finish_planning_time"`
+	ApprovalTime       int64 `bson:"approval_time"            yaml:"approval_time"                   json:"approval_time"`
+	ExecutingTime      int64 `bson:"executing_time"           yaml:"executing_time"                  json:"executing_time"`
+	SuccessTime        int64 `bson:"success_time"             yaml:"success_time"                    json:"success_time"`
 
+	InstanceCode string        `bson:"instance_code"       yaml:"instance_code"                   json:"instance_code"`
 	HookSettings *HookSettings `bson:"hook_settings"       yaml:"hook_settings"                   json:"hook_settings"`
 
-	WaitForApproveExternalCheckTime int64  `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`
-	WaitForExecuteExternalCheckTime int64  `bson:"wait_for_execute_external_check_time"       yaml:"wait_for_execute_external_check_time"                   json:"wait_for_execute_external_check_time"`
-	WaitForAllDoneExternalCheckTime int64  `bson:"wait_for_all_done_external_check_time"      yaml:"wait_for_all_done_external_check_time"                   json:"wait_for_all_done_external_check_time"`
-	ExternalCheckFailedReason       string `bson:"external_check_failed_reason"       yaml:"external_check_failed_reason"                   json:"external_check_failed_reason"`
+	WaitForFinishPlanningExternalCheckTime int64  `bson:"wait_for_finish_planning_external_check_time"       yaml:"wait_for_finish_planning_external_check_time"                   json:"wait_for_finish_planning_external_check_time"`
+	WaitForApproveExternalCheckTime        int64  `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`
+	WaitForExecuteExternalCheckTime        int64  `bson:"wait_for_execute_external_check_time"       yaml:"wait_for_execute_external_check_time"                   json:"wait_for_execute_external_check_time"`
+	WaitForAllDoneExternalCheckTime        int64  `bson:"wait_for_all_done_external_check_time"      yaml:"wait_for_all_done_external_check_time"                   json:"wait_for_all_done_external_check_time"`
+	ExternalCheckFailedReason              string `bson:"external_check_failed_reason"       yaml:"external_check_failed_reason"                   json:"external_check_failed_reason"`
 }
 
 type HookSettings struct {

@@ -648,16 +648,19 @@ const (
 type ReleasePlanStatus string
 
 const (
-	ReleasePlanStatusPlanning                          ReleasePlanStatus = "planning"
-	ReleasePlanStatusWaitForApprove                    ReleasePlanStatus = "wait_for_approval"
-	ReleasePlanStatusExecuting                         ReleasePlanStatus = "executing"
-	ReleasePlanStatusApprovalDenied                    ReleasePlanStatus = "denied"
-	ReleasePlanStatusWaitForApproveExternalCheck       ReleasePlanStatus = "wait_for_approval_external_check"
-	ReleasePlanStatusWaitForExecuteExternalCheck       ReleasePlanStatus = "wait_for_execute_external_check"
-	ReleasePlanStatusWaitForAllDoneExternalCheck       ReleasePlanStatus = "wait_for_all_done_external_check"
-	ReleasePlanStatusTimeoutForWindow                  ReleasePlanStatus = "timeout"
-	ReleasePlanStatusSuccess                           ReleasePlanStatus = "success"
-	ReleasePlanStatusWaitForApproveExternalCheckFailed ReleasePlanStatus = "wait_for_approval_external_check_failed"
+	ReleasePlanStatusPlanning                           ReleasePlanStatus = "planning"
+	ReleasePlanStatusFinishPlanning                     ReleasePlanStatus = "finish_planning"
+	ReleasePlanStatusWaitForApprove                     ReleasePlanStatus = "wait_for_approval"
+	ReleasePlanStatusExecuting                          ReleasePlanStatus = "executing"
+	ReleasePlanStatusApprovalDenied                     ReleasePlanStatus = "denied"
+	ReleasePlanStatusWaitForFinishPlanningExternalCheck ReleasePlanStatus = "wait_for_finish_planning_external_check"
+	// ReleasePlanStatusWaitForApproveExternalCheck       ReleasePlanStatus = "wait_for_approval_external_check"
+	ReleasePlanStatusWaitForExecuteExternalCheck              ReleasePlanStatus = "wait_for_execute_external_check"
+	ReleasePlanStatusWaitForAllDoneExternalCheck              ReleasePlanStatus = "wait_for_all_done_external_check"
+	ReleasePlanStatusTimeoutForWindow                         ReleasePlanStatus = "timeout"
+	ReleasePlanStatusSuccess                                  ReleasePlanStatus = "success"
+	ReleasePlanStatusWaitForFinishPlanningExternalCheckFailed ReleasePlanStatus = "wait_for_finish_planning_external_check_failed"
+	// ReleasePlanStatusWaitForApproveExternalCheckFailed ReleasePlanStatus = "wait_for_approval_external_check_failed"
 	ReleasePlanStatusWaitForExecuteExternalCheckFailed ReleasePlanStatus = "wait_for_execute_external_check_failed"
 	ReleasePlanStatusWaitForAllDoneExternalCheckFailed ReleasePlanStatus = "wait_for_all_done_external_check_failed"
 	ReleasePlanStatusCancel                            ReleasePlanStatus = "cancel"
@@ -665,21 +668,25 @@ const (
 
 // ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
-	ReleasePlanStatusPlanning:                          {ReleasePlanStatusWaitForApprove, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForApproveExternalCheck, ReleasePlanStatusWaitForExecuteExternalCheck, ReleasePlanStatusWaitForAllDoneExternalCheck},
-	ReleasePlanStatusWaitForApprove:                    {ReleasePlanStatusPlanning, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForAllDoneExternalCheck, ReleasePlanStatusCancel},
-	ReleasePlanStatusExecuting:                         {ReleasePlanStatusPlanning, ReleasePlanStatusSuccess, ReleasePlanStatusCancel, ReleasePlanStatusWaitForExecuteExternalCheck},
-	ReleasePlanStatusTimeoutForWindow:                  {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
-	ReleasePlanStatusApprovalDenied:                    {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
-	ReleasePlanStatusWaitForApproveExternalCheck:       {ReleasePlanStatusWaitForApprove, ReleasePlanStatusWaitForApproveExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
-	ReleasePlanStatusWaitForExecuteExternalCheck:       {ReleasePlanStatusExecuting, ReleasePlanStatusWaitForExecuteExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
-	ReleasePlanStatusWaitForAllDoneExternalCheck:       {ReleasePlanStatusSuccess, ReleasePlanStatusWaitForAllDoneExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
-	ReleasePlanStatusWaitForApproveExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusPlanning:                           {ReleasePlanStatusFinishPlanning},
+	ReleasePlanStatusFinishPlanning:                     {ReleasePlanStatusPlanning, ReleasePlanStatusWaitForApprove, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForFinishPlanningExternalCheck, ReleasePlanStatusWaitForExecuteExternalCheck},
+	ReleasePlanStatusWaitForApprove:                     {ReleasePlanStatusPlanning, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForAllDoneExternalCheck, ReleasePlanStatusCancel},
+	ReleasePlanStatusExecuting:                          {ReleasePlanStatusPlanning, ReleasePlanStatusSuccess, ReleasePlanStatusCancel, ReleasePlanStatusWaitForExecuteExternalCheck},
+	ReleasePlanStatusTimeoutForWindow:                   {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusApprovalDenied:                     {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForFinishPlanningExternalCheck: {ReleasePlanStatusFinishPlanning, ReleasePlanStatusWaitForFinishPlanningExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	// ReleasePlanStatusWaitForApproveExternalCheck:       {ReleasePlanStatusWaitForApprove, ReleasePlanStatusWaitForApproveExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForExecuteExternalCheck:              {ReleasePlanStatusExecuting, ReleasePlanStatusWaitForExecuteExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForAllDoneExternalCheck:              {ReleasePlanStatusSuccess, ReleasePlanStatusWaitForAllDoneExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForFinishPlanningExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	// ReleasePlanStatusWaitForApproveExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
 	ReleasePlanStatusWaitForExecuteExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
 	ReleasePlanStatusWaitForAllDoneExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
 }
 
 var ReleasePlanExternalCheckNextStatusMap = map[ReleasePlanStatus]ReleasePlanStatus{
-	ReleasePlanStatusWaitForApproveExternalCheck: ReleasePlanStatusWaitForApprove,
+	ReleasePlanStatusWaitForFinishPlanningExternalCheck: ReleasePlanStatusFinishPlanning,
+	// ReleasePlanStatusWaitForApproveExternalCheck: ReleasePlanStatusWaitForApprove,
 	ReleasePlanStatusWaitForExecuteExternalCheck: ReleasePlanStatusExecuting,
 	ReleasePlanStatusWaitForAllDoneExternalCheck: ReleasePlanStatusSuccess,
 }

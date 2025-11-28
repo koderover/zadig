@@ -90,7 +90,8 @@ func (r *ReleasePlanHookSettings) ToHookSettings() *HookSettings {
 type ReleasePlanHookEvent string
 
 const (
-	ReleasePlanHookEventSubmitApproval ReleasePlanHookEvent = "submit_approval"
+	ReleasePlanHookEventFinishPlanning ReleasePlanHookEvent = "finish_planning"
+	// ReleasePlanHookEventSubmitApproval ReleasePlanHookEvent = "submit_approval"
 	ReleasePlanHookEventStartExecute   ReleasePlanHookEvent = "start_execute"
 	ReleasePlanHookEventAllJobDone     ReleasePlanHookEvent = "all_job_done"
 )
