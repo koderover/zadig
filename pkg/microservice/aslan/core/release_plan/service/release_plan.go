@@ -884,6 +884,14 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		plan.WaitForAllDoneExternalCheckTime = 0
 		plan.ExternalCheckFailedReason = ""
 
+		for _, job := range plan.Jobs {
+			job.Status = config.ReleasePlanJobStatusTodo
+			job.LastStatus = config.ReleasePlanJobStatusTodo
+			job.Updated = false
+			job.ExecutedBy = ""
+			job.ExecutedTime = 0
+		}
+
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusExecuting:
 		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
