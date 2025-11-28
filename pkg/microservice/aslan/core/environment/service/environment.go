@@ -804,7 +804,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					}
 
 					service.DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, deployStrategy)
-					curEnv.GetServiceMap()[service.ServiceName].DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, curEnv.ServiceDeployStrategy)
+					if curEnv.GetServiceMap()[service.ServiceName] != nil {
+						curEnv.GetServiceMap()[service.ServiceName].DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, curEnv.ServiceDeployStrategy)
+					}
 					items, errUpsertService := upsertService(
 						updateProd,
 						service,
@@ -2804,7 +2806,7 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	}
 
 	isFromImportToDeploy := false
-	if prevSvc.DeployStrategy == setting.ServiceDeployStrategyImport && newService.DeployStrategy == setting.ServiceDeployStrategyDeploy {
+	if prevSvc != nil && prevSvc.DeployStrategy == setting.ServiceDeployStrategyImport && newService.DeployStrategy == setting.ServiceDeployStrategyDeploy {
 		isFromImportToDeploy = true
 	}
 
