@@ -55,6 +55,14 @@ type Context struct {
 	IdentityType string
 	RequestID    string
 	Resources    *user.AuthorizedResources
+	LarkPlugin   *LarkPluginContext
+}
+
+type LarkPluginContext struct {
+	PluginAccessToken string
+	UserKey           string
+	ProjectKey        string
+	LarkType          string
 }
 
 type jwtClaims struct {
@@ -255,6 +263,8 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.UnAuthorized {
 		if ctx.RespErr != nil {
 			c.Set(setting.ResponseError, ctx.RespErr)
+			c.AbortWithError(http.StatusForbidden, ctx.RespErr)
+			return
 		}
 		c.AbortWithStatus(http.StatusForbidden)
 		return
@@ -401,7 +411,20 @@ func responseHelper(response interface{}) interface{} {
 			updatedField := reflect.ValueOf(responseHelper(valField.Interface()))
 			if valField.Kind() == reflect.Ptr {
 				if updatedField.IsValid() {
-					newValField.Set(updatedField)
+					// 如果目标字段是指针类型，需要确保updatedField也是指针类型
+					if updatedField.Kind() == reflect.Ptr {
+						newValField.Set(updatedField)
+					} else {
+						// 如果updatedField不是指针，需要创建指向它的指针
+						if updatedField.CanAddr() {
+							newValField.Set(updatedField.Addr())
+						} else {
+							// 如果无法取地址，创建一个新的指针
+							ptr := reflect.New(updatedField.Type())
+							ptr.Elem().Set(updatedField)
+							newValField.Set(ptr)
+						}
+					}
 				}
 			} else {
 				if updatedField.IsValid() {
