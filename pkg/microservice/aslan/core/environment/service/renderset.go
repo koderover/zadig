@@ -20,12 +20,11 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -33,12 +32,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 type DefaultValuesResp struct {
@@ -47,13 +46,13 @@ type DefaultValuesResp struct {
 }
 
 type YamlContentRequestArg struct {
-	CodehostID  int    `json:"codehostID" form:"codehostID"`
-	Owner       string `json:"owner" form:"owner"`
-	Repo        string `json:"repo" form:"repo"`
-	Namespace   string `json:"namespace" form:"namespace"`
-	Branch      string `json:"branch" form:"branch"`
-	RepoLink    string `json:"repoLink" form:"repoLink"`
-	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
+	CodehostID int    `json:"codehostID" form:"codehostID"`
+	Owner      string `json:"owner" form:"owner"`
+	Repo       string `json:"repo" form:"repo"`
+	Namespace  string `json:"namespace" form:"namespace"`
+	Branch     string `json:"branch" form:"branch"`
+	RepoLink   string `json:"repoLink" form:"repoLink"`
+	ValuesPath string `json:"valuesPath" form:"valuesPath"`
 }
 
 func GetDefaultValues(productName, envName string, production bool, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
@@ -83,12 +82,9 @@ func GetDefaultValues(productName, envName string, production bool, log *zap.Sug
 	return ret, nil
 }
 
-func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, error) {
+func GetMergedYamlContent(arg *YamlContentRequestArg) (string, error) {
 	var (
-		fileContentMap sync.Map
-		wg             sync.WaitGroup
-		err            error
-		errLock        sync.Mutex
+		err error
 	)
 	detail, err := systemconfig.New().GetCodeHost(arg.CodehostID)
 	if err != nil {
@@ -103,63 +99,44 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 		}
 	}
 
-	errorList := &multierror.Error{}
-
-	for i, filePath := range paths {
-		wg.Add(1)
-		go func(index int, filePath string, isOtherTypeRepo bool) {
-			defer wg.Done()
-			if !isOtherTypeRepo {
-				fileContent, errDownload := fsservice.DownloadFileFromSource(
-					&fsservice.DownloadFromSourceArgs{
-						CodehostID: arg.CodehostID,
-						Owner:      arg.Owner,
-						Namespace:  arg.Namespace,
-						Repo:       arg.Repo,
-						Path:       filePath,
-						Branch:     arg.Branch,
-						RepoLink:   arg.RepoLink,
-					})
-				if errDownload != nil {
-					errLock.Lock()
-					errorList = multierror.Append(errorList, errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", filePath)))
-					errLock.Unlock()
-					return
-				}
-				fileContentMap.Store(index, fileContent)
-			} else {
-				base := path.Join(config.S3StoragePath(), arg.Repo)
-				relativePath := path.Join(base, filePath)
-				fileContent, errReadFile := os.ReadFile(relativePath)
-				if errReadFile != nil {
-					errLock.Lock()
-					errorList = multierror.Append(errorList, errors.Wrapf(errReadFile, fmt.Sprintf("failed to read file from git repo, relative path %s", relativePath)))
-					errLock.Unlock()
-					return
-				}
-				fileContentMap.Store(index, fileContent)
-			}
-		}(i, filePath, detail.Type == setting.SourceFromOther)
-	}
-	wg.Wait()
-
-	err = errorList.ErrorOrNil()
-	if err != nil {
-		return "", err
-	}
-
-	contentArr := make([][]byte, 0, len(paths))
-	for i := 0; i < len(paths); i++ {
-		contentObj, _ := fileContentMap.Load(i)
-		if contentObj != nil {
-			contentArr = append(contentArr, contentObj.([]byte))
+	var fileContent []byte
+	isOtherTypeRepo := detail.Type == setting.SourceFromOther
+	if !isOtherTypeRepo {
+		fileContent, err = fsservice.DownloadFileFromSource(
+			&fsservice.DownloadFromSourceArgs{
+				CodehostID: arg.CodehostID,
+				Owner:      arg.Owner,
+				Namespace:  arg.Namespace,
+				Repo:       arg.Repo,
+				Path:       arg.ValuesPath,
+				Branch:     arg.Branch,
+				RepoLink:   arg.RepoLink,
+			})
+		if err != nil {
+			err = errors.Wrapf(err, "failed to download file from git, path %s", arg.ValuesPath)
+			return "", err
+		}
+	} else {
+		base := path.Join(config.S3StoragePath(), arg.Repo)
+		relativePath := path.Join(base, arg.ValuesPath)
+		fileContent, err = os.ReadFile(relativePath)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to read file from git repo, relative path %s", relativePath)
+			return "", err
 		}
 	}
-	ret, err := yamlutil.Merge(contentArr)
+
+	// check if the file content is a valid yaml
+	yamlMap, err := helmservice.GetValuesMapFromString(string(fileContent))
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to merge files")
+		return "", fmt.Errorf("failed to generate yaml map from file content, err: %s", err)
 	}
-	return string(ret), nil
+
+	yamlContent, err := yaml.Marshal(yamlMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal yaml map to string, err: %s", err)
+	}
+	return string(yamlContent), nil
 }
 
 func GetGlobalVariables(productName, envName string, production bool, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {

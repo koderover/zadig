@@ -18,7 +18,6 @@ package handler
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 
@@ -255,13 +254,12 @@ func GetYamlContent(c *gin.Context) {
 		return
 	}
 
-	if len(arg.ValuesPaths) == 0 {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("paths can't be empty")
+	if len(arg.ValuesPath) == 0 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("values path can't be empty")
 		return
 	}
 
-	pathArr := strings.Split(arg.ValuesPaths, ",")
-	ctx.Resp, ctx.RespErr = service.GetMergedYamlContent(arg, pathArr)
+	ctx.Resp, ctx.RespErr = service.GetMergedYamlContent(arg)
 }
 
 type getGlobalVariablesRespone struct {
