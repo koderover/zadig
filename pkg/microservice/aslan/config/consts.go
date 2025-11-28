@@ -642,6 +642,7 @@ const (
 
 const (
 	CUSTOME_THEME = "custom"
+	DEFAULT_THEME = "default"
 )
 
 type ReleasePlanStatus string

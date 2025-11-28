@@ -109,7 +109,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 			BuildConcurrency:    5,
 			DefaultLogin:        setting.DefaultLoginLocal,
 			Theme: &models.Theme{
-				ThemeType: aslanConfig.CUSTOME_THEME,
+				ThemeType: aslanConfig.DEFAULT_THEME,
 				CustomTheme: &models.CustomTheme{
 					BorderGray:               "#d2d7dc",
 					FontGray:                 "#888888",
