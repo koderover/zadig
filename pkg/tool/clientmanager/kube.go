@@ -112,6 +112,7 @@ func (cm *KubeClientManager) GetKubernetesClientSet(clusterID string) (*kubernet
 		if err != nil {
 			return nil, err
 		}
+		disableKeepAlive(cfg)
 		cli, err := kubernetes.NewForConfig(cfg)
 		if err == nil {
 			cm.kubernetesClientSetMap.Store(clusterID, cli)
@@ -145,6 +146,7 @@ func (cm *KubeClientManager) GetKubernetesClientSet(clusterID string) (*kubernet
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	cli, err := kubernetes.NewForConfig(cfg)
 	if err == nil {
 		cm.kubernetesClientSetMap.Store(clusterID, cli)
@@ -166,6 +168,7 @@ func (cm *KubeClientManager) GetKruiseClient(clusterID string) (kruiseclientset.
 		if err != nil {
 			return nil, err
 		}
+		disableKeepAlive(cfg)
 		cli, err := kruiseclientset.NewForConfig(cfg)
 		if err == nil {
 			cm.kruiseClientMap.Store(clusterID, cli)
@@ -198,6 +201,7 @@ func (cm *KubeClientManager) GetKruiseClient(clusterID string) (kruiseclientset.
 		return nil, fmt.Errorf("failed to create kruise client: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	cli, err := kruiseclientset.NewForConfig(cfg)
 	if err == nil {
 		cm.kruiseClientMap.Store(clusterID, cli)
@@ -219,6 +223,7 @@ func (cm *KubeClientManager) GetKubernetesMetricsClient(clusterID string) (*metr
 		if err != nil {
 			return nil, err
 		}
+		disableKeepAlive(cfg)
 		cli, err := metricsV1Beta1.NewForConfig(cfg)
 		if err == nil {
 			cm.metricsClientMap.Store(clusterID, cli)
@@ -252,6 +257,7 @@ func (cm *KubeClientManager) GetKubernetesMetricsClient(clusterID string) (*metr
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	cli, err := metricsV1Beta1.NewForConfig(cfg)
 	if err == nil {
 		cm.metricsClientMap.Store(clusterID, cli)
@@ -273,6 +279,7 @@ func (cm *KubeClientManager) GetIstioClientSet(clusterID string) (*istioClient.C
 		if err != nil {
 			return nil, err
 		}
+		disableKeepAlive(cfg)
 		cli, err := istioClient.NewForConfig(cfg)
 		if err == nil {
 			cm.istioClientSetMap.Store(clusterID, cli)
@@ -306,6 +313,7 @@ func (cm *KubeClientManager) GetIstioClientSet(clusterID string) (*istioClient.C
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	cli, err := istioClient.NewForConfig(cfg)
 	if err == nil {
 		cm.istioClientSetMap.Store(clusterID, cli)
@@ -428,6 +436,7 @@ func (cm *KubeClientManager) GetSPDYExecutor(clusterID string, URL *url.URL) (re
 		return nil, err
 	}
 
+	disableKeepAlive(cfg)
 	return remotecommand.NewSPDYExecutor(cfg, http.MethodPost, URL)
 }
 
@@ -436,7 +445,12 @@ func (cm *KubeClientManager) GetRestConfig(clusterID string) (*rest.Config, erro
 	clusterID = handleClusterID(clusterID)
 
 	if clusterID == setting.LocalClusterID {
-		return rest.InClusterConfig()
+		cfg, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+		disableKeepAlive(cfg)
+		return cfg, nil
 	}
 
 	clusterInfo, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
@@ -461,6 +475,7 @@ func (cm *KubeClientManager) GetRestConfig(clusterID string) (*rest.Config, erro
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	return cfg, err
 }
 
@@ -503,7 +518,9 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 	}
 
 	if clusterID == setting.LocalClusterID {
-		controllerClient, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
+		cfg := ctrl.GetConfigOrDie()
+		disableKeepAlive(cfg)
+		controllerClient, err := createControllerRuntimeCluster(cfg)
 		if err == nil {
 			go func() {
 				if err := controllerClient.Start(stopContext); err != nil {
@@ -544,6 +561,7 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
 
+	disableKeepAlive(cfg)
 	controllerClient, err := createControllerRuntimeCluster(cfg)
 	if err == nil {
 		go func() {
@@ -614,4 +632,15 @@ func createControllerRuntimeCluster(restConfig *rest.Config) (controllerRuntimeC
 
 func generateInformerKey(clusterID, namespace string) string {
 	return fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
+}
+
+// disableKeepAlive configures REST config to not keep connections alive
+func disableKeepAlive(cfg *rest.Config) {
+	// Use WrapTransport instead of directly setting Transport to avoid conflicts with TLS configuration
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if transport, ok := rt.(*http.Transport); ok {
+			transport.DisableKeepAlives = true
+		}
+		return rt
+	}
 }
