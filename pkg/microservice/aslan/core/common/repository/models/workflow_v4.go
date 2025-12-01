@@ -158,7 +158,7 @@ type Approval struct {
 type NativeApproval struct {
 	Timeout           int                   `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
 	ApproveUsers      []*User               `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	FloatApproveUsers []*User               `bson:"-"                           yaml:"flat_approve_users"          json:"flat_approve_users"`
+	FloatApproveUsers []*User               `bson:"-"                           yaml:"flat_approve_users"         json:"flat_approve_users"`
 	NeededApprovers   int                   `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
 	RejectOrApprove   config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 	// InstanceCode: native approval instance code, save for working after restart aslan

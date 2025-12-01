@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -29,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -106,6 +109,11 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
 	args.Status = config.ReleasePlanStatusPlanning
+
+	args.InstanceCode, err = generateInstanceCode(args)
+	if err != nil {
+		return errors.Wrap(err, "generate instance code")
+	}
 
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
@@ -401,6 +409,14 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return fmtErr
 	}
 	plan.HookSettings = hookSetting.ToHookSettings()
+
+	instanceCode, err := generateInstanceCode(plan)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed generate instance code, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+	plan.InstanceCode = instanceCode
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -852,8 +868,10 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 			return errors.Errorf("plan must not have no jobs")
 		}
 		plan.PlanningTime = time.Now().Unix()
-	case config.ReleasePlanStatusWaitForApproveExternalCheck,
-		config.ReleasePlanStatusWaitForApproveExternalCheckFailed,
+	case config.ReleasePlanStatusWaitForFinishPlanningExternalCheck,
+		config.ReleasePlanStatusWaitForFinishPlanningExternalCheckFailed,
+		// config.ReleasePlanStatusWaitForApproveExternalCheck,
+		// config.ReleasePlanStatusWaitForApproveExternalCheckFailed,
 		config.ReleasePlanStatusWaitForExecuteExternalCheck,
 		config.ReleasePlanStatusWaitForExecuteExternalCheckFailed,
 		config.ReleasePlanStatusWaitForAllDoneExternalCheck,
@@ -876,15 +894,32 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		plan.HookSettings = hookSetting.ToHookSettings()
 
 		plan.PlanningTime = time.Now().Unix()
+		plan.FinishPlanningTime = 0
 		plan.ApprovalTime = 0
 		plan.ExecutingTime = 0
 		plan.SuccessTime = 0
+		plan.WaitForFinishPlanningExternalCheckTime = 0
 		plan.WaitForApproveExternalCheckTime = 0
 		plan.WaitForExecuteExternalCheckTime = 0
 		plan.WaitForAllDoneExternalCheckTime = 0
 		plan.ExternalCheckFailedReason = ""
-
+		plan.InstanceCode, err = generateInstanceCode(plan)
+		if err != nil {
+			fmtErr := fmt.Errorf("failed generate instance code, err: %v", err)
+			log.Error(fmtErr)
+			return fmtErr
+		}
 		cancelReleasePlanApproval(c, plan)
+	case config.ReleasePlanStatusFinishPlanning:
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.FinishPlanningTime = time.Now().Unix()
+		}
+
+		sendWebhook = true
+
 	case config.ReleasePlanStatusExecuting:
 		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
 			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
@@ -900,20 +935,20 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 
 		sendWebhook = true
 	case config.ReleasePlanStatusWaitForApprove:
-		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
-		if shouldWait {
-			plan.Status = *nextStatus
-			plan.ApproverID = c.UserID
-		} else {
-			if err := clearApprovalData(plan.Approval); err != nil {
-				return errors.Wrap(err, "clear approval data")
-			}
-			if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
-				return errors.Wrap(err, "create approval instance")
-			}
+		// nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		// if shouldWait {
+		// 	plan.Status = *nextStatus
+		// 	plan.ApproverID = c.UserID
+		// } else {
+		if err := clearApprovalData(plan.Approval); err != nil {
+			return errors.Wrap(err, "clear approval data")
 		}
+		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
+			return errors.Wrap(err, "create approval instance")
+		}
+		// }
 
-		sendWebhook = true
+		// sendWebhook = true
 	case config.ReleasePlanStatusCancel:
 		// set executing status final time
 		// plan.ExecutingTime = time.Now().Unix()
@@ -1042,6 +1077,8 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		} else {
 			plan.ExecutingTime = time.Now().Unix()
 		}
+
+		sendWebhook = true
 
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
@@ -1297,13 +1334,14 @@ func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHoo
 
 type ReleasePlanCallBackBody struct {
 	ReleasePlanID string                                `json:"release_plan_id"`
+	InstanceCode  string                                `json:"instance_code"`
 	HookEvent     models.ReleasePlanHookEvent           `json:"hook_event"`
 	Result        setting.ReleasePlanCallBackResultType `json:"result"`
 	FailedReason  string                                `json:"failed_reason"`
 }
 
 func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBody) error {
-	log.Infof("release plan hook callback, id: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.HookEvent, callback.Result, callback.FailedReason)
+	log.Infof("release plan hook callback, id: %s, instance code: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.InstanceCode, callback.HookEvent, callback.Result, callback.FailedReason)
 
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
@@ -1323,8 +1361,10 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 		}
 
 		switch event {
-		case models.ReleasePlanHookEventSubmitApproval:
-			hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
+		case models.ReleasePlanHookEventFinishPlanning:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForFinishPlanningExternalCheck] = true
+		// case models.ReleasePlanHookEventSubmitApproval:
+		// 	hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
 		case models.ReleasePlanHookEventStartExecute:
 			hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = true
 		case models.ReleasePlanHookEventAllJobDone:
@@ -1339,6 +1379,12 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 		return fmtErr
 	}
 
+	if releasePlan.InstanceCode != callback.InstanceCode {
+		fmtErr := fmt.Errorf("release plan instance code is not correct, name: %s, instance code: %s, expected: %s", releasePlan.Name, callback.InstanceCode, releasePlan.InstanceCode)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
 	if !hookEventStatusMap[releasePlan.Status] {
 		fmtErr := fmt.Errorf("release plan's status is not correct, status: %s", releasePlan.Status)
 		log.Error(fmtErr)
@@ -1348,8 +1394,10 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 	if callback.Result == setting.ReleasePlanCallBackResultTypeSuccess {
 		// source status process
 		switch releasePlan.Status {
-		case config.ReleasePlanStatusWaitForApproveExternalCheck:
-			releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForFinishPlanningExternalCheck:
+			releasePlan.WaitForFinishPlanningExternalCheckTime = time.Now().Unix()
+		// case config.ReleasePlanStatusWaitForApproveExternalCheck:
+		// 	releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
 		case config.ReleasePlanStatusWaitForExecuteExternalCheck:
 			releasePlan.WaitForExecuteExternalCheckTime = time.Now().Unix()
 		case config.ReleasePlanStatusWaitForAllDoneExternalCheck:
@@ -1365,24 +1413,26 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 		releasePlan.Status = nextStatus
 
 		// target status process
-		if releasePlan.Status == config.ReleasePlanStatusWaitForApprove {
-			userInfo, err := user.New().GetUserByID(releasePlan.ApproverID)
-			if err != nil {
-				fmtErr := fmt.Errorf("failed get user, id: %s, err: %v", releasePlan.ApproverID, err)
-				log.Error(fmtErr)
-				return fmtErr
-			}
+		if releasePlan.Status == config.ReleasePlanStatusFinishPlanning {
+			releasePlan.FinishPlanningTime = time.Now().Unix()
+			// if releasePlan.Status == config.ReleasePlanStatusWaitForApprove {
+			// userInfo, err := user.New().GetUserByID(releasePlan.ApproverID)
+			// if err != nil {
+			// 	fmtErr := fmt.Errorf("failed get user, id: %s, err: %v", releasePlan.ApproverID, err)
+			// 	log.Error(fmtErr)
+			// 	return fmtErr
+			// }
 
-			if err := clearApprovalData(releasePlan.Approval); err != nil {
-				fmtErr := fmt.Errorf("failed clear approval data, err: %v", err)
-				log.Error(fmtErr)
-				return fmtErr
-			}
-			if err := createApprovalInstance(releasePlan, userInfo.Phone); err != nil {
-				fmtErr := fmt.Errorf("failed create approval instance, err: %v", err)
-				log.Error(fmtErr)
-				return fmtErr
-			}
+			// if err := clearApprovalData(releasePlan.Approval); err != nil {
+			// 	fmtErr := fmt.Errorf("failed clear approval data, err: %v", err)
+			// 	log.Error(fmtErr)
+			// 	return fmtErr
+			// }
+			// if err := createApprovalInstance(releasePlan, userInfo.Phone); err != nil {
+			// 	fmtErr := fmt.Errorf("failed create approval instance, err: %v", err)
+			// 	log.Error(fmtErr)
+			// 	return fmtErr
+			// }
 		} else if releasePlan.Status == config.ReleasePlanStatusExecuting {
 			if releasePlan.Approval != nil && releasePlan.Approval.Enabled == true && releasePlan.Approval.Status != config.StatusPassed {
 				fmtErr := fmt.Errorf("approval status is %s, can not execute", releasePlan.Approval.Status)
@@ -1403,9 +1453,12 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 		}
 	} else if callback.Result == setting.ReleasePlanCallBackResultTypeFailed {
 		switch releasePlan.Status {
-		case config.ReleasePlanStatusWaitForApproveExternalCheck:
-			releasePlan.Status = config.ReleasePlanStatusWaitForApproveExternalCheckFailed
-			releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForFinishPlanningExternalCheck:
+			releasePlan.Status = config.ReleasePlanStatusWaitForFinishPlanningExternalCheckFailed
+			releasePlan.WaitForFinishPlanningExternalCheckTime = time.Now().Unix()
+		// case config.ReleasePlanStatusWaitForApproveExternalCheck:
+		// 	releasePlan.Status = config.ReleasePlanStatusWaitForApproveExternalCheckFailed
+		// 	releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
 		case config.ReleasePlanStatusWaitForExecuteExternalCheck:
 			releasePlan.Status = config.ReleasePlanStatusWaitForExecuteExternalCheckFailed
 			releasePlan.WaitForExecuteExternalCheckTime = time.Now().Unix()
@@ -1451,18 +1504,30 @@ func sendReleasePlanHook(plan *models.ReleasePlan, systemHookSetting *commonmode
 	hookEventStatusMap := map[config.ReleasePlanStatus]*EventStatus{}
 	for _, event := range hookSetting.HookEvents {
 		switch event {
-		case models.ReleasePlanHookEventSubmitApproval:
+		case models.ReleasePlanHookEventFinishPlanning:
 			if hookSetting.EnableCallBack {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = &EventStatus{
-					Event:  models.ReleasePlanHookEventSubmitApproval,
+				hookEventStatusMap[config.ReleasePlanStatusWaitForFinishPlanningExternalCheck] = &EventStatus{
+					Event:  models.ReleasePlanHookEventFinishPlanning,
 					Status: true,
 				}
 			} else {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = &EventStatus{
-					Event:  models.ReleasePlanHookEventSubmitApproval,
+				hookEventStatusMap[config.ReleasePlanStatusFinishPlanning] = &EventStatus{
+					Event:  models.ReleasePlanHookEventFinishPlanning,
 					Status: true,
 				}
 			}
+		// case models.ReleasePlanHookEventSubmitApproval:
+		// 	if hookSetting.EnableCallBack {
+		// 		hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = &EventStatus{
+		// 			Event:  models.ReleasePlanHookEventSubmitApproval,
+		// 			Status: true,
+		// 		}
+		// 	} else {
+		// 		hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = &EventStatus{
+		// 			Event:  models.ReleasePlanHookEventSubmitApproval,
+		// 			Status: true,
+		// 		}
+		// 	}
 		case models.ReleasePlanHookEventStartExecute:
 			if hookSetting.EnableCallBack {
 				hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = &EventStatus{
@@ -1516,6 +1581,7 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 		Name:                plan.Name,
 		Manager:             plan.Manager,
 		ManagerID:           plan.ManagerID,
+		InstanceCode:        plan.InstanceCode,
 		StartTime:           plan.StartTime,
 		EndTime:             plan.EndTime,
 		ScheduleExecuteTime: plan.ScheduleExecuteTime,
@@ -2029,12 +2095,18 @@ func waitForExternalCheck(plan *models.ReleasePlan, systemHookSetting *commonmod
 	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
 	for _, event := range hookSetting.HookEvents {
 		switch event {
-		case models.ReleasePlanHookEventSubmitApproval:
-			hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+		case models.ReleasePlanHookEventFinishPlanning:
+			hookEventStatusMap[config.ReleasePlanStatusFinishPlanning] = true
 
-			if plan.Status == config.ReleasePlanStatusWaitForApprove {
-				nextStatus = config.ReleasePlanStatusWaitForApproveExternalCheck
+			if plan.Status == config.ReleasePlanStatusFinishPlanning {
+				nextStatus = config.ReleasePlanStatusWaitForFinishPlanningExternalCheck
 			}
+		// case models.ReleasePlanHookEventSubmitApproval:
+		// 	hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+
+		// 	if plan.Status == config.ReleasePlanStatusWaitForApprove {
+		// 		nextStatus = config.ReleasePlanStatusWaitForApproveExternalCheck
+		// 	}
 		case models.ReleasePlanHookEventStartExecute:
 			hookEventStatusMap[config.ReleasePlanStatusExecuting] = true
 
@@ -2059,6 +2131,39 @@ func waitForExternalCheck(plan *models.ReleasePlan, systemHookSetting *commonmod
 	}
 
 	return &nextStatus, shouldWait
+}
+
+func generateInstanceCode(plan *models.ReleasePlan) (string, error) {
+	newPlan := new(models.ReleasePlan)
+	err := util.DeepCopy(newPlan, plan)
+	if err != nil {
+		err := fmt.Errorf("failed deep copy plan, err: %v", err)
+		log.Error(err)
+		return "", err
+	}
+	newPlan.UpdateTime = 0
+	newPlan.UpdatedBy = ""
+	newPlan.InstanceCode = ""
+	newPlan.Status = ""
+	newPlan.PlanningTime = 0
+	newPlan.ApprovalTime = 0
+	newPlan.ExecutingTime = 0
+	newPlan.SuccessTime = 0
+	newPlan.WaitForFinishPlanningExternalCheckTime = 0
+	// newPlan.WaitForApproveExternalCheckTime = 0
+	newPlan.WaitForExecuteExternalCheckTime = 0
+	newPlan.WaitForAllDoneExternalCheckTime = 0
+	newPlan.ExternalCheckFailedReason = ""
+
+	newPlanBytes, err := bson.Marshal(newPlan)
+	if err != nil {
+		err := fmt.Errorf("failed marshal plan, err: %v", err)
+		log.Error(err)
+		return "", err
+	}
+
+	sum := sha256.Sum256([]byte(newPlanBytes))
+	return hex.EncodeToString(sum[:])[:16], nil
 }
 
 func cancelReleasePlanApproval(ctx *handler.Context, plan *models.ReleasePlan) error {
