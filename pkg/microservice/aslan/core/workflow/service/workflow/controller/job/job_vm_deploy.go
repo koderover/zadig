@@ -474,6 +474,12 @@ func (j VMDeployJobController) SetRepo(repo *types.Repository) error {
 }
 
 func (j VMDeployJobController) SetRepoCommitInfo() error {
+	for _, vmDeploy := range j.jobSpec.ServiceAndVMDeploys {
+		if err := setRepoInfo(vmDeploy.Repos); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -700,7 +706,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	}
 
 	// repo envs
-	ret = append(ret, getReposVariables(buildInfo.DeployRepos)...)
+	ret = append(ret, getReposVariables(vmDeploy.Repos)...)
 
 	// vm deploy specific envs
 	ret = append(ret, &commonmodels.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false})
