@@ -458,7 +458,7 @@ func generateWeeklyDeployStatByProduct(projectKey string, log *zap.SugaredLogger
 		Failed:     testFailed,
 		Timeout:    testTimeout,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	productionDeployStat = &models.WeeklyDeployStat{
@@ -468,7 +468,7 @@ func generateWeeklyDeployStatByProduct(projectKey string, log *zap.SugaredLogger
 		Failed:     productionFailed,
 		Timeout:    productionTimeout,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	return
@@ -529,7 +529,7 @@ func generateMonthlyDeployStatByProduct(projectKey string, log *zap.SugaredLogge
 		Failed:     testFailed,
 		Timeout:    testTimeout,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	productionDeployStat = &models.WeeklyDeployStat{
@@ -539,7 +539,7 @@ func generateMonthlyDeployStatByProduct(projectKey string, log *zap.SugaredLogge
 		Failed:     productionFailed,
 		Timeout:    productionTimeout,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	return
