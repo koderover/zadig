@@ -206,6 +206,10 @@ type ServiceWithModule struct {
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 }
 
+func (s *ServiceWithModule) GetKey() string {
+	return s.ServiceName + "-" + s.ServiceModule
+}
+
 type ServiceModuleTargetBase struct {
 	ProductName       string `json:"product_name"`
 	ServiceWithModule `json:",inline"`
