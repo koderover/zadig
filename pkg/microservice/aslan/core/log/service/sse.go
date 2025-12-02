@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -252,7 +251,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	PodCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	log.Debugf("Waiting until pod is running before establishing the stream. labelSelector: %+v, clusterId: %s, namespace: %s", selector, options.ClusterID, options.Namespace)
+	// log.Debugf("Waiting until pod is running before establishing the stream. labelSelector: %+v, clusterId: %s, namespace: %s", selector, options.ClusterID, options.Namespace)
 	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
@@ -277,7 +276,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		return
 	}
 
-	log.Debugf("Found %d running pods", len(pods))
+	// log.Debugf("Found %d running pods", len(pods))
 
 	if len(pods) > 0 {
 		containerLogStream(
@@ -314,28 +313,21 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 		return
 	}
 
-	out, err := os.OpenFile(job.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0644)
-	if err != nil {
-		log.Errorf("open vm job log file error: %v", err)
-		return
-	}
-	defer func() {
-		err := out.Close()
-		if err != nil {
-			log.Errorf("Failed to close vm job log file, error: %v", err)
-		}
-	}()
-
-	buf := bufio.NewReader(out)
-
+	readOffset := 0
 	for {
 		select {
 		case <-ctx.Done():
 			log.Infof("Connection is closed, vm log stream stopped")
 			return
 		default:
-			if !vmservice.VMJobStatus.Exists(job.ID.Hex()) {
-				err := ReadFromFileAndWriteToStreamChan(buf, streamChan)
+			if !vmservice.VMJobLog.IsJobRunning(job.ID.Hex()) {
+				buf, _, err := getVMJobFromOffset(job.ID.Hex(), readOffset)
+				if err != nil {
+					log.Errorf("get vm job from offset error: %v", err)
+					return
+				}
+
+				err = ReadFromFileAndWriteToStreamChan(buf, streamChan)
 				if err != nil && err != io.EOF {
 					log.Errorf("scan vm log stream error: %v", err)
 					return
@@ -344,7 +336,14 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 				return
 			}
 
-			err := ReadFromFileAndWriteToStreamChan(buf, streamChan)
+			buf, readBytes, err := getVMJobFromOffset(job.ID.Hex(), readOffset)
+			if err != nil {
+				log.Errorf("get vm job from offset error: %v", err)
+				return
+			}
+			readOffset = readBytes
+
+			err = ReadFromFileAndWriteToStreamChan(buf, streamChan)
 			if err != nil && err != io.EOF {
 				log.Errorf("scan vm log stream error: %v", err)
 				return
@@ -353,6 +352,22 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 			time.Sleep(1000 * time.Millisecond)
 		}
 	}
+}
+
+func getVMJobFromOffset(jobID string, readOffset int) (*bufio.Reader, int, error) {
+	logContent, err := vmservice.VMJobLog.GetJobLog(jobID)
+	if err != nil {
+		log.Errorf("get vm job log error: %v", err)
+		return nil, 0, err
+	}
+	newLogContent := logContent
+	if readOffset <= len(logContent) {
+		newLogContent = logContent[readOffset:]
+	}
+
+	readOffset = len(logContent)
+	buf := bufio.NewReader(strings.NewReader(newLogContent))
+	return buf, readOffset, nil
 }
 
 func ReadFromFileAndWriteToStreamChan(buf *bufio.Reader, streamChan chan interface{}) error {
