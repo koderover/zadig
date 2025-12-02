@@ -1001,8 +1001,8 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 		// for the manual executed stage itself, we need to re-render the tasks, not getting them from the previous task since it might not be right
 		if stage.Name == stageName {
-			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped) {
-				return errors.Errorf("previous stage %s status is not passed or skipped", preStage.Name)
+			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped || preStage.Status == config.StatusUnstable) {
+				return errors.Errorf("previous stage %s status is not passed, skipped or unstable", preStage.Name)
 			}
 
 			if stage.ManualExec == nil || !stage.ManualExec.Enabled {
