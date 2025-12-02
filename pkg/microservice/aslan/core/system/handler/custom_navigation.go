@@ -67,6 +67,12 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 				} else {
 					newItem = append(newItem, item)
 				}
+			} else if item.Key == config.NavigationKeyDataInsight {
+				if err := util.CheckZadigProfessionalLicense(); err != nil {
+					continue
+				} else {
+					newItem = append(newItem, item)
+				}
 			} else {
 				newItem = append(newItem, item)
 			}
@@ -112,6 +118,10 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 				newItem = append(newItem, item)
 			}
 		} else if item.Key == config.NavigationKeyDataInsight {
+			if err := util.CheckZadigProfessionalLicense(); err != nil {
+				continue
+			}
+			
 			if ctx.Resources.SystemActions.DataCenter.ViewInsight {
 				newItem = append(newItem, item)
 			}

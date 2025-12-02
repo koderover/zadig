@@ -280,7 +280,7 @@ func generateWeeklyRollbackStatByProduct(projectKey string, log *zap.SugaredLogg
 		Production: false,
 		Rollback:   testRollback,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	productionRollbackStat = &models.WeeklyRollbackStat{
@@ -288,7 +288,7 @@ func generateWeeklyRollbackStatByProduct(projectKey string, log *zap.SugaredLogg
 		Production: true,
 		Rollback:   productionRollback,
 		Date:       date,
-		CreateTime: time.Now().Unix(),
+		CreateTime: endTime.Unix(),
 	}
 
 	return

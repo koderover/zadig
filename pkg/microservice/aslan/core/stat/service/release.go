@@ -140,7 +140,7 @@ func CreateMonthlyReleaseStat(log *zap.SugaredLogger) error {
 			AverageExecutionDuration: 0,
 			AverageApprovalDuration:  0,
 			Date:                     startTime.Format(config.Date),
-			CreateTime:               time.Now().Unix(),
+			CreateTime:               endTime.Unix(),
 			UpdateTime:               0,
 		}
 	} else {
@@ -167,7 +167,7 @@ func CreateMonthlyReleaseStat(log *zap.SugaredLogger) error {
 			AverageExecutionDuration: averageExecutionDuration,
 			AverageApprovalDuration:  averageApprovalDuration,
 			Date:                     startTime.Format(config.Date),
-			CreateTime:               time.Now().Unix(),
+			CreateTime:               endTime.Unix(),
 			UpdateTime:               0,
 		}
 	}
