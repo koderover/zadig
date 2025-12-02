@@ -45,6 +45,7 @@ import (
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
+	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -903,12 +904,44 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		plan.WaitForExecuteExternalCheckTime = 0
 		plan.WaitForAllDoneExternalCheckTime = 0
 		plan.ExternalCheckFailedReason = ""
+
+		for _, job := range plan.Jobs {
+			if job.Type == config.JobWorkflow {
+				spec := new(models.WorkflowReleaseJobSpec)
+				if err := models.IToi(job.Spec, spec); err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to workflow release job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return fmtErr
+				}
+
+				if spec.TaskID != 0 {
+					err = runtimeWorkflowController.CancelWorkflowTask(c.UserName, spec.Workflow.Name, spec.TaskID, log.SugaredLogger())
+					if err != nil {
+						fmtErr := fmt.Errorf("failed cancel workflow task, workflow: %s, taskID: %d, err: %v", spec.Workflow.Name, spec.TaskID, err)
+						log.Error(fmtErr)
+						return fmtErr
+					}
+				}
+
+				spec.TaskID = 0
+				spec.Status = config.StatusPrepare
+				job.Spec = spec
+			}
+
+			job.Status = config.ReleasePlanJobStatusTodo
+			job.LastStatus = config.ReleasePlanJobStatusTodo
+			job.Updated = false
+			job.ExecutedBy = ""
+			job.ExecutedTime = 0
+		}
+
 		plan.InstanceCode, err = generateInstanceCode(plan)
 		if err != nil {
 			fmtErr := fmt.Errorf("failed generate instance code, err: %v", err)
 			log.Error(fmtErr)
 			return fmtErr
 		}
+
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusFinishPlanning:
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
