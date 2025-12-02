@@ -310,8 +310,8 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 	envInfos, _, err := commonrepo.NewEnvInfoColl().List(context.Background(), &commonrepo.ListEnvInfoOption{
 		ProjectNames: projects,
 		Operation:    config.EnvOperationRollback,
-		StartTime:    startTime,
-		EndTime:      endTime,
+		StartTime:    firstDayOfMonth,
+		EndTime:      time.Now().Unix(),
 	})
 	if err != nil {
 		err = fmt.Errorf("failed to list env info for projects: %v, error: %s", projects, err)
