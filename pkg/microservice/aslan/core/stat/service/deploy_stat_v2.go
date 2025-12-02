@@ -253,14 +253,14 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 }
 
 func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, production config.ProductionType, log *zap.SugaredLogger) ([]*models.WeeklyDeployStat, error) {
-	// first get weekly stats
+	// first get monthly stats
 	monthlystats, err := mongodb.NewMonthlyDeployStatColl().CalculateStat(startTime, endTime, projects, production)
 	if err != nil {
-		log.Errorf("failed to get weekly deploy trend, error: %s", err)
-		return nil, fmt.Errorf("failed to get weekly deploy trend, error: %s", err)
+		log.Errorf("failed to get monthly deploy trend, error: %s", err)
+		return nil, fmt.Errorf("failed to get monthly deploy trend, error: %s", err)
 	}
 
-	// then calculate the start time of this week, append it to the end of the array
+	// then calculate the start time of this month, append it to the end of the array
 	firstDayOfMonth := util.GetFirstOfMonthDay(time.Now())
 	firstDayOfEndTimeMonth := util.GetFirstOfMonthDay(time.Unix(endTime, 0))
 	if firstDayOfEndTimeMonth < firstDayOfMonth {
@@ -269,8 +269,8 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 
 	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfMonth, time.Now().Unix(), projects, production)
 	if err != nil {
-		log.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
-		return nil, fmt.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
+		log.Errorf("failed to list deploy jobs for monthly trend, error: %s", err)
+		return nil, fmt.Errorf("failed to list deploy jobs for monthly trend, error: %s", err)
 	}
 
 	var (
