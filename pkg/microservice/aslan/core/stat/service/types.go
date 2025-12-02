@@ -93,3 +93,7 @@ type ReleaseDashboard struct {
 	AverageDuration float64                      `json:"average_duration"`
 	MonthlyRelease  []*models.MonthlyReleaseStat `json:"data"`
 }
+
+type RollbackTotalStat struct {
+	Total int64 `json:"total"`
+}

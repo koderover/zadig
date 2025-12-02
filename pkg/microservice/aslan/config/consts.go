@@ -716,6 +716,20 @@ const (
 
 type ProductionType string
 
+func (p ProductionType) ToBool() *bool {
+	switch p {
+	case Production:
+		val := true
+		return &val
+	case Testing:
+		val := false
+		return &val
+	case Both:
+		return nil
+	}
+	return nil
+}
+
 const (
 	Production = "production"
 	Testing    = "testing"
