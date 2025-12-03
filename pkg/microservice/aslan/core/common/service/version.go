@@ -107,6 +107,9 @@ type GetEnvServiceVersionYamlResponse struct {
 	Operation      config.EnvOperation       `json:"operation"`
 	DeployType     string                    `json:"deploy_type"`
 	DeployStrategy string                    `json:"deploy_strategy"`
+	ChartRepo      string                    `json:"chart_repo"`
+	ChartName      string                    `json:"chart_name"`
+	ChartVersion   string                    `json:"chart_version"`
 	Detail         string                    `json:"detail"`
 	CreateTime     int64                     `json:"create_time"`
 	CreateBy       string                    `json:"create_by"`
@@ -176,6 +179,11 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		chartRepoName := envSvcRevision.Service.GetServiceRender().ChartRepo
 		chartName := envSvcRevision.Service.GetServiceRender().ChartName
 		chartVersion := envSvcRevision.Service.GetServiceRender().ChartVersion
+
+		resp.ChartRepo = chartRepoName
+		resp.ChartName = chartName
+		resp.ChartVersion = chartVersion
+
 		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
 		if err != nil {
 			return resp, fmt.Errorf("failed to query chart-repo info, repoName: %s", chartRepoName)
@@ -196,11 +204,13 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		if err != nil {
 			return resp, fmt.Errorf("failed to merge values, err %s", err)
 		}
+		resp.VariableYaml = mergedValues
+
 		mergedValues, err = helmDeploySvc.GeneFullValues(valuesYaml, mergedValues)
 		if err != nil {
 			return resp, fmt.Errorf("failed to generate full values, err %s", err)
 		}
-		resp.VariableYaml = mergedValues
+		resp.Yaml = mergedValues
 	}
 
 	return resp, nil
