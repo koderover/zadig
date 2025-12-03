@@ -306,3 +306,7 @@ func LarkPluginSecret() string {
 func LarkPluginAccessTokenType() int {
 	return viper.GetInt(setting.ENVLarkPluginAccessTokenType)
 }
+
+func DisableKubeClientKeepAlive() bool {
+	return viper.GetBool(setting.ENVDisableKubeClientKeepAlive)
+}
