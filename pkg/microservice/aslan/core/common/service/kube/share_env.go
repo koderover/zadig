@@ -205,6 +205,11 @@ func EnsureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service,
 	svcInGray.Annotations = baseSvc.Annotations
 	svcInGray.Spec = *baseSvc.Spec.DeepCopy()
 
+	if svcInGray.Spec.ClusterIP != corev1.ClusterIPNone {
+		svcInGray.Spec.ClusterIP = ""
+		svcInGray.Spec.ClusterIPs = []string{}
+	}
+
 	if svcInGray.Labels != nil {
 		svcInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 	}
