@@ -152,6 +152,9 @@ func (c *ScanningColl) Find(projectName, name string) (*models.Scanning, error) 
 	return resp, err
 }
 
+// (CAUTION) This function is used to get the scanning by id,
+// but it will not fill the scanning template info.
+// If you need to get the scanning template info at once, please use the service layer to get it.
 func (c *ScanningColl) GetByID(idstring string) (*models.Scanning, error) {
 	resp := new(models.Scanning)
 	id, err := primitive.ObjectIDFromHex(idstring)
