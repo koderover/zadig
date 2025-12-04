@@ -109,12 +109,12 @@ func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, 
 
 		err = EnsureVirtualService(ctx, kclient, istioClient, env, svc, vsName)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to ensure virtual service, err: %w", err)
 		}
 
 		err = EnsureDefaultK8sServiceInGray(ctx, svc, env.Namespace, kclient)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to ensure default k8s service in gray, err: %w", err)
 		}
 	}
 
