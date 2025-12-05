@@ -325,7 +325,8 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 }
 
 func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger) (*ScanningTaskDetail, error) {
-	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	scanSvc := commonservice.NewScanningService()
+	scanningInfo, err := scanSvc.GetByID(scanningID)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return nil, err
@@ -384,24 +385,23 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
 			log.Errorf("failed to get sonar integration info, error: %s", err)
-			return nil, err
-		}
+		} else {
+			sonarURL := sonarInfo.ServerAddress
+			jobKey := workflowTask.Stages[0].Jobs[0].Key
 
-		sonarURL := sonarInfo.ServerAddress
-		jobKey := workflowTask.Stages[0].Jobs[0].Key
+			projectScanningOutputKey := jobspec.GetJobOutputKey(jobKey, setting.WorkflowScanningJobOutputKeyProject)
+			projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
+			projectKey := workflowTask.GlobalContext[projectScanningOutputKey]
 
-		projectScanningOutputKey := jobspec.GetJobOutputKey(jobKey, setting.WorkflowScanningJobOutputKeyProject)
-		projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
-		projectKey := workflowTask.GlobalContext[projectScanningOutputKey]
+			branchScanningOutputKey := jobspec.GetJobOutputKey(jobKey, setting.WorkflowScanningJobOutputKeyBranch)
+			branchScanningOutputKey = workflowcontroller.GetContextKey(branchScanningOutputKey)
+			branch := workflowTask.GlobalContext[branchScanningOutputKey]
 
-		branchScanningOutputKey := jobspec.GetJobOutputKey(jobKey, setting.WorkflowScanningJobOutputKeyBranch)
-		branchScanningOutputKey = workflowcontroller.GetContextKey(branchScanningOutputKey)
-		branch := workflowTask.GlobalContext[branchScanningOutputKey]
-
-		resultAddr, err = sonar.GetSonarAddress(sonarURL, projectKey, branch)
-		if err != nil {
-			resultAddr = sonarURL
-			log.Errorf("failed to get sonar address, project key: %s, branch: %s, error: %v", projectKey, branch, err)
+			resultAddr, err = sonar.GetSonarAddress(sonarURL, projectKey, branch)
+			if err != nil {
+				resultAddr = sonarURL
+				log.Errorf("failed to get sonar address, project key: %s, branch: %s, error: %v", projectKey, branch, err)
+			}
 		}
 
 		for _, step := range jobTaskSpec.Steps {
