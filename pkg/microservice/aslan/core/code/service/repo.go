@@ -117,6 +117,37 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				info.Branches = []*client.Branch{}
 				return
 			}
+
+			if info.DefaultBranch != "" {
+				foundDefaultBranch := false
+				for _, branch := range info.Branches {
+					if branch.Name == info.DefaultBranch {
+						foundDefaultBranch = true
+						break
+					}
+				}
+
+				if !foundDefaultBranch {
+					branches, err := codehostClient.ListBranches(client.ListOpt{
+						Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
+						ProjectName: projectName,
+						Key:         info.DefaultBranch,
+					})
+					if err != nil {
+						errList = multierror.Append(errList, err)
+						info.ErrorMsg = err.Error()
+						info.Branches = []*client.Branch{}
+						return
+					}
+
+					for _, branch := range branches {
+						if branch.Name == info.DefaultBranch {
+							info.Branches = append([]*client.Branch{branch}, info.Branches...)
+							break
+						}
+					}
+				}
+			}
 		}(info)
 
 		wg.Add(1)
