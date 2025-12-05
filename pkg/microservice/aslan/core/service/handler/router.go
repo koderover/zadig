@@ -88,6 +88,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	pm := router.Group("pm")
 	{
 		pm.PUT("/healthCheckUpdate", UpdateServiceHealthCheckStatus)
+		pm.PUT("/healthCheckEnvUpdate", UpdateEnvVMServiceHealthCheck)
 		pm.POST("/:productName", CreatePMService)
 		pm.PUT("/:productName", UpdatePmServiceTemplate)
 	}

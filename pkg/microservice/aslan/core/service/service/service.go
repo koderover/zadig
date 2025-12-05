@@ -848,6 +848,60 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
 }
 
+type UpdateEnvVMServiceHealthCheckRequest struct {
+	ProjectName string `json:"project_name"`
+	EnvName     string `json:"env_name"`
+	ServiceName string `json:"service_name"`
+	Username    string `json:"username"`
+}
+
+func UpdateEnvVMServiceHealthCheck(req *UpdateEnvVMServiceHealthCheckRequest) error {
+	latestService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: req.ProjectName,
+		ServiceName: req.ServiceName,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v. Error: %s", req, err)
+		return err
+	}
+
+	changeEnvStatus := make([]*commonmodels.EnvStatus, 0)
+	for _, envConfigs := range latestService.EnvConfigs {
+		if envConfigs.EnvName != req.EnvName {
+			continue
+		}
+
+		for _, hostID := range envConfigs.HostIDs {
+			for _, healthCheck := range latestService.HealthChecks {
+				changeEnvStatus = append(changeEnvStatus, &commonmodels.EnvStatus{
+					HostID:       hostID,
+					EnvName:      req.EnvName,
+					Address:      hostID,
+					HealthChecks: healthCheck,
+				})
+			}
+		}
+	}
+
+	for _, envStatus := range latestService.EnvStatuses {
+		if envStatus.EnvName != req.EnvName {
+			changeEnvStatus = append(changeEnvStatus, envStatus)
+		}
+	}
+
+	// generate env status for this env
+	updateArgs := &commonmodels.Service{
+		ProductName: latestService.ProductName,
+		ServiceName: req.ServiceName,
+		Revision:    latestService.Revision,
+		Type:        latestService.Type,
+		CreateBy:    latestService.CreateBy,
+		EnvConfigs:  latestService.EnvConfigs,
+		EnvStatuses: changeEnvStatus,
+	}
+	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
+}
+
 func getRenderedYaml(args *YamlValidatorReq) string {
 	extractVariableYaml, err := yamlutil.ExtractVariableYaml(args.Yaml)
 	if err != nil {

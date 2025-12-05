@@ -544,6 +544,54 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	ctx.RespErr = svcservice.UpdateServiceHealthCheckStatus(args)
 }
 
+// @Summary 更新主机服务健康检查
+// @Description 更新环境-服务-健康检查
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		svcservice.UpdateEnvVMServiceHealthCheckRequest		  true 	"body"
+// @Success 200
+// @Router /api/aslan/service/pm/healthCheckEnvUpdate [put]
+func UpdateEnvVMServiceHealthCheck(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(svcservice.UpdateEnvVMServiceHealthCheckRequest)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	// authorization
+	// TODO: authorization leak, currently disabled to use collaboration mode for PM environment
+	//projectName := args.ProductName
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//	if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+	//		!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
+
+	if args.Username != "system" {
+		detail := fmt.Sprintf("服务名称:%s,环境名称:%s", args.ServiceName, args.EnvName)
+		detailEn := fmt.Sprintf("Service Name: %s, Env Name: %s", args.ServiceName, args.EnvName)
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "环境-服务-健康检查", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	}
+	args.Username = ctx.UserName
+	ctx.RespErr = svcservice.UpdateEnvVMServiceHealthCheck(args)
+}
+
 type ValidatorResp struct {
 	Message string `json:"message"`
 }
