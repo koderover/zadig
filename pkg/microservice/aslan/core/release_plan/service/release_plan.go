@@ -1448,6 +1448,12 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 		// target status process
 		if releasePlan.Status == config.ReleasePlanStatusFinishPlanning {
 			releasePlan.FinishPlanningTime = time.Now().Unix()
+			if releasePlan.Approval == nil || releasePlan.Approval.Enabled == false {
+				releasePlan.Status = config.ReleasePlanStatusExecuting
+				releasePlan.ExecutingTime = time.Now().Unix()
+				setReleaseJobsForExecuting(releasePlan)
+			}
+
 			// if releasePlan.Status == config.ReleasePlanStatusWaitForApprove {
 			// userInfo, err := user.New().GetUserByID(releasePlan.ApproverID)
 			// if err != nil {
