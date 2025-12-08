@@ -84,6 +84,24 @@ func (j VMDeployJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("can not quote job %s in job %s", j.jobSpec.JobName, j.name)
 	}
 
+	// TODO: if execution we need to check if the user choose to deploy a service with update config set to false
+	// if it is this should not be allowed.
+	if isExecution {
+		latestJob, err := j.workflow.FindJob(j.name, j.jobType)
+		if err != nil {
+			return fmt.Errorf("failed to find job: %s in workflow %s's latest config, error: %s", j.name, j.workflow.Name, err)
+		}
+
+		currJobSpec := new(commonmodels.ZadigVMDeployJobSpec)
+		if err := commonmodels.IToi(latestJob.Spec, currJobSpec); err != nil {
+			return fmt.Errorf("failed to decode zadig vm deploy job spec, error: %s", err)
+		}
+
+		if j.jobSpec.Env != currJobSpec.Env && currJobSpec.EnvSource == config.ParamSourceFixed {
+			return fmt.Errorf("job %s cannot deploy to env: %s, configured env is fixed to %s", j.name, j.jobSpec.Env, currJobSpec.Env)
+		}
+	}
+
 	return nil
 }
 
@@ -109,6 +127,13 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 	if j.jobSpec.Source == config.SourceFromJob {
 		j.jobSpec.JobName = currJobSpec.JobName
 		j.jobSpec.OriginJobName = currJobSpec.OriginJobName
+	}
+
+	j.jobSpec.EnvSource = currJobSpec.EnvSource
+	if j.jobSpec.Env != currJobSpec.Env && currJobSpec.EnvSource == config.ParamSourceFixed {
+		j.jobSpec.Env = currJobSpec.Env
+		j.jobSpec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+		return nil
 	}
 
 	newOptions, err := generateVMDeployServiceInfo(j.workflow.Project, currJobSpec.Env, currJobSpec.ServiceAndVMDeploysOptions, ticket)
@@ -168,38 +193,53 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 }
 
 func (j VMDeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
-	// there are no production environment for vm projects now
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:                j.workflow.Project,
-		IsSortByProductName: true,
-		Production:          util.GetBoolPointer(false),
-	})
-
-	if err != nil {
-		log.Errorf("failed to list environments for project: %s, error: %s", j.workflow.Project, err)
-		return err
-	}
-
 	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
+	if j.jobSpec.EnvSource == config.ParamSourceFixed {
+		if ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
+			info, err := generateVMDeployServiceInfo(j.workflow.Project, j.jobSpec.Env, j.jobSpec.ServiceAndVMDeploysOptions, ticket)
+			if err != nil {
+				log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+				return err
+			}
 
-	for _, env := range envs {
-		if !ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
-			continue
+			envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
+				Env:      j.jobSpec.Env,
+				Services: info,
+			})
 		}
+	} else {
+		// there are no production environment for vm projects now
+		envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:                j.workflow.Project,
+			IsSortByProductName: true,
+			Production:          util.GetBoolPointer(false),
+		})
 
-		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName, j.jobSpec.ServiceAndVMDeploysOptions, ticket)
 		if err != nil {
-			log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+			log.Errorf("failed to list environments for project: %s, error: %s", j.workflow.Project, err)
 			return err
 		}
 
-		envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
-			Env:      env.EnvName,
-			Services: info,
-		})
+		for _, env := range envs {
+			if !ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
+				continue
+			}
+
+			info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName, j.jobSpec.ServiceAndVMDeploysOptions, ticket)
+			if err != nil {
+				log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+				return err
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
+				Env:      env.EnvName,
+				Services: info,
+			})
+		}
 	}
 
 	j.jobSpec.EnvOptions = envOptions
+
 	return nil
 }
 
