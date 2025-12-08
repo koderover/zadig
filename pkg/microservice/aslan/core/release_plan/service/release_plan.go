@@ -512,10 +512,6 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		}
 	}
 
-	if plan.ManagerID != c.UserID && !isSystemAdmin {
-		return errors.Errorf("only manager can execute")
-	}
-
 	executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
 		AuthResources: c.Resources,
 		UserID:        c.UserID,
@@ -755,10 +751,6 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		if now < plan.StartTime || now > plan.EndTime {
 			return errors.Errorf("plan is not in the release time range")
 		}
-	}
-
-	if plan.ManagerID != c.UserID && !isSystemAdmin {
-		return errors.Errorf("only manager can skip")
 	}
 
 	skipper, err := NewReleaseJobSkipper(&SkipReleaseJobContext{

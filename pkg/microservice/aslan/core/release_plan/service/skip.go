@@ -80,6 +80,11 @@ func (e *WorkflowReleaseJobSkipper) Skip(plan *models.ReleasePlan) error {
 			return errors.Errorf("job %s status %s can't skip", job.Name, job.Status)
 		}
 
+		err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.Ctx.UserName, e.Ctx.UserID, e.Ctx.AuthResources)
+		if err != nil {
+			return err
+		}
+
 		job.Status = config.ReleasePlanJobStatusSkipped
 		job.ExecutedBy = e.Ctx.Account
 		job.ExecutedTime = time.Now().Unix()
@@ -91,6 +96,7 @@ func (e *WorkflowReleaseJobSkipper) Skip(plan *models.ReleasePlan) error {
 type TextReleaseJobSkipper struct {
 	ID        string
 	SkippedBy string
+	Ctx       *SkipReleaseJobContext
 	Spec      TextReleaseJobSpec
 }
 
@@ -101,6 +107,7 @@ func NewTextReleaseJobSkipper(c *SkipReleaseJobContext, args *SkipReleaseJobArgs
 	}
 	executor.ID = args.ID
 	executor.SkippedBy = c.UserName
+	executor.Ctx = c
 	return &executor, nil
 }
 
@@ -116,6 +123,12 @@ func (e *TextReleaseJobSkipper) Skip(plan *models.ReleasePlan) error {
 		if job.Status != config.ReleasePlanJobStatusTodo {
 			return errors.Errorf("job %s status is not todo", job.Name)
 		}
+
+		err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.Ctx.UserName, e.Ctx.UserID, e.Ctx.AuthResources)
+		if err != nil {
+			return err
+		}
+
 		spec.Remark = e.Spec.Remark
 		job.Spec = spec
 		job.Status = config.ReleasePlanJobStatusSkipped
