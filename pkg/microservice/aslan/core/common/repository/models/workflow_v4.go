@@ -197,6 +197,7 @@ type LarkApproval struct {
 	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *LarkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
+	ApprovalInitiator        *LarkApprovalUser   `bson:"approval_initiator"           yaml:"approval_initiator"              json:"approval_initiator"`
 	ApprovalNodes            []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 	// InstanceCode: lark approval instance code
 	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
