@@ -2229,11 +2229,21 @@ func cancelReleasePlanApproval(ctx *handler.Context, plan *models.ReleasePlan) e
 			return nil
 		}
 
+		initiatorUserID := ""
+		if plan.Approval.LarkApproval.ApprovalInitiator != nil {
+			initiatorUserID = plan.Approval.LarkApproval.ApprovalInitiator.ID
+		} else if plan.Approval.LarkApproval.DefaultApprovalInitiator != nil {
+			initiatorUserID = plan.Approval.LarkApproval.DefaultApprovalInitiator.ID
+		} else {
+			log.Warnf("cancel approval %s: initiator user id is not set", plan.Approval.LarkApproval.InstanceCode)
+			return nil
+		}
+
 		client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
 		err = client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
 			ApprovalID: approvalCode,
 			InstanceID: plan.Approval.LarkApproval.InstanceCode,
-			UserID:     plan.Approval.LarkApproval.DefaultApprovalInitiator.ID,
+			UserID:     initiatorUserID,
 		})
 		if err != nil {
 			log.Errorf("cancel approval %s error: %v", plan.Approval.LarkApproval.InstanceCode, err)
