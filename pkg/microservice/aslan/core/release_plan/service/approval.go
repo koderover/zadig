@@ -548,8 +548,14 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content, 
 			return errors.Wrapf(err, "get user lark id by mobile-%s", phone)
 		}
 		userID = util2.GetStringFromPointer(userInfo.UserId)
+		approval.ApprovalInitiator = &models.LarkApprovalUser{
+			UserInfo: lark.UserInfo{
+				ID: userID,
+			},
+		}
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
+		approval.ApprovalInitiator = approval.DefaultApprovalInitiator
 		content = fmt.Sprintf("%s: %s\n%s", getText("approvalTextApprovalInitiator", language), manager, content)
 	}
 
