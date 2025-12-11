@@ -169,8 +169,7 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 		return nil, errors.New(errMsg)
 	}
 
-	for i, workItem := range result.Data {
-		log.Infof("workitem[%d] ID: %d", i, workItem.ID)
+	for _, workItem := range result.Data {
 		if workItem.ID == workItemID {
 			return workItem, nil
 		}
@@ -278,6 +277,7 @@ func (c *Client) NodeOperate(projectKey, workItemTypeKey string, workItemID stri
 		httpclient.SetBody(req),
 		httpclient.SetHeader(PluginTokenHeader, c.PluginToken),
 		httpclient.SetHeader(UserKeyHeader, c.UserKey),
+		httpclient.SetResult(result),
 	)
 
 	if err != nil {
@@ -292,4 +292,54 @@ func (c *Client) NodeOperate(projectKey, workItemTypeKey string, workItemID stri
 	}
 
 	return nil
+}
+
+type GetProjectDetailRequest struct {
+	ProjectKeys []string `json:"project_keys"`
+	SimpleNames []string `json:"simple_names"`
+	UserKey     string   `json:"user_key"`
+}
+
+type GetProjectDetailResponse struct {
+	Data         map[string]*ProjectDetail `json:"data"`
+	ErrorMessage string                    `json:"err_msg"`
+	ErrorCode    int                       `json:"err_code"`
+	Error        interface{}               `json:"error"`
+}
+
+type ProjectDetail struct {
+	Name           string   `json:"name"`
+	ProjectKey     string   `json:"project_key"`
+	SimpleName     string   `json:"simple_name"`
+	Administrators []string `json:"administrators"`
+}
+
+func (c *Client) GetProjectDetail(projectKeys, SimpleNames []string) (map[string]*ProjectDetail, error) {
+	getProjectDetail := fmt.Sprintf("%s/open_api/projects/detail", c.Host)
+
+	req := &GetProjectDetailRequest{
+		ProjectKeys: projectKeys,
+		SimpleNames: SimpleNames,
+		UserKey:     c.UserKey,
+	}
+
+	result := new(GetProjectDetailResponse)
+	_, err := httpclient.Post(getProjectDetail,
+		httpclient.SetBody(req),
+		httpclient.SetHeader(PluginTokenHeader, c.PluginToken),
+		httpclient.SetHeader(UserKeyHeader, c.UserKey),
+		httpclient.SetResult(result),
+	)
+	if err != nil {
+		log.Errorf("error occurred when get project detail, error: %s", err)
+		return nil, err
+	}
+
+	if result.ErrorCode != 0 {
+		errMsg := fmt.Sprintf("error response when get project detail, error code: %d, error message: %s, error: %+v", result.ErrorCode, result.ErrorMessage, result.Error)
+		log.Error(errMsg)
+		return nil, errors.New(errMsg)
+	}
+
+	return result.Data, nil
 }

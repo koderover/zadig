@@ -443,14 +443,17 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name                string
-	Account             string
-	UserID              string
-	Type                config.CustomWorkflowTaskType
-	ApprovalTicketID    string
-	SkipWorkflowUpdate  bool
-	LarkWorkItemTypeKey string
-	LarkWorkItemID      string
+	Name                  string
+	Account               string
+	UserID                string
+	Type                  config.CustomWorkflowTaskType
+	ApprovalTicketID      string
+	SkipWorkflowUpdate    bool
+	LarkProjectKey        string
+	LarkProjectSimpleName string
+	LarkWorkItemTypeKey   string
+	LarkWorkItemAPIName   string
+	LarkWorkItemID        string
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -595,6 +598,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.Remark = workflow.Remark
 	workflowTask.LarkWorkItemID = args.LarkWorkItemID
 	workflowTask.LarkWorkItemTypeKey = args.LarkWorkItemTypeKey
+	workflowTask.LarkProjectKey = args.LarkProjectKey
+	workflowTask.LarkProjectSimpleName = args.LarkProjectSimpleName
+	workflowTask.LarkWorkItemAPIName = args.LarkWorkItemAPIName
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
@@ -1756,18 +1762,21 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
 	for _, task := range tasks {
 		preview := &commonmodels.WorkflowTaskPreview{
-			TaskID:              task.TaskID,
-			TaskCreator:         task.TaskCreator,
-			ProjectName:         task.ProjectName,
-			WorkflowName:        task.WorkflowName,
-			WorkflowDisplayName: task.WorkflowDisplayName,
-			Remark:              task.Remark,
-			Status:              task.Status,
-			Reverted:            task.Reverted,
-			CreateTime:          task.CreateTime,
-			StartTime:           task.StartTime,
-			EndTime:             task.EndTime,
-			Hash:                task.Hash,
+			TaskID:                task.TaskID,
+			TaskCreator:           task.TaskCreator,
+			ProjectName:           task.ProjectName,
+			WorkflowName:          task.WorkflowName,
+			WorkflowDisplayName:   task.WorkflowDisplayName,
+			Remark:                task.Remark,
+			Status:                task.Status,
+			Reverted:              task.Reverted,
+			CreateTime:            task.CreateTime,
+			StartTime:             task.StartTime,
+			EndTime:               task.EndTime,
+			LarkProjectSimpleName: task.LarkProjectSimpleName,
+			LarkWorkItemAPIName:   task.LarkWorkItemAPIName,
+			LarkWorkItemID:        task.LarkWorkItemID,
+			Hash:                  task.Hash,
 		}
 
 		stagePreviews := make([]*commonmodels.StagePreview, 0)

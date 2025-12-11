@@ -22,7 +22,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/tool/meego"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
+	sdkcore "github.com/larksuite/project-oapi-sdk-golang/core"
+	"github.com/larksuite/project-oapi-sdk-golang/service/project"
+	"github.com/larksuite/project-oapi-sdk-golang/service/workitem"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -69,18 +73,88 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
+	client := larkplugin.NewClient(spec.MeegoPluginID, spec.MeegoPluginSecret, setting.IMLark)
+	resp, err := client.Client.Plugin.GetPluginToken(ctx, 0)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		c.job.Status = config.StatusFailed
 		return
 	}
+	if resp.Error != nil && resp.Error.Code != 0 {
+		logError(c.job, fmt.Sprintf("failed to get lark plugin token, error code: %d, message: %s", resp.Error.Code, resp.Error.Msg), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+
+	workitemTypes, err := client.Client.Project.ListProjectWorkItemType(ctx, project.NewListProjectWorkItemTypeReqBuilder().
+		ProjectKey(c.jobTaskSpec.ProjectKey).
+		Build(),
+		sdkcore.WithAccessToken(resp.Data.Token),
+		sdkcore.WithUserKey(spec.MeegoUserKey),
+	)
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+	if !workitemTypes.Success() {
+		logError(c.job, fmt.Sprintf("failed to get project workitem type, code: %d, message: %s", workitemTypes.Code(), workitemTypes.Error()), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+
+	workitemTypeAPIName := c.jobTaskSpec.WorkItemTypeKey
+	for _, workitemType := range workitemTypes.Data {
+		if workitemType.TypeKey == c.jobTaskSpec.WorkItemTypeKey {
+			workitemTypeAPIName = workitemType.APIName
+			break
+		}
+	}
+	c.jobTaskSpec.WorkItemTypeAPIName = workitemTypeAPIName
+
+	projectDetail, err := client.Client.Project.GetProjectDetail(ctx, project.NewGetProjectDetailReqBuilder().
+		ProjectKeys([]string{c.jobTaskSpec.ProjectKey}).
+		Build(),
+		sdkcore.WithAccessToken(resp.Data.Token),
+		sdkcore.WithUserKey(spec.MeegoUserKey),
+	)
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+	if !projectDetail.Success() {
+		logError(c.job, fmt.Sprintf("failed to get project detail, code: %d, message: %s", projectDetail.Code(), projectDetail.Error()), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+
+	if projectDetail.Data[c.jobTaskSpec.ProjectKey] == nil {
+		logError(c.job, fmt.Sprintf("project %s not found", c.jobTaskSpec.ProjectKey), c.logger)
+		c.job.Status = config.StatusFailed
+		return
+	}
+	c.jobTaskSpec.SimpleName = projectDetail.Data[c.jobTaskSpec.ProjectKey].SimpleName
 
 	for _, task := range c.jobTaskSpec.StatusWorkItems {
-		err := client.StatusTransition(c.jobTaskSpec.ProjectKey, c.jobTaskSpec.WorkItemTypeKey, task.ID, task.TransitionID)
+		resp, err := client.Client.WorkItem.NodeStateChange(ctx, workitem.NewNodeStateChangeReqBuilder().
+			ProjectKey(c.jobTaskSpec.ProjectKey).
+			WorkItemTypeKey(c.jobTaskSpec.WorkItemTypeKey).
+			WorkItemID(int64(task.ID)).
+			TransitionID(task.TransitionID).
+			Build(),
+			sdkcore.WithAccessToken(resp.Data.Token),
+			sdkcore.WithUserKey(spec.MeegoUserKey),
+		)
 		if err != nil {
 			errMsg := fmt.Sprintf("work item: [%d] failed to do transition, err: %s", task.ID, err)
 			logError(c.job, errMsg, c.logger)
+			task.Status = string(config.StatusFailed)
+			c.job.Status = config.StatusFailed
+			return
+		}
+		if !resp.Success() {
+			logError(c.job, fmt.Sprintf("failed to do transition, code: %d, message: %s", resp.Code(), resp.Error()), c.logger)
 			task.Status = string(config.StatusFailed)
 			c.job.Status = config.StatusFailed
 			return
@@ -89,10 +163,25 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 	}
 
 	for _, task := range c.jobTaskSpec.NodeWorkItems {
-		err := client.NodeOperate(c.jobTaskSpec.ProjectKey, c.jobTaskSpec.WorkItemTypeKey, fmt.Sprintf("%d", task.ID), task.NodeID)
+		resp, err := client.Client.WorkItem.NodeOperate(ctx, workitem.NewNodeOperateReqBuilder().
+			ProjectKey(c.jobTaskSpec.ProjectKey).
+			WorkItemTypeKey(c.jobTaskSpec.WorkItemTypeKey).
+			WorkItemID(int64(task.ID)).
+			NodeID(task.NodeID).
+			Action("confirm").
+			Build(),
+			sdkcore.WithAccessToken(resp.Data.Token),
+			sdkcore.WithUserKey(spec.MeegoUserKey),
+		)
 		if err != nil {
 			errMsg := fmt.Sprintf("work item: [%d] failed to operate, err: %s", task.ID, err)
 			logError(c.job, errMsg, c.logger)
+			task.Status = string(config.StatusFailed)
+			c.job.Status = config.StatusFailed
+			return
+		}
+		if !resp.Success() {
+			logError(c.job, fmt.Sprintf("failed to operate node, code: %d, message: %s", resp.Code(), resp.Error()), c.logger)
 			task.Status = string(config.StatusFailed)
 			c.job.Status = config.StatusFailed
 			return
