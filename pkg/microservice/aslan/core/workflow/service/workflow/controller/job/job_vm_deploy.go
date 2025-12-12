@@ -319,24 +319,22 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 	}
 
-	buildSvc := commonservice.NewBuildService()
 	for jobSubTaskID, vmDeployInfo := range j.jobSpec.ServiceAndVMDeploys {
 		s3Storage.Subfolder = originS3StorageSubfolder
 
-		service, ok := serviceMap[vmDeployInfo.ServiceName]
-		if !ok {
-			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
-		}
-		buildInfo, err := buildSvc.GetBuild(service.BuildName, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
+		deployInfo, err := commonrepo.NewDeployColl().Find(&commonrepo.DeployFindOption{
+			ProjectName: j.workflow.Project,
+			Name:        fmt.Sprintf("%s-deploy", vmDeployInfo.ServiceName),
+		})
 		if err != nil {
 			return resp, fmt.Errorf("get build info for service %s error: %v", vmDeployInfo.ServiceName, err)
 		}
-		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreDeploy.ImageID)
+		basicImage, err := commonrepo.NewBasicImageColl().Find(deployInfo.PreDeploy.ImageID)
 		if err != nil {
-			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
+			return resp, fmt.Errorf("find base image: %s error: %v", deployInfo.PreDeploy.ImageID, err)
 		}
 
-		customEnvs := applyKeyVals(buildInfo.PreDeploy.Envs.ToRuntimeList(), vmDeployInfo.KeyVals, true).ToKVList()
+		customEnvs := applyKeyVals(deployInfo.PreDeploy.Envs.ToRuntimeList(), vmDeployInfo.KeyVals, true).ToKVList()
 		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
@@ -362,27 +360,27 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			},
 			JobType:        string(config.JobZadigVMDeploy),
 			Spec:           jobTaskSpec,
-			Timeout:        int64(buildInfo.Timeout),
-			Infrastructure: buildInfo.DeployInfrastructure,
-			VMLabels:       buildInfo.DeployVMLabels,
+			Timeout:        int64(deployInfo.Timeout),
+			Infrastructure: deployInfo.Infrastructure,
+			VMLabels:       deployInfo.VMLabels,
 			ErrorPolicy:    j.errorPolicy,
 			ExecutePolicy:  j.executePolicy,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(timeout),
-			ResourceRequest: buildInfo.PreBuild.ResReq,
-			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
+			ResourceRequest: deployInfo.PreDeploy.ResReq,
+			ResReqSpec:      deployInfo.PreDeploy.ResReqSpec,
 			CustomEnvs:      renderedCustomEnv,
-			ClusterID:       buildInfo.PreBuild.ClusterID,
-			StrategyID:      buildInfo.PreBuild.StrategyID,
+			ClusterID:       deployInfo.PreDeploy.ClusterID,
+			StrategyID:      deployInfo.PreDeploy.StrategyID,
 			BuildOS:         basicImage.Value,
-			ImageFrom:       buildInfo.PreDeploy.ImageFrom,
+			ImageFrom:       deployInfo.PreDeploy.ImageFrom,
 			ServiceName:     vmDeployInfo.ServiceName,
 		}
 
 		initShellScripts := []string{}
 		vmDeployVars := []*commonmodels.KeyVal{}
-		tmpVmDeployVars := getVMDeployJobVariables(vmDeployInfo, buildInfo, taskID, j.jobSpec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, registry, log.SugaredLogger())
+		tmpVmDeployVars := getVMDeployJobVariables(vmDeployInfo, deployInfo, taskID, j.jobSpec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, registry, log.SugaredLogger())
 		for _, kv := range tmpVmDeployVars {
 			if strings.HasSuffix(kv.Key, "_PK_CONTENT") {
 				name := strings.TrimSuffix(kv.Key, "_PK_CONTENT")
@@ -396,12 +394,12 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 
 		jobTaskSpec.Properties.Envs = append(renderedEnv, vmDeployVars...)
-		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
+		jobTaskSpec.Properties.UseHostDockerDaemon = deployInfo.PreDeploy.UseHostDockerDaemon
 		jobTaskSpec.Properties.CacheEnable = false
 
 		// init tools install step
 		tools := []*step.Tool{}
-		for _, tool := range buildInfo.PreDeploy.Installs {
+		for _, tool := range deployInfo.PreDeploy.Installs {
 			tools = append(tools, &step.Tool{
 				Name:    tool.Name,
 				Version: tool.Version,
@@ -415,7 +413,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
-		repos := applyRepos(buildInfo.DeployRepos, vmDeployInfo.Repos)
+		repos := applyRepos(deployInfo.Repos, vmDeployInfo.Repos)
 		renderRepos(repos, jobTaskSpec.Properties.Envs)
 		gitRepos, p4Repos := splitReposByType(repos)
 
@@ -447,7 +445,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 		paths = append(paths, []string{vmDeployInfo.WorkflowName, strconv.Itoa(vmDeployInfo.TaskID), vmDeployInfo.JobTaskName, "archive"}...)
 
-		if buildInfo.PostBuild.FileArchive != nil {
+		if deployInfo.ArtifactType == types.VMDeployArtifactTypeFile {
 			// init download artifact step
 			downloadArtifactStep := &commonmodels.StepTask{
 				Name:     vmDeployInfo.ServiceName + "-download-artifact",
@@ -471,23 +469,23 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		scripts := append([]string{}, initShellScripts...)
-		scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.PMDeployScripts), "\n")...)
+		scripts = append(scripts, strings.Split(replaceWrapLine(deployInfo.Scripts), "\n")...)
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
 		}
-		if buildInfo.PMDeployScriptType == types.ScriptTypeShell || buildInfo.PMDeployScriptType == "" {
+		if deployInfo.ScriptType == types.ScriptTypeShell || deployInfo.ScriptType == "" {
 			scriptStep.Name = vmDeployInfo.ServiceName + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
 				Scripts: scripts,
 			}
-		} else if buildInfo.PMDeployScriptType == types.ScriptTypeBatchFile {
+		} else if deployInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = vmDeployInfo.ServiceName + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{
 				Scripts: scripts,
 			}
-		} else if buildInfo.PMDeployScriptType == types.ScriptTypePowerShell {
+		} else if deployInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = vmDeployInfo.ServiceName + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{
@@ -699,27 +697,26 @@ func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*com
 			continue
 		}
 
-		if templateSvc.BuildName == "" {
-			return nil, fmt.Errorf("service %s in project %s has no deploy info", svc.ServiceName, project)
-		}
-
-		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: templateSvc.BuildName, ProductName: project})
+		deploy, err := commonrepo.NewDeployColl().Find(&commonrepo.DeployFindOption{
+			ProjectName: project,
+			Name:        fmt.Sprintf("%s-deploy", templateSvc.ServiceName),
+		})
 		if err != nil {
-			return nil, fmt.Errorf("can't find build %s in project %s, error: %v", templateSvc.BuildName, project, err)
+			return nil, fmt.Errorf("can't find deploy %s in project %s, error: %v", templateSvc.ServiceName, project, err)
 		}
 
-		repos := build.DeployRepos
-		keyVals := build.PreDeploy.Envs.ToRuntimeList()
+		repos := deploy.Repos
+		keyVals := deploy.PreDeploy.Envs.ToRuntimeList()
 		if svcAndVMDeployMap[svc.ServiceName] != nil {
-			repos = applyRepos(build.DeployRepos, svcAndVMDeployMap[svc.ServiceName].Repos)
-			keyVals = applyKeyVals(build.PreDeploy.Envs.ToRuntimeList(), svcAndVMDeployMap[svc.ServiceName].KeyVals, false)
+			repos = applyRepos(deploy.Repos, svcAndVMDeployMap[svc.ServiceName].Repos)
+			keyVals = applyKeyVals(deploy.PreDeploy.Envs.ToRuntimeList(), svcAndVMDeployMap[svc.ServiceName].KeyVals, false)
 		}
 
 		resp = append(resp, &commonmodels.ServiceAndVMDeploy{
 			Repos:              repos,
 			KeyVals:            keyVals,
-			DeployName:         build.Name,
-			DeployArtifactType: build.DeployArtifactType,
+			DeployName:         deploy.Name,
+			DeployArtifactType: deploy.ArtifactType,
 			ServiceName:        templateSvc.ServiceName,
 			ServiceModule:      templateSvc.ServiceName,
 		})
@@ -730,7 +727,7 @@ func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*com
 
 // TODO: maybe use the get variables function
 // this is for internal use only
-func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInfo *commonmodels.Build, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, deployInfo *commonmodels.Deploy, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
@@ -765,9 +762,9 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	ret = append(ret, &commonmodels.KeyVal{Key: "AGENTS", Value: strings.Join(privateKeys.List(), ","), IsCredential: false})
 
 	agentVMIDs := sets.String{}
-	if len(buildInfo.SSHs) > 0 {
+	if len(deployInfo.SSHs) > 0 {
 		// privateKeys := make([]*taskmodels.SSH, 0)
-		for _, sshID := range buildInfo.SSHs {
+		for _, sshID := range deployInfo.SSHs {
 			//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
 			latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
 			if err != nil || latestKeyInfo == nil {
@@ -871,11 +868,11 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	if infrastructure != setting.JobVMInfrastructure {
 		ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "/workspace/artifact/" + vmDeploy.FileName, IsCredential: false})
 	} else {
-		if buildInfo.PMDeployScriptType == types.ScriptTypeShell || buildInfo.PMDeployScriptType == "" {
+		if deployInfo.ScriptType == types.ScriptTypeShell || deployInfo.ScriptType == "" {
 			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$WORKSPACE/artifact/" + vmDeploy.FileName, IsCredential: false})
-		} else if buildInfo.PMDeployScriptType == types.ScriptTypeBatchFile {
+		} else if deployInfo.ScriptType == types.ScriptTypeBatchFile {
 			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "%WORKSPACE%\\artifact\\" + vmDeploy.FileName, IsCredential: false})
-		} else if buildInfo.PMDeployScriptType == types.ScriptTypePowerShell {
+		} else if deployInfo.ScriptType == types.ScriptTypePowerShell {
 			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$env:WORKSPACE\\artifact\\" + vmDeploy.FileName, IsCredential: false})
 		}
 	}

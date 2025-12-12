@@ -34,6 +34,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		build.POST("/targets", UpdateBuildTargets)
 	}
 
+	deploy := router.Group("deploy")
+	{
+		deploy.GET("/:name", FindDeploy)
+		deploy.POST("", CreateDeploy)
+		deploy.PUT("", UpdateDeploy)
+		deploy.DELETE("", DeleteDeploy)
+	}
+
 	target := router.Group("targets")
 	{
 		target.GET("", ListDeployTarget)

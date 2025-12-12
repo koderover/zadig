@@ -262,7 +262,6 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 				EnvStatuses:  envStatus,
 				From:         "deletePriveteKey",
 			},
-			Build: &commonmodels.Build{Name: service.BuildName},
 		}
 		if err := commonservice.UpdatePmServiceTemplate(userName, args, log); err != nil {
 			log.Errorf("UpdatePmServiceTemplate err :%s", err)

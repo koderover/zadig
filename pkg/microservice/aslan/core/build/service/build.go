@@ -22,15 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/util"
 	goerrors "github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -38,22 +35,20 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type BuildResp struct {
-	ID                 string                              `json:"id"`
-	Name               string                              `json:"name"`
-	Targets            []*commonmodels.ServiceModuleTarget `json:"targets"`
-	KeyVals            []*commonmodels.KeyVal              `json:"key_vals"`
-	DeployArtifactType types.VMDeployArtifactType          `json:"deploy_artifact_type"`
-	DeployKeyVals      []*commonmodels.KeyVal              `json:"deploy_key_vals"`
-	Repos              []*types.Repository                 `json:"repos"`
-	UpdateTime         int64                               `json:"update_time"`
-	UpdateBy           string                              `json:"update_by"`
-	Pipelines          []string                            `json:"pipelines"`
-	ProductName        string                              `json:"productName"`
-	ClusterID          string                              `json:"cluster_id"`
-	Infrastructure     string                              `json:"infrastructure"`
+	ID             string                              `json:"id"`
+	Name           string                              `json:"name"`
+	Targets        []*commonmodels.ServiceModuleTarget `json:"targets"`
+	KeyVals        []*commonmodels.KeyVal              `json:"key_vals"`
+	Repos          []*types.Repository                 `json:"repos"`
+	UpdateTime     int64                               `json:"update_time"`
+	UpdateBy       string                              `json:"update_by"`
+	ProductName    string                              `json:"productName"`
+	ClusterID      string                              `json:"cluster_id"`
+	Infrastructure string                              `json:"infrastructure"`
 }
 
 type ServiceModuleAndBuildResp struct {
@@ -91,7 +86,7 @@ func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.
 		}
 	}
 
-	commonservice.EnsureResp(resp)
+	commonservice.EnsureBuildResp(resp)
 
 	return resp, nil
 }
@@ -107,12 +102,6 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	}
 
 	currentProductBuilds, err := commonrepo.NewBuildColl().List(opt)
-	if err != nil {
-		log.Errorf("[Pipeline.List] %s error: %v", name, err)
-		return nil, e.ErrListBuildModule.AddErr(err)
-	}
-	// 获取全部 pipeline
-	pipes, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{IsPreview: true})
 	if err != nil {
 		log.Errorf("[Pipeline.List] %s error: %v", name, err)
 		return nil, e.ErrListBuildModule.AddErr(err)
@@ -137,18 +126,9 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 			UpdateTime:     build.UpdateTime,
 			UpdateBy:       build.UpdateBy,
 			ProductName:    build.ProductName,
-			Pipelines:      []string{},
 			Infrastructure: build.Infrastructure,
 		}
 
-		for _, pipe := range pipes {
-			// current build module used by this pipeline
-			for _, serviceModuleTarget := range b.Targets {
-				if serviceModuleTarget.ServiceModule == pipe.Target {
-					b.Pipelines = append(b.Pipelines, pipe.Name)
-				}
-			}
-		}
 		resp = append(resp, b)
 	}
 
@@ -192,34 +172,8 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
 	for _, serviceTmpl := range services {
 		if serviceTmpl.Type == setting.PMDeployType {
-			buildModule, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName})
-			if err != nil {
-				log.Errorf("find build module info error: %v", err)
-				continue
-			}
-			build := &BuildResp{
-				ID:                 buildModule.ID.Hex(),
-				Name:               buildModule.Name,
-				KeyVals:            buildModule.PreBuild.Envs,
-				DeployArtifactType: buildModule.DeployArtifactType,
-				DeployKeyVals:      buildModule.PreDeploy.Envs,
-				Repos:              buildModule.Repos,
-				ClusterID:          buildModule.PreBuild.ClusterID,
-				Infrastructure:     buildModule.Infrastructure,
-			}
-			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
-				ServiceWithModule: commonmodels.ServiceWithModule{
-					ServiceName:   serviceTmpl.ServiceName,
-					ServiceModule: serviceTmpl.ServiceName,
-				},
-				ModuleBuilds: []*BuildResp{build},
-			})
-			continue
-		}
-		for _, container := range serviceTmpl.Containers {
 			opt := &commonrepo.BuildListOption{
 				ServiceName: serviceTmpl.ServiceName,
-				Targets:     []string{container.Name},
 				ProductName: productName,
 			}
 
@@ -227,58 +181,101 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 			if err != nil {
 				return nil, e.ErrListBuildModule.AddErr(err)
 			}
-			var resp []*BuildResp
-			for _, build := range buildModules {
-				if excludeJenkins && build.JenkinsBuild != nil {
-					continue
-				}
-				// get build env vars when it's a template build
-				if build.TemplateID != "" {
-					var templateEnvs commonmodels.KeyValList
-					buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-						ID: build.TemplateID,
-					})
-					// if template not found, envs are empty, but do not block user.
-					if err != nil {
-						log.Errorf("build job: %s, template not found", build.Name)
-					} else {
-						templateEnvs = buildTemplate.PreBuild.Envs
-					}
 
-					for _, target := range build.Targets {
-						if target.ServiceModule == container.Name && target.ServiceName == serviceTmpl.ServiceName {
-							build.PreBuild.Envs = target.Envs
-							build.Repos = target.Repos
-						}
-					}
-					build.PreBuild.ClusterID = buildTemplate.PreBuild.ClusterID
-					build.Infrastructure = buildTemplate.Infrastructure
-					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), build.PreBuild.Envs.ToRuntimeList()).ToKVList()
-				}
-				configuredKV := build.PreBuild.Envs.ToRuntimeList()
-				if err := commonservice.EncryptKeyVals(encryptedKey, configuredKV, log); err != nil {
-					return serviceModuleAndBuildResp, err
-				}
-				resp = append(resp, &BuildResp{
-					ID:             build.ID.Hex(),
-					Name:           build.Name,
-					KeyVals:        configuredKV.ToKVList(),
-					Repos:          build.Repos,
-					ClusterID:      build.PreBuild.ClusterID,
-					Infrastructure: build.Infrastructure,
-				})
+			resp, err := fillBuildsDetail(buildModules, serviceTmpl.Type, serviceTmpl.ServiceName, "", excludeJenkins, encryptedKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fill builds detail")
 			}
+
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceWithModule: commonmodels.ServiceWithModule{
 					ServiceName:   serviceTmpl.ServiceName,
-					ServiceModule: container.Name,
+					ServiceModule: serviceTmpl.ServiceName,
 				},
-				ImageName:    container.ImageName,
 				ModuleBuilds: resp,
 			})
+		} else {
+			for _, container := range serviceTmpl.Containers {
+				opt := &commonrepo.BuildListOption{
+					ServiceName: serviceTmpl.ServiceName,
+					Targets:     []string{container.Name},
+					ProductName: productName,
+				}
+
+				buildModules, err := commonrepo.NewBuildColl().List(opt)
+				if err != nil {
+					return nil, e.ErrListBuildModule.AddErr(err)
+				}
+
+				resp, err := fillBuildsDetail(buildModules, serviceTmpl.Type, serviceTmpl.ServiceName, container.Name, excludeJenkins, encryptedKey)
+				if err != nil {
+					return nil, fmt.Errorf("failed to fill builds detail")
+				}
+
+				serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   serviceTmpl.ServiceName,
+						ServiceModule: container.Name,
+					},
+					ImageName:    container.ImageName,
+					ModuleBuilds: resp,
+				})
+			}
 		}
 	}
 	return serviceModuleAndBuildResp, nil
+}
+
+func fillBuildsDetail(buildModules []*commonmodels.Build, serviceType string, serviceName, containerName string, excludeJenkins bool, encryptedKey string) ([]*BuildResp, error) {
+	var resp []*BuildResp
+	for _, build := range buildModules {
+		if excludeJenkins && build.JenkinsBuild != nil {
+			continue
+		}
+		// get build env vars when it's a template build
+		if build.TemplateID != "" {
+			var templateEnvs commonmodels.KeyValList
+			buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+				ID: build.TemplateID,
+			})
+			// if template not found, envs are empty, but do not block user.
+			if err != nil {
+				log.Errorf("build job: %s, template not found", build.Name)
+			} else {
+				templateEnvs = buildTemplate.PreBuild.Envs
+			}
+
+			for _, target := range build.Targets {
+				if serviceType == setting.PMDeployType {
+					if target.ServiceName == serviceName {
+						build.PreBuild.Envs = target.Envs
+						build.Repos = target.Repos
+					}
+				} else {
+					if target.ServiceModule == containerName && target.ServiceName == serviceName {
+						build.PreBuild.Envs = target.Envs
+						build.Repos = target.Repos
+					}
+				}
+			}
+			build.PreBuild.ClusterID = buildTemplate.PreBuild.ClusterID
+			build.Infrastructure = buildTemplate.Infrastructure
+			build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), build.PreBuild.Envs.ToRuntimeList()).ToKVList()
+		}
+		configuredKV := build.PreBuild.Envs.ToRuntimeList()
+		if err := commonservice.EncryptKeyVals(encryptedKey, configuredKV, log.SugaredLogger()); err != nil {
+			return nil, err
+		}
+		resp = append(resp, &BuildResp{
+			ID:             build.ID.Hex(),
+			Name:           build.Name,
+			KeyVals:        configuredKV.ToKVList(),
+			Repos:          build.Repos,
+			ClusterID:      build.PreBuild.ClusterID,
+			Infrastructure: build.Infrastructure,
+		})
+	}
+	return resp, nil
 }
 
 func fillBuildTargetData(build *commonmodels.Build) error {
@@ -323,17 +320,6 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		}
 	}
 
-	templateProdct, err := template.NewProductColl().Find(build.ProductName)
-	if err != nil {
-		return e.ErrCreateBuildModule.AddErr(fmt.Errorf("failed to find product %s, err: %s", build.ProductName, err))
-	}
-	if templateProdct.IsCVMProduct() {
-		err = verifyBuildTargets(build.Name, build.ProductName, build.Targets, log)
-		if err != nil {
-			return e.ErrCreateBuildModule.AddErr(err)
-		}
-	}
-
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Create] %s error: %v", build.Name, err)
 		return e.ErrCreateBuildModule.AddErr(err)
@@ -360,21 +346,6 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		return err
 	}
 
-	templateProdct, err := template.NewProductColl().Find(build.ProductName)
-	if err != nil {
-		return e.ErrCreateBuildModule.AddErr(fmt.Errorf("failed to find product %s, err: %s", build.ProductName, err))
-	}
-	if templateProdct.IsCVMProduct() {
-		err = verifyBuildTargets(build.Name, build.ProductName, build.Targets, log)
-		if err != nil {
-			return e.ErrCreateBuildModule.AddErr(err)
-		}
-	}
-
-	if err = updateCvmService(build, existed); err != nil {
-		log.Warnf("failed to update cvm service,err:%s", err)
-	}
-
 	build.UpdateBy = username
 	build.UpdateTime = time.Now().Unix()
 	if err := commonrepo.NewBuildColl().Update(build); err != nil {
@@ -385,103 +356,11 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	return nil
 }
 
-// TODO how about this situation? multiple builds bound with same service
-func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
-	modifiedSvcBuildMap := make(map[string]string)
-
-	currentServiceModuleKey := sets.NewString()
-	oldServiceModuleKey := sets.NewString()
-	for _, currentServiceModule := range currentBuild.Targets {
-		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
-	}
-	for _, oldServiceModule := range oldBuild.Targets {
-		oldServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule))
-	}
-
-	for _, oldServiceModule := range oldBuild.Targets {
-		if !currentServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule)) {
-			modifiedSvcBuildMap[oldServiceModule.ServiceName] = ""
-		}
-	}
-
-	for _, newSvcModule := range currentBuild.Targets {
-		if !oldServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", newSvcModule.ProductName, newSvcModule.ServiceName, newSvcModule.ServiceModule)) {
-			modifiedSvcBuildMap[newSvcModule.ServiceName] = currentBuild.Name
-		}
-	}
-
-	for serviceName, buildName := range modifiedSvcBuildMap {
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   serviceName,
-			Type:          setting.PMDeployType,
-			ProductName:   currentBuild.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-
-		resp, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			continue
-		}
-
-		rev, err := commonutil.GenerateServiceNextRevision(false, resp.ServiceName, resp.ProductName)
-		if err != nil {
-			return err
-		}
-		resp.Revision = rev
-
-		if err := commonrepo.NewServiceColl().Delete(resp.ServiceName, resp.Type, resp.ProductName, setting.ProductStatusDeleting, resp.Revision); err != nil {
-			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
-			return err
-		}
-		resp.BuildName = buildName
-		if err := commonrepo.NewServiceColl().Create(resp); err != nil {
-			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
 func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 	if len(name) == 0 {
 		return e.ErrDeleteBuildModule.AddDesc("empty name")
 	}
 
-	existed, err := FindBuild(name, productName, log)
-	if err != nil {
-		log.Errorf("[Build.Delete] %s error: %v", name, err)
-		return e.ErrDeleteBuildModule.AddErr(err)
-	}
-
-	// 如果使用过编译模块
-	if len(existed.Targets) != 0 {
-		targets := sets.String{}
-		for _, target := range existed.Targets {
-			if !targets.Has(target.ServiceModule) {
-				targets.Insert(target.ServiceModule)
-			}
-		}
-		opt := &commonrepo.PipelineListOption{
-			Targets: targets.List(),
-		}
-
-		// 获取全部 pipeline
-		pipes, err := commonrepo.NewPipelineColl().List(opt)
-		if err != nil {
-			log.Errorf("[Pipeline.List] %s error: %v", name, err)
-			return e.ErrDeleteBuildModule.AddErr(err)
-		}
-
-		if len(pipes) > 0 {
-			var pipeNames []string
-			for _, pipe := range pipes {
-				pipeNames = append(pipeNames, pipe.Name)
-			}
-			msg := fmt.Sprintf("build module used by pipelines %v", pipeNames)
-			return e.ErrDeleteBuildModule.AddDesc(msg)
-		}
-	}
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{BuildName: name, ProductName: productName})
 	serviceNames := make([]string, 0)
 	for _, service := range services {
@@ -490,7 +369,7 @@ func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 	if len(serviceNames) > 0 {
 		return e.ErrDeleteBuildModule.AddDesc(fmt.Sprintf("该构建被服务 [%s] 引用，请解除引用之后再做删除!", strings.Join(serviceNames, ",")))
 	}
-	// 删除服务配置，检查工作流是否有引用该编译模板，需要二次确认
+
 	if err := commonrepo.NewBuildColl().Delete(name, productName); err != nil {
 		log.Errorf("[Build.Delete] %s error: %v", name, err)
 		return e.ErrDeleteBuildModule.AddErr(err)
@@ -566,7 +445,6 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 			continue
 		}
 		args.Revision = rev
-		args.BuildName = ""
 
 		if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
 			continue
@@ -583,28 +461,11 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 			continue
 		}
 		args.Revision = rev
-		args.BuildName = name
 
 		if err := commonrepo.NewServiceColl().Create(args); err != nil {
 			continue
 		}
 	}
-}
-
-func UpdateBuildTargets(name, productName string, targets []*commonmodels.ServiceModuleTarget, log *zap.SugaredLogger) error {
-	if err := verifyBuildTargets(name, productName, targets, log); err != nil {
-		return e.ErrUpdateBuildParam.AddErr(err)
-	}
-
-	//处理云主机服务组件逻辑
-	handleServiceTargets(name, productName, targets)
-
-	err := commonrepo.NewBuildColl().UpdateTargets(name, productName, targets)
-	if err != nil {
-		log.Errorf("[Build.UpdateServices] %s error: %v", name, err)
-		return e.ErrUpdateBuildServiceTmpls.AddErr(err)
-	}
-	return nil
 }
 
 func correctFields(build *commonmodels.Build) error {
@@ -674,6 +535,22 @@ func correctFields(build *commonmodels.Build) error {
 		}
 	}
 
+	return nil
+}
+
+func UpdateBuildTargets(name, productName string, targets []*commonmodels.ServiceModuleTarget, log *zap.SugaredLogger) error {
+	if err := verifyBuildTargets(name, productName, targets, log); err != nil {
+		return e.ErrUpdateBuildParam.AddErr(err)
+	}
+
+	//处理云主机服务组件逻辑
+	handleServiceTargets(name, productName, targets)
+
+	err := commonrepo.NewBuildColl().UpdateTargets(name, productName, targets)
+	if err != nil {
+		log.Errorf("[Build.UpdateServices] %s error: %v", name, err)
+		return e.ErrUpdateBuildServiceTmpls.AddErr(err)
+	}
 	return nil
 }
 

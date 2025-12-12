@@ -222,7 +222,6 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 						EnvStatuses:  changeEnvStatus,
 						From:         "createEnv",
 					},
-					Build: &commonmodels.Build{Name: serviceTempl.BuildName},
 				}
 
 				if err := commonservice.UpdatePmServiceTemplate(username, args, p.log); err != nil {

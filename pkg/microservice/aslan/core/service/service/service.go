@@ -134,11 +134,8 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	serviceOption := new(ServiceOption)
 
 	serviceModules := make([]*ServiceModule, 0)
-	for _, container := range args.Containers {
-		serviceModule := new(ServiceModule)
-		serviceModule.Container = container
-		serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
-		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+	if args.Type == setting.PMDeployType {
+		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName})
 		if err != nil {
 			return nil, err
 		}
@@ -147,8 +144,29 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		for _, buildObj := range buildObjs {
 			buildNames.Insert(buildObj.Name)
 		}
+
+		serviceModule := new(ServiceModule)
+		serviceModule.Name = args.ServiceName
 		serviceModule.BuildNames = buildNames.List()
+
 		serviceModules = append(serviceModules, serviceModule)
+	} else {
+		for _, container := range args.Containers {
+			serviceModule := new(ServiceModule)
+			serviceModule.Container = container
+			serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
+			buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
+			if err != nil {
+				return nil, err
+			}
+
+			buildNames := sets.NewString()
+			for _, buildObj := range buildObjs {
+				buildNames.Insert(buildObj.Name)
+			}
+			serviceModule.BuildNames = buildNames.List()
+			serviceModules = append(serviceModules, serviceModule)
+		}
 	}
 	serviceOption.ServiceModules = serviceModules
 	serviceOption.SystemVariable = []*Variable{
@@ -1037,22 +1055,6 @@ func DeleteServiceTemplate(serviceName, serviceType, productName string, product
 		// PM service type only support testing service
 		if production {
 			return e.ErrDeleteTemplate.AddDesc("PM service type only support testing service")
-		}
-
-		if serviceTmpl, err := commonservice.GetServiceTemplate(
-			serviceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, false, log,
-		); err == nil {
-			if serviceTmpl.BuildName != "" {
-				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
-				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, ProductName: productName}); err == nil {
-					for _, target := range preBuild.Targets {
-						if target.ServiceName != serviceName {
-							updateTargets = append(updateTargets, target)
-						}
-					}
-					_ = commonrepo.NewBuildColl().UpdateTargets(serviceTmpl.BuildName, productName, updateTargets)
-				}
-			}
 		}
 	}
 
