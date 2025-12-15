@@ -88,7 +88,9 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 			larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
 		}).Build(),
 	)
-	for i, node := range arg.Nodes {
+
+	i := 0
+	for _, node := range arg.Nodes {
 		if node.Type == ApproveTypeStart || node.Type == ApproveTypeEnd {
 			continue
 		}
@@ -104,6 +106,7 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 			Key(approvalNodeApproveI18NKey(i)).
 			Value(approvalNodeNameValue(i)).
 			Build())
+		i++
 	}
 	larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`END`).Ccer([]*larkapproval.ApprovalApproverCcer{
 		larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
@@ -209,7 +212,9 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 
 	ccNodeList := make([]*larkapproval.NodeCc, 0)
 	approverNodeList := make([]*larkapproval.NodeApprover, 0)
-	for i, node := range args.Nodes {
+
+	i := 0
+	for _, node := range args.Nodes {
 		if (node.Type == ApproveTypeStart || node.Type == ApproveTypeEnd) && len(node.CcerIDList) > 0 {
 			if len(node.CcerIDList) == 0 {
 				continue
@@ -228,6 +233,7 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 				Key(ApprovalNodeIDKey(i)).
 				Value(node.ApproverIDList).
 				Build())
+			i++
 		}
 	}
 

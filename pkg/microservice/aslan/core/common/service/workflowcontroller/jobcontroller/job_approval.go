@@ -333,13 +333,17 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		userUpdated := false
 		allResultMap := larkservice.GetUserApprovalResults(instance)
 		nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
-		for i, node := range larkApproval.ApprovalNodes {
-			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
 
+		// i is used to index the node
+		// it starts from -1 because the cc node is not included in the approval nodes
+		i := -1
+		for _, node := range larkApproval.ApprovalNodes {
+			// cc node
+			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
 				for _, user := range node.CcUsers {
 					userInfo, err := client.GetUserInfoByID(user.ID, setting.LarkUserOpenID)
 					if err != nil {
-						return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+						return false, fmt.Errorf("get cc user info %s failed, error: %s", userID, err)
 					}
 
 					user.Name = userInfo.Name
@@ -351,11 +355,14 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				continue
 			}
 
+			// approver node
+			i++
 			resultMap, ok := allResultMap[lark.ApprovalNodeIDKey(i)]
 			if !ok {
 				continue
 			}
 
+			// if the node is already approved or rejected, skip the update
 			if node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusApprove {
 				for _, user := range node.ApproveUsers {
 					delete(resultMap, user.ID)
@@ -363,6 +370,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				continue
 			}
 
+			// update the approval user information
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && (user.RejectOrApprove == "" || user.RejectOrApprove == config.ApprovalStatusDone) {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
@@ -389,7 +397,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 									if approvalUserMap[userID] == nil {
 										userInfo, err := client.GetUserInfoByID(userID, setting.LarkUserOpenID)
 										if err != nil {
-											return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+											return false, fmt.Errorf("get redirected user info %s failed, error: %s", userID, err)
 										}
 
 										redirectedUser := &commonmodels.LarkApprovalUser{
@@ -441,7 +449,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 
 				userInfo, err := client.GetUserInfoByID(userID, setting.LarkUserOpenID)
 				if err != nil {
-					return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+					return false, fmt.Errorf("get result user info %s failed, error: %s", userID, err)
 				}
 
 				user.UserInfo = lark.UserInfo{
