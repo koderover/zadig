@@ -106,7 +106,7 @@ func (j DeployJobController) Validate(isExecution bool) error {
 
 		currJobSpec := new(commonmodels.ZadigDeployJobSpec)
 		if err := commonmodels.IToi(latestJob.Spec, currJobSpec); err != nil {
-			return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+			return fmt.Errorf("failed to decode zadig deploy job spec, error: %s", err)
 		}
 
 		if j.jobSpec.Env != currJobSpec.Env && currJobSpec.EnvSource == config.ParamSourceFixed {

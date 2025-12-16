@@ -1837,6 +1837,7 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 					Source:              spec.Source,
 					JobName:             spec.JobName,
 					Env:                 spec.Env,
+					EnvSource:           spec.EnvSource,
 					Production:          spec.Production,
 					EnvAlias:            spec.EnvAlias,
 					RefRepos:            spec.RefRepos,

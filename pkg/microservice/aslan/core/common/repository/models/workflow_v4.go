@@ -501,8 +501,9 @@ type ServiceAndVMDeploy struct {
 
 type ZadigVMDeployJobSpec struct {
 	Env                        string                         `bson:"env"                    yaml:"env"                    json:"env"`
-	Production                 bool                           `bson:"-"                      yaml:"-"                  json:"production"`
-	EnvAlias                   string                         `bson:"-"                      yaml:"-"                         json:"env_alias"`
+	Production                 bool                           `bson:"-"                      yaml:"-"                      json:"production"`
+	EnvAlias                   string                         `bson:"-"                      yaml:"-"                      json:"env_alias"`
+	EnvSource                  config.ParamSourceType         `bson:"env_source"             yaml:"env_source"             json:"env_source"`
 	RefRepos                   bool                           `bson:"ref_repos"              yaml:"ref_repos"                   json:"ref_repos"`
 	EnvOptions                 []*ZadigVMDeployEnvInformation `bson:"-"                      yaml:"env_options"            json:"env_options"`
 	S3StorageID                string                         `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`

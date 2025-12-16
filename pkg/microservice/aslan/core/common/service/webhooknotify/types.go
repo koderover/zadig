@@ -428,6 +428,8 @@ type OpenAPIWorkflowVMDeployJobSpec struct {
 	Production bool `json:"production"`
 	// 环境别名
 	EnvAlias string `json:"env_alias"`
+	// 环境来源
+	EnvSource config.ParamSourceType `json:"env_source"`
 	// 是否引用所选任务代码信息
 	RefRepos bool `json:"ref_repos"`
 	// 服务和 VM 部署列表
