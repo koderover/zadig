@@ -54,7 +54,7 @@ func (c *SAEColl) EnsureIndex(ctx context.Context) error {
 		Keys:    bson.M{"name": 1},
 		Options: options.Index().SetUnique(true),
 	}
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

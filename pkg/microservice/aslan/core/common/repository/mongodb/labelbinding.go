@@ -76,7 +76,7 @@ func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(true),
 		},
 	}
-	_, err := c.Indexes().CreateMany(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 
 	return err
 }

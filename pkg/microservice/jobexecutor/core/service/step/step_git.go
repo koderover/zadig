@@ -118,6 +118,8 @@ func (s *GitStep) runGitCmds() error {
 
 	// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
 	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+	// Fix "dubious ownership" error by marking all directories as safe
+	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("safe.directory", "*"), DisableTrace: true})
 	var tokens []string
 	var hostNames = sets.NewString()
 	for _, repo := range s.spec.Repos {
