@@ -1678,6 +1678,7 @@ type CustomField struct {
 	Executor               int            `bson:"executor"                            json:"executor"`
 	Remark                 int            `bson:"remark"                              json:"remark"`
 	Branch                 int            `bson:"branch"                              json:"branch"`
+	LarkWorkItemLink       int            `bson:"lark_work_item_link"                 json:"lark_work_item_link"`
 	BuildServiceComponent  map[string]int `bson:"build_service_component,omitempty"   json:"build_service_component,omitempty"`
 	BuildCodeMsg           map[string]int `bson:"build_code_msg,omitempty"            json:"build_code_msg,omitempty"`
 	DeployServiceComponent map[string]int `bson:"deploy_service_component,omitempty"  json:"deploy_service_component,omitempty"`

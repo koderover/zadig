@@ -66,8 +66,11 @@ type WorkflowTask struct {
 	ApprovalTicketID    string                        `bson:"approval_ticket_id"        json:"approval_ticket_id"`
 	ApprovalID          string                        `bson:"approval_id"               json:"approval_id"`
 
-	LarkWorkItemTypeKey string `bson:"lark_workitem_type_key"    json:"lark_workitem_type_key"`
-	LarkWorkItemID      string `bson:"lark_workitem_id"          json:"lark_workitem_id"`
+	LarkProjectKey        string `bson:"lark_project_key"          json:"lark_project_key"`
+	LarkProjectSimpleName string `bson:"lark_project_simple_name"  json:"lark_project_simple_name"`
+	LarkWorkItemTypeKey   string `bson:"lark_workitem_type_key"    json:"lark_workitem_type_key"`
+	LarkWorkItemAPIName   string `bson:"lark_workitem_api_name"    json:"lark_workitem_api_name"`
+	LarkWorkItemID        string `bson:"lark_workitem_id"          json:"lark_workitem_id"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -139,20 +142,23 @@ type TaskJobInfo struct {
 }
 
 type WorkflowTaskPreview struct {
-	TaskID              int64           `bson:"task_id"               json:"task_id"`
-	TaskCreator         string          `bson:"task_creator"          json:"task_creator"`
-	ProjectName         string          `bson:"project_name"          json:"project_name"`
-	WorkflowName        string          `bson:"workflow_name"         json:"workflow_name"`
-	WorkflowDisplayName string          `bson:"workflow_display_name" json:"workflow_display_name"`
-	Remark              string          `bson:"remark"                json:"remark"`
-	Status              config.Status   `bson:"status"                json:"status"`
-	Reverted            bool            `bson:"reverted"              json:"reverted"`
-	CreateTime          int64           `bson:"create_time"           json:"create_time,omitempty"`
-	StartTime           int64           `bson:"start_time"            json:"start_time,omitempty"`
-	EndTime             int64           `bson:"end_time"              json:"end_time,omitempty"`
-	WorkflowArgs        *WorkflowV4     `bson:"workflow_args"         json:"-"`
-	Stages              []*StagePreview `bson:"stages"                json:"stages,omitempty"`
-	Hash                string          `bson:"hash"                  json:"hash"`
+	TaskID                int64           `bson:"task_id"                   json:"task_id"`
+	TaskCreator           string          `bson:"task_creator"              json:"task_creator"`
+	ProjectName           string          `bson:"project_name"              json:"project_name"`
+	WorkflowName          string          `bson:"workflow_name"             json:"workflow_name"`
+	WorkflowDisplayName   string          `bson:"workflow_display_name"     json:"workflow_display_name"`
+	Remark                string          `bson:"remark"                    json:"remark"`
+	Status                config.Status   `bson:"status"                    json:"status"`
+	Reverted              bool            `bson:"reverted"                  json:"reverted"`
+	CreateTime            int64           `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime             int64           `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime               int64           `bson:"end_time"                  json:"end_time,omitempty"`
+	WorkflowArgs          *WorkflowV4     `bson:"workflow_args"             json:"-"`
+	Stages                []*StagePreview `bson:"stages"                    json:"stages,omitempty"`
+	LarkProjectSimpleName string          `bson:"lark_project_simple_name"  json:"lark_project_simple_name"`
+	LarkWorkItemAPIName   string          `bson:"lark_workitem_api_name"    json:"lark_workitem_api_name"`
+	LarkWorkItemID        string          `bson:"lark_workitem_id"          json:"lark_workitem_id"`
+	Hash                  string          `bson:"hash"                      json:"hash"`
 }
 
 type StagePreview struct {
@@ -445,15 +451,17 @@ type JobIstioRollbackSpec struct {
 }
 
 type MeegoTransitionSpec struct {
-	Link            string                      `bson:"link"               json:"link"               yaml:"link"`
-	Source          string                      `bson:"source"             json:"source"             yaml:"source"`
-	ProjectKey      string                      `bson:"project_key"        json:"project_key"        yaml:"project_key"`
-	ProjectName     string                      `bson:"project_name"       json:"project_name"       yaml:"project_name"`
-	MeegoID         string                      `bson:"meego_id"           json:"meego_id"           yaml:"meego_id"`
-	WorkItemType    string                      `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
-	WorkItemTypeKey string                      `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
-	StatusWorkItems []*MeegoWorkItemTransition  `bson:"work_items"         json:"work_items"         yaml:"work_items"`
-	NodeWorkItems   []*MeegoWorkItemNodeOperate `bson:"node_work_items"       json:"node_work_items"       yaml:"node_work_items"`
+	Link                string                      `bson:"link"                     json:"link"                     yaml:"link"`
+	Source              string                      `bson:"source"                   json:"source"                   yaml:"source"`
+	ProjectKey          string                      `bson:"project_key"              json:"project_key"              yaml:"project_key"`
+	ProjectName         string                      `bson:"project_name"             json:"project_name"             yaml:"project_name"`
+	SimpleName          string                      `bson:"simple_name"              json:"simple_name"              yaml:"simple_name"`
+	MeegoID             string                      `bson:"meego_id"                 json:"meego_id"                 yaml:"meego_id"`
+	WorkItemType        string                      `bson:"work_item_type"           json:"work_item_type"           yaml:"work_item_type"`
+	WorkItemTypeKey     string                      `bson:"work_item_type_key"       json:"work_item_type_key"       yaml:"work_item_type_key"`
+	WorkItemTypeAPIName string                      `bson:"work_item_type_api_name"  json:"work_item_type_api_name" yaml:"work_item_type_api_name"`
+	StatusWorkItems     []*MeegoWorkItemTransition  `bson:"work_items"               json:"work_items"               yaml:"work_items"`
+	NodeWorkItems       []*MeegoWorkItemNodeOperate `bson:"node_work_items"          json:"node_work_items"          yaml:"node_work_items"`
 }
 
 type JobTaskGrayRollbackSpec struct {

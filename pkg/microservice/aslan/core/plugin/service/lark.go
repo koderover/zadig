@@ -24,6 +24,7 @@ import (
 	"time"
 
 	sdkcore "github.com/larksuite/project-oapi-sdk-golang/core"
+	"github.com/larksuite/project-oapi-sdk-golang/service/project"
 	"github.com/larksuite/project-oapi-sdk-golang/v2/service/workitem"
 	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -616,12 +617,51 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 }
 
 func ExecuteLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemTypeKey, workItemID string, args *models.WorkflowV4) error {
-	_, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
-		Name:                ctx.UserName,
-		Account:             ctx.Account,
-		UserID:              ctx.UserID,
-		LarkWorkItemTypeKey: workItemTypeKey,
-		LarkWorkItemID:      workItemID,
+	projectKey := ctx.LarkPlugin.ProjectKey
+	client := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	resp, err := client.Client.Project.GetProjectDetail(ctx, project.NewGetProjectDetailReqBuilder().
+		ProjectKeys([]string{projectKey}).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get project detail: %w", err)
+	}
+	if resp.Code() != 0 {
+		return fmt.Errorf("failed to get project detail, code: %d, message: %s", resp.Code(), resp.ErrMsg)
+	}
+	if resp.Data[projectKey] == nil {
+		return fmt.Errorf("project not found")
+	}
+
+	projectWorkItemTypes, err := client.Client.Project.ListProjectWorkItemType(ctx, project.NewListProjectWorkItemTypeReqBuilder().
+		ProjectKey(projectKey).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list project work item type: %w", err)
+	}
+
+	workitemTypeApiName := workItemTypeKey
+	for _, workitemType := range projectWorkItemTypes.Data {
+		if workitemType.TypeKey == workItemTypeKey {
+			workitemTypeApiName = workitemType.APIName
+			break
+		}
+	}
+
+	_, err = workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name:                  ctx.UserName,
+		Account:               ctx.Account,
+		UserID:                ctx.UserID,
+		LarkProjectKey:        projectKey,
+		LarkProjectSimpleName: resp.Data[projectKey].SimpleName,
+		LarkWorkItemTypeKey:   workItemTypeKey,
+		LarkWorkItemAPIName:   workitemTypeApiName,
+		LarkWorkItemID:        workItemID,
 	}, args, ctx.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow task: %w", err)

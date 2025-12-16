@@ -17,6 +17,7 @@
 package larkplugin
 
 import (
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
@@ -27,5 +28,6 @@ func GetLarkPluginBaseUrl(larkType string) string {
 		return ""
 	}
 
+	log.Errorf("failed to get lark plugin base url, lark type: %s", larkType)
 	return ""
 }
