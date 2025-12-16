@@ -64,7 +64,7 @@ func (c *IMAppColl) EnsureIndex(ctx context.Context) error {
 	// drop unique index on app_id
 	_, _ = c.Indexes().DropOne(ctx, "app_id_1")
 
-	_, err := c.Indexes().CreateMany(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

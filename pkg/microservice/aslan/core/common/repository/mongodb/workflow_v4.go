@@ -78,7 +78,7 @@ func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 	}
-	_, err := c.Indexes().CreateMany(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 
 	return err
 }

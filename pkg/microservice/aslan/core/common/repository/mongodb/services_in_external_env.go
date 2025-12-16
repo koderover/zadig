@@ -75,7 +75,7 @@ func (c *ServicesInExternalEnvColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(ctx, mods)
+	_, err := c.Indexes().CreateMany(ctx, mods, options.CreateIndexes().SetCommitQuorumMajority())
 
 	return err
 }
