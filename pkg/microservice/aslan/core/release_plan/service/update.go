@@ -289,9 +289,11 @@ func (u *ManagerUpdater) Verb() string {
 }
 
 type CreateReleaseJobUpdater struct {
-	Name string                    `json:"name"`
-	Type config.ReleasePlanJobType `json:"type"`
-	Spec interface{}               `json:"spec"`
+	Name      string                    `json:"name"`
+	Type      config.ReleasePlanJobType `json:"type"`
+	Manager   string                    `json:"manager"`
+	ManagerID string                    `json:"manager_id"`
+	Spec      interface{}               `json:"spec"`
 }
 
 func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobUpdater, error) {
@@ -305,10 +307,12 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	before, after = nil, u
 	job := &models.ReleaseJob{
-		ID:   uuid.New().String(),
-		Name: u.Name,
-		Type: u.Type,
-		Spec: u.Spec,
+		ID:        uuid.New().String(),
+		Name:      u.Name,
+		Manager:   u.Manager,
+		ManagerID: u.ManagerID,
+		Type:      u.Type,
+		Spec:      u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
 	return
@@ -335,10 +339,12 @@ func (u *CreateReleaseJobUpdater) Verb() string {
 }
 
 type UpdateReleaseJobUpdater struct {
-	ID   string                    `json:"id"`
-	Name string                    `json:"name"`
-	Type config.ReleasePlanJobType `json:"type"`
-	Spec interface{}               `json:"spec"`
+	ID        string                    `json:"id"`
+	Name      string                    `json:"name"`
+	Manager   string                    `json:"manager"`
+	ManagerID string                    `json:"manager_id"`
+	Type      config.ReleasePlanJobType `json:"type"`
+	Spec      interface{}               `json:"spec"`
 }
 
 func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobUpdater, error) {
@@ -357,6 +363,8 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			}
 			before, after = job, u
 			job.Name = u.Name
+			job.Manager = u.Manager
+			job.ManagerID = u.ManagerID
 			job.Spec = u.Spec
 			job.Updated = true
 			return

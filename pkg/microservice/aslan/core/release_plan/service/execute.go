@@ -55,6 +55,7 @@ func NewReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobA
 type TextReleaseJobExecutor struct {
 	ID         string
 	ExecutedBy string
+	Ctx        *ExecuteReleaseJobContext
 	Spec       TextReleaseJobSpec
 }
 
@@ -69,6 +70,7 @@ func NewTextReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteRelease
 	}
 	executor.ID = args.ID
 	executor.ExecutedBy = c.UserName
+	executor.Ctx = c
 	return &executor, nil
 }
 
@@ -78,9 +80,16 @@ func (e *TextReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if job.ID != e.ID {
 			continue
 		}
+
 		if err := models.IToi(job.Spec, spec); err != nil {
 			return errors.Wrap(err, "invalid spec")
 		}
+
+		err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.ExecutedBy, e.Ctx.UserID, e.Ctx.AuthResources)
+		if err != nil {
+			return err
+		}
+
 		if job.Status != config.ReleasePlanJobStatusTodo {
 			return errors.Errorf("job %s status is not todo", job.Name)
 		}
@@ -119,12 +128,19 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if job.ID != e.ID {
 			continue
 		}
+
 		if err := models.IToi(job.Spec, spec); err != nil {
 			return errors.Wrap(err, "invalid spec")
 		}
 		if spec.Workflow == nil {
 			return errors.Errorf("workflow is nil")
 		}
+
+		err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.Ctx.UserName, e.Ctx.UserID, e.Ctx.AuthResources)
+		if err != nil {
+			return err
+		}
+
 		// workflow support retry after failed
 		if job.Status != config.ReleasePlanJobStatusTodo && job.Status != config.ReleasePlanJobStatusFailed {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
@@ -155,4 +171,21 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		return nil
 	}
 	return errors.Errorf("job %s not found", e.ID)
+}
+
+func jobManagerAuth(planName, planManageID string, job *models.ReleaseJob, userName string, userID string, authResources *user.AuthorizedResources) error {
+	if job.ManagerID != "" {
+		if job.ManagerID != userID && planManageID != userID && !authResources.IsSystemAdmin {
+			return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
+		}
+	} else {
+		if planManageID == "" {
+			return errors.Errorf("plan manager is not set")
+		}
+
+		if planManageID != userID && !authResources.IsSystemAdmin {
+			return errors.Errorf("user %s is not the manager of the plan %s", userName, planName)
+		}
+	}
+	return nil
 }

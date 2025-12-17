@@ -86,10 +86,12 @@ func (ReleasePlan) TableName() string {
 }
 
 type ReleaseJob struct {
-	ID   string                    `bson:"id"       yaml:"id"                   json:"id"`
-	Name string                    `bson:"name"       yaml:"name"                   json:"name"`
-	Type config.ReleasePlanJobType `bson:"type"       yaml:"type"                   json:"type"`
-	Spec interface{}               `bson:"spec"       yaml:"spec"                   json:"spec"`
+	ID        string                    `bson:"id"            yaml:"id"                     json:"id"`
+	Name      string                    `bson:"name"          yaml:"name"                   json:"name"`
+	Manager   string                    `bson:"manager"       yaml:"manager"                json:"manager"`
+	ManagerID string                    `bson:"manager_id"    yaml:"manager_id"             json:"manager_id"`
+	Type      config.ReleasePlanJobType `bson:"type"          yaml:"type"                   json:"type"`
+	Spec      interface{}               `bson:"spec"          yaml:"spec"                   json:"spec"`
 
 	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
 }
