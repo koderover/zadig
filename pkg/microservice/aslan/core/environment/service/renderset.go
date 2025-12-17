@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
@@ -140,7 +141,16 @@ func GetMergedYamlContent(arg *YamlContentRequestArg) (string, error) {
 }
 
 func GetGlobalVariables(productName, envName string, production bool, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to find template product %s, err: %w", productName, err)
+	}
+	projectGlobalVarMap := make(map[string]*commontypes.ServiceVariableKV)
+	for _, kv := range project.GlobalVariables {
+		projectGlobalVarMap[kv.Key] = kv
+	}
+
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    envName,
 		Production: &production,
@@ -153,5 +163,11 @@ func GetGlobalVariables(productName, envName string, production bool, log *zap.S
 		return nil, 0, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
-	return productInfo.GlobalVariables, productInfo.UpdateTime, nil
+	for _, kv := range env.GlobalVariables {
+		if _, ok := projectGlobalVarMap[kv.Key]; ok {
+			kv.Options = projectGlobalVarMap[kv.Key].Options
+		}
+	}
+
+	return env.GlobalVariables, env.UpdateTime, nil
 }
