@@ -1070,7 +1070,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 			break
 		}
 
-		serviceTmpl.Containers, err = commonutil.ParseImagesByRules(valuesMap, matchRules, nil)
+		serviceTmpl.Containers, err = commonutil.ParseImagesByRules(valuesMap, matchRules)
 		if err != nil {
 			break
 		}
