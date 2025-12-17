@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
@@ -225,6 +226,10 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 					logError(c.job, err.Error(), c.logger)
 					return
 				}
+
+				if lo.Contains(config.FailedStatus(), c.job.Status) {
+					return
+				}
 			}
 			break
 		case <-timeout:
@@ -297,7 +302,7 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 	if err != nil {
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}
-	return config.StatusPassed, nil
+	return status, nil
 }
 
 func (c *HelmDeployJobCtl) timeout() int {
