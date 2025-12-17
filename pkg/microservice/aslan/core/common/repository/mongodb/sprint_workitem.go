@@ -71,7 +71,7 @@ func (c *SprintWorkItemColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(mongotool.SessionContext(ctx, c.Session), mod)
+	_, err := c.Indexes().CreateMany(mongotool.SessionContext(ctx, c.Session), mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

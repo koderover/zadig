@@ -67,7 +67,7 @@ func (c *SprintWorkItemActivityColl) EnsureIndex(ctx context.Context) error {
 		},
 		Options: options.Index().SetUnique(false),
 	}
-	_, err := c.Indexes().CreateOne(mongotool.SessionContext(ctx, c.Session), index)
+	_, err := c.Indexes().CreateOne(mongotool.SessionContext(ctx, c.Session), index, options.CreateIndexes().SetCommitQuorumMajority())
 
 	return err
 }

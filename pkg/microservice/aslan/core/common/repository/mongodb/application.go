@@ -53,7 +53,7 @@ func (c *ApplicationColl) EnsureIndex(ctx context.Context) error {
 		{Keys: bson.D{{Key: "update_time", Value: -1}}},
 		{Keys: bson.D{{Key: "repository.codehost_id", Value: 1}}},
 	}
-	_, err := c.Indexes().CreateMany(ctx, idxes)
+	_, err := c.Indexes().CreateMany(ctx, idxes, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 
@@ -82,7 +82,7 @@ func (c *ApplicationColl) CreateCustomFieldUniqueIndex(ctx context.Context, key 
 			SetUnique(true).
 			SetPartialFilterExpression(bson.M{fieldPath: bson.M{"$exists": true, "$ne": nil}}),
 	}
-	_, err := c.Indexes().CreateOne(ctx, idx)
+	_, err := c.Indexes().CreateOne(ctx, idx, options.CreateIndexes().SetCommitQuorumMajority())
 	// If an index with the same definition/name exists, CreateOne is idempotent; return err as-is otherwise
 	return err
 }
@@ -246,7 +246,7 @@ func NewApplicationFieldDefinitionColl() *ApplicationFieldDefinitionColl {
 }
 func (c *ApplicationFieldDefinitionColl) GetCollectionName() string { return c.coll }
 func (c *ApplicationFieldDefinitionColl) EnsureIndex(ctx context.Context) error {
-	_, err := c.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "key", Value: 1}}, Options: options.Index().SetUnique(true)}})
+	_, err := c.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "key", Value: 1}}, Options: options.Index().SetUnique(true)}}, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 func (c *ApplicationFieldDefinitionColl) Create(ctx context.Context, def *commonmodels.ApplicationFieldDefinition) (primitive.ObjectID, error) {
