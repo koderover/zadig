@@ -44,6 +44,7 @@ type ListWorkflowTaskV4Option struct {
 	Skip            int
 	IsSort          bool
 
+	LarkProjectKey      string
 	LarkWorkItemTypeKey string
 	LarkWorkItemID      string
 }
@@ -146,6 +147,9 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	}
 	if opt.Type != "" {
 		query["type"] = opt.Type
+	}
+	if opt.LarkProjectKey != "" {
+		query["lark_project_key"] = opt.LarkProjectKey
 	}
 	if opt.LarkWorkItemTypeKey != "" {
 		query["lark_workitem_type_key"] = opt.LarkWorkItemTypeKey

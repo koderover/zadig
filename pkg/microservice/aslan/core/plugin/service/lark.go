@@ -39,7 +39,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -263,6 +263,7 @@ type LarkWorkitemTypeNode struct {
 	// 节点 ID
 	StateKey string `json:"state_key"`
 	Name     string `json:"name"`
+	Pattern  string `json:"pattern"`
 }
 
 func GetLarkWorkitemTypeNodes(ctx *internalhandler.Context, workitemTypeKey string, templateID int64) (*GetLarkWorkitemTypeNodesResponse, error) {
@@ -288,6 +289,16 @@ func GetLarkWorkitemTypeNodes(ctx *internalhandler.Context, workitemTypeKey stri
 		node := &LarkWorkitemTypeNode{
 			StateKey: *workflowConf.StateKey,
 			Name:     *workflowConf.Name,
+			Pattern:  string(meego.WorkItemPatternNode),
+		}
+		nodeList = append(nodeList, node)
+	}
+
+	for _, stateFlowConfs := range larkResp.Data.StateFlowConfs {
+		node := &LarkWorkitemTypeNode{
+			StateKey: *stateFlowConfs.StateKey,
+			Name:     *stateFlowConfs.Name,
+			Pattern:  string(meego.WorkItemPatternState),
 		}
 		nodeList = append(nodeList, node)
 	}
@@ -362,7 +373,22 @@ func GetLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemType, workIte
 		return nil, fmt.Errorf("failed to query template detail, code: %d, error: %s", larkResp2.Code(), larkResp2.ErrMsg)
 	}
 
-	templateWorkflowConfig := larkResp2.Data.WorkflowConfs
+	templateWorkflowNodes := []*Node{}
+	if *workItem.Pattern == string(meego.WorkItemPatternNode) {
+		for _, workflowConf := range larkResp2.Data.WorkflowConfs {
+			node := &Node{
+				ID: *workflowConf.StateKey,
+			}
+			templateWorkflowNodes = append(templateWorkflowNodes, node)
+		}
+	} else if *workItem.Pattern == string(meego.WorkItemPatternState) {
+		for _, stateFlow := range larkResp2.Data.StateFlowConfs {
+			node := &Node{
+				ID: *stateFlow.StateKey,
+			}
+			templateWorkflowNodes = append(templateWorkflowNodes, node)
+		}
+	}
 
 	workflowConfig, err := mongodb.NewLarkPluginWorkflowConfigColl().GetWorkItemTypeConfig(ctx.LarkPlugin.ProjectKey, workItemType)
 	if err != nil {
@@ -380,21 +406,29 @@ func GetLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemType, workIte
 	NodeIDWorkflowNamesMap := make(map[string][]string)
 	// 用于搜索数据库中节点配置的工作流
 	nodeConfigWorkflows := make([]mongodb.WorkflowV4, 0)
-	for _, node := range templateWorkflowConfig {
-		log.Debugf("template workflow node: %s", *node.StateKey)
+	for _, node := range templateWorkflowNodes {
 		for _, workflowConfigNode := range workflowConfig.Nodes {
-			log.Debugf("db workflow config node: %s", workflowConfigNode.NodeID)
 			if workflowConfigNode.TemplateID != *workItem.TemplateID {
 				continue
 			}
 
 			// 仅列出配置了工作流的节点
-			if *node.StateKey == workflowConfigNode.NodeID {
+			if node.ID == workflowConfigNode.NodeID {
 				isCurrent := false
-				for _, currentNode := range workItem.CurrentNodes {
-					if *node.StateKey == *currentNode.ID {
+
+				if *workItem.Pattern == string(meego.WorkItemPatternNode) {
+					for _, currentNode := range workItem.CurrentNodes {
+						if node.ID == *currentNode.ID {
+							isCurrent = true
+							break
+						}
+					}
+				} else if *workItem.Pattern == string(meego.WorkItemPatternState) {
+					if *workItem.WorkItemStatus.StateKey == node.ID {
 						isCurrent = true
 					}
+				} else {
+					return nil, fmt.Errorf("Unsupport pattern %s", *workItem.Pattern)
 				}
 
 				NodeIDWorkflowMap[workflowConfigNode.NodeID] = &NodeWorkflows{
@@ -416,8 +450,6 @@ func GetLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemType, workIte
 		}
 	}
 
-	log.Debugf("nodeConfigWorkflows: %+v", nodeConfigWorkflows)
-
 	workflows, err := mongodb.NewWorkflowV4Coll().ListByWorkflows(mongodb.ListWorkflowV4Opt{
 		Workflows: nodeConfigWorkflows,
 	})
@@ -429,8 +461,6 @@ func GetLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemType, workIte
 	for _, workflow := range workflows {
 		workflowMap[workflow.Name] = workflow
 	}
-
-	log.Debugf("NodeIDWorkflowNamesMap: %+v", NodeIDWorkflowNamesMap)
 
 	for nodeID, node := range NodeIDWorkflowMap {
 		workflowNames := NodeIDWorkflowNamesMap[nodeID]
@@ -458,8 +488,8 @@ func GetLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemType, workIte
 
 	// 按照templateWorkflowConfig的顺序对NodeIDWorkflowMap进行排序
 	resp := make([]*NodeWorkflows, 0)
-	for _, node := range templateWorkflowConfig {
-		if nodeWorkflows, exists := NodeIDWorkflowMap[*node.StateKey]; exists {
+	for _, node := range templateWorkflowNodes {
+		if nodeWorkflows, exists := NodeIDWorkflowMap[node.ID]; exists {
 			resp = append(resp, nodeWorkflows)
 		}
 	}
@@ -495,6 +525,7 @@ type ListLarkWorkitemWorkflowTaskResponse struct {
 func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey, workItemID, workflowName string, pageNum, pageSize int) (*ListLarkWorkitemWorkflowTaskResponse, error) {
 	tasks, count, err := mongodb.NewworkflowTaskv4Coll().List(&mongodb.ListWorkflowTaskV4Option{
 		WorkflowName:        workflowName,
+		LarkProjectKey:      ctx.LarkPlugin.ProjectKey,
 		LarkWorkItemTypeKey: workItemTypeKey,
 		LarkWorkItemID:      workItemID,
 		Skip:                (pageNum - 1) * pageSize,
