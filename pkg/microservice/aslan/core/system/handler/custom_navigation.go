@@ -55,85 +55,119 @@ func GetSystemNavigation(c *gin.Context) {
 
 func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.NavigationItem) []*commonmodels.NavigationItem {
 	if ctx.Resources.IsSystemAdmin {
-		newItem := make([]*commonmodels.NavigationItem, 0)
-		for _, item := range items {
-			if item.Type == config.NavigationItemTypeFolder {
-				item.Children = filterNavigationItems(ctx, item.Children)
-				newItem = append(newItem, item)
-			} else if item.Key == config.NavigationKeyCustomerDelivery {
-				// if not admin then skip
-				if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
-					continue
-				} else {
-					newItem = append(newItem, item)
-				}
-			} else if item.Key == config.NavigationKeyDataInsight {
-				if err := util.CheckZadigProfessionalLicense(); err != nil {
-					continue
-				} else {
-					newItem = append(newItem, item)
-				}
-			} else {
-				newItem = append(newItem, item)
-			}
-		}
-		return newItem
+		return filterNavigationItemsForAdmin(ctx, items)
 	}
-	newItem := make([]*commonmodels.NavigationItem, 0)
+	return filterNavigationItemsForNonAdmin(ctx, items)
+}
+
+// isProfessionalLicenseRequiredKey returns true if the given key requires a professional license
+func isProfessionalLicenseRequiredKey(key config.NavigationItemKey) bool {
+	switch key {
+	case config.NavigationKeyWorkflows,
+		config.NavigationKeyReleasePlan,
+		config.NavigationKeyBizCatalog,
+		config.NavigationKeyDataInsight:
+		return true
+	default:
+		return false
+	}
+}
+
+func filterNavigationItemsForAdmin(ctx *internalhandler.Context, items []*commonmodels.NavigationItem) []*commonmodels.NavigationItem {
+	newItems := make([]*commonmodels.NavigationItem, 0)
 	for _, item := range items {
 		if item.Type == config.NavigationItemTypeFolder {
-			item.Children = filterNavigationItems(ctx, item.Children)
-			newItem = append(newItem, item)
-		} else if item.Key == config.NavigationKeyReleasePlan {
-			if ctx.Resources.SystemActions.ReleasePlan.View {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyBizCatalog {
-			if ctx.Resources.SystemActions.BusinessDirectory.View {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyTemplateLibrary {
-			if ctx.Resources.SystemActions.Template.View {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyQualityCenter {
-			if ctx.Resources.SystemActions.TestCenter.View {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyArtifactManagement {
-			if ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact || ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyResourceConfiguration {
-			if ctx.Resources.SystemActions.ClusterManagement.View ||
-				ctx.Resources.SystemActions.VMManagement.View ||
-				ctx.Resources.SystemActions.RegistryManagement.View ||
-				ctx.Resources.SystemActions.S3StorageManagement.View ||
-				ctx.Resources.SystemActions.HelmRepoManagement.View ||
-				ctx.Resources.SystemActions.DBInstanceManagement.View {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyDataOverview {
-			if ctx.Resources.SystemActions.DataCenter.ViewOverView {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyDataInsight {
-			if err := util.CheckZadigProfessionalLicense(); err != nil {
-				continue
-			}
-			
-			if ctx.Resources.SystemActions.DataCenter.ViewInsight {
-				newItem = append(newItem, item)
-			}
-		} else if item.Key == config.NavigationKeyCustomerDelivery {
-			// if not admin then skip
-			continue
+			item.Children = filterNavigationItemsForAdmin(ctx, item.Children)
+			newItems = append(newItems, item)
 		} else {
-			// no filter
-			newItem = append(newItem, item)
+			if item.PageType == config.NavigationPageTypePlugin {
+				if err := util.CheckZadigProfessionalLicense(); err != nil {
+					item.Disabled = true
+				}
+				newItems = append(newItems, item)
+			} else {
+				switch item.Key {
+				case config.NavigationKeyCustomerDelivery:
+					if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
+						continue
+					}
+					newItems = append(newItems, item)
+				default:
+					if isProfessionalLicenseRequiredKey(item.Key) {
+						if err := util.CheckZadigProfessionalLicense(); err != nil {
+							item.Disabled = true
+						}
+					}
+					newItems = append(newItems, item)
+				}
+			}
 		}
 	}
-	return newItem
+	return newItems
+}
+
+func filterNavigationItemsForNonAdmin(ctx *internalhandler.Context, items []*commonmodels.NavigationItem) []*commonmodels.NavigationItem {
+	newItems := make([]*commonmodels.NavigationItem, 0)
+	for _, item := range items {
+		if item.Type == config.NavigationItemTypeFolder {
+			item.Children = filterNavigationItemsForNonAdmin(ctx, item.Children)
+			newItems = append(newItems, item)
+		} else {
+			if item.PageType == config.NavigationPageTypePlugin {
+				if err := util.CheckZadigProfessionalLicense(); err != nil {
+					item.Disabled = true
+				}
+				newItems = append(newItems, item)
+			} else {
+				switch item.Key {
+				case config.NavigationKeyCustomerDelivery:
+					// non-admin users cannot access customer delivery
+					continue
+				default:
+					if isProfessionalLicenseRequiredKey(item.Key) {
+						if err := util.CheckZadigProfessionalLicense(); err != nil {
+							item.Disabled = true
+						}
+					}
+					// check authorization
+					if !hasNavigationPermission(ctx, item.Key) {
+						item.Disabled = true
+					}
+					newItems = append(newItems, item)
+				}
+			}
+		}
+	}
+	return newItems
+}
+
+// hasNavigationPermission checks if the user has permission to access the given navigation key
+func hasNavigationPermission(ctx *internalhandler.Context, key config.NavigationItemKey) bool {
+	switch key {
+	case config.NavigationKeyReleasePlan:
+		return ctx.Resources.SystemActions.ReleasePlan.View
+	case config.NavigationKeyBizCatalog:
+		return ctx.Resources.SystemActions.BusinessDirectory.View
+	case config.NavigationKeyTemplateLibrary:
+		return ctx.Resources.SystemActions.Template.View
+	case config.NavigationKeyQualityCenter:
+		return ctx.Resources.SystemActions.TestCenter.View
+	case config.NavigationKeyArtifactManagement:
+		return ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact || ctx.Resources.SystemActions.DeliveryCenter.ViewVersion
+	case config.NavigationKeyResourceConfiguration:
+		return ctx.Resources.SystemActions.ClusterManagement.View ||
+			ctx.Resources.SystemActions.VMManagement.View ||
+			ctx.Resources.SystemActions.RegistryManagement.View ||
+			ctx.Resources.SystemActions.S3StorageManagement.View ||
+			ctx.Resources.SystemActions.HelmRepoManagement.View ||
+			ctx.Resources.SystemActions.DBInstanceManagement.View
+	case config.NavigationKeyDataOverview:
+		return ctx.Resources.SystemActions.DataCenter.ViewOverView
+	case config.NavigationKeyDataInsight:
+		return ctx.Resources.SystemActions.DataCenter.ViewInsight
+	default:
+		return true
+	}
 }
 
 func UpdateSystemNavigation(c *gin.Context) {
