@@ -801,6 +801,7 @@ const (
 	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
+	NavigationKeyWorkflows             NavigationItemKey = "releaseWorkflow"
 )
 
 // Application custom field types

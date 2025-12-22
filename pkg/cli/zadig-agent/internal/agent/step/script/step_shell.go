@@ -164,7 +164,7 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 
 // generate script to save outputs variable to file
 func outputScript(outputsDir string, outputs []string) []string {
-	resp := []string{"set +ex"}
+	resp := []string{"set +eux"}
 	for _, output := range outputs {
 
 		if runtime.GOOS == "windows" {

@@ -46,7 +46,7 @@ func (c *PluginColl) GetCollectionName() string { return c.coll }
 func (c *PluginColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{bson.E{Key: "name", Value: 1}}, Options: options.Index().SetUnique(true)}
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

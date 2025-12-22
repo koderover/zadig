@@ -59,7 +59,7 @@ func (c *HelmRepoColl) EnsureIndex(ctx context.Context) error {
 		Keys:    bson.M{"repo_name": 1},
 		Options: options.Index().SetUnique(false),
 	}
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

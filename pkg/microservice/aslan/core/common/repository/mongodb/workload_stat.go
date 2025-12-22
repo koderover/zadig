@@ -67,7 +67,7 @@ func (c *WorkLoadsStatColl) EnsureIndex(ctx context.Context) error {
 		Options: options.Index().SetUnique(true),
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 	return err
 }
 

@@ -99,7 +99,7 @@ func (c *SAEEnvColl) EnsureIndex(ctx context.Context) error {
 	c.Indexes().DropOne(ctx, "env_name_1_project_name_1")
 	c.Indexes().DropOne(ctx, "env_name_1_project_name_1_update_time_1")
 
-	_, err := c.Indexes().CreateMany(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
 
 	return err
 }
