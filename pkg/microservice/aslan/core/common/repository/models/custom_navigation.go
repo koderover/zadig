@@ -33,7 +33,7 @@ type NavigationItem struct {
 	Icon     string                    `bson:"icon"       json:"icon"`
 	PageType config.NavigationPageType `bson:"page_type"  json:"page_type"`
 	URL      string                    `bson:"url"        json:"url"`
-	Disabled bool                      `bson:"disabled"   json:"disabled"`
+	Disabled bool                      `bson:"-"          json:"disabled"`
 	Children []*NavigationItem         `bson:"children"   json:"children"`
 }
 
