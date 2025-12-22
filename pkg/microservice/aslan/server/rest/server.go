@@ -54,9 +54,9 @@ func (s *engine) injectMiddlewares() {
 	g.Use(ginmiddleware.ProcessLicense())
 	g.Use(ginmiddleware.RegisterRequest())
 	g.Use(ginmiddleware.OperationLogStatus())
-	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
 	g.Use(ginmiddleware.RequestLog(log.NewFileLogger(config.RequestLogFile())))
+	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.GetCollaborationNew())
 	g.Use(gin.Recovery())
 }
