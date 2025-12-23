@@ -115,7 +115,7 @@ func EnsureSecretEnvs(existedKVs []*commonmodels.KeyVal, newKVs []*commonmodels.
 	}
 }
 
-func EnsureResp(build *commonmodels.Build) {
+func EnsureBuildResp(build *commonmodels.Build) {
 	if len(build.Targets) == 0 {
 		build.Targets = make([]*commonmodels.ServiceModuleTarget, 0)
 	}
@@ -175,6 +175,31 @@ func EnsureResp(build *commonmodels.Build) {
 				Envs:  envs,
 			}
 			build.TargetRepos = append(build.TargetRepos, targetRepo)
+		}
+	}
+}
+
+func EnsureDeployResp(deploy *commonmodels.Deploy) {
+	deploy.Repos = deploy.SafeRepos()
+
+	for _, repo := range deploy.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
+
+	if deploy.PreDeploy != nil {
+		if len(deploy.PreDeploy.Installs) == 0 {
+			deploy.PreDeploy.Installs = make([]*commonmodels.Item, 0)
+		}
+
+		if len(deploy.PreDeploy.Envs) == 0 {
+			deploy.PreDeploy.Envs = make([]*commonmodels.KeyVal, 0)
+		}
+
+		// 隐藏用户设置的敏感信息
+		for k := range deploy.PreDeploy.Envs {
+			if deploy.PreDeploy.Envs[k].IsCredential {
+				deploy.PreDeploy.Envs[k].Value = setting.MaskValue
+			}
 		}
 	}
 }

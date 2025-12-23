@@ -33,6 +33,7 @@ type Migration struct {
 	Migration400CollaborationInstance    bool               `bson:"migration_400_collaboration_instance"`
 	Migration400ProjectManagement        bool               `bson:"migration_400_project_management"`
 	Migration400ProjectReleaseMaxHistory bool               `bson:"migration_400_project_release_max_history"`
+	Migration420VMDeploy                 bool               `bson:"migration_420_vm_deploy"`
 	Migration420VMDeployEnvSource        bool               `bson:"migration_420_vm_deploy_env_source"`
 	Error                                string             `bson:"error"`
 }

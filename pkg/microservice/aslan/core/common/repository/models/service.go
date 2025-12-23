@@ -58,7 +58,6 @@ type Service struct {
 	GerritPath         string                           `bson:"gerrit_path,omitempty"          json:"gerrit_path,omitempty"`
 	GerritCodeHostID   int                              `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
 	GiteePath          string                           `bson:"gitee_path,omitempty"           json:"gitee_path,omitempty"`
-	BuildName          string                           `bson:"build_name"                     json:"build_name"`
 	VariableYaml       string                           `bson:"variable_yaml"                  json:"variable_yaml"`        // New since 1.16.0, stores the variable yaml of k8s services
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `bson:"service_variable_kvs"           json:"service_variable_kvs"` // New since 1.18.0, stores the variable kvs of k8s services
 	ServiceVars        []string                         `bson:"service_vars"                   json:"service_vars"`         // DEPRECATED, New since 1.16.0, stores keys in variables which can be set in env

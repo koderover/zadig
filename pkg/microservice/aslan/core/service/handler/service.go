@@ -913,10 +913,6 @@ func CreatePMService(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid service json args")
 		return
 	}
-	if args.Build.Name == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("构建名称不能为空!")
-		return
-	}
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
 		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {

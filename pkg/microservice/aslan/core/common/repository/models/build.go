@@ -120,14 +120,6 @@ type Storages struct {
 	StoragesProperties []*types.NFSProperties `bson:"storages_properties"      json:"storages_properties"  yaml:"storages_properties"`
 }
 
-type PreDeploy struct {
-	BuildOS   string     `bson:"build_os"              json:"build_os"`
-	ImageFrom string     `bson:"image_from"            json:"image_from"`
-	ImageID   string     `bson:"image_id"              json:"image_id"`
-	Installs  []*Item    `bson:"installs,omitempty"    json:"installs"`
-	Envs      KeyValList `bson:"envs,omitempty"        json:"envs"`
-}
-
 type BuildObj struct {
 	Targets     []string
 	Description string
@@ -281,19 +273,19 @@ type Item struct {
 	Version string `bson:"version"                json:"version"`
 }
 
-func (build *Build) SafeRepos() []*types.Repository {
-	if len(build.Repos) == 0 {
+func (deploy *Build) SafeRepos() []*types.Repository {
+	if len(deploy.Repos) == 0 {
 		return []*types.Repository{}
 	}
-	return build.Repos
+	return deploy.Repos
 }
 
-func (build *Build) SafeReposDeepCopy() []*types.Repository {
-	if len(build.Repos) == 0 {
+func (deploy *Build) SafeReposDeepCopy() []*types.Repository {
+	if len(deploy.Repos) == 0 {
 		return []*types.Repository{}
 	}
 	resp := make([]*types.Repository, 0)
-	for _, repo := range build.Repos {
+	for _, repo := range deploy.Repos {
 		tmpRepo := *repo
 		resp = append(resp, &tmpRepo)
 	}
