@@ -31,6 +31,7 @@ type LarkPluginWorkflowConfig struct {
 type LarkPluginWorkflowConfigNode struct {
 	TemplateID   int64  `bson:"template_id" json:"template_id"`
 	TemplateName string `bson:"template_name" json:"template_name"`
+	Pattern      string `bson:"pattern" json:"pattern"`
 	NodeID       string `bson:"node_id" json:"node_id"`
 	NodeName     string `bson:"node_name" json:"node_name"`
 	ProjectKey   string `bson:"project_key" json:"project_key"`
