@@ -23,6 +23,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func ToScanningAdvancedSetting(arg *types.OpenAPIAdvancedSetting) (*models.ScanningAdvancedSetting, error) {
@@ -40,10 +41,11 @@ func ToScanningAdvancedSetting(arg *types.OpenAPIAdvancedSetting) (*models.Scann
 			}
 		}
 	}
-	scanninghooks, err := ToScanningHookCtl(arg.Webhooks)
-	if err != nil {
-		return nil, err
-	}
+
+	// scanninghooks, err := ToScanningHookCtl(arg.Webhooks)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &models.ScanningAdvancedSetting{
 		ClusterID:  cluster.ID.Hex(),
@@ -51,7 +53,7 @@ func ToScanningAdvancedSetting(arg *types.OpenAPIAdvancedSetting) (*models.Scann
 		Timeout:    arg.Timeout,
 		ResReq:     arg.Spec.FindResourceRequestType(),
 		ResReqSpec: arg.Spec,
-		HookCtl:    scanninghooks,
+		// HookCtl:    scanninghooks,
 	}, nil
 }
 
@@ -128,4 +130,52 @@ func ToBuildRepository(repo *types.OpenAPIRepoInput) (*types.Repository, error) 
 		SubModules:    repo.SubModules,
 		CheckoutPath:  repo.CheckoutPath,
 	}, nil
+}
+
+func ToBuildInstalls(installs []*types.OpenAPIToolItem) []*models.Item {
+	ret := make([]*models.Item, 0)
+	for _, install := range installs {
+		ret = append(ret, &models.Item{
+			Name:    install.Name,
+			Version: install.Version,
+		})
+	}
+	return ret
+}
+
+func ToKeyValList(parameters []*types.ParameterSetting) models.KeyValList {
+	ret := make([]*models.KeyVal, 0)
+	for _, parameter := range parameters {
+		ret = append(ret, &models.KeyVal{
+			Key:          parameter.Key,
+			Value:        parameter.DefaultValue,
+			Type:         models.ParameterSettingType(parameter.Type),
+			ChoiceOption: parameter.ChoiceOption,
+			ChoiceValue:  parameter.ChoiceValue,
+			IsCredential: parameter.IsCredential,
+			Description:  parameter.Description,
+		})
+	}
+	return models.KeyValList(ret)
+}
+
+func ToKeyVals(keyValues []*types.KeyValue) []*util.KeyValue {
+	ret := make([]*util.KeyValue, 0)
+	for _, keyValue := range keyValues {
+		ret = append(ret, &util.KeyValue{
+			Key:   keyValue.Key,
+			Value: keyValue.Value,
+		})
+	}
+	return ret
+}
+
+func ToOutputs(outputs []string) []*models.Output {
+	ret := make([]*models.Output, 0)
+	for _, output := range outputs {
+		ret = append(ret, &models.Output{
+			Name: output,
+		})
+	}
+	return ret
 }

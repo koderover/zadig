@@ -29,49 +29,63 @@ type OpenAPIPageParamsFromReq struct {
 }
 
 type OpenAPIBuildCreationReq struct {
-	Name            string                           `json:"name"`
-	Description     string                           `json:"description"`
-	ProjectName     string                           `json:"project_key"`
-	ImageName       string                           `json:"image_name"`
-	RepoInfo        []*types.OpenAPIRepoInput        `json:"repo_info"`
-	AdvancedSetting *types.OpenAPIAdvancedSetting    `json:"advanced_settings"`
-	Addons          []*commonmodels.Item             `json:"addons"`
-	TargetServices  []*types.OpenAPIServiceBuildArgs `json:"target_services"`
-	Parameters      []*types.ParameterSetting        `json:"parameters"`
-	DockerBuildInfo *types.DockerBuildInfo           `json:"docker_build_info"`
-	BuildScript     string                           `json:"build_script"`
-	PostBuildScript string                           `json:"post_build_script"`
-	FileArchivePath string                           `json:"file_archive_path"`
+	// 构建名称
+	Name string `json:"name" binding:"required"`
+	// 项目标识
+	ProjectKey string `json:"project_key" binding:"required"`
+	// 绑定的服务
+	Services []*types.OpenAPIServiceWithModule `json:"services"`
+
+	// 基础设施，kubernetes 为 kubernetes 集群，vm 为主机
+	Infrastructure string `json:"infrastructure" binding:"required"`
+	// 构建操作系统
+	BuildOS string `json:"build_os" binding:"required"`
+	// 依赖的软件包
+	Installs []*types.OpenAPIToolItem `json:"installs"`
+
+	// 代码信息，不支持 PR 和 Perforce 配置
+	RepoInfo []*types.OpenAPIRepoInput `json:"repo_info"`
+	// 自定义变量
+	Parameters []*types.ParameterSetting `json:"parameters"`
+
+	// 脚本类型
+	ScriptType types.ScriptType `json:"script_type" binding:"required"`
+	// 脚本内容
+	BuildScript string `json:"build_script"`
+
+	// 镜像构建步骤
+	DockerBuildStep *types.OpenAPIDockerBuildStep `json:"docker_build_step"`
+
+	// 高级设置
+	AdvancedSetting *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
 }
 
 func (req *OpenAPIBuildCreationReq) Validate() (bool, error) {
 	if req.Name == "" {
 		return false, fmt.Errorf("build name cannot be empty")
 	}
-	if req.ProjectName == "" {
+	if req.ProjectKey == "" {
 		return false, fmt.Errorf("project key cannot be empty")
-	}
-	if req.ImageName == "" {
-		return false, fmt.Errorf("image name cannot be empty")
-	}
-	if req.AdvancedSetting == nil {
-		return false, fmt.Errorf("advanced settings must be provided")
 	}
 	return true, nil
 }
 
 type OpenAPIBuildCreationFromTemplateReq struct {
-	Name           string                           `json:"name"`
-	ProjectName    string                           `json:"project_key"`
-	TemplateName   string                           `json:"template_name"`
-	TargetServices []*types.OpenAPIServiceBuildArgs `json:"target_services"`
+	// 构建名称
+	Name string `json:"name" binding:"required"`
+	// 项目标识
+	ProjectKey string `json:"project_key" binding:"required"`
+	// 模版名称
+	TemplateName string `json:"template_name" binding:"required"`
+	// 绑定的服务
+	TargetServices []*types.OpenAPIServiceBuildArgs `json:"target_services" binding:"required"`
 }
 
 func (req *OpenAPIBuildCreationFromTemplateReq) Validate() (bool, error) {
 	if req.Name == "" {
 		return false, fmt.Errorf("build name cannot be empty")
 	}
-	if req.ProjectName == "" {
+	if req.ProjectKey == "" {
 		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if req.TemplateName == "" {

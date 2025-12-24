@@ -22,23 +22,38 @@ import (
 )
 
 type OpenAPIRepoInput struct {
-	CodeHostName string `json:"codehost_name"`
-	// git type
-	RepoNamespace string `json:"repo_namespace"`
-	RepoName      string `json:"repo_name"`
-	Branch        string `json:"branch"`
-	PR            int    `json:"pr"`
-	PRs           []int  `json:"prs"`
-	EnableCommit  bool   `json:"enable_commit"`
-	CommitID      string `json:"commit_id"`
-	RemoteName    string `json:"remote_name"`
-	CheckoutPath  string `json:"checkout_path"`
-	SubModules    bool   `json:"submodules"`
-	// perforce type
-	Stream       string `json:"stream"`
-	ViewMapping  string `json:"view_mapping"`
-	ChangelistID int    `json:"changelist_id"`
-	ShelveID     int    `json:"shelve_id"`
+	// 代码源名称
+	CodeHostName string `json:"codehost_name" binding:"required"`
+
+	// 仓库命名空间
+	RepoNamespace string `json:"repo_namespace" binding:"required"`
+	// 仓库名称
+	RepoName string `json:"repo_name" binding:"required"`
+	// 分支名称
+	Branch string `json:"branch" binding:"required"`
+	// PR编号，构建中不支持
+	PR int `json:"pr"`
+	// PR列表，构建中不支持
+	PRs []int `json:"prs"`
+	// 是否使用指定 commit
+	EnableCommit bool `json:"enable_commit"`
+	// 指定 commit ID
+	CommitID string `json:"commit_id" binding:"required"`
+	// 远程名称
+	RemoteName string `json:"remote_name" binding:"required"`
+	// 检出路径
+	CheckoutPath string `json:"checkout_path" binding:"required"`
+	// 是否使用子模块
+	SubModules bool `json:"submodules"`
+
+	// perforce 相关配置，暂不支持
+	Stream string `json:"stream"`
+	// perforce 相关配置，暂不支持
+	ViewMapping string `json:"view_mapping"`
+	// perforce 相关配置，暂不支持
+	ChangelistID int `json:"changelist_id"`
+	// perforce 相关配置，暂不支持
+	ShelveID int `json:"shelve_id"`
 }
 
 type OpenAPIWebhookConfigDetail struct {
@@ -51,14 +66,40 @@ type OpenAPIWebhookConfigDetail struct {
 }
 
 type OpenAPIAdvancedSetting struct {
-	ClusterName  string                 `json:"cluster_name"`
-	StrategyName string                 `json:"strategy_name"`
-	Timeout      int64                  `json:"timeout"`
-	Spec         setting.RequestSpec    `json:"resource_spec"`
-	Webhooks     *OpenAPIWebhookSetting `json:"webhooks,omitempty"`
-	// Cache settings is for build only for now, remove this line if there are further changes
-	CacheSetting        *OpenAPICacheSetting `json:"cache_setting"`
-	UseHostDockerDaemon bool                 `json:"use_host_docker_daemon"`
+	// 超时时间，单位为秒
+	Timeout int64 `json:"timeout"`
+	// 缓存设置
+	CacheSetting *OpenAPICacheSetting `json:"cache_setting"`
+
+	// 集群名称
+	ClusterName string `json:"cluster_name"`
+	// 操作系统规格，单位 cpu: m, memory: Mi
+	Spec setting.RequestSpec `json:"resource_spec"`
+	// 调度策略名称
+	StrategyName string `json:"strategy_name"`
+	// 挂载存储配置
+	Storages *OpenAPIStorages `json:"storages"`
+	// 使用宿主机 docker daemon
+	UseHostDockerDaemon bool `json:"use_host_docker_daemon"`
+	// 特权模式
+	PrivilegedMode bool `json:"privileged_mode"`
+	// 任务注解
+	CustomAnnotations []*KeyValue `json:"custom_annotations"`
+	// 任务标签
+	CustomLabels []*KeyValue `json:"custom_labels"`
+
+	// 输出变量
+	Outputs []string `json:"outputs"`
+}
+
+type KeyValue struct {
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
+}
+
+type OpenAPIStorages struct {
+	Enabled            bool             `json:"enabled"`
+	StoragesProperties []*NFSProperties `json:"storages_properties"`
 }
 
 type OpenAPIWebhookSetting struct {
@@ -71,18 +112,33 @@ type OpenAPICacheSetting struct {
 	CacheDir string `json:"cache_dir"`
 }
 
+type OpenAPIServiceWithModule struct {
+	// 服务名称
+	ServiceName string `json:"service_name"`
+	// 服务组件名称
+	ServiceModule string `json:"service_module"`
+}
+
 type OpenAPIServiceBuildArgs struct {
-	ServiceModule string              `json:"service_module"`
-	ServiceName   string              `json:"service_name"`
-	RepoInfo      []*OpenAPIRepoInput `json:"repo_info"`
-	Inputs        []*KV               `json:"inputs"`
+	// 服务名称
+	ServiceName string `json:"service_name" binding:"required"`
+	// 服务组件名称
+	ServiceModule string `json:"service_module" binding:"required"`
+	// 代码信息
+	RepoInfo []*OpenAPIRepoInput `json:"repo_info"`
+	// 变量
+	Inputs []*KV `json:"inputs"`
 }
 
 type KV struct {
-	Key          string `json:"key"`
-	Value        string `json:"value"`
-	Type         string `json:"type,omitempty"`
-	IsCredential bool   `json:"is_credential,omitempty"`
+	// 变量名称
+	Key string `json:"key" binding:"required"`
+	// 变量值
+	Value string `json:"value" binding:"required"`
+	// 变量类型
+	Type string `json:"type,omitempty"`
+	// 是否为敏感信息
+	IsCredential bool `json:"is_credential,omitempty"`
 }
 
 type OpenAPIUserBriefInfo struct {
@@ -131,4 +187,11 @@ type OpenAPISaeApplication struct {
 	ImageUrl   string `json:"image_url" validate:"required"`   // 镜像地址
 	PackageUrl string `json:"package_url" validate:"required"` // 包地址
 	Instances  int32  `json:"instances" validate:"required"`   // 实例数
+}
+
+type OpenAPIToolItem struct {
+	// 软件包名称
+	Name string `json:"name" binding:"required"`
+	// 软件包版本
+	Version string `json:"version" binding:"required"`
 }

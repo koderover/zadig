@@ -25,18 +25,40 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	systemService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func OpenAPICreateBuildModule(username string, req *OpenAPIBuildCreationReq, log *zap.SugaredLogger) error {
-	buildModule, err := generateBuildModuleFromOpenAPIRequest(req, log)
+func OpenAPICreateBuildModule(ctx *internalhandler.Context, req *OpenAPIBuildCreationReq) error {
+	buildModule, err := generateBuildModuleFromOpenAPIRequest(ctx, nil, req)
 	if err != nil {
-		return err
+		ctx.Logger.Error(err)
+		return e.ErrCreateBuildModule.AddErr(err)
 	}
 
-	return CreateBuild(username, buildModule, log)
+	return CreateBuild(ctx.UserName, buildModule, ctx.Logger)
+}
+
+func OpenAPIUpdateBuildModule(ctx *internalhandler.Context, req *OpenAPIBuildCreationReq) error {
+	build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+		Name:        req.Name,
+		ProductName: req.ProjectKey,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to find build module, buildName: %s, projectName: %s, err: %s", req.Name, req.ProjectKey, err)
+		ctx.Logger.Error(err)
+		return e.ErrUpdateBuildModule.AddErr(err)
+	}
+
+	buildModule, err := generateBuildModuleFromOpenAPIRequest(ctx, build, req)
+	if err != nil {
+		ctx.Logger.Error(err)
+		return e.ErrUpdateBuildModule.AddErr(err)
+	}
+
+	return UpdateBuild(ctx.UserName, buildModule, ctx.Logger)
 }
 
 func OpenAPICreateBuildModuleFromTemplate(username string, req *OpenAPIBuildCreationFromTemplateReq, log *zap.SugaredLogger) error {
@@ -48,129 +70,205 @@ func OpenAPICreateBuildModuleFromTemplate(username string, req *OpenAPIBuildCrea
 	return CreateBuild(username, buildModule, log)
 }
 
-func generateBuildModuleFromOpenAPIRequest(req *OpenAPIBuildCreationReq, log *zap.SugaredLogger) (*commonmodels.Build, error) {
-	// generate basic build information
-	ret := &commonmodels.Build{
+func OpenAPIUpdateBuildModuleFromTemplate(ctx *internalhandler.Context, req *OpenAPIBuildCreationFromTemplateReq) error {
+	opt := &commonrepo.BuildFindOption{
 		Name:        req.Name,
-		Source:      "zadig",
-		Description: req.Description,
-		Scripts:     req.BuildScript,
-		ProductName: req.ProjectName,
-		Timeout:     int(req.AdvancedSetting.Timeout),
-		// just set this to true always to make the menu open forever
-		AdvancedSettingsModified: true,
+		ProductName: req.ProjectKey,
 	}
 
-	// otherwise this is a zadig build, we need to generate a bunch of information from the user input
-	// first we generate the pre build info from the user input
-	prebuildInfo := &commonmodels.PreBuild{
-		CleanWorkspace: false,
-		EnableProxy:    false,
-		Installs:       req.Addons,
-		// for now, file upload is not supported
-		UploadPkg: false,
-	}
-
-	cluster, err := commonrepo.NewK8SClusterColl().FindByName(req.AdvancedSetting.ClusterName)
+	build, err := commonrepo.NewBuildColl().Find(opt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find cluster of name: %s, the error is: %s", req.AdvancedSetting.ClusterName, err)
+		err = fmt.Errorf("failed to find build module, buildName:%s, projectName:%s err: %s", req.Name, req.ProjectKey, err)
+		ctx.Logger.Error(err)
+		return e.ErrGetBuildModule.AddErr(err)
 	}
-	prebuildInfo.ClusterID = cluster.ID.Hex()
-	if cluster.AdvancedConfig != nil {
-		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
-			if strategy.StrategyName == req.AdvancedSetting.StrategyName {
-				prebuildInfo.StrategyID = strategy.StrategyID
+
+	buildModule, err := updateBuildModuleFromOpenAPITemplateRequest(ctx, build, req)
+	if err != nil {
+		return err
+	}
+
+	return UpdateBuild(ctx.UserName, buildModule, ctx.Logger)
+}
+
+func generateBuildModuleFromOpenAPIRequest(ctx *internalhandler.Context, originalBuild *commonmodels.Build, req *OpenAPIBuildCreationReq) (*commonmodels.Build, error) {
+	// generate basic build information
+	build := &commonmodels.Build{
+		Name:           req.Name,
+		ProductName:    req.ProjectKey,
+		Source:         setting.ZadigBuild,
+		ScriptType:     req.ScriptType,
+		Scripts:        req.BuildScript,
+		Infrastructure: req.Infrastructure,
+		Timeout:        60,
+	}
+
+	if originalBuild != nil {
+		build.Name = originalBuild.Name
+		build.ProductName = originalBuild.ProductName
+		build.Source = originalBuild.Source
+	}
+
+	prebuildInfo := &commonmodels.PreBuild{
+		BuildOS:  req.BuildOS,
+		Envs:     openapitool.ToKeyValList(req.Parameters),
+		Installs: openapitool.ToBuildInstalls(req.Installs),
+	}
+
+	build.Outputs = []*commonmodels.Output{
+		{
+			Name: "IMAGE",
+		},
+		{
+			Name: "PKG_FILE",
+		},
+	}
+
+	if req.AdvancedSetting != nil {
+		build.AdvancedSettingsModified = true
+		build.Timeout = int(req.AdvancedSetting.Timeout)
+
+		cluster, err := commonrepo.NewK8SClusterColl().FindByName(req.AdvancedSetting.ClusterName)
+		if err != nil {
+			err = fmt.Errorf("failed to find cluster of name: %s, error: %s", req.AdvancedSetting.ClusterName, err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+		prebuildInfo.ClusterID = cluster.ID.Hex()
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				if strategy.StrategyName == req.AdvancedSetting.StrategyName {
+					prebuildInfo.StrategyID = strategy.StrategyID
+				}
 			}
 		}
+
+		// generate spec request from user input spec request
+		prebuildInfo.ResReqSpec = req.AdvancedSetting.Spec
+		prebuildInfo.ResReq = req.AdvancedSetting.Spec.FindResourceRequestType()
+
+		if req.AdvancedSetting.Storages != nil {
+			prebuildInfo.Storages = &commonmodels.Storages{
+				Enabled:            req.AdvancedSetting.Storages.Enabled,
+				StoragesProperties: req.AdvancedSetting.Storages.StoragesProperties,
+			}
+		}
+
+		// apply the rest of the advanced settings to the build settings
+		if req.AdvancedSetting.CacheSetting != nil {
+			build.CacheEnable = req.AdvancedSetting.CacheSetting.Enabled
+			if build.CacheEnable {
+				build.CacheDirType = types.UserDefinedCacheDir
+				build.CacheUserDir = req.AdvancedSetting.CacheSetting.CacheDir
+			}
+		}
+
+		build.EnablePrivilegedMode = req.AdvancedSetting.PrivilegedMode
+		prebuildInfo.UseHostDockerDaemon = req.AdvancedSetting.UseHostDockerDaemon
+		prebuildInfo.CustomAnnotations = openapitool.ToKeyVals(req.AdvancedSetting.CustomAnnotations)
+		prebuildInfo.CustomLabels = openapitool.ToKeyVals(req.AdvancedSetting.CustomLabels)
+		build.Outputs = append(build.Outputs, openapitool.ToOutputs(req.AdvancedSetting.Outputs)...)
+	} else {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(setting.LocalClusterID)
+		if err != nil {
+			err = fmt.Errorf("failed to find local cluster: %s, error: %s", req.AdvancedSetting.ClusterName, err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+		prebuildInfo.ClusterID = cluster.ID.Hex()
+
+		defaultStrategyID := ""
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				if strategy.Default {
+					defaultStrategyID = strategy.StrategyID
+				}
+			}
+		}
+		prebuildInfo.StrategyID = defaultStrategyID
+
+		prebuildInfo.ResReq = setting.LowRequest
+		prebuildInfo.ResReqSpec = setting.RequestSpec{
+			CpuLimit:    1000,
+			MemoryLimit: 512,
+		}
+
+		prebuildInfo.Storages = &commonmodels.Storages{
+			Enabled:            false,
+			StoragesProperties: []*types.NFSProperties{},
+		}
+
+		build.CacheDirType = types.WorkspaceCacheDir
 	}
 
-	kvList := make([]*commonmodels.KeyVal, 0)
-	for _, kv := range req.Parameters {
-		kvList = append(kvList, &commonmodels.KeyVal{
-			Key:          kv.Key,
-			Value:        kv.DefaultValue,
-			Type:         commonmodels.ParameterSettingType(kv.Type),
-			ChoiceOption: kv.ChoiceOption,
-			Description:  kv.Description,
-			IsCredential: kv.IsCredential,
-		})
-	}
-	prebuildInfo.Envs = kvList
-
-	// if there are special image name like bionic or focal, generate special stuff
-	imageInfo, err := commonrepo.NewBasicImageColl().FindByImageName(req.ImageName)
+	// if there are special image name like ubuntu 18.04 or ubuntu 20.04, generate special stuff
+	imageInfo, err := commonrepo.NewBasicImageColl().FindByImageName(req.BuildOS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the basic image of name: %s, error is: %s", req.ImageName, err)
+		return nil, fmt.Errorf("failed to find the basic image of name: %s, error is: %s", req.BuildOS, err)
 	}
 	prebuildInfo.ImageID = imageInfo.ID.Hex()
-	if req.ImageName == "bionic" || req.ImageName == "focal" {
+	if req.BuildOS == "ubuntu 18.04" || req.BuildOS == "ubuntu 20.04" {
 		prebuildInfo.ImageFrom = "koderover"
-		prebuildInfo.BuildOS = req.ImageName
+		prebuildInfo.BuildOS = req.BuildOS
 	} else {
 		prebuildInfo.ImageFrom = "custom"
 		prebuildInfo.BuildOS = imageInfo.Value
 	}
-	// generate spec request from user input spec request
-	prebuildInfo.ResReqSpec = req.AdvancedSetting.Spec
-	prebuildInfo.ResReq = req.AdvancedSetting.Spec.FindResourceRequestType()
 
 	// for now, pre build is done
-	ret.PreBuild = prebuildInfo
+	build.PreBuild = prebuildInfo
 
 	//repo info conversion
 	repoList := make([]*types.Repository, 0)
 	for _, repo := range req.RepoInfo {
 		systemRepoInfo, err := openapitool.ToBuildRepository(repo)
 		if err != nil {
-			log.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", repo.CodeHostName, repo.RepoName, err)
-			return nil, fmt.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", repo.CodeHostName, repo.RepoName, err)
+			err = fmt.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", repo.CodeHostName, repo.RepoName, err)
+			ctx.Logger.Error(err)
+			return nil, err
 		}
 		repoList = append(repoList, systemRepoInfo)
 	}
 
 	// insert repo info into our build module
-	ret.Repos = repoList
+	build.Repos = repoList
 
 	// create target info for the build to work
 	targetInfo := make([]*commonmodels.ServiceModuleTarget, 0)
-	for _, target := range req.TargetServices {
+	for _, service := range req.Services {
 		targetInfo = append(targetInfo, &commonmodels.ServiceModuleTarget{
-			ProductName: req.ProjectName,
+			ProductName: req.ProjectKey,
 			ServiceWithModule: commonmodels.ServiceWithModule{
-				ServiceName:   target.ServiceName,
-				ServiceModule: target.ServiceModule,
+				ServiceName:   service.ServiceName,
+				ServiceModule: service.ServiceModule,
 			},
 		})
 	}
-	ret.Targets = targetInfo
-
-	// apply the rest of the advanced settings to the build settings
-	ret.CacheEnable = req.AdvancedSetting.CacheSetting.Enabled
-	if ret.CacheEnable {
-		ret.CacheDirType = "user_defined"
-		ret.CacheUserDir = req.AdvancedSetting.CacheSetting.CacheDir
-	}
+	build.Targets = targetInfo
 
 	// generate post build information from user generated input
-	postBuildInfo := &commonmodels.PostBuild{
-		FileArchive: &commonmodels.FileArchive{FileLocation: req.FileArchivePath},
-		Scripts:     req.PostBuildScript,
-	}
+	postBuildInfo := &commonmodels.PostBuild{}
 
-	if req.DockerBuildInfo != nil {
+	if req.DockerBuildStep != nil {
 		dockerBuildInfo := &commonmodels.DockerBuild{
-			WorkDir:   req.DockerBuildInfo.WorkingDirectory,
-			BuildArgs: req.DockerBuildInfo.BuildArgs,
-			Source:    req.DockerBuildInfo.DockerfileType,
+			WorkDir:        req.DockerBuildStep.BuildContextDir,
+			BuildArgs:      req.DockerBuildStep.BuildArgs,
+			Source:         req.DockerBuildStep.DockerfileSource,
+			EnableBuildkit: req.DockerBuildStep.EnableBuildkit,
+			Platform:       req.DockerBuildStep.Platforms,
 		}
-		switch req.DockerBuildInfo.DockerfileType {
-		case "local":
-			dockerBuildInfo.DockerFile = req.DockerBuildInfo.DockerfileDirectory
-		case "template":
-			dockerBuildInfo.TemplateName = req.DockerBuildInfo.TemplateName
-			templateInfo, err := commonrepo.NewDockerfileTemplateColl().GetByName(req.DockerBuildInfo.TemplateName)
+
+		switch req.DockerBuildStep.DockerfileSource {
+		case setting.DockerfileSourceLocal:
+			dockerBuildInfo.DockerFile = req.DockerBuildStep.DockerfileDirectory
+		case setting.DockerfileSourceTemplate:
+			dockerBuildInfo.TemplateName = req.DockerBuildStep.TemplateName
+
+			templateInfo, err := commonrepo.NewDockerfileTemplateColl().GetByName(req.DockerBuildStep.TemplateName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to find the dockerfile template of name: [%s], err: %s", req.DockerBuildInfo.TemplateName, err)
+				err = fmt.Errorf("failed to find the dockerfile template of name: [%s], err: %s", req.DockerBuildStep.TemplateName, err)
+				ctx.Logger.Error(err)
+				return nil, err
 			}
 			dockerBuildInfo.TemplateID = templateInfo.ID.Hex()
 		default:
@@ -180,17 +278,17 @@ func generateBuildModuleFromOpenAPIRequest(req *OpenAPIBuildCreationReq, log *za
 		postBuildInfo.DockerBuild = dockerBuildInfo
 	}
 
-	ret.PostBuild = postBuildInfo
+	build.PostBuild = postBuildInfo
 
-	return ret, nil
+	return build, nil
 }
 
 func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFromTemplateReq, log *zap.SugaredLogger) (*commonmodels.Build, error) {
 	// generate basic build information
 	ret := &commonmodels.Build{
 		Name:        req.Name,
-		Source:      "zadig",
-		ProductName: req.ProjectName,
+		Source:      setting.ZadigBuild,
+		ProductName: req.ProjectKey,
 		// just set this to true always to make the menu open forever
 		AdvancedSettingsModified: true,
 	}
@@ -207,7 +305,7 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 
 	for _, targetService := range req.TargetServices {
 		serviceInfo := &commonmodels.ServiceModuleTargetBase{
-			ProductName: req.ProjectName,
+			ProductName: req.ProjectKey,
 			ServiceWithModule: commonmodels.ServiceWithModule{
 				ServiceName:   targetService.ServiceName,
 				ServiceModule: targetService.ServiceModule,
@@ -218,8 +316,9 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 		for _, serviceRepo := range targetService.RepoInfo {
 			systemRepoInfo, err := openapitool.ToBuildRepository(serviceRepo)
 			if err != nil {
-				log.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", serviceRepo.CodeHostName, serviceRepo.RepoName, err)
-				return nil, fmt.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", serviceRepo.CodeHostName, serviceRepo.RepoName, err)
+				err = fmt.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", serviceRepo.CodeHostName, serviceRepo.RepoName, err)
+				log.Error(err)
+				return nil, err
 			}
 			repoInfo = append(repoInfo, systemRepoInfo)
 		}
@@ -274,6 +373,60 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 	}
 
 	return ret, nil
+}
+
+func updateBuildModuleFromOpenAPITemplateRequest(ctx *internalhandler.Context, build *commonmodels.Build, req *OpenAPIBuildCreationFromTemplateReq) (*commonmodels.Build, error) {
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		Name: req.TemplateName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the build template specified by the user, template name: [%s], err: %s", req.TemplateName, err)
+	}
+	build.TemplateID = buildTemplate.ID.Hex()
+
+	targetRepoInfo := make([]*commonmodels.TargetRepo, 0)
+
+	for _, targetService := range req.TargetServices {
+		serviceInfo := &commonmodels.ServiceModuleTargetBase{
+			ProductName: req.ProjectKey,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   targetService.ServiceName,
+				ServiceModule: targetService.ServiceModule,
+			},
+		}
+
+		repoInfo := make([]*types.Repository, 0)
+		for _, serviceRepo := range targetService.RepoInfo {
+			systemRepoInfo, err := openapitool.ToBuildRepository(serviceRepo)
+			if err != nil {
+				ctx.Logger.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", serviceRepo.CodeHostName, serviceRepo.RepoName, err)
+				return nil, fmt.Errorf("failed to convert user repository input info into system repository, codehostName: [%s], repoName[%s], err: %s", serviceRepo.CodeHostName, serviceRepo.RepoName, err)
+			}
+			repoInfo = append(repoInfo, systemRepoInfo)
+		}
+
+		kvList := make([]*commonmodels.KeyVal, 0)
+		for _, kv := range targetService.Inputs {
+			kvList = append(kvList, &commonmodels.KeyVal{
+				Key:          kv.Key,
+				Value:        kv.Value,
+				Type:         commonmodels.ParameterSettingType(kv.Type),
+				IsCredential: kv.IsCredential,
+			})
+		}
+
+		targetRepo := &commonmodels.TargetRepo{
+			Service: serviceInfo,
+			Repos:   repoInfo,
+			Envs:    kvList,
+		}
+
+		targetRepoInfo = append(targetRepoInfo, targetRepo)
+	}
+
+	build.TargetRepos = targetRepoInfo
+
+	return build, nil
 }
 
 func OpenAPIListBuildModules(projectName string, pageNum, pageSize int64, logger *zap.SugaredLogger) (*OpenAPIBuildListResp, error) {

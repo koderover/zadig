@@ -343,6 +343,12 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.POST("/:name/service/:serviceName/restart", OpenAPIProductionRestartService)
 	}
 
+	helm := router.Group("helm")
+	{
+		helm.POST("", OpenAPICreateHelmEnv)
+		helm.POST("/:name/services", OpenAPIAddHelmServicesToEnv)
+	}
+
 	kube := router.Group("kube")
 	{
 		kube.GET("/events", OpenAPIListKubeEvents)

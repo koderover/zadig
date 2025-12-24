@@ -35,3 +35,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		collaborations.POST("/sync", SyncCollaborationInstance)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	collaborations := router.Group("")
+	{
+		collaborations.POST("", OpenAPICreateCollaborationMode)
+		collaborations.DELETE("/:name", OpenAPIDeleteCollaborationMode)
+	}
+}

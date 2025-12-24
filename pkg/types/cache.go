@@ -44,14 +44,21 @@ type ObjectProperties struct {
 }
 
 type NFSProperties struct {
-	ProvisionType    ProvisionType                     `json:"provision_type"      bson:"provision_type"         yaml:"provision_type"`
-	StorageClass     string                            `json:"storage_class"       bson:"storage_class"          yaml:"storage_class"`
-	StorageSizeInGiB int64                             `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
-	PVC              string                            `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
-	AccessMode       corev1.PersistentVolumeAccessMode `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
-	Subpath          string                            `json:"subpath"             bson:"subpath"                yaml:"subpath"`
-	MountPath        string                            `json:"mount_path"          bson:"mount_path"             yaml:"mount_path"`
-	IsTemporary      bool                              `json:"is_temporary"        bson:"is_temporary"           yaml:"is_temporary"`
+	// 存储类型，dynmaic 为动态资源，static 为已有存储
+	ProvisionType ProvisionType `json:"provision_type"      bson:"provision_type"         yaml:"provision_type"`
+	// provision_type 为 dynamic 时使用该字段
+	StorageClass     string `json:"storage_class"       bson:"storage_class"          yaml:"storage_class"`
+	StorageSizeInGiB int64  `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
+	// provision_type 为 static 时使用该字段
+	PVC string `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
+	// 访问模式，如不设置则默认为 ReadWriteMany
+	AccessMode corev1.PersistentVolumeAccessMode `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
+	// 存储卷子路径
+	Subpath string `json:"subpath"             bson:"subpath"                yaml:"subpath"`
+	// 挂载路径
+	MountPath string `json:"mount_path"          bson:"mount_path"             yaml:"mount_path"`
+	// 是否为临时存储
+	IsTemporary bool `json:"is_temporary"        bson:"is_temporary"           yaml:"is_temporary"`
 }
 
 type Cache struct {

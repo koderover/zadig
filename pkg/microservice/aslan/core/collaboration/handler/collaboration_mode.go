@@ -47,7 +47,12 @@ func GetCollaborationMode(c *gin.Context) {
 }
 
 func CreateCollaborationMode(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.CollaborationMode)
@@ -71,11 +76,28 @@ func CreateCollaborationMode(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.RespErr = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func UpdateCollaborationMode(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.CollaborationMode)
@@ -99,11 +121,28 @@ func UpdateCollaborationMode(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.RespErr = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func DeleteCollaborationMode(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
@@ -113,6 +152,18 @@ func DeleteCollaborationMode(c *gin.Context) {
 	}
 	name := c.Param("name")
 	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.RespErr = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
 }

@@ -19,25 +19,29 @@ package types
 type ParameterSettingType string
 
 const (
-	StringType ParameterSettingType = "string"
-	ChoiceType ParameterSettingType = "choice"
-	// Deprecated
-	ExternalType ParameterSettingType = "external"
+	StringType      ParameterSettingType = "string"
+	ChoiceType      ParameterSettingType = "choice"
+	MultiSelectType ParameterSettingType = "multi-select"
+	ImageType       ParameterSettingType = "image"
+	Script          ParameterSettingType = "script"
+	FileType        ParameterSettingType = "file"
 )
 
 type ParameterSetting struct {
-	// External type parameter will NOT use this key.
-	Key  string               `json:"key"`
-	Type ParameterSettingType `json:"type"`
-	//DefaultValue defines the default value of the parameter
-	DefaultValue string `json:"default_value"`
-	// choiceOption Are all options enumerated
+	// 参数名称
+	Key string `json:"key" binding:"required"`
+	// 参数类型
+	Type ParameterSettingType `json:"type" binding:"required"`
+	// 默认值
+	DefaultValue string `json:"default_value" binding:"required"`
+	// 可选值列表
 	ChoiceOption []string `json:"choice_option"`
-	ChoiceValue  []string `json:"choice_value"`
-	// ExternalSetting It is the configuration of the external system to obtain the variable
-	ExternalSetting *ExternalSetting `json:"external_setting"`
-	IsCredential    bool             `json:"is_credential"`
-	Description     string           `json:"description"`
+	// 多选值列表
+	ChoiceValue []string `json:"choice_value"`
+	// 是否为敏感信息
+	IsCredential bool `json:"is_credential"`
+	// 参数描述
+	Description string `json:"description"`
 }
 
 type ExternalSetting struct {
@@ -57,14 +61,21 @@ type ExternalParamMapping struct {
 	Display     bool   `json:"display"`
 }
 
-// DockerBuildInfo is the struct for docker build in the product workflow
+// OpenAPIDockerBuildStep is the struct for docker build in the product workflow
 // Mind that the templateID will be empty in the openAPI mode
-type DockerBuildInfo struct {
-	WorkingDirectory    string `json:"working_directory"`
-	DockerfileType      string `json:"dockerfile_type"` // it can be of local or template type
+type OpenAPIDockerBuildStep struct {
+	// 构建上下文目录
+	BuildContextDir string `json:"build_context_dir"`
+	// Dockerfile 源，local 为代码库，template 为模板库
+	DockerfileSource string `json:"dockerfile_source"`
+	// Dockerfile 的绝对路径
 	DockerfileDirectory string `json:"dockerfile_directory"`
-	BuildArgs           string `json:"build_args"`
-	// when the dockerfile type is template, this field will be used to find the ID of the template
+	// 模板名称
 	TemplateName string `json:"template_name"`
-	TemplateID   string `json:"template_id"`
+	// 构建参数
+	BuildArgs string `json:"build_args"`
+	// 是否启用 Buildkit
+	EnableBuildkit bool `json:"enable_buildkit"`
+	// 平台
+	Platforms string `json:"platforms"`
 }

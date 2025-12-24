@@ -115,6 +115,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
 		template.POST("/production/load/yaml", LoadProductionServiceFromYamlTemplateOpenAPI)
+
+		template.POST("/load/helm", LoadHelmServiceFromTemplateOpenAPI)
 	}
 
 	yaml := router.Group("yaml")

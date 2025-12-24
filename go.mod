@@ -61,6 +61,7 @@ require (
 	github.com/koderover/gojenkins v1.5.3
 	github.com/koderover/obelisk v0.0.0-20240925085229-2ba7bc02bc7f
 	github.com/larksuite/oapi-sdk-go/v3 v3.4.20
+	github.com/larksuite/project-oapi-sdk-golang v1.0.15
 	github.com/magiconair/properties v1.8.5
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mittwald/go-helm-client v0.12.10
@@ -245,7 +246,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
-	github.com/larksuite/project-oapi-sdk-golang v1.0.15 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect

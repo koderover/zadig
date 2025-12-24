@@ -31,8 +31,10 @@ import (
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -697,7 +699,6 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 		return
 	}
 
-
 	detail := fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
@@ -959,6 +960,15 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 	ctx.RespErr = service.OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
 }
 
+// @Summary 创建 K8S 环境
+// @Description
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param   projectKey		query		string								true	"项目标识"
+// @Param 	body 			body 		service.OpenAPICreateEnvArgs		true 	"body"
+// @Success 200
+// @Router /openapi/environment [post]
 func OpenAPICreateK8sEnv(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1992,4 +2002,286 @@ func OpenAPISetPortalService(c *gin.Context) {
 
 	ctx.RespErr = service.SetupPortalService(c, projectKey, envName, serviceName, origReq)
 	return
+}
+
+// @summary 新建 Helm 环境
+// @description 新建 Helm 环境
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		string								true	"项目标识"
+// @Param   body 			body 		service.OpenAPICreateHelmEnvArgs    true 	"body"
+// @success 200
+// @router /openapi/environments/helm [post]
+func OpenAPICreateHelmEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.OpenAPICreateHelmEnvArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.RespErr = err
+		return
+	}
+	args.ProjectKey = c.Query("projectKey")
+	if err := args.Validate(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectKey, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "测试环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if args.Production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].ProductionEnv.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Env.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if args.Production {
+		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
+		if filterK8sNamespaces.Has(args.Namespace) {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("namespace %s is invalid, production environment namespace cannot be set to these three namespaces: kube-node-lease, kube-public, kube-system", args.Namespace))
+			return
+		}
+	}
+
+	// // TODO: fix me, there won't be resources in request headers
+	// allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+	// if found {
+	// 	allowedSet := sets.NewString(allowedClusters...)
+	// 	if !allowedSet.Has(args.ClusterID) {
+	// 		c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+	// 		return
+	// 	}
+	// }
+
+	ctx.RespErr = service.OpenAPICreateHelmEnv(ctx, args)
+}
+
+type OpenAPIAddHelmServicesToEnvRequest struct {
+	// 是否为生产环境
+	Production bool `json:"production"`
+	// 环境名称
+	EnvName string `json:"env_name"     binding:"required"`
+	// 服务列表
+	Services []*OpenAPIHelmService `json:"services"      binding:"required"`
+}
+
+type OpenAPIHelmService struct {
+	// 服务名称
+	ServiceName string `json:"service_name"    binding:"required"`
+	// 覆盖变量
+	OverrideKVs util.KVInput `json:"override_kvs"`
+	// Values YAML
+	ValuesYaml string `json:"values_yaml"`
+	// 从 Git 导入 Values 的配置
+	ImportValuesFromGit *OpenAPIImportValuesFromGit `json:"import_values_from_git"`
+	// 部署策略，支持 import 和 deploy
+	DeployStrategy string `json:"deploy_strategy" binding:"required,oneof=import deploy"`
+}
+
+type OpenAPIImportValuesFromGit struct {
+	// 代码源名称
+	CodehostName string `json:"codehost_name" binding:"required"`
+	// 命名空间
+	Namespace string `json:"namespace" binding:"required"`
+	// 仓库名称
+	Repo string `json:"repo" binding:"required"`
+	// 分支名称
+	Branch string `json:"branch" binding:"required"`
+	// Values 文件路径
+	ValuePath string `json:"value_path" binding:"required"`
+	// 自动同步
+	AutoSync bool `json:"auto_sync"`
+}
+
+// @Summary 添加 Helm 服务到环境
+// @Description 添加 Helm 服务到环境
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string								true	"项目标识"
+// @Param 	name			path		string								true	"环境名称"
+// @Param 	body 			body 		OpenAPIAddHelmServicesToEnvRequest 	true 	"body"
+// @Success 200
+// @Router /openapi/environments/helm/{name}/services [post]
+func OpenAPIAddHelmServicesToEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	request := new(OpenAPIAddHelmServicesToEnvRequest)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		err = fmt.Errorf("OpenAPIAddHelmServicesToEnv c.GetRawData() err: %v", err)
+		ctx.Logger.Error(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, request); err != nil {
+		err = fmt.Errorf("OpenAPIAddHelmServicesToEnv json.Unmarshal err: %v", err)
+		ctx.Logger.Error(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+
+	production := c.Query("production") == "true"
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	detail := request.EnvName
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, detail)
+
+	// authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		if production {
+			if projectAuthInfo.ProductionEnv.EditConfig {
+				permitted = true
+			}
+		} else {
+			if projectAuthInfo.Env.EditConfig {
+				permitted = true
+			}
+		}
+	}
+
+	// if the user does not have the overall edit env permission, check the individual
+	envAuthorization, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectKey)
+	if err == nil {
+		allowedSet := sets.NewString(envAuthorization.EditEnvList...)
+		currentSet := sets.NewString(request.EnvName)
+		if allowedSet.IsSuperset(currentSet) {
+			permitted = true
+		}
+	}
+
+	ctx.UnAuthorized = !permitted
+	if ctx.UnAuthorized {
+		ctx.RespErr = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		return
+	}
+
+	chartServices := make([]*commonservice.HelmSvcRenderArg, 0)
+	for _, service := range request.Services {
+		overrideValues := make([]*commonservice.KVPair, 0)
+		for _, kv := range service.OverrideKVs {
+			overrideValues = append(overrideValues, &commonservice.KVPair{
+				Key:   kv.Key,
+				Value: kv.Value,
+			})
+		}
+
+		valuesData := &commonservice.ValuesDataArgs{}
+		if service.ImportValuesFromGit != nil {
+			codehostID, err := codehostdb.NewCodehostColl().GetCodeHostByAlias(service.ImportValuesFromGit.CodehostName)
+			if err != nil {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("codehost %s not found", service.ImportValuesFromGit.CodehostName))
+				return
+			}
+
+			autoSyncYamlBytes, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+				CodehostID: codehostID.ID,
+				Namespace:  service.ImportValuesFromGit.Namespace,
+				Owner:      service.ImportValuesFromGit.Namespace,
+				Repo:       service.ImportValuesFromGit.Repo,
+				Branch:     service.ImportValuesFromGit.Branch,
+				Path:       service.ImportValuesFromGit.ValuePath,
+			})
+			if err != nil {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("failed to download auto sync yaml, err: %s", err))
+				return
+			}
+			autoSyncYaml := string(autoSyncYamlBytes)
+			service.ValuesYaml = autoSyncYaml
+
+			valuesData = &commonservice.ValuesDataArgs{
+				GitRepoConfig: &commonservice.RepoConfig{
+					CodehostID:  codehostID.ID,
+					Owner:       service.ImportValuesFromGit.Namespace,
+					Namespace:   service.ImportValuesFromGit.Namespace,
+					Repo:        service.ImportValuesFromGit.Repo,
+					Branch:      service.ImportValuesFromGit.Branch,
+					ValuesPaths: []string{service.ImportValuesFromGit.ValuePath},
+				},
+				YamlSource:   setting.SourceFromGitRepo,
+				AutoSyncYaml: autoSyncYaml,
+				AutoSync:     service.ImportValuesFromGit.AutoSync,
+			}
+		}
+
+		chartServices = append(chartServices, &commonservice.HelmSvcRenderArg{
+			ServiceName:    service.ServiceName,
+			EnvName:        request.EnvName,
+			OverrideYaml:   service.ValuesYaml,
+			OverrideValues: overrideValues,
+			ValuesData:     valuesData,
+			DeployStrategy: service.DeployStrategy,
+		})
+	}
+
+	updateArgs := &service.UpdateMultiHelmProductArg{
+		ProductName: projectKey,
+		EnvNames:    []string{request.EnvName},
+		ChartValues: chartServices,
+	}
+
+	ctx.Resp, ctx.RespErr = service.UpdateMultipleHelmEnv(ctx.RequestID, ctx.UserName, updateArgs, production, ctx.Logger)
 }

@@ -579,3 +579,79 @@ func ListProductionYamlServicesOpenAPI(c *gin.Context) {
 	}
 	ctx.Resp = resp
 }
+
+// @summary 使用模版新建 Helm 服务
+// @description 使用模版新建 Helm 服务
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		 string								                     true	"项目标识"
+// @Param   body 			body 		 svcservice.OpenAPILoadHelmServiceFromTemplateReq        true 	"body"
+// @success 200
+// @router /openapi/service/template/load/helm [post]
+func LoadHelmServiceFromTemplateOpenAPI(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	req := new(svcservice.OpenAPILoadHelmServiceFromTemplateReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
+		return
+	}
+	if err = json.Unmarshal(data, req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
+		return
+	}
+
+	function := "项目管理-测试服务"
+	if req.Production {
+		function = "项目管理-生产服务"
+	}
+
+	detail := fmt.Sprintf("服务名称:%s", req.ServiceName)
+	detailEn := fmt.Sprintf("Service Name: %s", req.ServiceName)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"新增", function, detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if req.Production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.RespErr = svcservice.OpenAPILoadHelmServiceFromTemplate(ctx, projectKey, req)
+}

@@ -446,18 +446,23 @@ func (req *OpenAPIEnvCfgArgs) Validate() error {
 	return nil
 }
 
+type OpenAPISubEnv struct {
+	Enable  bool   `json:"enable"`
+	BaseEnv string `json:"base_env"`
+}
+
 type OpenAPICreateEnvArgs struct {
-	Production      bool                              `json:"production"`
-	ProjectName     string                            `json:"project_key"`
-	EnvName         string                            `json:"env_key"`
-	ClusterID       string                            `json:"cluster_id"`
-	Namespace       string                            `json:"namespace"`
-	RegistryID      string                            `json:"registry_id"`
-	Alias           string                            `json:"env_name"`
-	GlobalVariables []*commontypes.GlobalVariableKV   `json:"global_variables"`
-	ChartValues     []*ProductHelmServiceCreationInfo `json:"chart_values"`
-	Services        []*OpenAPICreateServiceArgs       `json:"services"`
-	EnvConfigs      []*EnvCfgArgs                     `json:"env_configs"`
+	Production      bool                            `json:"production"`
+	ProjectName     string                          `json:"project_key"`
+	EnvName         string                          `json:"env_key"`
+	ClusterID       string                          `json:"cluster_id"`
+	Namespace       string                          `json:"namespace"`
+	RegistryID      string                          `json:"registry_id"`
+	Alias           string                          `json:"env_name"`
+	SubEnv          *OpenAPISubEnv                  `json:"sub_env"`
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+	Services        []*OpenAPICreateServiceArgs     `json:"services"`
+	EnvConfigs      []*EnvCfgArgs                   `json:"env_configs"`
 }
 
 type EnvCfgArgs struct {
@@ -562,4 +567,42 @@ type OpenAPIEnvServiceDetail struct {
 	Type           string                           `json:"type"`
 	Error          string                           `json:"error"`
 	DeployStrategy string                           `json:"deploy_strategy"`
+}
+
+type OpenAPICreateHelmEnvArgs struct {
+	// 是否为生产环境
+	Production bool `json:"production"`
+	// 项目标识
+	ProjectKey string `json:"project_key" binding:"required"`
+	// 环境名称
+	EnvName string `json:"env_name" binding:"required"`
+	// 集群 ID
+	ClusterID string `json:"cluster_id" binding:"required"`
+	// 命名空间
+	Namespace string `json:"namespace" binding:"required"`
+	// 镜像仓库 ID
+	RegistryID string `json:"registry_id" binding:"required"`
+	// 环境别名
+	Alias string `json:"alias"`
+	// 子环境配置
+	SubEnv *OpenAPISubEnv `json:"sub_env"`
+}
+
+func (env *OpenAPICreateHelmEnvArgs) Validate() error {
+	if env.ProjectKey == "" {
+		return fmt.Errorf("project key is required")
+	}
+	if env.EnvName == "" {
+		return fmt.Errorf("env key is required")
+	}
+	if env.ClusterID == "" {
+		return fmt.Errorf("cluster name is required")
+	}
+	if env.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if env.RegistryID == "" {
+		return fmt.Errorf("registry address is required")
+	}
+	return nil
 }
