@@ -128,6 +128,10 @@ func ServeWs(c *gin.Context) {
 
 		// 执行 pod exec
 		err := ExecPod(execCtx.ClusterID, execCtx.Command, pty, execCtx.Namespace, execCtx.PodName, execCtx.ContainerName)
+
+		// 🆕 标记 exec 已完成
+		sessionMgr.MarkExecCompleted(newSessionID)
+
 		if err != nil {
 			msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 			log.Errorf("session %s: %s", newSessionID, msg)
@@ -296,6 +300,10 @@ FOR:
 
 		// 执行带环境变量的 shell 命令
 		err := ExecPod(execCtx.ClusterID, execCtx.Command, pty, execCtx.Namespace, execCtx.PodName, execCtx.ContainerName)
+
+		// 🆕 标记 exec 已完成
+		sessionMgr.MarkExecCompleted(newSessionID)
+
 		if err != nil {
 			msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 			log.Errorf("debug session %s: %s", newSessionID, msg)

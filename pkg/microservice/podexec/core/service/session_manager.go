@@ -57,6 +57,7 @@ type ManagedSession struct {
 	CreatedAt     time.Time
 	mutex         sync.RWMutex
 	execStarted   bool
+	execCompleted bool // 🆕 标记 exec 是否已完成（shell 进程退出）
 
 	// 安全增强：用户身份信息
 	UserID   string // 用户 ID
@@ -179,6 +180,12 @@ func (sm *SessionManager) ReconnectSession(sessionID string, w http.ResponseWrit
 		session.ClientIP = r.RemoteAddr
 	}
 
+	// 🔥 检查 exec 是否已完成
+	if session.execCompleted {
+		log.Warnf("session %s exec already completed, cannot reconnect", sessionID)
+		return fmt.Errorf("session exec already completed")
+	}
+
 	// 升级为 WebSocket 连接
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -249,6 +256,21 @@ func (sm *SessionManager) MarkExecStarted(sessionID string) {
 	defer session.mutex.Unlock()
 
 	session.execStarted = true
+}
+
+// MarkExecCompleted 标记会话的 exec 已完成
+func (sm *SessionManager) MarkExecCompleted(sessionID string) {
+	value, ok := sm.sessions.Load(sessionID)
+	if !ok {
+		return
+	}
+
+	session := value.(*ManagedSession)
+	session.mutex.Lock()
+	defer session.mutex.Unlock()
+
+	session.execCompleted = true
+	log.Infof("session %s exec completed", sessionID)
 }
 
 // cleanup 后台清理过期会话的 goroutine
