@@ -205,6 +205,49 @@ func GetLarkWorkitemType(ctx *internalhandler.Context) (*GetLarkWorkitemTypeResp
 	return resp, nil
 }
 
+type GetLarkWorkitemTypeDetailResponse struct {
+	Name           string `json:"name"`
+	APIName        string `json:"api_name"`
+	TypeKey        string `json:"type_key"`
+	FlowMode       string `json:"flow_mode"`
+	IsPinned       bool   `json:"is_pinned"`
+	Description    string `json:"description"`
+	IsDisabled     bool   `json:"is_disabled"`
+	EnableSchedule bool   `json:"enable_schedule"`
+}
+
+func GetLarkWorkitemTypeDetail(ctx *internalhandler.Context, workitemTypeKey string) (*GetLarkWorkitemTypeDetailResponse, error) {
+	projectKey := ctx.LarkPlugin.ProjectKey
+	client := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	larkResp, err := client.ClientV2.WorkItem.GetWorkItemTypeInfoByKey(ctx, workitem.NewGetWorkItemTypeInfoByKeyReqBuilder().
+		ProjectKey(projectKey).
+		WorkItemTypeKey(workitemTypeKey).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lark workitem type: %w", err)
+	}
+
+	if larkResp.Code() != 0 {
+		return nil, fmt.Errorf("failed to get lark workitem type, code: %d, message: %s", larkResp.Code(), larkResp.ErrMsg)
+	}
+
+	resp := &GetLarkWorkitemTypeDetailResponse{
+		Name:           *larkResp.Data.Name,
+		APIName:        *larkResp.Data.APIName,
+		TypeKey:        *larkResp.Data.TypeKey,
+		FlowMode:       *larkResp.Data.FlowMode,
+		IsPinned:       *larkResp.Data.IsPinned,
+		Description:    *larkResp.Data.Description,
+		IsDisabled:     *larkResp.Data.IsDisabled,
+		EnableSchedule: *larkResp.Data.EnableSchedule,
+	}
+
+	return resp, nil
+}
+
 type GetLarkWorkitemTypeTemplateResponse struct {
 	Templates []*LarkWorkitemTypeTemplate `json:"templates"`
 }
