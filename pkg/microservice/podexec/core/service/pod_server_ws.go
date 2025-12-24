@@ -57,12 +57,13 @@ func ServeWs(c *gin.Context) {
 
 	if sessionID != "" {
 		// 🔒 重连场景：验证用户身份
-		if err := sessionMgr.ReconnectSession(sessionID, c.Writer, c.Request, userInfo); err == nil {
+		if reconnectErr := sessionMgr.ReconnectSession(sessionID, c.Writer, c.Request, userInfo); reconnectErr == nil {
 			log.Infof("session %s reconnected for user %s from %s", sessionID, userInfo.UserName, c.ClientIP())
 			ctx.RespErr = nil
 			return
+		} else {
+			log.Warnf("failed to reconnect session %s for user %s: %v, creating new session", sessionID, userInfo.UserName, reconnectErr)
 		}
-		log.Warnf("failed to reconnect session %s for user %s: %v, creating new session", sessionID, userInfo.UserName, err)
 	}
 
 	// 新建会话场景
@@ -103,7 +104,7 @@ func ServeWs(c *gin.Context) {
 		Namespace:     namespace,
 		PodName:       podName,
 		ContainerName: containerName,
-		Command:       []string{"/bin/sh"},
+		Command:       []string{"sh"}, // 使用标准 shell
 	}
 
 	// 创建新会话（传入用户信息）
@@ -125,7 +126,8 @@ func ServeWs(c *gin.Context) {
 
 		sessionMgr.MarkExecStarted(newSessionID)
 
-		err := ExecPod(clusterID, execCtx.Command, pty, namespace, podName, containerName)
+		// 执行 pod exec
+		err := ExecPod(execCtx.ClusterID, execCtx.Command, pty, execCtx.Namespace, execCtx.PodName, execCtx.ContainerName)
 		if err != nil {
 			msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 			log.Errorf("session %s: %s", newSessionID, msg)
@@ -292,6 +294,7 @@ FOR:
 
 		sessionMgr.MarkExecStarted(newSessionID)
 
+		// 执行带环境变量的 shell 命令
 		err := ExecPod(execCtx.ClusterID, execCtx.Command, pty, execCtx.Namespace, execCtx.PodName, execCtx.ContainerName)
 		if err != nil {
 			msg := fmt.Sprintf("Exec to pod error! err: %v", err)

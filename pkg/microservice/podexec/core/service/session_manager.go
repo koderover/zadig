@@ -225,8 +225,11 @@ func (sm *SessionManager) RemoveSession(sessionID string) {
 	session.mutex.Lock()
 	defer session.mutex.Unlock()
 
-	// 关闭 terminal
+	// 🆕 在关闭前发送退出消息，让前端知道这是正常退出
 	if session.Terminal != nil {
+		// 发送退出通知
+		_ = session.Terminal.SendExitMessage("Session ended")
+		// 关闭 terminal
 		session.Terminal.Close()
 	}
 

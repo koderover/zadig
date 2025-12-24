@@ -68,6 +68,7 @@ const (
 	OpHeartbeat = "heartbeat"
 	OpPong      = "pong"
 	OpSessionID = "session_id"
+	OpExit      = "exit" // 会话正常退出
 )
 
 // TerminalMessage is the messaging protocol between ShellController and TerminalSession.
@@ -384,6 +385,36 @@ func (t *TerminalSession) sendSessionID(sessionID string) error {
 
 	if t.wsConn != nil {
 		return t.wsConn.WriteMessage(websocket.TextMessage, msg)
+	}
+	return nil
+}
+
+// SendExitMessage 发送退出消息给客户端
+// 用于通知前端会话正常结束，前端应停止重连尝试
+func (t *TerminalSession) SendExitMessage(reason string) error {
+	if reason == "" {
+		reason = "Session terminated"
+	}
+
+	msg, err := json.Marshal(TerminalMessage{
+		Operation: OpExit,
+		Data:      reason,
+	})
+	if err != nil {
+		return err
+	}
+
+	t.wsMutex.Lock()
+	defer t.wsMutex.Unlock()
+
+	if t.wsConn != nil {
+		// 发送退出消息
+		if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Warnf("failed to send exit message: %v", err)
+			return err
+		}
+		// 给前端一点时间接收消息
+		time.Sleep(100 * time.Millisecond)
 	}
 	return nil
 }
