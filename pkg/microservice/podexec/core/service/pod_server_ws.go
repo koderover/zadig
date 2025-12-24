@@ -45,11 +45,32 @@ func ServeWs(c *gin.Context) {
 		return
 	}
 
+	// 提取用户身份信息
+	userInfo := &UserInfo{
+		UserID:   ctx.UserID,
+		UserName: ctx.UserName,
+	}
+
+	// 检查是否为重连请求
+	sessionID := c.Query("session_id")
+	sessionMgr := GetSessionManager()
+
+	if sessionID != "" {
+		// 🔒 重连场景：验证用户身份
+		if err := sessionMgr.ReconnectSession(sessionID, c.Writer, c.Request, userInfo); err == nil {
+			log.Infof("session %s reconnected for user %s from %s", sessionID, userInfo.UserName, c.ClientIP())
+			ctx.RespErr = nil
+			return
+		}
+		log.Warnf("failed to reconnect session %s for user %s: %v, creating new session", sessionID, userInfo.UserName, err)
+	}
+
+	// 新建会话场景
 	podName := c.Param("podName")
 	containerName := c.Param("containerName")
 
 	if podName == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("containerName can't be empty,please check!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName can't be empty,please check!")
 		return
 	}
 	log.Infof("exec containerName: %s, pod: %s", containerName, podName)
@@ -63,54 +84,70 @@ func ServeWs(c *gin.Context) {
 	}
 	namespace, clusterID := productInfo.Namespace, productInfo.ClusterID
 
-	pty, err := NewTerminalSession(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Errorf("get pty failed: %v", err)
-		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
-		return
-	}
-	defer func() {
-		log.Info("close session.")
-		_ = pty.Close()
-	}()
-
+	// 验证 Pod 是否存在
 	kubeCli, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
-		msg := fmt.Sprintf("get kubecli err :%v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
-
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
 		return
 	}
 
 	ok, err := ValidatePod(kubeCli, namespace, podName, containerName)
 	if !ok {
-		msg := fmt.Sprintf("Validate pod error! err: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
-
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
 
-	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
-	if err != nil {
-		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
+	// 创建会话上下文
+	execCtx := &ExecContext{
+		ClusterID:     clusterID,
+		Namespace:     namespace,
+		PodName:       podName,
+		ContainerName: containerName,
+		Command:       []string{"/bin/sh"},
+	}
 
-		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
+	// 创建新会话（传入用户信息）
+	newSessionID, pty, err := sessionMgr.CreateSession(c.Writer, c.Request, execCtx, nil, userInfo)
+	if err != nil {
+		log.Errorf("failed to create session: %v", err)
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("failed to create session: %v", err))
 		return
 	}
+
+	log.Infof("session %s created for user %s, pod %s/%s", newSessionID, userInfo.UserName, namespace, podName)
+
+	// 在后台 goroutine 中执行 pod exec
+	go func() {
+		defer func() {
+			log.Infof("session %s exec completed, removing session", newSessionID)
+			sessionMgr.RemoveSession(newSessionID)
+		}()
+
+		sessionMgr.MarkExecStarted(newSessionID)
+
+		err := ExecPod(clusterID, execCtx.Command, pty, namespace, podName, containerName)
+		if err != nil {
+			msg := fmt.Sprintf("Exec to pod error! err: %v", err)
+			log.Errorf("session %s: %s", newSessionID, msg)
+			_, _ = pty.Write([]byte(msg))
+			pty.Done()
+		}
+	}()
+
+	// 主 goroutine 不再阻塞，直接返回
+	ctx.RespErr = nil
 }
 
 func DebugWorkflow(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	logger := ctx.Logger
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
@@ -118,11 +155,38 @@ func DebugWorkflow(c *gin.Context) {
 		return
 	}
 
+	// 传递用户信息到下层函数
+	c.Set("userId", ctx.UserID)
+	c.Set("userName", ctx.UserName)
+
 	ctx.RespErr = debugWorkflow(c, c.Param("workflowName"), c.Param("jobName"), taskID, logger)
-	return
 }
 
 func debugWorkflow(c *gin.Context, workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) error {
+	// 提取用户身份信息（从上层 DebugWorkflow 传递）
+	userID := c.GetString("userId")
+	userName := c.GetString("userName")
+
+	userInfo := &UserInfo{
+		UserID:   userID,
+		UserName: userName,
+	}
+
+	// 检查是否为重连请求
+	sessionID := c.Query("session_id")
+	sessionMgr := GetSessionManager()
+
+	if sessionID != "" {
+		// 🔒 重连场景：验证用户身份
+		if reconnectErr := sessionMgr.ReconnectSession(sessionID, c.Writer, c.Request, userInfo); reconnectErr == nil {
+			log.Infof("debug session %s reconnected for user %s from %s", sessionID, userInfo.UserName, c.ClientIP())
+			return nil
+		} else {
+			log.Warnf("failed to reconnect debug session %s for user %s: %v, creating new session", sessionID, userInfo.UserName, reconnectErr)
+		}
+	}
+
+	// 新建会话场景
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to find task: %s", err))
@@ -152,26 +216,6 @@ FOR:
 		logger.Errorf("debug workflow failed: IToi %v", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败")
 	}
-
-	pty, err := NewTerminalSession(c.Writer, c.Request, nil, &TerminalSessionOption{
-		SecretEnvs: func() (secrets []string) {
-			for _, v := range jobTaskSpec.Properties.Envs {
-				if v.IsCredential {
-					secrets = append(secrets, v.Value)
-				}
-			}
-			return secrets
-		}(),
-		Type: Workflow,
-	})
-	if err != nil {
-		log.Errorf("get pty failed: %v", err)
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("get pty failed: %v", err))
-	}
-	defer func() {
-		log.Info("close session.")
-		_ = pty.Close()
-	}()
 
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
@@ -208,14 +252,54 @@ FOR:
 	}
 	script += "bash\n"
 
-	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
-	if err != nil {
-		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
-
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
+	// 创建会话上下文
+	execCtx := &ExecContext{
+		ClusterID:     jobTaskSpec.Properties.ClusterID,
+		Namespace:     jobTaskSpec.Properties.Namespace,
+		PodName:       pod.Name,
+		ContainerName: pod.Spec.Containers[0].Name,
+		Command:       []string{"/bin/sh", "-c", script},
 	}
+
+	// 创建会话选项
+	sessionOpt := &TerminalSessionOption{
+		SecretEnvs: func() (secrets []string) {
+			for _, v := range jobTaskSpec.Properties.Envs {
+				if v.IsCredential {
+					secrets = append(secrets, v.Value)
+				}
+			}
+			return secrets
+		}(),
+		Type: Workflow,
+	}
+
+	// 创建新会话（传入用户信息）
+	newSessionID, pty, err := sessionMgr.CreateSession(c.Writer, c.Request, execCtx, sessionOpt, userInfo)
+	if err != nil {
+		log.Errorf("failed to create debug session: %v", err)
+		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("failed to create session: %v", err))
+	}
+
+	log.Infof("debug session %s created for user %s, workflow %s/%s", newSessionID, userInfo.UserName, workflowName, jobName)
+
+	// 在后台 goroutine 中执行 pod exec
+	go func() {
+		defer func() {
+			log.Infof("debug session %s exec completed, removing session", newSessionID)
+			sessionMgr.RemoveSession(newSessionID)
+		}()
+
+		sessionMgr.MarkExecStarted(newSessionID)
+
+		err := ExecPod(execCtx.ClusterID, execCtx.Command, pty, execCtx.Namespace, execCtx.PodName, execCtx.ContainerName)
+		if err != nil {
+			msg := fmt.Sprintf("Exec to pod error! err: %v", err)
+			log.Errorf("debug session %s: %s", newSessionID, msg)
+			_, _ = pty.Write([]byte(msg))
+			pty.Done()
+		}
+	}()
+
 	return nil
 }
