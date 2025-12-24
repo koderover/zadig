@@ -541,6 +541,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		tempFile.GET("/download/:fileId", DownloadTemporaryFile)
 		tempFile.POST("/cleanup", CleanupExpiredUploads)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// KeyVault (key-value management)
+	// ---------------------------------------------------------------------------------------
+	keyvault := router.Group("keyvault")
+	{
+		keyvault.GET("/items", ListKeyVaultItems)
+		keyvault.GET("/items/:id", GetKeyVaultItem)
+		keyvault.POST("/items", CreateKeyVaultItem)
+		keyvault.PUT("/items/:id", UpdateKeyVaultItem)
+		keyvault.DELETE("/items/:id", DeleteKeyVaultItem)
+	}
 }
 
 type OpenAPIRouter struct{}
