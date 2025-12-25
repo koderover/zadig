@@ -358,6 +358,18 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 	ret := make([]*commonmodels.Container, 0)
 	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
+		// Skip array elements - if any path contains "[" it's from an array
+		isArrayElement := false
+		for _, path := range searchResult {
+			if strings.Contains(path, "[") {
+				isArrayElement = true
+				break
+			}
+		}
+		if isArrayElement {
+			continue
+		}
+
 		uniquePath := GenerateUniquePath(searchResult)
 		if usedImagePath.Has(uniquePath) {
 			continue
