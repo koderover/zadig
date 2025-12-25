@@ -53,6 +53,41 @@ func GetSSHUserAndHostAndPort(address string) (string, string, int) {
 	return user, hostArr[0], 0
 }
 
+func GetSSHRemoteAddress(address, namespace, projectName string) string {
+	address = strings.TrimPrefix(address, "ssh://")
+	addressArr := strings.Split(address, "@")
+	user := ""
+	if len(addressArr) == 2 {
+		// has user
+		user = addressArr[0]
+		address = addressArr[1]
+	}
+
+	subpath := ""
+	addressArr2 := strings.Split(address, "/")
+	if len(addressArr2) > 1 {
+		// has subpath
+		// for example, ssh://git@gitee.com:2222/kr-test-org1
+		subpath = strings.Join(addressArr2[1:], "/")
+	}
+
+	// now address is like gitee.com:2222
+	hostArr := strings.Split(addressArr2[0], ":")
+	host := hostArr[0]
+
+	path := fmt.Sprintf("%s/%s.git", namespace, projectName)
+	if subpath != "" {
+		path = fmt.Sprintf("%s/%s/%s.git", subpath, namespace, projectName)
+	}
+
+	remote := fmt.Sprintf("git@%s:%s", host, path)
+	if user != "" {
+		remote = fmt.Sprintf("%s@%s:%s", user, host, path)
+	}
+
+	return remote
+}
+
 func WriteSSHFile(sshKey, hostName string) (string, error) {
 	if sshKey == "" {
 		return "", fmt.Errorf("ssh cannot be empty")
