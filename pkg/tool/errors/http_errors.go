@@ -1005,4 +1005,13 @@ var (
 	// test stat releated errors: 7160 - 7169
 	//-----------------------------------------------------------------------------------------------
 	ErrGetTestCount = NewHTTPError(7160, "获取测试计数失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// keyvault releated errors: 7170 - 7179
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateKeyVaultItem = NewHTTPError(7170, "创建密钥库条目失败")
+	ErrUpdateKeyVaultItem = NewHTTPError(7171, "更新密钥库条目失败")
+	ErrDeleteKeyVaultItem = NewHTTPError(7172, "删除密钥库条目失败")
+	ErrListKeyVaultItem   = NewHTTPError(7173, "获取密钥库条目列表失败")
+	ErrGetKeyVaultItem    = NewHTTPError(7174, "获取密钥库条目详情失败")
 )

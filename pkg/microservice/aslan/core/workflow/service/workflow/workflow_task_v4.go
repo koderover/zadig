@@ -926,6 +926,18 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		}
 	}
 
+	keyvaultKV, err := commonservice.ListAvailableKeyVaultItemsForProject(task.ProjectName, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kv pair from keyvault for project %s, error: %s", task.ProjectName, err)
+	}
+
+	for _, group := range keyvaultKV.Groups {
+		for _, item := range group.KVs {
+			key := strings.Join([]string{"parameter", item.Group, item.Key}, ".")
+			globalKeyMap[key] = item.Value
+		}
+	}
+
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {
 			stage.Jobs = originJobs
