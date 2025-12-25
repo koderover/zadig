@@ -333,3 +333,69 @@ func DeleteKeyVaultItem(c *gin.Context) {
 
 	ctx.RespErr = service.DeleteKeyVaultItem(id, ctx.Logger)
 }
+
+// DeleteKeyVaultGroup deletes all keyvault items in a group
+// @Summary Delete KeyVault Group
+// @Description Delete all keyvault items in a group (requires system admin for system-wide, project admin for project)
+// @Tags system
+// @Accept json
+// @Produce json
+// @Param group path string true "group name"
+// @Param projectName query string false "project name filter"
+// @Param isSystem query string false "set to 'true' for system-wide items"
+// @Success 200
+// @Router /api/aslan/system/keyvault/groups/{group} [delete]
+func DeleteKeyVaultGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	group := c.Param("group")
+	if group == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("group is required")
+		return
+	}
+
+	projectName := c.Query("projectName")
+	isSystemVariable := c.Query("isSystem")
+
+	if isSystemVariable != "" && projectName != "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("isSystem and projectName cannot be both set")
+		return
+	}
+
+	detail := fmt.Sprintf("group:%s project:%s isSystem:%s", group, projectName, isSystemVariable)
+
+	// Authorization check
+	if projectName != "" {
+		if !ctx.Resources.IsSystemAdmin {
+			projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectName]
+			if !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !projectAuth.IsProjectAdmin {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+		internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "系统设置-密钥库分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+	} else if isSystemVariable == "true" {
+		// System-wide item requires system admin
+		if !ctx.Resources.IsSystemAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+		internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-密钥库分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+	} else {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("either projectName or isSystem must be set")
+		return
+	}
+
+	ctx.RespErr = service.DeleteKeyVaultGroup(group, projectName, isSystemVariable == "true", ctx.Logger)
+}

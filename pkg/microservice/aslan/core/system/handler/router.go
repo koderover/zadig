@@ -552,6 +552,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		keyvault.POST("/items", CreateKeyVaultItem)
 		keyvault.PUT("/items/:id", UpdateKeyVaultItem)
 		keyvault.DELETE("/items/:id", DeleteKeyVaultItem)
+		keyvault.DELETE("/groups/:group", DeleteKeyVaultGroup)
 	}
 }
 

@@ -106,3 +106,17 @@ func DeleteKeyVaultItem(id string, log *zap.SugaredLogger) error {
 	}
 	return nil
 }
+
+// DeleteKeyVaultGroup deletes all items in a group
+func DeleteKeyVaultGroup(group string, projectName string, isSystemWide bool, log *zap.SugaredLogger) error {
+	opt := &commonrepo.KeyVaultItemDeleteOption{
+		ProjectName:  projectName,
+		IsSystemWide: isSystemWide,
+	}
+	err := commonrepo.NewKeyVaultItemColl().DeleteByGroup(group, opt)
+	if err != nil {
+		log.Errorf("KeyVaultItem.DeleteByGroup %s error: %s", group, err)
+		return e.ErrDeleteKeyVaultItem.AddErr(err)
+	}
+	return nil
+}
