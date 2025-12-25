@@ -32,14 +32,15 @@ import (
 )
 
 type DeliveryVersionV2Args struct {
-	ID           string `json:"id"`
-	ProjectName  string `json:"projectName"`
-	Version      string `json:"version"`
-	Label        string `json:"label"`
-	WorkflowName string `json:"workflowName"`
-	TaskID       int    `json:"taskId"`
-	PerPage      int    `json:"perPage"`
-	Page         int    `json:"page"`
+	ID             string   `json:"id"`
+	ProjectName    string   `json:"projectName"`
+	Version        string   `json:"version"`
+	Label          string   `json:"label"`
+	WorkflowName   string   `json:"workflowName"`
+	TaskID         int      `json:"taskId"`
+	PerPage        int      `json:"perPage"`
+	Page           int      `json:"page"`
+	ExcludedFields []string `json:"excludedFields"`
 }
 
 type DeliveryVersionV2Coll struct {
@@ -149,6 +150,13 @@ func (c *DeliveryVersionV2Coll) List(args *DeliveryVersionV2Args) ([]*models.Del
 	if args.Page > 0 {
 		opts.SetSkip(int64(args.PerPage * (args.Page - 1)))
 		opts.SetLimit(int64(args.PerPage))
+	}
+	if len(args.ExcludedFields) > 0 {
+		projection := bson.M{}
+		for _, field := range args.ExcludedFields {
+			projection[field] = 0
+		}
+		opts.SetProjection(projection)
 	}
 	count, err := c.Collection.CountDocuments(ctx, query)
 	if err != nil {
