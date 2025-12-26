@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
@@ -301,11 +302,16 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 		return nil
 	}
 
+	log.Infof("[Lark WSS] Creating SSE connection for app: %s (ID: %s, AppID: %s, Type: %s)",
+		arg.Name, arg.ID.Hex(), arg.AppID, arg.Type)
+
 	lock := cache.NewRedisLock(fmt.Sprintf(larkSSELockFormat, arg.ID.Hex()))
 	err := lock.TryLock()
 	if err != nil {
+		log.Errorf("[Lark WSS] Failed to acquire lock for %s: %v", arg.Name, err)
 		return fmt.Errorf("Lark sse lock for %s is occupied by another instance: err: %s", arg.Name, err)
 	}
+	log.Infof("[Lark WSS] Successfully acquired lock for %s", arg.Name)
 
 	eventHandler := dispatcher.NewEventDispatcher("", "").
 		OnCustomizedEvent("approval_task", larkSSEHandler).     // 审批任务状态变更
@@ -313,58 +319,105 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 		OnCustomizedEvent("approval", larkSSEHandler)
 
 	eventHandler.InitConfig()
+	log.Infof("[Lark WSS] Event handlers registered: approval_task, approval_instance, approval")
+
+	larkDomain := lark.GetLarkBaseUrl(arg.Type)
+	log.Infof("[Lark WSS] Lark domain: %s", larkDomain)
 
 	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
 		larkws.WithEventHandler(eventHandler),
-		larkws.WithDomain(lark.GetLarkBaseUrl(arg.Type)),
+		larkws.WithDomain(larkDomain),
 	)
 
+	log.Infof("[Lark WSS] WebSocket client created, starting connection...")
+
+	// 使用一个带取消的 context 来启动客户端
+	ctx := context.Background()
+	
 	util.Go(
 		func() {
-			cli.Start(context.Background())
+			startTime := time.Now()
+			log.Infof("[Lark WSS] Starting WebSocket client for %s at %v", arg.Name, startTime)
+			
+			// Start 是一个阻塞调用，会一直运行直到连接断开
+			err := cli.Start(ctx)
+			
+			elapsed := time.Since(startTime)
+			if err != nil {
+				log.Errorf("[Lark WSS] WebSocket client for %s stopped with error after %v: %v", 
+					arg.Name, elapsed, err)
+			} else {
+				log.Warnf("[Lark WSS] WebSocket client for %s stopped normally after %v (unexpected)", 
+					arg.Name, elapsed)
+			}
+			
+			// 连接断开后释放锁
+			lock.Unlock()
+			log.Infof("[Lark WSS] Released lock for %s after connection stopped", arg.Name)
 		},
 	)
+
+	// 给客户端一些时间启动
+	time.Sleep(2 * time.Second)
+	log.Infof("[Lark WSS] Connection initialization completed for %s", arg.Name)
 
 	return nil
 }
 
 func larkSSEHandler(ctx context.Context, event *larkevent.EventReq) error {
+	receiveTime := time.Now()
+	log.Infof("[Lark WSS Event] ===== Received event at %v =====", receiveTime)
+	log.Infof("[Lark WSS Event] Event body length: %d bytes", len(event.Body))
+	
 	callback := &larkservice.CallbackData{}
 	err := json.Unmarshal([]byte(event.Body), callback)
 	if err != nil {
-		log.Errorf("unmarshal callback data failed: %v", err)
+		log.Errorf("[Lark WSS Event] Failed to unmarshal callback data: %v", err)
+		log.Errorf("[Lark WSS Event] Raw event body: %s", string(event.Body))
 		return errors.Wrap(err, "unmarshal")
 	}
 
+	log.Infof("[Lark WSS Event] Callback parsed - UUID: %s, Type: %s, Ts: %s", 
+		callback.UUID, callback.Type, callback.Ts)
 	log.Debugf("[LARK SSE EVENT IN, data: =====\n%s\n=====", string(callback.Event))
 
 	eventBody := larkservice.ApprovalTaskEvent{}
 	err = json.Unmarshal(callback.Event, &eventBody)
 	if err != nil {
-		log.Errorf("unmarshal callback event failed: %v", err)
+		log.Errorf("[Lark WSS Event] Failed to unmarshal event body: %v", err)
 		return errors.Wrap(err, "unmarshal")
 	}
-	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", eventBody.AppID, callback.UUID, callback.Ts)
+	log.Infof("[Lark WSS Event] Processing approval event:")
+	log.Infof("[Lark WSS Event]   - AppID: %s", eventBody.AppID)
+	log.Infof("[Lark WSS Event]   - InstanceCode: %s", eventBody.InstanceCode)
+	log.Infof("[Lark WSS Event]   - DefKey (nodeKey): %s", eventBody.DefKey)
+	log.Infof("[Lark WSS Event]   - CustomKey (nodeID): %s", eventBody.CustomKey)
+	log.Infof("[Lark WSS Event]   - OpenID (userID): %s", eventBody.OpenID)
+	log.Infof("[Lark WSS Event]   - Status: %s", eventBody.Status)
+	log.Infof("[Lark WSS Event]   - OperateTime: %s", eventBody.OperateTime)
+	log.Infof("[Lark WSS Event]   - UUID: %s", callback.UUID)
+	
 	manager := larkservice.GetLarkApprovalInstanceManager(eventBody.InstanceCode)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
-		log.Infof("check existed request uuid %s, ignored", callback.UUID)
+		log.Infof("[Lark WSS Event] Duplicate event with UUID %s, ignored", callback.UUID)
 		return nil
 	}
+	log.Infof("[Lark WSS Event] New event UUID %s, processing...", callback.UUID)
+	
 	t, err := strconv.ParseInt(eventBody.OperateTime, 10, 64)
 	if err != nil {
-		log.Warnf("parse operate time %s failed: %v", eventBody.OperateTime, err)
+		log.Warnf("[Lark WSS Event] Failed to parse operate time %s: %v", eventBody.OperateTime, err)
 	}
+	
+	log.Infof("[Lark WSS Event] Updating Redis for instance: %s", eventBody.InstanceCode)
 	larkservice.UpdateNodeUserApprovalResult(eventBody.InstanceCode, eventBody.DefKey, eventBody.CustomKey, eventBody.OpenID, &larkservice.UserApprovalResult{
 		Result:        eventBody.Status,
 		OperationTime: t / 1000,
 	})
-	log.Infof("update lark app info id: %s, instance code: %s, nodeKey: %s, userID: %s status: %s",
-		eventBody.AppID,
-		eventBody.InstanceCode,
-		eventBody.CustomKey,
-		eventBody.OpenID,
-		eventBody.Status,
-	)
+	
+	processingTime := time.Since(receiveTime)
+	log.Infof("[Lark WSS Event] Successfully processed event in %v", processingTime)
+	log.Infof("[Lark WSS Event] ===== Event processing completed =====")
 
 	return nil
 }

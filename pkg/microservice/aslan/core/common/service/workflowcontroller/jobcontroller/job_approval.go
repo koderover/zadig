@@ -334,6 +334,18 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		allResultMap := larkservice.GetUserApprovalResults(instance)
 		nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
 
+		// 打印 Redis 中的完整数据，便于诊断
+		log.Infof("[Lark Approval Polling] Instance: %s", instance)
+		log.Infof("[Lark Approval Polling] NodeKeyMap: %v", nodeKeyMap)
+		log.Infof("[Lark Approval Polling] Total nodes in Redis: %d", len(allResultMap))
+		for nodeID, users := range allResultMap {
+			log.Infof("[Lark Approval Polling] Node %s has %d users:", nodeID, len(users))
+			for userID, result := range users {
+				log.Infof("[Lark Approval Polling]   - User %s: Result=%s, ApproveOrReject=%s, OperationTime=%d",
+					userID, result.Result, result.ApproveOrReject, result.OperationTime)
+			}
+		}
+
 		// i is used to index the node
 		// it starts from -1 because the cc node is not included in the approval nodes
 		i := -1
@@ -509,8 +521,13 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 	}()
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
+	checkCount := 0
+	startTime := time.Now()
+	
 	for {
 		time.Sleep(1 * time.Second)
+		checkCount++
+		
 		select {
 		case <-ctx.Done():
 			cancelApproval()
@@ -519,6 +536,10 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			cancelApproval()
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
+			elapsed := time.Since(startTime)
+			log.Infof("[Lark Approval Polling] Check #%d (elapsed: %v) for instance: %s", 
+				checkCount, elapsed.Round(time.Second), instance)
+			
 			done, err := approvalUpdate(approval)
 			if err != nil {
 				cancelApproval()
@@ -526,11 +547,16 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			}
 
 			if done {
+				log.Infof("[Lark Approval Polling] Approval completed after %d checks (elapsed: %v)",
+					checkCount, time.Since(startTime).Round(time.Second))
+				
 				finalInstance, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
 				if err != nil {
 					return config.StatusFailed, fmt.Errorf("get approval final instance, error: %s", err)
 				}
 
+				log.Infof("[Lark Approval Polling] Final approval status: %s", finalInstance.ApproveOrReject)
+				
 				if finalInstance.ApproveOrReject == config.ApprovalStatusApprove {
 					return config.StatusPassed, nil
 				}
