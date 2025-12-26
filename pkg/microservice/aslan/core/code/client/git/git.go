@@ -183,6 +183,8 @@ func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]s
 		_, _, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
 		remote := util.GetSSHRemoteAddress(c.Config.Address, namespace, projectName)
 
+		log.Debugf("port: %d, remote: %s", port, remote)
+
 		script := `
         ssh-agent sh -c '
             echo "$SSH_PRIVATE_KEY" | ssh-add -;
