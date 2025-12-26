@@ -29,6 +29,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.GET("config/workflow", GetLarkWorkflowConfig)
 		lark.PUT("config/workflow", UpdateLarkWorkflowConfig)
 		lark.GET("workitem/type", GetLarkWorkitemType)
+		lark.GET("workitem/type/:workitemTypeKey", GetLarkWorkitemTypeDetail)
 		lark.GET("workitem/type/:workitemTypeKey/template", GetLarkWorkitemTypeTemplate)
 		lark.GET("workitem/type/:workitemTypeKey/template/:templateID/node", GetLarkWorkitemTypeNodes)
 		lark.GET("workitem/:workitemTypeKey/:workItemID/workflow", GetLarkWorkitemWorkflow)

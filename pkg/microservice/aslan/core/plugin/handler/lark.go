@@ -236,6 +236,46 @@ func GetLarkWorkitemType(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemType(ctx)
 }
 
+// @summary 获取飞书插件工作项类型详情
+// @description 获取飞书插件工作项类型详情
+// @tags 	plugin
+// @accept 	json
+// @produce json
+// @Param 	workitemTypeKey path		 string							        true	"workitem type key"
+// @success 200             {object}     service.GetLarkWorkitemTypeDetailResponse
+// @router /api/plugin/lark/workitem/type/{workitemTypeKey} [get]
+func GetLarkWorkitemTypeDetail(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	err = CheckLarkAuth(c, ctx)
+	if err != nil {
+		ctx.RespErr = err
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workitemTypeKey := c.Param("workitemTypeKey")
+	if workitemTypeKey == "" {
+		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemTypeDetail(ctx, workitemTypeKey)
+}
+
 // @summary 获取飞书插件工作项模版
 // @description 获取飞书插件工作项模版
 // @tags 	plugin
