@@ -308,7 +308,9 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 	}
 
 	eventHandler := dispatcher.NewEventDispatcher("", "").
-		OnCustomizedEvent("approval_task", larkSSEHandler)
+		OnCustomizedEvent("approval_task", larkSSEHandler).     // 审批任务状态变更
+		OnCustomizedEvent("approval_instance", larkSSEHandler). // 审批实例事件
+		OnCustomizedEvent("approval", larkSSEHandler)
 
 	eventHandler.InitConfig()
 
