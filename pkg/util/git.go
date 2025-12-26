@@ -43,6 +43,7 @@ func GetSSHUserAndHostAndPort(address string) (string, string, int) {
 	}
 	hostArr := strings.Split(address, ":")
 	if len(hostArr) == 2 {
+		log.Debugf("port string: %s", hostArr[1])
 		port, err := strconv.Atoi(hostArr[1])
 		if err != nil {
 			log.Errorf("GetSSHHostAndPort: failed to convert port to int, address: %s, err: %s", address, err)
