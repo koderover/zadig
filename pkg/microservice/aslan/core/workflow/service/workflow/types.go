@@ -26,6 +26,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -125,10 +126,70 @@ func (args *workflowCreateArgs) clear() {
 }
 
 type OpenAPICreateCustomWorkflowTaskArgs struct {
-	WorkflowName string                      `json:"workflow_key"`
-	ProjectName  string                      `json:"project_key"`
-	Params       []*CreateCustomTaskParam    `json:"parameters"`
-	Inputs       []*CreateCustomTaskJobInput `json:"inputs"`
+	WorkflowName string                         `json:"workflow_key"`
+	ProjectName  string                         `json:"project_key"`
+	Params       []*CreateCustomTaskParam       `json:"parameters"`
+	Inputs       []*CreateCustomTaskJobInput    `json:"inputs"`
+	NotifyInputs []*CreateCustomTaskNotifyInput `json:"notify_inputs"`
+}
+
+type CreateCustomTaskNotifyInput struct {
+	// 工作流配置中第几个通知，从 0 开始
+	ID int `json:"id"`
+	// 通知类型，支持：feishu 飞书群组通知（自定义机器人）、feishu_app 飞书群组通知（自建应用）、feishu_person 飞书成员通知、dingding 钉钉，wechat 企业微信、msteams Teams、mail 邮件
+	Type setting.NotifyWebHookType `json:"type"`
+	// 飞书群组通知（自定义机器人）配置
+	LarkHookNotificationConfig *CreateCustomTaskLarkHookNotificationConfig `json:"lark_hook_notification_config"`
+	// 飞书群通知（自建应用）配置
+	LarkGroupNotificationConfig *CreateCustomTaskLarkGroupNotificationConfig `json:"lark_group_notification_config"`
+	// 飞书成员通知配置
+	LarkPersonNotificationConfig *CreateCustomTaskLarkPersonNotificationConfig `json:"lark_person_notification_config"`
+	// 钉钉通知配置
+	DingDingNotificationConfig *CreateCustomTaskDingDingNotificationConfig `json:"dingding_notification_config"`
+	// 企业微信通知配置
+	WechatNotificationConfig *CreateCustomTaskWechatNotificationConfig `json:"wechat_notification_config"`
+	// MSTeams通知配置
+	MSTeamsNotificationConfig *CreateCustomTaskMSTeamsNotificationConfig `json:"msteams_notification_config"`
+	// 邮件通知配置
+	MailNotificationConfig *CreateCustomTaskMailNotificationConfig `json:"mail_notification_config"`
+}
+
+type CreateCustomTaskLarkUserInfo struct {
+	ID string `json:"id"`
+	// 支持 open_id、user_id
+	IDType string `json:"id_type"`
+}
+
+type CreateCustomTaskLarkGroupNotificationConfig struct {
+	ChatID  string                         `json:"chat_id"`
+	AtUsers []CreateCustomTaskLarkUserInfo `json:"at_users"`
+}
+
+type CreateCustomTaskLarkPersonNotificationConfig struct {
+	Users []CreateCustomTaskLarkUserInfo `json:"users"`
+}
+
+type CreateCustomTaskLarkHookNotificationConfig struct {
+	AtUsers []string `json:"at_users"`
+	IsAtAll bool     `json:"is_at_all"`
+}
+
+type CreateCustomTaskWechatNotificationConfig struct {
+	AtUsers []string `json:"at_users"`
+	IsAtAll bool     `json:"is_at_all"`
+}
+
+type CreateCustomTaskDingDingNotificationConfig struct {
+	AtMobiles []string `json:"at_mobiles"`
+	IsAtAll   bool     `json:"is_at_all"`
+}
+
+type CreateCustomTaskMSTeamsNotificationConfig struct {
+	AtEmails []string `json:"at_emails"`
+}
+
+type CreateCustomTaskMailNotificationConfig struct {
+	UserIDs []string `json:"user_ids"`
 }
 
 type CreateCustomTaskParam struct {
