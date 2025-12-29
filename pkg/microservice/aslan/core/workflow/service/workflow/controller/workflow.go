@@ -114,6 +114,8 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 
 			job.Spec = ctrl.GetSpec()
 
+			finalKVs := make([]*commonmodels.KeyVal, 0)
+
 			kvs, err := ctrl.GetVariableList(job.Name,
 				true,
 				false,
@@ -126,6 +128,21 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			}
 
 			for _, kv := range kvs {
+				finalKVs = append(finalKVs, kv)
+			}
+
+			keyvaultKV, err := commonservice.ListAvailableKeyVaultItemsForProject(w.Project, true)
+			if err != nil {
+				return nil, err
+			}
+			for _, kv := range keyvaultKV.Groups {
+				for _, item := range kv.KVs {
+					key := strings.Join([]string{"parameter", item.Group, item.Key}, ".")
+					finalKVs = append(finalKVs, &commonmodels.KeyVal{Key: key, Value: item.Value, IsCredential: item.IsSensitive})
+				}
+			}
+
+			for _, kv := range finalKVs {
 				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
 					log.Debugf("insert key %s with value %s", kv.Key, kv.GetValue())
@@ -478,7 +495,7 @@ func (w *Workflow) GetDynamicVariableValues(jobName, serviceName, moduleName, ke
 	if err != nil {
 		return nil, e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 	}
-	
+
 	job, err := w.FindJob(jobName, "")
 	if err != nil {
 		return nil, err
@@ -549,7 +566,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 		if err != nil {
 			return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
 		}
-	
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "project.name",
 			Value:        projectInfo.ProjectName,
@@ -564,7 +581,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			IsCredential: false,
 		})
 	}
-	
+
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.id",
 		Value:        w.Name,
@@ -691,6 +708,18 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			}
 
 			resp = append(resp, kv...)
+		}
+	}
+
+	keyvaultKV, err := commonservice.ListAvailableKeyVaultItemsForProject(w.Project, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kv pair from keyvault for project %s, error: %s", w.Project, err)
+	}
+
+	for _, group := range keyvaultKV.Groups {
+		for _, item := range group.KVs {
+			key := strings.Join([]string{"parameter", item.Group, item.Key}, ".")
+			resp = append(resp, &commonmodels.KeyVal{Key: key, Value: item.Value, IsCredential: item.IsSensitive})
 		}
 	}
 
