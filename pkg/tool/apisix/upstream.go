@@ -22,25 +22,33 @@ import (
 
 // Upstream represents an APISIX upstream configuration
 type Upstream struct {
-	ID           string                 `json:"id,omitempty"`
-	Name         string                 `json:"name,omitempty"`
-	Desc         string                 `json:"desc,omitempty"`
-	Type         string                 `json:"type,omitempty"`          // roundrobin, chash, ewma, least_conn
-	Nodes        map[string]int         `json:"nodes,omitempty"`         // {"host:port": weight}
-	ServiceName  string                 `json:"service_name,omitempty"`  // for service discovery
-	DiscoveryType string                `json:"discovery_type,omitempty"` // dns, consul, nacos, etc.
-	Hash_on      string                 `json:"hash_on,omitempty"`       // vars, header, cookie, consumer, vars_combinations
-	Key          string                 `json:"key,omitempty"`           // hash key
-	Checks       map[string]interface{} `json:"checks,omitempty"`        // health check configuration
-	Retries      int                    `json:"retries,omitempty"`
-	RetryTimeout int                    `json:"retry_timeout,omitempty"`
-	Timeout      *UpstreamTimeout       `json:"timeout,omitempty"`
-	Scheme       string                 `json:"scheme,omitempty"`        // http, https, grpc, grpcs
-	Labels       map[string]string      `json:"labels,omitempty"`
-	PassHost     string                 `json:"pass_host,omitempty"`     // pass, node, rewrite
-	UpstreamHost string                 `json:"upstream_host,omitempty"` // used when pass_host is rewrite
-	KeepalivePool *KeepalivePool        `json:"keepalive_pool,omitempty"`
-	TLS          *UpstreamTLS           `json:"tls,omitempty"`
+	ID            string                 `json:"id,omitempty"`
+	Name          string                 `json:"name,omitempty"`
+	Desc          string                 `json:"desc,omitempty"`
+	Type          string                 `json:"type,omitempty"`           // roundrobin, chash, ewma, least_conn
+	Nodes         interface{}            `json:"nodes,omitempty"`          // Can be map[string]int or []UpstreamNode
+	ServiceName   string                 `json:"service_name,omitempty"`   // for service discovery
+	DiscoveryType string                 `json:"discovery_type,omitempty"` // dns, consul, nacos, etc.
+	HashOn        string                 `json:"hash_on,omitempty"`        // vars, header, cookie, consumer, vars_combinations
+	Key           string                 `json:"key,omitempty"`            // hash key
+	Checks        map[string]interface{} `json:"checks,omitempty"`         // health check configuration
+	Retries       int                    `json:"retries,omitempty"`
+	RetryTimeout  int                    `json:"retry_timeout,omitempty"`
+	Timeout       *UpstreamTimeout       `json:"timeout,omitempty"`
+	Scheme        string                 `json:"scheme,omitempty"` // http, https, grpc, grpcs
+	Labels        map[string]string      `json:"labels,omitempty"`
+	PassHost      string                 `json:"pass_host,omitempty"`      // pass, node, rewrite
+	UpstreamHost  string                 `json:"upstream_host,omitempty"`  // used when pass_host is rewrite
+	KeepalivePool *KeepalivePool         `json:"keepalive_pool,omitempty"`
+	TLS           *UpstreamTLS           `json:"tls,omitempty"`
+}
+
+// UpstreamNode represents a node in array format
+type UpstreamNode struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Weight   int    `json:"weight"`
+	Priority int    `json:"priority,omitempty"`
 }
 
 // UpstreamTimeout defines timeout settings for upstream
