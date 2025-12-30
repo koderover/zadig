@@ -17,7 +17,6 @@ limitations under the License.
 package apisix
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -143,18 +142,10 @@ func (c *Client) ListUpstreams(page, pageSize int) (*UpstreamListResponse, error
 func (c *Client) DeleteUpstream(id string) error {
 	url := fmt.Sprintf("%s%s/%s", c.Host, UpstreamsAPI, id)
 
-	resp := make(map[string]interface{})
-
-	err := c.Delete(url, &resp)
+	err := c.Delete(url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete upstream: %s", err)
 	}
-
-	deleteResponse, err := json.Marshal(resp)
-	if err != nil {
-		return fmt.Errorf("failed to marshal delete response: %s", err)
-	}
-	fmt.Println(string(deleteResponse))
 
 	return nil
 }
