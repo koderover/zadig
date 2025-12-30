@@ -58,11 +58,6 @@ func ListApiGateway(c *gin.Context) {
 		return
 	}
 
-	// Hide token for security
-	for _, gw := range apiGateways {
-		gw.Token = ""
-	}
-
 	ctx.Resp = apiGateways
 }
 
