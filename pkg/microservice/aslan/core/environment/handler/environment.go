@@ -725,9 +725,9 @@ func EstimatedValues(c *gin.Context) {
 		return
 	}
 
-	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	valueMergeStrategy := c.Query("valueMergeStrategy")
-	updateServiceRevision := c.Query("updateServiceRevision")
+	isHelmChartDeploy := c.Query("isHelmChartDeploy") == "true"
+	updateServiceRevision := c.Query("updateServiceRevision") == "true"
 	production := c.Query("production") == "true"
 	arg.Production = production
 	if production {
@@ -738,7 +738,7 @@ func EstimatedValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision == "true", production, isHelmChartDeploy == "true", config.ValueMergeStrategy(valueMergeStrategy), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateContentType(c.Query("type")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision, production, isHelmChartDeploy, config.ValueMergeStrategy(valueMergeStrategy), ctx.Logger)
 }
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

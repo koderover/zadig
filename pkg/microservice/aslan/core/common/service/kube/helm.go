@@ -80,28 +80,12 @@ type ReleaseInstallParam struct {
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
-	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, fmt.Sprint(serviceObj.Revision), param.Production)
-	if param.IsChartInstall {
-		base = config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, param.RenderChart.ChartVersion, param.Production)
-	}
-	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, param.Production); err != nil {
-		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-			serviceObj.Revision, serviceObj.ServiceName)
-		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName, param.Production)
-		if err = commonutil.PreLoadServiceManifests(base, serviceObj, param.Production); err != nil {
-			log.Errorf("failed to load chart info for service %v, production: %v", serviceObj.ServiceName, param.Production)
-			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
-		}
-	}
-
-	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
-	if param.IsChartInstall {
-		chartFullPath = filepath.Join(base, param.RenderChart.ChartName)
-	}
-	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+	chartPath, err := PreLoadHelmServiceChart(serviceObj, param.Production, &chartInstantiateDeploy{
+		ChartName:                renderChart.ChartName,
+		ChartVersion:             renderChart.ChartVersion,
+		isChartInstantiateDeploy: param.IsChartInstall,
+	})
 	if err != nil {
-		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
 		return err
 	}
 
@@ -149,6 +133,39 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	}
 
 	return err
+}
+
+type chartInstantiateDeploy struct {
+	ChartName                string
+	ChartVersion             string
+	isChartInstantiateDeploy bool
+}
+
+func PreLoadHelmServiceChart(service *commonmodels.Service, production bool, chartInstantiateDeploy *chartInstantiateDeploy) (string, error) {
+	base := config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, fmt.Sprint(service.Revision), production)
+	if chartInstantiateDeploy != nil && chartInstantiateDeploy.isChartInstantiateDeploy {
+		base = config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, chartInstantiateDeploy.ChartVersion, production)
+	}
+	if err := commonutil.PreloadServiceManifestsByRevision(base, service, production); err != nil {
+		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", service.Revision, service.ServiceName)
+		// use the latest version when it fails to download the specific version
+		base = config.LocalServicePath(service.ProductName, service.ServiceName, production)
+		if err = commonutil.PreLoadServiceManifests(base, service, production); err != nil {
+			log.Errorf("failed to load chart info for service %v, production: %v", service.ServiceName, production)
+			return "", fmt.Errorf("failed to load chart info for service %s", service.ServiceName)
+		}
+	}
+
+	chartFullPath := filepath.Join(base, service.ServiceName)
+	if chartInstantiateDeploy != nil && chartInstantiateDeploy.isChartInstantiateDeploy {
+		chartFullPath = filepath.Join(base, chartInstantiateDeploy.ChartName)
+	}
+	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+	if err != nil {
+		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+		return "", err
+	}
+	return chartPath, err
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
@@ -567,45 +584,18 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
 	} else {
-		releaseName = productSvc.ReleaseName
-		svcTemp = &commonmodels.Service{
-			ServiceName: releaseName,
-			ProductName: product.ProductName,
-			HelmChart: &commonmodels.HelmChart{
-				Name:    chartInfo.ChartName,
-				Repo:    chartInfo.ChartRepo,
-				Version: chartInfo.ChartVersion,
-			},
-		}
+		releaseName := productSvc.ReleaseName
+		svcTemp = GeneFakeInstantiateService(releaseName, product.ProductName, chartInfo.ChartRepo, chartInfo.ChartName, chartInfo.ChartVersion)
 
 		replacedMergedValuesYaml, err = helmservice.NewHelmDeployService().GenMergedValues(productSvc, product.DefaultValues, nil)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
 
-		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartInfo.ChartRepo})
+		err = DownloadInstantiateChart(product.ProductName, chartInfo.ChartRepo, chartInfo.ChartName, chartInfo.ChartVersion, releaseName, product.Production)
 		if err != nil {
-			return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", product.ProductName, chartInfo.ChartRepo)
+			return fmt.Errorf("failed to download instantiate chart, productName: %s, chartRepo: %s, chartName: %s, chartVersion: %s, releaseName: %s, production: %v, err: %s", product.ProductName, chartInfo.ChartRepo, chartInfo.ChartName, chartInfo.ChartVersion, releaseName, product.Production, err)
 		}
-
-		chartRef := fmt.Sprintf("%s/%s", chartInfo.ChartRepo, chartInfo.ChartName)
-		localPath := config.LocalServicePathWithRevision(product.ProductName, releaseName, chartInfo.ChartVersion, product.Production)
-
-		mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
-		mutex.Lock()
-		defer mutex.Unlock()
-		// remove local file to untar
-		_ = os.RemoveAll(localPath)
-
-		hClient, err := commonutil.NewHelmClient(chartRepo)
-		if err != nil {
-			return err
-		}
-		err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, localPath, true)
-		if err != nil {
-			return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartInfo.ChartName, chartRepo.RepoName, err)
-		}
-		mutex.Unlock()
 	}
 
 	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
@@ -659,6 +649,46 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 
 	err = helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "")
 	return err
+}
+
+func GeneFakeInstantiateService(releaseName string, projectName string, chartRepo, chartName, chartVersion string) *commonmodels.Service {
+	templateSvc := &commonmodels.Service{
+		ServiceName: releaseName,
+		ProductName: projectName,
+		HelmChart: &commonmodels.HelmChart{
+			Name:    chartName,
+			Repo:    chartRepo,
+			Version: chartVersion,
+		},
+	}
+	return templateSvc
+}
+
+func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, releaseName string, production bool) error {
+	chartRepoEntry, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepo})
+	if err != nil {
+		return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", projectName, chartRepo)
+	}
+
+	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
+	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, production)
+
+	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
+	mutex.Lock()
+	defer mutex.Unlock()
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+
+	hClient, err := commonutil.NewHelmClient(chartRepoEntry)
+	if err != nil {
+		return err
+	}
+	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepoEntry), chartRef, chartVersion, localPath, true)
+	if err != nil {
+		return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, chartRepo, err)
+	}
+	mutex.Unlock()
+	return nil
 }
 
 func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter DeploySvcFilter, user string, log *zap.SugaredLogger) error {
@@ -893,4 +923,29 @@ func batchExecutor(interval time.Duration, serviceList []*ReleaseInstallParam, f
 		time.Sleep(interval)
 	}
 	return errList
+}
+
+func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, chartVersion string, production bool, isChartInstantiateDeploy bool, helmClient *helmtool.HelmClient) (string, error) {
+	chartPath, err := PreLoadHelmServiceChart(service, production, &chartInstantiateDeploy{
+		ChartName:                chartName,
+		ChartVersion:             chartVersion,
+		isChartInstantiateDeploy: isChartInstantiateDeploy,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to pre load helm service chart, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", service.ServiceName, chartName, chartVersion, err)
+	}
+
+	chartSpec := &helmclient.ChartSpec{
+		GenerateName: true,
+		ChartName:    chartPath,
+		Version:      chartVersion,
+		ValuesYaml:   valuesYaml,
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", chartName, chartVersion, chartPath, err)
+	}
+
+	return string(manifestBytes), nil
 }
