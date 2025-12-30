@@ -449,6 +449,7 @@ type CreateWorkflowTaskV4Args struct {
 	Type                  config.CustomWorkflowTaskType
 	ApprovalTicketID      string
 	SkipWorkflowUpdate    bool
+	NotifyInput           []*CreateCustomTaskNotifyInput
 	LarkProjectKey        string
 	LarkProjectSimpleName string
 	LarkWorkItemTypeKey   string
@@ -543,8 +544,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			workflowTask.ApprovalID = approvalTicket.ApprovalID
 		}
 
-		// Always use the latest workflow's notification settings
-		workflow.NotifyCtls = originalWorkflow.NotifyCtls
+		if len(args.NotifyInput) == 0 {
+			// use the latest workflow's notification settings
+			workflow.NotifyCtls = originalWorkflow.NotifyCtls
+		} else {
+			workflow.NotifyCtls = updateNotifyCtls(workflow.NotifyCtls, args.NotifyInput)
+		}
 		workflowTask.Hash = originalWorkflow.Hash
 	} else {
 		if workflow.Disabled {
@@ -669,6 +674,135 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 
 	return resp, nil
+}
+
+func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*CreateCustomTaskNotifyInput) []*commonmodels.NotifyCtl {
+	notifyInputsMap := make(map[int]*CreateCustomTaskNotifyInput)
+	for _, notifyInput := range notifyInputs {
+		notifyInputsMap[notifyInput.ID] = notifyInput
+	}
+
+	for i, notifyCtl := range notifyCtls {
+		notifyInput, ok := notifyInputsMap[i]
+		if ok && notifyCtl.WebHookType == notifyInput.Type {
+			switch notifyCtl.WebHookType {
+			case setting.NotifyWebHookTypeFeishu:
+				if notifyCtl.LarkHookNotificationConfig == nil {
+					log.Errorf("lark hook notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.LarkHookNotificationConfig{
+					HookAddress: notifyCtl.LarkHookNotificationConfig.HookAddress,
+					AtUsers:     notifyInput.LarkHookNotificationConfig.AtUsers,
+					IsAtAll:     notifyInput.LarkHookNotificationConfig.IsAtAll,
+				}
+
+				notifyCtl.LarkHookNotificationConfig = config
+			case setting.NotifyWebHookTypeFeishuPerson:
+				if notifyCtl.LarkPersonNotificationConfig == nil {
+					log.Errorf("lark person notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.LarkPersonNotificationConfig{
+					AppID: notifyCtl.LarkPersonNotificationConfig.AppID,
+				}
+
+				targetUsers := make([]*larktool.UserInfo, 0)
+				for _, user := range notifyInput.LarkPersonNotificationConfig.Users {
+					targetUsers = append(targetUsers, &larktool.UserInfo{
+						ID:     user.ID,
+						IDType: user.IDType,
+					})
+				}
+				config.TargetUsers = targetUsers
+
+				notifyCtl.LarkPersonNotificationConfig = config
+			case setting.NotifyWebhookTypeFeishuApp:
+				if notifyCtl.LarkGroupNotificationConfig == nil {
+					log.Errorf("lark group notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.LarkGroupNotificationConfig{
+					AppID: notifyCtl.LarkGroupNotificationConfig.AppID,
+					Chat: &commonmodels.LarkChat{
+						ChatID: notifyInput.LarkGroupNotificationConfig.ChatID,
+					},
+				}
+
+				users := make([]*larktool.UserInfo, 0)
+				for _, user := range notifyInput.LarkGroupNotificationConfig.AtUsers {
+					users = append(users, &larktool.UserInfo{
+						ID:     user.ID,
+						IDType: user.IDType,
+					})
+				}
+				config.AtUsers = users
+
+				notifyCtl.LarkGroupNotificationConfig = config
+			case setting.NotifyWebHookTypeWechatWork:
+				if notifyCtl.WechatNotificationConfig == nil {
+					log.Errorf("wechat notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.WechatNotificationConfig{
+					HookAddress: notifyCtl.WechatNotificationConfig.HookAddress,
+					AtUsers:     notifyInput.WechatNotificationConfig.AtUsers,
+					IsAtAll:     notifyInput.WechatNotificationConfig.IsAtAll,
+				}
+
+				notifyCtl.WechatNotificationConfig = config
+			case setting.NotifyWebHookTypeDingDing:
+				if notifyCtl.DingDingNotificationConfig == nil {
+					log.Errorf("dingding notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.DingDingNotificationConfig{
+					HookAddress: notifyCtl.DingDingNotificationConfig.HookAddress,
+					AtMobiles:   notifyInput.DingDingNotificationConfig.AtMobiles,
+					IsAtAll:     notifyInput.DingDingNotificationConfig.IsAtAll,
+				}
+
+				notifyCtl.DingDingNotificationConfig = config
+			case setting.NotifyWebHookTypeMSTeam:
+				if notifyCtl.MSTeamsNotificationConfig == nil {
+					log.Errorf("msteams notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.MSTeamsNotificationConfig{
+					HookAddress: notifyCtl.MSTeamsNotificationConfig.HookAddress,
+					AtEmails:    notifyInput.MSTeamsNotificationConfig.AtEmails,
+				}
+
+				notifyCtl.MSTeamsNotificationConfig = config
+			case setting.NotifyWebHookTypeMail:
+				if notifyCtl.MailNotificationConfig == nil {
+					log.Errorf("mail notification config is nil for notify type: %s", notifyCtl.WebHookType)
+					continue
+				}
+
+				config := &commonmodels.MailNotificationConfig{
+					TargetUsers: make([]*commonmodels.User, 0),
+				}
+
+				for _, userID := range notifyInput.MailNotificationConfig.UserIDs {
+					config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
+						UserID: userID,
+					})
+				}
+
+				notifyCtl.MailNotificationConfig = config
+			default:
+				log.Errorf("unsupported webhook type: %s", notifyCtl.WebHookType)
+			}
+		}
+	}
+	return notifyCtls
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
