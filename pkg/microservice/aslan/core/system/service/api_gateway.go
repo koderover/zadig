@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/apisix"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -60,8 +61,14 @@ func DeleteApiGateway(idHex string, log *zap.SugaredLogger) error {
 // ValidateApiGateway validates the api gateway connection
 // TODO: Implement the actual validation logic
 func ValidateApiGateway(apiGateway *models.ApiGateway, log *zap.SugaredLogger) error {
-	// Placeholder for validation logic
-	// The user will implement the actual validation
+	client := apisix.NewClient(apiGateway.Address, apiGateway.Token)
+
+	_, err := client.ListUpstreams(1, 10)
+	if err != nil {
+		log.Errorf("Failed to list APISIX upstreams: %v", err)
+		return e.ErrValidateApiGateway.AddErr(err)
+	}
+
 	return nil
 }
 
