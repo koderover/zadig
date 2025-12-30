@@ -143,19 +143,18 @@ func (c *Client) ListUpstreams(page, pageSize int) (*UpstreamListResponse, error
 func (c *Client) DeleteUpstream(id string) error {
 	url := fmt.Sprintf("%s%s/%s", c.Host, UpstreamsAPI, id)
 
-	var resp interface{}
+	resp := make(map[string]interface{})
 
-	err := c.Delete(url, resp)
+	err := c.Delete(url, &resp)
 	if err != nil {
 		return fmt.Errorf("failed to delete upstream: %s", err)
-	} else {
-		deleteResponse, err := json.Marshal(resp)
-		if err != nil {
-			return fmt.Errorf("failed to marshal delete response: %s", err)
-		} else {
-			fmt.Println(string(deleteResponse))
-		}
 	}
+
+	deleteResponse, err := json.Marshal(resp)
+	if err != nil {
+		return fmt.Errorf("failed to marshal delete response: %s", err)
+	}
+	fmt.Println(string(deleteResponse))
 
 	return nil
 }
