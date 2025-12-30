@@ -1352,6 +1352,9 @@ func ListDeliveryVersionV2(args *ListDeliveryVersionV2Args, logger *zap.SugaredL
 	versionListArgs.PerPage = args.PerPage
 	versionListArgs.Page = args.Page
 	versionListArgs.Label = args.Label
+
+	// exclude service to avoid tons of data in response. the user will always be able to get the service data by the version id.
+	versionListArgs.ExcludedFields = []string{"services"}
 	deliveryVersions, total, err := commonrepo.NewDeliveryVersionV2Coll().List(versionListArgs)
 	if err != nil {
 		return nil, 0, err
