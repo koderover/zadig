@@ -35,7 +35,7 @@ import (
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
 // @Success 200
-// @Router /api/aslan/system/api_gateways/{id}/apisix/routes [get]
+// @Router /api/aslan/system/api_gateways/{id}/apisix/route [get]
 func ListApisixRoutes(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -62,7 +62,7 @@ func ListApisixRoutes(c *gin.Context) {
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
 // @Success 200
-// @Router /api/aslan/system/api_gateways/{id}/apisix/upstreams [get]
+// @Router /api/aslan/system/api_gateways/{id}/apisix/upstream [get]
 func ListApisixUpstreams(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -89,7 +89,7 @@ func ListApisixUpstreams(c *gin.Context) {
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
 // @Success 200
-// @Router /api/aslan/system/api_gateways/{id}/apisix/services [get]
+// @Router /api/aslan/system/api_gateways/{id}/apisix/service [get]
 func ListApisixServices(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -116,7 +116,7 @@ func ListApisixServices(c *gin.Context) {
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
 // @Success 200
-// @Router /api/aslan/system/api_gateways/{id}/apisix/protos [get]
+// @Router /api/aslan/system/api_gateways/{id}/apisix/proto [get]
 func ListApisixProtos(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
