@@ -24,6 +24,27 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// Simplified response types that only contain the values
+type SimpleRouteListResponse struct {
+	List  []*apisix.Route `json:"list"`
+	Total int             `json:"total"`
+}
+
+type SimpleUpstreamListResponse struct {
+	List  []*apisix.Upstream `json:"list"`
+	Total int                `json:"total"`
+}
+
+type SimpleServiceListResponse struct {
+	List  []*apisix.Service `json:"list"`
+	Total int               `json:"total"`
+}
+
+type SimpleProtoListResponse struct {
+	List  []*apisix.Proto `json:"list"`
+	Total int             `json:"total"`
+}
+
 // getApisixClient retrieves the API gateway configuration and creates an APISIX client
 func getApisixClient(id string, log *zap.SugaredLogger) (*apisix.Client, error) {
 	gateway, err := mongodb.NewApiGatewayColl().GetByID(id)
@@ -36,7 +57,7 @@ func getApisixClient(id string, log *zap.SugaredLogger) (*apisix.Client, error) 
 }
 
 // ListApisixRoutes lists all routes from the APISIX gateway
-func ListApisixRoutes(id string, page, pageSize int, log *zap.SugaredLogger) (*apisix.RouteListResponse, error) {
+func ListApisixRoutes(id string, page, pageSize int, log *zap.SugaredLogger) (*SimpleRouteListResponse, error) {
 	client, err := getApisixClient(id, log)
 	if err != nil {
 		return nil, err
@@ -48,7 +69,18 @@ func ListApisixRoutes(id string, page, pageSize int, log *zap.SugaredLogger) (*a
 		return nil, e.ErrListApiGateway.AddErr(err)
 	}
 
-	return resp, nil
+	// Extract only the values from the response
+	routes := make([]*apisix.Route, 0, len(resp.List))
+	for _, item := range resp.List {
+		if item.Value != nil {
+			routes = append(routes, item.Value)
+		}
+	}
+
+	return &SimpleRouteListResponse{
+		List:  routes,
+		Total: resp.Total,
+	}, nil
 }
 
 // CreateApisixRoute creates a new route in the APISIX gateway
@@ -83,7 +115,7 @@ func DeleteApisixRoute(id, routeID string, log *zap.SugaredLogger) error {
 }
 
 // ListApisixUpstreams lists all upstreams from the APISIX gateway
-func ListApisixUpstreams(id string, page, pageSize int, log *zap.SugaredLogger) (*apisix.UpstreamListResponse, error) {
+func ListApisixUpstreams(id string, page, pageSize int, log *zap.SugaredLogger) (*SimpleUpstreamListResponse, error) {
 	client, err := getApisixClient(id, log)
 	if err != nil {
 		return nil, err
@@ -95,7 +127,18 @@ func ListApisixUpstreams(id string, page, pageSize int, log *zap.SugaredLogger) 
 		return nil, e.ErrListApiGateway.AddErr(err)
 	}
 
-	return resp, nil
+	// Extract only the values from the response
+	upstreams := make([]*apisix.Upstream, 0, len(resp.List))
+	for _, item := range resp.List {
+		if item.Value != nil {
+			upstreams = append(upstreams, item.Value)
+		}
+	}
+
+	return &SimpleUpstreamListResponse{
+		List:  upstreams,
+		Total: resp.Total,
+	}, nil
 }
 
 // CreateApisixUpstream creates a new upstream in the APISIX gateway
@@ -130,7 +173,7 @@ func DeleteApisixUpstream(id, upstreamID string, log *zap.SugaredLogger) error {
 }
 
 // ListApisixServices lists all services from the APISIX gateway
-func ListApisixServices(id string, page, pageSize int, log *zap.SugaredLogger) (*apisix.ServiceListResponse, error) {
+func ListApisixServices(id string, page, pageSize int, log *zap.SugaredLogger) (*SimpleServiceListResponse, error) {
 	client, err := getApisixClient(id, log)
 	if err != nil {
 		return nil, err
@@ -142,7 +185,18 @@ func ListApisixServices(id string, page, pageSize int, log *zap.SugaredLogger) (
 		return nil, e.ErrListApiGateway.AddErr(err)
 	}
 
-	return resp, nil
+	// Extract only the values from the response
+	services := make([]*apisix.Service, 0, len(resp.List))
+	for _, item := range resp.List {
+		if item.Value != nil {
+			services = append(services, item.Value)
+		}
+	}
+
+	return &SimpleServiceListResponse{
+		List:  services,
+		Total: resp.Total,
+	}, nil
 }
 
 // CreateApisixService creates a new service in the APISIX gateway
@@ -177,7 +231,7 @@ func DeleteApisixService(id, serviceID string, log *zap.SugaredLogger) error {
 }
 
 // ListApisixProtos lists all protos from the APISIX gateway
-func ListApisixProtos(id string, page, pageSize int, log *zap.SugaredLogger) (*apisix.ProtoListResponse, error) {
+func ListApisixProtos(id string, page, pageSize int, log *zap.SugaredLogger) (*SimpleProtoListResponse, error) {
 	client, err := getApisixClient(id, log)
 	if err != nil {
 		return nil, err
@@ -189,7 +243,18 @@ func ListApisixProtos(id string, page, pageSize int, log *zap.SugaredLogger) (*a
 		return nil, e.ErrListApiGateway.AddErr(err)
 	}
 
-	return resp, nil
+	// Extract only the values from the response
+	protos := make([]*apisix.Proto, 0, len(resp.List))
+	for _, item := range resp.List {
+		if item.Value != nil {
+			protos = append(protos, item.Value)
+		}
+	}
+
+	return &SimpleProtoListResponse{
+		List:  protos,
+		Total: resp.Total,
+	}, nil
 }
 
 // CreateApisixProto creates a new proto in the APISIX gateway
