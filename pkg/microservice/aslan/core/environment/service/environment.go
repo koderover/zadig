@@ -1916,6 +1916,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return nil
 	}
 
+	unlockOnReturn := true
+	defer func() {
+		if unlockOnReturn {
+			syncLock.Unlock()
+		}
+	}()
+
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
@@ -1980,12 +1987,8 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	}
 
 	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
-	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, syncLock, log)
-	if err != nil {
-		syncLock.Unlock()
-		return err
-	}
-	return err
+	unlockOnReturn = false
+	return UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, syncLock, log)
 }
 
 func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender,
@@ -1994,6 +1997,9 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
+		if syncLock != nil {
+			syncLock.Unlock()
+		}
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 	productResp.ServiceRenders = updatedSvcs
@@ -2012,6 +2018,9 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productResp.ProductName, productResp.ServiceDeployStrategy)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product deploy strategy: %s", productResp.EnvName, productResp.ProductName, err)
+			if syncLock != nil {
+				syncLock.Unlock()
+			}
 			return e.ErrUpdateEnv.AddErr(err)
 		}
 	}
