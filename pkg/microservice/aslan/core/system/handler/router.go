@@ -381,22 +381,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		apiGateways.PATCH("/:id", UpdateApiGateway)
 		apiGateways.DELETE("/:id", DeleteApiGateway)
 
-		// APISIX testing routes
+		// APISIX routes
 		apiGateways.GET("/:id/apisix/routes", ListApisixRoutes)
-		apiGateways.POST("/:id/apisix/routes", CreateApisixRoute)
-		apiGateways.DELETE("/:id/apisix/routes/:route_id", DeleteApisixRoute)
-
 		apiGateways.GET("/:id/apisix/upstreams", ListApisixUpstreams)
-		apiGateways.POST("/:id/apisix/upstreams", CreateApisixUpstream)
-		apiGateways.DELETE("/:id/apisix/upstreams/:upstream_id", DeleteApisixUpstream)
-
 		apiGateways.GET("/:id/apisix/services", ListApisixServices)
-		apiGateways.POST("/:id/apisix/services", CreateApisixService)
-		apiGateways.DELETE("/:id/apisix/services/:service_id", DeleteApisixService)
-
 		apiGateways.GET("/:id/apisix/protos", ListApisixProtos)
-		apiGateways.POST("/:id/apisix/protos", CreateApisixProto)
-		apiGateways.DELETE("/:id/apisix/protos/:proto_id", DeleteApisixProto)
 	}
 
 	// personal dashboard configuration
