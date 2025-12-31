@@ -24,8 +24,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/tool/apisix"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 // @Summary List APISIX Routes
