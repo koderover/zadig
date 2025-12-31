@@ -137,6 +137,20 @@ func (c *Client) ListUpstreams(page, pageSize int) (*UpstreamListResponse, error
 	return resp, nil
 }
 
+// GetUpstream retrieves an upstream by ID
+// GET /apisix/admin/upstreams/{id}
+func (c *Client) GetUpstream(id string) (*UpstreamResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.Host, UpstreamsAPI, id)
+	resp := new(UpstreamResponse)
+
+	err := c.Get(url, nil, resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get upstream: %s", err)
+	}
+
+	return resp, nil
+}
+
 // DeleteUpstream deletes an upstream by ID
 // DELETE /apisix/admin/upstreams/{id}
 func (c *Client) DeleteUpstream(id string) error {

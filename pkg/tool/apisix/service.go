@@ -98,6 +98,20 @@ func (c *Client) ListServices(page, pageSize int) (*ServiceListResponse, error) 
 	return resp, nil
 }
 
+// GetService retrieves a service by ID
+// GET /apisix/admin/services/{id}
+func (c *Client) GetService(id string) (*ServiceResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.Host, ServicesAPI, id)
+	resp := new(ServiceResponse)
+
+	err := c.Get(url, nil, resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service: %s", err)
+	}
+
+	return resp, nil
+}
+
 // DeleteService deletes a service by ID
 // DELETE /apisix/admin/services/{id}
 func (c *Client) DeleteService(id string) error {

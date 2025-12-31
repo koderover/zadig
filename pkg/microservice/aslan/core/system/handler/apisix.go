@@ -133,3 +133,103 @@ func ListApisixProtos(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = service.ListApisixProtos(id, page, pageSize, ctx.Logger)
 }
+
+// @Summary Get APISIX Route
+// @Description Get a route by ID from APISIX
+// @Tags api_gateways
+// @Accept json
+// @Produce json
+// @Param id path string true "API Gateway ID"
+// @Param route_id path string true "Route ID"
+// @Success 200
+// @Router /api/aslan/system/api_gateways/{id}/apisix/route/{route_id} [get]
+func GetApisixRoute(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	id := c.Param("id")
+	routeID := c.Param("route_id")
+
+	ctx.Resp, ctx.RespErr = service.GetApisixRoute(id, routeID, ctx.Logger)
+}
+
+// @Summary Get APISIX Upstream
+// @Description Get an upstream by ID from APISIX
+// @Tags api_gateways
+// @Accept json
+// @Produce json
+// @Param id path string true "API Gateway ID"
+// @Param upstream_id path string true "Upstream ID"
+// @Success 200
+// @Router /api/aslan/system/api_gateways/{id}/apisix/upstream/{upstream_id} [get]
+func GetApisixUpstream(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	id := c.Param("id")
+	upstreamID := c.Param("upstream_id")
+
+	ctx.Resp, ctx.RespErr = service.GetApisixUpstream(id, upstreamID, ctx.Logger)
+}
+
+// @Summary Get APISIX Service
+// @Description Get a service by ID from APISIX
+// @Tags api_gateways
+// @Accept json
+// @Produce json
+// @Param id path string true "API Gateway ID"
+// @Param service_id path string true "Service ID"
+// @Success 200
+// @Router /api/aslan/system/api_gateways/{id}/apisix/service/{service_id} [get]
+func GetApisixService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	id := c.Param("id")
+	serviceID := c.Param("service_id")
+
+	ctx.Resp, ctx.RespErr = service.GetApisixService(id, serviceID, ctx.Logger)
+}
+
+// @Summary Get APISIX Proto
+// @Description Get a proto by ID from APISIX
+// @Tags api_gateways
+// @Accept json
+// @Produce json
+// @Param id path string true "API Gateway ID"
+// @Param proto_id path string true "Proto ID"
+// @Success 200
+// @Router /api/aslan/system/api_gateways/{id}/apisix/proto/{proto_id} [get]
+func GetApisixProto(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	id := c.Param("id")
+	protoID := c.Param("proto_id")
+
+	ctx.Resp, ctx.RespErr = service.GetApisixProto(id, protoID, ctx.Logger)
+}

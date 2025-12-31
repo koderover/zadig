@@ -111,6 +111,20 @@ func (c *Client) ListRoutes(page, pageSize int) (*RouteListResponse, error) {
 	return resp, nil
 }
 
+// GetRoute retrieves a route by ID
+// GET /apisix/admin/routes/{id}
+func (c *Client) GetRoute(id string) (*RouteResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.Host, RoutesAPI, id)
+	resp := new(RouteResponse)
+
+	err := c.Get(url, nil, resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get route: %s", err)
+	}
+
+	return resp, nil
+}
+
 // DeleteRoute deletes a route by ID
 // DELETE /apisix/admin/routes/{id}
 func (c *Client) DeleteRoute(id string) error {

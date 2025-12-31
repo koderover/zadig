@@ -110,7 +110,6 @@ func (j ApisixJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 		})
 	}
 
-	// TODO: Implement task generation logic for APISIX job
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.name, 0),
 		Key:         genJobKey(j.name),

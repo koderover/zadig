@@ -96,6 +96,20 @@ func (c *Client) ListProtos(page, pageSize int) (*ProtoListResponse, error) {
 	return resp, nil
 }
 
+// GetProto retrieves a proto by ID
+// GET /apisix/admin/protos/{id}
+func (c *Client) GetProto(id string) (*ProtoResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.Host, ProtosAPI, id)
+	resp := new(ProtoResponse)
+
+	err := c.Get(url, nil, resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proto: %s", err)
+	}
+
+	return resp, nil
+}
+
 // DeleteProto deletes a proto by ID
 // DELETE /apisix/admin/protos/{id}
 func (c *Client) DeleteProto(id string) error {

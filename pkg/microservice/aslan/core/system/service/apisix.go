@@ -163,3 +163,67 @@ func ListApisixProtos(id string, page, pageSize int, log *zap.SugaredLogger) (*S
 		Total: resp.Total,
 	}, nil
 }
+
+// GetApisixRoute retrieves a route by ID from the APISIX gateway
+func GetApisixRoute(id, routeID string, log *zap.SugaredLogger) (*apisix.Route, error) {
+	client, err := getApisixClient(id, log)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetRoute(routeID)
+	if err != nil {
+		log.Errorf("Failed to get APISIX route: %v", err)
+		return nil, e.ErrListApiGateway.AddErr(err)
+	}
+
+	return resp.Value, nil
+}
+
+// GetApisixUpstream retrieves an upstream by ID from the APISIX gateway
+func GetApisixUpstream(id, upstreamID string, log *zap.SugaredLogger) (*apisix.Upstream, error) {
+	client, err := getApisixClient(id, log)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetUpstream(upstreamID)
+	if err != nil {
+		log.Errorf("Failed to get APISIX upstream: %v", err)
+		return nil, e.ErrListApiGateway.AddErr(err)
+	}
+
+	return resp.Value, nil
+}
+
+// GetApisixService retrieves a service by ID from the APISIX gateway
+func GetApisixService(id, serviceID string, log *zap.SugaredLogger) (*apisix.Service, error) {
+	client, err := getApisixClient(id, log)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetService(serviceID)
+	if err != nil {
+		log.Errorf("Failed to get APISIX service: %v", err)
+		return nil, e.ErrListApiGateway.AddErr(err)
+	}
+
+	return resp.Value, nil
+}
+
+// GetApisixProto retrieves a proto by ID from the APISIX gateway
+func GetApisixProto(id, protoID string, log *zap.SugaredLogger) (*apisix.Proto, error) {
+	client, err := getApisixClient(id, log)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetProto(protoID)
+	if err != nil {
+		log.Errorf("Failed to get APISIX proto: %v", err)
+		return nil, e.ErrListApiGateway.AddErr(err)
+	}
+
+	return resp.Value, nil
+}
