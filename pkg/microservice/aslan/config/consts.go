@@ -258,6 +258,7 @@ const (
 	JobApproval             JobType = "approval"
 	JobNotification         JobType = "notification"
 	JobSAEDeploy            JobType = "sae-deploy"
+	JobApisix               JobType = "apisix"
 )
 
 const (
@@ -870,4 +871,21 @@ const (
 	// array
 	ApplicationFilterActionIsEmpty    ApplicationFilterAction = "is_empty"
 	ApplicationFilterActionIsNotEmpty ApplicationFilterAction = "is_not_empty"
+)
+
+type ApisixActionType string
+
+const (
+	ApisixActionTypeCreate ApisixActionType = "create"
+	ApisixActionTypeUpdate ApisixActionType = "update"
+	ApisixActionTypeDelete ApisixActionType = "delete"
+)
+
+type ApisixItemType string
+
+const (
+	ApisixItemTypeRoute    ApisixItemType = "route"
+	ApisixItemTypeUpstream ApisixItemType = "upstream"
+	ApisixItemTypeService  ApisixItemType = "service"
+	ApisixItemTypeProto    ApisixItemType = "proto"
 )

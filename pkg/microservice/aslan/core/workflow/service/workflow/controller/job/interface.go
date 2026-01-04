@@ -74,6 +74,8 @@ type BasicInfo struct {
 
 func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
 	switch job.JobType {
+	case config.JobApisix:
+		return CreateApisixJobController(job, workflow)
 	case config.JobApollo:
 		return CreateApolloJobController(job, workflow)
 	case config.JobApproval:

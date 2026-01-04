@@ -1391,6 +1391,18 @@ type NacosJobSpec struct {
 	DataFixed         bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
+type ApisixJobSpec struct {
+	ApisixID string `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
+
+	Tasks []*ApisixItemSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
+}
+
+type ApisixItemSpec struct {
+	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
+	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
+	Spec         interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
+}
+
 type PingCodeJobSpec struct {
 	PingCodeID       string                 `bson:"pingcode_id"         json:"pingcode_id"         yaml:"pingcode_id"`
 	Source           config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`

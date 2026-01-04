@@ -115,6 +115,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewNotificationJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobSAEDeploy):
 		jobCtl = NewSAEDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobApisix):
+		jobCtl = NewApisixJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

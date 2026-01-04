@@ -1014,4 +1014,13 @@ var (
 	ErrDeleteKeyVaultItem = NewHTTPError(7172, "删除密钥库条目失败")
 	ErrListKeyVaultItem   = NewHTTPError(7173, "获取密钥库条目列表失败")
 	ErrGetKeyVaultItem    = NewHTTPError(7174, "获取密钥库条目详情失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// api gateway releated errors: 7180 - 7189
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateApiGateway   = NewHTTPError(7180, "创建API网关集成失败")
+	ErrUpdateApiGateway   = NewHTTPError(7181, "更新API网关集成失败")
+	ErrDeleteApiGateway   = NewHTTPError(7182, "删除API网关集成失败")
+	ErrListApiGateway     = NewHTTPError(7183, "列出API网关集成失败")
+	ErrValidateApiGateway = NewHTTPError(7184, "校验API网关集成失败")
 )
