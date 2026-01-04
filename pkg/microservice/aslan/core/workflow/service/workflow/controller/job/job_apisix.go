@@ -107,6 +107,7 @@ func (j ApisixJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			Action: updateItem.Action,
 			Type: updateItem.Type,
 			UserSpec: updateItem.Spec,
+			Status:   string(config.StatusCreated),
 		})
 	}
 

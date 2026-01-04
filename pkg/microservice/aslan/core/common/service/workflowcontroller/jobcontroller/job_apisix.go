@@ -128,6 +128,15 @@ func (c *ApisixJobCtl) executeRouteTask(client *apisix.Client, task *commonmodel
 			return fmt.Errorf("route id is required for update operation")
 		}
 		task.ItemID = route.ID
+		// Get the original spec before updating
+		originalResp, err := client.GetRoute(route.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original route: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		_, err = client.UpdateRoute(route.ID, route)
 		return err
 
@@ -136,6 +145,15 @@ func (c *ApisixJobCtl) executeRouteTask(client *apisix.Client, task *commonmodel
 			return fmt.Errorf("route id is required for delete operation")
 		}
 		task.ItemID = route.ID
+		// Get the original spec before deleting
+		originalResp, err := client.GetRoute(route.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original route: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		return client.DeleteRoute(route.ID)
 
 	default:
@@ -165,6 +183,15 @@ func (c *ApisixJobCtl) executeUpstreamTask(client *apisix.Client, task *commonmo
 			return fmt.Errorf("upstream id is required for update operation")
 		}
 		task.ItemID = upstream.ID
+		// Get the original spec before updating
+		originalResp, err := client.GetUpstream(upstream.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original upstream: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		_, err = client.UpdateUpstream(upstream.ID, upstream)
 		return err
 
@@ -173,6 +200,15 @@ func (c *ApisixJobCtl) executeUpstreamTask(client *apisix.Client, task *commonmo
 			return fmt.Errorf("upstream id is required for delete operation")
 		}
 		task.ItemID = upstream.ID
+		// Get the original spec before deleting
+		originalResp, err := client.GetUpstream(upstream.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original upstream: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		return client.DeleteUpstream(upstream.ID)
 
 	default:
@@ -181,14 +217,14 @@ func (c *ApisixJobCtl) executeUpstreamTask(client *apisix.Client, task *commonmo
 }
 
 func (c *ApisixJobCtl) executeServiceTask(client *apisix.Client, task *commonmodels.ApisixItemUpdateSpec) error {
-	service, err := convertToService(task.UserSpec)
+	svc, err := convertToService(task.UserSpec)
 	if err != nil {
 		return fmt.Errorf("failed to convert spec to service: %v", err)
 	}
 
 	switch task.Action {
 	case config.ApisixActionTypeCreate:
-		resp, err := client.CreateService(service)
+		resp, err := client.CreateService(svc)
 		if err != nil {
 			return err
 		}
@@ -198,19 +234,37 @@ func (c *ApisixJobCtl) executeServiceTask(client *apisix.Client, task *commonmod
 		return nil
 
 	case config.ApisixActionTypeUpdate:
-		if service.ID == "" {
+		if svc.ID == "" {
 			return fmt.Errorf("service id is required for update operation")
 		}
-		task.ItemID = service.ID
-		_, err = client.UpdateService(service.ID, service)
+		task.ItemID = svc.ID
+		// Get the original spec before updating
+		originalResp, err := client.GetService(svc.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original service: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
+		_, err = client.UpdateService(svc.ID, svc)
 		return err
 
 	case config.ApisixActionTypeDelete:
-		if service.ID == "" {
+		if svc.ID == "" {
 			return fmt.Errorf("service id is required for delete operation")
 		}
-		task.ItemID = service.ID
-		return client.DeleteService(service.ID)
+		task.ItemID = svc.ID
+		// Get the original spec before deleting
+		originalResp, err := client.GetService(svc.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original service: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
+		return client.DeleteService(svc.ID)
 
 	default:
 		return fmt.Errorf("unsupported action type: %s", task.Action)
@@ -239,6 +293,15 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 			return fmt.Errorf("proto id is required for update operation")
 		}
 		task.ItemID = proto.ID
+		// Get the original spec before updating
+		originalResp, err := client.GetProto(proto.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original proto: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		_, err = client.UpdateProto(proto.ID, proto)
 		return err
 
@@ -247,6 +310,15 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 			return fmt.Errorf("proto id is required for delete operation")
 		}
 		task.ItemID = proto.ID
+		// Get the original spec before deleting
+		originalResp, err := client.GetProto(proto.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get original proto: %v", err)
+		}
+		if originalResp.Value != nil {
+			task.OriginalSpec = originalResp.Value
+		}
+		c.ack()
 		return client.DeleteProto(proto.ID)
 
 	default:
