@@ -210,6 +210,7 @@ type OpenAPITextReleaseJobSpec struct {
 type OpenAPIWorkflowReleaseJobSpec struct {
 	WorkflowKey string                                      `bson:"workflow_key"        yaml:"workflow_key"                    json:"workflow_key"`
 	ProjectKey  string                                      `bson:"project_key"         yaml:"project_key"                     json:"project_key"`
+	Parameters  []*workflowservice.CreateCustomTaskParam    `bson:"parameters"          yaml:"parameters"                      json:"parameters"`
 	Inputs      []*workflowservice.CreateCustomTaskJobInput `bson:"inputs"              yaml:"inputs"                          json:"inputs"`
 	Remark      string                                      `bson:"remark"              yaml:"remark"                          json:"remark"`
 }
@@ -306,6 +307,11 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 				return e.ErrFindWorkflow.AddDesc(err.Error())
 			}
 			workflow.Remark = workflowSpec.Remark
+
+			err = workflowservice.UpdateWorkflowParam(workflow.Params, workflowSpec.Parameters)
+			if err != nil {
+				return errors.Wrap(err, "update workflow param error")
+			}
 
 			workflowController := controller.CreateWorkflowController(workflow)
 			if err := workflowController.SetPreset(nil); err != nil {

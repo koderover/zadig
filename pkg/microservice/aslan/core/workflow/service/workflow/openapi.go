@@ -60,42 +60,9 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		return nil, err
 	}
 
-	workflowParamMap := make(map[string]*commonmodels.Param)
-	for _, param := range workflow.Params {
-		workflowParamMap[param.Name] = param
-	}
-
-	for _, argParam := range args.Params {
-		if workflowParam, ok := workflowParamMap[argParam.Name]; ok {
-			switch workflowParam.ParamsType {
-			case "string":
-				workflowParam.Value = argParam.Value
-			case "text":
-				workflowParam.Value = argParam.Value
-			case "choice":
-				choiceOptionSet := sets.NewString(workflowParam.ChoiceOption...)
-				if !choiceOptionSet.Has(argParam.Value) {
-					return nil, fmt.Errorf("invalid choice value %s for param %s", argParam.Value, argParam.Name)
-				}
-				workflowParam.Value = argParam.Value
-			case "repo":
-				repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(argParam.Repo.CodeHostName)
-				if err != nil {
-					return nil, errors.New("failed to find code host with name:" + argParam.Repo.CodeHostName)
-				}
-
-				if workflowParam.Repo.CodehostID == repoInfo.ID {
-					if workflowParam.Repo.RepoNamespace == argParam.Repo.RepoNamespace && workflowParam.Repo.RepoName == argParam.Repo.RepoName {
-						workflowParam.Repo.Branch = argParam.Repo.Branch
-						workflowParam.Repo.PRs = argParam.Repo.PRs
-					}
-				} else {
-					return nil, fmt.Errorf("codehost %s (ID %d) not found in workflow %s", argParam.Repo.CodeHostName, repoInfo.ID, args.WorkflowName)
-				}
-			}
-		} else {
-			return nil, fmt.Errorf("param %s not found in workflow %s", argParam.Name, args.WorkflowName)
-		}
+	err = UpdateWorkflowParam(workflow.Params, args.Params)
+	if err != nil {
+		return nil, err
 	}
 
 	inputMap := make(map[string]interface{})
@@ -132,6 +99,48 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		Name:               username,
 		SkipWorkflowUpdate: true,
 	}, workflow, log)
+}
+
+func UpdateWorkflowParam(workflowParams []*commonmodels.Param, inputParams []*CreateCustomTaskParam) error {
+	workflowParamMap := make(map[string]*commonmodels.Param)
+	for _, param := range workflowParams {
+		workflowParamMap[param.Name] = param
+	}
+
+	for _, argParam := range inputParams {
+		if workflowParam, ok := workflowParamMap[argParam.Name]; ok {
+			switch workflowParam.ParamsType {
+			case "string":
+				workflowParam.Value = argParam.Value
+			case "text":
+				workflowParam.Value = argParam.Value
+			case "choice":
+				choiceOptionSet := sets.NewString(workflowParam.ChoiceOption...)
+				if !choiceOptionSet.Has(argParam.Value) {
+					return fmt.Errorf("invalid choice value %s for param %s", argParam.Value, argParam.Name)
+				}
+				workflowParam.Value = argParam.Value
+			case "repo":
+				repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(argParam.Repo.CodeHostName)
+				if err != nil {
+					return errors.New("failed to find code host with name:" + argParam.Repo.CodeHostName)
+				}
+
+				if workflowParam.Repo.CodehostID == repoInfo.ID {
+					if workflowParam.Repo.RepoNamespace == argParam.Repo.RepoNamespace && workflowParam.Repo.RepoName == argParam.Repo.RepoName {
+						workflowParam.Repo.Branch = argParam.Repo.Branch
+						workflowParam.Repo.PRs = argParam.Repo.PRs
+					}
+				} else {
+					return fmt.Errorf("codehost %s (ID %d) not found in workflow", argParam.Repo.CodeHostName, repoInfo.ID)
+				}
+			}
+		} else {
+			return fmt.Errorf("param %s not found in workflow", argParam.Name)
+		}
+	}
+
+	return nil
 }
 
 func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*OpenAPIWorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
