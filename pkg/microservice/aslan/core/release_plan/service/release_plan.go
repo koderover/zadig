@@ -575,6 +575,105 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	return nil
 }
 
+type RetryReleaseJobArgs struct {
+	ID   string      `json:"id"`
+	Name string      `json:"name"`
+	Type string      `json:"type"`
+	Spec interface{} `json:"spec"`
+}
+
+func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArgs, isSystemAdmin bool) error {
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.ReleasePlanStatusExecuting {
+		return errors.Errorf("plan status is %s, can not execute", plan.Status)
+	}
+
+	if !(plan.StartTime == 0 && plan.EndTime == 0) {
+		now := time.Now().Unix()
+		if now < plan.StartTime || now > plan.EndTime {
+			if now > plan.EndTime {
+				plan.Status = config.ReleasePlanStatusTimeoutForWindow
+				if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+					return errors.Wrap(err, "update plan")
+				}
+			}
+			return errors.Errorf("plan is not in the release time range")
+		}
+	}
+
+	retryer, err := NewReleaseJobRetryer(&RetryReleaseJobContext{
+		AuthResources: c.Resources,
+		UserID:        c.UserID,
+		Account:       c.Account,
+		UserName:      c.UserName,
+	}, args)
+	if err != nil {
+		return errors.Wrap(err, "new release job executor")
+	}
+	if err = retryer.Retry(plan); err != nil {
+		return errors.Wrap(err, "execute")
+	}
+
+	plan.UpdatedBy = c.UserName
+	plan.UpdateTime = time.Now().Unix()
+
+	sendWebhook := false
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+	}
+
+	if checkReleasePlanJobsAllDone(plan) {
+		plan.Status = config.ReleasePlanStatusSuccess
+
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.SuccessTime = time.Now().Unix()
+		}
+
+		sendWebhook = true
+	}
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
+	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbRetry,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleaseJob,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
+	return nil
+}
+
 func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()

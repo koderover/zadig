@@ -59,6 +59,7 @@ const (
 	VerbUpdate  = "更新"
 	VerbDelete  = "删除"
 	VerbExecute = "执行"
+	VerbRetry   = "重试"
 	VerbSkip    = "跳过"
 
 	DetailApprovalReject = "审批被拒绝"
