@@ -98,6 +98,7 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
 		Name:               username,
 		SkipWorkflowUpdate: true,
+		NotifyInput:        args.NotifyInputs,
 	}, workflow, log)
 }
 
