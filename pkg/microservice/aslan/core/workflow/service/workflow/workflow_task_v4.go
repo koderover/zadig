@@ -58,6 +58,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/apisix"
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -1299,6 +1300,11 @@ type ApolloRevertInput struct {
 	ApolloDatas       []*commonmodels.ApolloNamespace `json:"apollo_datas"`
 }
 
+type ApisixRevertInput struct {
+	CommonRevertInput `json:",inline"`
+	ApisixDatas       []*commonmodels.ApisixItemUpdateSpec `json:"apisix_datas"`
+}
+
 func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -1711,6 +1717,53 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 					}
 
 					return nil
+				case string(config.JobApisix):
+					jobTaskSpec := &commonmodels.JobTaskApisixSpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode apisix job spec, error: %s", err)
+					}
+
+					inputSpec := new(ApisixRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode apisix revert job spec, error: %s", err)
+					}
+
+					err = revertApisixJob(jobTaskSpec, inputSpec.ApisixDatas)
+					if err != nil {
+						log.Errorf("failed to revert apisix job %s, error: %s", job.Name, err)
+						return fmt.Errorf("failed to revert apisix job: %s, error: %s", job.Name, err)
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						log.Errorf("failed to update apisix job revert information, error: %s", err)
+					}
+
+					revertTaskSpec := &commonmodels.JobTaskApisixSpec{
+						ApisixID: jobTaskSpec.ApisixID,
+						Tasks:    inputSpec.ApisixDatas,
+					}
+
+					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertTaskSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusPassed,
+					})
+
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
+					return nil
 				case string(config.JobSQL):
 					jobTaskSpec := &commonmodels.JobTaskSQLSpec{}
 					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -1851,6 +1904,154 @@ func revertNacosJob(jobspec *commonmodels.JobTaskNacosSpec, input []*commonmodel
 	}
 
 	return nil
+}
+
+func revertApisixJob(jobspec *commonmodels.JobTaskApisixSpec, input []*commonmodels.ApisixItemUpdateSpec) error {
+	gateway, err := commonrepo.NewApiGatewayColl().GetByID(jobspec.ApisixID)
+	if err != nil {
+		return fmt.Errorf("failed to get API gateway configuration: %v", err)
+	}
+
+	client := apisix.NewClient(gateway.Address, gateway.Token)
+
+	for _, task := range input {
+		// Only revert tasks that were successfully executed
+		if task.Status != string(config.StatusPassed) {
+			continue
+		}
+
+		// For create action, OriginalSpec is not needed (we just delete by ID)
+		// For update/delete actions, OriginalSpec is required
+		if task.Action != config.ApisixActionTypeCreate && task.OriginalSpec == nil {
+			return fmt.Errorf("original spec is nil for task %s, cannot revert", task.ItemID)
+		}
+
+		switch task.Action {
+		case config.ApisixActionTypeCreate:
+			if err := deleteApisixResource(client, task.Type, task.ItemID); err != nil {
+				return fmt.Errorf("failed to delete %s resource %s: %v", task.Type, task.ItemID, err)
+			}
+
+		case config.ApisixActionTypeUpdate:
+			if err := updateApisixResource(client, task.Type, task.ItemID, task.OriginalSpec); err != nil {
+				return fmt.Errorf("failed to restore %s resource %s: %v", task.Type, task.ItemID, err)
+			}
+
+		case config.ApisixActionTypeDelete:
+			if err := createApisixResource(client, task.Type, task.ItemID, task.OriginalSpec); err != nil {
+				return fmt.Errorf("failed to recreate %s resource %s: %v", task.Type, task.ItemID, err)
+			}
+
+		default:
+			return fmt.Errorf("unsupported action type: %s", task.Action)
+		}
+	}
+
+	return nil
+}
+
+func deleteApisixResource(client *apisix.Client, resourceType config.ApisixItemType, id string) error {
+	switch resourceType {
+	case config.ApisixItemTypeRoute:
+		return client.DeleteRoute(id)
+	case config.ApisixItemTypeUpstream:
+		return client.DeleteUpstream(id)
+	case config.ApisixItemTypeService:
+		return client.DeleteService(id)
+	case config.ApisixItemTypeProto:
+		return client.DeleteProto(id)
+	default:
+		return fmt.Errorf("unsupported resource type: %s", resourceType)
+	}
+}
+
+func updateApisixResource(client *apisix.Client, resourceType config.ApisixItemType, id string, spec interface{}) error {
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to marshal spec: %v", err)
+	}
+
+	switch resourceType {
+	case config.ApisixItemTypeRoute:
+		route := &apisix.Route{}
+		if err := json.Unmarshal(data, route); err != nil {
+			return fmt.Errorf("failed to unmarshal to route: %v", err)
+		}
+		_, err = client.UpdateRoute(id, route)
+		return err
+
+	case config.ApisixItemTypeUpstream:
+		upstream := &apisix.Upstream{}
+		if err := json.Unmarshal(data, upstream); err != nil {
+			return fmt.Errorf("failed to unmarshal to upstream: %v", err)
+		}
+		_, err = client.UpdateUpstream(id, upstream)
+		return err
+
+	case config.ApisixItemTypeService:
+		svc := &apisix.Service{}
+		if err := json.Unmarshal(data, svc); err != nil {
+			return fmt.Errorf("failed to unmarshal to service: %v", err)
+		}
+		_, err = client.UpdateService(id, svc)
+		return err
+
+	case config.ApisixItemTypeProto:
+		proto := &apisix.Proto{}
+		if err := json.Unmarshal(data, proto); err != nil {
+			return fmt.Errorf("failed to unmarshal to proto: %v", err)
+		}
+		_, err = client.UpdateProto(id, proto)
+		return err
+
+	default:
+		return fmt.Errorf("unsupported resource type: %s", resourceType)
+	}
+}
+
+func createApisixResource(client *apisix.Client, resourceType config.ApisixItemType, id string, spec interface{}) error {
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to marshal spec: %v", err)
+	}
+
+	switch resourceType {
+	case config.ApisixItemTypeRoute:
+		route := &apisix.Route{}
+		if err := json.Unmarshal(data, route); err != nil {
+			return fmt.Errorf("failed to unmarshal to route: %v", err)
+		}
+		// Use UpdateRoute with ID to recreate with specific ID (PUT creates if not exists)
+		_, err = client.UpdateRoute(id, route)
+		return err
+
+	case config.ApisixItemTypeUpstream:
+		upstream := &apisix.Upstream{}
+		if err := json.Unmarshal(data, upstream); err != nil {
+			return fmt.Errorf("failed to unmarshal to upstream: %v", err)
+		}
+		_, err = client.UpdateUpstream(id, upstream)
+		return err
+
+	case config.ApisixItemTypeService:
+		svc := &apisix.Service{}
+		if err := json.Unmarshal(data, svc); err != nil {
+			return fmt.Errorf("failed to unmarshal to service: %v", err)
+		}
+		_, err = client.UpdateService(id, svc)
+		return err
+
+	case config.ApisixItemTypeProto:
+		proto := &apisix.Proto{}
+		if err := json.Unmarshal(data, proto); err != nil {
+			return fmt.Errorf("failed to unmarshal to proto: %v", err)
+		}
+		_, err = client.UpdateProto(id, proto)
+		return err
+
+	default:
+		return fmt.Errorf("unsupported resource type: %s", resourceType)
+	}
 }
 
 type TaskHistoryFilter struct {

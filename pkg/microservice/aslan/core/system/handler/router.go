@@ -372,6 +372,26 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}
+
+	apiGateways := router.Group("api_gateways")
+	{
+		apiGateways.GET("", ListApiGateway)
+		apiGateways.POST("", CreateApiGateway)
+		apiGateways.POST("/validate", ValidateApiGateway)
+		apiGateways.PATCH("/:id", UpdateApiGateway)
+		apiGateways.DELETE("/:id", DeleteApiGateway)
+
+		// APISIX routes
+		apiGateways.GET("/:id/apisix/route", ListApisixRoutes)
+		apiGateways.GET("/:id/apisix/route/:route_id", GetApisixRoute)
+		apiGateways.GET("/:id/apisix/upstream", ListApisixUpstreams)
+		apiGateways.GET("/:id/apisix/upstream/:upstream_id", GetApisixUpstream)
+		apiGateways.GET("/:id/apisix/service", ListApisixServices)
+		apiGateways.GET("/:id/apisix/service/:service_id", GetApisixService)
+		apiGateways.GET("/:id/apisix/proto", ListApisixProtos)
+		apiGateways.GET("/:id/apisix/proto/:proto_id", GetApisixProto)
+	}
+
 	// personal dashboard configuration
 	dashboard := router.Group("dashboard")
 	{
