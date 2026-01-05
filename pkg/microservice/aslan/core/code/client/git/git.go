@@ -180,11 +180,10 @@ func (c *Client) initRepo(repoDir, namespace, projectName string) error {
 func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]string, error) {
 	var cmd *exec.Cmd
 	if c.Config.AuthType == types.SSHAuthType {
-		user, hostName, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
-		remote := fmt.Sprintf("git@%s:%s/%s.git", hostName, namespace, projectName)
-		if user != "" {
-			remote = fmt.Sprintf("%s@%s:%s/%s.git", user, hostName, namespace, projectName)
-		}
+		_, _, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
+		remote := util.GetSSHRemoteAddress(c.Config.Address, namespace, projectName)
+
+		log.Debugf("port: %d, remote: %s", port, remote)
 
 		script := `
         ssh-agent sh -c '
@@ -264,11 +263,8 @@ func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]s
 func (c *Client) listRemoteTags(namespace, projectName, keyword string) ([]string, error) {
 	var cmd *exec.Cmd
 	if c.Config.AuthType == types.SSHAuthType {
-		user, hostName, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
-		remote := fmt.Sprintf("git@%s:%s/%s.git", hostName, namespace, projectName)
-		if user != "" {
-			remote = fmt.Sprintf("%s@%s:%s/%s.git", user, hostName, namespace, projectName)
-		}
+		_, _, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
+		remote := util.GetSSHRemoteAddress(c.Config.Address, namespace, projectName)
 
 		script := `
         ssh-agent sh -c '
