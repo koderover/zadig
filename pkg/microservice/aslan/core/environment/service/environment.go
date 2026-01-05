@@ -1518,9 +1518,11 @@ const (
 )
 
 type GetHelmValuesDifferenceResp struct {
-	Current       string                 `json:"current"`
-	Latest        string                 `json:"latest"`
-	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
+	Current              string                   `json:"current"`
+	Latest               string                   `json:"latest"`
+	LatestFlatMap        map[string]interface{}   `json:"latest_flat_map"`
+	CurrentManifestFiles []*kube.HelmManifestFile `json:"current_manifest_files"`
+	LatestManifestFiles  []*kube.HelmManifestFile `json:"latest_manifest_files"`
 }
 
 func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
@@ -1563,6 +1565,8 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 
 	currentYaml := ""
 	latestYaml := ""
+	currentManifestFiles := make([]*kube.HelmManifestFile, 0)
+	latestManifestFiles := make([]*kube.HelmManifestFile, 0)
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
 		// service already exists in the current environment, create it
 		currentYaml = ""
@@ -1608,11 +1612,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				manifest, err := kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
-				currentYaml = manifest
 			}
 		} else {
 			helmDeploySvc := helmservice.NewHelmDeployService()
@@ -1633,11 +1636,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				manifest, err := kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
-				currentYaml = manifest
 			}
 		}
 	}
@@ -1686,11 +1688,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			manifest, err := kube.GetHelmChartManifest(tmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(tmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, arg.ChartName, arg.ChartVersion, err)
 			}
-			latestYaml = manifest
 		}
 
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
@@ -1738,38 +1739,37 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			manifest, err := kube.GetHelmChartManifest(tmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(tmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 			}
-			latestYaml = manifest
 		}
 	}
 
 	mapData := make(map[string]interface{})
-	if contextType == EstimateContentTypeValues {
-		// re-marshal it into string to make sure indentation is right
-		currentYaml, err = formatYamlIndent(currentYaml, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
-		}
-		latestYaml, err = formatYamlIndent(latestYaml, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
-		}
+	// re-marshal it into string to make sure indentation is right
+	currentYaml, err = formatYamlIndent(currentYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
+	latestYaml, err = formatYamlIndent(latestYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
 
-		if format == EstimateValuesResponseFormatFlatMap {
-			mapData, err = converter.YamlToFlatMap([]byte(latestYaml))
-			if err != nil {
-				return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
-			}
+	if format == EstimateValuesResponseFormatFlatMap {
+		mapData, err = converter.YamlToFlatMap([]byte(latestYaml))
+		if err != nil {
+			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
 		}
 	}
 
 	resp := &GetHelmValuesDifferenceResp{
-		Current:       currentYaml,
-		Latest:        latestYaml,
-		LatestFlatMap: mapData,
+		Current:              currentYaml,
+		Latest:               latestYaml,
+		LatestFlatMap:        mapData,
+		CurrentManifestFiles: currentManifestFiles,
+		LatestManifestFiles:  latestManifestFiles,
 	}
 
 	return resp, nil
