@@ -1218,7 +1218,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 		log.Errorf("createGerritWebhookByService getGerritWebhook err:%v", err)
 		//创建webhook
 		gerritWebhook := &gerrit.Webhook{
-			URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), serviceName),
+			URL:       fmt.Sprintf("%s?name=%s", commonservice.WebHookURL(), serviceName),
 			MaxTries:  setting.MaxTries,
 			SslVerify: false,
 		}

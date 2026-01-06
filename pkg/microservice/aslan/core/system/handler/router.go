@@ -258,6 +258,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// system server settings
+	// ---------------------------------------------------------------------------------------
+	server := router.Group("server")
+	{
+		server.GET("/url", GetSystemServerURL)
+		server.PUT("/url", SetSystemServerURL)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// external system API
 	// ---------------------------------------------------------------------------------------
 	externalSystem := router.Group("external")

@@ -18,6 +18,8 @@ package util
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -144,4 +146,10 @@ func HasOriginRemote(repoDir string) (bool, error) {
 	}
 
 	return false, scanner.Err()
+}
+
+func GetGitHookSecret() string {
+	hash := sha256.Sum256([]byte(config.SecretKey()))
+
+	return hex.EncodeToString(hash[:])
 }

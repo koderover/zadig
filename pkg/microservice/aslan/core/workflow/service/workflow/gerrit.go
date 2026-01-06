@@ -19,6 +19,7 @@ package workflow
 import (
 	"go.uber.org/zap"
 
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -55,7 +56,9 @@ func createGerritWebhook(mainRepo *commonmodels.MainHookRepo, workflowName strin
 	for _, event := range mainRepo.Events {
 		events = append(events, string(event))
 	}
-	if err := cl.UpsertWebhook(mainRepo.RepoName, workflowName, events); err != nil {
+
+	webhookURL := commonservice.WebHookURL()
+	if err := cl.UpsertWebhook(mainRepo.RepoName, workflowName, webhookURL, events); err != nil {
 		return err
 	}
 	return nil

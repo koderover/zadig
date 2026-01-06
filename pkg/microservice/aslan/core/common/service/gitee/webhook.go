@@ -20,15 +20,15 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	hook, err := c.CreateHook(c.Address, c.AccessToken, owner, repo, &git.Hook{
-		URL:    config.WebHookURL(),
-		Secret: gitservice.GetHookSecret(),
+		URL:    gitservice.WebHookURL(),
+		Secret: util.GetGitHookSecret(),
 	})
 	if err != nil {
 		return "", err

@@ -32,13 +32,11 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/config"
 	microserviceConfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
-	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
@@ -51,7 +49,7 @@ import (
 
 func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	token := req.Header.Get("X-Gitee-Token")
-	secret := gitservice.GetHookSecret()
+	secret := util.GetGitHookSecret()
 
 	if secret != "" && token != secret {
 		return errors.New("token is illegal")
@@ -63,7 +61,11 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		return err
 	}
 
-	baseURI := config.SystemAddress()
+	baseURI, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		return fmt.Errorf("failed to get system server URL: %w", err)
+	}
+
 	var errorList = &multierror.Error{}
 	var wg sync.WaitGroup
 

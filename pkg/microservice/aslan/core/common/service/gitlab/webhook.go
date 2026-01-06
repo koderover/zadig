@@ -19,15 +19,15 @@ package gitlab
 import (
 	"strconv"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	projectHook, err := c.AddProjectHook(owner, repo, &git.Hook{
-		URL:    config.WebHookURL(),
-		Secret: gitservice.GetHookSecret(),
+		URL:    gitservice.WebHookURL(),
+		Secret: util.GetGitHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
 	})
 	if err != nil {
@@ -61,7 +61,7 @@ func (c *Client) RefreshWebHookSecret(secret, owner, repo, hookID string) error 
 		return err
 	}
 	_, err = c.UpdateProjectHook(owner, repo, hookIDInt, &git.Hook{
-		URL:    config.WebHookURL(),
+		URL:    gitservice.WebHookURL(),
 		Secret: secret,
 	})
 

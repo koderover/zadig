@@ -310,3 +310,7 @@ func LarkPluginAccessTokenType() int {
 func DisableKubeClientKeepAlive() bool {
 	return viper.GetBool(setting.ENVDisableKubeClientKeepAlive)
 }
+
+func Home() string {
+	return viper.GetString(setting.Home)
+}

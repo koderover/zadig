@@ -26,7 +26,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -323,7 +322,13 @@ rules:
 		}
 	}
 
-	agentCmd := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy"`, configbase.SystemAddress(), clusterResp.ID.Hex())
+	serverURL, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to get system server URL: %w", err)
+		return
+	}
+
+	agentCmd := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy"`, serverURL, clusterResp.ID.Hex())
 
 	resp := service.OpenAPICreateClusterResponse{
 		Cluster: &service.OpenAPICluster{

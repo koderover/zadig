@@ -897,7 +897,12 @@ func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {
 func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	s, _ := kube.NewService("")
 
-	return s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
+	serverURL, err := kube.GetSystemServerURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system server URL: %w", err)
+	}
+
+	return s.GetYaml(id, config.HubAgentImage(), serverURL, hubURI, useDeployment, logger)
 }
 
 func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
@@ -917,6 +922,11 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(id)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s cluster: %s", err, clusterInfo.Name)
+	}
+
+	serverURL, err := kube.GetSystemServerURL()
+	if err != nil {
+		return fmt.Errorf("failed to get system server URL: %w", err)
 	}
 
 	// Upgrade local cluster.
@@ -943,7 +953,7 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
 	} else {
 		// Upgrade attached cluster.
-		yamls, err := s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), "/api/hub", true, logger)
+		yamls, err := s.GetYaml(id, config.HubAgentImage(), serverURL, "/api/hub", true, logger)
 		if err != nil {
 			return err
 		}

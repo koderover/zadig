@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KodeRover Authors.
+Copyright 2025 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,25 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package service
 
 import (
-	"context"
-
-	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
-	"github.com/koderover/zadig/v2/pkg/util"
-	"go.uber.org/zap"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-type GetWebhookConfigReponse struct {
-	URL    string `json:"url"`
-	Secret string `json:"secret"`
-}
-
-func GetWebhookConfig(ctx context.Context, log *zap.SugaredLogger) (*GetWebhookConfigReponse, error) {
-	resp := &GetWebhookConfigReponse{
-		URL:    gitservice.WebHookURL(),
-		Secret: util.GetGitHookSecret(),
-	}
-	return resp, nil
+func SetSystemServerURL(serverURL string) error {
+	return commonrepo.NewSystemSettingColl().UpdateServerURL(serverURL)
 }
