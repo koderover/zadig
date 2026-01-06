@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -96,6 +97,40 @@ func (c *Client) getParams() (*input, error) {
 	}, nil
 }
 
+// watchTokenFile monitors the token file for changes and cancels the context when the token changes.
+// This forces a reconnection with fresh credentials.
+func (c *Client) watchTokenFile(ctx context.Context, cancel context.CancelFunc) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Read initial token content
+	lastToken, err := ioutil.ReadFile(c.TokenPath)
+	if err != nil {
+		c.logger.Warnf("Failed to read initial token for watching: %v", err)
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			currentToken, err := ioutil.ReadFile(c.TokenPath)
+			if err != nil {
+				c.logger.Warnf("Failed to read token file during watch: %v", err)
+				continue
+			}
+
+			if !bytes.Equal(lastToken, currentToken) {
+				c.logger.Infof("Token file changed, triggering reconnection to update credentials")
+				lastToken = currentToken
+				cancel() // Cancel the current connection context to force reconnection
+				return
+			}
+		}
+	}
+}
+
 func Init(ctx context.Context) error {
 	token := config.HubAgentToken()
 	if token == "" {
@@ -132,21 +167,6 @@ func Init(ctx context.Context) error {
 }
 
 func (c *Client) Start(ctx context.Context) error {
-	params, err := c.getParams()
-	if err != nil {
-		return err
-	}
-
-	bytes, err := json.Marshal(params)
-	if err != nil {
-		return err
-	}
-
-	headers := map[string][]string{
-		setting.Token:  {c.Token},
-		setting.Params: {base64.StdEncoding.EncodeToString(bytes)},
-	}
-
 	connectURL := fmt.Sprintf("%s/connect", c.Server)
 	c.logger.Infof("Connect to %s with token %s", connectURL, c.Token)
 
@@ -165,10 +185,38 @@ func (c *Client) Start(ctx context.Context) error {
 				c.logger.Infof("Retrying to connect to %s", connectURL)
 			}
 
+			// Re-read token and CA cert on each connection attempt to handle token rotation
+			params, err := c.getParams()
+			if err != nil {
+				c.logger.Errorf("Failed to get params: %v", err)
+				retries++
+				return err
+			}
+
+			paramsBytes, err := json.Marshal(params)
+			if err != nil {
+				c.logger.Errorf("Failed to marshal params: %v", err)
+				retries++
+				return err
+			}
+
+			headers := map[string][]string{
+				setting.Token:  {c.Token},
+				setting.Params: {base64.StdEncoding.EncodeToString(paramsBytes)},
+			}
+
+			// Create a cancellable context for this connection attempt.
+			// The token watcher will cancel this context when the token file changes,
+			// forcing a reconnection with fresh credentials.
+			connCtx, connCancel := context.WithCancel(ctx)
+
+			// Start watching the token file for changes
+			go c.watchTokenFile(connCtx, connCancel)
+
 			tm := time.Now()
 
 			remotedialer.ClientConnect(
-				context.Background(),
+				connCtx,
 				connectURL,
 				headers,
 				&websocket.Dialer{
@@ -185,9 +233,12 @@ func (c *Client) Start(ctx context.Context) error {
 					return false
 				}, nil)
 
+			// Cancel the connection context to stop the token watcher
+			connCancel()
+
 			// 如果连接时间超过2倍的超时时间, 则认为已经成功连接，需要立即重连
 			if time.Since(tm) > 2*timeout {
-				c.logger.Errorf("Connection timeout")
+				c.logger.Infof("Connection was established, resetting backoff")
 				bo.Reset()
 			}
 
