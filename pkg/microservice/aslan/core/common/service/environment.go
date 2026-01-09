@@ -900,9 +900,8 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 
 		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet {
 			selector := labels.SelectorFromSet(workload.Selector.MatchLabels)
-			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
 			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
+			productRespInfo.Status, productRespInfo.Ready, _ = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 			}
