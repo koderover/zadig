@@ -246,7 +246,7 @@ func GetStatsDashboard(startTime, endTime int64, projectList []string, logger *z
 }
 
 func GetStatsDashboardGeneralData(startTime, endTime int64, logger *zap.SugaredLogger) (*StatDashboardBasicData, error) {
-	totalDeployStats, err := commonrepo.NewJobInfoColl().GetDeployJobsStats(0, 0, []string{}, config.Both)
+	totalDeployStats, err := commonrepo.NewJobInfoColl().GetDeployJobsStats(startTime, endTime, []string{}, config.Both)
 	if err != nil {
 		logger.Errorf("failed to get total deployment count, error: %s", err)
 		return nil, err
