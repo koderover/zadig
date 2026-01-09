@@ -209,6 +209,7 @@ type LarkApproval struct {
 func (l LarkApproval) GetNodeTypeKey() string {
 	var keys []string
 	for _, node := range l.ApprovalNodes {
+		// skip cc node if user or group is not set
 		if (node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd) && len(node.CcUsers) == 0 && len(node.CcGroups) == 0 {
 			continue
 		}
