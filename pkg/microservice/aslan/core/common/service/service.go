@@ -45,6 +45,7 @@ import (
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -1614,4 +1615,27 @@ func toStsWorkload(v *appsv1.StatefulSet) *Workload {
 		Annotation: v.Annotations,
 	}
 	return workload
+}
+
+func GetSystemServerURL() (string, error) {
+	setting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		err = fmt.Errorf("failed to get system setting: %w", err)
+		return "", err
+	}
+
+	serverURL := configbase.SystemAddress()
+	if setting.ServerURL != "" {
+		serverURL = setting.ServerURL
+	}
+
+	return serverURL, nil
+}
+
+func WebHookURL() string {
+	serverURL, err := GetSystemServerURL()
+	if err != nil {
+		return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
+	}
+	return fmt.Sprintf("%s/api/aslan/webhook", serverURL)
 }

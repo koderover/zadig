@@ -17,14 +17,33 @@ limitations under the License.
 package git
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/config"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func GetHookSecret() string {
-	hash := sha256.Sum256([]byte(config.SecretKey()))
+func GetSystemServerURL() (string, error) {
+	setting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		err = fmt.Errorf("failed to get system setting: %w", err)
+		return "", err
+	}
 
-	return hex.EncodeToString(hash[:])
+	serverURL := configbase.SystemAddress()
+	if setting.ServerURL != "" {
+		serverURL = setting.ServerURL
+	}
+
+	return serverURL, nil
+}
+
+func WebHookURL() string {
+	serverURL, err := GetSystemServerURL()
+	if err != nil {
+		log.Errorf("failed to get system server url: %s", err)
+		return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
+	}
+	return fmt.Sprintf("%s/api/aslan/webhook", serverURL)
 }

@@ -342,12 +342,17 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		scheduleWorkflow = cluster.AdvancedConfig.ScheduleWorkflow
 	}
 
+	serverURL, err := GetSystemServerURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server URL: %w", err)
+	}
+
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:        agentImage,
 			ClientToken:          token,
 			HubServerBaseAddr:    hubBase.String(),
-			AslanBaseAddr:        configbase.SystemAddress(),
+			AslanBaseAddr:        serverURL,
 			UseDeployment:        useDeployment,
 			DindReplicas:         dindReplicas,
 			DindLimitsCPU:        dindLimitsCPU,
@@ -371,7 +376,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			HubAgentImage:        agentImage,
 			ClientToken:          token,
 			HubServerBaseAddr:    hubBase.String(),
-			AslanBaseAddr:        configbase.SystemAddress(),
+			AslanBaseAddr:        serverURL,
 			UseDeployment:        useDeployment,
 			Namespace:            cluster.Namespace,
 			DindReplicas:         dindReplicas,
@@ -1255,3 +1260,17 @@ spec:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
 `
+
+func GetSystemServerURL() (string, error) {
+	setting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		err = fmt.Errorf("failed to get system setting: %w", err)
+		return "", err
+	}
+
+	serverURL := configbase.SystemAddress()
+	if setting.ServerURL != "" {
+		serverURL = setting.ServerURL
+	}
+	return serverURL, nil
+}

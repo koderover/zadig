@@ -170,10 +170,6 @@ func ProxySocks5Addr() string {
 	return viper.GetString(setting.ProxySocks5Addr)
 }
 
-func WebHookURL() string {
-	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
-}
-
 func ObjectStorageServicePath(project, service string, production bool) string {
 	if production {
 		return ObjectStorageProductionServicePath(project, service)

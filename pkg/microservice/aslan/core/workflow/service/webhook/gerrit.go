@@ -33,7 +33,6 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
-	systemConfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -62,7 +61,11 @@ type gerritTypeEvent struct {
 }
 
 func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	baseURI := systemConfig.SystemAddress()
+	baseURI, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		return fmt.Errorf("failed to get system server URL: %w", err)
+	}
+
 	gerritTypeEventObj := new(gerritTypeEvent)
 	if err := json.Unmarshal(payload, gerritTypeEventObj); err != nil {
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)

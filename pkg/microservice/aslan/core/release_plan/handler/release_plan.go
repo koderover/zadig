@@ -435,7 +435,7 @@ func UpdateReleasePlanHookSetting(c *gin.Context) {
 // @Produce json
 // @Param 	body 	body		service.ReleasePlanCallBackBody 	        true	"release plan hook callback"
 // @Success 200
-// @Router /api//callback/release_plan [post]
+// @Router /api/callback/release_plan [post]
 func ReleasePlanHookCallback(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

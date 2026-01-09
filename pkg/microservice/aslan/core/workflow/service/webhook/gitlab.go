@@ -30,9 +30,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type EventPush struct {
@@ -47,7 +47,7 @@ type EventPush struct {
 
 func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	token := req.Header.Get("X-Gitlab-Token")
-	secret := gitservice.GetHookSecret()
+	secret := util.GetGitHookSecret()
 
 	if secret != "" && token != secret {
 		return errors.New("token is illegal")

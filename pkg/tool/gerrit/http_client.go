@@ -19,7 +19,6 @@ package gerrit
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -46,9 +45,9 @@ func NewHTTPClient(host, token string) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string) error {
-	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", Escape(repoName), "remotes", webhookName)
-	if _, err := c.Get(webhookURL); err == nil {
+func (c *HTTPClient) UpsertWebhook(repoName, webhookName, webhookURL string, events []string) error {
+	url := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", Escape(repoName), "remotes", webhookName)
+	if _, err := c.Get(url); err == nil {
 		log.Infof("webhook %s already exists", webhookName)
 		return nil
 
@@ -56,14 +55,14 @@ func (c *HTTPClient) UpsertWebhook(repoName, webhookName string, events []string
 	c.SetHeader("Content-Type", "application/json")
 	//create webhook
 	gerritWebhook := &Webhook{
-		URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), webhookName),
+		URL:       fmt.Sprintf("%s?name=%s", webhookURL, webhookName),
 		MaxTries:  setting.MaxTries,
 		SslVerify: false,
 	}
 	for _, event := range events {
 		gerritWebhook.Events = append(gerritWebhook.Events, string(event))
 	}
-	if _, err := c.Put(webhookURL, httpclient.SetBody(gerritWebhook)); err != nil {
+	if _, err := c.Put(url, httpclient.SetBody(gerritWebhook)); err != nil {
 		return fmt.Errorf("create gerrit webhook err:%v", err)
 	}
 	return nil

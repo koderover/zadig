@@ -27,6 +27,7 @@ type SystemSetting struct {
 	Security            *SecuritySettings        `bson:"security" json:"security"`
 	Privacy             *PrivacySettings         `bson:"privacy"  json:"privacy"`
 	Language            string                   `bson:"language" json:"language"`
+	ServerURL           string                   `bson:"server_url" json:"server_url"`
 	ReleasePlanHook     *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
 	UpdateTime          int64                    `bson:"update_time" json:"update_time"`
 }
@@ -92,8 +93,8 @@ type ReleasePlanHookEvent string
 const (
 	ReleasePlanHookEventFinishPlanning ReleasePlanHookEvent = "finish_planning"
 	// ReleasePlanHookEventSubmitApproval ReleasePlanHookEvent = "submit_approval"
-	ReleasePlanHookEventStartExecute   ReleasePlanHookEvent = "start_execute"
-	ReleasePlanHookEventAllJobDone     ReleasePlanHookEvent = "all_job_done"
+	ReleasePlanHookEventStartExecute ReleasePlanHookEvent = "start_execute"
+	ReleasePlanHookEventAllJobDone   ReleasePlanHookEvent = "all_job_done"
 )
 
 func (SystemSetting) TableName() string {

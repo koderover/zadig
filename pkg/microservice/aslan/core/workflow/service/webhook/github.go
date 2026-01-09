@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -287,7 +286,7 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		return nil
 	}
 
-	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	err := validateSecret(payload, []byte(util.GetGitHookSecret()), req)
 	if err != nil {
 		return err
 	}
@@ -338,7 +337,7 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 		return nil
 	}
 
-	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	err := validateSecret(payload, []byte(util.GetGitHookSecret()), req)
 	if err != nil {
 		return err
 	}
@@ -367,7 +366,7 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 		return nil
 	}
 
-	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	err := validateSecret(payload, []byte(util.GetGitHookSecret()), req)
 	if err != nil {
 		return err
 	}
@@ -405,7 +404,7 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 		return nil
 	}
 
-	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	err := validateSecret(payload, []byte(util.GetGitHookSecret()), req)
 	if err != nil {
 		return err
 	}

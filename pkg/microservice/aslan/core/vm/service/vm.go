@@ -35,6 +35,7 @@ import (
 	vmmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -138,7 +139,10 @@ func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, e
 	if vm.Agent != nil {
 		token = vm.Agent.Token
 	}
-	serverURL := commonconfig.SystemAddress()
+	serverURL, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server URL: %w", err)
+	}
 
 	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)
 	macOSAMD64Name, macOSARM64Name := fmt.Sprintf("zadig-agent-darwin-amd64-v%s", version), fmt.Sprintf("zadig-agent-darwin-arm64-v%s", version)
@@ -681,7 +685,10 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}
 
-	serverURL := commonconfig.SystemAddress()
+	serverURL, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system server URL: %w", err)
+	}
 
 	var downloadLinuxAMD64URL, downloadLinuxARM64URL string
 	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)

@@ -185,6 +185,16 @@ func (c *SystemSettingColl) UpdateLanguage(language string) error {
 	return err
 }
 
+func (c *SystemSettingColl) UpdateServerURL(serverURL string) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	change := bson.M{"$set": bson.M{
+		"server_url": serverURL,
+	}}
+	query := bson.M{"_id": id}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *SystemSettingColl) UpdateReleasePlanHookSetting(hookSetting *models.ReleasePlanHookSettings) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	query := bson.M{"_id": id}
