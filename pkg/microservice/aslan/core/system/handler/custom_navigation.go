@@ -64,9 +64,17 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 func isProfessionalLicenseRequiredKey(key config.NavigationItemKey) bool {
 	switch key {
 	case config.NavigationKeyWorkflows,
-		config.NavigationKeyReleasePlan,
-		config.NavigationKeyBizCatalog,
 		config.NavigationKeyDataInsight:
+		return true
+	default:
+		return false
+	}
+}
+
+func isEnterpriseLicenseRequiredKey(key config.NavigationItemKey) bool {
+	switch key {
+	case config.NavigationKeyReleasePlan,
+		config.NavigationKeyBizCatalog:
 		return true
 	default:
 		return false
@@ -98,6 +106,11 @@ func filterNavigationItemsForAdmin(ctx *internalhandler.Context, items []*common
 							item.Disabled = true
 						}
 					}
+					if isEnterpriseLicenseRequiredKey(item.Key) {
+						if err := util.CheckZadigEnterpriseLicense(); err != nil {
+							item.Disabled = true
+						}
+					}
 					newItems = append(newItems, item)
 				}
 			}
@@ -126,6 +139,11 @@ func filterNavigationItemsForNonAdmin(ctx *internalhandler.Context, items []*com
 				default:
 					if isProfessionalLicenseRequiredKey(item.Key) {
 						if err := util.CheckZadigProfessionalLicense(); err != nil {
+							item.Disabled = true
+						}
+					}
+					if isEnterpriseLicenseRequiredKey(item.Key) {
+						if err := util.CheckZadigEnterpriseLicense(); err != nil {
 							item.Disabled = true
 						}
 					}
