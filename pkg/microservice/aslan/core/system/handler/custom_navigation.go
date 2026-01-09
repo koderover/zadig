@@ -131,7 +131,7 @@ func filterNavigationItemsForNonAdmin(ctx *internalhandler.Context, items []*com
 					}
 					// check authorization
 					if !hasNavigationPermission(ctx, item.Key) {
-						item.Disabled = true
+						continue
 					}
 					newItems = append(newItems, item)
 				}
