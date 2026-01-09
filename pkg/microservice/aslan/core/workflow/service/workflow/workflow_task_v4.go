@@ -1743,9 +1743,12 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						log.Errorf("failed to update apisix job revert information, error: %s", err)
 					}
 
-					revertTaskSpec := &commonmodels.JobTaskApisixSpec{
+					revertTaskSpec := &commonmodels.JobTaskApisixRevertSpec{
 						ApisixID: jobTaskSpec.ApisixID,
 						Tasks:    inputSpec.ApisixDatas,
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
 					}
 
 					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{

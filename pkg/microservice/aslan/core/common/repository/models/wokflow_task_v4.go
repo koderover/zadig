@@ -520,6 +520,13 @@ type JobTaskApisixSpec struct {
 	Tasks []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
 }
 
+type JobTaskApisixRevertSpec struct {
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+
+	ApisixID string `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
+	Tasks []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
+}
+
 type ApisixItemUpdateSpec struct {
 	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
 	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
