@@ -65,7 +65,7 @@ func (r *RegistryNamespaceColl) EnsureIndex(ctx context.Context) error {
 		Options: options.Index().SetUnique(false),
 	}
 
-	_, err := r.Indexes().CreateOne(ctx, mod)
+	_, err := r.Indexes().CreateOne(ctx, mod, mongotool.CreateIndexOptions(ctx))
 	return err
 }
 

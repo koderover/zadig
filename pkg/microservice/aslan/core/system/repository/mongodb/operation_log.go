@@ -89,7 +89,7 @@ func (c *OperationLogColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(ctx, indexes)
+	_, err := c.Indexes().CreateMany(ctx, indexes, mongotool.CreateIndexOptions(ctx))
 	return err
 }
 

@@ -36,6 +36,9 @@ import (
 
 var once sync.Once
 var client *mongo.Client
+var isReplicaSet bool
+var isReplicaSetChecked bool
+var replicaSetMutex sync.RWMutex
 
 func Database(name string) *mongo.Database {
 	return Client().Database(name)
@@ -163,4 +166,60 @@ func connect(ctx context.Context, opt *options.ClientOptions) *mongo.Client {
 	}
 
 	return c
+}
+
+// IsReplicaSet checks if the MongoDB instance is running as a replica set.
+// The result is cached after the first check for performance.
+func IsReplicaSet(ctx context.Context) bool {
+	replicaSetMutex.RLock()
+	if isReplicaSetChecked {
+		result := isReplicaSet
+		replicaSetMutex.RUnlock()
+		return result
+	}
+	replicaSetMutex.RUnlock()
+
+	replicaSetMutex.Lock()
+	defer replicaSetMutex.Unlock()
+
+	// Double-check after acquiring write lock
+	if isReplicaSetChecked {
+		return isReplicaSet
+	}
+
+	// Run the "hello" command to check MongoDB topology
+	// "hello" command is available since MongoDB 5.0, but also works on older versions
+	var result bson.M
+	err := Client().Database("admin").RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&result)
+	if err != nil {
+		// Fallback to isMaster for older MongoDB versions
+		err = Client().Database("admin").RunCommand(ctx, bson.D{{Key: "isMaster", Value: 1}}).Decode(&result)
+		if err != nil {
+			log.Warnf("Failed to detect MongoDB topology, assuming standalone: %v", err)
+			isReplicaSetChecked = true
+			isReplicaSet = false
+			return false
+		}
+	}
+
+	// Check if setName exists in the response - this indicates a replica set
+	if setName, ok := result["setName"]; ok && setName != nil && setName != "" {
+		isReplicaSet = true
+	} else {
+		isReplicaSet = false
+	}
+	isReplicaSetChecked = true
+
+	log.Infof("MongoDB topology detected: isReplicaSet=%v", isReplicaSet)
+	return isReplicaSet
+}
+
+// CreateIndexOptions returns the appropriate CreateIndexesOptions based on MongoDB topology.
+// For replica sets, it sets commitQuorum to "majority" to prevent index creation from hanging
+// when backup nodes fail. For standalone instances, it returns nil (no special options).
+func CreateIndexOptions(ctx context.Context) *options.CreateIndexesOptions {
+	if IsReplicaSet(ctx) {
+		return options.CreateIndexes().SetCommitQuorumMajority()
+	}
+	return nil
 }

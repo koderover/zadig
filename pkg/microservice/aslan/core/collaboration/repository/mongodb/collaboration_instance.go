@@ -70,7 +70,7 @@ func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
 
 	_, _ = c.Indexes().DropOne(ctx, "project_name_1_collaboration_name_1_user_uid_1")
 
-	_, err := c.Indexes().CreateMany(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }

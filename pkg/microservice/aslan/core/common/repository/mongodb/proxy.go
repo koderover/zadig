@@ -56,7 +56,7 @@ func (c *ProxyColl) EnsureIndex(ctx context.Context) error {
 		Options: options.Index().SetUnique(false),
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateOne(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }

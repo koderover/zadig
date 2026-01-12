@@ -67,7 +67,7 @@ func (c *ScanningColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }
