@@ -145,7 +145,7 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 	// 仅用于升级 release v1.3.1, 将在下一版本移除
 	_, _ = c.Indexes().DropOne(ctx, "service_name_1_type_1_revision_1")
 
-	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }

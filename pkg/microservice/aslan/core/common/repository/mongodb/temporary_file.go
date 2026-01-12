@@ -73,7 +73,7 @@ func (c *TemporaryFileColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(ctx, indexes, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateMany(ctx, indexes, mongotool.CreateIndexOptions(ctx))
 	return err
 }
 

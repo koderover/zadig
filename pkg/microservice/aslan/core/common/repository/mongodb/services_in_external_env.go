@@ -75,7 +75,7 @@ func (c *ServicesInExternalEnvColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
-	_, err := c.Indexes().CreateMany(ctx, mods, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateMany(ctx, mods, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }
