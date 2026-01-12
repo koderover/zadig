@@ -329,7 +329,7 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 				for _, job := range stage.Jobs {
 					// if a job is found, add it to the job creation list
 					if inputParam, ok := inputMap[job.Name]; ok {
-						updater, err := workflowservice.GetInputUpdater(job, inputParam)
+						updater, err := workflowservice.GetInputUpdater(job, inputParam, workflow)
 						if err != nil {
 							return err
 						}
