@@ -233,6 +233,10 @@ func (c *OpenAPICreateProductWorkflowTaskArgs) Validate() (bool, error) {
 	return true, nil
 }
 
+type OpenAPIBasicInfo struct {
+	workflow *commonmodels.WorkflowV4
+}
+
 type CreateProductTaskJobInput struct {
 	TargetEnv  string            `json:"target_env"`
 	BuildArgs  WorkflowBuildArg  `json:"build"`
@@ -280,6 +284,8 @@ func (p *PluginJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job
 }
 
 type FreestyleJobInput struct {
+	*OpenAPIBasicInfo
+
 	KVs      []*types.KV               `json:"kv"`
 	RepoInfo []*types.OpenAPIRepoInput `json:"repo_info"`
 }
@@ -289,62 +295,72 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.FreestyleJobSpec")
 	}
-	kvMap := make(map[string]string)
-	for _, kv := range p.KVs {
-		kvMap[kv.Key] = kv.Value
-	}
 
-	for _, env := range newSpec.Envs {
-		if val, ok := kvMap[env.Key]; ok {
-			env.Value = val
+	if newSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		err := p.getReferredJobTargets(newSpec)
+		if err != nil {
+			return nil, err
 		}
-	}
+	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
+		kvMap := make(map[string]string)
+		for _, kv := range p.KVs {
+			kvMap[kv.Key] = kv.Value
+		}
 
-	newRepo := make([]*types.Repository, 0)
-	for _, repo := range newSpec.Repos {
-		for _, inputRepo := range p.RepoInfo {
-			// TODO: UPDATE THIS
-			repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-			if err != nil {
-				return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+		for _, env := range newSpec.Envs {
+			if val, ok := kvMap[env.Key]; ok {
+				env.Value = val
 			}
+		}
 
-			if repo.CodehostID == repoInfo.ID {
-				if repoInfo.Type != "perforce" {
-					if repo.RepoNamespace == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
-						repo.Branch = inputRepo.Branch
-						repo.PR = inputRepo.PR
-						repo.PRs = inputRepo.PRs
-						repo.EnableCommit = inputRepo.EnableCommit
-						repo.CommitID = inputRepo.CommitID
-						newRepo = append(newRepo, repo)
-					}
-				} else {
-					var depotType string
-					if inputRepo.Stream != "" {
-						depotType = "stream"
+		newRepo := make([]*types.Repository, 0)
+		for _, repo := range newSpec.Repos {
+			for _, inputRepo := range p.RepoInfo {
+				// TODO: UPDATE THIS
+				repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
+				if err != nil {
+					return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+				}
+
+				if repo.CodehostID == repoInfo.ID {
+					if repoInfo.Type != "perforce" {
+						if repo.RepoNamespace == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
+							repo.Branch = inputRepo.Branch
+							repo.PR = inputRepo.PR
+							repo.PRs = inputRepo.PRs
+							repo.EnableCommit = inputRepo.EnableCommit
+							repo.CommitID = inputRepo.CommitID
+							newRepo = append(newRepo, repo)
+						}
 					} else {
-						depotType = "local"
+						var depotType string
+						if inputRepo.Stream != "" {
+							depotType = "stream"
+						} else {
+							depotType = "local"
+						}
+						newRepo = append(newRepo, &types.Repository{
+							Source:       repoInfo.Type,
+							CodehostID:   repoInfo.ID,
+							Username:     repoInfo.Username,
+							Password:     repoInfo.Password,
+							PerforceHost: repoInfo.P4Host,
+							PerforcePort: repoInfo.P4Port,
+							DepotType:    depotType,
+							Stream:       inputRepo.Stream,
+							ViewMapping:  inputRepo.ViewMapping,
+							ChangeListID: inputRepo.ChangelistID,
+							ShelveID:     inputRepo.ShelveID,
+						})
 					}
-					newRepo = append(newRepo, &types.Repository{
-						Source:       repoInfo.Type,
-						CodehostID:   repoInfo.ID,
-						Username:     repoInfo.Username,
-						Password:     repoInfo.Password,
-						PerforceHost: repoInfo.P4Host,
-						PerforcePort: repoInfo.P4Port,
-						DepotType:    depotType,
-						Stream:       inputRepo.Stream,
-						ViewMapping:  inputRepo.ViewMapping,
-						ChangeListID: inputRepo.ChangelistID,
-						ShelveID:     inputRepo.ShelveID,
-					})
 				}
 			}
 		}
-	}
 
-	newSpec.Repos = newRepo
+		newSpec.Repos = newRepo
+	} else {
+		return nil, fmt.Errorf("freestyle job type %s not supported", newSpec.FreestyleJobType)
+	}
 
 	// // replace the git info with the provided info
 	// for _, step := range newSpec.Steps {
@@ -417,6 +433,45 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	job.Spec = newSpec
 
 	return job, nil
+}
+
+func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.FreestyleJobSpec) error {
+	if jobSpec.ServiceSource != config.SourceFromJob || jobSpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+		return nil
+	}
+
+	for _, stage := range p.workflow.Stages {
+		for _, referredJob := range stage.Jobs {
+			if referredJob.Name != jobSpec.JobName {
+				continue
+			}
+			if referredJob.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, buildSpec); err != nil {
+					return err
+				}
+
+				serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   build.ServiceName,
+							ServiceModule: build.ServiceModule,
+						},
+					}
+
+					if jobSpec.RefRepos {
+						target.Repos = build.Repos
+					}
+					serviceTargets = append(serviceTargets, target)
+				}
+
+				jobSpec.Services = serviceTargets
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("FreeStyleJob: refered job %s not found", jobSpec.JobName)
 }
 
 type ZadigBuildJobInput struct {
