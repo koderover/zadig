@@ -70,7 +70,7 @@ func (c *WorkflowV4TemplateColl) EnsureIndex(ctx context.Context) error {
 		},
 		Options: options.Index().SetUnique(true),
 	}
-	_, err := c.Indexes().CreateOne(ctx, index, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateOne(ctx, index, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }

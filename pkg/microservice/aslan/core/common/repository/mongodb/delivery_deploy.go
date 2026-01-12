@@ -76,7 +76,7 @@ func (c *DeliveryDeployColl) EnsureIndex(ctx context.Context) error {
 	}
 
 	_, _ = c.Indexes().DropOne(ctx, "release_id_1_service_name_1_deleted_at_1")
-	_, err := c.Indexes().CreateMany(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
 	return err
 }
