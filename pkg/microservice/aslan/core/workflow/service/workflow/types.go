@@ -25,9 +25,11 @@ import (
 	commonmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type Workflow struct {
@@ -172,6 +174,10 @@ func (c *OpenAPICreateProductWorkflowTaskArgs) Validate() (bool, error) {
 	return true, nil
 }
 
+type OpenAPIBasicInfo struct {
+	workflow *commonmodels.WorkflowV4
+}
+
 type CreateProductTaskJobInput struct {
 	TargetEnv  string            `json:"target_env"`
 	BuildArgs  WorkflowBuildArg  `json:"build"`
@@ -218,9 +224,116 @@ func (p *PluginJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job
 	return job, nil
 }
 
+type FreestyleJobServiceInfo struct {
+	ServiceName   string                    `json:"service_name"`
+	ServiceModule string                    `json:"service_module"`
+	RepoInfo      []*types.OpenAPIRepoInput `json:"repo_info"`
+	Inputs        []*types.KV               `json:"inputs"`
+}
+
 type FreestyleJobInput struct {
+	*OpenAPIBasicInfo
+
+	FreestyleJobType config.FreeStyleJobType `json:"freestyle_type"`
+
+	// for service freestyle job
+	Services []*FreestyleJobServiceInfo `json:"services"`
+
+	// for non-service freestyle job
 	KVs      []*types.KV               `json:"kv"`
 	RepoInfo []*types.OpenAPIRepoInput `json:"repo_info"`
+}
+
+func OpenAPIKVInputToKeyValList(originalKvs commonmodels.RuntimeKeyValList, kvInputs []*types.KV) commonmodels.RuntimeKeyValList {
+	newKVs := make(commonmodels.RuntimeKeyValList, len(originalKvs))
+	for i, kv := range originalKvs {
+		util.DeepCopy(&newKVs[i], kv)
+	}
+
+	for _, kv := range newKVs {
+		kvMap := make(map[string]*types.KV, len(kvInputs))
+		for _, kv := range kvInputs {
+			kvMap[kv.Key] = kv
+		}
+
+		if kvInput, ok := kvMap[kv.Key]; ok {
+			kv.Value = kvInput.Value
+		}
+	}
+
+	return newKVs
+}
+
+// getCodeHostInfoMap 批量获取并缓存 CodeHost 信息
+func getCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codehostmodels.CodeHost, error) {
+	repoInfoMap := make(map[string]*codehostmodels.CodeHost)
+	for _, inputRepo := range repoInputs {
+		if _, exists := repoInfoMap[inputRepo.CodeHostName]; exists {
+			continue
+		}
+		repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
+		if err != nil {
+			return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+		}
+		repoInfoMap[inputRepo.CodeHostName] = repoInfo
+	}
+	return repoInfoMap, nil
+}
+
+func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
+	if len(repoInpus) == 0 {
+		return originalRepos, nil
+	}
+
+	// 批量获取并缓存 CodeHost 信息，避免重复查询
+	repoInfoMap, err := getCodeHostInfoMap(repoInpus)
+	if err != nil {
+		return nil, err
+	}
+
+	newRepo := make([]*types.Repository, 0)
+
+	for _, repo := range originalRepos {
+		for _, inputRepo := range repoInpus {
+			repoInfo := repoInfoMap[inputRepo.CodeHostName]
+			if repo.CodehostID != repoInfo.ID {
+				continue
+			}
+
+			if repoInfo.Type != "perforce" {
+				if repo.RepoNamespace == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
+					repo.Branch = inputRepo.Branch
+					repo.PR = inputRepo.PR
+					repo.PRs = inputRepo.PRs
+					repo.EnableCommit = inputRepo.EnableCommit
+					repo.CommitID = inputRepo.CommitID
+					newRepo = append(newRepo, repo)
+				}
+			} else {
+				var depotType string
+				if inputRepo.Stream != "" {
+					depotType = "stream"
+				} else {
+					depotType = "local"
+				}
+				newRepo = append(newRepo, &types.Repository{
+					Source:       repoInfo.Type,
+					CodehostID:   repoInfo.ID,
+					Username:     repoInfo.Username,
+					Password:     repoInfo.Password,
+					PerforceHost: repoInfo.P4Host,
+					PerforcePort: repoInfo.P4Port,
+					DepotType:    depotType,
+					Stream:       inputRepo.Stream,
+					ViewMapping:  inputRepo.ViewMapping,
+					ChangeListID: inputRepo.ChangelistID,
+					ShelveID:     inputRepo.ShelveID,
+				})
+			}
+		}
+	}
+
+	return newRepo, nil
 }
 
 func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -228,134 +341,104 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.FreestyleJobSpec")
 	}
-	kvMap := make(map[string]string)
-	for _, kv := range p.KVs {
-		kvMap[kv.Key] = kv.Value
-	}
 
-	for _, env := range newSpec.Envs {
-		if val, ok := kvMap[env.Key]; ok {
-			env.Value = val
-		}
-	}
-
-	newRepo := make([]*types.Repository, 0)
-	for _, repo := range newSpec.Repos {
-		for _, inputRepo := range p.RepoInfo {
-			// TODO: UPDATE THIS
-			repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
+	if newSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		if newSpec.ServiceSource == config.SourceFromJob {
+			err := p.getReferredJobTargets(newSpec)
 			if err != nil {
-				return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+				return nil, err
 			}
-
-			if repo.CodehostID == repoInfo.ID {
-				if repoInfo.Type != "perforce" {
-					if repo.RepoNamespace == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
-						repo.Branch = inputRepo.Branch
-						repo.PR = inputRepo.PR
-						repo.PRs = inputRepo.PRs
-						repo.EnableCommit = inputRepo.EnableCommit
-						repo.CommitID = inputRepo.CommitID
-						newRepo = append(newRepo, repo)
-					}
-				} else {
-					var depotType string
-					if inputRepo.Stream != "" {
-						depotType = "stream"
-					} else {
-						depotType = "local"
-					}
-					newRepo = append(newRepo, &types.Repository{
-						Source:       repoInfo.Type,
-						CodehostID:   repoInfo.ID,
-						Username:     repoInfo.Username,
-						Password:     repoInfo.Password,
-						PerforceHost: repoInfo.P4Host,
-						PerforcePort: repoInfo.P4Port,
-						DepotType:    depotType,
-						Stream:       inputRepo.Stream,
-						ViewMapping:  inputRepo.ViewMapping,
-						ChangeListID: inputRepo.ChangelistID,
-						ShelveID:     inputRepo.ShelveID,
-					})
+		} else {
+			services := make([]*commonmodels.FreeStyleServiceInfo, 0)
+			for _, service := range p.Services {
+				newRepos, err := OpenAPIRepoInputToRepository(newSpec.Repos, service.RepoInfo)
+				if err != nil {
+					return nil, err
 				}
+				newKvs := OpenAPIKVInputToKeyValList(newSpec.Envs, service.Inputs)
+				services = append(services, &commonmodels.FreeStyleServiceInfo{
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   service.ServiceName,
+						ServiceModule: service.ServiceModule,
+					},
+					Repos:   newRepos,
+					KeyVals: newKvs,
+				})
 			}
+			newSpec.Services = services
 		}
+	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
+		newSpec.Envs = OpenAPIKVInputToKeyValList(newSpec.Envs, p.KVs)
+
+		newRepos, err := OpenAPIRepoInputToRepository(newSpec.Repos, p.RepoInfo)
+		if err != nil {
+			return nil, err
+		}
+		newSpec.Repos = newRepos
+	} else {
+		return nil, fmt.Errorf("freestyle job type %s not supported", newSpec.FreestyleJobType)
 	}
-
-	newSpec.Repos = newRepo
-
-	// // replace the git info with the provided info
-	// for _, step := range newSpec.Steps {
-	// 	if step.StepType == config.StepGit {
-	// 		gitStepSpec := new(steptypes.StepGitSpec)
-	// 		if err := commonmodels.IToi(step.Spec, gitStepSpec); err != nil {
-	// 			return nil, errors.New("unable to cast git step Spec into commonmodels.StepGitSpec")
-	// 		}
-	// 		for _, inputRepo := range p.RepoInfo {
-	// 			repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-	// 			if err != nil {
-	// 				return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
-	// 			}
-
-	// 			for _, buildRepo := range gitStepSpec.Repos {
-	// 				if buildRepo.CodehostID == repoInfo.ID {
-	// 					if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
-	// 						buildRepo.Branch = inputRepo.Branch
-	// 						buildRepo.PR = inputRepo.PR
-	// 						buildRepo.PRs = inputRepo.PRs
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 		step.Spec = gitStepSpec
-	// 	}
-
-	// 	// for perforce type codehost, since we don't have an anchor to the codehost, we are forced to use all the user's input
-	// 	if step.StepType == config.StepPerforce {
-	// 		p4StepSpec := new(steptypes.StepP4Spec)
-	// 		if err := commonmodels.IToi(step.Spec, p4StepSpec); err != nil {
-	// 			return nil, errors.New("unable to cast git step Spec into commonmodels.StepGitSpec")
-	// 		}
-	// 		newRepos := make([]*types.Repository, 0)
-
-	// 		for _, inputRepo := range p.RepoInfo {
-	// 			repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-	// 			if err != nil {
-	// 				return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
-	// 			}
-
-	// 			if repoInfo.Type != types.ProviderPerforce {
-	// 				continue
-	// 			}
-	// 			var depotType string
-	// 			if inputRepo.Stream != "" {
-	// 				depotType = "stream"
-	// 			} else {
-	// 				depotType = "local"
-	// 			}
-	// 			newRepos = append(newRepos, &types.Repository{
-	// 				Source:       repoInfo.Type,
-	// 				CodehostID:   repoInfo.ID,
-	// 				Username:     repoInfo.Username,
-	// 				Password:     repoInfo.Password,
-	// 				PerforceHost: repoInfo.P4Host,
-	// 				PerforcePort: repoInfo.P4Port,
-	// 				DepotType:    depotType,
-	// 				Stream:       inputRepo.Stream,
-	// 				ViewMapping:  inputRepo.ViewMapping,
-	// 				ChangeListID: inputRepo.ChangelistID,
-	// 				ShelveID:     inputRepo.ShelveID,
-	// 			})
-	// 		}
-	// 		p4StepSpec.Repos = newRepos
-	// 		step.Spec = p4StepSpec
-	// 	}
-	// }
 
 	job.Spec = newSpec
 
 	return job, nil
+}
+
+func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.FreestyleJobSpec) error {
+	if jobSpec.ServiceSource != config.SourceFromJob || jobSpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+		return nil
+	}
+
+	serviceInputMap := make(map[string]*FreestyleJobServiceInfo)
+	for _, service := range p.Services {
+		serviceInputMap[service.ServiceName+"-"+service.ServiceModule] = service
+	}
+
+	for _, stage := range p.workflow.Stages {
+		for _, referredJob := range stage.Jobs {
+			if referredJob.Name != jobSpec.JobName {
+				continue
+			}
+			if referredJob.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, buildSpec); err != nil {
+					return err
+				}
+
+				serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   build.ServiceName,
+							ServiceModule: build.ServiceModule,
+						},
+					}
+
+					if jobSpec.RefRepos {
+						target.Repos = build.Repos
+					}
+
+					if _, ok := serviceInputMap[target.GetKey()]; ok {
+						if !jobSpec.RefRepos {
+							newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+							if err != nil {
+								return err
+							}
+							target.Repos = newRepos
+						}
+
+						target.KeyVals = OpenAPIKVInputToKeyValList(jobSpec.Envs, serviceInputMap[target.GetKey()].Inputs)
+					}
+
+					serviceTargets = append(serviceTargets, target)
+				}
+
+				jobSpec.Services = serviceTargets
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("FreeStyleJob: refered job %s not found", jobSpec.JobName)
 }
 
 type ZadigBuildJobInput struct {
