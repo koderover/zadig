@@ -52,7 +52,7 @@ func (c *CustomNavigationColl) EnsureIndex(ctx context.Context) error {
 		Keys:    bson.D{bson.E{Key: "_id", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
-	_, err := c.Indexes().CreateOne(ctx, mod, options.CreateIndexes().SetCommitQuorumMajority())
+	_, err := c.Indexes().CreateOne(ctx, mod, mongotool.CreateIndexOptions(ctx))
 	return err
 }
 
