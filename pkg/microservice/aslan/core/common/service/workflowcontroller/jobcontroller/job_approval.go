@@ -391,6 +391,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 					userUpdated = true
 
 					if user.RejectOrApprove == config.ApprovalStatusRedirect {
+						// if the user is redirected, update the approval user information for the redirected node
 						for customNodeKey, taskMap := range instanceData.ApproverTaskWithNode {
 							if customNodeKey == lark.ApprovalNodeIDKey(i) {
 								for userID, task := range taskMap {
@@ -438,6 +439,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			}
 		}
 
+		// generate new approval user information(newNodeKeyUserMap) come from lark approval instance
 		newNodeKeyUserMap := map[string]map[string]*commonmodels.LarkApprovalUser{}
 		for nodeKey, resultMap := range allResultMap {
 			for userID, result := range resultMap {
@@ -475,16 +477,25 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				user.Comment = comment
 			}
 		}
+
+		// update approval nodes from newNodeKeyUserMap
 		if len(newNodeKeyUserMap) > 0 {
 			for nodeKey, userMap := range newNodeKeyUserMap {
 				foundNode := false
-				for i, node := range larkApproval.ApprovalNodes {
+
+				i := 0
+				for _, node := range larkApproval.ApprovalNodes {
+					if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+						continue
+					}
+
 					if nodeKey == lark.ApprovalNodeIDKey(i) {
 						foundNode = true
 						for _, user := range userMap {
 							node.ApproveUsers = append(node.ApproveUsers, user)
 						}
 					}
+					i++
 				}
 
 				if !foundNode {
