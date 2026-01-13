@@ -45,6 +45,7 @@ func PatchDebugContainer(c *gin.Context) {
 	if debugImage == "" {
 		debugImage = types.DebugImage
 	}
+	targetContainer := c.Query("targetContainer")
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "启动调试容器", "环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
@@ -81,5 +82,5 @@ func PatchDebugContainer(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.PatchDebugContainer(c, projectKey, envName, podName, debugImage, production)
+	ctx.RespErr = service.PatchDebugContainer(c, projectKey, envName, podName, debugImage, targetContainer, production)
 }
