@@ -30,6 +30,7 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -784,6 +785,35 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, name 
 	return DeleteCommonEnvCfg(envName, projectName, name, config.CommonEnvCfgType(cfgType), true, logger)
 }
 
+func OpenAPICreateHelmEnv(ctx *internalhandler.Context, args *OpenAPICreateHelmEnvArgs) error {
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(args.ClusterID)
+	if err != nil {
+		err = fmt.Errorf("failed to find cluster %s: %v", args.ClusterID, err)
+		ctx.Logger.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	shareEnv := commonmodels.ProductShareEnv{}
+	if args.SubEnv != nil && args.SubEnv.Enable {
+		shareEnv.Enable = args.SubEnv.Enable
+		shareEnv.BaseEnv = args.SubEnv.BaseEnv
+	}
+
+	createArgs := []*CreateSingleProductArg{
+		{
+			EnvName:     args.EnvName,
+			ClusterID:   cluster.ID.Hex(),
+			Namespace:   args.Namespace,
+			RegistryID:  args.RegistryID,
+			Production:  args.Production,
+			Alias:       args.Alias,
+			ProductName: args.ProjectKey,
+			ShareEnv:    shareEnv,
+		},
+	}
+	return CreateHelmProduct(args.ProjectKey, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+}
+
 func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string, logger *zap.SugaredLogger) error {
 	product, err := templaterepo.NewProductColl().Find(args.ProjectName)
 	if err != nil {
@@ -794,26 +824,23 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 		return e.ErrCreateEnv.AddDesc("only support k8s type")
 	}
 
-	projectGlobalVariables, err := getGlobalVariables(args.ProjectName, false, logger)
-	if err != nil {
-		logger.Errorf("failed to get project global variables, projectName:%s, error: %v", args.ProjectName, err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
+	projectGlobalVariables := product.GlobalVariables
+	globalVariableMap := make(map[string]*commontypes.GlobalVariableKV, 0)
+	for _, vb := range args.GlobalVariables {
+		globalVariableMap[vb.Key] = vb
 	}
 
-	variablesMap := make(map[string]*commontypes.GlobalVariableKV, 0)
-	for _, vb := range args.GlobalVariables {
-		variablesMap[vb.Key] = vb
-	}
+	// fill service variable attributes
 	services := make([]*ProductK8sServiceCreationInfo, 0)
 	for _, s := range args.Services {
 		for _, vb := range s.VariableKVs {
 			if checkVariableInProjectGlobalVariables(projectGlobalVariables, vb.Key) && vb.UseGlobalVariable {
-				if _, ok := variablesMap[vb.Key]; ok {
-					if variablesMap[vb.Key].RelatedServices == nil {
-						variablesMap[vb.Key].RelatedServices = make([]string, 0)
+				if _, ok := globalVariableMap[vb.Key]; ok {
+					if globalVariableMap[vb.Key].RelatedServices == nil {
+						globalVariableMap[vb.Key].RelatedServices = make([]string, 0)
 					}
-					variablesMap[vb.Key].RelatedServices = append(variablesMap[vb.Key].RelatedServices, s.ServiceName)
-					vb.Value = variablesMap[vb.Key].Value
+					globalVariableMap[vb.Key].RelatedServices = append(globalVariableMap[vb.Key].RelatedServices, s.ServiceName)
+					vb.Value = globalVariableMap[vb.Key].Value
 				}
 			}
 		}
@@ -853,6 +880,7 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 		services = append(services, serv)
 	}
 
+	// update global variables
 	for _, globalVb := range projectGlobalVariables {
 		for _, vb := range args.GlobalVariables {
 			if globalVb.Key == vb.Key {
@@ -862,6 +890,8 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 			}
 		}
 	}
+
+	// create env args
 	createArg := &CreateSingleProductArg{
 		ProductName: args.ProjectName,
 		EnvName:     args.EnvName,
@@ -881,6 +911,13 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 			YamlData:      cfg.YamlData,
 			GitRepoConfig: cfg.GitRepoConfig,
 		})
+	}
+
+	if args.SubEnv != nil && args.SubEnv.Enable {
+		createArg.ShareEnv = commonmodels.ProductShareEnv{
+			Enable:  args.SubEnv.Enable,
+			BaseEnv: args.SubEnv.BaseEnv,
+		}
 	}
 
 	createArgs := make([]*CreateSingleProductArg, 0)
@@ -916,18 +953,25 @@ func OpenAPICreateProductionEnv(args *OpenAPICreateEnvArgs, userName, requestID 
 		return e.ErrCreateEnv.AddDesc("only support k8s type")
 	}
 
+	istioGrayscale := commonmodels.IstioGrayscale{}
+	if args.SubEnv != nil && args.SubEnv.Enable {
+		istioGrayscale.Enable = args.SubEnv.Enable
+		istioGrayscale.BaseEnv = args.SubEnv.BaseEnv
+	}
+
 	createArgs := make([]*CreateSingleProductArg, 0)
 	createArgs = append(createArgs, &CreateSingleProductArg{
-		ProductName: args.ProjectName,
-		EnvName:     args.EnvName,
-		Namespace:   args.Namespace,
-		ClusterID:   args.ClusterID,
-		RegistryID:  args.RegistryID,
-		Alias:       args.Alias,
-		Services:    nil,
-		Production:  true,
-		EnvConfigs:  nil,
-		ChartValues: nil,
+		ProductName:    args.ProjectName,
+		EnvName:        args.EnvName,
+		Production:     true,
+		Namespace:      args.Namespace,
+		ClusterID:      args.ClusterID,
+		RegistryID:     args.RegistryID,
+		Alias:          args.Alias,
+		IstioGrayscale: istioGrayscale,
+		Services:       nil,
+		EnvConfigs:     nil,
+		ChartValues:    nil,
 	})
 
 	err = EnsureProductionNamespace(createArgs)
@@ -949,16 +993,4 @@ func OpenAPIUpdateCommonEnvCfg(projectName string, args *OpenAPIEnvCfgArgs, user
 		CommonEnvCfgType:     args.CommonEnvCfgType,
 	}
 	return UpdateCommonEnvCfg(configArgs, userName, false, logger)
-}
-
-func getGlobalVariables(productName string, production bool, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
-	productInfo, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
-	}
-
-	if production {
-		return productInfo.ProductionGlobalVariables, nil
-	}
-	return productInfo.GlobalVariables, nil
 }

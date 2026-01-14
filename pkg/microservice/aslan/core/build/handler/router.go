@@ -55,8 +55,11 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	build := router.Group("")
 	{
 		build.POST("", OpenAPICreateBuildModule)
+		build.PUT("", OpenAPIUpdateBuildModule)
 		build.DELETE("", OpenAPIDeleteBuildModule)
 		build.GET("", OpenAPIListBuildModules)
 		build.GET("/:name/detail", OpenAPIGetBuildModule)
+
+		build.PUT("/:name/template", OpenAPIUpdateBuildModuleFromTemplate)
 	}
 }

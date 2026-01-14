@@ -9,6 +9,7 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"go.uber.org/zap"
 )
@@ -293,4 +294,37 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 	}
 
 	return resp, nil
+}
+
+func OpenAPILoadHelmServiceFromTemplate(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceFromTemplateReq) error {
+	// Convert util.KVInput to []*Variable
+	variables := make([]*Variable, 0, len(req.Variables))
+	for _, kv := range req.Variables {
+		valueStr := ""
+		if kv.Value != nil {
+			valueStr = fmt.Sprintf("%v", kv.Value)
+		}
+		variables = append(variables, &Variable{
+			Key:   kv.Key,
+			Value: valueStr,
+		})
+	}
+
+	loadArgs := &HelmServiceCreationArgs{
+		HelmLoadSource: HelmLoadSource{
+			Source: LoadFromChartTemplate,
+		},
+		Name:       req.ServiceName,
+		CreatedBy:  ctx.UserName,
+		AutoSync:   req.AutoSync,
+		Production: req.Production,
+		CreateFrom: &CreateFromChartTemplate{
+			TemplateName: req.TemplateName,
+			ValuesYAML:   req.ValuesYaml,
+			Variables:    variables,
+		},
+	}
+
+	_, err := CreateOrUpdateHelmService(projectKey, loadArgs, false, ctx.Logger)
+	return err
 }

@@ -259,3 +259,36 @@ type ContainerBrief struct {
 type OpenAPIUpdateServiceVariableRequest struct {
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
 }
+
+type OpenAPILoadHelmServiceFromTemplateReq struct {
+	// 是否为生产服务
+	Production bool `json:"production"`
+	// 服务名称
+	ServiceName string `json:"service_name" binding:"required"`
+	// 项目标识
+	ProjectKey string `json:"project_key" binding:"required"`
+	// 模板名称
+	TemplateName string `json:"template_name" binding:"required"`
+	// 是否自动同步
+	AutoSync bool `json:"auto_sync"`
+	// Values YAML
+	ValuesYaml string `json:"values_yaml"`
+	// 变量
+	Variables util.KVInput `json:"variables"`
+}
+
+func (req *OpenAPILoadHelmServiceFromTemplateReq) Validate() error {
+	if req.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if req.ProjectKey == "" {
+		return fmt.Errorf("project key cannot be empty")
+	}
+
+	if req.TemplateName == "" {
+		return fmt.Errorf("template name cannot be empty")
+	}
+
+	return nil
+}

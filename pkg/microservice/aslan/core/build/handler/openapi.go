@@ -17,7 +17,9 @@ limitations under the License.
 package handler
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	buildservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/build/service"
@@ -27,6 +29,15 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// @summary 新建构建
+// @description 新建构建
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		string										true	"项目标识"
+// @Param   body 			body 		buildservice.OpenAPIBuildCreationReq        true 	"body"
+// @success 200
+// @router /openapi/build [post]
 func OpenAPICreateBuildModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -40,21 +51,30 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 	source := c.Query("source")
 
 	if source == "template" {
+		data, err := c.GetRawData()
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
 		args := new(buildservice.OpenAPIBuildCreationFromTemplateReq)
-		err := c.BindJSON(args)
+		err = c.BindJSON(args)
 		if err != nil {
 			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 			return
 		}
 
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
 		// authorization checks
 		if !ctx.Resources.IsSystemAdmin {
-			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
 				ctx.UnAuthorized = true
 				return
 			}
-			if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[args.ProjectName].Build.Create {
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Build.Create {
 				ctx.UnAuthorized = true
 				return
 			}
@@ -74,23 +94,90 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 
 		ctx.RespErr = buildservice.OpenAPICreateBuildModuleFromTemplate(ctx.UserName, args, ctx.Logger)
 		return
+	} else {
+		data, err := c.GetRawData()
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+		args := new(buildservice.OpenAPIBuildCreationReq)
+		err = c.BindJSON(args)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Build.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+
+		isValid, err := args.Validate()
+		if !isValid {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		ctx.RespErr = buildservice.OpenAPICreateBuildModule(ctx, args)
+	}
+}
+
+// @summary 更新从模版创建的构建
+// @description 参数与文档站中从模板创建构建的参数一致
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		string										 	  true	"项目标识"
+// @Param   name			path		string										 	  true	"构建名称"
+// @Param   body 			body 		buildservice.OpenAPIBuildCreationFromTemplateReq  true 	"body"
+// @success 200
+// @router /openapi/build/{name}/template [put]
+func OpenAPIUpdateBuildModuleFromTemplate(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
 	}
 
-	args := new(buildservice.OpenAPIBuildCreationReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	args := new(buildservice.OpenAPIBuildCreationFromTemplateReq)
 	err = c.BindJSON(args)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Build.Create {
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Build.Create {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -102,7 +189,119 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = buildservice.OpenAPICreateBuildModule(ctx.UserName, args, ctx.Logger)
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = buildservice.OpenAPIUpdateBuildModuleFromTemplate(ctx, args)
+}
+
+// @summary 更新构建
+// @description 更新构建
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		 string	                                      true	 "项目标识"
+// @Param   name			path		 string										  true	"构建名称"
+// @Param   body 			body 		 buildservice.OpenAPIBuildCreationReq         true 	"body"
+// @success 200
+// @router /openapi/build [put]
+func OpenAPIUpdateBuildModule(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	source := c.Query("source")
+
+	if source == "template" {
+		data, err := c.GetRawData()
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+		args := new(buildservice.OpenAPIBuildCreationFromTemplateReq)
+		err = c.BindJSON(args)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Build.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+
+		isValid, err := args.Validate()
+		if !isValid {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+
+		ctx.RespErr = buildservice.OpenAPICreateBuildModuleFromTemplate(ctx.UserName, args, ctx.Logger)
+		return
+	} else {
+		data, err := c.GetRawData()
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+		args := new(buildservice.OpenAPIBuildCreationReq)
+		err = c.BindJSON(args)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectKey].Build.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+
+		isValid, err := args.Validate()
+		if !isValid {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		ctx.RespErr = buildservice.OpenAPIUpdateBuildModule(ctx, args)
+	}
 }
 
 func OpenAPIDeleteBuildModule(c *gin.Context) {

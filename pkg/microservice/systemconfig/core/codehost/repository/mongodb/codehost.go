@@ -79,6 +79,14 @@ func (c *CodehostColl) addCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost
 	return iCodeHost, nil
 }
 
+func (c *CodehostColl) GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
+	query := bson.M{
+		"alias":      alias,
+		"deleted_at": 0,
+	}
+	return c.getCodeHost(query)
+}
+
 func (c *CodehostColl) GetSystemCodeHostByAlias(alias string) (*models.CodeHost, error) {
 	query := bson.M{
 		"integration_level": setting.IntegrationLevelSystem,
