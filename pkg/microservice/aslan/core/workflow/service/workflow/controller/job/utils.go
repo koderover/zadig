@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -571,12 +572,15 @@ func replaceServiceAndModulesForTask(task *commonmodels.JobTask, serviceName, se
 		return task, nil
 	}
 
-	taskBytes, err := json.Marshal(task)
-	if err != nil {
+	// Use json.Encoder with SetEscapeHTML(false) to prevent escaping < and > to \u003c and \u003e
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(task); err != nil {
 		return nil, fmt.Errorf("failed to marshal task: %w", err)
 	}
 
-	taskString := string(taskBytes)
+	taskString := buf.String()
 	taskString = strings.ReplaceAll(taskString, "<SERVICE>", serviceName)
 	taskString = strings.ReplaceAll(taskString, "<MODULE>", serviceModule)
 
