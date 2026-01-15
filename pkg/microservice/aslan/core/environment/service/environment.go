@@ -1391,18 +1391,19 @@ func prepareEstimateDataForEnvCreation(projectName, serviceName string, producti
 }
 
 func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName string, scene EstimateValuesScene, updateServiceRevision, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (
-	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, error) {
+	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Service, *commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    envName,
 		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
+		return nil, nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	var prodSvc *commonmodels.ProductService
-	var templateService *commonmodels.Service
+	var currentTmplSvc *commonmodels.Service
+	var latestTmplSvc *commonmodels.Service
 	if isHelmChartDeploy {
 		prodSvc = productInfo.GetChartServiceMap()[serviceOrReleaseName]
 		if prodSvc == nil {
@@ -1421,32 +1422,51 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 			}
 		}
 	} else {
-		targetSvcTmplRevision := int64(0)
 		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
+
+		// get latest template service
+		targetSvcTmplRevision := int64(0)
 		if scene == EstimateValuesSceneUpdateService && !updateServiceRevision {
 			if prodSvc == nil {
-				return nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
+				return nil, nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
 			}
 			targetSvcTmplRevision = prodSvc.Revision
 		}
 
-		templateService, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		latestTmplSvc, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: serviceOrReleaseName,
 			ProductName: productName,
 			Type:        setting.HelmDeployType,
 			Revision:    targetSvcTmplRevision,
 		}, production)
 		if err != nil {
-			log.Errorf("failed to query service, name %s, err %s", serviceOrReleaseName, err)
-			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
+			err = errors.Wrapf(err, "failed to query service, name %s, revision %d", serviceOrReleaseName, targetSvcTmplRevision)
+			log.Error(err)
+			return nil, nil, nil, nil, err
+		}
+
+		// get current template service
+		currentTmplSvc = latestTmplSvc
+		if prodSvc != nil {
+			currentTmplSvc, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceOrReleaseName,
+				ProductName: productName,
+				Type:        setting.HelmDeployType,
+				Revision:    prodSvc.Revision,
+			}, production)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to query service, name %s, revision %d", serviceOrReleaseName, prodSvc.Revision)
+				log.Error(err)
+				return nil, nil, nil, nil, err
+			}
 		}
 
 		if prodSvc == nil {
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceOrReleaseName,
 				ProductName: productName,
-				Revision:    templateService.Revision,
-				Containers:  templateService.Containers,
+				Revision:    latestTmplSvc.Revision,
+				Containers:  latestTmplSvc.Containers,
 			}
 		}
 
@@ -1457,10 +1477,12 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 			}
 		}
 		// prodSvc.Render.ValuesYaml = templateService.HelmChart.ValuesYaml
-		prodSvc.Render.ChartVersion = templateService.HelmChart.Version
+		prodSvc.Render.ChartVersion = latestTmplSvc.HelmChart.Version
 	}
 
-	return prodSvc, templateService, productInfo, nil
+	log.Debugf("current revision: %d, latest revision: %d", currentTmplSvc.Revision, latestTmplSvc.Revision)
+
+	return prodSvc, currentTmplSvc, latestTmplSvc, productInfo, nil
 }
 
 func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
@@ -1518,29 +1540,32 @@ const (
 )
 
 type GetHelmValuesDifferenceResp struct {
-	Current       string                 `json:"current"`
-	Latest        string                 `json:"latest"`
-	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
+	Current              string                   `json:"current"`
+	Latest               string                   `json:"latest"`
+	LatestFlatMap        map[string]interface{}   `json:"latest_flat_map"`
+	CurrentManifestFiles []*kube.HelmManifestFile `json:"current_manifest_files"`
+	LatestManifestFiles  []*kube.HelmManifestFile `json:"latest_manifest_files"`
 }
 
 func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
-		prodSvc *commonmodels.ProductService
-		tmplSvc *commonmodels.Service
-		prod    *commonmodels.Product
-		err     error
+		prodSvc        *commonmodels.ProductService
+		currentTmplSvc *commonmodels.Service
+		latestTmplSvc  *commonmodels.Service
+		prod           *commonmodels.Product
+		err            error
 	)
 
 	switch scene {
 	case EstimateValuesSceneCreateEnv:
 		prod = &commonmodels.Product{}
 		prod.DefaultValues = arg.DefaultValues
-		prodSvc, tmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		prodSvc, latestTmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
 		}
 	case EstimateValuesSceneCreateService, EstimateValuesSceneUpdateService:
-		prodSvc, tmplSvc, prod, err = prepareEstimateDataForEnvUpdate(projectName, envName, serviceOrReleaseName, scene, updateServiceRevision, arg.Production, isHelmChartDeploy, log)
+		prodSvc, currentTmplSvc, latestTmplSvc, prod, err = prepareEstimateDataForEnvUpdate(projectName, envName, serviceOrReleaseName, scene, updateServiceRevision, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env update, err: %s", err)
 		}
@@ -1563,6 +1588,8 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 
 	currentYaml := ""
 	latestYaml := ""
+	currentManifestFiles := make([]*kube.HelmManifestFile, 0)
+	latestManifestFiles := make([]*kube.HelmManifestFile, 0)
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
 		// service already exists in the current environment, create it
 		currentYaml = ""
@@ -1596,7 +1623,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			}
 
 			if contextType == EstimateContentTypeManifest {
-				tmplSvc = kube.GeneFakeInstantiateService(prodSvc.ReleaseName, projectName, render.ChartRepo, render.ChartName, render.ChartVersion)
+				latestTmplSvc = kube.GeneFakeInstantiateService(prodSvc.ReleaseName, projectName, render.ChartRepo, render.ChartName, render.ChartVersion)
 
 				err = kube.DownloadInstantiateChart(projectName, render.ChartRepo, render.ChartName, render.ChartVersion, prodSvc.ReleaseName, arg.Production)
 				if err != nil {
@@ -1608,11 +1635,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				manifest, err := kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
 				if err != nil {
-					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
+					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
-				currentYaml = manifest
 			}
 		} else {
 			helmDeploySvc := helmservice.NewHelmDeployService()
@@ -1633,11 +1659,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				manifest, err := kube.GetHelmChartManifest(tmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(currentTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 				if err != nil {
-					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
+					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", currentTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
-				currentYaml = manifest
 			}
 		}
 	}
@@ -1674,7 +1699,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		}
 
 		if contextType == EstimateContentTypeManifest {
-			tmplSvc = kube.GeneFakeInstantiateService(prodSvc.ReleaseName, projectName, arg.ChartRepo, arg.ChartName, arg.ChartVersion)
+			latestTmplSvc = kube.GeneFakeInstantiateService(prodSvc.ReleaseName, projectName, arg.ChartRepo, arg.ChartName, arg.ChartVersion)
 
 			err = kube.DownloadInstantiateChart(projectName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, prodSvc.ReleaseName, arg.Production)
 			if err != nil {
@@ -1686,11 +1711,10 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			manifest, err := kube.GetHelmChartManifest(tmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, arg.ChartName, arg.ChartVersion, err)
+				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, arg.ChartName, arg.ChartVersion, err)
 			}
-			latestYaml = manifest
 		}
 
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
@@ -1726,7 +1750,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 		}
 
-		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+		latestYaml, err = helmDeploySvc.GeneFullValues(latestTmplSvc.HelmChart.ValuesYaml, yamlContent)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 		}
@@ -1738,38 +1762,37 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			manifest, err := kube.GetHelmChartManifest(tmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", tmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
+				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 			}
-			latestYaml = manifest
 		}
 	}
 
 	mapData := make(map[string]interface{})
-	if contextType == EstimateContentTypeValues {
-		// re-marshal it into string to make sure indentation is right
-		currentYaml, err = formatYamlIndent(currentYaml, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
-		}
-		latestYaml, err = formatYamlIndent(latestYaml, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
-		}
+	// re-marshal it into string to make sure indentation is right
+	currentYaml, err = formatYamlIndent(currentYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
+	latestYaml, err = formatYamlIndent(latestYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
 
-		if format == EstimateValuesResponseFormatFlatMap {
-			mapData, err = converter.YamlToFlatMap([]byte(latestYaml))
-			if err != nil {
-				return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
-			}
+	if format == EstimateValuesResponseFormatFlatMap {
+		mapData, err = converter.YamlToFlatMap([]byte(latestYaml))
+		if err != nil {
+			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
 		}
 	}
 
 	resp := &GetHelmValuesDifferenceResp{
-		Current:       currentYaml,
-		Latest:        latestYaml,
-		LatestFlatMap: mapData,
+		Current:              currentYaml,
+		Latest:               latestYaml,
+		LatestFlatMap:        mapData,
+		CurrentManifestFiles: currentManifestFiles,
+		LatestManifestFiles:  latestManifestFiles,
 	}
 
 	return resp, nil
