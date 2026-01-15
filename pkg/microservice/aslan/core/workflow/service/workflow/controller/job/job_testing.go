@@ -626,11 +626,6 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			"service_name":   serviceName,
 			"service_module": serviceModule,
 		}
-
-		customEnvs, err = replaceServiceAndModules(customEnvs, serviceName, serviceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
 	}
 
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
@@ -934,7 +929,13 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 	}
-	return jobTask, nil
+
+	renderedTask, err := replaceServiceAndModulesForTask(jobTask, serviceName, serviceModule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+	}
+
+	return renderedTask, nil
 }
 
 func getTestingJobCacheObjectPath(workflowName, testingName string) string {

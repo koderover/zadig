@@ -538,12 +538,28 @@ type GetWorkflowVariablesOption struct {
 	UseUserInput bool
 }
 
+// CurrentJobVariableMode defines how to handle the current job's variables
+type CurrentJobVariableMode string
+
+const (
+	// CurrentJobModeSkip - don't want any parameters from the current job
+	CurrentJobModeSkip CurrentJobVariableMode = "skip"
+	// CurrentJobModeInputOnly - want the current job's input, but not aggregated variables and runtime variables
+	CurrentJobModeInputOnly CurrentJobVariableMode = "input_only"
+	// CurrentJobModeAll - want all parameters from the current job
+	CurrentJobModeAll CurrentJobVariableMode = "all"
+)
+
 // GetReferableVariables gets all the variable that can be used by dynamic variables/other job to refer.
 // 1. the key in the response is returned in the a.b.c format, there will be no {{.}} format or replacing . with _ logic
 // caller will need to process that by themselves.
 // 2. Note that runtime variables will not have values in the response, use the value in the response with care.
 // 3. the rendered KV will only have type string since it is mainly used for dynamic variable rendering, change this if required
-func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkflowVariablesOption, skipCurrentJob bool) ([]*commonmodels.KeyVal, error) {
+// 4. currentJobMode controls how the current job's variables are handled:
+//   - CurrentJobModeSkip: don't include any parameters from the current job
+//   - CurrentJobModeInputOnly: include current job's input, but not aggregated variables and runtime variables
+//   - CurrentJobModeAll: include all parameters from the current job
+func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkflowVariablesOption, currentJobMode CurrentJobVariableMode) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	resp = append(resp, &commonmodels.KeyVal{
@@ -667,13 +683,24 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 	for _, stage := range w.Stages {
 		for _, j := range stage.Jobs {
-			if skipCurrentJob && j.Name == currentJobName {
+			isCurrentJob := j.Name == currentJobName
+
+			// Handle current job based on currentJobMode
+			if isCurrentJob && currentJobMode == CurrentJobModeSkip {
 				continue
 			}
+
 			getServiceSpecificVariablesFlag := option.GetServiceSpecificVariables
 			getPlaceHolderVariablesFlag := option.GetPlaceHolderVariables
 			getRuntimeVariableFlag := option.GetRuntimeVariables
 			getAggregatedVariableFlag := option.GetAggregatedVariables
+
+			// For current job with InputOnly mode, disable aggregated and runtime variables
+			if isCurrentJob && currentJobMode == CurrentJobModeInputOnly {
+				getRuntimeVariableFlag = false
+				getAggregatedVariableFlag = false
+			}
+
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
 				// you cant get a job's output if the current job is runs before given job
 				getRuntimeVariableFlag = false

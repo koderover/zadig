@@ -543,12 +543,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	if service != nil {
-		customEnvs, err := replaceServiceAndModules(service.KeyVals.ToKVList(), service.ServiceName, service.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
-
-		taskRunProperties.CustomEnvs = customEnvs
+		taskRunProperties.CustomEnvs = service.KeyVals.ToKVList()
 	} else {
 		taskRunProperties.CustomEnvs = j.jobSpec.Envs.ToKVList()
 	}
@@ -579,15 +574,6 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		if env.Type == commonmodels.MultiSelectType {
 			env.Value = strings.Join(env.ChoiceValue, ",")
 		}
-	}
-
-	if service != nil {
-		renderedEnvs, err := replaceServiceAndModules(envs, service.ServiceName, service.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
-
-		taskRunProperties.Envs = renderedEnvs
 	}
 
 	if j.jobSpec.AdvancedSetting.Storages != nil && j.jobSpec.AdvancedSetting.Storages.Enabled {
@@ -639,7 +625,12 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		Infrastructure: j.jobSpec.Runtime.Infrastructure,
 		VMLabels:       j.jobSpec.Runtime.VMLabels,
 	}
-	return jobTask, nil
+
+	renderedTask, err := replaceServiceAndModulesForTask(jobTask, service.ServiceName, service.ServiceModule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+	}
+	return renderedTask, nil
 }
 
 func (j FreestyleJobController) generateStepTask(jobName string, repos []*types.Repository) ([]*commonmodels.StepTask, error) {

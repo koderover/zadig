@@ -566,15 +566,6 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		CustomLabels:        scanningInfo.AdvancedSetting.CustomLabels,
 	}
 
-	if scanningType == string(config.ServiceScanningType) {
-		renderedEnv, err := replaceServiceAndModules(jobTaskSpec.Properties.Envs, serviceName, serviceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
-
-		jobTaskSpec.Properties.Envs = renderedEnv
-	}
-
 	cacheS3 := &commonmodels.S3Storage{}
 	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(scanningInfo.AdvancedSetting.ClusterID)
 	if err != nil {
@@ -931,7 +922,12 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 
-	return jobTask, nil
+	renderedTask, err := replaceServiceAndModulesForTask(jobTask, serviceName, serviceModule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+	}
+
+	return renderedTask, nil
 }
 
 func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {

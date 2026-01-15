@@ -2604,15 +2604,19 @@ func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName stri
 	return controller.GetWorkflowRepoIndex(workflow, currentJobName, log)
 }
 
-func GetWorkflowGlobalVars(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) ([]string, error) {
+func GetWorkflowGlobalVars(workflow *commonmodels.WorkflowV4, currentJobName string, getCurrentJobInput bool, log *zap.SugaredLogger) ([]string, error) {
 	workflowController := controller.CreateWorkflowController(workflow)
+	getVariable := controller.CurrentJobModeSkip
+	if getCurrentJobInput {
+		getVariable = controller.CurrentJobModeInputOnly
+	}
 	kvs, err := workflowController.GetReferableVariables(currentJobName, controller.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      true,
 		GetRuntimeVariables:         true,
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: true,
 		UseUserInput:                false,
-	}, true)
+	}, getVariable)
 
 	if err != nil {
 		log.Errorf("failed to get referable variable in workflow, error: %s", err)
