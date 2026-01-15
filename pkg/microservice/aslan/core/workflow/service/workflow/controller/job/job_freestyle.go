@@ -631,7 +631,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 	}
 
-	fmt.Sprintf("renderedTask: %+v", renderedTask)
+	fmt.Printf("renderedTask: %+v\n", renderedTask)
 	return renderedTask, nil
 }
 
