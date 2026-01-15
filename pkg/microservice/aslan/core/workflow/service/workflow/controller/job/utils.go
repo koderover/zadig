@@ -171,6 +171,10 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.CommitMessage = cv.CommitMessage
 			item.SSHKey = cv.SSHKey
 			item.PrivateAccessToken = cv.PrivateAccessToken
+
+			if item.Address == "" {
+				item.Address = cv.Address
+			}
 		}
 
 		resp = append(resp, item)
