@@ -1381,7 +1381,10 @@ func GetWorkflowGlobalVars(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowGlobalVars(args, c.Param("jobName"), ctx.Logger)
+
+	getCurrentJobInput := c.Query("currentJobInput") == "true"
+
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowGlobalVars(args, c.Param("jobName"), getCurrentJobInput, ctx.Logger)
 }
 
 func GetWorkflowRepoIndex(c *gin.Context) {
