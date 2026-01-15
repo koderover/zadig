@@ -630,6 +630,8 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 	}
+
+	fmt.Sprintf("renderedTask: %+v", renderedTask)
 	return renderedTask, nil
 }
 
