@@ -1075,10 +1075,8 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 	}
 
 	imageSet := sets.String{}
-	for _, pod := range pods {
-		for _, container := range pod.Containers {
-			imageSet.Insert(container.Image)
-		}
+	for _, workload := range svcResp.Workloads {
+		imageSet.Insert(workload.Images...)
 	}
 
 	for _, cronJob := range svcResp.CronJobs {
