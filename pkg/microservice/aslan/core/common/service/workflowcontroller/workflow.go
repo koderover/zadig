@@ -235,6 +235,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		Remark:                      c.workflowTask.Remark,
 		TaskID:                      c.workflowTask.TaskID,
 		RetryNum:                    c.workflowTask.RetryNum,
+		WorkflowTaskCreatorAccount:  c.workflowTask.TaskCreatorAccount,
 		WorkflowTaskCreatorUsername: c.workflowTask.TaskCreator,
 		WorkflowTaskCreatorUserID:   c.workflowTask.TaskCreatorID,
 		WorkflowTaskCreatorMobile:   c.workflowTask.TaskCreatorPhone,

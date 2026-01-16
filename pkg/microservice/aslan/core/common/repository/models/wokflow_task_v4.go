@@ -523,15 +523,15 @@ type JobTaskApisixSpec struct {
 type JobTaskApisixRevertSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
 
-	ApisixID string `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
-	Tasks []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
+	ApisixID string                  `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
+	Tasks    []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
 }
 
 type ApisixItemUpdateSpec struct {
 	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
 	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
 	UserSpec     interface{}             `bson:"user_spec"     json:"user_spec"     yaml:"user_spec"`
-	OriginalSpec interface{}			 `bson:"original_spec" json:"original_spec" yaml:"original_spec"`
+	OriginalSpec interface{}             `bson:"original_spec" json:"original_spec" yaml:"original_spec"`
 	ItemID       string                  `bson:"item_id"       json:"item_id"       yaml:"item_id"`
 	Status       string                  `bson:"status"        json:"status"        yaml:"status"`
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
@@ -829,6 +829,7 @@ type WorkflowTaskCtx struct {
 	DistDir                     string
 	DockerMountDir              string
 	ConfigMapMountDir           string
+	WorkflowTaskCreatorAccount  string
 	WorkflowTaskCreatorUsername string
 	WorkflowTaskCreatorUserID   string
 	WorkflowTaskCreatorEmail    string
