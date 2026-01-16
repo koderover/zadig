@@ -719,6 +719,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						repos = stepSpec.Repos
 					}
 				}
+
 				branchTag, commitID, gitCommitURL := "", "", ""
 				commitMsgs := []string{}
 				var prInfoList []string
