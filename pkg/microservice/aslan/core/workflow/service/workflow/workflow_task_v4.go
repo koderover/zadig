@@ -40,6 +40,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
@@ -482,9 +483,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
-	var userInfo *types.UserInfo
-	var err error
+	projectInfo, err := templaterepo.NewProductColl().Find(workflow.Project)
+	if err != nil {
+		err = fmt.Errorf("failed to find project %s, err: %w", workflow.Project, err)
+		log.Error(err)
+		return resp, err
+	}
 
+	var userInfo *types.UserInfo
 	workflowTask := &commonmodels.WorkflowTask{}
 
 	// if user info exists, get user email and put it to workflow task info
@@ -598,6 +604,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
 	workflowTask.ProjectName = workflow.Project
+	workflowTask.ProjectDisplayName = projectInfo.ProjectName
 	workflowTask.Params = workflow.Params
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug

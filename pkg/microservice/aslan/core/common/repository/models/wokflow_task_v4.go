@@ -54,6 +54,7 @@ type WorkflowTask struct {
 	EndTime             int64                         `bson:"end_time"                  json:"end_time,omitempty"`
 	Stages              []*StageTask                  `bson:"stages"                    json:"stages"`
 	ProjectName         string                        `bson:"project_name,omitempty"    json:"project_name,omitempty"`
+	ProjectDisplayName  string                        `bson:"project_display_name,omitempty"    json:"project_display_name,omitempty"`
 	IsDeleted           bool                          `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived          bool                          `bson:"is_archived"               json:"is_archived"`
 	Error               string                        `bson:"error,omitempty"           json:"error,omitempty"`
@@ -523,15 +524,15 @@ type JobTaskApisixSpec struct {
 type JobTaskApisixRevertSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
 
-	ApisixID string `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
-	Tasks []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
+	ApisixID string                  `bson:"apisix_id" json:"apisix_id" yaml:"apisix_id"`
+	Tasks    []*ApisixItemUpdateSpec `bson:"tasks" json:"tasks" yaml:"tasks"`
 }
 
 type ApisixItemUpdateSpec struct {
 	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
 	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
 	UserSpec     interface{}             `bson:"user_spec"     json:"user_spec"     yaml:"user_spec"`
-	OriginalSpec interface{}			 `bson:"original_spec" json:"original_spec" yaml:"original_spec"`
+	OriginalSpec interface{}             `bson:"original_spec" json:"original_spec" yaml:"original_spec"`
 	ItemID       string                  `bson:"item_id"       json:"item_id"       yaml:"item_id"`
 	Status       string                  `bson:"status"        json:"status"        yaml:"status"`
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
@@ -821,6 +822,7 @@ type WorkflowTaskCtx struct {
 	WorkflowName                string
 	WorkflowDisplayName         string
 	ProjectName                 string
+	ProjectDisplayName          string
 	TaskID                      int64
 	Remark                      string
 	RetryNum                    int
