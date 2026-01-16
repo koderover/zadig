@@ -232,6 +232,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowName:                c.workflowTask.WorkflowName,
 		WorkflowDisplayName:         c.workflowTask.WorkflowDisplayName,
 		ProjectName:                 c.workflowTask.ProjectName,
+		ProjectDisplayName:          c.workflowTask.ProjectDisplayName,
 		Remark:                      c.workflowTask.Remark,
 		TaskID:                      c.workflowTask.TaskID,
 		RetryNum:                    c.workflowTask.RetryNum,
