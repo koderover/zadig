@@ -30,6 +30,8 @@ type HostInfo struct {
 }
 
 type Backend struct {
+	Path        string `json:"path"`
+	PathType    string `json:"path_type"`
 	ServiceName string `json:"service_name"`
 	ServicePort string `json:"service_port"`
 }
