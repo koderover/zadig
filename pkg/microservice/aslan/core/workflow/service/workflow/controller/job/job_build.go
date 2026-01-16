@@ -380,16 +380,12 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			ExecutePolicy:  j.executePolicy,
 		}
 		customEnvs := applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList()
-		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, build.ServiceName, build.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
 
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:             int64(buildInfo.Timeout),
 			ResourceRequest:     buildInfo.PreBuild.ResReq,
 			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:          renderedCustomEnv,
+			CustomEnvs:          customEnvs,
 			ClusterID:           buildInfo.PreBuild.ClusterID,
 			StrategyID:          buildInfo.PreBuild.StrategyID,
 			BuildOS:             basicImage.Value,
@@ -403,12 +399,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
-		renderedEnv, err := replaceServiceAndModules(envs, build.ServiceName, build.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
-
-		jobTaskSpec.Properties.Envs = append(renderedEnv, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
+		jobTaskSpec.Properties.Envs = append(envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if buildInfo.PreBuild != nil && buildInfo.PreBuild.Storages != nil && buildInfo.PreBuild.Storages.Enabled {
@@ -714,7 +705,13 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 		}
-		resp = append(resp, jobTask)
+
+		renderedTask, err := replaceServiceAndModulesForTask(jobTask, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+		}
+
+		resp = append(resp, renderedTask)
 	}
 
 	return resp, nil

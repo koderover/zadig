@@ -335,17 +335,8 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 
 		customEnvs := applyKeyVals(deployInfo.PreDeploy.Envs.ToRuntimeList(), vmDeployInfo.KeyVals, true).ToKVList()
-		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
-
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
-		envs := mergeKeyVals(renderedCustomEnv, paramEnvs)
-		renderedEnv, err := replaceServiceAndModules(envs, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
-		if err != nil {
-			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
-		}
+		envs := mergeKeyVals(customEnvs, paramEnvs)
 
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
@@ -370,7 +361,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			Timeout:         int64(timeout),
 			ResourceRequest: deployInfo.PreDeploy.ResReq,
 			ResReqSpec:      deployInfo.PreDeploy.ResReqSpec,
-			CustomEnvs:      renderedCustomEnv,
+			CustomEnvs:      envs,
 			ClusterID:       deployInfo.PreDeploy.ClusterID,
 			StrategyID:      deployInfo.PreDeploy.StrategyID,
 			BuildOS:         basicImage.Value,
@@ -393,7 +384,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			}
 		}
 
-		jobTaskSpec.Properties.Envs = append(renderedEnv, vmDeployVars...)
+		jobTaskSpec.Properties.Envs = append(envs, vmDeployVars...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = deployInfo.PreDeploy.UseHostDockerDaemon
 		jobTaskSpec.Properties.CacheEnable = false
 
@@ -501,7 +492,12 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 
-		resp = append(resp, jobTask)
+		renderedTask, err := replaceServiceAndModulesForTask(jobTask, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+		}
+
+		resp = append(resp, renderedTask)
 	}
 
 	return resp, nil
@@ -554,6 +550,22 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 		})
 	}
 
+	if getServiceSpecificVariables {
+		targets := j.jobSpec.ServiceAndVMDeploysOptions
+		if useUserInputValue {
+			targets = j.jobSpec.ServiceAndVMDeploys
+		}
+		for _, service := range targets {
+			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        service.ServiceName,
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
 	if getRuntimeVariables {
 		for _, svc := range j.jobSpec.ServiceAndVMDeploys {
 			targetKey := strings.Join([]string{j.name, svc.ServiceName, svc.ServiceModule}, ".")
@@ -564,12 +576,22 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 				IsCredential: false,
 			})
 		}
+
+		if getPlaceHolderVariables {
+			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
 	}
 
 	if getPlaceHolderVariables {
 		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+			Key:          strings.Join([]string{"job", jobKey, "SERVICE_NAME"}, "."),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,

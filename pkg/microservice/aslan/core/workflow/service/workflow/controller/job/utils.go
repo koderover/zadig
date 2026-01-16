@@ -17,6 +17,8 @@ limitations under the License.
 package job
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -565,25 +567,29 @@ func checkOutputNames(outputs []*commonmodels.Output) error {
 	return nil
 }
 
-// replaceServiceAndModules replaces all the <SERVICE> and <MODULE> placeholders with the
-func replaceServiceAndModules(envs commonmodels.KeyValList, serviceName string, serviceModule string) (commonmodels.KeyValList, error) {
-	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
-
-	err := util.DeepCopy(&duplicatedEnvs, &envs)
-	if err != nil {
-		return nil, err
-	}
-
+func replaceServiceAndModulesForTask(task *commonmodels.JobTask, serviceName, serviceModule string) (*commonmodels.JobTask, error) {
 	if serviceName == "" || serviceModule == "" {
-		return duplicatedEnvs, nil
+		return task, nil
 	}
 
-	for _, env := range duplicatedEnvs {
-		env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
-		env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+	// Use json.Encoder with SetEscapeHTML(false) to prevent escaping < and > to \u003c and \u003e
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(task); err != nil {
+		return nil, fmt.Errorf("failed to marshal task: %w", err)
 	}
 
-	return duplicatedEnvs, nil
+	taskString := buf.String()
+	taskString = strings.ReplaceAll(taskString, "<SERVICE>", serviceName)
+	taskString = strings.ReplaceAll(taskString, "<MODULE>", serviceModule)
+
+	var result commonmodels.JobTask
+	if err := json.Unmarshal([]byte(taskString), &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal task: %w", err)
+	}
+
+	return &result, nil
 }
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {

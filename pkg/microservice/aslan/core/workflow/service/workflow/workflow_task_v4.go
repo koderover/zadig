@@ -284,7 +284,7 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: false,
 		UseUserInput:                true,
-	}, false)
+	}, workflowController.CurrentJobModeAll)
 	if err != nil {
 		err = fmt.Errorf("failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
@@ -308,7 +308,7 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 		GetPlaceHolderVariables:     false,
 		GetServiceSpecificVariables: true,
 		UseUserInput:                true,
-	}, false)
+	}, workflowController.CurrentJobModeAll)
 	if err != nil {
 		err = fmt.Errorf("failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
