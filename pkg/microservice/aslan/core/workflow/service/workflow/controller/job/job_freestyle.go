@@ -626,7 +626,14 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		VMLabels:       j.jobSpec.Runtime.VMLabels,
 	}
 
-	renderedTask, err := replaceServiceAndModulesForTask(jobTask, service.ServiceName, service.ServiceModule)
+	serviceName := ""
+	serviceModule := ""
+	if service != nil {
+		serviceName = service.ServiceName
+		serviceModule = service.ServiceModule
+	}
+
+	renderedTask, err := replaceServiceAndModulesForTask(jobTask, serviceName, serviceModule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 	}
