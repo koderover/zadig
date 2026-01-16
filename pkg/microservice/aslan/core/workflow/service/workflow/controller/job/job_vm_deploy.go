@@ -550,6 +550,22 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 		})
 	}
 
+	if getServiceSpecificVariables {
+		targets := j.jobSpec.ServiceAndVMDeploysOptions
+		if useUserInputValue {
+			targets = j.jobSpec.ServiceAndVMDeploys
+		}
+		for _, service := range targets {
+			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        service.ServiceName,
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
 	if getRuntimeVariables {
 		for _, svc := range j.jobSpec.ServiceAndVMDeploys {
 			targetKey := strings.Join([]string{j.name, svc.ServiceName, svc.ServiceModule}, ".")
@@ -560,12 +576,22 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 				IsCredential: false,
 			})
 		}
+
+		if getPlaceHolderVariables {
+			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
 	}
 
 	if getPlaceHolderVariables {
 		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+			Key:          strings.Join([]string{"job", jobKey, "SERVICE_NAME"}, "."),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
