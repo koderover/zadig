@@ -961,6 +961,14 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 					return errors.Errorf("init job controller %s error: %s", job.Name, err)
 				}
 
+				err = ctrl.SetRepoCommitInfo()
+				if err != nil {
+					log.Errorf("failed to set repo commit info for job: %s in workflow:%s, error: %v", job.Name, task.WorkflowArgs.Name, err)
+					return e.ErrCreateTask.AddDesc(err.Error())
+				}
+
+				ctrl.ClearOptions()
+
 				jobTasks, err := ctrl.ToTask(taskID)
 				if err != nil {
 					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
