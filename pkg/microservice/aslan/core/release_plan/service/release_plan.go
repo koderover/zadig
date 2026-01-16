@@ -594,7 +594,7 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.ReleasePlanStatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting && plan.Status != config.ReleasePlanStatusSuccess {
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
