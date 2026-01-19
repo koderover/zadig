@@ -343,6 +343,35 @@ func DeleteRegistryNamespace(c *gin.Context) {
 	ctx.RespErr = service.DeleteRegistryNamespace(c.Param("id"), ctx.Logger)
 }
 
+// @Summary Get Registry References
+// @Description Get the list of environments that are using the specified registry
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id		path		string										true	"registry id"
+// @Success 200 	{object} 	service.RegistryReferencesResp
+// @Router /api/aslan/system/registry/namespaces/{id}/references [get]
+func GetRegistryReferences(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetRegistryReferences(c.Param("id"), ctx.Logger)
+}
+
 func ListAllRepos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

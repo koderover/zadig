@@ -57,6 +57,16 @@ type RepoInfo struct {
 	ID           string `json:"id"`
 }
 
+type RegistryReference struct {
+	ProjectName string `json:"project_name"`
+	EnvName     string `json:"env_name"`
+}
+
+type RegistryReferencesResp struct {
+	References []*RegistryReference `json:"references"`
+	Total      int                  `json:"total"`
+}
+
 const (
 	PERPAGE = 100
 	PAGE    = 1
@@ -254,6 +264,32 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 		}
 	}
 	return commonutil.SyncDinDForRegistries()
+}
+
+// GetRegistryReferences returns a list of environments that are using the specified registry
+func GetRegistryReferences(id string, log *zap.SugaredLogger) (*RegistryReferencesResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ExcludeStatus: []string{setting.ProductStatusDeleting},
+	})
+	if err != nil {
+		log.Errorf("ProductColl.List error: %s", err)
+		return nil, err
+	}
+
+	references := make([]*RegistryReference, 0)
+	for _, env := range envs {
+		if env.RegistryID == id {
+			references = append(references, &RegistryReference{
+				ProjectName: env.ProductName,
+				EnvName:     env.EnvName,
+			})
+		}
+	}
+
+	return &RegistryReferencesResp{
+		References: references,
+		Total:      len(references),
+	}, nil
 }
 
 func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
