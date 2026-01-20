@@ -153,7 +153,7 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 		// get info from previous job
 		if j.jobSpec.ServiceSource == config.SourceFromJob {
 			referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
-			targets, err := j.getReferredJobTargets(referredJob)
+			targets, err := j.getReferredJobTargets(referredJob, j.jobSpec.RefRepos)
 			if err != nil {
 				return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
 			}
@@ -356,7 +356,7 @@ func (j FreestyleJobController) IsServiceTypeJob() bool {
 	return j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType
 }
 
-func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*commonmodels.FreeStyleServiceInfo, error) {
+func (j FreestyleJobController) getReferredJobTargets(jobName string, refRepos bool) ([]*commonmodels.FreeStyleServiceInfo, error) {
 	serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
 	originTargetMap := make(map[string]*commonmodels.FreeStyleServiceInfo)
 	for _, target := range j.jobSpec.Services {
@@ -385,6 +385,10 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*common
 						target.KeyVals = originTarget.KeyVals
 					} else {
 						return nil, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, build.Repos)
 					}
 
 					serviceTargets = append(serviceTargets, target)
@@ -458,6 +462,10 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*common
 						return nil, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
 
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
+					}
+
 					serviceTargets = append(serviceTargets, target)
 				}
 				return serviceTargets, nil
@@ -479,6 +487,10 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*common
 						target.KeyVals = originTarget.KeyVals
 					} else {
 						return nil, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
 					}
 
 					serviceTargets = append(serviceTargets, target)
@@ -505,6 +517,10 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*common
 						target.KeyVals = originTarget.KeyVals
 					} else {
 						return nil, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
 					}
 
 					serviceTargets = append(serviceTargets, target)

@@ -233,9 +233,13 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		for _, scanning := range j.jobSpec.ServiceAndScannings {
 			if j.jobSpec.Source == config.SourceFromJob {
 				key := fmt.Sprintf("%s++%s", scanning.ServiceName, scanning.ServiceModule)
-				if _, ok := targetsMap[key]; !ok {
+				if target, ok := targetsMap[key]; !ok {
 					// if a service is not referred but passed in, ignore it
 					continue
+				} else {
+					if j.jobSpec.RefRepos {
+						scanning.Repos = mergeRepos(scanning.Repos, target.Repos)
+					}
 				}
 			}
 			jobTask, err := j.toJobTask(jobSubTaskID, scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
@@ -946,6 +950,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
+						Repos:         build.Repos,
 					})
 				}
 				return servicetargets, nil
@@ -988,6 +993,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					scanTargets = append(scanTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = scanTargets
@@ -1003,6 +1009,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					testTargets = append(testTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = testTargets
@@ -1020,6 +1027,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					target := &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					}
 					servicetargets = append(servicetargets, target)
 				}
