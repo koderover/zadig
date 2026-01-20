@@ -60,6 +60,8 @@ func GetIngressHostInfo(ing *v1.Ingress) []resource.HostInfo {
 
 		for _, path := range rule.HTTP.Paths {
 			backend := resource.Backend{
+				Path:        path.Path,
+				PathType:    string(*path.PathType),
 				ServiceName: path.Backend.Service.Name,
 				ServicePort: fmt.Sprintf("%d", path.Backend.Service.Port.Number),
 			}
@@ -85,7 +87,14 @@ func (ing *ingress) HostInfo() []resource.HostInfo {
 		}
 
 		for _, path := range rule.HTTP.Paths {
+			pathType := ""
+			if path.PathType != nil {
+				pathType = string(*path.PathType)
+			}
+
 			backend := resource.Backend{
+				Path:        path.Path,
+				PathType:    pathType,
 				ServiceName: path.Backend.ServiceName,
 				ServicePort: path.Backend.ServicePort.String(),
 			}
