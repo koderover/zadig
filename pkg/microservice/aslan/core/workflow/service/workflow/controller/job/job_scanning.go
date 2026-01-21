@@ -647,7 +647,10 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
 
-	repos := applyRepos(scanningInfo.Repos, scanning.Repos)
+	// TODO: since the reference of codehost from other job now support we don't have the repos configured and still works, so this line is commented out
+	// possible influence is that now the openAPI request won't be limited to the repos configured in the job.
+	repos := scanning.Repos
+	// repos := applyRepos(scanningInfo.Repos, scanning.Repos)
 	renderRepos(repos, jobTaskSpec.Properties.Envs)
 	gitRepos, p4Repos := splitReposByType(repos)
 
