@@ -83,35 +83,36 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 			Build(),
 	}
 	larkApprovalNodeList := make([]*larkapproval.ApprovalNode, 0)
+	larkApprovalNodeList = append(larkApprovalNodeList,
+		larkapproval.NewApprovalNodeBuilder().Id(`START`).Ccer([]*larkapproval.ApprovalApproverCcer{
+			larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
+		}).Build(),
+	)
 
 	i := 0
 	for _, node := range arg.Nodes {
-		if node.Type == ApproveTypeStart {
-			larkApprovalNodeList = append(larkApprovalNodeList,
-				larkapproval.NewApprovalNodeBuilder().Id(`START`).Ccer([]*larkapproval.ApprovalApproverCcer{
-					larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
-				}).Build(),
-			)
-		} else if node.Type == ApproveTypeEnd {
-			larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`END`).Ccer([]*larkapproval.ApprovalApproverCcer{
+		if node.Type == ApproveTypeStart || node.Type == ApproveTypeEnd {
+			continue
+		}
+
+		larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().
+			Id(ApprovalNodeIDKey(i)).
+			Name(approvalNodeApproveI18NKey(i)).
+			NodeType(string(node.Type)).
+			Approver([]*larkapproval.ApprovalApproverCcer{
 				larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
 			}).Build())
-		} else {
-			larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().
-				Id(ApprovalNodeIDKey(i)).
-				Name(approvalNodeApproveI18NKey(i)).
-				NodeType(string(node.Type)).
-				Approver([]*larkapproval.ApprovalApproverCcer{
-					larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
-				}).Build())
-			i18nTextList = append(i18nTextList, larkapproval.NewI18nResourceTextBuilder().
-				Key(approvalNodeApproveI18NKey(i)).
-				Value(approvalNodeNameValue(i)).
-				Build())
+		i18nTextList = append(i18nTextList, larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalNodeApproveI18NKey(i)).
+			Value(approvalNodeNameValue(i)).
+			Build())
 
-			i++
-		}
+		i++
 	}
+
+	larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`END`).Ccer([]*larkapproval.ApprovalApproverCcer{
+		larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
+	}).Build())
 
 	req := larkapproval.NewCreateApprovalReqBuilder().
 		UserIdType(setting.LarkUserOpenID).
