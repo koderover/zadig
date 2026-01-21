@@ -925,14 +925,19 @@ func batchExecutor(interval time.Duration, serviceList []*ReleaseInstallParam, f
 	return errList
 }
 
-func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, chartVersion string, production bool, isChartInstantiateDeploy bool, helmClient *helmtool.HelmClient) (string, error) {
+type HelmManifestFile struct {
+	Source  string `json:"source"`
+	Content string `json:"content"`
+}
+
+func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, chartVersion string, production bool, isChartInstantiateDeploy bool, helmClient *helmtool.HelmClient) ([]*HelmManifestFile, error) {
 	chartPath, err := PreLoadHelmServiceChart(service, production, &chartInstantiateDeploy{
 		ChartName:                chartName,
 		ChartVersion:             chartVersion,
 		isChartInstantiateDeploy: isChartInstantiateDeploy,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to pre load helm service chart, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", service.ServiceName, chartName, chartVersion, err)
+		return nil, fmt.Errorf("failed to pre load helm service chart, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", service.ServiceName, chartName, chartVersion, err)
 	}
 
 	chartSpec := &helmclient.ChartSpec{
@@ -944,8 +949,40 @@ func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, 
 
 	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", chartName, chartVersion, chartPath, err)
+		return nil, fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", chartName, chartVersion, chartPath, err)
 	}
 
-	return string(manifestBytes), nil
+	sourceContentMap := map[string]string{}
+	manifestFiles := make([]*HelmManifestFile, 0)
+	manifests := strings.Split(string(manifestBytes), "---")
+	for _, manifest := range manifests {
+		manifest = strings.TrimSpace(manifest)
+		if manifest == "" {
+			continue
+		}
+
+		sourceStr := strings.Split(manifest, "\n")[0]
+		if strings.HasPrefix(sourceStr, "# Source: ") {
+			source := strings.TrimPrefix(sourceStr, "# Source: ")
+			manifest = strings.TrimPrefix(manifest, sourceStr+"\n")
+
+			if sourceContentMap[source] == "" {
+				sourceContentMap[source] = manifest
+
+				manifestFiles = append(manifestFiles, &HelmManifestFile{
+					Source: source,
+				})
+			} else {
+				sourceContentMap[source] += fmt.Sprintf("\n---\n%s", manifest)
+			}
+		} else {
+			log.Errorf("failed to get source from manifest, sourceStr: %s, manifest: %s", sourceStr, manifest)
+		}
+	}
+
+	for _, manifestFile := range manifestFiles {
+		manifestFile.Content = sourceContentMap[manifestFile.Source]
+	}
+
+	return manifestFiles, nil
 }
