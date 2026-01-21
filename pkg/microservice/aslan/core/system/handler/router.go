@@ -66,6 +66,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		registry.PUT("/namespaces/:id", UpdateRegistryNamespace)
 
 		registry.DELETE("/namespaces/:id", DeleteRegistryNamespace)
+		registry.GET("/namespaces/:id/references", GetRegistryReferences)
 		registry.GET("/release/repos", ListAllRepos)
 		registry.POST("/images", ListImages)
 		registry.GET("/images/repos/:name", ListRepoImages)

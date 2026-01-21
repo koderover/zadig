@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
@@ -55,6 +56,21 @@ type RepoInfo struct {
 	RegNamespace string `json:"regNamespace"`
 	RegAddr      string `json:"regAddr"`
 	ID           string `json:"id"`
+}
+
+type RegistryReferenceEnv struct {
+	Name  string `json:"name"`
+	Alias string `json:"alias"`
+}
+
+type RegistryReference struct {
+	ProjectName  string                  `json:"project_name"`
+	ProjectAlias string                  `json:"project_alias"`
+	Envs         []*RegistryReferenceEnv `json:"envs"`
+}
+
+type RegistryReferencesResp struct {
+	References []*RegistryReference `json:"references"`
 }
 
 const (
@@ -254,6 +270,58 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 		}
 	}
 	return commonutil.SyncDinDForRegistries()
+}
+
+// GetRegistryReferences returns a list of environments that are using the specified registry, grouped by project
+func GetRegistryReferences(id string, log *zap.SugaredLogger) (*RegistryReferencesResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ExcludeStatus: []string{setting.ProductStatusDeleting},
+	})
+	if err != nil {
+		log.Errorf("ProductColl.List error: %s", err)
+		return nil, err
+	}
+
+	// Group environments by project and collect project names
+	projectEnvsMap := make(map[string][]*RegistryReferenceEnv)
+	projectNames := make([]string, 0)
+	for _, env := range envs {
+		if env.RegistryID == id {
+			if _, exists := projectEnvsMap[env.ProductName]; !exists {
+				projectNames = append(projectNames, env.ProductName)
+			}
+			projectEnvsMap[env.ProductName] = append(projectEnvsMap[env.ProductName], &RegistryReferenceEnv{
+				Name:  env.EnvName,
+				Alias: env.Alias,
+			})
+		}
+	}
+
+	// Get project aliases
+	projectAliasMap := make(map[string]string)
+	if len(projectNames) > 0 {
+		projectInfos, err := templaterepo.NewProductColl().ListProjectBriefs(projectNames)
+		if err != nil {
+			log.Warnf("ListProjectBriefs error: %s", err)
+		} else {
+			for _, info := range projectInfos {
+				projectAliasMap[info.Name] = info.Alias
+			}
+		}
+	}
+
+	references := make([]*RegistryReference, 0, len(projectEnvsMap))
+	for projectName, envList := range projectEnvsMap {
+		references = append(references, &RegistryReference{
+			ProjectName:  projectName,
+			ProjectAlias: projectAliasMap[projectName],
+			Envs:         envList,
+		})
+	}
+
+	return &RegistryReferencesResp{
+		References: references,
+	}, nil
 }
 
 func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
