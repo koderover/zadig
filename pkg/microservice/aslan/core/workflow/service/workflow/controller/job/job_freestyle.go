@@ -688,7 +688,9 @@ func (j FreestyleJobController) generateStepTask(jobName string, repos []*types.
 		return nil, fmt.Errorf("find %s project codehost error: %v", j.workflow.Project, err)
 	}
 
-	repos = applyRepos(j.jobSpec.Repos, repos)
+	// TODO: since the reference of codehost from other job now support we don't have the repos configured and still works, so this line is commented out
+	// possible influence is that now the openAPI request won't be limited to the repos configured in the job.
+	// repos = applyRepos(j.jobSpec.Repos, repos)
 	renderredRepo, err := renderReferredRepo(repos, j.workflow.Params)
 	if err != nil {
 		return nil, err
