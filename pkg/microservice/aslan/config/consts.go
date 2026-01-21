@@ -228,6 +228,7 @@ const (
 	JobZadigVMDeploy        JobType = "zadig-vm-deploy"
 	JobZadigHelmDeploy      JobType = "zadig-helm-deploy"
 	JobZadigHelmChartDeploy JobType = "zadig-helm-chart-deploy"
+	JobZadigRestart         JobType = "zadig-restart"
 	JobFreestyle            JobType = "freestyle"
 	JobPlugin               JobType = "plugin"
 	JobK8sBlueGreenDeploy   JobType = "k8s-blue-green-deploy"

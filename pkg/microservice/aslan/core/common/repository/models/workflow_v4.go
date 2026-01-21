@@ -613,6 +613,25 @@ type ServiceWithModuleAndImage struct {
 	ServiceModules []*DeployModuleInfo `bson:"service_modules"     yaml:"service_modules"  json:"service_modules"`
 }
 
+type ZadigRestartJobSpec struct {
+	Env string `bson:"env"                      yaml:"env"                         json:"env"`
+	// fromjob/runtime/fixed, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	EnvSource config.DeploySourceType `bson:"env_source" yaml:"env_source" json:"env_source"`
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	EnvJobName         string                        `bson:"env_job_name"             yaml:"env_job_name"             json:"env_job_name"`
+	EnvOptions         []*ZadigRestartEnvInformation `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	Production         bool                          `bson:"production"               yaml:"production"                  json:"production"`
+	DeployType         string                        `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
+	SkipCheckRunStatus bool                          `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// save the origin quoted job name
+	OriginJobName string   `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	Services      []string `bson:"services"             yaml:"services"             json:"services"`
+}
+
 type ZadigDistributeImageJobSpec struct {
 	// fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
@@ -855,6 +874,13 @@ type ZadigDeployEnvInformation struct {
 	Production bool                `json:"production"  yaml:"production"`
 	RegistryID string              `json:"registry_id" yaml:"registry_id"`
 	Services   []*DeployOptionInfo `json:"services"    yaml:"services"`
+}
+
+type ZadigRestartEnvInformation struct {
+	Env        string   `json:"env"         yaml:"env"`
+	EnvAlias   string   `json:"env_alias"   yaml:"env_alias"`
+	Production bool     `json:"production"  yaml:"production"`
+	Services   []string `json:"services"    yaml:"services"`
 }
 
 type ZadigHelmDeployEnvInformation struct {
@@ -1399,9 +1425,9 @@ type ApisixJobSpec struct {
 }
 
 type ApisixItemSpec struct {
-	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
-	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
-	Spec         interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
+	Action config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
+	Type   config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
+	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
 type PingCodeJobSpec struct {

@@ -87,7 +87,7 @@ func (ing *ingress) HostInfo() []resource.HostInfo {
 		}
 
 		for _, path := range rule.HTTP.Paths {
-			pathType := ""
+			pathType := string(extensionsv1beta1.PathTypeImplementationSpecific)
 			if path.PathType != nil {
 				pathType = string(*path.PathType)
 			}

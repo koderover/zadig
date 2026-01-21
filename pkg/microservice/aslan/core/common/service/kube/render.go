@@ -403,7 +403,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	return fullRenderedYaml, 0, nil
 }
 
-func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
+func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
 	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, svcRender)
 	if err != nil {
 		return "", nil, err
@@ -543,7 +543,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
-		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate, serviceRender)
+		manifest, workloads, err := FetchImportedManifests(option, productInfo, prodSvcTemplate, serviceRender)
 		return manifest, int(curProductSvc.Revision), workloads, err
 	}
 
