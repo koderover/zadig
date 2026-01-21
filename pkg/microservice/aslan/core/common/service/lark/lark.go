@@ -465,14 +465,33 @@ func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
 	defer redisMutex.Unlock()
 
 	approvalStr, _ := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(larkApprovalCacheKey(instanceID))
+	
+	log.Infof("[Lark Approval Redis] Reading data for instance: %s", instanceID)
+	
 	if len(approvalStr) > 0 {
+		log.Infof("[Lark Approval Redis] Raw data from Redis (%d bytes): %s", len(approvalStr), approvalStr)
+		
 		approvalManager := &ApprovalManager{}
 		err := json.Unmarshal([]byte(approvalStr), approvalManager)
 		if err != nil {
-			log.Errorf("unmarshal approval manager error: %v", err)
+			log.Errorf("[Lark Approval Redis] Unmarshal error: %v", err)
+		} else {
+			// 打印结构化的数据，便于阅读
+			log.Infof("[Lark Approval Redis] NodeKeyMap: %v", approvalManager.NodeKeyMap)
+			log.Infof("[Lark Approval Redis] NodeMap keys: %v", getNodeMapKeys(approvalManager.NodeMap))
+			
+			// 打印每个节点的详细数据
+			for nodeID, users := range approvalManager.NodeMap {
+				log.Infof("[Lark Approval Redis] Node %s has %d users:", nodeID, len(users))
+				for userID, result := range users {
+					log.Infof("[Lark Approval Redis]   - User %s: Result=%s, ApproveOrReject=%s, OperationTime=%d",
+						userID, result.Result, result.ApproveOrReject, result.OperationTime)
+				}
+			}
 		}
 		return approvalManager
 	} else {
+		log.Infof("[Lark Approval Redis] No existing data, creating new ApprovalManager")
 		approvalData := &ApprovalManager{
 			NodeMap:     make(NodeUserApprovalResult),
 			RequestUUID: make(map[string]struct{}),
@@ -481,7 +500,9 @@ func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
 		bs, _ := json.Marshal(approvalData)
 		err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(larkApprovalCacheKey(instanceID), string(bs), 0)
 		if err != nil {
-			log.Errorf("write approval manager error: %v", err)
+			log.Errorf("[Lark Approval Redis] Write new data error: %v", err)
+		} else {
+			log.Infof("[Lark Approval Redis] Created new empty ApprovalManager: %s", string(bs))
 		}
 		return approvalData
 	}
@@ -511,19 +532,52 @@ func GetUserApprovalResults(instanceID string) NodeUserApprovalResult {
 }
 
 func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, result *UserApprovalResult) {
+	log.Infof("[Lark Approval] UpdateNodeUserApprovalResult: instance=%s, nodeKey=%s, nodeID=%s, userID=%s, status=%s",
+		instanceID, nodeKey, nodeID, userID, result.Result)
+	
 	writeKey := fmt.Sprint("lark-approval-lock-write-", instanceID)
 	writeMutex := cache.NewRedisLock(writeKey)
 	writeMutex.Lock()
 	defer writeMutex.Unlock()
 
 	approvalManager := GetLarkApprovalInstanceManager(instanceID)
+	
+	log.Debugf("[Lark Approval] Before update - NodeKeyMap: %v, NodeMap keys: %v",
+		approvalManager.NodeKeyMap, getNodeMapKeys(approvalManager.NodeMap))
+	
 	approvalManager.updateNodeKeyMap(nodeKey, nodeID)
 	approvalManager.updateNodeUserApprovalResult(nodeID, userID, result)
+	
+	log.Debugf("[Lark Approval] After update - NodeKeyMap: %v, NodeMap keys: %v",
+		approvalManager.NodeKeyMap, getNodeMapKeys(approvalManager.NodeMap))
+	
 	bs, _ := json.Marshal(approvalManager)
 	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(larkApprovalCacheKey(instanceID), string(bs), 0)
 	if err != nil {
-		log.Errorf("write approval manager error: %v", err)
+		log.Errorf("[Lark Approval Redis] Failed to write for instance %s: %v", instanceID, err)
+	} else {
+		log.Infof("[Lark Approval Redis] Successfully wrote for instance %s (%d bytes)", instanceID, len(bs))
+		log.Infof("[Lark Approval Redis] Written data: %s", string(bs))
+		
+		// 打印结构化的数据，便于阅读
+		log.Infof("[Lark Approval Redis] After write - NodeKeyMap: %v", approvalManager.NodeKeyMap)
+		for nodeID, users := range approvalManager.NodeMap {
+			log.Infof("[Lark Approval Redis] After write - Node %s has %d users:", nodeID, len(users))
+			for userID, result := range users {
+				log.Infof("[Lark Approval Redis]   - User %s: Result=%s, ApproveOrReject=%s, OperationTime=%d",
+					userID, result.Result, result.ApproveOrReject, result.OperationTime)
+			}
+		}
 	}
+}
+
+// getNodeMapKeys helper function to get keys from NodeMap for logging
+func getNodeMapKeys(nodeMap map[string]map[string]*UserApprovalResult) []string {
+	keys := make([]string, 0, len(nodeMap))
+	for k := range nodeMap {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 func (l *ApprovalManager) getNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
@@ -544,6 +598,11 @@ func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, re
 		l.NodeMap[nodeID] = make(map[string]*UserApprovalResult)
 	}
 	switch result.Result {
+	case ApprovalStatusPending:
+		// PENDING 状态：记录用户，但不设置审批结果
+		// 这样可以初始化 NodeMap，避免后续 APPROVED 时找不到节点
+		l.NodeMap[nodeID][userID] = result
+		log.Debugf("[Lark Approval] User %s in PENDING status, nodeID: %s", userID, nodeID)
 	case ApprovalStatusApproved:
 		l.NodeMap[nodeID][userID] = result
 		result.ApproveOrReject = config.ApprovalStatusApprove
@@ -556,6 +615,8 @@ func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, re
 	case ApprovalStatusDone:
 		l.NodeMap[nodeID][userID] = result
 		result.ApproveOrReject = config.ApprovalStatusDone
+	default:
+		log.Warnf("[Lark Approval] Unknown status %s for user %s, nodeID: %s", result.Result, userID, nodeID)
 	}
 	return
 }
