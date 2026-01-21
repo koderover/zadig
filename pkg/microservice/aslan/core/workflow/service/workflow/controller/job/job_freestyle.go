@@ -391,6 +391,8 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string, refRepos b
 						target.Repos = mergeRepos(target.Repos, build.Repos)
 					}
 
+					log.Infof("getReferredJobTargets: workflow %s service %s, module %s, repos %v", j.workflow.Name, target.ServiceName, target.ServiceModule, target.Repos)
+
 					serviceTargets = append(serviceTargets, target)
 				}
 				return serviceTargets, nil
