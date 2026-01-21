@@ -40,7 +40,7 @@ import (
 const ZadigDebugContainerName = "zadig-debug"
 const K8sBetaVersionForEphemeralContainer = "v1.23"
 
-func PatchDebugContainer(ctx context.Context, projectName, envName, podName, debugImage string, production bool) error {
+func PatchDebugContainer(ctx context.Context, projectName, envName, podName, debugImage, targetContainer string, production bool) error {
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       projectName,
 		EnvName:    envName,
@@ -82,7 +82,12 @@ func PatchDebugContainer(ctx context.Context, projectName, envName, podName, deb
 		return fmt.Errorf("failed to check K8s version: %s", err)
 	}
 
-	debugContainer := genDebugContainer(debugImage)
+	// 如果用户未指定 targetContainer，且 Pod 只有一个容器，则自动使用该容器
+	if targetContainer == "" && len(pod.Spec.Containers) == 1 {
+		targetContainer = pod.Spec.Containers[0].Name
+	}
+
+	debugContainer := genDebugContainer(debugImage, targetContainer)
 	if version.CompareKubeAwareVersionStrings(K8sBetaVersionForEphemeralContainer, k8sVersion) < 0 {
 		_, _, err = debugByEphemeralContainerLegacy(ctx, clientset.CoreV1(), pod, debugContainer)
 	} else {
@@ -107,8 +112,9 @@ func checkK8sVersion(client *kubernetes.Clientset) (string, error) {
 	return fmt.Sprintf("%s.%s", items[0], items[1]), nil
 }
 
-func genDebugContainer(imageName string) *corev1.EphemeralContainer {
+func genDebugContainer(imageName, targetContainer string) *corev1.EphemeralContainer {
 	return &corev1.EphemeralContainer{
+		TargetContainerName: targetContainer,
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:                     ZadigDebugContainerName,
 			Image:                    imageName,
