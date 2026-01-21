@@ -165,6 +165,10 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 	if j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		for subTaskID, svc := range j.jobSpec.Services {
 			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
+			log.Infof("svc repo info:")
+			for _, repo := range svc.Repos {
+				log.Infof("repo: %+v", repo)
+			}
 			task, err := j.generateSubTask(taskID, subTaskID, registries, svc)
 			if err != nil {
 				return nil, err
