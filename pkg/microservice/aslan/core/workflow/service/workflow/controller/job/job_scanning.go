@@ -683,7 +683,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		if scanning.Repos[0].CheckoutPath != "" {
 			repoName = scanning.Repos[0].CheckoutPath
 		} else {
-			repoName = scanningInfo.Repos[0].RepoName
+			repoName = scanning.Repos[0].RepoName
 		}
 
 		branch = scanning.Repos[0].Branch
