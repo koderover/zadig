@@ -233,9 +233,13 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		for _, scanning := range j.jobSpec.ServiceAndScannings {
 			if j.jobSpec.Source == config.SourceFromJob {
 				key := fmt.Sprintf("%s++%s", scanning.ServiceName, scanning.ServiceModule)
-				if _, ok := targetsMap[key]; !ok {
+				if target, ok := targetsMap[key]; !ok {
 					// if a service is not referred but passed in, ignore it
 					continue
+				} else {
+					if j.jobSpec.RefRepos {
+						scanning.Repos = mergeRepos(scanning.Repos, target.Repos)
+					}
 				}
 			}
 			jobTask, err := j.toJobTask(jobSubTaskID, scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
@@ -643,7 +647,10 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
 
-	repos := applyRepos(scanningInfo.Repos, scanning.Repos)
+	// TODO: since the reference of codehost from other job now support we don't have the repos configured and still works, so this line is commented out
+	// possible influence is that now the openAPI request won't be limited to the repos configured in the job.
+	repos := scanning.Repos
+	// repos := applyRepos(scanningInfo.Repos, scanning.Repos)
 	renderRepos(repos, jobTaskSpec.Properties.Envs)
 	gitRepos, p4Repos := splitReposByType(repos)
 
@@ -676,7 +683,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		if scanning.Repos[0].CheckoutPath != "" {
 			repoName = scanning.Repos[0].CheckoutPath
 		} else {
-			repoName = scanningInfo.Repos[0].RepoName
+			repoName = scanning.Repos[0].RepoName
 		}
 
 		branch = scanning.Repos[0].Branch
@@ -946,6 +953,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
+						Repos:         build.Repos,
 					})
 				}
 				return servicetargets, nil
@@ -988,6 +996,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					scanTargets = append(scanTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = scanTargets
@@ -1003,6 +1012,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					testTargets = append(testTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = testTargets
@@ -1020,6 +1030,7 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 					target := &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					}
 					servicetargets = append(servicetargets, target)
 				}
