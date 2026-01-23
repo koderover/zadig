@@ -295,8 +295,6 @@ type FreestyleJobServiceInfo struct {
 type FreestyleJobInput struct {
 	*OpenAPIBasicInfo
 
-	FreestyleJobType config.FreeStyleJobType `json:"freestyle_type"`
-
 	// for service freestyle job
 	Services []*FreestyleJobServiceInfo `json:"services"`
 
@@ -460,6 +458,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 			if referredJob.Name != jobSpec.JobName {
 				continue
 			}
+
 			if referredJob.JobType == config.JobZadigBuild {
 				buildSpec := &commonmodels.ZadigBuildJobSpec{}
 				if err := commonmodels.IToi(referredJob.Spec, buildSpec); err != nil {
@@ -475,18 +474,108 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 						},
 					}
 
-					if jobSpec.RefRepos {
-						target.Repos = build.Repos
+					if _, ok := serviceInputMap[target.GetKey()]; ok {
+						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						if err != nil {
+							return err
+						}
+						target.Repos = newRepos
+
+						target.KeyVals = OpenAPIKVInputToKeyValList(jobSpec.Envs, serviceInputMap[target.GetKey()].Inputs)
+					}
+
+					serviceTargets = append(serviceTargets, target)
+				}
+
+				jobSpec.Services = serviceTargets
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, testingSpec); err != nil {
+					return err
+				}
+
+				serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
+				for _, testing := range testingSpec.ServiceAndTests {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   testing.ServiceName,
+							ServiceModule: testing.ServiceModule,
+						},
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						if !jobSpec.RefRepos {
-							newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
-							if err != nil {
-								return err
-							}
-							target.Repos = newRepos
+						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						if err != nil {
+							return err
 						}
+						target.Repos = newRepos
+
+						target.KeyVals = OpenAPIKVInputToKeyValList(jobSpec.Envs, serviceInputMap[target.GetKey()].Inputs)
+					}
+
+					serviceTargets = append(serviceTargets, target)
+				}
+
+				jobSpec.Services = serviceTargets
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, scanningSpec); err != nil {
+					return err
+				}
+
+				serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
+				for _, scanning := range scanningSpec.ServiceAndScannings {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   scanning.ServiceName,
+							ServiceModule: scanning.ServiceModule,
+						},
+					}
+
+					if _, ok := serviceInputMap[target.GetKey()]; ok {
+						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						if err != nil {
+							return err
+						}
+						target.Repos = newRepos
+
+						target.KeyVals = OpenAPIKVInputToKeyValList(jobSpec.Envs, serviceInputMap[target.GetKey()].Inputs)
+					}
+
+					serviceTargets = append(serviceTargets, target)
+				}
+
+				jobSpec.Services = serviceTargets
+				return nil
+			}
+
+			if referredJob.JobType == config.JobFreestyle {
+				freestyleSpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, freestyleSpec); err != nil {
+					return err
+				}
+
+				serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
+				for _, service := range freestyleSpec.Services {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   service.ServiceName,
+							ServiceModule: service.ServiceModule,
+						},
+					}
+
+					if _, ok := serviceInputMap[target.GetKey()]; ok {
+						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						if err != nil {
+							return err
+						}
+						target.Repos = newRepos
 
 						target.KeyVals = OpenAPIKVInputToKeyValList(jobSpec.Envs, serviceInputMap[target.GetKey()].Inputs)
 					}
@@ -729,7 +818,10 @@ func (p *EmptyInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, er
 }
 
 type ZadigTestingJobInput struct {
-	TestingList []*TestingArgs `json:"testing_list"`
+	*OpenAPIBasicInfo
+
+	ServiceList []*TestingJobServiceInfo `json:"service_list"`
+	TestingList []*TestingArgs           `json:"testing_list"`
 }
 
 type TestingArgs struct {
@@ -738,46 +830,61 @@ type TestingArgs struct {
 	Inputs      []*types.KV               `json:"inputs"`
 }
 
+type TestingJobServiceInfo struct {
+	ServiceName   string                    `json:"service_name"`
+	ServiceModule string                    `json:"service_module"`
+	RepoInfo      []*types.OpenAPIRepoInput `json:"repo_info"`
+	Inputs        []*types.KV               `json:"inputs"`
+}
+
+func (s *TestingJobServiceInfo) GetKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.ServiceName + "-" + s.ServiceModule
+}
+
 func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.ZadigTestingJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigTestingJobSpec")
 	}
 
-	for _, testing := range newSpec.TestModules {
-		for _, inputTesting := range p.TestingList {
-			// if the testing name match, we do the update logic
-			if inputTesting.TestingName == testing.Name {
-				// update build repo info with input build info
-				for _, inputRepo := range inputTesting.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-					if err != nil {
-						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
-					}
-
-					for _, buildRepo := range testing.Repos {
-						if buildRepo.CodehostID == repoInfo.ID {
-							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
-								buildRepo.Branch = inputRepo.Branch
-								buildRepo.PR = inputRepo.PR
-								buildRepo.PRs = inputRepo.PRs
-								buildRepo.EnableCommit = inputRepo.EnableCommit
-								buildRepo.CommitID = inputRepo.CommitID
-							}
+	if newSpec.TestType == config.ServiceTestType {
+		if newSpec.Source == config.SourceFromJob {
+			err := p.getReferredJobTargets(newSpec)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			newServices := make([]*commonmodels.ServiceAndTest, 0)
+			for _, inputService := range p.ServiceList {
+				for _, configService := range newSpec.ServiceAndTests {
+					if configService.ServiceName == inputService.ServiceName && configService.ServiceModule == inputService.ServiceModule {
+						newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+						if err != nil {
+							return nil, err
 						}
+						configService.Repos = newRepos
+						configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+						newServices = append(newServices, configService)
 					}
 				}
+			}
+			newSpec.ServiceAndTests = newServices
+		}
+	} else if newSpec.TestType == config.ProductTestType {
+		for _, testing := range newSpec.TestModules {
+			for _, inputTesting := range p.TestingList {
+				// if the testing name match, we do the update logic
+				if inputTesting.TestingName == testing.Name {
+					testing.KeyVals = OpenAPIKVInputToKeyValList(testing.KeyVals, inputTesting.Inputs)
 
-				// update the build kv
-				kvMap := make(map[string]string)
-				for _, kv := range inputTesting.Inputs {
-					kvMap[kv.Key] = kv.Value
-				}
-
-				for _, buildParam := range testing.KeyVals {
-					if val, ok := kvMap[buildParam.Key]; ok {
-						buildParam.Value = val
+					newRepos, err := OpenAPIRepoInputToRepository(testing.Repos, inputTesting.RepoInfo)
+					if err != nil {
+						return nil, err
 					}
+					testing.Repos = newRepos
 				}
 			}
 		}
@@ -786,6 +893,139 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 	job.Spec = newSpec
 
 	return job, nil
+}
+
+func (p *ZadigTestingJobInput) getReferredJobTargets(jobSpec *commonmodels.ZadigTestingJobSpec) error {
+	if jobSpec.Source != config.SourceFromJob || jobSpec.TestType != config.ServiceTestType {
+		return nil
+	}
+
+	serviceInputMap := make(map[string]*TestingJobServiceInfo)
+	for _, service := range p.ServiceList {
+		serviceInputMap[service.GetKey()] = service
+	}
+
+	serviceConfigMap := make(map[string]*commonmodels.ServiceAndTest)
+	for _, service := range jobSpec.ServiceTestOptions {
+		serviceConfigMap[service.GetKey()] = service
+	}
+
+	for _, stage := range p.workflow.Stages {
+		for _, referredJob := range stage.Jobs {
+			if referredJob.Name != jobSpec.JobName {
+				continue
+			}
+
+			if referredJob.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, buildSpec); err != nil {
+					return err
+				}
+
+				serviceAndTests := make([]*commonmodels.ServiceAndTest, 0)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					if inputService, ok := serviceInputMap[build.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[build.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							serviceAndTests = append(serviceAndTests, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndTests = serviceAndTests
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, testingSpec); err != nil {
+					return err
+				}
+
+				newServiceAndTests := make([]*commonmodels.ServiceAndTest, 0)
+				for _, serviceAndTest := range testingSpec.ServiceAndTests {
+					if inputService, ok := serviceInputMap[serviceAndTest.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[serviceAndTest.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndTests = append(newServiceAndTests, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndTests = newServiceAndTests
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, scanningSpec); err != nil {
+					return err
+				}
+
+				newServiceAndTestings := make([]*commonmodels.ServiceAndTest, 0)
+				for _, serviceAndScanning := range scanningSpec.ServiceAndScannings {
+					if inputService, ok := serviceInputMap[serviceAndScanning.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[serviceAndScanning.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndTestings = append(newServiceAndTestings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndTests = newServiceAndTestings
+				return nil
+			}
+
+			if referredJob.JobType == config.JobFreestyle {
+				freestyleJobSpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, freestyleJobSpec); err != nil {
+					return err
+				}
+
+				newServiceAndTestings := make([]*commonmodels.ServiceAndTest, 0)
+				for _, service := range freestyleJobSpec.Services {
+					if inputService, ok := serviceInputMap[service.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[service.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndTestings = append(newServiceAndTestings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndTests = newServiceAndTestings
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("ZadigTestingJob: refered job %s not found", jobSpec.JobName)
 }
 
 type GrayReleaseJobInput struct {
@@ -904,12 +1144,30 @@ func (p *K8sPatchJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.J
 }
 
 type ZadigScanningJobInput struct {
-	ScanningList []*ScanningArg `json:"scanning_list"`
+	*OpenAPIBasicInfo
+
+	ServiceList  []*ZadigScanningJobServiceInfo `json:"service_list"`
+	ScanningList []*ScanningArg                 `json:"scanning_list"`
+}
+
+type ZadigScanningJobServiceInfo struct {
+	ServiceName   string                    `json:"service_name"`
+	ServiceModule string                    `json:"service_module"`
+	RepoInfo      []*types.OpenAPIRepoInput `json:"repo_info"`
+	Inputs        []*types.KV               `json:"inputs"`
+}
+
+func (s *ZadigScanningJobServiceInfo) GetKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.ServiceName + "-" + s.ServiceModule
 }
 
 type ScanningArg struct {
 	ScanningName string                    `json:"scanning_name"`
 	RepoInfo     []*types.OpenAPIRepoInput `json:"repo_info"`
+	Inputs       []*types.KV               `json:"inputs"`
 }
 
 func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -918,28 +1176,42 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigScanningJobSpec")
 	}
 
-	for _, scanning := range newSpec.Scannings {
-		for _, inputScanning := range p.ScanningList {
-			// if the scanning name match, we do the update logic
-			if inputScanning.ScanningName == scanning.Name {
-				// update build repo info with input build info
-				for _, inputRepo := range inputScanning.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-					if err != nil {
-						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
-					}
-
-					for _, buildRepo := range scanning.Repos {
-						if buildRepo.CodehostID == repoInfo.ID {
-							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
-								buildRepo.Branch = inputRepo.Branch
-								buildRepo.PR = inputRepo.PR
-								buildRepo.PRs = inputRepo.PRs
-								buildRepo.EnableCommit = inputRepo.EnableCommit
-								buildRepo.CommitID = inputRepo.CommitID
-							}
+	if newSpec.ScanningType == config.ServiceScanningType {
+		if newSpec.Source == config.SourceFromJob {
+			err := p.getReferredJobTargets(newSpec)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			newServiceAndScannings := make([]*commonmodels.ServiceAndScannings, 0)
+			for _, inputService := range p.ServiceList {
+				for _, configService := range newSpec.ServiceAndScannings {
+					if configService.ServiceName == inputService.ServiceName && configService.ServiceModule == inputService.ServiceModule {
+						newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+						if err != nil {
+							return nil, err
 						}
+						configService.Repos = newRepos
+						configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+						newServiceAndScannings = append(newServiceAndScannings, configService)
 					}
+				}
+			}
+			newSpec.ServiceAndScannings = newServiceAndScannings
+
+		}
+	} else if newSpec.ScanningType == config.NormalScanningType {
+		for _, scanning := range newSpec.Scannings {
+			for _, inputScanning := range p.ScanningList {
+				// if the scanning name match, we do the update logic
+				if inputScanning.ScanningName == scanning.Name {
+					scanning.KeyVals = OpenAPIKVInputToKeyValList(scanning.KeyVals, inputScanning.Inputs)
+
+					newRepos, err := OpenAPIRepoInputToRepository(scanning.Repos, inputScanning.RepoInfo)
+					if err != nil {
+						return nil, err
+					}
+					scanning.Repos = newRepos
 				}
 			}
 		}
@@ -948,6 +1220,141 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 	job.Spec = newSpec
 
 	return job, nil
+}
+
+func (p *ZadigScanningJobInput) getReferredJobTargets(jobSpec *commonmodels.ZadigScanningJobSpec) error {
+	if jobSpec.Source != config.SourceFromJob || jobSpec.ScanningType != config.ServiceScanningType {
+		return nil
+	}
+
+	serviceInputMap := make(map[string]*ZadigScanningJobServiceInfo)
+	for _, service := range p.ServiceList {
+		serviceInputMap[service.GetKey()] = service
+	}
+
+	serviceConfigMap := make(map[string]*commonmodels.ServiceAndScannings)
+	for _, service := range jobSpec.ServiceScanningOptions {
+		serviceConfigMap[service.GetKey()] = service
+	}
+
+	for _, stage := range p.workflow.Stages {
+		for _, referredJob := range stage.Jobs {
+			if referredJob.Name != jobSpec.JobName {
+				continue
+			}
+
+			if referredJob.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, buildSpec); err != nil {
+					return err
+				}
+
+				newServiceAndScannings := make([]*commonmodels.ServiceAndScannings, 0)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					if inputService, ok := serviceInputMap[build.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[build.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndScannings = append(newServiceAndScannings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndScannings = newServiceAndScannings
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, testingSpec); err != nil {
+					return err
+				}
+
+				newServiceAndScannings := make([]*commonmodels.ServiceAndScannings, 0)
+				for _, serviceAndTest := range testingSpec.ServiceAndTests {
+
+					if inputService, ok := serviceInputMap[serviceAndTest.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[serviceAndTest.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndScannings = append(newServiceAndScannings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndScannings = newServiceAndScannings
+				return nil
+			}
+
+			if referredJob.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, scanningSpec); err != nil {
+					return err
+				}
+
+				newServiceAndScannings := make([]*commonmodels.ServiceAndScannings, 0)
+				for _, serviceAndScanning := range scanningSpec.ServiceAndScannings {
+					if inputService, ok := serviceInputMap[serviceAndScanning.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[serviceAndScanning.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndScannings = append(newServiceAndScannings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndScannings = newServiceAndScannings
+				return nil
+			}
+
+			if referredJob.JobType == config.JobFreestyle {
+				freestyleJobSpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(referredJob.Spec, freestyleJobSpec); err != nil {
+					return err
+				}
+
+				newServiceAndScannings := make([]*commonmodels.ServiceAndScannings, 0)
+				for _, service := range freestyleJobSpec.Services {
+					if inputService, ok := serviceInputMap[service.GetKey()]; ok {
+						if configService, ok := serviceConfigMap[service.GetKey()]; ok {
+							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
+
+							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							if err != nil {
+								return err
+							}
+							configService.Repos = newRepos
+
+							newServiceAndScannings = append(newServiceAndScannings, configService)
+						}
+					}
+				}
+
+				jobSpec.ServiceAndScannings = newServiceAndScannings
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("ZadigScanningJob: refered job %s not found", jobSpec.JobName)
 }
 
 type ZadigVMDeployJobInput struct {

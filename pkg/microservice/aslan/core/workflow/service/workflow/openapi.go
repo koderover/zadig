@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -79,6 +80,9 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 				if err != nil {
 					return nil, err
 				}
+
+				jobBytes, _ := json.Marshal(job)
+				log.Debugf("job: %s", string(jobBytes))
 				newJob, err := updater.UpdateJobSpec(job)
 				if err != nil {
 					log.Errorf("Failed to update jobspec for job: %s, error: %s", job.Name, err)
@@ -363,6 +367,9 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 		return updater, err
 	case config.JobZadigTesting:
 		updater := new(ZadigTestingJobInput)
+		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
+			workflow: workflow,
+		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err
 	case config.JobK8sGrayRelease:
@@ -379,6 +386,9 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 		return updater, err
 	case config.JobZadigScanning:
 		updater := new(ZadigScanningJobInput)
+		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
+			workflow: workflow,
+		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err
 	case config.JobZadigVMDeploy:
