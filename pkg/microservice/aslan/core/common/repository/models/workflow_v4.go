@@ -972,6 +972,22 @@ type SQLJobSpec struct {
 	Source string                `bson:"source" json:"source" yaml:"source"`
 }
 
+type DMSJobSpec struct {
+	ID             string      `bson:"id" json:"id" yaml:"id"`
+	RemarkTemplate string      `bson:"remark_template" json:"remark_template" yaml:"remark_template"`
+	Orders         []*DMSOrder `bson:"orders" json:"orders" yaml:"orders"`
+}
+
+type DMSOrder struct {
+	ID         int64  `bson:"id" json:"id" yaml:"id"`
+	Comment    string `bson:"comment" json:"comment" yaml:"comment"`
+	StatusCode string `bson:"status_code" json:"status_code" yaml:"status_code"`
+	StatusDesc string `bson:"status_desc" json:"status_desc" yaml:"status_desc"`
+	Committer  string `bson:"committer" json:"committer" yaml:"committer"`
+	CreateTime string `bson:"create_time" json:"create_time" yaml:"create_time"`
+	Remark     string `bson:"remark" json:"remark" yaml:"remark"`
+}
+
 type ApolloJobSpec struct {
 	ApolloID            string             `bson:"apolloID"                    json:"apolloID"                     yaml:"apolloID"`
 	DisableConfigRange  bool               `bson:"disable_config_range"        json:"disable_config_range"         yaml:"disable_config_range"`
@@ -1399,9 +1415,9 @@ type ApisixJobSpec struct {
 }
 
 type ApisixItemSpec struct {
-	Action       config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
-	Type         config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
-	Spec         interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
+	Action config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
+	Type   config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
+	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
 type PingCodeJobSpec struct {

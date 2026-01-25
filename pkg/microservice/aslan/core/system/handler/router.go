@@ -457,6 +457,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		tapd.GET("/:id/projects/:projectID/iterations", ListTapdProjectIterations)
 	}
 
+	dms := router.Group("dms")
+	{
+		dms.GET("/:id/orders", ListDMSOrders)
+	}
+
 	// guanceyun api
 	guanceyun := router.Group("guanceyun")
 	{
@@ -547,15 +552,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		plugin.GET("/:id/file", GetPluginFile)
 	}
 
-	sae := router.Group("sae")
+	cloudService := router.Group("cloud_service")
 	{
-		sae.POST("", CreateSAE)
-		sae.GET("", ListSAE)
-		sae.GET("/detail", ListSAEInfo)
-		sae.GET("/:id", GetSAE)
-		sae.PUT("/:id", UpdateSAE)
-		sae.DELETE("/:id", DeleteSAE)
-		sae.POST("/validate", ValidateSAE)
+		cloudService.POST("", CreateCloudService)
+		cloudService.GET("", ListCloudService)
+		cloudService.GET("/detail", ListCloudServiceInfo)
+		cloudService.GET("/:id", GetCloudService)
+		cloudService.PUT("/:id", UpdateCloudService)
+		cloudService.DELETE("/:id", DeleteCloudService)
+		cloudService.POST("/validate", ValidateCloudService)
 	}
 
 	// ---------------------------------------------------------------------------------------

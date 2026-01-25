@@ -598,6 +598,17 @@ type SQLExecResult struct {
 	Status       setting.SQLExecStatus `bson:"status" json:"status" yaml:"status"`
 }
 
+type JobTaskDMSSpec struct {
+	ID     string          `bson:"id" json:"id" yaml:"id"`
+	Orders []*DMSTaskOrder `bson:"orders" json:"orders" yaml:"orders"`
+}
+
+type DMSTaskOrder struct {
+	DMSOrder  `bson:",inline"          json:",inline"          yaml:",inline"`
+	JobStatus string `bson:"job_status" json:"job_status" yaml:"job_status"`
+	Error     string `bson:"error" json:"error" yaml:"error"`
+}
+
 type JobTaskApolloSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
 	ApolloID                string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`

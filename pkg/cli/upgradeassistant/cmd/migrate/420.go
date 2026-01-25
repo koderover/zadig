@@ -62,6 +62,11 @@ func V410ToV420() error {
 		return err
 	}
 
+	err = migrateSAE(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	err = migrateEditReleasePlanAction(ctx, migrationInfo)
 	if err != nil {
 		return err
@@ -227,6 +232,42 @@ func migrateEditReleasePlanAction(ctx *internalhandler.Context, migrationInfo *m
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration420EditReleasePlanAction): true,
 	})
+
+	return nil
+}
+
+func migrateSAE(ctx *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration420SAE {
+		defaultSAE, err := commonrepo.NewSAEColl().FindDefault()
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				return nil
+			}
+
+			return fmt.Errorf("failed to find default sae, err: %s", err)
+		}
+
+		cloudService := &commonmodels.CloudService{
+			Type:            setting.CloudServiceTypeSAE,
+			Name:            defaultSAE.Name,
+			AccessKeyId:     defaultSAE.AccessKeyId,
+			AccessKeySecret: defaultSAE.AccessKeySecret,
+			UpdateBy:        defaultSAE.UpdateBy,
+			UpdatedAt:       defaultSAE.UpdatedAt,
+			CreatedAt:       defaultSAE.CreatedAt,
+		}
+
+		err = commonrepo.NewCloudServiceColl().Create(ctx, cloudService)
+		if err != nil {
+			return fmt.Errorf("failed to create cloud service, err: %s", err)
+		}
+
+		_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+			getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration420SAE): true,
+		})
+
+		return nil
+	}
 
 	return nil
 }

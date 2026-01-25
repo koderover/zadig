@@ -22,21 +22,22 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	sae "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	cloudservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/cloudservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-// @Summary List SAE
-// @Description List SAE
+// @Summary 列出云服务
+// @Description 列出云服务
 // @Tags 	system
 // @Accept 	json
 // @Produce json
 // @Param 	encryptedKey		query		string				true	"encrypted key"
-// @Success 200 	{array} 	models.SAE
-// @Router /api/aslan/system/sae [get]
-func ListSAE(c *gin.Context) {
+// @Success 200 	{array} 	models.CloudService
+// @Router /api/aslan/system/cloud_service [get]
+func ListCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -58,17 +59,17 @@ func ListSAE(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = sae.ListSAE(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = cloudservice.ListCloudService(ctx, encryptedKey)
 }
 
-// @Summary List SAE Detail
-// @Description List SAE Detail
+// @Summary 列出云服务详情
+// @Description 列出云服务详情
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Success 200 	{array} 	models.SAE
-// @Router /api/aslan/system/sae/detail [get]
-func ListSAEInfo(c *gin.Context) {
+// @Success 200 	{array} 	models.CloudService
+// @Router /api/aslan/system/cloud_service/detail [get]
+func ListCloudServiceInfo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -78,18 +79,18 @@ func ListSAEInfo(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = sae.ListSAEInfo(ctx.Logger)
+	ctx.Resp, ctx.RespErr = cloudservice.ListCloudServiceInfo(ctx)
 }
 
-// @Summary Create SAE
-// @Description Create SAE
+// @Summary 创建云服务
+// @Description 创建云服务
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	body 	body 		models.SAE			true 	"body"
+// @Param 	body 	body 		models.CloudService			true 	"body"
 // @Success 200
-// @Router /api/aslan/system/sae [post]
-func CreateSAE(c *gin.Context) {
+// @Router /api/aslan/system/cloud_service [post]
+func CreateCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -105,30 +106,32 @@ func CreateSAE(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigLicenseFeatureSae()
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-
-	args := new(commonmodels.SAE)
+	args := new(commonmodels.CloudService)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 
+	if args.Type == setting.CloudServiceTypeSAE {
+		err = commonutil.CheckZadigLicenseFeatureSae()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
 	args.UpdateBy = ctx.UserName
-	ctx.RespErr = sae.CreateSAE(args, ctx.Logger)
+	ctx.RespErr = cloudservice.CreateCloudService(ctx, args)
 }
 
-// @Summary Get SAE
-// @Description Get SAE
+// @Summary 获取云服务
+// @Description 获取云服务
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Success 200 	{object} 	models.SAE
-// @Router /api/aslan/system/sae/{id} [get]
-func GetSAE(c *gin.Context) {
+// @Success 200 	{object} 	models.CloudService
+// @Router /api/aslan/system/cloud_service/{id} [get]
+func GetCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -150,19 +153,19 @@ func GetSAE(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = sae.FindSAE(id, "")
+	ctx.Resp, ctx.RespErr = cloudservice.FindCloudService(ctx, id)
 }
 
-// @Summary Update SAE
-// @Description Update SAE
+// @Summary 更新云服务
+// @Description 更新云服务
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	id		path		string				true	"sae id"
-// @Param 	body 	body 		models.SAE			true 	"body"
+// @Param 	id		path		string					true	"云服务 ID"
+// @Param 	body 	body 		models.CloudService			true 	"body"
 // @Success 200
-// @Router /api/aslan/system/sae/{id} [put]
-func UpdateSAE(c *gin.Context) {
+// @Router /api/aslan/system/cloud_service/{id} [put]
+func UpdateCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -178,37 +181,39 @@ func UpdateSAE(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigLicenseFeatureSae()
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-
 	id := c.Param("id")
 	if len(id) == 0 {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid id")
 		return
 	}
 
-	args := new(commonmodels.SAE)
+	args := new(commonmodels.CloudService)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.RespErr = sae.UpdateSAE(id, args, ctx.Logger)
+	if args.Type == setting.CloudServiceTypeSAE {
+		err = commonutil.CheckZadigLicenseFeatureSae()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	ctx.RespErr = cloudservice.UpdateCloudService(ctx, id, args)
 }
 
-// @Summary Delete SAE
-// @Description Delete SAE
+// @Summary 删除云服务
+// @Description 删除云服务
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	id		path		string				true	"sae id"
+// @Param 	id		path		string				true	"云服务 id"
 // @Success 200
-// @Router /api/aslan/system/sae/{id} [delete]
-func DeleteSAE(c *gin.Context) {
+// @Router /api/aslan/system/cloud_service/{id} [delete]
+func DeleteCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -230,18 +235,18 @@ func DeleteSAE(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = sae.DeleteSAE(id)
+	ctx.RespErr = cloudservice.DeleteCloudService(ctx, id)
 }
 
-// @Summary 验证 SAE 连接
+// @Summary 验证云服务连接
 // @Description
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	body 	body 		models.SAE			true 	"body"
+// @Param 	body 	body 		models.CloudService			true 	"body"
 // @Success 200
-// @Router /api/aslan/system/sae/validate [post]
-func ValidateSAE(c *gin.Context) {
+// @Router /api/aslan/system/cloud_service/validate [post]
+func ValidateCloudService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -257,11 +262,11 @@ func ValidateSAE(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.SAE)
+	args := new(commonmodels.CloudService)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 
-	ctx.RespErr = sae.ValidateSAE(args)
+	ctx.RespErr = cloudservice.ValidateCloudService(ctx, args)
 }

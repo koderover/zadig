@@ -1028,3 +1028,10 @@ const (
 	ListWorkflowV4InGlobalOrderByAsc  ListWorkflowV4InGlobalOrderBy = 1
 	ListWorkflowV4InGlobalOrderByDesc ListWorkflowV4InGlobalOrderBy = -1
 )
+
+type CloudServiceType string
+
+const (
+	CloudServiceTypeDMS CloudServiceType = "dms"
+	CloudServiceTypeSAE CloudServiceType = "sae"
+)
