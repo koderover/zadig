@@ -681,11 +681,13 @@ func generateDefaultSystemActions() *SystemActions {
 			EditInsightConfig: false,
 		},
 		ReleasePlan: &ReleasePlanActions{
-			Create:     false,
-			View:       false,
-			Edit:       false,
-			Delete:     false,
-			EditConfig: false,
+			Create:       false,
+			View:         false,
+			Delete:       false,
+			EditConfig:   false,
+			EditMetadata: false,
+			EditApproval: false,
+			EditSubtasks: false,
 		},
 		BusinessDirectory: &BusinessDirectoryActions{
 			View: false,
@@ -873,8 +875,12 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DataCenter.EditInsightConfig = true
 	case VerbCreateReleasePlan:
 		systemActions.ReleasePlan.Create = true
-	case VerbEditReleasePlan:
-		systemActions.ReleasePlan.Edit = true
+	case VerbEditReleasePlanMetadata:
+		systemActions.ReleasePlan.EditMetadata = true
+	case VerbEditReleasePlanApproval:
+		systemActions.ReleasePlan.EditApproval = true
+	case VerbEditReleasePlanSubtasks:
+		systemActions.ReleasePlan.EditSubtasks = true
 	case VerbDeleteReleasePlan:
 		systemActions.ReleasePlan.Delete = true
 	case VerbGetReleasePlan:

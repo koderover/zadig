@@ -33,24 +33,10 @@ const (
 	DbEditActionDrop DbEditAction = "drop"
 )
 
-//go:embed addmysql.sql
-var addmysql []byte
+//go:embed 4.2_mysql_change.sql
+var removeEditReleasePlanSQL []byte
 
-//go:embed dropmysql.sql
-var dropmysql []byte
-
-func UpdateUserDBTables(action DbEditAction) error {
-	var mysql string
-	switch action {
-	case DbEditActionAdd:
-		mysql = fmt.Sprintf(string(addmysql), config.MysqlUserDB())
-
-	case DbEditActionDrop:
-		mysql = fmt.Sprintf(string(dropmysql), config.MysqlUserDB())
-	}
-	if len(mysql) == 0 {
-		return fmt.Errorf("%smysql.sql is empty", action)
-	}
+func RemoveEditReleasePlanAction() error {
 	db, err := sql.Open("mysql", fmt.Sprintf(
 		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
 		config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(),
@@ -59,7 +45,7 @@ func UpdateUserDBTables(action DbEditAction) error {
 		return err
 	}
 	defer db.Close()
-	_, err = db.Exec(mysql)
+	_, err = db.Exec(fmt.Sprintf(string(removeEditReleasePlanSQL), config.MysqlUserDB()))
 	return err
 }
 
