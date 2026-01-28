@@ -10,7 +10,7 @@ INSERT INTO `action` (name, action, resource, scope)
 VALUES
     ("编辑元数据", "edit_release_plan_metadata", "ReleasePlan", 2),
     ("编辑审批流程", "edit_release_plan_approval", "ReleasePlan", 2),
-    ("编辑子任务", "edit_release_plan_subtasks", "ReleasePlan", 2)
+    ("编辑发布内容", "edit_release_plan_subtasks", "ReleasePlan", 2)
 ON DUPLICATE KEY UPDATE id=id;
 
 # Migrate role_action_binding - for each role that had edit_release_plan, add the 3 new actions
