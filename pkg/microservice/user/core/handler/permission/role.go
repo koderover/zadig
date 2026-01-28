@@ -44,7 +44,8 @@ func checkLicense(actions []string) error {
 		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		actionSet := sets.NewString(actions...)
 		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
-			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
+			actionSet.Has(permission.VerbEditReleasePlanMetadata) || actionSet.Has(permission.VerbEditReleasePlanApproval) ||
+			actionSet.Has(permission.VerbEditReleasePlanSubtasks) || actionSet.Has(permission.VerbGetReleasePlan) ||
 			actionSet.Has(permission.VerbEditConfigReleasePlan) ||
 			actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
 			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||

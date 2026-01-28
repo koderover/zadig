@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -57,6 +58,11 @@ func V410ToV420() error {
 	}
 
 	err = migrateVMDeploy(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateEditReleasePlanAction(ctx, migrationInfo)
 	if err != nil {
 		return err
 	}
@@ -205,6 +211,22 @@ func migrateVMDeployJob(ctx *internalhandler.Context, migrationInfo *models.Migr
 			getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration420VMDeployEnvSource): true,
 		})
 	}
+
+	return nil
+}
+
+func migrateEditReleasePlanAction(ctx *internalhandler.Context, migrationInfo *models.Migration) error {
+	if !migrationInfo.Migration420EditReleasePlanAction {
+		err := orm.RemoveEditReleasePlanAction()
+		if err != nil {
+			return fmt.Errorf("failed to remove edit release plan action, err: %s", err)
+		}
+	}
+
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration420EditReleasePlanAction): true,
+	})
 
 	return nil
 }

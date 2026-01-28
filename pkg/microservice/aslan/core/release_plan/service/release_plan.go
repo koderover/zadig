@@ -367,9 +367,25 @@ func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	return mongodb.NewReleasePlanColl().DeleteByID(context.Background(), id)
 }
 
+type UpdateReleasePlanVerb string
+
+const (
+	ActionUpdateReleaseJob          = "update_release_job"
+	ActionCreateReleaseJob          = "create_release_job"
+	ActionDeleteReleaseJob          = "delete_release_job"
+	ActionUpdateApproval            = "update_approval"
+	ActionDeleteApproval            = "delete_approval"
+	ActionUpdateName                = "update_name"
+	ActionUpdateManager             = "update_manager"
+	ActionUpdateTimeRange           = "update_time_range"
+	ActionUpdateScheduleExecuteTime = "update_schedule_execute_time"
+	ActionUpdateDescription         = "update_description"
+	ActionUpdateJiraSprint          = "update_jira_sprint"
+)
+
 type UpdateReleasePlanArgs struct {
-	Verb string      `json:"verb"`
-	Spec interface{} `json:"spec"`
+	Verb UpdateReleasePlanVerb `json:"verb"`
+	Spec interface{}           `json:"spec"`
 }
 
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {

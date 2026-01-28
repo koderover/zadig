@@ -113,13 +113,7 @@ func UpdateReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -135,6 +129,28 @@ func UpdateReleasePlan(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	// Check permission based on the verb
+	if !ctx.Resources.IsSystemAdmin {
+		permitted := false
+		switch string(req.Verb) {
+		case service.ActionUpdateName, service.ActionUpdateManager, service.ActionUpdateTimeRange,
+			service.ActionUpdateScheduleExecuteTime, service.ActionUpdateDescription, service.ActionUpdateJiraSprint:
+			permitted = ctx.Resources.SystemActions.ReleasePlan.EditMetadata
+		case service.ActionUpdateApproval, service.ActionDeleteApproval:
+			permitted = ctx.Resources.SystemActions.ReleasePlan.EditApproval
+		case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob:
+			permitted = ctx.Resources.SystemActions.ReleasePlan.EditSubtasks
+		default:
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown verb: %s", req.Verb))
+			return
+		}
+		if !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), req)
 }
 

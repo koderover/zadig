@@ -35,6 +35,7 @@ type Migration struct {
 	Migration400ProjectReleaseMaxHistory bool               `bson:"migration_400_project_release_max_history"`
 	Migration420VMDeploy                 bool               `bson:"migration_420_vm_deploy"`
 	Migration420VMDeployEnvSource        bool               `bson:"migration_420_vm_deploy_env_source"`
+	Migration420EditReleasePlanAction    bool               `bson:"migration_420_edit_release_plan_action"`
 	Error                                string             `bson:"error"`
 }
 

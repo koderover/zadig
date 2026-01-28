@@ -138,9 +138,13 @@ func OpenAPIUpdateReleasePlanWithJobs(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
-		ctx.UnAuthorized = true
-		return
+	// This OpenAPI updates metadata, approval, and jobs all at once, so require all edit permissions
+	if !ctx.Resources.IsSystemAdmin {
+		rp := ctx.Resources.SystemActions.ReleasePlan
+		if !rp.EditMetadata || !rp.EditApproval || !rp.EditSubtasks {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	opt := new(service.OpenAPIUpdateReleasePlanWithJobsArgs)

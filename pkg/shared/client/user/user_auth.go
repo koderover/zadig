@@ -163,8 +163,11 @@ type DataCenterActions struct {
 type ReleasePlanActions struct {
 	Create     bool
 	View       bool
-	Edit       bool
+	EditMetadata bool
+	EditApproval bool
+	EditSubtasks bool
 	Delete     bool
+	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
 }
 

@@ -114,11 +114,13 @@ const (
 	VerbGetDataCenterInsight        = "efficiency_over"
 	VerbEditDataCenterInsightConfig = "edit_dashboard_config"
 	// release plan
-	VerbGetReleasePlan        = "get_release_plan"
-	VerbCreateReleasePlan     = "create_release_plan"
-	VerbEditReleasePlan       = "edit_release_plan"
-	VerbDeleteReleasePlan     = "delete_release_plan"
-	VerbEditConfigReleasePlan = "edit_config_release_plan"
+	VerbGetReleasePlan          = "get_release_plan"
+	VerbCreateReleasePlan       = "create_release_plan"
+	VerbEditReleasePlanMetadata = "edit_release_plan_metadata"
+	VerbEditReleasePlanApproval = "edit_release_plan_approval"
+	VerbEditReleasePlanSubtasks = "edit_release_plan_subtasks"
+	VerbDeleteReleasePlan       = "delete_release_plan"
+	VerbEditConfigReleasePlan   = "edit_config_release_plan"
 	// cluster management
 	VerbGetClusterManagement    = "get_cluster_management"
 	VerbCreateClusterManagement = "create_cluster_management"
@@ -324,8 +326,11 @@ type DataCenterActions struct {
 type ReleasePlanActions struct {
 	Create     bool
 	View       bool
-	Edit       bool
+	EditMetadata bool
+	EditApproval bool
+	EditSubtasks bool
 	Delete     bool
+	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
 }
 
