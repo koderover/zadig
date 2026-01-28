@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -27,7 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	cloudservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/cloudservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -215,7 +216,7 @@ func (j SAEDeployJobController) IsServiceTypeJob() bool {
 }
 
 func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.ApprovalTicket) (envOptions []*commonmodels.SAEEnvInfo, err error) {
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		return nil, err
@@ -237,7 +238,7 @@ func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.Approv
 
 		serviceList := make([]*commonmodels.SAEServiceInfo, 0)
 
-		saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+		saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 		if err != nil {
 			err = fmt.Errorf("failed to create sae client, err: %s", err)
 			return nil, err
@@ -306,7 +307,7 @@ func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.Approv
 
 			kv := make([]*commonmodels.SAEKV, 0)
 
-			saeKVMap, err := saeservice.CreateKVMap(appDetailResp.Body.Data.Envs)
+			saeKVMap, err := cloudservice.CreateKVMap(appDetailResp.Body.Data.Envs)
 			if err != nil {
 				err = fmt.Errorf("failed to decode sae app's env variables, error: %s", err)
 				return nil, err

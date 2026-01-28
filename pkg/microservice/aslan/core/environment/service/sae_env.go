@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -34,7 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	cloudservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/cloudservice"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -128,13 +129,13 @@ func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) e
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -187,14 +188,14 @@ func DeleteSAEEnv(username string, projectName, envName string, production bool,
 		return e.ErrDeleteEnv.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrDeleteEnv.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -257,14 +258,14 @@ type ListSAEAppsResponse struct {
 }
 
 func ListSAEApps(regionID, namespace, projectName, envName string, production bool, appName string, isAddApp bool, currentPage, pageSize int32, log *zap.SugaredLogger) (*ListSAEAppsResponse, error) {
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListSAEApps.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, regionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, regionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -345,14 +346,14 @@ type SAENamespace struct {
 }
 
 func ListSAENamespaces(regionID string, log *zap.SugaredLogger) ([]*SAENamespace, error) {
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListSAEApps.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, regionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, regionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -398,14 +399,14 @@ func RestartSAEApp(projectName, envName string, production bool, appID string, l
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -439,14 +440,14 @@ func BindSAEAppToService(projectName, envName string, production bool, appID, se
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -523,14 +524,14 @@ func RescaleSAEApp(projectName, envName string, production bool, appID string, R
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -565,14 +566,14 @@ func RollbackSAEApp(ctx *internalhandler.Context, projectName, envName string, p
 		return e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -694,14 +695,14 @@ func ListSAEAppVersions(projectName, envName string, production bool, appID stri
 		return nil, e.ErrListEnvServiceVersions.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListEnvServiceVersions.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -774,14 +775,14 @@ func ListSAEAppInstances(projectName, envName string, production bool, appID str
 		return nil, e.ErrListServicePod.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListServicePod.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -869,14 +870,14 @@ func RestartSAEAppInstance(projectName, envName string, production bool, appID, 
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -911,14 +912,14 @@ func ListSAEChangeOrder(projectName, envName string, production bool, appID stri
 		return "", e.ErrGetService.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
-	if err != nil {
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
+	if err != nil 	{
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -955,14 +956,14 @@ func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.Sug
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -995,14 +996,14 @@ func AbortSAEChangeOrder(projectName, envName string, production bool, appID, or
 		return err
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return err
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1035,14 +1036,14 @@ func RollbackSAEChangeOrder(ctx *internalhandler.Context, projectName, envName s
 		return err
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return err
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1099,14 +1100,14 @@ func ConfirmSAEPipelineBatch(projectName, envName string, production bool, appID
 		return err
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return err
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1142,14 +1143,14 @@ func GetSAEPipeline(projectName, envName string, production bool, appID, pipelin
 		return nil, err
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return nil, err
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1182,14 +1183,14 @@ func GetSAEAppInstanceLog(projectName, envName string, production bool, appID, i
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1227,13 +1228,13 @@ func AddSAEAppToEnv(username string, projectName, envName string, production boo
 		return e.ErrAddSAEAppToEnv.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrAddSAEAppToEnv.AddErr(err)
 	}
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -1283,13 +1284,13 @@ func DelSAEAppFromEnv(username string, projectName, envName string, production b
 		return e.ErrDelSAEAppFromEnv.AddErr(err)
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(context.Background(), setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
 		log.Error(err)
 		return e.ErrDelSAEAppFromEnv.AddErr(err)
 	}
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)

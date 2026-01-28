@@ -1480,8 +1480,6 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 		prodSvc.Render.ChartVersion = latestTmplSvc.HelmChart.Version
 	}
 
-	log.Debugf("current revision: %d, latest revision: %d", currentTmplSvc.Revision, latestTmplSvc.Revision)
-
 	return prodSvc, currentTmplSvc, latestTmplSvc, productInfo, nil
 }
 

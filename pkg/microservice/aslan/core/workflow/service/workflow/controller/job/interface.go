@@ -98,6 +98,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateDeployJobController(job, workflow)
 	case config.JobZadigDistributeImage:
 		return CreateDistributeImageJobController(job, workflow)
+	case config.JobDMS:
+		return CreateDMSJobController(job, workflow)
 	case config.JobFreestyle:
 		return CreateFreestyleJobController(job, workflow)
 	case config.JobGrafana:

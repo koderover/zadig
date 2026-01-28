@@ -36,6 +36,7 @@ type Migration struct {
 	Migration420VMDeploy                 bool               `bson:"migration_420_vm_deploy"`
 	Migration420VMDeployEnvSource        bool               `bson:"migration_420_vm_deploy_env_source"`
 	Migration420EditReleasePlanAction    bool               `bson:"migration_420_edit_release_plan_action"`
+	Migration420SAE                      bool               `bson:"migration_420_sae"`
 	Error                                string             `bson:"error"`
 }
 

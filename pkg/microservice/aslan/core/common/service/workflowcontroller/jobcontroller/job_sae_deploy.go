@@ -29,7 +29,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	cloudservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/cloudservice"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 )
 
@@ -69,7 +70,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	saeModel, err := commonrepo.NewCloudServiceColl().FindDefault(ctx, setting.CloudServiceTypeSAE)
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		c.logger.Error(err)
@@ -78,7 +79,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	saeClient, err := cloudservice.NewSAEClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		c.logger.Error(err)
@@ -87,7 +88,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	saeEnvs, err := saeservice.ToSAEKVString(c.jobTaskSpec.Envs)
+	saeEnvs, err := cloudservice.ToSAEKVString(c.jobTaskSpec.Envs)
 	if err != nil {
 		err = fmt.Errorf("failed to serialize sae envs, err: %s", err)
 		c.logger.Error(err)
