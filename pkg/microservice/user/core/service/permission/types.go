@@ -118,7 +118,7 @@ const (
 	VerbCreateReleasePlan       = "create_release_plan"
 	VerbEditReleasePlanMetadata = "edit_release_plan_metadata"
 	VerbEditReleasePlanApproval = "edit_release_plan_approval"
-	VerbEditReleasePlanSubtasks = ""
+	VerbEditReleasePlanSubtasks = "edit_release_plan_subtasks"
 	VerbDeleteReleasePlan       = "delete_release_plan"
 	VerbEditConfigReleasePlan   = "edit_config_release_plan"
 	// cluster management
@@ -327,8 +327,8 @@ type ReleasePlanActions struct {
 	Create     bool
 	View       bool
 	EditMetadata bool
-	EditApproval bool `json:"edit_approval"`
-	EditSubtasks bool `json:"edit_subtasks"`
+	EditApproval bool
+	EditSubtasks bool
 	Delete     bool
 	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
