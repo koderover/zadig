@@ -17,6 +17,7 @@ const (
 	Password     = "PASSWORD"
 	IssueID      = "ISSUE_ID"
 	TargetStatus = "TARGET_STATUS"
+	Script       = "SCRIPT"
 )
 
 func main() {
@@ -32,7 +33,9 @@ func main() {
 	username := viper.GetString(Username)
 	password := viper.GetString(Password)
 	status := viper.GetString(TargetStatus)
+	script := viper.GetString(Script)
 
+	log.Infof("script: %s", script)
 	log.Infof("executing jira status update to %s for issue: %s on server %s", status, issueID, addr)
 
 	tp := jira.BasicAuthTransport{
