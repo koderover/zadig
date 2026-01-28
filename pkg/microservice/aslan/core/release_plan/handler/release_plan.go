@@ -140,6 +140,10 @@ func UpdateReleasePlan(c *gin.Context) {
 		case service.ActionUpdateApproval, service.ActionDeleteApproval:
 			permitted = ctx.Resources.SystemActions.ReleasePlan.EditApproval
 		case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob:
+			ctx.Logger.Infof("checking auth for action: %s", req.Verb)
+			ctx.Logger.Infof("edit subtasks: %v", ctx.Resources.SystemActions.ReleasePlan.EditSubtasks)
+			ctx.Logger.Infof("approval: %v", ctx.Resources.SystemActions.ReleasePlan.EditApproval)
+			ctx.Logger.Infof("metadata: %v", ctx.Resources.SystemActions.ReleasePlan.EditMetadata)
 			permitted = ctx.Resources.SystemActions.ReleasePlan.EditSubtasks
 		default:
 			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown verb: %s", req.Verb))
