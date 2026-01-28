@@ -327,8 +327,8 @@ type ReleasePlanActions struct {
 	Create     bool
 	View       bool
 	EditMetadata bool
-	EditApproval bool
-	EditSubtasks bool
+	EditApproval bool `json:"edit_approval"`
+	EditSubtasks bool `json:"edit_subtasks"`
 	Delete     bool
 	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
