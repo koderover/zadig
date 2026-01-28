@@ -174,7 +174,17 @@ func (j PluginJobController) GetUsedRepos() ([]*types.Repository, error) {
 }
 
 func (j PluginJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
-	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+	for _, kv := range j.jobSpec.Plugin.Inputs {
+		if kv.Name == key {
+			resp, err := renderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
+			if err != nil {
+				err = fmt.Errorf("Failed to render kv for key: %s, error: %s", key, err)
+				return nil, err
+			}
+			return resp, nil
+		}
+	}
+	return nil, fmt.Errorf("key: %s not found in job: %s", key, j.name)
 }
 
 func (j PluginJobController) IsServiceTypeJob() bool {
