@@ -47,6 +47,7 @@ import (
 
 	zadigconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	vmmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -141,6 +142,11 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 			env.Value = ""
 		}
 	}
+	c.jobTaskSpec.Properties.Envs = append(c.jobTaskSpec.Properties.Envs, &models.KeyVal{
+		Key:   "TASK_CREATOR_ID",
+		Value: c.workflowCtx.WorkflowTaskCreatorAccount,
+	})
+
 	// set default timeout
 	if c.jobTaskSpec.Properties.Timeout <= 0 {
 		c.jobTaskSpec.Properties.Timeout = 600
