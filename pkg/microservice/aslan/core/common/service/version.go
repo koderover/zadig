@@ -352,7 +352,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				ImageName:     rollbackContainer.ImageName,
 			}
 
-			replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, log)
+			replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, nil, log)
 			if err != nil {
 				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 			}
@@ -409,7 +409,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 						ImageName:     rollbackContainer.ImageName,
 					}
 
-					replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, log)
+					replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, nil, log)
 					if err != nil {
 						return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 					}
