@@ -36,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -192,6 +193,33 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	c.ack()
 
+	jobLogManager := joblog.NewJobLogManager(&joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job})
+	jobKey := jobLogManager.GetJobKey()
+	jobLogManager.SetJobStatusRunning(jobKey, time.Duration(c.jobTaskSpec.Timeout)*time.Second)
+	defer func() {
+		jobLogManager.SaveJobLog("Deploy job finished")
+		jobLogManager.FinishJob()
+	}()
+
+	deployContentStr := ""
+	for _, deployContent := range c.jobTaskSpec.DeployContents {
+		contentStr := ""
+		if deployContent == config.DeployImage {
+			contentStr = "image"
+		} else if deployContent == config.DeployVars {
+			contentStr = "variables"
+		} else if deployContent == config.DeployConfig {
+			contentStr = "configuration"
+		}
+		if contentStr != "" {
+			deployContentStr += contentStr + ", "
+		}
+	}
+	deployContentStr = strings.TrimSuffix(deployContentStr, ", ")
+
+	logContent := fmt.Sprintf("Start to deploy helm service %s, env: %s, namespace: %s, deploy contents: %s", c.jobTaskSpec.ServiceName, c.jobTaskSpec.Env, c.namespace, deployContentStr)
+	jobLogManager.SaveJobLog(logContent)
+
 	c.logger.Debugf("start helm deploy, productName %s serviceName %s namespace %s, values %s, overrideKVs: %s updateServiceRevision %v, revision %d",
 		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, finalValuesYaml, newEnvService.GetServiceRender().OverrideValues, updateServiceRevision, newEnvService.Revision)
 
@@ -212,6 +240,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	timeout := time.After(time.Second*time.Duration(timeOut) + time.Minute)
 	if !c.jobTaskSpec.SkipCheckRunStatus {
+		jobLogManager.SaveJobLog("Checking helm service workload status ...")
+
 		// we add timeout check here in case helm stuck in pending status
 		select {
 		case result := <-done:
@@ -293,12 +323,12 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 		}
 	}
 
-	resources, err = GetResourcesPodOwnerUID(c.kubeClient, c.namespace, nil, c.jobTaskSpec.DeployContents, resources)
+	resources, err = GetResourcesPodOwnerUID(c.kubeClient, c.namespace, nil, c.jobTaskSpec.DeployContents, resources, nil)
 	if err != nil {
 		return config.StatusFailed, fmt.Errorf("failed to get resources pod owner uid, err: %v", err)
 	}
 
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, timeout, c.logger)
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, nil, timeout, c.logger)
 	if err != nil {
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}

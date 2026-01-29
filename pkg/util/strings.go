@@ -17,9 +17,12 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"unicode"
@@ -193,4 +196,36 @@ func TruncateName(name string, maxLength int) string {
 	}
 
 	return truncated + "-" + hashStr
+}
+
+// CompressBytes 使用 gzip 压缩字符串，返回压缩后的字节数组
+func CompressBytes(data string) ([]byte, error) {
+	var buf bytes.Buffer
+	writer := gzip.NewWriter(&buf)
+	_, err := writer.Write([]byte(data))
+	if err != nil {
+		writer.Close()
+		return nil, fmt.Errorf("failed to write data to gzip writer: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// DecompressBytes 从压缩的字节数组中解压缩数据
+func DecompressBytes(compressedData []byte) (string, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to decompress data: %w", err)
+	}
+
+	return buf.String(), nil
 }
