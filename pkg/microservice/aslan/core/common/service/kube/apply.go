@@ -44,6 +44,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -76,8 +77,14 @@ type ResourceApplyParam struct {
 	InjectSecrets            bool
 	SharedEnvHandler         SharedEnvHandler
 	IstioGrayscaleEnvHandler IstioGrayscaleEnvHandler
+	JobLogContext            *JobLogContext
 	Uninstall                bool
 	WaitForUninstall         bool
+}
+
+type JobLogContext struct {
+	WorkflowCtx *commonmodels.WorkflowTaskCtx
+	JobTask     *commonmodels.JobTask
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -174,12 +181,14 @@ func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.Grou
 }
 
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, log *zap.SugaredLogger) error {
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, jobLogContext *JobLogContext, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
 	for _, u := range newItems {
 		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
 	}
+
+	jobLogManager := joblog.JobLogManager{}
 
 	oldItemsMap := make(map[string]*unstructured.Unstructured)
 	for _, u := range currentItems {
@@ -196,6 +205,11 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			item.SetGroupVersionKind(GetValidGVK(item.GroupVersionKind(), version))
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue
+		}
+
+		if jobLogContext != nil {
+			logContent := fmt.Sprintf("Delete resource %s/%s in namespace %s", item.GetKind(), item.GetName(), namespace)
+			jobLogManager.SaveJobLog(jobLogContext.WorkflowCtx, jobLogContext.JobTask, logContent)
 		}
 
 		if !waitForDelete {
@@ -646,7 +660,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			return nil, nil
 		}
 
-		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, applyParam.JobLogContext, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
@@ -672,7 +686,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		updateResources = append(updateResources, r.unstructured)
 	}
 
-	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, nil, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -685,6 +699,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	var res []*unstructured.Unstructured
+	var jobLogManager joblog.JobLogManager
 	errList := &multierror.Error{}
 
 	for _, u := range unchangedResources {
@@ -705,6 +720,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				continue
 			}
 
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+			}
 		case setting.Service:
 			u.SetNamespace(namespace)
 			u.SetLabels(MergeLabels(labels, u.GetLabels()))
@@ -714,6 +733,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
+			}
+
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
 			}
 
 			if istioClient != nil && applyParam.SharedEnvHandler != nil {
@@ -817,7 +841,17 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					continue
 				}
 
+				if applyParam.JobLogContext != nil {
+					logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+					jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+				}
+
 				if isStuck && deployExists {
+					if applyParam.JobLogContext != nil {
+						logContent := fmt.Sprintf("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+						jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+					}
+
 					log.Infof("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
 					if fixErr := HandleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", namespace, res.Name, fixErr)
@@ -845,7 +879,17 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					continue
 				}
 
+				if applyParam.JobLogContext != nil {
+					logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+					jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+				}
+
 				if isStuck && stsExists {
+					if applyParam.JobLogContext != nil {
+						logContent := fmt.Sprintf("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+						jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+					}
+
 					log.Infof("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
 					if fixErr := HandleStuckStatefulSet(existingSts, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", namespace, res.Name, fixErr)
@@ -886,10 +930,20 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				continue
 			}
 
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Delete old %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+			}
+
 			if err := updater.CreateJob(obj, kubeClient); err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
+			}
+
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply new %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
 			}
 
 		case setting.CronJob:
@@ -949,6 +1003,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				}
 			}
 
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
+			}
 		case setting.ClusterRole, setting.ClusterRoleBinding:
 			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
 
@@ -957,6 +1015,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
+			}
+
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
 			}
 		default:
 			u.SetNamespace(namespace)
@@ -967,6 +1030,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
+			}
+
+			if applyParam.JobLogContext != nil {
+				logContent := fmt.Sprintf("Apply %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(applyParam.JobLogContext.WorkflowCtx, applyParam.JobLogContext.JobTask, logContent)
 			}
 		}
 

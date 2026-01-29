@@ -17,17 +17,12 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
-	"compress/gzip"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	utilconfig "github.com/koderover/zadig/v2/pkg/config"
@@ -49,40 +44,8 @@ func (v *VMJobLogManager) vmJobKey(key string) string {
 	return fmt.Sprintf("vm-job-%s", key)
 }
 
-func (v *VMJobLogManager) vmJobLogKey(key string) string {
+func (v *VMJobLogManager) VmJobLogKey(key string) string {
 	return fmt.Sprintf("vm-job-log-%s", key)
-}
-
-// compressBytes 使用 gzip 压缩字符串，返回压缩后的字节数组
-func compressBytes(data string) ([]byte, error) {
-	var buf bytes.Buffer
-	writer := gzip.NewWriter(&buf)
-	_, err := writer.Write([]byte(data))
-	if err != nil {
-		writer.Close()
-		return nil, fmt.Errorf("failed to write data to gzip writer: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-// decompressBytes 从压缩的字节数组中解压缩数据
-func decompressBytes(compressedData []byte) (string, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer reader.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, reader)
-	if err != nil {
-		return "", fmt.Errorf("failed to decompress data: %w", err)
-	}
-
-	return buf.String(), nil
 }
 
 func (v *VMJobLogManager) IsJobRunning(key string) bool {
@@ -105,64 +68,8 @@ func (v *VMJobLogManager) FinishJob(key string) {
 	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Delete(v.vmJobKey(key))
 }
 
-func (v *VMJobLogManager) GetJobLog(key string) (string, error) {
-	redisCache := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB())
-	logKey := v.vmJobLogKey(key)
-
-	compressedDataStr, err := redisCache.GetString(logKey)
-	if err != nil {
-		return "", err
-	}
-
-	decompressedData, err := decompressBytes([]byte(compressedDataStr))
-	if err != nil {
-		return "", fmt.Errorf("failed to decompress job log, key: %s, error: %s", logKey, err)
-	}
-
-	return decompressedData, nil
-}
-
-func (v *VMJobLogManager) WriteJobLog(key string, logContent string) error {
-	redisCache := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB())
-	logKey := v.vmJobLogKey(key)
-
-	// 读取现有的日志内容
-	existingCompressedLogStr, err := redisCache.GetString(logKey)
-	if err != nil && !errors.Is(err, redis.Nil) {
-		// 如果错误不是 key 不存在，则返回错误
-		return fmt.Errorf("failed to read existing vm job log from redis, key: %s, error: %s", logKey, err)
-	}
-
-	// 追加新内容到现有日志
-	var newLogContent string
-	if err == nil && existingCompressedLogStr != "" {
-		// 解压缩现有日志（将字符串转换为字节数组）
-		existingLog, decompressErr := decompressBytes([]byte(existingCompressedLogStr))
-		if decompressErr != nil {
-			return fmt.Errorf("failed to decompress existing log, key: %s, error: %s", logKey, decompressErr)
-		}
-		newLogContent = existingLog + logContent
-	} else {
-		newLogContent = logContent
-	}
-
-	compressedLogBytes, err := compressBytes(newLogContent)
-	if err != nil {
-		return fmt.Errorf("failed to compress job log, key: %s, error: %s", logKey, err)
-	}
-
-	// 写回 Redis
-	err = redisCache.Write(logKey, string(compressedLogBytes), 3*24*time.Hour)
-	if err != nil {
-		err = fmt.Errorf("failed to write vm job log to redis, key: %s, error: %s", logKey, err)
-		return err
-	}
-
-	return nil
-}
-
 func (v *VMJobLogManager) DeleteJobLog(key string) {
-	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Delete(v.vmJobLogKey(key))
+	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Delete(v.VmJobLogKey(key))
 }
 
 func savaVMJobLog(job *vmmodel.VMJob, logContent string, logger *zap.SugaredLogger) (err error) {
@@ -171,11 +78,11 @@ func savaVMJobLog(job *vmmodel.VMJob, logContent string, logger *zap.SugaredLogg
 	}
 
 	if job != nil && job.LogFile == "" && logContent != "" {
-		job.LogFile = VMJobLog.vmJobLogKey(job.ID.Hex())
+		job.LogFile = VMJobLog.VmJobLogKey(job.ID.Hex())
 	}
 
 	if logContent != "" {
-		err = VMJobLog.WriteJobLog(job.ID.Hex(), logContent)
+		err = cache.AppendBigStringToRedis(job.LogFile, logContent)
 		if err != nil {
 			return fmt.Errorf("failed to write log to file, error: %s", err)
 		}
@@ -211,7 +118,7 @@ func uploadVMJobLog2S3(job *vmmodel.VMJob) error {
 			return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 		}
 
-		logContent, err := VMJobLog.GetJobLog(job.ID.Hex())
+		logContent, err := cache.GetBigStringFromRedis(VMJobLog.VmJobLogKey(job.ID.Hex()))
 		if err != nil {
 			return fmt.Errorf("failed to get vm job log from redis, project: %s, workflow: %s, taskID: %d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 		}
