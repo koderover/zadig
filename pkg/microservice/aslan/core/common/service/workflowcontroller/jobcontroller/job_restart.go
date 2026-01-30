@@ -321,7 +321,7 @@ func restartWorkloadResources(ctx context.Context, kubeClient client.Client, cli
 func (c *RestartJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
 
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, c.jobTaskSpec.ReplaceResources, timeout, c.logger)
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, c.jobTaskSpec.ReplaceResources, nil, timeout, c.logger)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return

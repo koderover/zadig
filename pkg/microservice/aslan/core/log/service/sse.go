@@ -26,6 +26,7 @@ import (
 	"time"
 
 	jenkins "github.com/koderover/gojenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	vmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -72,6 +74,21 @@ type GetVMJobLogOptions struct {
 	TaskID         int64
 	JobName        string
 }
+
+type GetDeployJobLogOptions struct {
+	ProjectKey  string
+	WorkflowKey string
+	TaskID      int64
+	JobName     string
+}
+
+type LogType string
+
+const (
+	LogTypeVM        LogType = "vm"
+	LogTypeContainer LogType = "container"
+	LogTypeDeploy    LogType = "deploy"
+)
 
 func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
@@ -170,7 +187,10 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
 		return
 	}
+
+	logType := LogTypeContainer
 	var vmJobOptions *GetVMJobLogOptions
+	var deployJobOptions *GetDeployJobLogOptions
 
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
@@ -200,6 +220,8 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 				}
 
 				if job.Infrastructure == setting.JobVMInfrastructure {
+					logType = LogTypeVM
+
 					vmJobOptions = &GetVMJobLogOptions{
 						Infrastructure: job.Infrastructure,
 						ProjectKey:     task.ProjectName,
@@ -209,6 +231,14 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 					}
 				} else {
 					options.ClusterID = jobSpec.Properties.ClusterID
+				}
+			case string(config.JobZadigDeploy):
+				logType = LogTypeDeploy
+				deployJobOptions = &GetDeployJobLogOptions{
+					ProjectKey:  task.ProjectName,
+					WorkflowKey: task.WorkflowName,
+					TaskID:      task.TaskID,
+					JobName:     job.Name,
 				}
 			case string(config.JobPlugin):
 				jobSpec := &commonmodels.JobTaskPluginSpec{}
@@ -234,17 +264,17 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		}
 	}
 
-	if vmJobOptions != nil && vmJobOptions.Infrastructure == setting.JobVMInfrastructure {
-		waitVmAndGetLog(ctx, streamChan, vmJobOptions, log)
-	} else {
+	switch logType {
+	case LogTypeVM:
+		if vmJobOptions != nil && vmJobOptions.Infrastructure == setting.JobVMInfrastructure {
+			waitVmAndGetLog(ctx, streamChan, vmJobOptions, log)
+		}
+	case LogTypeDeploy:
+		waitAndGetDeployLog(ctx, streamChan, deployJobOptions, log)
+	case LogTypeContainer:
 		selector := getWorkflowSelector(options)
 		waitAndGetLog(ctx, streamChan, selector, options, log)
 	}
-}
-
-func getTestName(serviceName string) string {
-	testName := strings.TrimRight(serviceName, "-job")
-	return testName
 }
 
 func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector labels.Selector, options *GetContainerOptions, log *zap.SugaredLogger) {
@@ -354,8 +384,54 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 	}
 }
 
+func waitAndGetDeployLog(ctx context.Context, streamChan chan interface{}, options *GetDeployJobLogOptions, log *zap.SugaredLogger) {
+	readOffset := 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Infof("Connection is closed, deploy job log stream stopped")
+			return
+		default:
+			deployJobLogManager := joblog.JobLogManager{}
+			jobKey := deployJobLogManager.GetJobKeyWithParams(options.ProjectKey, options.WorkflowKey, options.TaskID, options.JobName)
+			jobLogKey := deployJobLogManager.GetJobLogKeyWithParams(options.ProjectKey, options.WorkflowKey, options.TaskID, options.JobName)
+
+			if !deployJobLogManager.IsJobRunning(jobKey) {
+				buf, _, err := deployJobLogManager.ReadLogFromOffset(jobLogKey, readOffset)
+				if err != nil {
+					log.Errorf("get deploy job from offset error: %v", err)
+					return
+				}
+
+				err = ReadFromFileAndWriteToStreamChan(buf, streamChan)
+				if err != nil && err != io.EOF {
+					log.Errorf("scan deploy job log stream error: %v", err)
+					return
+				}
+				log.Infof("job cache existed deploy job log stream stopped")
+				return
+			}
+
+			buf, readBytes, err := deployJobLogManager.ReadLogFromOffset(jobLogKey, readOffset)
+			if err != nil {
+				log.Errorf("get vm job from offset error: %v", err)
+				return
+			}
+			readOffset = readBytes
+
+			err = ReadFromFileAndWriteToStreamChan(buf, streamChan)
+			if err != nil && err != io.EOF {
+				log.Errorf("scan vm log stream error: %v", err)
+				return
+			}
+
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}
+}
+
 func getVMJobFromOffset(jobID string, readOffset int) (*bufio.Reader, int, error) {
-	logContent, err := vmservice.VMJobLog.GetJobLog(jobID)
+	logContent, err := cache.GetBigStringFromRedis(vmservice.VMJobLog.VmJobLogKey(jobID))
 	if err != nil {
 		log.Errorf("get vm job log error: %v", err)
 		return nil, 0, err
