@@ -242,9 +242,13 @@ func (j TestingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 		for _, testing := range j.jobSpec.ServiceAndTests {
 			if j.jobSpec.Source == config.SourceFromJob {
 				key := fmt.Sprintf("%s++%s", testing.ServiceName, testing.ServiceModule)
-				if _, ok := targetsMap[key]; !ok {
+				if target, ok := targetsMap[key]; !ok {
 					// if a service is not referred but passed in, ignore it
 					continue
+				} else {
+					if j.jobSpec.RefRepos {
+						testing.Repos = mergeRepos(testing.Repos, target.Repos)
+					}
 				}
 			}
 
@@ -508,6 +512,7 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
+						Repos:         build.Repos,
 					})
 				}
 				return servicetargets, nil
@@ -550,6 +555,7 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 					scanTargets = append(scanTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = scanTargets
@@ -565,6 +571,7 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 					testTargets = append(testTargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					})
 				}
 				servicetargets = testTargets
@@ -582,6 +589,7 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 					target := &commonmodels.ServiceTestTarget{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
+						Repos:         svc.Repos,
 					}
 					servicetargets = append(servicetargets, target)
 				}
@@ -739,7 +747,10 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
-	repos := applyRepos(testingInfo.Repos, testing.Repos)
+	// TODO: since the reference of codehost from other job now support we don't have the repos configured and still works, so this line is commented out
+	// possible influence is that now the openAPI request won't be limited to the repos configured in the job.
+	// repos := applyRepos(testingInfo.Repos, testing.Repos)
+	repos := testing.Repos
 	renderRepos(repos, jobTaskSpec.Properties.Envs)
 	gitRepos, p4Repos := splitReposByType(repos)
 

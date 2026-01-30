@@ -329,7 +329,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 	if j.jobSpec.Source == config.SourceFromJob {
 		referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
-		targets, err := j.getReferredJobTargets(referredJob)
+		targets, err := j.getReferredJobTargets(referredJob, j.jobSpec.RefRepos)
 		if err != nil {
 			return nil, fmt.Errorf("build job %s, get origin refered job: %s targets failed, err: %v", j.jobSpec.JobName, referredJob, err)
 		}
@@ -1073,7 +1073,52 @@ func (j BuildJobController) IsServiceTypeJob() bool {
 	return true
 }
 
-func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
+// mergeRepos merges source repos into target repos by matching CodehostID, RepoNamespace, and RepoName.
+// If a source repo matches a target repo, it updates the target repo's branch/tag/PR fields.
+// If a source repo doesn't exist in target repos, it appends it to the target repos.
+func mergeRepos(targetRepos, sourceRepos []*types.Repository) []*types.Repository {
+	if len(sourceRepos) == 0 {
+		return targetRepos
+	}
+
+	// Create a map of target repos keyed by CodehostID, RepoNamespace, RepoName
+	targetRepoMap := make(map[string]*types.Repository)
+	for _, repo := range targetRepos {
+		namespace := repo.RepoNamespace
+		if namespace == "" {
+			namespace = repo.RepoOwner
+		}
+		key := fmt.Sprintf("%d/%s/%s", repo.CodehostID, namespace, repo.RepoName)
+		targetRepoMap[key] = repo
+	}
+
+	// Merge source repo values into target repos for matching repositories
+	// or add new repos if they don't exist
+	for _, sourceRepo := range sourceRepos {
+		namespace := sourceRepo.RepoNamespace
+		if namespace == "" {
+			namespace = sourceRepo.RepoOwner
+		}
+		key := fmt.Sprintf("%d/%s/%s", sourceRepo.CodehostID, namespace, sourceRepo.RepoName)
+		if targetRepo, ok := targetRepoMap[key]; ok {
+			// Update existing repo with source repo values
+			targetRepo.Branch = sourceRepo.Branch
+			targetRepo.MergeBranches = sourceRepo.MergeBranches
+			targetRepo.Tag = sourceRepo.Tag
+			targetRepo.PR = sourceRepo.PR
+			targetRepo.PRs = sourceRepo.PRs
+			targetRepo.CommitID = sourceRepo.CommitID
+			targetRepo.CommitMessage = sourceRepo.CommitMessage
+		} else {
+			// Add new repo from source repos
+			targetRepos = append(targetRepos, sourceRepo)
+		}
+	}
+
+	return targetRepos
+}
+
+func (j BuildJobController) getReferredJobTargets(jobName string, refRepos bool) ([]*commonmodels.ServiceAndBuild, error) {
 	servicetargets := []*commonmodels.ServiceAndBuild{}
 	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)
 
@@ -1131,6 +1176,10 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 					} else {
 						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.name)
 						continue
+					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, build.Repos)
 					}
 
 					servicetargets = append(servicetargets, target)
@@ -1207,6 +1256,11 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.name)
 						continue
 					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
+					}
+
 					servicetargets = append(servicetargets, target)
 				}
 				return servicetargets, nil
@@ -1231,6 +1285,11 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.name)
 						continue
 					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
+					}
+
 					servicetargets = append(servicetargets, target)
 				}
 				return servicetargets, nil
@@ -1258,6 +1317,11 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.name)
 						continue
 					}
+
+					if refRepos {
+						target.Repos = mergeRepos(target.Repos, svc.Repos)
+					}
+
 					servicetargets = append(servicetargets, target)
 				}
 				return servicetargets, nil
