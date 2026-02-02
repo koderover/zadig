@@ -84,7 +84,7 @@ type ApprovalInstanceData struct {
 	//以下内容因为未被使用而暂时未添加
 	CommentList []*InstanceComment `json:"comment_list,omitempty"` // 评论列表
 
-	// Timeline []*InstanceTimeline `json:"timeline,omitempty"` // 审批动态
+	Timeline []*InstanceTimeline `json:"timeline,omitempty"` // 审批动态
 }
 
 type InstanceTask struct {
@@ -135,4 +135,30 @@ type File struct {
 	Title *string `json:"title,omitempty"` // 附件标题
 
 	Type *string `json:"type,omitempty"` // 附件类别
+}
+
+type InstanceTimeline struct {
+	Type *string `json:"type,omitempty"` // 动态类型，不同类型 ext 内的 user_id_list 含义不一样
+
+	CreateTime *string `json:"create_time,omitempty"` // 发生时间
+
+	UserId *string `json:"user_id,omitempty"` // 动态产生用户
+
+	OpenId *string `json:"open_id,omitempty"` // 动态产生用户 open id
+
+	UserIdList []string `json:"user_id_list,omitempty"` // 被抄送人列表
+
+	OpenIdList []string `json:"open_id_list,omitempty"` // 被抄送人列表
+
+	TaskId *string `json:"task_id,omitempty"` // 产生动态关联的task_id
+
+	Comment *string `json:"comment,omitempty"` // 理由
+
+	CcUserList []*InstanceCcUser `json:"cc_user_list,omitempty"` // 抄送人列表
+
+	Ext *string `json:"ext,omitempty"` // 动态其他信息，json格式，目前包括 user_id_list, user_id，open_id_list，open_id
+
+	NodeKey *string `json:"node_key,omitempty"` // 产生task的节点key
+
+	Files []*File `json:"files,omitempty"` // 审批附件
 }
