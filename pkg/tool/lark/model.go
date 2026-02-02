@@ -85,6 +85,10 @@ type ApprovalInstanceData struct {
 	CommentList []*InstanceComment `json:"comment_list,omitempty"` // 评论列表
 
 	Timeline []*InstanceTimeline `json:"timeline,omitempty"` // 审批动态
+
+	// 以下是 Zadig 添加的用于展示的字段
+	UserName *string `json:"user_name,omitempty"` // 发起人姓名
+	UserAvatar *string `json:"user_avatar,omitempty"` // 发起人头像
 }
 
 type InstanceTask struct {
@@ -161,6 +165,10 @@ type InstanceTimeline struct {
 	NodeKey *string `json:"node_key,omitempty"` // 产生task的节点key
 
 	Files []*File `json:"files,omitempty"` // 审批附件
+
+	// 以下是 Zadig 添加的用于展示的字段
+	UserName *string `json:"user_name,omitempty"` // 抄送人姓名
+	UserAvatar *string `json:"user_avatar,omitempty"` // 抄送人头像
 }
 
 type InstanceCcUser struct {
@@ -169,4 +177,8 @@ type InstanceCcUser struct {
 	CcId *string `json:"cc_id,omitempty"` // 审批实例内抄送唯一标识
 
 	OpenId *string `json:"open_id,omitempty"` // 抄送人 open id
+
+	// 以下是 Zadig 添加的用于展示的字段
+	UserName *string `json:"user_name,omitempty"` // 抄送人姓名
+	UserAvatar *string `json:"user_avatar,omitempty"` // 抄送人头像
 }

@@ -424,13 +424,25 @@ func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, use
 		}
 		ccUserList := make([]*InstanceCcUser, 0, len(timeline.CcUserList))
 		for _, ccUser := range timeline.CcUserList {
-			ccUserList = append(ccUserList, &InstanceCcUser{
+			ccUserItem := &InstanceCcUser{
 				UserId: ccUser.UserId,
 				CcId:   ccUser.CcId,
 				OpenId: ccUser.OpenId,
-			})
+			}
+			// Get CC user info with cache
+			ccOpenID := getStringFromPointer(ccUser.OpenId)
+			if ccOpenID != "" {
+				ccUserInfo, err := client.GetUserInfoByIDWithCache(ccOpenID, userIDType)
+				if err != nil {
+					log.Warnf("failed to get cc user info for %s: %v", ccOpenID, err)
+				} else {
+					ccUserItem.UserName = &ccUserInfo.Name
+					ccUserItem.UserAvatar = &ccUserInfo.Avatar
+				}
+			}
+			ccUserList = append(ccUserList, ccUserItem)
 		}
-		timelineList = append(timelineList, &InstanceTimeline{
+		instanceTimeline := &InstanceTimeline{
 			Type:       timeline.Type,
 			CreateTime: timeline.CreateTime,
 			UserId:     timeline.UserId,
@@ -443,10 +455,23 @@ func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, use
 			Ext:        timeline.Ext,
 			NodeKey:    timeline.NodeKey,
 			Files:      files,
-		})
+		}
+		// Get timeline user info with cache
+		timelineOpenID := getStringFromPointer(timeline.OpenId)
+		if timelineOpenID != "" {
+			timelineUserInfo, err := client.GetUserInfoByIDWithCache(timelineOpenID, userIDType)
+			if err != nil {
+				log.Warnf("failed to get timeline user info for %s: %v", timelineOpenID, err)
+			} else {
+				instanceTimeline.UserName = &timelineUserInfo.Name
+				instanceTimeline.UserAvatar = &timelineUserInfo.Avatar
+			}
+		}
+		timelineList = append(timelineList, instanceTimeline)
 	}
 
-	return &ApprovalInstanceData{
+	// Build the result with initiator user info
+	result := &ApprovalInstanceData{
 		ApprovalName:         data.ApprovalName,
 		StartTime:            data.StartTime,
 		EndTime:              data.EndTime,
@@ -465,7 +490,21 @@ func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, use
 		ApprovalCode:         data.ApprovalCode,
 		Reverted:             data.Reverted,
 		InstanceCode:         data.InstanceCode,
-	}, nil
+	}
+
+	// Get approval initiator user info with cache
+	initiatorOpenID := getStringFromPointer(data.OpenId)
+	if initiatorOpenID != "" {
+		initiatorUserInfo, err := client.GetUserInfoByIDWithCache(initiatorOpenID, userIDType)
+		if err != nil {
+			log.Warnf("failed to get initiator user info for %s: %v", initiatorOpenID, err)
+		} else {
+			result.UserName = &initiatorUserInfo.Name
+			result.UserAvatar = &initiatorUserInfo.Avatar
+		}
+	}
+
+	return result, nil
 }
 
 type CancelApprovalInstanceArgs struct {
