@@ -82,7 +82,7 @@ type ApprovalInstanceData struct {
 	InstanceCode *string `json:"instance_code,omitempty"` // 审批实例 Code
 
 	//以下内容因为未被使用而暂时未添加
-	// CommentList []*InstanceComment `json:"comment_list,omitempty"` // 评论列表
+	CommentList []*InstanceComment `json:"comment_list,omitempty"` // 评论列表
 
 	// Timeline []*InstanceTimeline `json:"timeline,omitempty"` // 审批动态
 }
@@ -111,4 +111,28 @@ type InstanceTask struct {
 	// 以下是 Zadig 添加的用于展示的字段
 	UserName *string `json:"user_name,omitempty"` // 审批人姓名
 	UserAvatar *string `json:"user_avatar,omitempty"` // 审批人头像
+}
+
+type InstanceComment struct {
+	Id *string `json:"id,omitempty"` // 评论 id
+
+	UserId *string `json:"user_id,omitempty"` // 发表评论用户
+
+	OpenId *string `json:"open_id,omitempty"` // 发表评论用户 open id
+
+	Comment *string `json:"comment,omitempty"` // 评论内容
+
+	CreateTime *string `json:"create_time,omitempty"` // 1564590532967
+
+	Files []*File `json:"files,omitempty"` // 评论附件
+}
+
+type File struct {
+	Url *string `json:"url,omitempty"` // 附件路径
+
+	FileSize *int `json:"file_size,omitempty"` // 附件大小
+
+	Title *string `json:"title,omitempty"` // 附件标题
+
+	Type *string `json:"type,omitempty"` // 附件类别
 }
