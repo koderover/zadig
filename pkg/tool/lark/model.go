@@ -162,3 +162,11 @@ type InstanceTimeline struct {
 
 	Files []*File `json:"files,omitempty"` // 审批附件
 }
+
+type InstanceCcUser struct {
+	UserId *string `json:"user_id,omitempty"` // 抄送人 user id
+
+	CcId *string `json:"cc_id,omitempty"` // 审批实例内抄送唯一标识
+
+	OpenId *string `json:"open_id,omitempty"` // 抄送人 open id
+}
