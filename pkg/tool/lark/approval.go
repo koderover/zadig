@@ -388,6 +388,64 @@ func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, use
 		taskList = append(taskList, instanceTask)
 	}
 
+	// Convert comment list
+	commentList := make([]*InstanceComment, 0, len(data.CommentList))
+	for _, comment := range data.CommentList {
+		files := make([]*File, 0, len(comment.Files))
+		for _, f := range comment.Files {
+			files = append(files, &File{
+				Url:      f.Url,
+				FileSize: f.FileSize,
+				Title:    f.Title,
+				Type:     f.Type,
+			})
+		}
+		commentList = append(commentList, &InstanceComment{
+			Id:         comment.Id,
+			UserId:     comment.UserId,
+			OpenId:     comment.OpenId,
+			Comment:    comment.Comment,
+			CreateTime: comment.CreateTime,
+			Files:      files,
+		})
+	}
+
+	// Convert timeline list
+	timelineList := make([]*InstanceTimeline, 0, len(data.Timeline))
+	for _, timeline := range data.Timeline {
+		files := make([]*File, 0, len(timeline.Files))
+		for _, f := range timeline.Files {
+			files = append(files, &File{
+				Url:      f.Url,
+				FileSize: f.FileSize,
+				Title:    f.Title,
+				Type:     f.Type,
+			})
+		}
+		ccUserList := make([]*InstanceCcUser, 0, len(timeline.CcUserList))
+		for _, ccUser := range timeline.CcUserList {
+			ccUserList = append(ccUserList, &InstanceCcUser{
+				UserId: ccUser.UserId,
+				CcId:   ccUser.CcId,
+				OpenId: ccUser.OpenId,
+			})
+		}
+		timelineList = append(timelineList, &InstanceTimeline{
+			Type:       timeline.Type,
+			CreateTime: timeline.CreateTime,
+			UserId:     timeline.UserId,
+			OpenId:     timeline.OpenId,
+			UserIdList: timeline.UserIdList,
+			OpenIdList: timeline.OpenIdList,
+			TaskId:     timeline.TaskId,
+			Comment:    timeline.Comment,
+			CcUserList: ccUserList,
+			Ext:        timeline.Ext,
+			NodeKey:    timeline.NodeKey,
+			Files:      files,
+		})
+	}
+
 	return &ApprovalInstanceData{
 		ApprovalName:         data.ApprovalName,
 		StartTime:            data.StartTime,
@@ -400,6 +458,8 @@ func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, use
 		Uuid:                 data.Uuid,
 		Form:                 data.Form,
 		TaskList:             taskList,
+		CommentList:          commentList,
+		Timeline:             timelineList,
 		ModifiedInstanceCode: data.ModifiedInstanceCode,
 		RevertedInstanceCode: data.RevertedInstanceCode,
 		ApprovalCode:         data.ApprovalCode,
