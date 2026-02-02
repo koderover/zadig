@@ -18,11 +18,18 @@ package lark
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
 
 	larkcontact "github.com/larksuite/oapi-sdk-go/v3/service/contact/v3"
-	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) (*larkcontact.UserContactInfo, error) {
@@ -207,6 +214,46 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, departmentIDT
 		})
 	}
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
+}
+
+func larkUserInfoCacheKey(id, userIDType string) string {
+	return fmt.Sprintf("lark-user-info-%s-%s", userIDType, id)
+}
+
+const defaultUserInfoCacheTTL = 24 * time.Hour
+
+func (client *Client) GetUserInfoByIDWithCache(id, userIDType string) (*UserInfo, error) {
+	cacheKey := larkUserInfoCacheKey(id, userIDType)
+	redisCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	cachedValue, err := redisCache.GetString(cacheKey)
+	if err == nil && cachedValue != "" {
+		userInfo := &UserInfo{}
+		unmarshalErr := json.Unmarshal([]byte(cachedValue), userInfo)
+		if unmarshalErr == nil {
+			return userInfo, nil
+		}
+		log.Warnf("failed to unmarshal cached user info for %s: %v", id, unmarshalErr)
+	} else if err != nil && !errors.Is(err, redis.Nil) {
+		log.Warnf("failed to get user info from cache for %s: %v", id, err)
+	}
+
+	userInfo, err := client.GetUserInfoByID(id, userIDType)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, marshalErr := json.Marshal(userInfo)
+	if marshalErr != nil {
+		log.Warnf("failed to marshal user info for caching %s: %v", id, marshalErr)
+		return userInfo, nil
+	}
+
+	if writeErr := redisCache.Write(cacheKey, string(bytes), defaultUserInfoCacheTTL); writeErr != nil {
+		log.Warnf("failed to cache user info for %s: %v", id, writeErr)
+	}
+
+	return userInfo, nil
 }
 
 func (client *Client) GetUserInfoByID(id, userIDType string) (*UserInfo, error) {

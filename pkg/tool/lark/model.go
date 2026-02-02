@@ -47,3 +47,68 @@ type formData struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`
 }
+
+type ApprovalInstanceData struct {
+	ApprovalName *string `json:"approval_name,omitempty"` // 审批名称
+
+	StartTime *string `json:"start_time,omitempty"` // 审批创建时间
+
+	EndTime *string `json:"end_time,omitempty"` // 审批完成时间，未完成为 0
+
+	UserId *string `json:"user_id,omitempty"` // 发起审批用户
+
+	OpenId *string `json:"open_id,omitempty"` // 发起审批用户 open id
+
+	SerialNumber *string `json:"serial_number,omitempty"` // 审批单编号
+
+	DepartmentId *string `json:"department_id,omitempty"` // 发起审批用户所在部门
+
+	Status *string `json:"status,omitempty"` // 审批实例状态
+
+	Uuid *string `json:"uuid,omitempty"` // 用户的唯一标识id
+
+	Form *string `json:"form,omitempty"` // json字符串，控件值详情见下方
+
+	TaskList []*InstanceTask `json:"task_list,omitempty"` // 审批任务列表
+
+	ModifiedInstanceCode *string `json:"modified_instance_code,omitempty"` // 修改的原实例 code,仅在查询修改实例时显示该字段
+
+	RevertedInstanceCode *string `json:"reverted_instance_code,omitempty"` // 撤销的原实例 code,仅在查询撤销实例时显示该字段
+
+	ApprovalCode *string `json:"approval_code,omitempty"` // 审批定义 Code
+
+	Reverted *bool `json:"reverted,omitempty"` // 单据是否被撤销
+
+	InstanceCode *string `json:"instance_code,omitempty"` // 审批实例 Code
+
+	//以下内容因为未被使用而暂时未添加
+	// CommentList []*InstanceComment `json:"comment_list,omitempty"` // 评论列表
+
+	// Timeline []*InstanceTimeline `json:"timeline,omitempty"` // 审批动态
+}
+
+type InstanceTask struct {
+	Id *string `json:"id,omitempty"` // task id
+
+	UserId *string `json:"user_id,omitempty"` // 审批人的用户id，自动通过、自动拒绝 时为空
+
+	OpenId *string `json:"open_id,omitempty"` // 审批人 open id
+
+	Status *string `json:"status,omitempty"` // 任务状态
+
+	NodeId *string `json:"node_id,omitempty"` // task 所属节点 id
+
+	NodeName *string `json:"node_name,omitempty"` // task 所属节点名称
+
+	CustomNodeId *string `json:"custom_node_id,omitempty"` // task 所属节点自定义 id, 如果没设置自定义 id, 则不返回该字段
+
+	Type *string `json:"type,omitempty"` // 审批方式
+
+	StartTime *string `json:"start_time,omitempty"` // task 开始时间
+
+	EndTime *string `json:"end_time,omitempty"` // task 完成时间, 未完成为 0
+
+	// 以下是 Zadig 添加的用于展示的字段
+	UserName *string `json:"user_name,omitempty"` // 审批人姓名
+	UserAvatar *string `json:"user_avatar,omitempty"` // 审批人头像
+}

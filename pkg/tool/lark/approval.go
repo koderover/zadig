@@ -341,6 +341,73 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 	}, nil
 }
 
+func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, userIDType string) (*ApprovalInstanceData, error) {
+	req := larkapproval.NewGetInstanceReqBuilder().
+		InstanceId(args.InstanceID).
+		Build()
+
+	resp, err := client.Approval.Instance.Get(context.Background(), req)
+	if err != nil {
+		return nil, errors.Wrap(err, "send request")
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	data := resp.Data
+
+	// Build task list with user info
+	taskList := make([]*InstanceTask, 0, len(data.TaskList))
+	for _, task := range data.TaskList {
+		instanceTask := &InstanceTask{
+			Id:           task.Id,
+			UserId:       task.UserId,
+			OpenId:       task.OpenId,
+			Status:       task.Status,
+			NodeId:       task.NodeId,
+			NodeName:     task.NodeName,
+			CustomNodeId: task.CustomNodeId,
+			Type:         task.Type,
+			StartTime:    task.StartTime,
+			EndTime:      task.EndTime,
+		}
+
+		// Get user info with cache if open_id is available
+		openID := getStringFromPointer(task.OpenId)
+		if openID != "" {
+			userInfo, err := client.GetUserInfoByIDWithCache(openID, userIDType)
+			if err != nil {
+				log.Warnf("failed to get user info for %s: %v", openID, err)
+			} else {
+				instanceTask.UserName = &userInfo.Name
+				instanceTask.UserAvatar = &userInfo.Avatar
+			}
+		}
+
+		taskList = append(taskList, instanceTask)
+	}
+
+	return &ApprovalInstanceData{
+		ApprovalName:         data.ApprovalName,
+		StartTime:            data.StartTime,
+		EndTime:              data.EndTime,
+		UserId:               data.UserId,
+		OpenId:               data.OpenId,
+		SerialNumber:         data.SerialNumber,
+		DepartmentId:         data.DepartmentId,
+		Status:               data.Status,
+		Uuid:                 data.Uuid,
+		Form:                 data.Form,
+		TaskList:             taskList,
+		ModifiedInstanceCode: data.ModifiedInstanceCode,
+		RevertedInstanceCode: data.RevertedInstanceCode,
+		ApprovalCode:         data.ApprovalCode,
+		Reverted:             data.Reverted,
+		InstanceCode:         data.InstanceCode,
+	}, nil
+}
+
 type CancelApprovalInstanceArgs struct {
 	ApprovalID string
 	InstanceID string

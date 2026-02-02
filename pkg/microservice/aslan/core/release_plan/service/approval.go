@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
-	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
@@ -588,119 +587,26 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 	}
 	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
 
-	checkNodeStatus := func(node *models.LarkApprovalNode) (config.ApprovalStatus, error) {
-		switch node.Type {
-		case "AND":
-			result := config.ApprovalStatusApprove
-			for _, user := range node.ApproveUsers {
-				if user.RejectOrApprove == "" {
-					result = ""
-				}
-				if user.RejectOrApprove == config.ApprovalStatusReject {
-					return config.ApprovalStatusReject, nil
-				}
-			}
-			return result, nil
-		case "OR":
-			for _, user := range node.ApproveUsers {
-				if user.RejectOrApprove != "" {
-					return user.RejectOrApprove, nil
-				}
-			}
-			return "", nil
-		default:
-			return "", errors.Errorf("unknown node type %s", node.Type)
-		}
-	}
-
-	checkApprovalFinished := func(nodes []*models.LarkApprovalNode) bool {
-		count := len(nodes)
-		finishedNode := 0
-		for _, node := range nodes {
-			if node.RejectOrApprove == config.ApprovalStatusReject {
-				return true
-			}
-
-			if node.RejectOrApprove == config.ApprovalStatusApprove || node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusRedirect || node.RejectOrApprove == config.ApprovalStatusDone {
-				finishedNode++
-			}
-		}
-
-		if finishedNode == count {
-			return true
-		}
-
-		return false
-	}
-
-	// approvalUpdate is used to update the larkApproval status
-	approvalUpdate := func(larkApproval *models.LarkApproval) (done bool, err error) {
-		// userUpdated represents whether the user status has been updated
-		userUpdated := false
-		for i, node := range larkApproval.ApprovalNodes {
-			if node.RejectOrApprove != "" {
-				continue
-			}
-			resultMap := larkservice.GetNodeUserApprovalResults(instance, lark.ApprovalNodeIDKey(i))
-			for _, user := range node.ApproveUsers {
-				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
-					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-					if err != nil {
-						return false, errors.Wrap(err, "get larkApproval instance")
-					}
-
-					comment := ""
-					// nodeKeyMap is used to get the node key from the custom node key
-					nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
-					if nodeData, ok := instanceData.ApproverInfoWithNode[nodeKeyMap[lark.ApprovalNodeIDKey(i)]]; ok {
-						if userData, ok := nodeData[user.ID]; ok {
-							comment = userData.Comment
-						}
-					}
-					user.Comment = comment
-					user.RejectOrApprove = result.ApproveOrReject
-					user.OperationTime = result.OperationTime
-					userUpdated = true
-				}
-			}
-			node.RejectOrApprove, err = checkNodeStatus(node)
-			if err != nil {
-				return false, err
-			}
-			if node.RejectOrApprove == config.ApprovalStatusApprove {
-				break
-			}
-			if node.RejectOrApprove == config.ApprovalStatusReject {
-				return true, nil
-			}
-			if userUpdated {
-				break
-			}
-		}
-
-		finished := checkApprovalFinished(larkApproval.ApprovalNodes)
-		return finished, nil
-	}
-
-	done, err := approvalUpdate(larkApproval)
+	// Directly poll from Lark API instead of relying on webhook-populated cache
+	larkApprovalInstance, err := client.GetApprovalInstanceData(&lark.GetApprovalInstanceArgs{InstanceID: instance}, setting.LarkUserOpenID)
 	if err != nil {
-		return errors.Wrap(err, "check larkApproval status")
-	}
-	if done {
-		finalInstance, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-		if err != nil {
-			return errors.Wrap(err, "get larkApproval final instance")
-		}
-		if finalInstance.ApproveOrReject == config.ApprovalStatusApprove {
+		return fmt.Errorf("failed to get lark approval instance data, error: %v", err)
+	} else {
+		approval.LarkApproval.ApprovalInstance = larkApprovalInstance
+		if util2.GetStringFromPointer(larkApprovalInstance.Status) == "APPROVED" {
 			approval.Status = config.StatusPassed
-			return nil
 		}
-		if finalInstance.ApproveOrReject == config.ApprovalStatusReject {
+		if util2.GetStringFromPointer(larkApprovalInstance.Status) == "REJECTED" {
 			approval.Status = config.StatusReject
-			return nil
 		}
-		return errors.New("check final larkApproval status failed")
+		if util2.GetStringFromPointer(larkApprovalInstance.Status) == "CANCELLED" {
+			approval.Status = config.StatusCancelled
+		}
+		if util2.GetStringFromPointer(larkApprovalInstance.Status) == "DELETED" {
+			approval.Status = config.StatusCancelled
+		}
 	}
+
 	return nil
 }
 

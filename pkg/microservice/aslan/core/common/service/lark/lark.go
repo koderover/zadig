@@ -491,25 +491,6 @@ func RemoveLarkApprovalInstanceManager(instanceID string) {
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(larkApprovalCacheKey(instanceID))
 }
 
-func GetNodeUserApprovalResults(instanceID, nodeID string) map[string]*UserApprovalResult {
-	approvalManager := GetLarkApprovalInstanceManager(instanceID)
-	return approvalManager.getNodeUserApprovalResults(nodeID)
-}
-
-func GetUserApprovalResults(instanceID string) NodeUserApprovalResult {
-	approvalManager := GetLarkApprovalInstanceManager(instanceID)
-	copy := make(NodeUserApprovalResult)
-	for k, v := range approvalManager.NodeMap {
-		for k1, v1 := range v {
-			if _, ok := copy[k]; !ok {
-				copy[k] = make(map[string]*UserApprovalResult)
-			}
-			copy[k][k1] = v1
-		}
-	}
-	return approvalManager.NodeMap
-}
-
 func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, result *UserApprovalResult) {
 	writeKey := fmt.Sprint("lark-approval-lock-write-", instanceID)
 	writeMutex := cache.NewRedisLock(writeKey)
@@ -526,20 +507,7 @@ func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, re
 	}
 }
 
-func (l *ApprovalManager) getNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
-	m := make(map[string]*UserApprovalResult)
-	if re, ok := l.NodeMap[nodeID]; !ok {
-		return m
-	} else {
-		for userID, result := range re {
-			m[userID] = result
-		}
-		return m
-	}
-}
-
 func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, result *UserApprovalResult) {
-
 	if _, ok := l.NodeMap[nodeID]; !ok {
 		l.NodeMap[nodeID] = make(map[string]*UserApprovalResult)
 	}
@@ -558,15 +526,6 @@ func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, re
 		result.ApproveOrReject = config.ApprovalStatusDone
 	}
 	return
-}
-
-// Node Custom Key => Node Key
-func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
-	m := make(map[string]string)
-	for k, v := range l.NodeKeyMap {
-		m[k] = v
-	}
-	return m
 }
 
 func (l *ApprovalManager) updateNodeKeyMap(nodeKey, nodeCustomKey string) {

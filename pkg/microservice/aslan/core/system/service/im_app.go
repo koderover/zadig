@@ -18,50 +18,20 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strconv"
 
-	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
-	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
-	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-// TODO: update this logic to support dynamic connection handling for multiple instances
-func InitSSEConnections() error {
-	resp, err := mongodb.NewIMAppColl().List(context.Background(), "")
-	if err != nil {
-		log.Errorf("list external approval error: %v", err)
-		return e.ErrListIMApp.AddErr(err)
-	}
-
-	for _, imApp := range resp {
-		if imApp.Type == setting.IMLark || imApp.Type == setting.IMLarkIntl {
-			err := CreateLarkSSEConnection(imApp)
-			if err != nil {
-				log.Errorf("failed to creates sse connection for lark, error: %s")
-				return err
-			}
-		}
-	}
-
-	return nil
-}
 
 func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, error) {
 	resp, err := mongodb.NewIMAppColl().List(context.Background(), _type)
@@ -132,11 +102,6 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		return e.ErrCreateIMApp.AddErr(err)
 	}
 
-	err = CreateLarkSSEConnection(args)
-	if err != nil {
-		log.Errorf("create lark IM SSEConnection error: %v", err)
-		return e.ErrCreateIMApp.AddErr(err)
-	}
 	return nil
 }
 
@@ -218,11 +183,6 @@ func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger
 		return e.ErrCreateIMApp.AddErr(err)
 	}
 
-	err = CreateLarkSSEConnection(args)
-	if err != nil {
-		log.Errorf("create lark IM SSEConnection error: %v", err)
-		return e.ErrCreateIMApp.AddErr(err)
-	}
 	return nil
 }
 
@@ -285,84 +245,4 @@ func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, 
 	}})
 
 	return templateName, controls
-}
-
-const (
-	larkSSELockFormat = "LARK_SSE_LOCK_%s"
-)
-
-func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
-	if arg.Type != setting.IMLark && arg.Type != setting.IMLarkIntl {
-		return fmt.Errorf("invalid type: %s to create lark sse connection", arg.Type)
-	}
-
-	// nothing to create
-	if arg.LarkEventType != setting.LarkEventTypeSSE {
-		return nil
-	}
-
-	lock := cache.NewRedisLock(fmt.Sprintf(larkSSELockFormat, arg.ID.Hex()))
-	err := lock.TryLock()
-	if err != nil {
-		return fmt.Errorf("Lark sse lock for %s is occupied by another instance: err: %s", arg.Name, err)
-	}
-
-	eventHandler := dispatcher.NewEventDispatcher("", "").
-		OnCustomizedEvent("approval_task", larkSSEHandler)
-
-	eventHandler.InitConfig()
-
-	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
-		larkws.WithEventHandler(eventHandler),
-		larkws.WithDomain(lark.GetLarkBaseUrl(arg.Type)),
-	)
-
-	util.Go(
-		func() {
-			cli.Start(context.Background())
-		},
-	)
-
-	return nil
-}
-
-func larkSSEHandler(ctx context.Context, event *larkevent.EventReq) error {
-	callback := &larkservice.CallbackData{}
-	err := json.Unmarshal([]byte(event.Body), callback)
-	if err != nil {
-		log.Errorf("unmarshal callback data failed: %v", err)
-		return errors.Wrap(err, "unmarshal")
-	}
-
-	log.Debugf("[LARK SSE EVENT IN, data: =====\n%s\n=====", string(callback.Event))
-
-	eventBody := larkservice.ApprovalTaskEvent{}
-	err = json.Unmarshal(callback.Event, &eventBody)
-	if err != nil {
-		log.Errorf("unmarshal callback event failed: %v", err)
-		return errors.Wrap(err, "unmarshal")
-	}
-	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", eventBody.AppID, callback.UUID, callback.Ts)
-	manager := larkservice.GetLarkApprovalInstanceManager(eventBody.InstanceCode)
-	if !manager.CheckAndUpdateUUID(callback.UUID) {
-		log.Infof("check existed request uuid %s, ignored", callback.UUID)
-		return nil
-	}
-	t, err := strconv.ParseInt(eventBody.OperateTime, 10, 64)
-	if err != nil {
-		log.Warnf("parse operate time %s failed: %v", eventBody.OperateTime, err)
-	}
-	larkservice.UpdateNodeUserApprovalResult(eventBody.InstanceCode, eventBody.DefKey, eventBody.CustomKey, eventBody.OpenID, &larkservice.UserApprovalResult{
-		Result:        eventBody.Status,
-		OperationTime: t / 1000,
-	})
-	log.Infof("update lark app info id: %s, instance code: %s, nodeKey: %s, userID: %s status: %s",
-		eventBody.AppID,
-		eventBody.InstanceCode,
-		eventBody.CustomKey,
-		eventBody.OpenID,
-		eventBody.Status,
-	)
-
-	return nil
 }

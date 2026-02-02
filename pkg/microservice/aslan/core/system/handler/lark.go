@@ -121,22 +121,6 @@ func GetLarkUserGroupMembers(c *gin.Context) {
 	ctx.Resp = GetLarkUserGroupMembersResp{Members: members}
 }
 
-func LarkEventHandler(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	body, err := c.GetRawData()
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-	ctx.Resp, ctx.RespErr = lark.EventHandler(
-		c.Param("id"),
-		c.GetHeader("X-Lark-Signature"),
-		c.GetHeader("X-Lark-Request-Timestamp"),
-		c.GetHeader("X-Lark-Request-Nonce"), string(body))
-}
-
 type listChatResp struct {
 	Chats []*models.LarkChat `json:"chats"`
 }
