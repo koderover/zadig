@@ -81,9 +81,10 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	}
 
 	for _, job := range args.Jobs {
-		if err := lintReleaseJob(job.Type, job.Spec); err != nil {
-			return errors.Errorf("lintReleaseJob %s error: %v", job.Name, err)
-		}
+		// release job will be linted when we finish planning instead of saving
+		// if err := lintReleaseJob(job.Type, job.Spec); err != nil {
+		// 	return errors.Errorf("lintReleaseJob %s error: %v", job.Name, err)
+		// }
 		job.ReleaseJobRuntime = models.ReleaseJobRuntime{}
 		job.ID = uuid.New().String()
 	}
@@ -408,6 +409,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "new plan updater")
 	}
+	// note that for updating release job and creating new release job, the linting process is when we finish planning, not saving the draft.
 	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
@@ -467,22 +469,26 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
 			if releasePlanJob.Type == config.JobWorkflow {
-				spec := new(models.WorkflowReleaseJobSpec)
-				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
-					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+				// now that in planning status, the job spec is just a draft, meaning it can't be updated (the workflow might now even exist)
+				// so we skipped updating this.
+				if releasePlan.Status != config.ReleasePlanStatusPlanning {
+					spec := new(models.WorkflowReleaseJobSpec)
+					if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+						return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+					}
+					if spec.Workflow == nil {
+						return nil, fmt.Errorf("workflow is nil")
+					}
+	
+					workflowController := controller.CreateWorkflowController(spec.Workflow)
+					if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+						log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+	
+					spec.Workflow = workflowController.WorkflowV4
+					releasePlanJob.Spec = spec
 				}
-				if spec.Workflow == nil {
-					return nil, fmt.Errorf("workflow is nil")
-				}
-
-				workflowController := controller.CreateWorkflowController(spec.Workflow)
-				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
-					log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-				}
-
-				spec.Workflow = workflowController.WorkflowV4
-				releasePlanJob.Spec = spec
 			}
 
 			return releasePlanJob, nil
@@ -1051,6 +1057,15 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusFinishPlanning:
+		for _, job := range plan.Jobs {
+			err := lintReleaseJob(job.Type, job.Spec)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed lint release job, job: %+v, err: %v", job, err)
+				log.Error(fmtErr)
+				return fmtErr
+			}
+		}
+		
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 		if shouldWait {
 			plan.Status = *nextStatus
