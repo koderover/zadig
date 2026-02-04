@@ -44,6 +44,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -76,6 +77,7 @@ type ResourceApplyParam struct {
 	InjectSecrets            bool
 	SharedEnvHandler         SharedEnvHandler
 	IstioGrayscaleEnvHandler IstioGrayscaleEnvHandler
+	JobLogContext            *joblog.JobLogContext
 	Uninstall                bool
 	WaitForUninstall         bool
 }
@@ -174,12 +176,14 @@ func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.Grou
 }
 
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, log *zap.SugaredLogger) error {
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, jobLogContext *joblog.JobLogContext, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
 	for _, u := range newItems {
 		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
 	}
+
+	jobLogManager := joblog.NewJobLogManager(jobLogContext)
 
 	oldItemsMap := make(map[string]*unstructured.Unstructured)
 	for _, u := range currentItems {
@@ -197,6 +201,9 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue
 		}
+
+		logContent := fmt.Sprintf("Delete resource %s/%s in namespace %s", item.GetKind(), item.GetName(), namespace)
+		jobLogManager.SaveJobLog(logContent)
 
 		if !waitForDelete {
 			continue
@@ -294,8 +301,8 @@ func UnstructuredToResources(unstructured []*unstructured.Unstructured) []*commo
 }
 
 type Resource struct {
-	mainfest     string
-	unstructured *unstructured.Unstructured
+	Manifest     string
+	Unstructured *unstructured.Unstructured
 }
 
 func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[string]*Resource, error) {
@@ -327,8 +334,8 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 		}
 		GVKN := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
 		resourceMap[GVKN] = &Resource{
-			mainfest:     item,
-			unstructured: u,
+			Manifest:     item,
+			Unstructured: u,
 		}
 		resources = append(resources, u)
 	}
@@ -646,7 +653,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			return nil, nil
 		}
 
-		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, applyParam.JobLogContext, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
@@ -659,20 +666,20 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	for GVKN, cr := range curResourceMap {
 		r, ok := updateResourceMap[GVKN]
 		if !ok {
-			removeRes = append(removeRes, cr.unstructured)
+			removeRes = append(removeRes, cr.Unstructured)
 		} else {
-			if r.mainfest == cr.mainfest && !applyParam.IsFromImportToDeploy {
-				unchangedResources = append(unchangedResources, cr.unstructured)
+			if r.Manifest == cr.Manifest && !applyParam.IsFromImportToDeploy {
+				unchangedResources = append(unchangedResources, cr.Unstructured)
 				delete(updateResourceMap, GVKN)
 			}
 		}
 	}
 	updateResources = []*unstructured.Unstructured{}
 	for _, r := range updateResourceMap {
-		updateResources = append(updateResources, r.unstructured)
+		updateResources = append(updateResources, r.Unstructured)
 	}
 
-	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, nil, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -686,6 +693,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 	var res []*unstructured.Unstructured
 	errList := &multierror.Error{}
+	jobLogManager := joblog.NewJobLogManager(applyParam.JobLogContext)
 
 	for _, u := range unchangedResources {
 		res = append(res, u)
@@ -698,16 +706,21 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			u.SetNamespace(namespace)
 			u.SetLabels(ls)
 
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
-
 		case setting.Service:
 			u.SetNamespace(namespace)
 			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
@@ -810,6 +823,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
 				}
 
+				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(logContent)
+
 				err = updater.CreateOrPatchDeployment(res, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
@@ -818,6 +834,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				}
 
 				if isStuck && deployExists {
+					logContent := fmt.Sprintf("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+					jobLogManager.SaveJobLog(logContent)
+
 					log.Infof("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
 					if fixErr := HandleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", namespace, res.Name, fixErr)
@@ -838,6 +857,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
 				}
 
+				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(logContent)
+
 				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
@@ -846,6 +868,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				}
 
 				if isStuck && stsExists {
+					logContent := fmt.Sprintf("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+					jobLogManager.SaveJobLog(logContent)
+
 					log.Infof("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
 					if fixErr := HandleStuckStatefulSet(existingSts, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", namespace, res.Name, fixErr)
@@ -880,18 +905,23 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				ApplySystemImagePullSecrets(&obj.Spec.Template.Spec)
 			}
 
+			logContent := fmt.Sprintf("Deleting old %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
 			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
 				log.Errorf("Failed to delete Job, error: %v", err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
+			logContent = fmt.Sprintf("Applying new %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
 			if err := updater.CreateJob(obj, kubeClient); err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
-
 		case setting.CronJob:
 			jsonData, err := u.MarshalJSON()
 			if err != nil {
@@ -917,6 +947,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
 				}
 
+				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(logContent)
+
 				err = updater.CreateOrPatchCronJob(obj, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
@@ -941,6 +974,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
 				}
 
+				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(logContent)
+
 				err = updater.CreateOrPatchCronJob(obj, kubeClient)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
@@ -948,9 +984,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					continue
 				}
 			}
-
 		case setting.ClusterRole, setting.ClusterRoleBinding:
 			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
@@ -961,6 +999,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		default:
 			u.SetNamespace(namespace)
 			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {

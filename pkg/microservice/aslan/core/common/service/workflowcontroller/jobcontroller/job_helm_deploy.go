@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -36,7 +37,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -107,7 +110,39 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	helmDeploySvc := helmservice.NewHelmDeployService()
-	newEnvService, tmplSvc, err := helmDeploySvc.GenNewEnvService(productInfo, c.jobTaskSpec.ServiceName, updateServiceRevision)
+	helmClient, err := helmtool.NewClient()
+	if err != nil {
+		msg := fmt.Sprintf("failed to new helm client, err %s", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
+	// current service info
+	var currentResourceMap map[string]*kube.Resource
+	currentEnvSvc := productInfo.GetServiceMap()[c.jobTaskSpec.ServiceName]
+	if currentEnvSvc != nil {
+		currentTmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: c.jobTaskSpec.ServiceName,
+			ProductName: productInfo.ProductName,
+			Type:        setting.HelmDeployType,
+			Revision:    currentEnvSvc.Revision,
+		}, productInfo.Production)
+		if err != nil {
+			msg := fmt.Sprintf("failed to query template service, projectName: %s, service name: %s, revision: %d, error: %v", productInfo.ProductName, c.jobTaskSpec.ServiceName, currentEnvSvc.Revision, err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+
+		currentResourceMap, err = genHelmResourceMap(helmDeploySvc, productInfo, currentEnvSvc, currentTmplSvc, helmClient)
+		if err != nil {
+			msg := fmt.Sprintf("failed to generate unstructured list, err: %s", err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+	}
+
+	// latest/new service info
+	newEnvService, latestTmplSvc, err := helmDeploySvc.GenNewEnvService(productInfo, c.jobTaskSpec.ServiceName, updateServiceRevision)
 	if err != nil {
 		msg := fmt.Sprintf("failed to generate new env service, error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -178,6 +213,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
+	newResourceMap, err := genHelmResourceMap(helmDeploySvc, productInfo, newEnvService, latestTmplSvc, helmClient)
+	if err != nil {
+		msg := fmt.Sprintf("failed to generate unstructured list, err: %s", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
 	c.jobTaskSpec.YamlContent = finalValuesYaml
 	c.jobTaskSpec.UserSuppliedValue = newEnvService.GetServiceRender().GetOverrideYaml()
 
@@ -192,15 +234,61 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	c.ack()
 
+	jobLogManager := joblog.NewJobLogManager(&joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job})
+	jobKey := jobLogManager.GetJobKey()
+	jobLogManager.SetJobStatusRunning(jobKey, time.Duration(c.jobTaskSpec.Timeout)*time.Second)
+
+	deployTime := time.Now()
+	logContent := "====================== Deploy Job Start ======================"
+	jobLogManager.SaveJobLogNoTime(logContent)
+	defer func() {
+		logContent := fmt.Sprintf("====================== Deploy Job End. Duration: %.2f seconds ======================", time.Since(deployTime).Seconds())
+		jobLogManager.SaveJobLogNoTime(logContent)
+		jobLogManager.FinishJob()
+	}()
+
+	deployContentStr := ""
+	for _, deployContent := range c.jobTaskSpec.DeployContents {
+		contentStr := ""
+		if deployContent == config.DeployImage {
+			contentStr = "image"
+		} else if deployContent == config.DeployVars {
+			contentStr = "variables"
+		} else if deployContent == config.DeployConfig {
+			contentStr = "configuration"
+		}
+		if contentStr != "" {
+			deployContentStr += contentStr + ", "
+		}
+	}
+	deployContentStr = strings.TrimSuffix(deployContentStr, ", ")
+
+	logContent = fmt.Sprintf("Start to deploy helm service %s, env: %s, namespace: %s, deploy contents: %s", c.jobTaskSpec.ServiceName, c.jobTaskSpec.Env, c.namespace, deployContentStr)
+	jobLogManager.SaveJobLog(logContent)
+
 	c.logger.Debugf("start helm deploy, productName %s serviceName %s namespace %s, values %s, overrideKVs: %s updateServiceRevision %v, revision %d",
 		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, finalValuesYaml, newEnvService.GetServiceRender().OverrideValues, updateServiceRevision, newEnvService.Revision)
 
 	timeOut := c.timeout()
 
+	for key, resource := range currentResourceMap {
+		if _, ok := newResourceMap[key]; !ok {
+			jobLogManager.SaveJobLog(fmt.Sprintf("Deleting %s %s/%s", resource.Unstructured.GetKind(), c.namespace, resource.Unstructured.GetName()))
+		}
+	}
+	for key, newManifest := range newResourceMap {
+		currentManifest, ok := currentResourceMap[key]
+		if !ok {
+			jobLogManager.SaveJobLog(fmt.Sprintf("Applying %s %s/%s", newManifest.Unstructured.GetKind(), c.namespace, newManifest.Unstructured.GetName()))
+		} else if newManifest.Manifest != currentManifest.Manifest {
+			jobLogManager.SaveJobLog(fmt.Sprintf("Applying %s %s/%s", newManifest.Unstructured.GetKind(), c.namespace, newManifest.Unstructured.GetName()))
+		}
+	}
+
 	// deploy helm chart
 	done := make(chan bool)
 	util.Go(func() {
-		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, tmplSvc, nil, c.jobTaskSpec.MaxHistory, c.jobTaskSpec.Timeout, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
+		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, latestTmplSvc, nil, c.jobTaskSpec.MaxHistory, c.jobTaskSpec.Timeout, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
 			err = errors.WithMessagef(err,
 				"failed to upgrade helm chart %s/%s",
 				c.namespace, c.jobTaskSpec.ServiceName)
@@ -212,16 +300,22 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	timeout := time.After(time.Second*time.Duration(timeOut) + time.Minute)
 	if !c.jobTaskSpec.SkipCheckRunStatus {
+		jobLogManager.SaveJobLog("Checking helm release status ...")
+
 		// we add timeout check here in case helm stuck in pending status
 		select {
 		case result := <-done:
 			if !result {
+				jobLogManager.SaveJobLog(fmt.Sprintf("Deploy helm chart %s/%s failed, err: %v", c.namespace, c.jobTaskSpec.ServiceName, err))
 				logError(c.job, err.Error(), c.logger)
 				return
 			}
+			jobLogManager.SaveJobLog("Helm release is ready")
 
 			if !c.jobTaskSpec.SkipCheckHelmWorkfloadStatus {
-				c.job.Status, err = c.checkWorkloadStatus(ctx, productInfo, newEnvService, tmplSvc, timeout)
+				jobLogManager.SaveJobLog("Checking helm release's workload status ...")
+
+				c.job.Status, err = c.checkWorkloadStatus(ctx, productInfo, newEnvService, latestTmplSvc, timeout)
 				if err != nil {
 					logError(c.job, err.Error(), c.logger)
 					return
@@ -233,17 +327,62 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			}
 			break
 		case <-timeout:
+			jobLogManager.SaveJobLog(fmt.Sprintf("Deploy helm chart %s/%s timeout", c.namespace, c.jobTaskSpec.ServiceName))
+
 			logError(c.job, fmt.Sprintf("failed to upgrade helm chart %s/%s, timeout", c.namespace, c.jobTaskSpec.ServiceName), c.logger)
 			c.job.Status = config.StatusTimeout
 			return
 		}
 		if err != nil {
+			jobLogManager.SaveJobLog(fmt.Sprintf("Deploy helm chart %s/%s failed, err: %v", c.namespace, c.jobTaskSpec.ServiceName, err))
+
 			logError(c.job, err.Error(), c.logger)
 			return
 		}
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+type ManifestStruct struct {
+	Manifest     string
+	Unstructured *unstructured.Unstructured
+}
+
+func genHelmResourceMap(helmDeploySvc *helmservice.HelmDeployService, env *commonmodels.Product, envSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service, helmClient *helmtool.HelmClient) (map[string]*kube.Resource, error) {
+	yamlContent, err := helmDeploySvc.GenMergedValues(envSvc, env.DefaultValues, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+	}
+
+	valuesYaml, err := helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
+	}
+
+	chartPath, err := kube.PreLoadHelmServiceChart(tmplSvc, env.Production, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pre load helm service chart, serviceName: %s, err: %s", tmplSvc.ServiceName, err)
+	}
+
+	chartSpec := &helmclient.ChartSpec{
+		GenerateName: true,
+		ChartName:    chartPath,
+		Version:      envSvc.GetServiceRender().ChartVersion,
+		ValuesYaml:   valuesYaml,
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", tmplSvc.ServiceName, envSvc.GetServiceRender().ChartVersion, chartPath, err)
+	}
+
+	_, resourceMap, err := kube.ManifestToUnstructured(string(manifestBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert manifest to unstructured: %v", err)
+	}
+
+	return resourceMap, nil
 }
 
 type DeployResource struct {
@@ -293,12 +432,13 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 		}
 	}
 
-	resources, err = GetResourcesPodOwnerUID(c.kubeClient, c.namespace, nil, c.jobTaskSpec.DeployContents, resources)
+	jobLogCtx := &joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job}
+	resources, err = GetResourcesPodOwnerUID(c.kubeClient, c.namespace, nil, c.jobTaskSpec.DeployContents, resources, jobLogCtx)
 	if err != nil {
 		return config.StatusFailed, fmt.Errorf("failed to get resources pod owner uid, err: %v", err)
 	}
 
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, timeout, c.logger)
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, jobLogCtx, timeout, c.logger)
 	if err != nil {
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}
