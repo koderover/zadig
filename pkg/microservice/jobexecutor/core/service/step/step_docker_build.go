@@ -17,13 +17,15 @@ limitations under the License.
 package step
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -88,26 +90,32 @@ func (s DockerBuildStep) dockerLogin() error {
 			return err
 		}
 
-		outScanner := bufio.NewScanner(cmdOutReader)
-		go func() {
-			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
-			}
-		}()
-
 		cmdErrReader, err := cmd.StderrPipe()
 		if err != nil {
 			return err
 		}
 
-		errScanner := bufio.NewScanner(cmdErrReader)
+		fileName := filepath.Join(os.TempDir(), "docker_build.log")
+		util.WriteFile(fileName, []byte{}, 0700)
+
+		var wg sync.WaitGroup
+		wg.Add(2)
 		go func() {
-			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
-			}
+			defer wg.Done()
+			handleCmdOutput(cmdOutReader, true, fileName, s.secretEnvs)
+		}()
+		go func() {
+			defer wg.Done()
+			handleCmdOutput(cmdErrReader, true, fileName, s.secretEnvs)
 		}()
 
-		if err := cmd.Run(); err != nil {
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+
+		wg.Wait()
+
+		if err := cmd.Wait(); err != nil {
 			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 		}
 
@@ -133,38 +141,43 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		setProxy(s.spec)
 	}
 
+	fileName := filepath.Join(os.TempDir(), "docker_build.log")
+	util.WriteFile(fileName, []byte{}, 0700)
+
 	log.Infof("Running Docker Build.")
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
-
 		cmdOutReader, err := c.StdoutPipe()
 		if err != nil {
 			return err
 		}
-
-		outScanner := bufio.NewScanner(cmdOutReader)
-		go func() {
-			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
-			}
-		}()
 
 		cmdErrReader, err := c.StderrPipe()
 		if err != nil {
 			return err
 		}
 
-		errScanner := bufio.NewScanner(cmdErrReader)
+		var wg sync.WaitGroup
+		wg.Add(2)
 		go func() {
-			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
-			}
+			defer wg.Done()
+			handleCmdOutput(cmdOutReader, true, fileName, s.secretEnvs)
+		}()
+		go func() {
+			defer wg.Done()
+			handleCmdOutput(cmdErrReader, true, fileName, s.secretEnvs)
 		}()
 
 		c.Dir = s.workspace
 		c.Env = envs
-		if err := c.Run(); err != nil {
+		if err := c.Start(); err != nil {
+			return err
+		}
+
+		wg.Wait()
+
+		if err := c.Wait(); err != nil {
 			return fmt.Errorf("failed to run docker build: %s", err)
 		}
 	}
