@@ -546,12 +546,11 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 	// 如果当前状态已经是取消状态, 一般为用户取消了任务, 此时任务在短暂时间内会继续运行一段时间,
 	if taskInColl.Status == config.StatusCancelled {
-		// Task终止状态可能为Pass, Fail, Cancel, Timeout
-		// backend 会继续接受到ACK, 在这种情况下, 终止状态之外的ACK都无需处理，避免出现取消之后又被重置成运行态
-		if c.workflowTask.Status != config.StatusFailed && c.workflowTask.Status != config.StatusPassed && c.workflowTask.Status != config.StatusCancelled && c.workflowTask.Status != config.StatusTimeout {
-			c.logger.Infof("%s:%d task has been cancelled, ACK dropped", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
-			return
-		}
+		// Allow ACKs so job EndTime/status can be persisted,
+		// but never let workflow status leave cancelled.
+		c.workflowTask.Status = config.StatusCancelled
+		c.workflowTask.TaskRevoker = taskInColl.TaskRevoker
+		c.workflowTask.TaskRevokerID = taskInColl.TaskRevokerID
 	}
 	if success := UpdateQueue(c.workflowTask); !success {
 		c.logger.Errorf("%s:%d update t status error", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
