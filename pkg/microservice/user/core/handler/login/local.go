@@ -17,8 +17,12 @@ limitations under the License.
 package login
 
 import (
+	"net/http"
+	"net/url"
+
 	"github.com/gin-gonic/gin"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
@@ -38,6 +42,23 @@ func LocalLogin(c *gin.Context) {
 		c.Header("x-require-captcha", "false")
 	}
 	ctx.Resp, ctx.RespErr = resp, err
+}
+
+func SsoTokenCallback(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ssoToken := c.Query("token")
+	token, err := login.SsoTokenCallback(ssoToken, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	v := url.Values{}
+	v.Add("token", token)
+	redirectUrl := configbase.SystemAddress() + "/signin?" + v.Encode()
+	c.Redirect(http.StatusSeeOther, redirectUrl)
 }
 
 type getCaptchaResp struct {
