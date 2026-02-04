@@ -200,7 +200,8 @@ type LarkApproval struct {
 	ApprovalInitiator        *LarkApprovalUser   `bson:"approval_initiator"           yaml:"approval_initiator"              json:"approval_initiator"`
 	ApprovalNodes            []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 	// InstanceCode: lark approval instance code
-	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
+	InstanceCode     string                     `bson:"instance_code"               yaml:"instance_code"                  json:"instance_code"`
+	ApprovalInstance *lark.ApprovalInstanceData `bson:"approval_instance"           yaml:"approval_instance"              json:"approval_instance"`
 	// Deprecated: use ApprovalNodes instead
 	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 }

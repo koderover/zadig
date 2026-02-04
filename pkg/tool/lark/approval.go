@@ -341,6 +341,172 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 	}, nil
 }
 
+func (client *Client) GetApprovalInstanceData(args *GetApprovalInstanceArgs, userIDType string) (*ApprovalInstanceData, error) {
+	req := larkapproval.NewGetInstanceReqBuilder().
+		InstanceId(args.InstanceID).
+		Build()
+
+	resp, err := client.Approval.Instance.Get(context.Background(), req)
+	if err != nil {
+		return nil, errors.Wrap(err, "send request")
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	data := resp.Data
+
+	// Build task list with user info
+	taskList := make([]*InstanceTask, 0, len(data.TaskList))
+	for _, task := range data.TaskList {
+		instanceTask := &InstanceTask{
+			Id:           task.Id,
+			UserId:       task.UserId,
+			OpenId:       task.OpenId,
+			Status:       task.Status,
+			NodeId:       task.NodeId,
+			NodeName:     task.NodeName,
+			CustomNodeId: task.CustomNodeId,
+			Type:         task.Type,
+			StartTime:    task.StartTime,
+			EndTime:      task.EndTime,
+		}
+
+		// Get user info with cache if open_id is available
+		openID := getStringFromPointer(task.OpenId)
+		if openID != "" {
+			userInfo, err := client.GetUserInfoByIDWithCache(openID, userIDType)
+			if err != nil {
+				log.Warnf("failed to get user info for %s: %v", openID, err)
+			} else {
+				instanceTask.UserName = &userInfo.Name
+				instanceTask.UserAvatar = &userInfo.Avatar
+			}
+		}
+
+		taskList = append(taskList, instanceTask)
+	}
+
+	// Convert comment list
+	commentList := make([]*InstanceComment, 0, len(data.CommentList))
+	for _, comment := range data.CommentList {
+		files := make([]*File, 0, len(comment.Files))
+		for _, f := range comment.Files {
+			files = append(files, &File{
+				Url:      f.Url,
+				FileSize: f.FileSize,
+				Title:    f.Title,
+				Type:     f.Type,
+			})
+		}
+		commentList = append(commentList, &InstanceComment{
+			Id:         comment.Id,
+			UserId:     comment.UserId,
+			OpenId:     comment.OpenId,
+			Comment:    comment.Comment,
+			CreateTime: comment.CreateTime,
+			Files:      files,
+		})
+	}
+
+	// Convert timeline list
+	timelineList := make([]*InstanceTimeline, 0, len(data.Timeline))
+	for _, timeline := range data.Timeline {
+		files := make([]*File, 0, len(timeline.Files))
+		for _, f := range timeline.Files {
+			files = append(files, &File{
+				Url:      f.Url,
+				FileSize: f.FileSize,
+				Title:    f.Title,
+				Type:     f.Type,
+			})
+		}
+		ccUserList := make([]*InstanceCcUser, 0, len(timeline.CcUserList))
+		for _, ccUser := range timeline.CcUserList {
+			ccUserItem := &InstanceCcUser{
+				UserId: ccUser.UserId,
+				CcId:   ccUser.CcId,
+				OpenId: ccUser.OpenId,
+			}
+			// Get CC user info with cache
+			ccOpenID := getStringFromPointer(ccUser.OpenId)
+			if ccOpenID != "" {
+				ccUserInfo, err := client.GetUserInfoByIDWithCache(ccOpenID, userIDType)
+				if err != nil {
+					log.Warnf("failed to get cc user info for %s: %v", ccOpenID, err)
+				} else {
+					ccUserItem.UserName = &ccUserInfo.Name
+					ccUserItem.UserAvatar = &ccUserInfo.Avatar
+				}
+			}
+			ccUserList = append(ccUserList, ccUserItem)
+		}
+		instanceTimeline := &InstanceTimeline{
+			Type:       timeline.Type,
+			CreateTime: timeline.CreateTime,
+			UserId:     timeline.UserId,
+			OpenId:     timeline.OpenId,
+			UserIdList: timeline.UserIdList,
+			OpenIdList: timeline.OpenIdList,
+			TaskId:     timeline.TaskId,
+			Comment:    timeline.Comment,
+			CcUserList: ccUserList,
+			Ext:        timeline.Ext,
+			NodeKey:    timeline.NodeKey,
+			Files:      files,
+		}
+		// Get timeline user info with cache
+		timelineOpenID := getStringFromPointer(timeline.OpenId)
+		if timelineOpenID != "" {
+			timelineUserInfo, err := client.GetUserInfoByIDWithCache(timelineOpenID, userIDType)
+			if err != nil {
+				log.Warnf("failed to get timeline user info for %s: %v", timelineOpenID, err)
+			} else {
+				instanceTimeline.UserName = &timelineUserInfo.Name
+				instanceTimeline.UserAvatar = &timelineUserInfo.Avatar
+			}
+		}
+		timelineList = append(timelineList, instanceTimeline)
+	}
+
+	// Build the result with initiator user info
+	result := &ApprovalInstanceData{
+		ApprovalName:         data.ApprovalName,
+		StartTime:            data.StartTime,
+		EndTime:              data.EndTime,
+		UserId:               data.UserId,
+		OpenId:               data.OpenId,
+		SerialNumber:         data.SerialNumber,
+		DepartmentId:         data.DepartmentId,
+		Status:               data.Status,
+		Uuid:                 data.Uuid,
+		Form:                 data.Form,
+		TaskList:             taskList,
+		CommentList:          commentList,
+		Timeline:             timelineList,
+		ModifiedInstanceCode: data.ModifiedInstanceCode,
+		RevertedInstanceCode: data.RevertedInstanceCode,
+		ApprovalCode:         data.ApprovalCode,
+		Reverted:             data.Reverted,
+		InstanceCode:         data.InstanceCode,
+	}
+
+	// Get approval initiator user info with cache
+	initiatorOpenID := getStringFromPointer(data.OpenId)
+	if initiatorOpenID != "" {
+		initiatorUserInfo, err := client.GetUserInfoByIDWithCache(initiatorOpenID, userIDType)
+		if err != nil {
+			log.Warnf("failed to get initiator user info for %s: %v", initiatorOpenID, err)
+		} else {
+			result.UserName = &initiatorUserInfo.Name
+			result.UserAvatar = &initiatorUserInfo.Avatar
+		}
+	}
+
+	return result, nil
+}
+
 type CancelApprovalInstanceArgs struct {
 	ApprovalID string
 	InstanceID string

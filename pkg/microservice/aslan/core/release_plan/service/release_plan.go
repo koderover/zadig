@@ -1265,14 +1265,7 @@ func clearApprovalData(approval *models.Approval) error {
 		if approval.LarkApproval == nil {
 			return errors.New("nil lark approval")
 		}
-		for _, node := range approval.LarkApproval.ApprovalNodes {
-			node.RejectOrApprove = ""
-			for _, user := range node.ApproveUsers {
-				user.RejectOrApprove = ""
-				user.OperationTime = 0
-				user.Comment = ""
-			}
-		}
+		approval.LarkApproval.ApprovalInstance = nil
 	case config.DingTalkApproval:
 		if approval.DingTalkApproval == nil {
 			return errors.New("nil dingtalk approval")
