@@ -1060,7 +1060,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		for _, job := range plan.Jobs {
 			err := lintReleaseJob(job.Type, job.Spec)
 			if err != nil {
-				fmtErr := fmt.Errorf("failed lint release job, job: %+v, err: %v", job, err)
+				fmtErr := fmt.Errorf("failed lint release job, err: %v", job, err)
 				log.Error(fmtErr)
 				return fmtErr
 			}
