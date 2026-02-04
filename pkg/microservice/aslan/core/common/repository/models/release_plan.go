@@ -113,9 +113,9 @@ type TextReleaseJobSpec struct {
 }
 
 type WorkflowReleaseJobSpec struct {
-	Workflow *WorkflowV4   `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
-	Status   config.Status `bson:"status"       yaml:"status"                   json:"status"`
-	TaskID   int64         `bson:"task_id"       yaml:"task_id"                   json:"task_id"`
+	Workflow *WorkflowV4   `bson:"workflow,omitempty"       yaml:"workflow,omitempty"                   json:"workflow,omitempty"`
+	Status   config.Status `bson:"status,omitempty"         yaml:"status,omitempty"                     json:"status,omitempty"`
+	TaskID   int64         `bson:"task_id,omitempty"        yaml:"task_id,omitempty"                    json:"task_id,omitempty"`
 }
 
 type ReleasePlanLog struct {
