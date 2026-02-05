@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -289,13 +290,23 @@ func ListRepoInfos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("page invalid, err: %v", err))
+	}
+	perPage, err := strconv.Atoi(c.Query("per_page"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("per_page invalid, err: %v", err))
+	}
+
 	args := new(service.RepoInfoList)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid repo args")
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.ListRepoInfos(args.Infos, ctx.Logger)
+
+	ctx.Resp, ctx.RespErr = service.ListRepoInfos(args.Infos, page, perPage, ctx.Logger)
 }
 
 type MatchBranchesListRequest struct {
@@ -322,14 +333,23 @@ func MatchRegularList(c *gin.Context) {
 		return
 	}
 
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("page invalid, err: %v", err))
+	}
+	perPage, err := strconv.Atoi(c.Query("per_page"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("per_page invalid, err: %v", err))
+	}
+
 	chID, _ := strconv.Atoi(codehostID)
 	ctx.Resp, ctx.RespErr = service.MatchRegularList(
 		chID,
 		req.RepoName,
 		strings.Replace(req.RepoOwner, "%2F", "/", -1),
 		"",
-		1,
-		500,
+		page,
+		perPage,
 		req.Regular,
 		ctx.Logger)
 }
