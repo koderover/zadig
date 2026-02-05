@@ -17,10 +17,13 @@ limitations under the License.
 package login
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/mojocn/base64Captcha"
 	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
@@ -29,12 +32,14 @@ import (
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type LoginArgs struct {
@@ -270,4 +275,134 @@ func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
 		return "", "", fmt.Errorf("captcha generate error")
 	}
 	return id, b64s, nil
+}
+
+type SsoTokenClaims struct {
+	UserID  string `json:"userId"`
+	Account string `json:"account"`
+	jwt.StandardClaims
+}
+
+func SsoTokenCallback(tokenString string, logger *zap.SugaredLogger) (string, error) {
+	parsedToken, err := jwt.ParseWithClaims(tokenString, &SsoTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(configbase.SsoTokenSecret()), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	claims, ok := parsedToken.Claims.(*SsoTokenClaims)
+	if !ok || !parsedToken.Valid {
+		return "", fmt.Errorf("invalid token")
+	}
+
+	log.Infof("[SsoTokenCallback]: userId: %s, account: %s", claims.UserID, claims.Account)
+
+	var userLogin *models.UserLogin
+	identityType := config.SsoTokenIdentityType
+	user, err := orm.GetUser(claims.UserID, identityType, repository.DB)
+	if err != nil {
+		err = fmt.Errorf("SsoTokenLogin get user account:%s error, error msg:%s", claims.UserID, err.Error())
+		log.Errorf(err.Error())
+		return "", err
+	}
+	if user == nil {
+		uid, _ := uuid.NewUUID()
+		user := &models.User{
+			Name:         claims.Account,
+			Email:        fmt.Sprintf("%s-%s@poc.example", claims.UserID, claims.Account),
+			IdentityType: identityType,
+			Account:      claims.UserID,
+			UID:          uid.String(),
+		}
+
+		tx := repository.DB.Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+			}
+		}()
+		err = orm.CreateUser(user, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("[SsoTokenCallback] CreateUser :%v error, error msg:%s", user, err.Error())
+			var mysqlErr *mysql.MySQLError
+			if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+				return "", fmt.Errorf("存在相同用户名")
+			}
+			return "", fmt.Errorf("创建用户失败, error: %s", err.Error())
+		}
+		userLogin := &models.UserLogin{
+			UID:           user.UID,
+			LastLoginTime: time.Now().Unix(),
+			LoginId:       user.Account,
+			LoginType:     int(config.AccountLoginType),
+		}
+		err = orm.CreateUserLogin(userLogin, tx)
+		if err != nil {
+			tx.Rollback()
+			err = fmt.Errorf("[SsoTokenCallback] CreateUserLogin:%v error, error msg:%s", user, err.Error())
+			log.Errorf(err.Error())
+			return "", err
+		}
+		if tx.Commit().Error != nil {
+			return "", fmt.Errorf("创建用户登录信息失败, error: %s", tx.Commit().Error)
+		}
+	} else {
+		userLogin, err = orm.GetUserLogin(user.UID, claims.UserID, config.AccountLoginType, repository.DB)
+		if err != nil {
+			err = fmt.Errorf("SsoTokenLogin get user:%s user login not exist, error msg:%s", claims.UserID, err.Error())
+			log.Errorf(err.Error())
+			return "", err
+		}
+	}
+
+	if userLogin != nil {
+		err = CheckSignature(userLogin.LastLoginTime, logger)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	userLogin.LastLoginTime = time.Now().Unix()
+	err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB)
+	if err != nil {
+		err = fmt.Errorf("[SsoTokenCallback] user:%s update user login info error, error msg:%s", claims.UserID, err.Error())
+		log.Errorf(err.Error())
+		return "", err
+	}
+
+	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
+	if err != nil {
+		err = fmt.Errorf("failed to get system security settings, error: %s", err)
+		log.Errorf(err.Error())
+		return "", err
+	}
+
+	token, err := CreateToken(&Claims{
+		Name:              user.Name,
+		UID:               user.UID,
+		Email:             user.Email,
+		PreferredUsername: user.Account,
+		StandardClaims: jwt.StandardClaims{
+			Audience:  setting.ProductName,
+			ExpiresAt: time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix(),
+		},
+		FederatedClaims: FederatedClaims{
+			ConnectorId: user.IdentityType,
+			UserId:      user.Account,
+		},
+	})
+	if err != nil {
+		err = fmt.Errorf("[SsoTokenCallback] user:%s create token error, error msg:%s", claims.UserID, err.Error())
+		log.Errorf(err.Error())
+		return "", err
+	}
+
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
+	if err != nil {
+		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
+	}
+
+	return token, nil
 }

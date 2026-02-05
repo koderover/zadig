@@ -98,6 +98,10 @@ func SecretKey() string {
 	return viper.GetString(setting.ENVSecretKey)
 }
 
+func SsoTokenSecret() string {
+	return viper.GetString(setting.ENVSsoTokenSecret)
+}
+
 func AslanServiceAddress() string {
 	s := AslanServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
