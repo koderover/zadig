@@ -90,7 +90,7 @@ const (
 	LogTypeDeploy    LogType = "deploy"
 )
 
-func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
+func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, sinceSeconds *int64, log *zap.SugaredLogger) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
 		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
@@ -101,13 +101,13 @@ func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envNam
 		log.Errorf("failed to find ns and kubeClient: %v", err)
 		return
 	}
-	containerLogStream(ctx, streamChan, productInfo.Namespace, podName, containerName, follow, tailLines, clientset, log)
+	containerLogStream(ctx, streamChan, productInfo.Namespace, podName, containerName, follow, tailLines, sinceSeconds, clientset, log)
 }
 
-func containerLogStream(ctx context.Context, streamChan chan interface{}, namespace, podName, containerName string, follow bool, tailLines int64, client *kubernetes.Clientset, log *zap.SugaredLogger) {
+func containerLogStream(ctx context.Context, streamChan chan interface{}, namespace, podName, containerName string, follow bool, tailLines int64, sinceSeconds *int64, client *kubernetes.Clientset, log *zap.SugaredLogger) {
 	log.Infof("[GetContainerLogsSSE] Get container log of pod %s", podName)
 
-	out, err := containerlog.GetContainerLogStream(ctx, namespace, podName, containerName, follow, tailLines, client)
+	out, err := containerlog.GetContainerLogStream(ctx, namespace, podName, containerName, follow, tailLines, sinceSeconds, client)
 	if err != nil {
 		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
 		return
@@ -310,6 +310,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 			pods[0].Name, options.SubTask,
 			true,
 			options.TailLines,
+			nil, // since not used for workflow job stream
 			clientSet,
 			log,
 		)
