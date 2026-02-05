@@ -400,6 +400,14 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
 		jobTaskSpec.Properties.Envs = append(envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
+
+		// Add keyvault envs for credential masking
+		keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+		if err != nil {
+			return nil, fmt.Errorf("get keyvault envs error: %v", err)
+		}
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, keyvaultEnvs...)
+
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if buildInfo.PreBuild != nil && buildInfo.PreBuild.Storages != nil && buildInfo.PreBuild.Storages.Enabled {
