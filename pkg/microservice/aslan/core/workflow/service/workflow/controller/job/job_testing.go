@@ -711,6 +711,13 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 
 	jobTaskSpec.Properties.Envs = append(envs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
 
+	// Add keyvault envs for credential masking
+	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("get keyvault envs error: %v", err)
+	}
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, keyvaultEnvs...)
+
 	// init tools install step
 	tools := []*step.Tool{}
 	for _, tool := range testingInfo.PreTest.Installs {

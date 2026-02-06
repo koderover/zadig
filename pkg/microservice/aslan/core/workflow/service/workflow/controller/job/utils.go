@@ -39,6 +39,31 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
+// GetKeyVaultEnvs returns keyvault items as KeyVal slice for a given project.
+// These should be added to job Properties.Envs so that:
+// 1. Values are available as environment variables (using parameter.group.key format)
+// 2. Values with IsCredential=true are masked in output
+func GetKeyVaultEnvs(projectName string) ([]*commonmodels.KeyVal, error) {
+	keyvaultKV, err := commonservice.ListAvailableKeyVaultItemsForProject(projectName, true)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*commonmodels.KeyVal, 0)
+	for _, group := range keyvaultKV.Groups {
+		for _, item := range group.KVs {
+			// Use the same key format as variable rendering: parameter.group.key
+			key := strings.Join([]string{"parameter", item.Group, item.Key}, ".")
+			result = append(result, &commonmodels.KeyVal{
+				Key:          key,
+				Value:        item.Value,
+				IsCredential: item.IsSensitive,
+			})
+		}
+	}
+	return result, nil
+}
+
 func GetJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 	resp := make(map[string]int, 0)
 	index := 0

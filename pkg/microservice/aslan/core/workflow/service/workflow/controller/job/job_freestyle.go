@@ -583,6 +583,14 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	envs = append(envs, getFreestyleJobVariables(taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, j.jobSpec.Runtime.Infrastructure, service, registries, j.jobSpec.Repos)...)
+
+	// Add keyvault envs for credential masking
+	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("get keyvault envs error: %v", err)
+	}
+	envs = append(envs, keyvaultEnvs...)
+
 	taskRunProperties.Envs = envs
 
 	for _, env := range taskRunProperties.Envs {

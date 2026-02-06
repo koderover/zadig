@@ -555,6 +555,14 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
 		scanningImage = strings.ReplaceAll(config.BuildBaseImage(), "${BuildOS}", basicImage.Value)
 	}
+	// Add keyvault envs for credential masking
+	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("get keyvault envs error: %v", err)
+	}
+	allEnvs := append(envs, getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)...)
+	allEnvs = append(allEnvs, keyvaultEnvs...)
+
 	jobTaskSpec.Properties = commonmodels.JobProperties{
 		Timeout:             timeout,
 		ResourceRequest:     scanningInfo.AdvancedSetting.ResReq,
@@ -563,7 +571,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 		BuildOS:             scanningImage,
 		ImageFrom:           setting.ImageFromCustom,
-		Envs:                append(envs, getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)...),
+		Envs:                allEnvs,
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		CustomAnnotations:   scanningInfo.AdvancedSetting.CustomAnnotations,
