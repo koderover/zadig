@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -195,43 +196,20 @@ func OpenAPIDeleteDeliveryVersion(ID string) error {
 }
 
 type OpenAPICreateK8SDeliveryVersionV2Request struct {
-	ProjectKey      string                           `json:"project_key"`
-	VersionName     string                           `json:"version_name"`
-	Source          setting.DeliveryVersionSource    `json:"source"`
-	EnvName         string                           `json:"env_name"`
-	Production      bool                             `json:"production"`
-	Desc            string                           `json:"desc"`
-	Labels          []string                         `json:"labels"`
-	ImageRegistryID string                           `json:"image_registry_id"`
-	Services        []*OpenAPIDeliveryVersionService `json:"services"`
-	CreateBy        string                           `json:"-"`
+	ProjectKey          string                           `json:"project_key"`
+	VersionName         string                           `json:"version_name"`
+	Source              setting.DeliveryVersionSource    `json:"source"`
+	OriginalVersionName string                           `json:"original_version_name"`
+	EnvName             string                           `json:"env_name"`
+	Production          bool                             `json:"production"`
+	Desc                string                           `json:"desc"`
+	Labels              []string                         `json:"labels"`
+	ImageRegistryID     string                           `json:"image_registry_id"`
+	Services            []*OpenAPIDeliveryVersionService `json:"services"`
+	CreateBy            string                           `json:"-"`
 }
 
 func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionV2Request) error {
-	services := make([]*commonmodels.DeliveryVersionService, 0)
-	for _, service := range openAPIReq.Services {
-		images := make([]*commonmodels.DeliveryVersionImage, 0)
-		for _, image := range service.Images {
-			images = append(images, &commonmodels.DeliveryVersionImage{
-				ContainerName:  image.ContainerName,
-				ImageName:      image.ImageName,
-				SourceImage:    image.SourceImage,
-				SourceImageTag: image.SourceImageTag,
-				TargetImage:    image.TargetImage,
-				TargetImageTag: image.TargetImageTag,
-				PushImage:      image.PushImage,
-			})
-		}
-
-		service := &commonmodels.DeliveryVersionService{
-			ServiceName: service.ServiceName,
-			YamlContent: service.YamlContent,
-			Images:      images,
-		}
-
-		services = append(services, service)
-	}
-
 	createDeliveryVersionRequest := &CreateDeliveryVersionRequest{
 		Version:         openAPIReq.VersionName,
 		ProjectName:     openAPIReq.ProjectKey,
@@ -241,9 +219,140 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 		Labels:          openAPIReq.Labels,
 		Desc:            openAPIReq.Desc,
 		CreateBy:        openAPIReq.CreateBy,
-		Services:        services,
 		ImageRegistryID: openAPIReq.ImageRegistryID,
 	}
+
+	services := make([]*commonmodels.DeliveryVersionService, 0)
+	if openAPIReq.Source == setting.DeliveryVersionSourceFromEnv {
+		if openAPIReq.EnvName == "" {
+			return fmt.Errorf("env name is required when source is from env")
+		}
+
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    openAPIReq.ProjectKey,
+			EnvName: openAPIReq.EnvName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find env, projectKey: %s, envName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
+		}
+
+		serviceModuleMap := make(map[string]*commonmodels.Container)
+		for _, serviceGroup := range env.Services {
+			for _, service := range serviceGroup {
+				for _, container := range service.Containers {
+					serviceModuleMap[fmt.Sprintf("%s-%s", service.ServiceName, container.Name)] = container
+				}
+			}
+		}
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				container, ok := serviceModuleMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)]
+				if !ok {
+					return fmt.Errorf("container not found, serviceName: %s, containerName: %s, envName: %s, projectKey: %s", service.ServiceName, image.ContainerName, openAPIReq.EnvName, openAPIReq.ProjectKey)
+				}
+
+				imageName := container.ImageName
+				sourceImage := container.Image
+				sourceImageTag := commonservice.ExtractImageTag(container.Image)
+
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      imageName,
+					SourceImage:    sourceImage,
+					SourceImageTag: sourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			service := &commonmodels.DeliveryVersionService{
+				ServiceName: service.ServiceName,
+				YamlContent: service.YamlContent,
+				Images:      images,
+			}
+
+			services = append(services, service)
+		}
+	} else if openAPIReq.Source == setting.DeliveryVersionSourceFromVersion {
+		if openAPIReq.OriginalVersionName == "" {
+			return fmt.Errorf("original version name is required when source is from version")
+		}
+
+		originalVersion, err := commonrepo.NewDeliveryVersionV2Coll().Get(&commonrepo.DeliveryVersionV2Args{
+			ProjectName: openAPIReq.ProjectKey,
+			Version:     openAPIReq.OriginalVersionName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get original version, projectKey: %s, versionName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.OriginalVersionName, err)
+		}
+
+		serviceImageMap := make(map[string]*commonmodels.DeliveryVersionImage)
+		for _, service := range originalVersion.Services {
+			for _, image := range service.Images {
+				serviceImageMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)] = image
+			}
+		}
+
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				container, ok := serviceImageMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)]
+				if !ok {
+					return fmt.Errorf("image not found, serviceName: %s, containerName: %s, originalVersionName: %s, projectKey: %s", service.ServiceName, image.ContainerName, openAPIReq.OriginalVersionName, openAPIReq.ProjectKey)
+				}
+
+				imageName := container.ImageName
+				sourceImage := container.SourceImage
+				sourceImageTag := container.SourceImageTag
+
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      imageName,
+					SourceImage:    sourceImage,
+					SourceImageTag: sourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			service := &commonmodels.DeliveryVersionService{
+				ServiceName: service.ServiceName,
+				YamlContent: service.YamlContent,
+				Images:      images,
+			}
+
+			services = append(services, service)
+		}
+	} else {
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      image.ImageName,
+					SourceImage:    image.SourceImage,
+					SourceImageTag: image.SourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			service := &commonmodels.DeliveryVersionService{
+				ServiceName: service.ServiceName,
+				YamlContent: service.YamlContent,
+				Images:      images,
+			}
+
+			services = append(services, service)
+		}
+	}
+
+	createDeliveryVersionRequest.Services = services
+
 	return CreateK8SDeliveryVersionV2(createDeliveryVersionRequest, log.SugaredLogger())
 }
 
@@ -251,6 +360,7 @@ type OpenAPICreateHelmDeliveryVersionV2Request struct {
 	ProjectKey            string                           `json:"project_key"`
 	VersionName           string                           `json:"version_name"`
 	EnvName               string                           `json:"env_name"`
+	OriginalVersionName   string                           `json:"original_version_name"`
 	Production            bool                             `json:"production"`
 	Source                setting.DeliveryVersionSource    `json:"source"`
 	Desc                  string                           `json:"desc"`
@@ -263,33 +373,6 @@ type OpenAPICreateHelmDeliveryVersionV2Request struct {
 }
 
 func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersionV2Request) error {
-	services := make([]*commonmodels.DeliveryVersionService, 0)
-	for _, service := range openAPIReq.Services {
-		images := make([]*commonmodels.DeliveryVersionImage, 0)
-		for _, image := range service.Images {
-			images = append(images, &commonmodels.DeliveryVersionImage{
-				ContainerName:  image.ContainerName,
-				ImageName:      image.ImageName,
-				SourceImage:    image.SourceImage,
-				SourceImageTag: image.SourceImageTag,
-				TargetImage:    image.TargetImage,
-				TargetImageTag: image.TargetImageTag,
-				ImagePath:      image.ImagePath,
-				PushImage:      image.PushImage,
-			})
-		}
-
-		service := &commonmodels.DeliveryVersionService{
-			ServiceName:          service.ServiceName,
-			YamlContent:          service.YamlContent,
-			OriginalChartVersion: service.OriginalChartVersion,
-			ChartVersion:         service.ChartVersion,
-			Images:               images,
-		}
-
-		services = append(services, service)
-	}
-
 	createDeliveryVersionRequest := &CreateDeliveryVersionRequest{
 		Version:               openAPIReq.VersionName,
 		ProjectName:           openAPIReq.ProjectKey,
@@ -301,9 +384,147 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 		ImageRegistryID:       openAPIReq.ImageRegistryID,
 		ChartRepoName:         openAPIReq.ChartRepoName,
 		OriginalChartRepoName: openAPIReq.OriginalChartRepoName,
-		Services:              services,
 		CreateBy:              openAPIReq.CreateBy,
 	}
+
+	services := make([]*commonmodels.DeliveryVersionService, 0)
+	if openAPIReq.Source == setting.DeliveryVersionSourceFromEnv {
+		if openAPIReq.EnvName == "" {
+			return fmt.Errorf("env name is required when source is from env")
+		}
+
+		env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    openAPIReq.ProjectKey,
+			EnvName: openAPIReq.EnvName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find env, projectKey: %s, envName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
+		}
+
+		serviceModuleMap := make(map[string]*commonmodels.Container)
+		for _, serviceGroup := range env.Services {
+			for _, service := range serviceGroup {
+				for _, container := range service.Containers {
+					serviceModuleMap[fmt.Sprintf("%s-%s", service.ServiceName, container.Name)] = container
+				}
+			}
+		}
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				envImage, ok := serviceModuleMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)]
+				if !ok {
+					return fmt.Errorf("container not found, serviceName: %s, containerName: %s, envName: %s, projectKey: %s", service.ServiceName, image.ContainerName, openAPIReq.EnvName, openAPIReq.ProjectKey)
+				}
+
+				imageName := envImage.ImageName
+				sourceImage := envImage.Image
+				sourceImageTag := commonservice.ExtractImageTag(envImage.Image)
+
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      imageName,
+					SourceImage:    sourceImage,
+					SourceImageTag: sourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					ImagePath:      envImage.ImagePath,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			newService := &commonmodels.DeliveryVersionService{
+				ServiceName:  service.ServiceName,
+				YamlContent:  service.YamlContent,
+				ChartVersion: service.ChartVersion,
+				Images:       images,
+			}
+
+			services = append(services, newService)
+		}
+	} else if openAPIReq.Source == setting.DeliveryVersionSourceFromVersion {
+		if openAPIReq.OriginalVersionName == "" {
+			return fmt.Errorf("original version name is required when source is from version")
+		}
+
+		originalVersion, err := commonrepo.NewDeliveryVersionV2Coll().Get(&commonrepo.DeliveryVersionV2Args{
+			ProjectName: openAPIReq.ProjectKey,
+			Version:     openAPIReq.OriginalVersionName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get original version, projectKey: %s, versionName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.OriginalVersionName, err)
+		}
+
+		serviceImageMap := make(map[string]*commonmodels.DeliveryVersionImage)
+		for _, service := range originalVersion.Services {
+			for _, image := range service.Images {
+				serviceImageMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)] = image
+			}
+		}
+
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				originImage, ok := serviceImageMap[fmt.Sprintf("%s-%s", service.ServiceName, image.ContainerName)]
+				if !ok {
+					return fmt.Errorf("image not found, serviceName: %s, containerName: %s, originalVersionName: %s, projectKey: %s", service.ServiceName, image.ContainerName, openAPIReq.OriginalVersionName, openAPIReq.ProjectKey)
+				}
+
+				imageName := originImage.ImageName
+				sourceImage := originImage.SourceImage
+				sourceImageTag := originImage.SourceImageTag
+
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      imageName,
+					SourceImage:    sourceImage,
+					SourceImageTag: sourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					ImagePath:      originImage.ImagePath,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			newService := &commonmodels.DeliveryVersionService{
+				ServiceName:          service.ServiceName,
+				YamlContent:          service.YamlContent,
+				OriginalChartVersion: service.OriginalChartVersion,
+				ChartVersion:         service.ChartVersion,
+				Images:               images,
+			}
+
+			services = append(services, newService)
+		}
+	} else {
+		for _, service := range openAPIReq.Services {
+			images := make([]*commonmodels.DeliveryVersionImage, 0)
+			for _, image := range service.Images {
+				images = append(images, &commonmodels.DeliveryVersionImage{
+					ContainerName:  image.ContainerName,
+					ImageName:      image.ImageName,
+					SourceImage:    image.SourceImage,
+					SourceImageTag: image.SourceImageTag,
+					TargetImage:    image.TargetImage,
+					TargetImageTag: image.TargetImageTag,
+					ImagePath:      image.ImagePath,
+					PushImage:      image.PushImage,
+				})
+			}
+
+			service := &commonmodels.DeliveryVersionService{
+				ServiceName:          service.ServiceName,
+				YamlContent:          service.YamlContent,
+				OriginalChartVersion: service.OriginalChartVersion,
+				ChartVersion:         service.ChartVersion,
+				Images:               images,
+			}
+
+			services = append(services, service)
+		}
+	}
+
+	createDeliveryVersionRequest.Services = services
 
 	return CreateHelmDeliveryVersionV2(createDeliveryVersionRequest, log.SugaredLogger())
 }
