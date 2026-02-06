@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	pkgconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
@@ -218,7 +219,7 @@ func IsReplicaSet(ctx context.Context) bool {
 // For replica sets, it sets commitQuorum to "majority" to prevent index creation from hanging
 // when backup nodes fail. For standalone instances, it returns nil (no special options).
 func CreateIndexOptions(ctx context.Context) *options.CreateIndexesOptions {
-	if IsReplicaSet(ctx) {
+	if !pkgconfig.IsDocumentDB() && IsReplicaSet(ctx) {
 		return options.CreateIndexes().SetCommitQuorumMajority()
 	}
 	return nil

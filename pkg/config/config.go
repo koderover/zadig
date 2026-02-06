@@ -311,6 +311,10 @@ func DisableKubeClientKeepAlive() bool {
 	return viper.GetBool(setting.ENVDisableKubeClientKeepAlive)
 }
 
+func IsDocumentDB() bool {
+	return viper.GetBool(setting.ENVIsDocumentDB)
+}
+
 func Home() string {
 	return viper.GetString(setting.Home)
 }

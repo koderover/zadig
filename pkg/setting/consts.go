@@ -28,6 +28,7 @@ const (
 	ENVBuildKitImage              = "BUILD_KIT_IMAGE"
 	ENVMode                       = "MODE"
 	ENVMongoDBConnectionString    = "MONGODB_CONNECTION_STRING"
+	ENVIsDocumentDB               = "IS_DOCUMENT_DB"
 	ENVAslanDBName                = "ASLAN_DB"
 	ENVHubAgentImage              = "HUB_AGENT_IMAGE"
 	ENVExecutorImage              = "EXECUTOR_IMAGE"
