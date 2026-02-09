@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -78,16 +79,23 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	}
 	scripts := []string{}
 	if !s.spec.SkipPrepare {
-		scripts = prepareScriptsEnv()
+		scripts = append(s.spec.Scripts[:1], append(prepareScriptsEnv(), s.spec.Scripts[1:]...)...)
+	} else {
+		scripts = append(scripts, s.spec.Scripts...)
 	}
-	scripts = append(scripts, s.spec.Scripts...)
 
 	userScriptFile := "user_script.sh"
 	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), userScriptFile), []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return fmt.Errorf("write script file error: %v", err)
 	}
 
-	cmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), userScriptFile))
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("/bin/bash", filepath.Join(os.TempDir(), userScriptFile))
+	} else {
+		cmd = exec.Command(filepath.Join(os.TempDir(), userScriptFile))
+	}
+
 	cmd.Dir = s.workspace
 	cmd.Env = s.envs
 

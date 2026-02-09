@@ -2027,7 +2027,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		EnvName: envName,
 	})
 	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		log.Errorf("[SyncHelmProductEnvironment] GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
 
@@ -2036,7 +2036,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 	changed, defaultValues, err := commonservice.SyncYamlFromSource(product.YamlData, product.DefaultValues, product.DefaultValues)
 	if err != nil {
-		log.Errorf("failed to update default values of env %s:%s", product.ProductName, product.EnvName)
+		log.Errorf("[SyncHelmProductEnvironment] failed to update default values of env %s:%s", product.ProductName, product.EnvName)
 		return err
 	}
 	if changed {
@@ -2058,7 +2058,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 			changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
 			if err != nil {
-				log.Errorf("failed to sync yaml from source, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				log.Errorf("[SyncHelmProductEnvironment] failed to sync yaml from source, project: %s, env: %s, serviceName: %s, err: %s", productName, envName, chartInfo.ServiceName, err)
 				return
 			}
 

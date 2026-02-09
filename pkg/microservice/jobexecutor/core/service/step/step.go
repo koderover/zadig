@@ -134,10 +134,10 @@ func prepareScriptsEnv() []string {
 	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")
 	// $HOME/.ssh/id_rsa 为 github 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
-	scripts = append(scripts, fmt.Sprintf("rm %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
+	scripts = append(scripts, fmt.Sprintf("rm -f %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
 	// $HOME/.ssh/gitlab 为 gitlab 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.gitlab &> /dev/null", config.Home()))
-	scripts = append(scripts, fmt.Sprintf("rm %s/.ssh/id_rsa.gitlab &> /dev/null", config.Home()))
+	scripts = append(scripts, fmt.Sprintf("rm -f %s/.ssh/id_rsa.gitlab &> /dev/null", config.Home()))
 
 	return scripts
 }

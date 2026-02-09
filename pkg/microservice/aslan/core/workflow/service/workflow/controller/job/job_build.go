@@ -548,10 +548,17 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		// init shell step
 		scripts := []string{}
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
+
+		if !strings.HasPrefix(buildInfo.Scripts, "#!") {
+			buildInfo.Scripts = "#!/bin/bash\n" + buildInfo.Scripts
+			log.Warnf("build %s's scripts does not have #! prefix, add #!/bin/bash by default", build.BuildName)
+		}
+
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		} else {
-			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+			scripts = strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")
+			scripts = append(scripts[:1], append([]string{dockerLoginCmd}, scripts[1:]...)...)
 			scripts = append(scripts, outputScript(outputs, jobTask.Infrastructure)...)
 		}
 		scriptStep := &commonmodels.StepTask{
