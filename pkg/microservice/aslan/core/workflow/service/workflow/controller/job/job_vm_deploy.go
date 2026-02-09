@@ -385,6 +385,14 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 
 		jobTaskSpec.Properties.Envs = append(envs, vmDeployVars...)
+
+		// Add keyvault envs for credential masking
+		keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+		if err != nil {
+			return nil, fmt.Errorf("get keyvault envs error: %v", err)
+		}
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, keyvaultEnvs...)
+
 		jobTaskSpec.Properties.UseHostDockerDaemon = deployInfo.PreDeploy.UseHostDockerDaemon
 		jobTaskSpec.Properties.CacheEnable = false
 
