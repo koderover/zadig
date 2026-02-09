@@ -101,3 +101,42 @@ func ListAvailableKeyVaultItemsForProject(projectName string, getSensitiveValue 
 
 	return &KeyVaultListResponse{Groups: groups}, nil
 }
+
+// ListAvailableKeyVaultItemsForSystem returns system-wide KV items only.
+// If getSensitiveValue is true, sensitive values are returned; otherwise they are removed.
+func ListAvailableKeyVaultItemsForSystem(getSensitiveValue bool) (*KeyVaultListResponse, error) {
+	systemItems, err := commonrepo.NewKeyVaultItemColl().List(&commonrepo.KeyVaultItemListOption{
+		IsSystemWide: true,
+	})
+	if err != nil {
+		log.Errorf("KeyVaultItem.List for system-wide error: %s", err)
+		return nil, e.ErrListKeyVaultItem.AddErr(err)
+	}
+
+	groupMap := make(map[string][]*commonmodels.KeyVaultItem)
+	groupOrder := make([]string, 0)
+	groupSet := make(map[string]bool)
+
+	for _, item := range systemItems {
+		if !getSensitiveValue && item.IsSensitive {
+			item.Value = ""
+		}
+		groupMap[item.Group] = append(groupMap[item.Group], item)
+		if !groupSet[item.Group] {
+			groupOrder = append(groupOrder, item.Group)
+			groupSet[item.Group] = true
+		}
+	}
+
+	groups := make([]*KeyVaultGroup, 0, len(groupOrder))
+	for _, groupName := range groupOrder {
+		if kvs, exists := groupMap[groupName]; exists {
+			groups = append(groups, &KeyVaultGroup{
+				Name: groupName,
+				KVs:  kvs,
+			})
+		}
+	}
+
+	return &KeyVaultListResponse{Groups: groups}, nil
+}
