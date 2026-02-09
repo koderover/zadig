@@ -29,7 +29,7 @@ import (
 )
 
 func GetContainerLogs(namespace, podName, containerName string, follow bool, tailLines int64, out io.Writer, clientset *kubernetes.Clientset) error {
-	readCloser, err := GetContainerLogStream(context.TODO(), namespace, podName, containerName, follow, tailLines, clientset)
+	readCloser, err := GetContainerLogStream(context.TODO(), namespace, podName, containerName, follow, tailLines, nil, clientset)
 	if err != nil {
 		log.Warnf("Failed to get pod log from stream: %s. Try to get logs from pod object.", err)
 
@@ -60,7 +60,7 @@ func GetContainerLogs(namespace, podName, containerName string, follow bool, tai
 	return err
 }
 
-func GetContainerLogStream(ctx context.Context, namespace, podName, containerName string, follow bool, tailLines int64, clientset *kubernetes.Clientset) (io.ReadCloser, error) {
+func GetContainerLogStream(ctx context.Context, namespace, podName, containerName string, follow bool, tailLines int64, sinceSeconds *int64, clientset *kubernetes.Clientset) (io.ReadCloser, error) {
 	logOptions := &corev1.PodLogOptions{
 		Container: containerName,
 		Follow:    follow,
@@ -68,6 +68,9 @@ func GetContainerLogStream(ctx context.Context, namespace, podName, containerNam
 
 	if tailLines > 0 {
 		logOptions.TailLines = &tailLines
+	}
+	if sinceSeconds != nil && *sinceSeconds > 0 {
+		logOptions.SinceSeconds = sinceSeconds
 	}
 
 	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)

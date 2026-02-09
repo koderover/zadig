@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -39,6 +40,25 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
+// parseSinceSeconds parses query param "since" as a duration (e.g. 5m, 1h). Returns nil when empty; error when invalid.
+func parseSinceSeconds(since string) (*int64, error) {
+	if since == "" {
+		return nil, nil
+	}
+	d, err := time.ParseDuration(since)
+	if err != nil {
+		return nil, fmt.Errorf("invalid since: %w", err)
+	}
+	sec := int64(d / time.Second)
+	if sec < 1 {
+		sec = 1
+	}
+	return &sec, nil
+}
+
+// GetContainerLogsSSE streams container logs via SSE.
+// Query params: envName, projectName, tails (default 10), since (optional, e.g. 5m, 1h; Go duration).
+// @Param since query string false "Only logs from the last duration, e.g. 5m, 1h (time.ParseDuration format)"
 func GetContainerLogsSSE(c *gin.Context) {
 	logger := ginzap.WithContext(c).Sugar()
 
@@ -53,6 +73,12 @@ func GetContainerLogsSSE(c *gin.Context) {
 	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
 	if err != nil {
 		tails = int64(10)
+	}
+	sinceSeconds, err := parseSinceSeconds(c.Query("since"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		internalhandler.JSONResponse(c, ctx)
+		return
 	}
 
 	envName := c.Query("envName")
@@ -79,7 +105,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
 		}, logger)
 	} else {
 		// authorization checks
@@ -101,7 +127,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
 		}, logger)
 	}
 
@@ -304,6 +330,9 @@ func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 	}, ctx.Logger)
 }
 
+// OpenAPIGetContainerLogsSSE streams container logs via SSE (OpenAPI).
+// Query params: envName, projectKey, tails (default 10), since (optional, e.g. 5m, 1h; Go duration).
+// @Param since query string false "Only logs from the last duration, e.g. 5m, 1h (time.ParseDuration format)"
 func OpenAPIGetContainerLogsSSE(c *gin.Context) {
 	logger := ginzap.WithContext(c).Sugar()
 
@@ -311,12 +340,19 @@ func OpenAPIGetContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		tails = int64(10)
 	}
+	sinceSeconds, err := parseSinceSeconds(c.Query("since"))
+	if err != nil {
+		ctx := internalhandler.NewContext(c)
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
 
 	envName := c.Query("envName")
 	productName := c.Query("projectKey")
 
 	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
 	}, logger)
 }
 
