@@ -588,6 +588,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		keyvault.DELETE("/items/:id", DeleteKeyVaultItem)
 		keyvault.DELETE("/groups/:group", DeleteKeyVaultGroup)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// workflow parameter list
+	// ---------------------------------------------------------------------------------------
+	workflowParam := router.Group("workflow_parameter")
+	{
+		workflowParam.GET("", ListAvailableWorkflowParameter)
+	}
 }
 
 type OpenAPIRouter struct{}
