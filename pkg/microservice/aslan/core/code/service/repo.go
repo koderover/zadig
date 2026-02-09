@@ -61,7 +61,7 @@ func (repo *GitRepoInfo) GetNamespace() string {
 }
 
 // ListRepoInfos ...
-func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
+func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var wg sync.WaitGroup
 	var errList *multierror.Error
 
@@ -91,6 +91,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
+				Page:        page,
+				PerPage:     perPage,
 			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
@@ -107,9 +109,12 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}()
 			projectName := info.Repo
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
-				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
-				ProjectName: projectName,
-				Key:         info.Key,
+				Namespace:     strings.Replace(info.GetNamespace(), "%2F", "/", -1),
+				ProjectName:   projectName,
+				Key:           info.Key,
+				Page:          page,
+				PerPage:       perPage,
+				MatchBranches: true,
 			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
@@ -161,6 +166,8 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
+				Page:        page,
+				PerPage:     perPage,
 			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
