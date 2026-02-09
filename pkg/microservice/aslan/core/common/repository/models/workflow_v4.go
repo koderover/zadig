@@ -1649,9 +1649,11 @@ type Param struct {
 	// support string/text/choice/repo/file type
 	ParamsType   string                 `bson:"type"                      json:"type"                        yaml:"type"`
 	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
-	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
+	Repo         *types.Repository      `bson:"repo"                      json:"repo"                        yaml:"repo,omitempty"`
 	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
 	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
+	Script       string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
+	CallFunction string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
 	FileID       string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
 	FilePath     string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
