@@ -41,7 +41,8 @@ type Testing struct {
 	UpdateTime     int64               `bson:"update_time"              json:"update_time"`
 	UpdateBy       string              `bson:"update_by"                json:"update_by"`
 	// Junit 测试报告
-	TestResultPath string `bson:"test_result_path"         json:"test_result_path"`
+	TestResultPath          string `bson:"test_result_path"         json:"test_result_path"`
+	JUnitTestResultPassRate int    `bson:"junit_test_result_pass_rate"         json:"junit_test_result_pass_rate"`
 	// html 测试报告
 	TestReportPath string `bson:"test_report_path"         json:"test_report_path"`
 	Threshold      int    `bson:"threshold"                json:"threshold"`
