@@ -37,21 +37,9 @@ const (
 )
 
 // ListAvailableWorkflowParameter returns workflow parameters that can be used in templates.
-// It includes fixed system parameters (project, workflow, workflow.task) and keyvault
-// parameters (parameter.group.key) when projectName is set.
+// It includes keyvault parameters (parameter.group.key) when projectName is set.
 func ListAvailableWorkflowParameter(scope, projectName string) (interface{}, error) {
-	list := []WorkflowParameterItem{
-		{Key: "project.id", Description: "项目标识"},
-		{Key: "project.name", Description: "项目名称"},
-		{Key: "workflow.id", Description: "工作流标识"},
-		{Key: "workflow.name", Description: "工作流名称"},
-		{Key: "workflow.task.creator", Description: "工作流创建人昵称"},
-		{Key: "workflow.task.creator.id", Description: "工作流创建人账号名称"},
-		{Key: "workflow.task.creator.userId", Description: "工作流创建人账号 ID"},
-		{Key: "workflow.task.timestamp", Description: "工作流执行时间戳"},
-		{Key: "workflow.task.id", Description: "工作流任务执行 ID"},
-		{Key: "workflow.task.url", Description: "工作流任务 URL"},
-	}
+	list := []WorkflowParameterItem{}
 
 	var keyvaultResp *commonservice.KeyVaultListResponse
 	var err error
