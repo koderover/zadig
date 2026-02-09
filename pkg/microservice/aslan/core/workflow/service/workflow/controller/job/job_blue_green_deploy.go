@@ -136,6 +136,8 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.Env = currJobSpec.Env
 	j.jobSpec.Source = currJobSpec.Source

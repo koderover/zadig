@@ -129,6 +129,8 @@ func (j ApolloJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	if j.jobSpec.ApolloID != currJobSpec.ApolloID {
 		// if the configured system change, old selection no longer applies

@@ -100,6 +100,8 @@ func (j CanaryReleaseJobController) Update(useUserInput bool, ticket *commonmode
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.FromJob = currJobSpec.FromJob
 	j.jobSpec.ReleaseTimeout = currJobSpec.ReleaseTimeout

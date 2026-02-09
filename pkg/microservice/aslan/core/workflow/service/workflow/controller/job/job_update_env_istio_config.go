@@ -86,6 +86,9 @@ func (j UpdateEnvIstioConfigJobController) Update(useUserInput bool, ticket *com
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
+
 	j.jobSpec.Production = currJobSpec.Production
 	j.jobSpec.BaseEnv = currJobSpec.BaseEnv
 	j.jobSpec.Source = currJobSpec.Source

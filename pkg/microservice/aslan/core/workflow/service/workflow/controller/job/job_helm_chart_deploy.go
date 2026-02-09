@@ -98,6 +98,8 @@ func (j HelmChartDeployJobController) Update(useUserInput bool, ticket *commonmo
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	if !useUserInput {
 		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.jobSpec.Env})

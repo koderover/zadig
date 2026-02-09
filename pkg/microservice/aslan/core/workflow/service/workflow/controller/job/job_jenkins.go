@@ -81,6 +81,8 @@ func (j JenkinsJobController) Update(useUserInput bool, ticket *commonmodels.App
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.ID = currJobSpec.ID
 	if useUserInput {

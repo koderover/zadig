@@ -127,6 +127,9 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = latestJob.ErrorPolicy
+	j.executePolicy = latestJob.ExecutePolicy
+
 	j.jobSpec.Production = latestSpec.Production
 	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {

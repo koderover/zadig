@@ -103,6 +103,9 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
+
 	j.jobSpec.TestType = currJobSpec.TestType
 	j.jobSpec.Source = currJobSpec.Source
 	j.jobSpec.JobName = currJobSpec.JobName

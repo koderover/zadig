@@ -100,6 +100,9 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return fmt.Errorf("failed to decode approval job spec, error: %s", err)
 	}
 
+	j.errorPolicy = latestJob.ErrorPolicy
+	j.executePolicy = latestJob.ExecutePolicy
+
 	j.jobSpec.JobName = latestJobSpec.JobName
 	j.jobSpec.Type = latestJobSpec.Type
 	j.jobSpec.Timeout = latestJobSpec.Timeout

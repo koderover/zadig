@@ -93,6 +93,8 @@ func (j MseGrayReleaseJobController) Update(useUserInput bool, ticket *commonmod
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.Production = currJobSpec.Production
 	j.jobSpec.BaseEnv = currJobSpec.BaseEnv

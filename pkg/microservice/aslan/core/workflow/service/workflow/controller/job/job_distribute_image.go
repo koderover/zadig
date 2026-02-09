@@ -102,6 +102,9 @@ func (j DistributeImageJobController) Update(useUserInput bool, ticket *commonmo
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = latestJob.ErrorPolicy
+	j.executePolicy = latestJob.ExecutePolicy
+
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
 	// we need to not only update its source but also set services to empty slice.
 	if useUserInput {
