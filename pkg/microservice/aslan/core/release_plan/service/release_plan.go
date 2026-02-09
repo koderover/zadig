@@ -1343,10 +1343,12 @@ const (
 )
 
 type ListReleasePlanOption struct {
-	PageNum  int64               `form:"pageNum" binding:"required"`
-	PageSize int64               `form:"pageSize" binding:"required"`
-	Type     ListReleasePlanType `form:"type" binding:"required"`
-	Keyword  string              `form:"keyword"`
+	PageNum   int64               `form:"pageNum" binding:"required"`
+	PageSize  int64               `form:"pageSize" binding:"required"`
+	StartTime int64               `form:"startTime"`
+	EndTime   int64               `form:"endTime"`
+	Type      ListReleasePlanType `form:"type" binding:"required"`
+	Keyword   string              `form:"keyword"`
 }
 
 type ListReleasePlanResp struct {
@@ -1367,6 +1369,8 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			IsSort:         true,
 			PageNum:        opt.PageNum,
 			PageSize:       opt.PageSize,
+			StartTime:      opt.StartTime,
+			EndTime:        opt.EndTime,
 			ExcludedFields: []string{"jobs", "logs"},
 		})
 	case ListReleasePlanTypeManager:
@@ -1375,6 +1379,8 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			IsSort:         true,
 			PageNum:        opt.PageNum,
 			PageSize:       opt.PageSize,
+			StartTime:      opt.StartTime,
+			EndTime:        opt.EndTime,
 			ExcludedFields: []string{"jobs", "logs"},
 		})
 	case ListReleasePlanTypeSuccessTime:
@@ -1401,6 +1407,8 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			SortBy:           mongodb.SortReleasePlanByUpdateTime,
 			PageNum:          opt.PageNum,
 			PageSize:         opt.PageSize,
+			StartTime:        opt.StartTime,
+			EndTime:          opt.EndTime,
 			ExcludedFields:   []string{"jobs", "logs"},
 		})
 	case ListReleasePlanTypeUpdateTime:
@@ -1427,6 +1435,8 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			SortBy:          mongodb.SortReleasePlanByUpdateTime,
 			PageNum:         opt.PageNum,
 			PageSize:        opt.PageSize,
+			StartTime:       opt.StartTime,
+			EndTime:         opt.EndTime,
 			ExcludedFields:  []string{"jobs", "logs"},
 		})
 	case ListReleasePlanTypeStatus:
