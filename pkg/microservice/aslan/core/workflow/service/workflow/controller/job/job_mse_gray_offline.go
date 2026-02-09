@@ -83,6 +83,8 @@ func (j MseGrayOfflineJobController) Update(useUserInput bool, ticket *commonmod
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.Source = currJobSpec.Source
 	j.jobSpec.Production = currJobSpec.Production

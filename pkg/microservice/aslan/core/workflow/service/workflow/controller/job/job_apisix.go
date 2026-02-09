@@ -84,6 +84,14 @@ func (j ApisixJobController) Validate(isExecution bool) error {
 }
 
 func (j ApisixJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
+	currJob, err := j.workflow.FindJob(j.name, j.jobType)
+	if err != nil {
+		return err
+	}
+
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
+
 	return nil
 }
 

@@ -122,6 +122,9 @@ func (j WorkflowTriggerJobController) Update(useUserInput bool, ticket *commonmo
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
+
 	j.jobSpec.IsEnableCheck = currJobSpec.IsEnableCheck
 	j.jobSpec.TriggerType = currJobSpec.TriggerType
 	j.jobSpec.Source = currJobSpec.Source

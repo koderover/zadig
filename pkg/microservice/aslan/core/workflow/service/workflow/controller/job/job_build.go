@@ -147,6 +147,9 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.errorPolicy = latestJob.ErrorPolicy
+	j.executePolicy = latestJob.ExecutePolicy
+
 	userConfiguredService := make(map[string]*commonmodels.ServiceAndBuild)
 
 	for _, service := range j.jobSpec.ServiceAndBuilds {

@@ -100,6 +100,8 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.ScanningType = currJobSpec.ScanningType
 	j.jobSpec.Source = currJobSpec.Source

@@ -101,6 +101,8 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.NacosID = currJobSpec.NacosID
 	j.jobSpec.Source = currJobSpec.Source

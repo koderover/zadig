@@ -144,6 +144,8 @@ func (j CanaryDeployJobController) Update(useUserInput bool, ticket *commonmodel
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.DockerRegistryID = currJobSpec.DockerRegistryID
 	j.jobSpec.Namespace = currJobSpec.Namespace

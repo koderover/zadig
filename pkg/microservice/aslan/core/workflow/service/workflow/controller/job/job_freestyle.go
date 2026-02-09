@@ -102,6 +102,8 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.Runtime = currJobSpec.Runtime
 	j.jobSpec.AdvancedSetting = currJobSpec.AdvancedSetting

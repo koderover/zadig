@@ -76,6 +76,8 @@ func (j PluginJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	newInputs := renderParams(currJobSpec.Plugin.Inputs, j.jobSpec.Plugin.Inputs)
 	j.jobSpec.Plugin = currJobSpec.Plugin

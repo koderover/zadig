@@ -95,6 +95,8 @@ func (j BlueKingJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode blue king job spec, error: %s", err)
 	}
+	j.errorPolicy = currJob.ErrorPolicy
+	j.executePolicy = currJob.ExecutePolicy
 
 	j.jobSpec.ToolID = currJobSpec.ToolID
 	if currJobSpec.BusinessID != j.jobSpec.BusinessID {
