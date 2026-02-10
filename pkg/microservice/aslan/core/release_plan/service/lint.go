@@ -38,6 +38,9 @@ func lintReleaseJob(_type config.ReleasePlanJobType, spec interface{}) error {
 		}
 		return nil
 	case config.JobWorkflow:
+		if spec == nil {
+			return fmt.Errorf("workflow spec cannot be empty")
+		}
 		w := new(models.WorkflowReleaseJobSpec)
 		if err := models.IToi(spec, w); err != nil {
 			return fmt.Errorf("invalid workflow spec: %v", err)

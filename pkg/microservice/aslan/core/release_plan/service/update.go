@@ -100,6 +100,8 @@ type PlanUpdater interface {
 	Verb() string
 	TargetName() string
 	TargetType() string
+	// Lint is used to lint the data before updating, now there are 2 special cases:
+	// for VerbUpdateReleaseJob and VerbCreateReleaseJob, we will lint the data when we finish planning, not saving the draft.
 	Lint() error
 }
 
@@ -324,7 +326,8 @@ func (u *CreateReleaseJobUpdater) Lint() error {
 		return fmt.Errorf("name cannot be empty")
 	}
 
-	return lintReleaseJob(u.Type, u.Spec)
+	// note that the real linting process is when we finish planning, not saving the draft.
+	return nil
 }
 
 func (u *CreateReleaseJobUpdater) TargetName() string {
@@ -374,6 +377,7 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 	return nil, nil, fmt.Errorf("job %s-%s not found", u.Name, u.ID)
 }
 
+// note that the real linting process is when we finish planning, not saving the draft.
 func (u *UpdateReleaseJobUpdater) Lint() error {
 	if u.ID == "" {
 		return fmt.Errorf("id cannot be empty")
@@ -381,7 +385,7 @@ func (u *UpdateReleaseJobUpdater) Lint() error {
 	if u.Name == "" {
 		return fmt.Errorf("name cannot be empty")
 	}
-	return lintReleaseJob(u.Type, u.Spec)
+	return nil
 }
 
 func (u *UpdateReleaseJobUpdater) TargetName() string {
