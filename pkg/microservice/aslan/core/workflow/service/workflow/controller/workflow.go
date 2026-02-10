@@ -153,8 +153,19 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 		}
 	}
 
+	workflowDefaultParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid)
+	for _, param := range workflowDefaultParams {
+		if param.GetValue() != "" && !strings.HasPrefix(param.GetValue(), "{{.") {
+			globalKeyMap[param.Name] = param.GetValue()
+			log.Debugf("insert key %s with value %s", param.Name, param.GetValue())
+		} else {
+			log.Warnf("key %s skipped due to no value or reference value: [%s]", param.Name, param.GetValue())
+		}
+	}
+
 	// then we render the workflow with the built-in & user-defined parameter
-	err := w.RenderWorkflowDefaultParams(taskID, creator, account, uid)
+	// TODO: this is probably deprecated due because we already render the workflow default params in the previous loop
+	err = w.RenderWorkflowDefaultParams(taskID, creator, account, uid)
 	if err != nil {
 		return nil, err
 	}
