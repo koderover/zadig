@@ -469,26 +469,22 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
 			if releasePlanJob.Type == config.JobWorkflow {
-				// now that in planning status, the job spec is just a draft, meaning it can't be updated (the workflow might now even exist)
-				// so we skipped updating this.
-				if releasePlan.Status != config.ReleasePlanStatusPlanning {
-					spec := new(models.WorkflowReleaseJobSpec)
-					if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
-						return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
-					}
-					if spec.Workflow == nil {
-						return nil, fmt.Errorf("workflow is nil")
-					}
-	
-					workflowController := controller.CreateWorkflowController(spec.Workflow)
-					if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
-						log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
-						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-					}
-	
-					spec.Workflow = workflowController.WorkflowV4
-					releasePlanJob.Spec = spec
+				spec := new(models.WorkflowReleaseJobSpec)
+				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
 				}
+				if spec.Workflow == nil {
+					return nil, fmt.Errorf("workflow is nil")
+				}
+
+				workflowController := controller.CreateWorkflowController(spec.Workflow)
+				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+					log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
+					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+				}
+
+				spec.Workflow = workflowController.WorkflowV4
+				releasePlanJob.Spec = spec
 			}
 
 			return releasePlanJob, nil
