@@ -1356,8 +1356,8 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			}
 			scanningInfo, err := scanSvc.GetByName(projectName, scanning.Name)
 			if err != nil {
-				logger.Errorf(err.Error())
-				return e.ErrFindWorkflow.AddErr(err)
+				logger.Errorf("find scanning: %s error: %s", scanning.Name, err)
+				continue
 			}
 			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
 		}
@@ -1368,8 +1368,8 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			}
 			scanningInfo, err := scanSvc.GetByName(projectName, scanning.Name)
 			if err != nil {
-				logger.Errorf(err.Error())
-				return e.ErrFindWorkflow.AddErr(err)
+				logger.Errorf("find scanning: %s error: %s", scanning.Name, err)
+				continue
 			}
 			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
 		}
