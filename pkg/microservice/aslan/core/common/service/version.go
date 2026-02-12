@@ -601,6 +601,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				ServiceType:   envSvcVersion.Service.GetServiceType(),
 				OriginService: preProdSvc,
 				UpdateService: envSvcVersion.Service,
+				Detail:        detail,
 			}
 			err = mongodb.NewEnvInfoCollWithSession(session).Create(ctx, rollbackRecord)
 			if err != nil {
