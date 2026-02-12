@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -882,11 +883,16 @@ func DeleteProjectGroup(c *gin.Context) {
 		return
 	}
 
-	groupName := c.Query("groupName")
+	groupName, err := url.QueryUnescape(c.Query("groupName"))
+	if err != nil {
+		ctx.RespErr = e.ErrDeleteProjectGroup.AddErr(err)
+		return
+	}
 	if groupName == "" {
 		ctx.RespErr = e.ErrDeleteProjectGroup.AddErr(errors.New("group name is empty"))
 		return
 	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, groupName, types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = projectservice.DeleteProjectGroup(groupName, ctx.Logger)
@@ -922,5 +928,11 @@ func GetPresetProjectGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = projectservice.GetProjectGroupRelation(c.Query("groupName"), ctx.Logger)
+	groupName, err := url.QueryUnescape(c.Query("groupName"))
+	if err != nil {
+		ctx.RespErr = e.ErrDeleteProjectGroup.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = projectservice.GetProjectGroupRelation(groupName, ctx.Logger)
 }

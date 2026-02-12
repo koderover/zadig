@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,13 @@ func ListProjects(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	groupName, err := url.QueryUnescape(args.GroupName)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args.GroupName = groupName
 
 	var authorizedProjectList []string
 
