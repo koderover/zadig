@@ -313,6 +313,9 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 			}
 
 			originJobMap[job.Name].Spec = ctrl.GetSpec()
+			originJobMap[job.Name].RunPolicy = job.RunPolicy
+			originJobMap[job.Name].ErrorPolicy = job.ErrorPolicy
+			originJobMap[job.Name].ExecutePolicy = job.ExecutePolicy
 			jobList = append(jobList, originJobMap[job.Name])
 		}
 		stage.Jobs = jobList
