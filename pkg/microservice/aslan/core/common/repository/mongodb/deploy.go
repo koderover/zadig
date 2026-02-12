@@ -179,7 +179,10 @@ func (c *DeployColl) Create(deploy *models.Deploy) error {
 	deploy.UpdateTime = time.Now().Unix()
 
 	//double check
-	deployModel, err := c.Find(&DeployFindOption{Name: deploy.Name})
+	deployModel, err := c.Find(&DeployFindOption{
+		Name:        deploy.Name,
+		ProjectName: deploy.ProjectName,
+	})
 	if err == nil {
 		return fmt.Errorf("%s%s", deployModel.ProjectName, "项目中有相同的部署名称存在,请检查!")
 	}

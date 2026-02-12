@@ -752,6 +752,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	//删除workflow和历史task
 	go func() {
 		_ = commonrepo.NewBuildColl().Delete("", productName)
+		_ = commonrepo.NewDeployColl().Delete(productName, "")
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonrepo.NewProductionServiceColl().DeleteByProject(productName)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
