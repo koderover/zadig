@@ -552,6 +552,9 @@ type DeployBasicInfo struct {
 type DeployOptionInfo struct {
 	DeployBasicInfo `bson:",inline"  yaml:",inline"  json:",inline"`
 
+	CurrentReleaseName string `bson:"current_release_name"          yaml:"current_release_name"             json:"current_release_name"`
+	LatestReleaseName  string `bson:"latest_release_name"           yaml:"latest_release_name"              json:"latest_release_name"`
+
 	EnvVariable     *DeployVariableInfo `bson:"env_variable"            yaml:"env_variable"              json:"env_variable"`
 	ServiceVariable *DeployVariableInfo `bson:"service_variable"        yaml:"service_variable"          json:"service_variable"`
 }

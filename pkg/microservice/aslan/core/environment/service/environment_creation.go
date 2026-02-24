@@ -121,6 +121,10 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	releases := sets.NewString()
 	for _, svcGroup := range productObj.Services {
 		for _, svc := range svcGroup {
+			if releases.Has(svc.ReleaseName) {
+				return fmt.Errorf("service %s's release name %s is duplicated", svc.ServiceName, svc.ReleaseName)
+			}
+
 			releases.Insert(svc.ReleaseName)
 		}
 	}

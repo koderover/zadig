@@ -1123,6 +1123,15 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	releases := sets.NewString()
 	for _, svc := range productResp.GetSvcList() {
 		if filter(svc) {
+			if releases.Has(svc.ReleaseName) {
+				return fmt.Errorf("service %s's release name %s is duplicated", svc.ServiceName, svc.ReleaseName)
+			}
+
+			err = kube.CheckReleaseDuplicate(svc.ServiceName, svc.ReleaseName, productResp)
+			if err != nil {
+				return err
+			}
+
 			releases.Insert(svc.ReleaseName)
 		}
 	}
@@ -1539,13 +1548,15 @@ const (
 
 type GetHelmValuesDifferenceResp struct {
 	Current              string                   `json:"current"`
+	CurrentReleaseName   string                   `json:"current_release_name"`
 	Latest               string                   `json:"latest"`
+	LatestReleaseName    string                   `json:"latest_release_name"`
 	LatestFlatMap        map[string]interface{}   `json:"latest_flat_map"`
 	CurrentManifestFiles []*kube.HelmManifestFile `json:"current_manifest_files"`
 	LatestManifestFiles  []*kube.HelmManifestFile `json:"latest_manifest_files"`
 }
 
-func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
 		prodSvc        *commonmodels.ProductService
 		currentTmplSvc *commonmodels.Service
@@ -1558,6 +1569,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 	case EstimateValuesSceneCreateEnv:
 		prod = &commonmodels.Product{}
 		prod.DefaultValues = arg.DefaultValues
+		prod.Namespace = namespace
 		prodSvc, latestTmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
@@ -1586,10 +1598,16 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 
 	currentYaml := ""
 	latestYaml := ""
+	currentReleaseName := ""
+	latestReleaseName := ""
 	currentManifestFiles := make([]*kube.HelmManifestFile, 0)
 	latestManifestFiles := make([]*kube.HelmManifestFile, 0)
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
 		// service already exists in the current environment, create it
+
+		currentReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
+		latestReleaseName = currentReleaseName
+
 		currentYaml = ""
 	} else if scene == EstimateValuesSceneUpdateService {
 		// service exists in the current environment, update it
@@ -1639,6 +1657,8 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				}
 			}
 		} else {
+			currentReleaseName = util.GeneReleaseName(envTemplateServiceRevision.GetReleaseNaming(), projectName, prod.Namespace, envName, envTemplateServiceRevision.ServiceName)
+
 			helmDeploySvc := helmservice.NewHelmDeployService()
 			yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 			if err != nil {
@@ -1718,6 +1738,8 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
 		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 	} else {
+		latestReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
+
 		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
 		overrideValue := arg.OverrideYaml
 		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
@@ -1787,7 +1809,9 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 
 	resp := &GetHelmValuesDifferenceResp{
 		Current:              currentYaml,
+		CurrentReleaseName:   currentReleaseName,
 		Latest:               latestYaml,
+		LatestReleaseName:    latestReleaseName,
 		LatestFlatMap:        mapData,
 		CurrentManifestFiles: currentManifestFiles,
 		LatestManifestFiles:  latestManifestFiles,

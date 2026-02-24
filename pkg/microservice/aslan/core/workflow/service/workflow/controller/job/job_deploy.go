@@ -922,6 +922,7 @@ ServiceOrderLoop:
 // 2. ALL service information that is either in the environment or the service definition
 // 3. 2 versions of variable list (filtered by the user's variable configuration) showing the service variable definition and the env variables (if applicable)
 func generateDeployInfoForEnv(env, project string, production bool, configuredServiceVariableList commonmodels.DeployServiceVariableConfigList, approvalTicket *commonmodels.ApprovalTicket) (*commonmodels.ZadigDeployEnvInformation, error) {
+	repositoryCache := repository.NewRepsitoryCache()
 	serviceOption := make([]*commonmodels.DeployOptionInfo, 0)
 
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -1046,6 +1047,21 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			}
 		}
 
+		currentReleaseName := ""
+		if service.Type == setting.HelmDeployType {
+			envService, err := repositoryCache.QueryTemplateServiceWithCache(&commonrepo.ServiceFindOption{
+				ProductName: project,
+				ServiceName: service.ServiceName,
+				Revision:    service.Revision,
+			}, production)
+			if err != nil {
+				return nil, fmt.Errorf("failed to query template service %s/%s/%s, error: %s", project, service.ServiceName, service.Revision, err)
+			}
+
+			currentReleaseName = util.GeneReleaseName(envService.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)
+		}
+
+		latestReleaseName := ""
 		if serviceDef, ok := serviceDefinitionMap[service.ServiceName]; ok {
 			for _, module := range serviceDef.Containers {
 				// if a container is newly created in the service, add it to the module list
@@ -1056,6 +1072,10 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 						ImageName:     util.ExtractImageName(module.Image),
 					})
 				}
+			}
+
+			if service.Type == setting.HelmDeployType {
+				latestReleaseName = util.GeneReleaseName(serviceDef.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)
 			}
 		}
 
@@ -1086,6 +1106,9 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 
 		serviceOption = append(serviceOption, &commonmodels.DeployOptionInfo{
 			DeployBasicInfo: svcBasicInfo,
+
+			CurrentReleaseName: currentReleaseName,
+			LatestReleaseName:  latestReleaseName,
 
 			EnvVariable:     envVariableInfo,
 			ServiceVariable: serviceVariableInfo,
@@ -1130,8 +1153,18 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			VariableYaml: serviceGeneralInfoMap[service.ServiceName].LatestVariableYaml,
 		}
 
+		currentReleaseName := ""
+		latestReleaseName := ""
+		if service.Type == setting.HelmDeployType {
+			currentReleaseName = util.GeneReleaseName(service.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)
+			latestReleaseName = currentReleaseName
+		}
+
 		serviceOption = append(serviceOption, &commonmodels.DeployOptionInfo{
 			DeployBasicInfo: svcBasicInfo,
+
+			CurrentReleaseName: currentReleaseName,
+			LatestReleaseName:  latestReleaseName,
 
 			EnvVariable:     nil,
 			ServiceVariable: serviceVariableInfo,
