@@ -72,6 +72,7 @@ func GetContainerLogStream(ctx context.Context, namespace, podName, containerNam
 	if sinceSeconds != nil && *sinceSeconds > 0 {
 		logOptions.SinceSeconds = sinceSeconds
 	}
+	fmt.Println("logOptions", logOptions)
 
 	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
 	return req.Stream(ctx)
