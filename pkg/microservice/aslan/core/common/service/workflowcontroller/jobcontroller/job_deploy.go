@@ -348,12 +348,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 	return nil
 }
 
-type JobLogContext struct {
-	workflowCtx *commonmodels.WorkflowTaskCtx
-	jobTask     *commonmodels.JobTask
-}
-
-func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product, serviceName string, serviceModule *commonmodels.DeployServiceModule, detail, userName string, jobLogctx *JobLogContext, logger *zap.SugaredLogger) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
+func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product, serviceName string, serviceModule *commonmodels.DeployServiceModule, detail, userName string, jobLogctx *joblog.JobLogContext, logger *zap.SugaredLogger) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
 	var replaced bool
 
 	deployments, statefulSets, cronJobs, betaCronJobs, jobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
@@ -361,7 +356,7 @@ func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, 
 		return nil, nil, err
 	}
 
-	logManager := joblog.NewJobLogManager(&joblog.JobLogContext{WorkflowCtx: jobLogctx.workflowCtx, JobTask: jobLogctx.jobTask})
+	logManager := joblog.NewJobLogManager(jobLogctx)
 
 L:
 	for _, deploy := range deployments {
@@ -605,9 +600,9 @@ Job:
 }
 
 func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources []*kube.WorkloadResource, env *commonmodels.Product) error {
-	jobTaskctx := &JobLogContext{
-		workflowCtx: c.workflowCtx,
-		jobTask:     c.job,
+	jobTaskctx := &joblog.JobLogContext{
+		WorkflowCtx: c.workflowCtx,
+		JobTask:     c.job,
 	}
 
 	errList := new(multierror.Error)
