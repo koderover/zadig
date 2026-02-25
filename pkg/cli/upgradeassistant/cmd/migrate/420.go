@@ -118,7 +118,7 @@ func migrateVMDeploy(ctx *internalhandler.Context, migrationInfo *internalmodels
 					Outputs:                  build.Outputs,
 				}
 
-				if build.PreBuild != nil {
+				if build.PreBuild != nil && build.PreDeploy != nil {
 					deploy.PreDeploy.ResReq = build.PreBuild.ResReq
 					deploy.PreDeploy.ResReqSpec = build.PreBuild.ResReqSpec
 					deploy.PreDeploy.ClusterID = build.PreBuild.ClusterID
