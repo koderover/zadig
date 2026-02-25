@@ -118,10 +118,12 @@ func migrateVMDeploy(ctx *internalhandler.Context, migrationInfo *internalmodels
 					Outputs:                  build.Outputs,
 				}
 
-				deploy.PreDeploy.ResReq = build.PreBuild.ResReq
-				deploy.PreDeploy.ResReqSpec = build.PreBuild.ResReqSpec
-				deploy.PreDeploy.ClusterID = build.PreBuild.ClusterID
-				deploy.PreDeploy.StrategyID = build.PreBuild.StrategyID
+				if build.PreBuild != nil {
+					deploy.PreDeploy.ResReq = build.PreBuild.ResReq
+					deploy.PreDeploy.ResReqSpec = build.PreBuild.ResReqSpec
+					deploy.PreDeploy.ClusterID = build.PreBuild.ClusterID
+					deploy.PreDeploy.StrategyID = build.PreBuild.StrategyID
+				}
 
 				exist, err := commonrepo.NewDeployColl().Find(&commonrepo.DeployFindOption{
 					ProjectName: deploy.ProjectName,
@@ -227,7 +229,6 @@ func migrateEditReleasePlanAction(ctx *internalhandler.Context, migrationInfo *m
 			return fmt.Errorf("failed to remove edit release plan action, err: %s", err)
 		}
 	}
-
 
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration420EditReleasePlanAction): true,
