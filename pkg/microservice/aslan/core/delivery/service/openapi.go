@@ -25,6 +25,8 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	envservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -238,6 +240,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 			return fmt.Errorf("failed to find env, projectKey: %s, envName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
 		}
 
+		serviceMap := env.GetServiceMap()
 		serviceModuleMap := make(map[string]*commonmodels.Container)
 		for _, serviceGroup := range env.Services {
 			for _, service := range serviceGroup {
@@ -246,6 +249,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 				}
 			}
 		}
+
 		for _, service := range openAPIReq.Services {
 			images := make([]*commonmodels.DeliveryVersionImage, 0)
 			for _, image := range service.Images {
@@ -269,9 +273,20 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 				})
 			}
 
+			envSvc := serviceMap[service.ServiceName]
+			if envSvc == nil {
+				return fmt.Errorf("not found service %s in env %s", service.ServiceName, env.EnvName)
+			}
+
+			curYaml, err := kube.RenderEnvService(env, envSvc.GetServiceRender(), envSvc)
+			if err != nil {
+				return fmt.Errorf("failed to fetch current applied yaml, projectKey: %s envName: %s serviceName: %s, err: %s",
+					openAPIReq.ProjectKey, openAPIReq.EnvName, service.ServiceName, err)
+			}
+
 			service := &commonmodels.DeliveryVersionService{
 				ServiceName: service.ServiceName,
-				YamlContent: service.YamlContent,
+				YamlContent: curYaml,
 				Images:      images,
 			}
 
@@ -402,6 +417,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 			return fmt.Errorf("failed to find env, projectKey: %s, envName: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
 		}
 
+		serviceMap := env.GetServiceMap()
 		serviceModuleMap := make(map[string]*commonmodels.Container)
 		for _, serviceGroup := range env.Services {
 			for _, service := range serviceGroup {
@@ -452,9 +468,35 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 				return fmt.Errorf("failed get release for service %s from env %s/%s", service.ServiceName, openAPIReq.ProjectKey, openAPIReq.EnvName)
 			}
 
+			envSvc := serviceMap[service.ServiceName]
+			if envSvc == nil {
+				return fmt.Errorf("failed to found service %s in env %s", service.ServiceName, env.EnvName)
+			}
+
+			envTemplateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				ProductName: openAPIReq.ProjectKey,
+				Type:        setting.HelmDeployType,
+				Revision:    envSvc.Revision,
+			}, openAPIReq.Production)
+			if err != nil {
+				return fmt.Errorf("failed to find template service of revision: %d, error: %s", envSvc.Revision, err)
+			}
+
+			helmDeploySvc := helmservice.NewHelmDeployService()
+			yamlContent, err := helmDeploySvc.GenMergedValues(envSvc, env.DefaultValues, nil)
+			if err != nil {
+				return fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+			}
+
+			currentYaml, err := helmDeploySvc.GeneFullValues(envTemplateService.HelmChart.ValuesYaml, yamlContent)
+			if err != nil {
+				return fmt.Errorf("failed to generate full values yaml, err: %s", err)
+			}
+
 			newService := &commonmodels.DeliveryVersionService{
 				ServiceName:          service.ServiceName,
-				YamlContent:          service.YamlContent,
+				YamlContent:          currentYaml,
 				ChartName:            service.ServiceName,
 				OriginalChartVersion: release.ChartVersion,
 				ChartVersion:         service.ChartVersion,
@@ -519,7 +561,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 
 			newService := &commonmodels.DeliveryVersionService{
 				ServiceName:          service.ServiceName,
-				YamlContent:          service.YamlContent,
+				YamlContent:          orignalVersionSvc.YamlContent,
 				ChartName:            orignalVersionSvc.ChartName,
 				OriginalChartVersion: orignalVersionSvc.ChartVersion,
 				ChartVersion:         service.ChartVersion,
