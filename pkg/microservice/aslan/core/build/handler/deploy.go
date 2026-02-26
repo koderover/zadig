@@ -205,3 +205,51 @@ func DeleteDeploy(c *gin.Context) {
 
 	ctx.RespErr = buildservice.DeleteDeploy(name, projectKey, ctx.Logger)
 }
+
+func ListDeployModulesByServiceModule(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
+	// authorization check
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if ctx.Resources.SystemActions.Template.Create ||
+		ctx.Resources.SystemActions.Template.Edit {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		} else if projectAuthInfo.Workflow.Edit ||
+			projectAuthInfo.Workflow.Create ||
+			projectAuthInfo.Build.View {
+			// then check if user has edit workflow permission
+			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = buildservice.ListDeployModulesByServiceModule(projectKey)
+}
