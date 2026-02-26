@@ -332,6 +332,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		if err != nil {
 			return resp, fmt.Errorf("get build info for service %s error: %v", vmDeployInfo.ServiceName, err)
 		}
+
 		basicImage, err := commonrepo.NewBasicImageColl().Find(deployInfo.PreDeploy.ImageID)
 		if err != nil {
 			return resp, fmt.Errorf("find base image: %s error: %v", deployInfo.PreDeploy.ImageID, err)
