@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
@@ -174,4 +175,62 @@ func correctDeployFields(deploy *commonmodels.Deploy) error {
 	}
 
 	return nil
+}
+
+type ServiceModuleAndDeployResp struct {
+	commonmodels.ServiceWithModule `json:",inline"`
+	Deploys                        []*DeployResp `json:"deploys"`
+}
+
+type DeployResp struct {
+	DeployName         string                     `json:"deploy_name"`
+	DeployArtifactType types.VMDeployArtifactType `json:"deploy_artifact_type"`
+	KeyVals            commonmodels.KeyValList    `json:"key_vals"`
+}
+
+func ListDeployModulesByServiceModule(projectName string) ([]*ServiceModuleAndDeployResp, error) {
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectName)
+	if err != nil {
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+	svcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range services {
+		svcMap[svc.ServiceName] = svc
+	}
+
+	serviceModuleAndBuildResp := make([]*ServiceModuleAndDeployResp, 0)
+	for _, serviceTmpl := range services {
+		opt := &commonrepo.DeployListOption{
+			ServiceName: serviceTmpl.ServiceName,
+			ProjectName: projectName,
+		}
+
+		deployInfos, err := commonrepo.NewDeployColl().List(opt)
+		if err != nil {
+			return nil, e.ErrListBuildModule.AddErr(err)
+		}
+
+		deployResp := []*DeployResp{}
+		for _, deployInfo := range deployInfos {
+			deploy := &DeployResp{
+				DeployName:         deployInfo.Name,
+				DeployArtifactType: deployInfo.ArtifactType,
+			}
+			if deployInfo.PreDeploy != nil {
+				deploy.KeyVals = deployInfo.PreDeploy.Envs
+			}
+
+			deployResp = append(deployResp, deploy)
+		}
+
+		serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndDeployResp{
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   serviceTmpl.ServiceName,
+				ServiceModule: serviceTmpl.ServiceName,
+			},
+			Deploys: deployResp,
+		})
+	}
+
+	return serviceModuleAndBuildResp, nil
 }
