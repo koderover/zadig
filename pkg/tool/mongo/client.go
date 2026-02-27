@@ -138,6 +138,9 @@ func Init(ctx context.Context, uri string) {
 		if len(connInfo.addrs) == 1 {
 			opt.SetDirect(true)
 		}
+		if pkgconfig.IsDocumentDB() {
+			opt.SetRetryWrites(false)
+		}
 		client = connect(ctx, opt)
 	})
 }
