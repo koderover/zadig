@@ -188,59 +188,33 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 			"$sort": bson.M{"update_time": -1}, // 按更新时间降序排序
 		},
 		{
-			"$facet": bson.M{
-				"data": []bson.M{
-					{
-						"$project": projection,
-					},
-					{
-						"$skip": opt.Skip,
-					},
-					{
-						"$limit": opt.Limit,
-					},
-				},
-				"total": []bson.M{
-					{
-						"$count": "total",
-					},
-				},
-			},
+			"$project": projection,
+		},
+		{
+			"$skip": opt.Skip,
+		},
+		{
+			"$limit": opt.Limit,
 		},
 	}
 
-	result := make([]struct {
-		Data  []*ProjectInfo `bson:"data"`
-		Total []struct {
-			Total int `bson:"total"`
-		} `bson:"total"`
-	}, 0)
+	totalCount, err := c.Collection.CountDocuments(context.TODO(), filter)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = cursor.All(context.TODO(), &result)
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if len(result) == 0 {
-		return nil, 0, nil
-	}
-
-	var res []*ProjectInfo
-	if len(result[0].Data) > 0 {
-		res = result[0].Data
-	}
-
-	total := 0
-	if len(result[0].Total) > 0 {
-		total = result[0].Total[0].Total
-	}
-
-	return res, total, nil
+	return res, int(totalCount), nil
 }
 
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {

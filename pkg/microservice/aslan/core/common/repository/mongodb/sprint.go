@@ -352,68 +352,27 @@ func (c *SprintColl) List(ctx *handler.Context, opt *ListSprintOption) ([]*model
 		},
 	}
 
-	if opt.PageNum > 0 && opt.PageSize > 0 {
-		pipeline = append(pipeline, bson.M{
-			"$facet": bson.M{
-				"data": []bson.M{
-					{
-						"$skip": (opt.PageNum - 1) * opt.PageSize,
-					},
-					{
-						"$limit": opt.PageSize,
-					},
-				},
-				"total": []bson.M{
-					{
-						"$count": "total",
-					},
-				},
-			},
-		})
-	} else {
-		pipeline = append(pipeline, bson.M{
-			"$facet": bson.M{
-				"data": []bson.M{
-					{"$skip": 0},
-				},
-				"total": []bson.M{
-					{
-						"$count": "total",
-					},
-				},
-			},
-		})
+	total, err := c.Collection.CountDocuments(mongotool.SessionContext(ctx, c.Session), filter)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	result := make([]struct {
-		Data  []*models.Sprint `bson:"data"`
-		Total []struct {
-			Total int64 `bson:"total"`
-		} `bson:"total"`
-	}, 0)
+	if opt.PageNum > 0 && opt.PageSize > 0 {
+		pipeline = append(pipeline,
+			bson.M{"$skip": (opt.PageNum - 1) * opt.PageSize},
+			bson.M{"$limit": opt.PageSize},
+		)
+	}
 
 	cursor, err := c.Collection.Aggregate(mongotool.SessionContext(ctx, c.Session), pipeline)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = cursor.All(mongotool.SessionContext(ctx, c.Session), &result)
+	var res []*models.Sprint
+	err = cursor.All(mongotool.SessionContext(ctx, c.Session), &res)
 	if err != nil {
 		return nil, 0, err
-	}
-
-	if len(result) == 0 {
-		return nil, 0, nil
-	}
-
-	var res []*models.Sprint
-	if len(result[0].Data) > 0 {
-		res = result[0].Data
-	}
-
-	total := int64(0)
-	if len(result[0].Total) > 0 {
-		total = result[0].Total[0].Total
 	}
 
 	return res, total, nil
