@@ -572,6 +572,11 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 	}
 
+	err = CheckReleaseDuplicate(productSvc.ServiceName, releaseName, product)
+	if err != nil {
+		return err
+	}
+
 	err = CheckReleaseInstalledByOtherEnv(sets.NewString(releaseName), product)
 	if err != nil {
 		return err

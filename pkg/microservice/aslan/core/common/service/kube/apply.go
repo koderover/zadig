@@ -342,6 +342,20 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 	return resources, resourceMap, errList.ErrorOrNil()
 }
 
+func CheckReleaseDuplicate(serviceName string, releaseName string, productInfo *commonmodels.Product) error {
+	for _, svc := range productInfo.GetSvcList() {
+		if svc.ServiceName == serviceName {
+			return nil
+		}
+
+		if svc.ReleaseName == releaseName {
+			return fmt.Errorf("service %s's release name %s is duplicated with service %s", serviceName, releaseName, svc.ServiceName)
+		}
+	}
+
+	return nil
+}
+
 func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
 	sharedNSEnvList := make(map[string]*commonmodels.Product)
 	insertEnvData := func(release string, env *commonmodels.Product) {

@@ -693,6 +693,7 @@ func AffectedServices(c *gin.Context) {
 // @produce json
 // @Param 	projectName				query		string									true	"项目标识"
 // @Param 	name					path		string									true	"环境名称"
+// @Param 	namespace				query		string									true	"环境的命名空间"
 // @Param 	serviceName				query		string									true	"服务名称或release名称"
 // @Param 	scene					query		service.EstimateValuesScene     		true	"使用场景"
 // @Param 	format					query		service.EstimateValuesResponseFormat    true	"返回格式"
@@ -707,6 +708,8 @@ func EstimatedValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Param("name")
+	namespace := c.Query("namespace")
+
 	projectName := c.Query("projectName")
 	if projectName == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
@@ -738,7 +741,7 @@ func EstimatedValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateContentType(c.Query("type")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision, production, isHelmChartDeploy, config.ValueMergeStrategy(valueMergeStrategy), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, namespace, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateContentType(c.Query("type")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision, production, isHelmChartDeploy, config.ValueMergeStrategy(valueMergeStrategy), ctx.Logger)
 }
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

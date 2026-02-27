@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -564,37 +562,4 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		}
 	}
 	return prodSvc, tmplSvc, nil
-}
-
-func (s *HelmDeployService) CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
-	sharedNSEnvList := make(map[string]*commonmodels.Product)
-	insertEnvData := func(release string, env *commonmodels.Product) {
-		sharedNSEnvList[release] = env
-	}
-	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if err != nil {
-		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-		return err
-	}
-
-	for _, env := range envs {
-		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
-			continue
-		}
-		for _, svc := range env.GetSvcList() {
-			if releaseNames.Has(svc.ReleaseName) {
-				insertEnvData(svc.ReleaseName, env)
-				break
-			}
-		}
-	}
-
-	if len(sharedNSEnvList) == 0 {
-		return nil
-	}
-	usedEnvStr := make([]string, 0)
-	for releasename, env := range sharedNSEnvList {
-		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", releasename, env.ProductName, env.EnvName))
-	}
-	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
 }
