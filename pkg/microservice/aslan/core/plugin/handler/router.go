@@ -36,4 +36,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("workitem/:workitemTypeKey/:workItemID/workflow", ExecuteLarkWorkitemWorkflow)
 		lark.GET("workitem/:workitemTypeKey/:workItemID/workflow/:workflowName/task", ListLarkWorkitemWorkflowTask)
 	}
+
+	larkv2 := lark.Group("v2")
+	{
+		larkv2.GET("config/stages/:stage/workflow", GetLarkWorkflowConfigV2)
+		larkv2.PUT("config/stages/:stage/workflow", UpdateLarkWorkflowConfigV2)
+		larkv2.GET("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", GetLarkStageServiceConfigV2)
+		larkv2.PUT("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", UpdateLarkStageServiceConfigV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/services", GetLarkWorkitemServicesV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/prs", GetLarkWorkitemPRsV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/branches", GetLarkWorkitemBranchesV2)
+		larkv2.POST("workitem/:workitemTypeKey/:workItemID/execute", ExecuteLarkWorkitemWorkflowV2)
+	}
 }
