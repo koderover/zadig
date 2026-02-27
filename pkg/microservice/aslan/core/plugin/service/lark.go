@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	sdkcore "github.com/larksuite/project-oapi-sdk-golang/core"
@@ -31,11 +33,15 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/open"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
@@ -740,6 +746,430 @@ func ExecuteLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemTypeKey, 
 	if err != nil {
 		return fmt.Errorf("failed to create workflow task: %w", err)
 	}
+
+	return nil
+}
+
+type GetLarkWorkflowConfigV2Resp struct {
+	StageName    string                                         `json:"stage_name"`
+	WorkspaceID  string                                         `json:"workspace_id"`
+	UpdateTime   int64                                          `json:"update_time"`
+	CodeSource   string                                         `json:"code_source"`
+	TemplateID   int64                                          `json:"template_id"`
+	TemplateName string                                         `json:"template_name"`
+	BranchFilter string                                         `json:"branch_filter"`
+	TargetBranch string                                         `json:"target_branch"`
+	Nodes        []*commonmodels.LarkPluginWorkflowConfigNodeV2 `json:"nodes"`
+}
+
+func GetLarkWorkflowConfigV2(ctx *internalhandler.Context, stageName string) (*GetLarkWorkflowConfigV2Resp, error) {
+	workspaceID := ctx.LarkPlugin.ProjectKey
+
+	cfg, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(workspaceID, stageName)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return &GetLarkWorkflowConfigV2Resp{
+				StageName:   stageName,
+				WorkspaceID: workspaceID,
+				Nodes:       make([]*commonmodels.LarkPluginWorkflowConfigNodeV2, 0),
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to get lark plugin workflow config v2: %w", err)
+	}
+
+	nodes, err := mongodb.NewLarkPluginWfConfigNodeV2Coll().GetByStage(workspaceID, stageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lark plugin workflow config nodes v2: %w", err)
+	}
+
+	return &GetLarkWorkflowConfigV2Resp{
+		StageName:    cfg.StageName,
+		WorkspaceID:  cfg.WorkspaceID,
+		UpdateTime:   cfg.UpdateTime,
+		CodeSource:   cfg.CodeSource,
+		TemplateID:   cfg.TemplateID,
+		TemplateName: cfg.TemplateName,
+		BranchFilter: cfg.BranchFilter,
+		TargetBranch: cfg.TargetBranch,
+		Nodes:        nodes,
+	}, nil
+}
+
+type UpdateLarkWorkflowConfigV2Req struct {
+	WorkspaceID  string                                         `json:"workspace_id"`
+	CodeSource   string                                         `json:"code_source"`
+	TemplateID   int64                                          `json:"template_id"`
+	TemplateName string                                         `json:"template_name"`
+	BranchFilter string                                         `json:"branch_filter"`
+	TargetBranch string                                         `json:"target_branch"`
+	Nodes        []*commonmodels.LarkPluginWorkflowConfigNodeV2 `json:"nodes"`
+}
+
+func UpdateLarkWorkflowConfigV2(ctx *internalhandler.Context, stageName string, req *UpdateLarkWorkflowConfigV2Req) error {
+	cfg := &commonmodels.LarkPluginWorkflowConfigV2{
+		StageName:    stageName,
+		WorkspaceID:  req.WorkspaceID,
+		CodeSource:   req.CodeSource,
+		TemplateID:   req.TemplateID,
+		TemplateName: req.TemplateName,
+		BranchFilter: req.BranchFilter,
+		TargetBranch: req.TargetBranch,
+	}
+
+	if err := mongodb.NewLarkPluginWorkflowConfigV2Coll().Upsert(cfg); err != nil {
+		return fmt.Errorf("failed to upsert lark plugin workflow config v2: %w", err)
+	}
+
+	if err := mongodb.NewLarkPluginWfConfigNodeV2Coll().ReplaceByStage(req.WorkspaceID, stageName, req.Nodes); err != nil {
+		return fmt.Errorf("failed to replace lark plugin workflow config nodes v2: %w", err)
+	}
+
+	return nil
+}
+
+func getWorkitemConfigNodes(ctx *internalhandler.Context, workItemType, workItemID string) ([]*commonmodels.LarkPluginWorkflowConfigNodeV2, error) {
+	workItemIDInt, err := strconv.ParseInt(workItemID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse workitem id: %w", err)
+	}
+
+	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	larkResp, err := larkClient.ClientV2.WorkItem.GetWorkItemsByIds(ctx, workitem.NewGetWorkItemsByIdsReqBuilder().
+		ProjectKey(ctx.LarkPlugin.ProjectKey).
+		WorkItemTypeKey(workItemType).
+		WorkItemIDs([]int64{workItemIDInt}).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lark workitem: %w", err)
+	}
+	if larkResp.Code() != 0 {
+		return nil, fmt.Errorf("failed to get lark workitem, code: %d, message: %s", larkResp.Code(), larkResp.ErrMsg)
+	}
+	if len(larkResp.Data) == 0 {
+		return nil, fmt.Errorf("workitem could not be found")
+	}
+
+	workItem := larkResp.Data[0]
+
+	var currentNodeIDs []string
+	if *workItem.Pattern == string(meego.WorkItemPatternNode) {
+		for _, currentNode := range workItem.CurrentNodes {
+			currentNodeIDs = append(currentNodeIDs, *currentNode.ID)
+		}
+	} else if *workItem.Pattern == string(meego.WorkItemPatternState) {
+		currentNodeIDs = append(currentNodeIDs, *workItem.WorkItemStatus.StateKey)
+	} else {
+		return nil, fmt.Errorf("unsupported pattern %s", *workItem.Pattern)
+	}
+
+	if len(currentNodeIDs) == 0 {
+		return nil, fmt.Errorf("no current node found")
+	}
+
+	configNodes, err := mongodb.NewLarkPluginWfConfigNodeV2Coll().GetByWorkItem(ctx.LarkPlugin.ProjectKey, *workItem.TemplateID, currentNodeIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow config nodes: %w", err)
+	}
+
+	return configNodes, nil
+}
+
+type GetLarkWorkitemServicesV2Resp struct {
+	Services []*commonmodels.ServiceWithModule `json:"services"`
+}
+
+func GetLarkWorkitemServicesV2(ctx *internalhandler.Context, workItemType, workItemID string) (*GetLarkWorkitemServicesV2Resp, error) {
+	configNodes, err := getWorkitemConfigNodes(ctx, workItemType, workItemID)
+	if err != nil {
+		return nil, err
+	}
+	if len(configNodes) == 0 {
+		return nil, fmt.Errorf("no workflow config nodes found")
+	}
+
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(configNodes[0].WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workflow: %w", err)
+	}
+
+	// Find the first build job in the workflow
+	var buildSpec *commonmodels.ZadigBuildJobSpec
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == aslanconfig.JobZadigBuild {
+				spec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					continue
+				}
+				buildSpec = spec
+				break
+			}
+		}
+		if buildSpec != nil {
+			break
+		}
+	}
+	if buildSpec == nil {
+		return nil, fmt.Errorf("no build job found in workflow %s", workflow.Name)
+	}
+
+	// Get available services from ServiceAndBuildsOptions (service + module)
+	services := make([]*commonmodels.ServiceWithModule, 0, len(buildSpec.ServiceAndBuildsOptions))
+	for _, opt := range buildSpec.ServiceAndBuildsOptions {
+		if opt == nil {
+			continue
+		}
+		services = append(services, &commonmodels.ServiceWithModule{
+			ServiceName:   opt.ServiceName,
+			ServiceModule: opt.ServiceModule,
+		})
+	}
+
+	return &GetLarkWorkitemServicesV2Resp{Services: services}, nil
+}
+
+type workitemRepoContext struct {
+	Repo       *types.Repository
+	ConfigNode *commonmodels.LarkPluginWorkflowConfigNodeV2
+}
+
+func getWorkitemFirstRepo(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string) (*workitemRepoContext, error) {
+	configNodes, err := getWorkitemConfigNodes(ctx, workItemType, workItemID)
+	if err != nil {
+		return nil, err
+	}
+	if len(configNodes) == 0 {
+		return nil, fmt.Errorf("no workflow config nodes found")
+	}
+
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(configNodes[0].WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workflow: %w", err)
+	}
+
+	var buildSpec *commonmodels.ZadigBuildJobSpec
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == aslanconfig.JobZadigBuild {
+				spec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					continue
+				}
+				buildSpec = spec
+				break
+			}
+		}
+		if buildSpec != nil {
+			break
+		}
+	}
+	if buildSpec == nil {
+		return nil, fmt.Errorf("no build job found in workflow %s", workflow.Name)
+	}
+
+	var matchedBuild *commonmodels.ServiceAndBuild
+	for _, opt := range buildSpec.ServiceAndBuildsOptions {
+		if opt != nil && opt.ServiceName == serviceName && opt.ServiceModule == serviceModule {
+			matchedBuild = opt
+			break
+		}
+	}
+	if matchedBuild == nil {
+		return nil, fmt.Errorf("service %s/%s not found in workflow build options", serviceName, serviceModule)
+	}
+
+	buildSvc := commonservice.NewBuildService()
+	buildInfo, err := buildSvc.GetBuild(matchedBuild.BuildName, serviceName, serviceModule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build %s for %s/%s: %w", matchedBuild.BuildName, serviceName, serviceModule, err)
+	}
+
+	if len(buildInfo.Repos) == 0 {
+		return nil, fmt.Errorf("no repos configured in build %s", matchedBuild.BuildName)
+	}
+
+	return &workitemRepoContext{
+		Repo:       buildInfo.Repos[0],
+		ConfigNode: configNodes[0],
+	}, nil
+}
+
+type GetLarkWorkitemPRsV2Resp struct {
+	PRs []*client.PullRequest `json:"prs"`
+}
+
+func GetLarkWorkitemPRsV2(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemPRsV2Resp, error) {
+	repoCtx, err := getWorkitemFirstRepo(ctx, workItemType, workItemID, serviceName, serviceModule)
+	if err != nil {
+		return nil, err
+	}
+
+	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(ctx.LarkPlugin.ProjectKey, repoCtx.ConfigNode.StageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stage config: %w", err)
+	}
+
+	repo := repoCtx.Repo
+	ch, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get codehost info: %w", err)
+	}
+
+	codehostClient, err := open.OpenClient(ch, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open codehost client: %w", err)
+	}
+
+	namespace := repo.RepoNamespace
+	if namespace == "" {
+		namespace = repo.RepoOwner
+	}
+
+	prs, err := codehostClient.ListPrs(client.ListOpt{
+		Namespace:    strings.Replace(namespace, "%2F", "/", -1),
+		ProjectName:  repo.RepoName,
+		TargetBranch: stageConfig.TargetBranch,
+		Page:         page,
+		PerPage:      perPage,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list PRs: %w", err)
+	}
+
+	return &GetLarkWorkitemPRsV2Resp{PRs: prs}, nil
+}
+
+type GetLarkWorkitemBranchesV2Resp struct {
+	Branches []*client.Branch `json:"branches"`
+}
+
+func GetLarkWorkitemBranchesV2(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemBranchesV2Resp, error) {
+	repoCtx, err := getWorkitemFirstRepo(ctx, workItemType, workItemID, serviceName, serviceModule)
+	if err != nil {
+		return nil, err
+	}
+
+	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(ctx.LarkPlugin.ProjectKey, repoCtx.ConfigNode.StageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stage config: %w", err)
+	}
+
+	repo := repoCtx.Repo
+	ch, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get codehost info: %w", err)
+	}
+
+	codehostClient, err := open.OpenClient(ch, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open codehost client: %w", err)
+	}
+
+	namespace := repo.RepoNamespace
+	if namespace == "" {
+		namespace = repo.RepoOwner
+	}
+
+	branches, err := codehostClient.ListBranches(client.ListOpt{
+		Namespace:     strings.Replace(namespace, "%2F", "/", -1),
+		ProjectName:   repo.RepoName,
+		Page:          page,
+		PerPage:       perPage,
+		MatchBranches: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	if stageConfig.BranchFilter != "" {
+		filtered := make([]*client.Branch, 0)
+		for _, branch := range branches {
+			matched, err := regexp.MatchString(stageConfig.BranchFilter, branch.Name)
+			if err != nil {
+				return nil, fmt.Errorf("invalid branch filter regex %q: %w", stageConfig.BranchFilter, err)
+			}
+			if matched {
+				filtered = append(filtered, branch)
+			}
+		}
+		branches = filtered
+	}
+
+	return &GetLarkWorkitemBranchesV2Resp{Branches: branches}, nil
+}
+
+type GetLarkStageServiceConfigV2Resp struct {
+	WorkflowName string                                       `json:"workflow_name"`
+	Configs      []*commonmodels.LarkPluginStageServiceConfig `json:"configs"`
+}
+
+func GetLarkStageServiceConfigV2(ctx *internalhandler.Context, stageName, workItemTypeKey, workItemID string) (*GetLarkStageServiceConfigV2Resp, error) {
+	workspaceID := ctx.LarkPlugin.ProjectKey
+
+	configNodes, err := getWorkitemConfigNodes(ctx, workItemTypeKey, workItemID)
+	if err != nil {
+		return nil, err
+	}
+
+	var workflowName string
+	if len(configNodes) > 0 {
+		workflowName = configNodes[0].WorkflowName
+	}
+
+	configs, err := mongodb.NewLarkPluginStageServiceConfigColl().GetByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stage service configs: %w", err)
+	}
+
+	return &GetLarkStageServiceConfigV2Resp{
+		WorkflowName: workflowName,
+		Configs:      configs,
+	}, nil
+}
+
+type UpdateLarkStageServiceConfigV2Req struct {
+	WorkspaceID string                                       `json:"workspace_id"`
+	Configs     []*commonmodels.LarkPluginStageServiceConfig `json:"configs"`
+}
+
+func UpdateLarkStageServiceConfigV2(ctx *internalhandler.Context, stageName, workItemTypeKey, workItemID string, req *UpdateLarkStageServiceConfigV2Req) error {
+	if err := mongodb.NewLarkPluginStageServiceConfigColl().ReplaceByWorkItem(req.WorkspaceID, stageName, workItemTypeKey, workItemID, req.Configs); err != nil {
+		return fmt.Errorf("failed to update stage service configs: %w", err)
+	}
+	return nil
+}
+
+func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workItemTypeKey, workItemID string) error {
+	workspaceID := ctx.LarkPlugin.ProjectKey
+
+	configNodes, err := getWorkitemConfigNodes(ctx, workItemTypeKey, workItemID)
+	if err != nil {
+		return err
+	}
+	if len(configNodes) == 0 {
+		return fmt.Errorf("no workflow config nodes found for this workitem")
+	}
+
+	configNode := configNodes[0]
+	workflowName := configNode.WorkflowName
+	stageName := configNode.StageName
+
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		return fmt.Errorf("failed to find workflow %s: %w", workflowName, err)
+	}
+
+	serviceConfigs, err := mongodb.NewLarkPluginStageServiceConfigColl().GetByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID)
+	if err != nil {
+		return fmt.Errorf("failed to get user service configs: %w", err)
+	}
+
+	// TODO: execute the workflow with the resolved parameters
+	_ = workflow
+	_ = serviceConfigs
 
 	return nil
 }
