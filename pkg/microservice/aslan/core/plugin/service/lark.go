@@ -762,8 +762,7 @@ type GetLarkWorkflowConfigV2Resp struct {
 	Nodes        []*commonmodels.LarkPluginWorkflowConfigNodeV2 `json:"nodes"`
 }
 
-func GetLarkWorkflowConfigV2(ctx *internalhandler.Context, stageName string) (*GetLarkWorkflowConfigV2Resp, error) {
-	workspaceID := ctx.LarkPlugin.ProjectKey
+func GetLarkWorkflowConfigV2(ctx *internalhandler.Context, workspaceID, stageName string) (*GetLarkWorkflowConfigV2Resp, error) {
 
 	cfg, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(workspaceID, stageName)
 	if err != nil {
@@ -805,7 +804,63 @@ type UpdateLarkWorkflowConfigV2Req struct {
 	Nodes        []*commonmodels.LarkPluginWorkflowConfigNodeV2 `json:"nodes"`
 }
 
+func validateWorkflowForLarkPlugin(workflowName string) error {
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		return fmt.Errorf("failed to find workflow %s: %w", workflowName, err)
+	}
+
+	var buildCount, deployCount, testCount int
+	buildIdx, deployIdx := -1, -1
+	jobIdx := 0
+
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case aslanconfig.JobZadigBuild:
+				buildCount++
+				buildIdx = jobIdx
+			case aslanconfig.JobZadigDeploy:
+				deployCount++
+				deployIdx = jobIdx
+			case aslanconfig.JobZadigTesting:
+				testCount++
+			default:
+				return fmt.Errorf("workflow %s contains unsupported job type %s, only build, deploy, and test jobs are allowed", workflowName, job.JobType)
+			}
+			jobIdx++
+		}
+	}
+
+	if buildCount != 1 {
+		return fmt.Errorf("workflow %s must have exactly 1 build job, got %d", workflowName, buildCount)
+	}
+	if deployCount != 1 {
+		return fmt.Errorf("workflow %s must have exactly 1 deploy job, got %d", workflowName, deployCount)
+	}
+	if testCount > 1 {
+		return fmt.Errorf("workflow %s can have at most 1 test job, got %d", workflowName, testCount)
+	}
+
+	if deployIdx < buildIdx {
+		return fmt.Errorf("workflow %s has invalid job order: deploy job must come after build job", workflowName)
+	}
+
+	return nil
+}
+
 func UpdateLarkWorkflowConfigV2(ctx *internalhandler.Context, stageName string, req *UpdateLarkWorkflowConfigV2Req) error {
+	validatedWorkflows := sets.New[string]()
+	for _, node := range req.Nodes {
+		if node.WorkflowName == "" || validatedWorkflows.Has(node.WorkflowName) {
+			continue
+		}
+		if err := validateWorkflowForLarkPlugin(node.WorkflowName); err != nil {
+			return err
+		}
+		validatedWorkflows.Insert(node.WorkflowName)
+	}
+
 	cfg := &commonmodels.LarkPluginWorkflowConfigV2{
 		StageName:    stageName,
 		WorkspaceID:  req.WorkspaceID,
@@ -827,7 +882,7 @@ func UpdateLarkWorkflowConfigV2(ctx *internalhandler.Context, stageName string, 
 	return nil
 }
 
-func getWorkitemConfigNodes(ctx *internalhandler.Context, workItemType, workItemID string) ([]*commonmodels.LarkPluginWorkflowConfigNodeV2, error) {
+func getWorkitemConfigNodes(ctx *internalhandler.Context, workspaceID, workItemType, workItemID string) ([]*commonmodels.LarkPluginWorkflowConfigNodeV2, error) {
 	workItemIDInt, err := strconv.ParseInt(workItemID, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse workitem id: %w", err)
@@ -869,7 +924,7 @@ func getWorkitemConfigNodes(ctx *internalhandler.Context, workItemType, workItem
 		return nil, fmt.Errorf("no current node found")
 	}
 
-	configNodes, err := mongodb.NewLarkPluginWfConfigNodeV2Coll().GetByWorkItem(ctx.LarkPlugin.ProjectKey, *workItem.TemplateID, currentNodeIDs)
+	configNodes, err := mongodb.NewLarkPluginWfConfigNodeV2Coll().GetByWorkItem(workspaceID, *workItem.TemplateID, currentNodeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow config nodes: %w", err)
 	}
@@ -881,8 +936,8 @@ type GetLarkWorkitemServicesV2Resp struct {
 	Services []*commonmodels.ServiceWithModule `json:"services"`
 }
 
-func GetLarkWorkitemServicesV2(ctx *internalhandler.Context, workItemType, workItemID string) (*GetLarkWorkitemServicesV2Resp, error) {
-	configNodes, err := getWorkitemConfigNodes(ctx, workItemType, workItemID)
+func GetLarkWorkitemServicesV2(ctx *internalhandler.Context, workspaceID, workItemType, workItemID string) (*GetLarkWorkitemServicesV2Resp, error) {
+	configNodes, err := getWorkitemConfigNodes(ctx, workspaceID, workItemType, workItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -936,8 +991,8 @@ type workitemRepoContext struct {
 	ConfigNode *commonmodels.LarkPluginWorkflowConfigNodeV2
 }
 
-func getWorkitemFirstRepo(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string) (*workitemRepoContext, error) {
-	configNodes, err := getWorkitemConfigNodes(ctx, workItemType, workItemID)
+func getWorkitemFirstRepo(ctx *internalhandler.Context, workspaceID, workItemType, workItemID, serviceName, serviceModule string) (*workitemRepoContext, error) {
+	configNodes, err := getWorkitemConfigNodes(ctx, workspaceID, workItemType, workItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -1001,13 +1056,13 @@ type GetLarkWorkitemPRsV2Resp struct {
 	PRs []*client.PullRequest `json:"prs"`
 }
 
-func GetLarkWorkitemPRsV2(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemPRsV2Resp, error) {
-	repoCtx, err := getWorkitemFirstRepo(ctx, workItemType, workItemID, serviceName, serviceModule)
+func GetLarkWorkitemPRsV2(ctx *internalhandler.Context, workspaceID, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemPRsV2Resp, error) {
+	repoCtx, err := getWorkitemFirstRepo(ctx, workspaceID, workItemType, workItemID, serviceName, serviceModule)
 	if err != nil {
 		return nil, err
 	}
 
-	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(ctx.LarkPlugin.ProjectKey, repoCtx.ConfigNode.StageName)
+	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(workspaceID, repoCtx.ConfigNode.StageName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stage config: %w", err)
 	}
@@ -1046,13 +1101,13 @@ type GetLarkWorkitemBranchesV2Resp struct {
 	Branches []*client.Branch `json:"branches"`
 }
 
-func GetLarkWorkitemBranchesV2(ctx *internalhandler.Context, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemBranchesV2Resp, error) {
-	repoCtx, err := getWorkitemFirstRepo(ctx, workItemType, workItemID, serviceName, serviceModule)
+func GetLarkWorkitemBranchesV2(ctx *internalhandler.Context, workspaceID, workItemType, workItemID, serviceName, serviceModule string, page, perPage int) (*GetLarkWorkitemBranchesV2Resp, error) {
+	repoCtx, err := getWorkitemFirstRepo(ctx, workspaceID, workItemType, workItemID, serviceName, serviceModule)
 	if err != nil {
 		return nil, err
 	}
 
-	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(ctx.LarkPlugin.ProjectKey, repoCtx.ConfigNode.StageName)
+	stageConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(workspaceID, repoCtx.ConfigNode.StageName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stage config: %w", err)
 	}
@@ -1106,10 +1161,8 @@ type GetLarkStageServiceConfigV2Resp struct {
 	Configs      []*commonmodels.LarkPluginStageServiceConfig `json:"configs"`
 }
 
-func GetLarkStageServiceConfigV2(ctx *internalhandler.Context, stageName, workItemTypeKey, workItemID string) (*GetLarkStageServiceConfigV2Resp, error) {
-	workspaceID := ctx.LarkPlugin.ProjectKey
-
-	configNodes, err := getWorkitemConfigNodes(ctx, workItemTypeKey, workItemID)
+func GetLarkStageServiceConfigV2(ctx *internalhandler.Context, workspaceID, stageName, workItemTypeKey, workItemID string) (*GetLarkStageServiceConfigV2Resp, error) {
+	configNodes, err := getWorkitemConfigNodes(ctx, workspaceID, workItemTypeKey, workItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -1142,10 +1195,8 @@ func UpdateLarkStageServiceConfigV2(ctx *internalhandler.Context, stageName, wor
 	return nil
 }
 
-func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workItemTypeKey, workItemID string) error {
-	workspaceID := ctx.LarkPlugin.ProjectKey
-
-	configNodes, err := getWorkitemConfigNodes(ctx, workItemTypeKey, workItemID)
+func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) error {
+	configNodes, err := getWorkitemConfigNodes(ctx, workspaceID, workItemTypeKey, workItemID)
 	if err != nil {
 		return err
 	}
@@ -1167,9 +1218,134 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workItemTypeKey
 		return fmt.Errorf("failed to get user service configs: %w", err)
 	}
 
-	// TODO: execute the workflow with the resolved parameters
-	_ = workflow
-	_ = serviceConfigs
+	// Get Lark project info for task metadata
+	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	projectResp, err := larkClient.Client.Project.GetProjectDetail(ctx, project.NewGetProjectDetailReqBuilder().
+		ProjectKeys([]string{workspaceID}).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get project detail: %w", err)
+	}
+	if projectResp.Code() != 0 {
+		return fmt.Errorf("failed to get project detail, code: %d, message: %s", projectResp.Code(), projectResp.ErrMsg)
+	}
+	if projectResp.Data[workspaceID] == nil {
+		return fmt.Errorf("project not found")
+	}
+
+	projectWorkItemTypes, err := larkClient.Client.Project.ListProjectWorkItemType(ctx, project.NewListProjectWorkItemTypeReqBuilder().
+		ProjectKey(workspaceID).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list project work item type: %w", err)
+	}
+
+	workitemTypeApiName := workItemTypeKey
+	for _, workitemType := range projectWorkItemTypes.Data {
+		if workitemType.TypeKey == workItemTypeKey {
+			workitemTypeApiName = workitemType.APIName
+			break
+		}
+	}
+
+	// Build lookup map from user-selected service configs
+	serviceConfigMap := make(map[string]*commonmodels.LarkPluginStageServiceConfig)
+	for _, sc := range serviceConfigs {
+		serviceConfigMap[sc.ServiceName+"/"+sc.ServiceModule] = sc
+	}
+
+	// Resolve workflow job parameters
+	buildSvc := commonservice.NewBuildService()
+
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case aslanconfig.JobZadigBuild:
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, buildSpec); err != nil {
+					return fmt.Errorf("failed to parse build job spec: %w", err)
+				}
+
+				serviceAndBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+				for _, opt := range buildSpec.ServiceAndBuildsOptions {
+					if opt == nil {
+						continue
+					}
+					sc, ok := serviceConfigMap[opt.ServiceName+"/"+opt.ServiceModule]
+					if !ok {
+						continue
+					}
+
+					buildInfo, err := buildSvc.GetBuild(opt.BuildName, opt.ServiceName, opt.ServiceModule)
+					if err != nil {
+						return fmt.Errorf("failed to get build %s for %s/%s: %w", opt.BuildName, opt.ServiceName, opt.ServiceModule, err)
+					}
+
+					repos := make([]*types.Repository, len(buildInfo.Repos))
+					for i, repo := range buildInfo.Repos {
+						repoCopy := *repo
+						if i == 0 {
+							repoCopy.Branch = sc.Branch
+							repoCopy.PRs = sc.PRs
+						}
+						repos[i] = &repoCopy
+					}
+
+					serviceAndBuilds = append(serviceAndBuilds, &commonmodels.ServiceAndBuild{
+						ServiceName:   opt.ServiceName,
+						ServiceModule: opt.ServiceModule,
+						BuildName:     opt.BuildName,
+						ImageName:     opt.ImageName,
+						KeyVals:       opt.KeyVals,
+						Repos:         repos,
+					})
+				}
+				buildSpec.ServiceAndBuilds = serviceAndBuilds
+				job.Spec = buildSpec
+
+			case aslanconfig.JobZadigDeploy:
+				// Use default env and settings — no modifications needed
+
+			case aslanconfig.JobZadigTesting:
+				testSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, testSpec); err != nil {
+					return fmt.Errorf("failed to parse test job spec: %w", err)
+				}
+
+				if testSpec.TestType == aslanconfig.ServiceTestType {
+					filtered := make([]*commonmodels.ServiceAndTest, 0)
+					for _, sat := range testSpec.ServiceTestOptions {
+						if _, ok := serviceConfigMap[sat.ServiceName+"/"+sat.ServiceModule]; ok {
+							filtered = append(filtered, sat)
+						}
+					}
+					testSpec.ServiceAndTests = filtered
+				}
+				// ProductTestType: keep all defaults
+				job.Spec = testSpec
+			}
+		}
+	}
+
+	_, err = workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name:                  ctx.UserName,
+		Account:               ctx.Account,
+		UserID:                ctx.UserID,
+		LarkProjectKey:        workspaceID,
+		LarkProjectSimpleName: projectResp.Data[workspaceID].SimpleName,
+		LarkWorkItemTypeKey:   workItemTypeKey,
+		LarkWorkItemAPIName:   workitemTypeApiName,
+		LarkWorkItemID:        workItemID,
+	}, workflow, ctx.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow task: %w", err)
+	}
 
 	return nil
 }
