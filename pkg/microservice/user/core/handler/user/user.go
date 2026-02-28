@@ -319,6 +319,7 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 		Account:      args.Account,
 		Name:         args.Name,
 		Roles:        args.Roles,
+		Project:      args.Project,
 		IdentityType: args.IdentityType,
 	}
 
