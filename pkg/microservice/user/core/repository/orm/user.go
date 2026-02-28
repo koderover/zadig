@@ -117,13 +117,13 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 	return users, nil
 }
 
-// listUIDsByRoles returns distinct user uids that have any of the given role names.
-func listUIDsByRoles(roles []string, db *gorm.DB) ([]string, error) {
+// listUIDsByRoles returns distinct user uids that have any of the given role names within the namespace.
+func listUIDsByRoles(roles []string, namespace string, db *gorm.DB) ([]string, error) {
 	var uids []string
 	err := db.Table("role_binding").
 		Distinct("role_binding.uid").
 		Joins("INNER JOIN role ON role.id = role_binding.role_id").
-		Where("role.name IN ?", roles).
+		Where("role.name IN ? AND role.namespace = ?", roles, namespace).
 		Pluck("role_binding.uid", &uids).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -134,10 +134,10 @@ func listUIDsByRoles(roles []string, db *gorm.DB) ([]string, error) {
 
 // ListUsersByNameAndRoleWithLoginTime gets a list of users filtered by name and roles,
 // ordered by last_login_time with pagination. It is implemented in two simple steps:
-//  1. Find the uids of users that have any of the given roles (role_binding + role).
+//  1. Find the uids of users that have any of the given roles (role_binding + role) within the namespace.
 //  2. Query user + user_login for those uids, filter by name, order by last_login_time and paginate.
-func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
-	uids, err := listUIDsByRoles(roles, db)
+func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, namespace string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
+	uids, err := listUIDsByRoles(roles, namespace, db)
 	if err != nil {
 		return nil, err
 	}
@@ -161,14 +161,14 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 	return users, nil
 }
 
-// ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, and the roles of the user
-func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, db *gorm.DB) ([]models.User, error) {
+// ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, the roles, and namespace
+func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, namespace string, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
 	)
 
-	err = db.Where("user.name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
+	err = db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page - 1) * perPage).
 		Group("user.uid").
@@ -267,15 +267,15 @@ func GetUsersCount(name string) (int64, error) {
 	return count, nil
 }
 
-// GetUsersCount gets user count
-func GetUsersCountByRoles(name string, roles []string) (int64, error) {
+// GetUsersCountByRoles gets user count filtered by roles and namespace
+func GetUsersCountByRoles(name string, roles []string, namespace string) (int64, error) {
 	var (
 		users []models.User
 		err   error
 		count int64
 	)
 
-	err = repository.DB.Where("user.name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
+	err = repository.DB.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").
 		Group("user.uid").
