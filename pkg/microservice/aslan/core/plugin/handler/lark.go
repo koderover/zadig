@@ -682,13 +682,19 @@ func GetLarkWorkflowConfigV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	stageName := c.Param("stage")
 	if stageName == "" {
 		ctx.RespErr = fmt.Errorf("stage is required")
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLarkWorkflowConfigV2(ctx, stageName)
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkflowConfigV2(ctx, workspaceID, stageName)
 }
 
 func UpdateLarkWorkflowConfigV2(c *gin.Context) {
@@ -714,6 +720,12 @@ func UpdateLarkWorkflowConfigV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	stageName := c.Param("stage")
 	if stageName == "" {
 		ctx.RespErr = fmt.Errorf("stage is required")
@@ -723,6 +735,11 @@ func UpdateLarkWorkflowConfigV2(c *gin.Context) {
 	req := new(service.UpdateLarkWorkflowConfigV2Req)
 	if err := c.BindJSON(req); err != nil {
 		ctx.RespErr = err
+		return
+	}
+
+	if req.WorkspaceID != workspaceID {
+		ctx.RespErr = fmt.Errorf("workspace_id in request body does not match query parameter")
 		return
 	}
 
@@ -769,6 +786,12 @@ func GetLarkWorkitemServicesV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	workitemTypeKey := c.Param("workitemTypeKey")
 	if workitemTypeKey == "" {
 		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
@@ -781,7 +804,7 @@ func GetLarkWorkitemServicesV2(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemServicesV2(ctx, workitemTypeKey, workItemID)
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemServicesV2(ctx, workspaceID, workitemTypeKey, workItemID)
 }
 
 func GetLarkWorkitemPRsV2(c *gin.Context) {
@@ -807,6 +830,12 @@ func GetLarkWorkitemPRsV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	workitemTypeKey := c.Param("workitemTypeKey")
 	if workitemTypeKey == "" {
 		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
@@ -849,7 +878,7 @@ func GetLarkWorkitemPRsV2(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemPRsV2(ctx, workitemTypeKey, workItemID, serviceName, serviceModule, page, perPage)
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemPRsV2(ctx, workspaceID, workitemTypeKey, workItemID, serviceName, serviceModule, page, perPage)
 }
 
 func GetLarkWorkitemBranchesV2(c *gin.Context) {
@@ -875,6 +904,12 @@ func GetLarkWorkitemBranchesV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	workitemTypeKey := c.Param("workitemTypeKey")
 	if workitemTypeKey == "" {
 		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
@@ -917,7 +952,7 @@ func GetLarkWorkitemBranchesV2(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemBranchesV2(ctx, workitemTypeKey, workItemID, serviceName, serviceModule, page, perPage)
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemBranchesV2(ctx, workspaceID, workitemTypeKey, workItemID, serviceName, serviceModule, page, perPage)
 }
 
 func GetLarkStageServiceConfigV2(c *gin.Context) {
@@ -943,6 +978,12 @@ func GetLarkStageServiceConfigV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	stageName := c.Param("stage")
 	if stageName == "" {
 		ctx.RespErr = fmt.Errorf("stage is required")
@@ -961,7 +1002,7 @@ func GetLarkStageServiceConfigV2(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLarkStageServiceConfigV2(ctx, stageName, workitemTypeKey, workItemID)
+	ctx.Resp, ctx.RespErr = service.GetLarkStageServiceConfigV2(ctx, workspaceID, stageName, workitemTypeKey, workItemID)
 }
 
 func UpdateLarkStageServiceConfigV2(c *gin.Context) {
@@ -987,6 +1028,12 @@ func UpdateLarkStageServiceConfigV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	stageName := c.Param("stage")
 	if stageName == "" {
 		ctx.RespErr = fmt.Errorf("stage is required")
@@ -1008,6 +1055,11 @@ func UpdateLarkStageServiceConfigV2(c *gin.Context) {
 	req := new(service.UpdateLarkStageServiceConfigV2Req)
 	if err := c.BindJSON(req); err != nil {
 		ctx.RespErr = err
+		return
+	}
+
+	if req.WorkspaceID != workspaceID {
+		ctx.RespErr = fmt.Errorf("workspace_id in request body does not match query parameter")
 		return
 	}
 
@@ -1054,6 +1106,12 @@ func ExecuteLarkWorkitemWorkflowV2(c *gin.Context) {
 		return
 	}
 
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
 	workItemTypeKey := c.Param("workitemTypeKey")
 	if workItemTypeKey == "" {
 		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
@@ -1066,5 +1124,5 @@ func ExecuteLarkWorkitemWorkflowV2(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.ExecuteLarkWorkitemWorkflowV2(ctx, workItemTypeKey, workItemID)
+	ctx.RespErr = service.ExecuteLarkWorkitemWorkflowV2(ctx, workspaceID, workItemTypeKey, workItemID)
 }
