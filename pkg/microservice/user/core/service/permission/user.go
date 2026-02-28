@@ -71,7 +71,7 @@ type OpenAPIQueryArgs struct {
 	IdentityType string   `json:"identity_type,omitempty" form:"identity_type"`
 	Name         string   `json:"name,omitempty" form:"name"`
 	Roles        []string `json:"roles,omitempty" form:"roles"`
-	Project      string   `json:"project,omitempty" form:"project"`
+	Project      string   `json:"projectName,omitempty" form:"projectName"`
 }
 
 type QueryArgs struct {
@@ -82,7 +82,7 @@ type QueryArgs struct {
 	PerPage      int                     `json:"per_page,omitempty" form:"perPage"`
 	Page         int                     `json:"page,omitempty"  form:"page"`
 	Roles        []string                `json:"roles,omitempty" form:"roles"`
-	Project      string                  `json:"project,omitempty" form:"project"`
+	Project      string                  `json:"projectName,omitempty" form:"projectName"`
 	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
 	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
 }
