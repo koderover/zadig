@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	AppState           = setting.ProductName + "user"
-	SystemIdentityType = "system"
-	OauthIdentityType  = "oauth"
-	FeiShuEmailHost    = "smtp.feishu.cn"
+	AppState             = setting.ProductName + "user"
+	SystemIdentityType   = "system"
+	SsoTokenIdentityType = "sso_token"
+	OauthIdentityType    = "oauth"
+	FeiShuEmailHost      = "smtp.feishu.cn"
 
 	UserGroupCacheKeyFormat = "user_group_%s"
 )
