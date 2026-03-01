@@ -1239,13 +1239,13 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.
 
 		data := make(map[string][]byte)
 		dockerConfig := fmt.Sprintf(
-			`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
+			`{"auths":{"%s":{"username":"%s","password":"%s","email":"%s"}}}`,
 			reg.RegAddr,
 			reg.AccessKey,
 			reg.SecretKey,
 			defaultSecretEmail,
 		)
-		data[".dockercfg"] = []byte(dockerConfig)
+		data[".dockerconfigjson"] = []byte(dockerConfig)
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1253,7 +1253,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.
 				Name:      secretName,
 			},
 			Data: data,
-			Type: corev1.SecretTypeDockercfg,
+			Type: corev1.SecretTypeDockerConfigJson,
 		}
 		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
 			return err
