@@ -1321,7 +1321,39 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 				job.Spec = buildSpec
 
 			case aslanconfig.JobZadigDeploy:
-				// Use default env and settings — no modifications needed
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, deploySpec); err != nil {
+					return fmt.Errorf("failed to parse deploy job spec: %w", err)
+				}
+
+				if deploySpec.Source != aslanconfig.SourceFromJob {
+					return fmt.Errorf("deploy job %s must use source 'fromjob', got '%s'", job.Name, deploySpec.Source)
+				}
+
+				selectedServiceNames := sets.New[string]()
+				for _, sc := range serviceConfigs {
+					selectedServiceNames.Insert(sc.ServiceName)
+				}
+
+				existingServiceMap := make(map[string]*commonmodels.DeployServiceInfo)
+				for _, svc := range deploySpec.Services {
+					existingServiceMap[svc.ServiceName] = svc
+				}
+
+				filteredServices := make([]*commonmodels.DeployServiceInfo, 0)
+				for _, name := range selectedServiceNames.UnsortedList() {
+					if existing, ok := existingServiceMap[name]; ok {
+						filteredServices = append(filteredServices, existing)
+					} else {
+						filteredServices = append(filteredServices, &commonmodels.DeployServiceInfo{
+							DeployBasicInfo: commonmodels.DeployBasicInfo{
+								ServiceName: name,
+							},
+						})
+					}
+				}
+				deploySpec.Services = filteredServices
+				job.Spec = deploySpec
 
 			case aslanconfig.JobZadigTesting:
 				testSpec := &commonmodels.ZadigTestingJobSpec{}
