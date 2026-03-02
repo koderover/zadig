@@ -891,7 +891,7 @@ func getWorkitemConfigNodes(ctx *internalhandler.Context, workspaceID, workItemT
 
 	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
 	larkResp, err := larkClient.ClientV2.WorkItem.GetWorkItemsByIds(ctx, workitem.NewGetWorkItemsByIdsReqBuilder().
-		ProjectKey(ctx.LarkPlugin.ProjectKey).
+		ProjectKey(workspaceID).
 		WorkItemTypeKey(workItemType).
 		WorkItemIDs([]int64{workItemIDInt}).
 		Build(),
