@@ -41,6 +41,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	workflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -1263,7 +1264,17 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 	// Resolve workflow job parameters
 	buildSvc := commonservice.NewBuildService()
 
-	for _, stage := range workflow.Stages {
+	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow controller: %w", err)
+	}
+
+	err = workflowCtrl.SetPreset(nil)
+	if err != nil {
+		return fmt.Errorf("failed to set preset: %w", err)
+	}
+
+	for _, stage := range workflowCtrl.WorkflowV4.Stages {
 		for _, job := range stage.Jobs {
 			switch job.JobType {
 			case aslanconfig.JobZadigBuild:
@@ -1342,7 +1353,7 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 		LarkWorkItemTypeKey:   workItemTypeKey,
 		LarkWorkItemAPIName:   workitemTypeApiName,
 		LarkWorkItemID:        workItemID,
-	}, workflow, ctx.Logger)
+	}, workflowCtrl.WorkflowV4, ctx.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow task: %w", err)
 	}
