@@ -135,6 +135,10 @@ func incrementLoginFailedCount(uid string, logger *zap.SugaredLogger) int {
 	return failedCount
 }
 
+func loginFailedCacheKey(account string) string {
+	return fmt.Sprintf("account:%s", account)
+}
+
 func verifyCaptchaForAccount(captchaID, captchaAnswer, account string) error {
 	accountInfo, found := captchaAccountCache.Get(captchaID)
 	// Binding is single-use once submitted.
@@ -180,6 +184,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if account == "" {
 		return nil, 0, fmt.Errorf("account is required")
 	}
+	loginFailedKey := loginFailedCacheKey(account)
 	if strings.TrimSpace(args.Password) == "" {
 		return nil, 0, fmt.Errorf("password is required")
 	}
@@ -188,25 +193,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
-	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
-	if err != nil {
-		logger.Errorf("InternalLogin get user account:%s error", account)
-		return nil, 0, err
-	}
-	if user == nil {
-		return nil, 0, fmt.Errorf("user not exist")
-	}
-	userLogin, err := orm.GetUserLogin(user.UID, account, config.AccountLoginType, repository.DB)
-	if err != nil {
-		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", account, err.Error())
-		return nil, 0, err
-	}
-	if userLogin == nil {
-		logger.Errorf("InternalLogin user:%s user login not exist", account)
-		return nil, 0, fmt.Errorf("user login not exist")
-	}
-
-	failedCount := getLoginFailedCount(user.UID, logger)
+	failedCount := getLoginFailedCount(loginFailedKey, logger)
 	if failedCount >= loginFailedLimit {
 		// first check if a captcha answer is provided
 		if args.CaptchaAnswer == "" || args.CaptchaID == "" {
@@ -217,11 +204,31 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		}
 	}
 
+	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
+	if err != nil {
+		logger.Errorf("InternalLogin get user account:%s error", account)
+		return nil, 0, err
+	}
+	if user == nil {
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
+	}
+	userLogin, err := orm.GetUserLogin(user.UID, account, config.AccountLoginType, repository.DB)
+	if err != nil {
+		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", account, err.Error())
+		return nil, 0, err
+	}
+	if userLogin == nil {
+		logger.Errorf("InternalLogin user:%s user login not exist", account)
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
+	}
+
 	password := []byte(passwordText)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-		failedCount = incrementLoginFailedCount(user.UID, logger)
-		return nil, failedCount, fmt.Errorf("password is wrong")
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
 	}
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", account, err)
@@ -281,6 +288,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if err != nil {
 		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
+	loginCache.Delete(loginFailedKey)
 
 	return &User{
 		Uid:          user.UID,
