@@ -18,6 +18,7 @@ package login
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -97,8 +98,63 @@ func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
 }
 
 var (
-	loginCache = cache.New(time.Hour, time.Second*10)
+	loginCache          = cache.New(time.Hour, time.Second*10)
+	captchaAccountCache = cache.New(base64Captcha.Expiration, time.Second*10)
 )
+
+const (
+	loginFailedLimit = 5
+)
+
+func getLoginFailedCount(uid string, logger *zap.SugaredLogger) int {
+	failedCountInterface, found := loginCache.Get(uid)
+	if !found {
+		return 0
+	}
+	failedCount, ok := failedCountInterface.(int)
+	if !ok {
+		logger.Warnf("unexpected login failed count type for UID: [%s], reset cache entry", uid)
+		loginCache.Delete(uid)
+		return 0
+	}
+	return failedCount
+}
+
+func incrementLoginFailedCount(uid string, logger *zap.SugaredLogger) int {
+	if err := loginCache.Add(uid, 1, time.Hour); err == nil {
+		return 1
+	}
+
+	failedCount, err := loginCache.IncrementInt(uid, 1)
+	if err != nil {
+		logger.Errorf("failed to increment login failed count for UID: [%s], error: %s", uid, err)
+		loginCache.Set(uid, 1, time.Hour)
+		return 1
+	}
+	return failedCount
+}
+
+func verifyCaptchaForAccount(captchaID, captchaAnswer, account string) error {
+	accountInfo, found := captchaAccountCache.Get(captchaID)
+	// Binding is single-use once submitted.
+	captchaAccountCache.Delete(captchaID)
+	if !found {
+		return fmt.Errorf("captcha is invalid")
+	}
+	boundAccount, ok := accountInfo.(string)
+	if !ok {
+		_ = store.Get(captchaID, true)
+		return fmt.Errorf("captcha is invalid")
+	}
+	if boundAccount != account {
+		_ = store.Get(captchaID, true)
+		return fmt.Errorf("captcha is invalid")
+	}
+	if passed := store.Verify(captchaID, captchaAnswer, true); !passed {
+		return fmt.Errorf("captcha is wrong")
+	}
+	return nil
+}
 
 func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
 	user, err := orm.GetUser(args.Account, config.SystemIdentityType, repository.DB)
@@ -119,39 +175,22 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, fmt.Errorf("user login not exist")
 	}
 
-	failedCountInterface, failedCountfound := loginCache.Get(user.UID)
-
-	if failedCountfound {
-		if failedCountInterface.(int) >= 5 {
-			// first check if a captcha answer is provided
-			if args.CaptchaAnswer == "" || args.CaptchaID == "" {
-				return nil, 5, fmt.Errorf("captcha is required")
-			}
-
-			// captcha validation
-			if passed := store.Verify(args.CaptchaID, args.CaptchaAnswer, false); !passed {
-				return nil, 5, fmt.Errorf("captcha is wrong")
-			}
+	failedCount := getLoginFailedCount(user.UID, logger)
+	if failedCount >= loginFailedLimit {
+		// first check if a captcha answer is provided
+		if args.CaptchaAnswer == "" || args.CaptchaID == "" {
+			return nil, failedCount, fmt.Errorf("captcha is required")
+		}
+		if err := verifyCaptchaForAccount(args.CaptchaID, args.CaptchaAnswer, args.Account); err != nil {
+			return nil, failedCount, err
 		}
 	}
 
 	password := []byte(args.Password)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-
-		if !failedCountfound {
-			loginCache.Set(user.UID, 1, time.Hour)
-		} else {
-			err := loginCache.Increment(user.UID, 1)
-			if err != nil {
-				logger.Errorf("failed to do login cache increment for UID: [%s], error: %s", user.UID, err)
-			}
-		}
-		failedCount, ok := failedCountInterface.(int)
-		if !ok {
-			failedCount = 0
-		}
-		return nil, failedCount + 1, fmt.Errorf("password is wrong")
+		failedCount = incrementLoginFailedCount(user.UID, logger)
+		return nil, failedCount, fmt.Errorf("password is wrong")
 	}
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
@@ -260,7 +299,12 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 
 var store = base64Captcha.DefaultMemStore
 
-func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
+func GetCaptcha(account string, logger *zap.SugaredLogger) (string, string, error) {
+	account = strings.TrimSpace(account)
+	if account == "" {
+		return "", "", fmt.Errorf("account is required")
+	}
+
 	driver := base64Captcha.DefaultDriverDigit
 
 	c := base64Captcha.NewCaptcha(driver, store)
@@ -269,5 +313,7 @@ func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
 		logger.Errorf("failed to generate captcha, error: %s", err)
 		return "", "", fmt.Errorf("captcha generate error")
 	}
+
+	captchaAccountCache.Set(id, account, base64Captcha.Expiration)
 	return id, b64s, nil
 }

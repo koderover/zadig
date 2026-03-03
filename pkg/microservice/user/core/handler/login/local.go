@@ -49,7 +49,8 @@ func GetCaptcha(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id, picBase64, err := login.GetCaptcha(ctx.Logger)
+	account := c.Query("account")
+	id, picBase64, err := login.GetCaptcha(account, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
