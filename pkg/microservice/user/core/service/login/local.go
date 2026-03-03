@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 type LoginArgs struct {
@@ -156,22 +157,52 @@ func verifyCaptchaForAccount(captchaID, captchaAnswer, account string) error {
 	return nil
 }
 
-func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
-	user, err := orm.GetUser(args.Account, config.SystemIdentityType, repository.DB)
+func decryptLoginPassword(password string, logger *zap.SugaredLogger) (string, error) {
+	secretKey := strings.TrimSpace(configbase.SecretKey())
+	if secretKey == "" {
+		logger.Errorf("failed to decrypt password, SECRET_KEY is empty")
+		return "", fmt.Errorf("login password decrypt is not configured")
+	}
+
+	plainText, err := crypto.AesDecrypt(strings.TrimSpace(password), secretKey)
 	if err != nil {
-		logger.Errorf("InternalLogin get user account:%s error", args.Account)
+		logger.Errorf("failed to decrypt password, error: %s", err)
+		return "", fmt.Errorf("invalid password")
+	}
+	if len(plainText) == 0 {
+		return "", fmt.Errorf("invalid password")
+	}
+	return plainText, nil
+}
+
+func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
+	account := strings.TrimSpace(args.Account)
+	if account == "" {
+		return nil, 0, fmt.Errorf("account is required")
+	}
+	if strings.TrimSpace(args.Password) == "" {
+		return nil, 0, fmt.Errorf("password is required")
+	}
+	passwordText, err := decryptLoginPassword(args.Password, logger)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
+	if err != nil {
+		logger.Errorf("InternalLogin get user account:%s error", account)
 		return nil, 0, err
 	}
 	if user == nil {
 		return nil, 0, fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, repository.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, account, config.AccountLoginType, repository.DB)
 	if err != nil {
-		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 	if userLogin == nil {
-		logger.Errorf("InternalLogin user:%s user login not exist", args.Account)
+		logger.Errorf("InternalLogin user:%s user login not exist", account)
 		return nil, 0, fmt.Errorf("user login not exist")
 	}
 
@@ -181,19 +212,19 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		if args.CaptchaAnswer == "" || args.CaptchaID == "" {
 			return nil, failedCount, fmt.Errorf("captcha is required")
 		}
-		if err := verifyCaptchaForAccount(args.CaptchaID, args.CaptchaAnswer, args.Account); err != nil {
+		if err := verifyCaptchaForAccount(args.CaptchaID, args.CaptchaAnswer, account); err != nil {
 			return nil, failedCount, err
 		}
 	}
 
-	password := []byte(args.Password)
+	password := []byte(passwordText)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
 		failedCount = incrementLoginFailedCount(user.UID, logger)
 		return nil, failedCount, fmt.Errorf("password is wrong")
 	}
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
+		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", account, err)
 		return nil, 0, fmt.Errorf("check password error, error msg:%s", err)
 	}
 
@@ -205,7 +236,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	userLogin.LastLoginTime = time.Now().Unix()
 	err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB)
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 
@@ -230,13 +261,13 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		},
 	})
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 
 	groupIDList, err := common.GetUserGroupByUID(user.UID)
 	if err != nil {
-		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 	allUserGroupID, err := common.GetAllUserGroup()
