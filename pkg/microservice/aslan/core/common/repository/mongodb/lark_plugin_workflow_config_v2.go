@@ -33,9 +33,69 @@ import (
 // LarkPluginWorkflowConfigV2Coll – lark_plugin_workflow_config_v2
 // ---------------------------------------------------------------------------
 
-type LarkPluginWorkflowConfigV2Coll struct {
+type LarkPluginStageConfigV2Coll struct {
 	*mongo.Collection
 
+	coll string
+}
+
+func NewLarkPluginStageConfigV2Coll() *LarkPluginStageConfigV2Coll {
+	name := models.LarkPluginStageConfigV2{}.TableName()
+	return &LarkPluginStageConfigV2Coll{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		coll:       name,
+	}
+}
+
+func (c *LarkPluginStageConfigV2Coll) GetCollectionName() string {
+	return c.coll
+}
+
+func (c *LarkPluginStageConfigV2Coll) EnsureIndex(ctx context.Context) error {
+	mod := []mongo.IndexModel{
+		{
+			// each stage is unique under the same workspace
+			Keys: bson.D{
+				bson.E{Key: "workspace_id", Value: 1},
+				bson.E{Key: "stage_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
+	return err
+}
+
+func (c *LarkPluginStageConfigV2Coll) GetByStage(workspaceID, stageName string) (*models.LarkPluginStageConfigV2, error) {
+	resp := new(models.LarkPluginStageConfigV2)
+	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
+	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *LarkPluginStageConfigV2Coll) Upsert(cfg *models.LarkPluginStageConfigV2) error {
+	cfg.UpdateTime = time.Now().Unix()
+	query := bson.M{"workspace_id": cfg.WorkspaceID, "stage_name": cfg.StageName}
+	opts := options.Replace().SetUpsert(true)
+	_, err := c.Collection.ReplaceOne(context.TODO(), query, cfg, opts)
+	return err
+}
+
+func (c *LarkPluginStageConfigV2Coll) Delete(workspaceID, stageName string) error {
+	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
+	_, err := c.Collection.DeleteOne(context.TODO(), query)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// LarkPluginWfConfigNodeV2Coll – lark_plugin_wf_config_node_v2
+// ---------------------------------------------------------------------------
+
+type LarkPluginWorkflowConfigV2Coll struct {
+	*mongo.Collection
 	coll string
 }
 
@@ -58,65 +118,6 @@ func (c *LarkPluginWorkflowConfigV2Coll) EnsureIndex(ctx context.Context) error 
 				bson.E{Key: "workspace_id", Value: 1},
 				bson.E{Key: "stage_name", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
-		},
-	}
-	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
-	return err
-}
-
-func (c *LarkPluginWorkflowConfigV2Coll) GetByStage(workspaceID, stageName string) (*models.LarkPluginWorkflowConfigV2, error) {
-	resp := new(models.LarkPluginWorkflowConfigV2)
-	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
-	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func (c *LarkPluginWorkflowConfigV2Coll) Upsert(cfg *models.LarkPluginWorkflowConfigV2) error {
-	cfg.UpdateTime = time.Now().Unix()
-	query := bson.M{"workspace_id": cfg.WorkspaceID, "stage_name": cfg.StageName}
-	opts := options.Replace().SetUpsert(true)
-	_, err := c.Collection.ReplaceOne(context.TODO(), query, cfg, opts)
-	return err
-}
-
-func (c *LarkPluginWorkflowConfigV2Coll) Delete(workspaceID, stageName string) error {
-	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
-	_, err := c.Collection.DeleteOne(context.TODO(), query)
-	return err
-}
-
-// ---------------------------------------------------------------------------
-// LarkPluginWfConfigNodeV2Coll – lark_plugin_wf_config_node_v2
-// ---------------------------------------------------------------------------
-
-type LarkPluginWorkflowConfigNodeV2Coll struct {
-	*mongo.Collection
-	coll string
-}
-
-func NewLarkPluginWfConfigNodeV2Coll() *LarkPluginWorkflowConfigNodeV2Coll {
-	name := models.LarkPluginWorkflowConfigNodeV2{}.TableName()
-	return &LarkPluginWorkflowConfigNodeV2Coll{
-		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
-		coll:       name,
-	}
-}
-
-func (c *LarkPluginWorkflowConfigNodeV2Coll) GetCollectionName() string {
-	return c.coll
-}
-
-func (c *LarkPluginWorkflowConfigNodeV2Coll) EnsureIndex(ctx context.Context) error {
-	mod := []mongo.IndexModel{
-		{
-			Keys: bson.D{
-				bson.E{Key: "workspace_id", Value: 1},
-				bson.E{Key: "stage_name", Value: 1},
-			},
 		},
 		{
 			Keys: bson.D{
@@ -132,8 +133,62 @@ func (c *LarkPluginWorkflowConfigNodeV2Coll) EnsureIndex(ctx context.Context) er
 	return err
 }
 
-func (c *LarkPluginWorkflowConfigNodeV2Coll) GetByStage(workspaceID, stageName string) ([]*models.LarkPluginWorkflowConfigNodeV2, error) {
-	resp := make([]*models.LarkPluginWorkflowConfigNodeV2, 0)
+
+
+func (c *LarkPluginWorkflowConfigV2Coll) Find(workspaceID, workItemType string, templateID int64, nodeID string) (*models.LarkPluginWorkflowConfigV2, error) {
+	resp := new(models.LarkPluginWorkflowConfigV2)
+	query := bson.M{
+		"workspace_id": workspaceID,
+		"work_item_type": workItemType,
+		"template_id": templateID,
+		"node_id": nodeID,
+	}
+
+	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+type ListWorkflowConfigV2Args struct {
+	WorkspaceID string
+	WorkItemTypeKey string
+	TemplateID int64
+	NodeID string
+	StageName string
+}
+
+func (c *LarkPluginWorkflowConfigV2Coll) List(args *ListWorkflowConfigV2Args) ([]*models.LarkPluginWorkflowConfigV2, error) {
+	resp := make([]*models.LarkPluginWorkflowConfigV2, 0)
+	query := bson.M{}
+	if args.WorkspaceID != "" {
+		query["workspace_id"] = args.WorkspaceID
+	}
+	if args.WorkItemTypeKey != "" {
+		query["work_item_type_key"] = args.WorkItemTypeKey
+	}
+	if args.TemplateID != 0 {
+		query["template_id"] = args.TemplateID
+	}
+	if args.NodeID != "" {
+		query["node_id"] = args.NodeID
+	}
+	if args.StageName != "" {
+		query["stage_name"] = args.StageName
+	}
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	if err = cursor.All(context.TODO(), &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *LarkPluginWorkflowConfigV2Coll) GetByStage(workspaceID, stageName string) ([]*models.LarkPluginWorkflowConfigV2, error) {
+	resp := make([]*models.LarkPluginWorkflowConfigV2, 0)
 	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
@@ -145,7 +200,7 @@ func (c *LarkPluginWorkflowConfigNodeV2Coll) GetByStage(workspaceID, stageName s
 	return resp, nil
 }
 
-func (c *LarkPluginWorkflowConfigNodeV2Coll) ReplaceByStage(workspaceID, stageName string, nodes []*models.LarkPluginWorkflowConfigNodeV2) error {
+func (c *LarkPluginWorkflowConfigV2Coll) ReplaceByStage(workspaceID, stageName string, nodes []*models.LarkPluginWorkflowConfigV2) error {
 	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 	if err != nil {
@@ -166,14 +221,14 @@ func (c *LarkPluginWorkflowConfigNodeV2Coll) ReplaceByStage(workspaceID, stageNa
 	return err
 }
 
-func (c *LarkPluginWorkflowConfigNodeV2Coll) DeleteByStage(workspaceID, stageName string) error {
+func (c *LarkPluginWorkflowConfigV2Coll) DeleteByStage(workspaceID, stageName string) error {
 	query := bson.M{"workspace_id": workspaceID, "stage_name": stageName}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 	return err
 }
 
-func (c *LarkPluginWorkflowConfigNodeV2Coll) GetByWorkItem(workspaceID string, templateID int64, nodeIDs []string) ([]*models.LarkPluginWorkflowConfigNodeV2, error) {
-	resp := make([]*models.LarkPluginWorkflowConfigNodeV2, 0)
+func (c *LarkPluginWorkflowConfigV2Coll) GetByWorkItem(workspaceID string, templateID int64, nodeIDs []string) ([]*models.LarkPluginWorkflowConfigV2, error) {
+	resp := make([]*models.LarkPluginWorkflowConfigV2, 0)
 	query := bson.M{
 		"workspace_id": workspaceID,
 		"template_id":  templateID,
