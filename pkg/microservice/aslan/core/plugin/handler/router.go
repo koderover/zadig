@@ -42,10 +42,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		larkv2.GET("config/stages/:stage/workflow", GetLarkWorkflowConfigV2)
 		larkv2.PUT("config/stages/:stage/workflow", UpdateLarkWorkflowConfigV2)
 		larkv2.GET("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", GetLarkStageServiceConfigV2)
-		larkv2.PUT("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", UpdateLarkStageServiceConfigV2)
+		larkv2.PUT("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", UpdateLarkWorkItemStageWorkflowInputV2)
+
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/services", GetLarkWorkitemServicesV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/prs", GetLarkWorkitemPRsV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/branches", GetLarkWorkitemBranchesV2)
 		larkv2.POST("workitem/:workitemTypeKey/:workItemID/execute", ExecuteLarkWorkitemWorkflowV2)
+
+		larkv2.GET("config/stages/:stage/workitems", GetLarkReleaseWorkItemsV2)
+		larkv2.POST("workitem/:workitemTypeKey/:workItemID/bind", BindLarkWorkitemToReleaseV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/bind", GetLarkWorkitemBindV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/release-items", ListLarkReleaseBindItemsV2)
 	}
 }

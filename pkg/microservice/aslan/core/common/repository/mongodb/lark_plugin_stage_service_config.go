@@ -29,24 +29,24 @@ import (
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
-type LarkPluginStageServiceConfigColl struct {
+type LarkPluginWorkItemStageWorkflowInputConfigColl struct {
 	*mongo.Collection
 	coll string
 }
 
-func NewLarkPluginStageServiceConfigColl() *LarkPluginStageServiceConfigColl {
-	name := models.LarkPluginStageServiceConfig{}.TableName()
-	return &LarkPluginStageServiceConfigColl{
+func NewLarkPluginWorkItemStageWorkflowInputConfigColl() *LarkPluginWorkItemStageWorkflowInputConfigColl {
+	name := models.LarkPluginWorkItemStageWorkflowInputConfig{}.TableName()
+	return &LarkPluginWorkItemStageWorkflowInputConfigColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *LarkPluginStageServiceConfigColl) GetCollectionName() string {
+func (c *LarkPluginWorkItemStageWorkflowInputConfigColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *LarkPluginStageServiceConfigColl) EnsureIndex(ctx context.Context) error {
+func (c *LarkPluginWorkItemStageWorkflowInputConfigColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -73,8 +73,8 @@ func (c *LarkPluginStageServiceConfigColl) EnsureIndex(ctx context.Context) erro
 	return err
 }
 
-func (c *LarkPluginStageServiceConfigColl) GetByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID string) ([]*models.LarkPluginStageServiceConfig, error) {
-	resp := make([]*models.LarkPluginStageServiceConfig, 0)
+func (c *LarkPluginWorkItemStageWorkflowInputConfigColl) GetByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID string) ([]*models.LarkPluginWorkItemStageWorkflowInputConfig, error) {
+	resp := make([]*models.LarkPluginWorkItemStageWorkflowInputConfig, 0)
 	query := bson.M{
 		"workspace_id":       workspaceID,
 		"stage_name":         stageName,
@@ -91,7 +91,7 @@ func (c *LarkPluginStageServiceConfigColl) GetByWorkItem(workspaceID, stageName,
 	return resp, nil
 }
 
-func (c *LarkPluginStageServiceConfigColl) ReplaceByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID string, configs []*models.LarkPluginStageServiceConfig) error {
+func (c *LarkPluginWorkItemStageWorkflowInputConfigColl) ReplaceByWorkItem(workspaceID, stageName, workItemTypeKey string, workItemID string, configs []*models.LarkPluginWorkItemStageWorkflowInputConfig) error {
 	query := bson.M{
 		"workspace_id":       workspaceID,
 		"stage_name":         stageName,
@@ -110,10 +110,6 @@ func (c *LarkPluginStageServiceConfigColl) ReplaceByWorkItem(workspaceID, stageN
 	now := time.Now().Unix()
 	docs := make([]interface{}, 0, len(configs))
 	for _, cfg := range configs {
-		cfg.StageName = stageName
-		cfg.WorkspaceID = workspaceID
-		cfg.WorkItemTypeKey = workItemTypeKey
-		cfg.WorkItemID = workItemID
 		cfg.UpdateTime = now
 		docs = append(docs, cfg)
 	}
