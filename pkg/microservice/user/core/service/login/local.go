@@ -18,6 +18,7 @@ package login
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -31,14 +32,17 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
+	aslanutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 type LoginArgs struct {
 	Account       string `json:"account"`
+	EncryptedKey  string `json:"encrypted_key"`
 	Password      string `json:"password"`
 	CaptchaID     string `json:"captcha_id"`
 	CaptchaAnswer string `json:"captcha_answer"`
@@ -97,64 +101,146 @@ func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
 }
 
 var (
-	loginCache = cache.New(time.Hour, time.Second*10)
+	loginCache          = cache.New(time.Hour, time.Second*10)
+	captchaAccountCache = cache.New(base64Captcha.Expiration, time.Second*10)
 )
 
-func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
-	user, err := orm.GetUser(args.Account, config.SystemIdentityType, repository.DB)
+const (
+	loginFailedLimit = 5
+)
+
+func getLoginFailedCount(uid string, logger *zap.SugaredLogger) int {
+	failedCountInterface, found := loginCache.Get(uid)
+	if !found {
+		return 0
+	}
+	failedCount, ok := failedCountInterface.(int)
+	if !ok {
+		logger.Warnf("unexpected login failed count type for UID: [%s], reset cache entry", uid)
+		loginCache.Delete(uid)
+		return 0
+	}
+	return failedCount
+}
+
+func incrementLoginFailedCount(uid string, logger *zap.SugaredLogger) int {
+	if err := loginCache.Add(uid, 1, time.Hour); err == nil {
+		return 1
+	}
+
+	failedCount, err := loginCache.IncrementInt(uid, 1)
 	if err != nil {
-		logger.Errorf("InternalLogin get user account:%s error", args.Account)
+		logger.Errorf("failed to increment login failed count for UID: [%s], error: %s", uid, err)
+		loginCache.Set(uid, 1, time.Hour)
+		return 1
+	}
+	return failedCount
+}
+
+func loginFailedCacheKey(account string) string {
+	return fmt.Sprintf("account:%s", account)
+}
+
+func verifyCaptchaForAccount(captchaID, captchaAnswer, account string) error {
+	accountInfo, found := captchaAccountCache.Get(captchaID)
+	// Binding is single-use once submitted.
+	captchaAccountCache.Delete(captchaID)
+	if !found {
+		return fmt.Errorf("captcha is invalid")
+	}
+	boundAccount, ok := accountInfo.(string)
+	if !ok {
+		_ = store.Get(captchaID, true)
+		return fmt.Errorf("captcha is invalid")
+	}
+	if boundAccount != account {
+		_ = store.Get(captchaID, true)
+		return fmt.Errorf("captcha is invalid")
+	}
+	if passed := store.Verify(captchaID, captchaAnswer, true); !passed {
+		return fmt.Errorf("captcha is wrong")
+	}
+	return nil
+}
+
+func decryptLoginPassword(encryptedKey, encryptedPassword string, logger *zap.SugaredLogger) (string, error) {
+	if encryptedKey == "" {
+		return "", fmt.Errorf("encrypted_key is required")
+	}
+	if encryptedPassword == "" {
+		return "", fmt.Errorf("password is required")
+	}
+
+	aesKeyResp, err := aslanutil.GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	if err != nil {
+		logger.Errorf("failed to decrypt aes key by GetAesKeyFromEncryptedKey, error: %s", err)
+		return "", fmt.Errorf("invalid encrypted_key")
+	}
+	if aesKeyResp == nil || aesKeyResp.PlainText == "" {
+		return "", fmt.Errorf("invalid encrypted_key")
+	}
+
+	password, err := crypto.AesDecrypt(encryptedPassword, aesKeyResp.PlainText)
+	if err != nil {
+		logger.Errorf("failed to decrypt password by aes key, error: %s", err)
+		return "", fmt.Errorf("invalid encrypted password")
+	}
+	if password == "" {
+		return "", fmt.Errorf("invalid password")
+	}
+	return password, nil
+}
+
+func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
+	account := strings.TrimSpace(args.Account)
+	if account == "" {
+		return nil, 0, fmt.Errorf("account is required")
+	}
+	loginFailedKey := loginFailedCacheKey(account)
+	passwordText, err := decryptLoginPassword(args.EncryptedKey, args.Password, logger)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	failedCount := getLoginFailedCount(loginFailedKey, logger)
+	if failedCount >= loginFailedLimit {
+		// first check if a captcha answer is provided
+		if args.CaptchaAnswer == "" || args.CaptchaID == "" {
+			return nil, failedCount, fmt.Errorf("captcha is required")
+		}
+		if err := verifyCaptchaForAccount(args.CaptchaID, args.CaptchaAnswer, account); err != nil {
+			return nil, failedCount, err
+		}
+	}
+
+	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
+	if err != nil {
+		logger.Errorf("InternalLogin get user account:%s error", account)
 		return nil, 0, err
 	}
 	if user == nil {
-		return nil, 0, fmt.Errorf("user not exist")
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, repository.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, account, config.AccountLoginType, repository.DB)
 	if err != nil {
-		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 	if userLogin == nil {
-		logger.Errorf("InternalLogin user:%s user login not exist", args.Account)
-		return nil, 0, fmt.Errorf("user login not exist")
+		logger.Errorf("InternalLogin user:%s user login not exist", account)
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
 	}
-
-	failedCountInterface, failedCountfound := loginCache.Get(user.UID)
-
-	if failedCountfound {
-		if failedCountInterface.(int) >= 5 {
-			// first check if a captcha answer is provided
-			if args.CaptchaAnswer == "" || args.CaptchaID == "" {
-				return nil, 5, fmt.Errorf("captcha is required")
-			}
-
-			// captcha validation
-			if passed := store.Verify(args.CaptchaID, args.CaptchaAnswer, false); !passed {
-				return nil, 5, fmt.Errorf("captcha is wrong")
-			}
-		}
-	}
-
-	password := []byte(args.Password)
+ 
+	password := []byte(passwordText)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-
-		if !failedCountfound {
-			loginCache.Set(user.UID, 1, time.Hour)
-		} else {
-			err := loginCache.Increment(user.UID, 1)
-			if err != nil {
-				logger.Errorf("failed to do login cache increment for UID: [%s], error: %s", user.UID, err)
-			}
-		}
-		failedCount, ok := failedCountInterface.(int)
-		if !ok {
-			failedCount = 0
-		}
-		return nil, failedCount + 1, fmt.Errorf("password is wrong")
+		failedCount = incrementLoginFailedCount(loginFailedKey, logger)
+		return nil, failedCount, fmt.Errorf("invalid username or password")
 	}
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
+		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", account, err)
 		return nil, 0, fmt.Errorf("check password error, error msg:%s", err)
 	}
 
@@ -166,7 +252,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	userLogin.LastLoginTime = time.Now().Unix()
 	err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB)
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 
@@ -191,13 +277,13 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		},
 	})
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 
 	groupIDList, err := common.GetUserGroupByUID(user.UID)
 	if err != nil {
-		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", account, err.Error())
 		return nil, 0, err
 	}
 	allUserGroupID, err := common.GetAllUserGroup()
@@ -211,6 +297,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if err != nil {
 		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
+	loginCache.Delete(loginFailedKey)
 
 	return &User{
 		Uid:          user.UID,
@@ -260,7 +347,12 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 
 var store = base64Captcha.DefaultMemStore
 
-func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
+func GetCaptcha(account string, logger *zap.SugaredLogger) (string, string, error) {
+	account = strings.TrimSpace(account)
+	if account == "" {
+		return "", "", fmt.Errorf("account is required")
+	}
+
 	driver := base64Captcha.DefaultDriverDigit
 
 	c := base64Captcha.NewCaptcha(driver, store)
@@ -269,5 +361,7 @@ func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
 		logger.Errorf("failed to generate captcha, error: %s", err)
 		return "", "", fmt.Errorf("captcha generate error")
 	}
+
+	captchaAccountCache.Set(id, account, base64Captcha.Expiration)
 	return id, b64s, nil
 }
