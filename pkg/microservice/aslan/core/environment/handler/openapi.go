@@ -23,19 +23,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
-	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -2231,20 +2235,43 @@ func OpenAPIAddHelmServicesToEnv(c *gin.Context) {
 
 		valuesData := &commonservice.ValuesDataArgs{}
 		if service.ImportValuesFromGit != nil {
-			codehostID, err := codehostdb.NewCodehostColl().GetCodeHostByAlias(service.ImportValuesFromGit.CodehostName)
+			codeHost, err := systemconfig.New().GetCodeHostByAlias(service.ImportValuesFromGit.CodehostName)
 			if err != nil {
-				ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("codehost %s not found", service.ImportValuesFromGit.CodehostName))
+				ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("failed to get codehost %s, err: %s", service.ImportValuesFromGit.CodehostName, err))
 				return
 			}
 
-			autoSyncYamlBytes, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
-				CodehostID: codehostID.ID,
-				Namespace:  service.ImportValuesFromGit.Namespace,
-				Owner:      service.ImportValuesFromGit.Namespace,
-				Repo:       service.ImportValuesFromGit.Repo,
-				Branch:     service.ImportValuesFromGit.Branch,
-				Path:       service.ImportValuesFromGit.ValuePath,
-			})
+			var autoSyncYamlBytes []byte
+			if codeHost.Type == setting.SourceFromOther {
+				service.ImportValuesFromGit.AutoSync = false
+				err = command.RunGitCmds(
+					codeHost,
+					service.ImportValuesFromGit.Namespace,
+					service.ImportValuesFromGit.Namespace,
+					service.ImportValuesFromGit.Repo,
+					service.ImportValuesFromGit.Branch,
+					"origin",
+				)
+				if err != nil {
+					ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("failed to sync git repo for values yaml, err: %s", err))
+					return
+				}
+				repoPath := path.Join(config.S3StoragePath(), service.ImportValuesFromGit.Repo, service.ImportValuesFromGit.ValuePath)
+				autoSyncYamlBytes, err = os.ReadFile(repoPath)
+				if err != nil {
+					ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("failed to read values yaml from synced repo, path: %s, err: %s", repoPath, err))
+					return
+				}
+			} else {
+				autoSyncYamlBytes, err = fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+					CodehostID: codeHost.ID,
+					Namespace:  service.ImportValuesFromGit.Namespace,
+					Owner:      service.ImportValuesFromGit.Namespace,
+					Repo:       service.ImportValuesFromGit.Repo,
+					Branch:     service.ImportValuesFromGit.Branch,
+					Path:       service.ImportValuesFromGit.ValuePath,
+				})
+			}
 			if err != nil {
 				ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("failed to download auto sync yaml, err: %s", err))
 				return
@@ -2254,7 +2281,7 @@ func OpenAPIAddHelmServicesToEnv(c *gin.Context) {
 
 			valuesData = &commonservice.ValuesDataArgs{
 				GitRepoConfig: &commonservice.RepoConfig{
-					CodehostID:  codehostID.ID,
+					CodehostID:  codeHost.ID,
 					Owner:       service.ImportValuesFromGit.Namespace,
 					Namespace:   service.ImportValuesFromGit.Namespace,
 					Repo:        service.ImportValuesFromGit.Repo,
