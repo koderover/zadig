@@ -70,6 +70,37 @@ func GetCodeHostInfo(opt *Option) (*CodeHost, error) {
 	return New().GetCodeHostByAddressAndOwner(opt.Address, opt.Namespace, opt.CodeHostType)
 }
 
+func (c *Client) GetCodeHostByAlias(alias string) (*CodeHost, error) {
+	resp, err := codehostservice.GetCodeHostByAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	res := &CodeHost{
+		ID:                 resp.ID,
+		Address:            resp.Address,
+		Type:               resp.Type,
+		AccessToken:        resp.AccessToken,
+		RefreshToken:       resp.RefreshToken,
+		Namespace:          resp.Namespace,
+		Region:             resp.Region,
+		AccessKey:          resp.ApplicationId,
+		SecretKey:          resp.ClientSecret,
+		Username:           resp.Username,
+		Password:           resp.Password,
+		DisableSSL:         resp.DisableSSL,
+		EnableProxy:        resp.EnableProxy,
+		UpdatedAt:          resp.UpdatedAt,
+		Alias:              resp.Alias,
+		AuthType:           resp.AuthType,
+		SSHKey:             resp.SSHKey,
+		PrivateAccessToken: resp.PrivateAccessToken,
+		P4Host:             resp.P4Host,
+		P4Port:             resp.P4Port,
+	}
+
+	return res, nil
+}
+
 func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 	resp, err := codehostservice.GetCodeHost(id, false, log.SugaredLogger())
 	if err != nil {

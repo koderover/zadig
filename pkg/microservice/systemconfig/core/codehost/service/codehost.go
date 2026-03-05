@@ -171,6 +171,10 @@ func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeH
 	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete)
 }
 
+func GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().GetCodeHostByAlias(alias)
+}
+
 type state struct {
 	CodeHostID  int    `json:"code_host_id"`
 	RedirectURL string `json:"redirect_url"`
