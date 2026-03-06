@@ -195,6 +195,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
 	userInfoRes := userInfo[0]
+	userInfoRes.HasAPIToken = len(userInfoRes.APIToken) != 0
 	userInfoRes.APIToken = ""
 	userInfoRes.APITokenEnabled = user.APITokenEnabled
 
@@ -540,6 +541,7 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 				Email:           user.Email,
 				IdentityType:    user.IdentityType,
 				Account:         user.Account,
+				APIToken:        user.APIToken,
 				APITokenEnabled: user.APITokenEnabled,
 			})
 		} else {
