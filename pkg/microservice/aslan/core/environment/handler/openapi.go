@@ -2174,7 +2174,7 @@ func OpenAPIAddHelmServicesToEnv(c *gin.Context) {
 		return
 	}
 
-	production := c.Query("production") == "true"
+	production := request.Production
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
