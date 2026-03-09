@@ -735,3 +735,47 @@ func ListLarkWorkitemStagesV2(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = service.ListLarkWorkitemStagesV2(ctx, workspaceID, workItemTypeKey, workItemID)
 }
+
+func GetLarkWorkitemInfoV2(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	err = CheckLarkAuth(c, ctx)
+	if err != nil {
+		ctx.RespErr = err
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workspaceID := c.Query("workspace_id")
+	if workspaceID == "" {
+		ctx.RespErr = fmt.Errorf("workspace_id is required")
+		return
+	}
+
+	workItemTypeKey := c.Param("workitemTypeKey")
+	if workItemTypeKey == "" {
+		ctx.RespErr = fmt.Errorf("workitemTypeKey is required")
+		return
+	}
+
+	workItemID := c.Param("workItemID")
+	if workItemID == "" {
+		ctx.RespErr = fmt.Errorf("workItemID is required")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetLarkWorkitemInfoV2(ctx, workspaceID, workItemTypeKey, workItemID)
+}

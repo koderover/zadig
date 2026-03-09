@@ -841,3 +841,20 @@ func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workIte
 
 	return resp, nil
 }
+
+type GetLarkWorkitemInfoV2Resp struct {
+	TemplateID int64  `json:"template_id"`
+	NodeID     string `json:"node_id"`
+}
+
+func GetLarkWorkitemInfoV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) (*GetLarkWorkitemInfoV2Resp, error) {
+	templateID, nodeID, err := getWorkItemInfo(ctx, workspaceID, workItemTypeKey, workItemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get work item info: %w", err)
+	}
+
+	return &GetLarkWorkitemInfoV2Resp{
+		TemplateID: templateID,
+		NodeID: nodeID,
+	}, nil
+}
