@@ -395,21 +395,49 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 		return fmt.Errorf("failed to find workflow config: %w", err)
 	}
 
-	// stageConfig, err := mongodb.NewLarkPluginStageConfigV2Coll().GetByStage(workspaceID, workflowConfig.StageName)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get stage config: %w", err)
-	// }
+	stageConfig, err := mongodb.NewLarkPluginStageConfigV2Coll().GetByStage(workspaceID, workflowConfig.StageName)
+	if err != nil {
+		return fmt.Errorf("failed to get stage config: %w", err)
+	}
 
 	workflow, err := mongodb.NewWorkflowV4Coll().Find(workflowConfig.WorkflowName)
 	if err != nil {
 		return fmt.Errorf("failed to find workflow: %w", err)
 	}
 
-	// if workflowConfig.StageName != "release" {
-		
-	// }
+	var inputConfigs []*commonmodels.LarkPluginWorkItemStageWorkflowInputConfig
 
-	inputConfigs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, workflowConfig.StageName, workItemTypeKey, workItemID)
+	if workflowConfig.StageName != "release" {
+		inputConfigs, err = mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, workflowConfig.StageName, workItemTypeKey, workItemID)
+		if err != nil {
+			return fmt.Errorf("failed to get input configs: %w", err)
+		}
+	} else {
+		binds, err := mongodb.NewLarkPluginReleaseWorkItemBindColl().ListReleaseBindItems(workspaceID, workItemID)
+		if err != nil {
+			return fmt.Errorf("failed to list release bind items: %w", err)
+		}
+
+		seen := make(map[string]struct{})
+		for _, bind := range binds {
+			configs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, "test", bind.WorkItemTypeKey, bind.WorkItemID)
+			if err != nil {
+				return fmt.Errorf("failed to get service configs for bound workitem %s: %w", bind.WorkItemID, err)
+			}
+			for _, cfg := range configs {
+				key := cfg.ServiceName + "/" + cfg.ServiceModule
+				if _, exists := seen[key]; exists {
+					continue
+				}
+				seen[key] = struct{}{}
+				inputConfigs = append(inputConfigs, &commonmodels.LarkPluginWorkItemStageWorkflowInputConfig{
+					ServiceName:   cfg.ServiceName,
+					ServiceModule: cfg.ServiceModule,
+					Branch:        stageConfig.TargetBranch,
+				})
+			}
+		}
+	}
 
 	// Get Lark project info for task metadata
 	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
@@ -457,9 +485,6 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 	buildSvc := commonservice.NewBuildService()
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
-	if err != nil {
-		return fmt.Errorf("failed to create workflow controller: %w", err)
-	}
 
 	err = workflowCtrl.SetPreset(nil)
 	if err != nil {
