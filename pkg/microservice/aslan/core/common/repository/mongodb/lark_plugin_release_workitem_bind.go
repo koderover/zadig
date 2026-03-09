@@ -107,4 +107,13 @@ func (c *LarkPluginReleaseWorkItemBindColl) ListReleaseBindItems(workspaceID, re
 	return bindItemList, nil
 }
 
+func (c *LarkPluginReleaseWorkItemBindColl) DeleteWorkItemBind(workspaceID, workItemTypeKey, workItemID string) error {
+	if workspaceID == "" || workItemTypeKey == "" || workItemID == "" {
+		return fmt.Errorf("workspaceID, workItemTypeKey and workItemID are required")
+	}
+
+	_, err := c.DeleteOne(context.TODO(), bson.M{"workspace_id": workspaceID, "work_item_type_key": workItemTypeKey, "work_item_id": workItemID})
+	return err
+}
+
 

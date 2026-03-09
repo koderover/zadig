@@ -689,6 +689,14 @@ func GetLarkWorkitemBindV2(ctx *internalhandler.Context, workspaceID, workItemTy
 	}, nil
 }
 
+func DeleteLarkWorkitemBindV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) error {
+	err := mongodb.NewLarkPluginReleaseWorkItemBindColl().DeleteWorkItemBind(workspaceID, workItemTypeKey, workItemID)
+	if err != nil {
+		return fmt.Errorf("failed to delete workitem bind: %w", err)
+	}
+	return nil
+}
+
 type ListLarkReleaseBindItemsV2Resp struct {
 	Items []*LarkReleaseBindItem `json:"items"`
 }
