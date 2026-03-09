@@ -71,7 +71,11 @@ func GetLarkWorkflowConfigV2(ctx *internalhandler.Context, workspaceID, stageNam
 
 	nodes, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().GetByStage(workspaceID, stageName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get lark plugin workflow config nodes v2: %w", err)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			nodes = make([]*commonmodels.LarkPluginWorkflowConfigV2, 0)
+		} else {
+			return nil, fmt.Errorf("failed to get lark plugin workflow config nodes v2: %w", err)
+		}
 	}
 
 	return &GetLarkWorkflowConfigV2Resp{
