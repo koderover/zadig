@@ -139,7 +139,7 @@ func (c *LarkPluginWorkflowConfigV2Coll) Find(workspaceID, workItemType string, 
 	resp := new(models.LarkPluginWorkflowConfigV2)
 	query := bson.M{
 		"workspace_id": workspaceID,
-		"work_item_type": workItemType,
+		"work_item_type_key": workItemType,
 		"template_id": templateID,
 		"node_id": nodeID,
 	}
