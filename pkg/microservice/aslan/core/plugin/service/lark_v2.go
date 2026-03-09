@@ -362,7 +362,7 @@ type UpdateLarkWorkItemStageWorkflowInputV2Req struct {
 }
 
 func UpdateLarkWorkItemStageWorkflowInputV2(ctx *internalhandler.Context, stageName, workspaceID, workItemTypeKey, workItemID string, req *UpdateLarkWorkItemStageWorkflowInputV2Req) error {
-	inputConfig := make([]*commonmodels.LarkPluginWorkItemStageWorkflowInputConfig, len(req.Configs))
+	inputConfig := make([]*commonmodels.LarkPluginWorkItemStageWorkflowInputConfig, 0)
 
 	for _, item := range req.Configs {
 		inputConfig = append(inputConfig, &commonmodels.LarkPluginWorkItemStageWorkflowInputConfig{
