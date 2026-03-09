@@ -745,3 +745,62 @@ func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, relea
 		Items: resp,
 	}, nil
 }
+
+type LarkWorkitemStage struct {
+	// stageName/workspaceID is the foreign key combination to link to the LarkPluginWorkflowConfigV2
+	StageName    string             `json:"stage_name"`
+	WorkspaceID  string             `json:"workspace_id"`
+
+	Items        []*LarkWorkItemSpec `json:"items"`
+}
+
+type LarkWorkItemSpec struct {
+	// when the stage name is not release, work item type/templateID/nodeID together forms the unique node setting
+	WorkItemTypeKey   string             `json:"work_item_type_key"`
+	WorkItemType      string             `json:"work_item_type"`
+	TemplateID        int64              `json:"template_id"`
+	TemplateName      string             `json:"template_name"`
+}
+
+func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) ([]*LarkWorkitemStage, error) {
+	templateID, _, err := getWorkItemInfo(ctx, workspaceID, workItemTypeKey, workItemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get work item info: %w", err)
+	}
+
+	workflowConfigs, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().List(&mongodb.ListWorkflowConfigV2Args{
+		WorkspaceID: workspaceID,
+		WorkItemTypeKey: workItemTypeKey,
+		TemplateID: templateID,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workflow config: %w", err)
+	}
+
+	stageMap := make(map[string]*LarkWorkitemStage)
+	for _, cfg := range workflowConfigs {
+		stage, ok := stageMap[cfg.StageName]
+		if !ok {
+			stage = &LarkWorkitemStage{
+				StageName:   cfg.StageName,
+				WorkspaceID: cfg.WorkspaceID,
+				Items:       make([]*LarkWorkItemSpec, 0),
+			}
+			stageMap[cfg.StageName] = stage
+		}
+		stage.Items = append(stage.Items, &LarkWorkItemSpec{
+			WorkItemTypeKey: cfg.WorkItemTypeKey,
+			WorkItemType:    cfg.WorkItemType,
+			TemplateID:      cfg.TemplateID,
+			TemplateName:    cfg.TemplateName,
+		})
+	}
+
+	resp := make([]*LarkWorkitemStage, 0, len(stageMap))
+	for _, stage := range stageMap {
+		resp = append(resp, stage)
+	}
+
+	return resp, nil
+}
