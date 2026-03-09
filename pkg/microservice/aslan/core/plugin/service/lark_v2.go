@@ -602,9 +602,9 @@ func GetLarkReleaseWorkItemsV2(ctx *internalhandler.Context, workspaceID, stageN
 	}
 
 	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
-	larkResp, err := larkClient.ClientV2.WorkItem.GetWorkItemsByIds(ctx, workitem.NewGetWorkItemsByIdsReqBuilder().
+	larkResp, err := larkClient.ClientV2.WorkItem.Filter(ctx, workitem.NewFilterReqBuilder().
 		ProjectKey(workspaceID).
-		WorkItemTypeKey(stageConfig.WorkItemTypeKey).
+		WorkItemTypeKeys([]string{stageConfig.WorkItemTypeKey}).
 		Build(),
 		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
 		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
