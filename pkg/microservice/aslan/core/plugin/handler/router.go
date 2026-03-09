@@ -53,5 +53,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		larkv2.POST("workitem/:workitemTypeKey/:workItemID/bind", BindLarkWorkitemToReleaseV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/bind", GetLarkWorkitemBindV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/release-items", ListLarkReleaseBindItemsV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/stages", ListLarkWorkitemStagesV2)
 	}
 }
