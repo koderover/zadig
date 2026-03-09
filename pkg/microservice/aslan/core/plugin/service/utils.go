@@ -128,6 +128,9 @@ func getWorkItemInfo(ctx *internalhandler.Context, workspaceID, workItemType, wo
 	templateID = util.GetInt64FromPointer(workItem.TemplateID)
 	nodeID = currentNodeIDs[0]
 
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>> templateID", templateID)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>> nodeID", nodeID)
+
 	return 
 }
 
