@@ -54,5 +54,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		larkv2.DELETE("workitem/:workitemTypeKey/:workItemID/bind", DeleteLarkWorkitemBindV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/release-items", ListLarkReleaseBindItemsV2)
 		larkv2.GET("workitem/:workitemTypeKey/:workItemID/stages", ListLarkWorkitemStagesV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/info", GetLarkWorkitemInfoV2)
 	}
 }
