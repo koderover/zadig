@@ -768,6 +768,8 @@ type LarkWorkItemSpec struct {
 	WorkItemType      string             `json:"work_item_type"`
 	TemplateID        int64              `json:"template_id"`
 	TemplateName      string             `json:"template_name"`
+	NodeID            string             `json:"node_id"`
+	NodeName          string             `json:"node_name"`
 }
 
 func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) ([]*LarkWorkitemStage, error) {
@@ -802,6 +804,8 @@ func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workIte
 			WorkItemType:    cfg.WorkItemType,
 			TemplateID:      cfg.TemplateID,
 			TemplateName:    cfg.TemplateName,
+			NodeID:          cfg.NodeID,
+			NodeName:        cfg.NodeName,
 		})
 	}
 
