@@ -420,7 +420,7 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 
 		seen := make(map[string]struct{})
 		for _, bind := range binds {
-			configs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, "test", bind.WorkItemTypeKey, bind.WorkItemID)
+			configs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, "dev", bind.WorkItemTypeKey, bind.WorkItemID)
 			if err != nil {
 				return fmt.Errorf("failed to get service configs for bound workitem %s: %w", bind.WorkItemID, err)
 			}
@@ -758,7 +758,7 @@ func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, relea
 
 		services := make([]*commonmodels.ServiceWithModule, 0)
 
-		configs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, "test", bind.WorkItemTypeKey, bind.WorkItemID)
+		configs, err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().GetByWorkItem(workspaceID, "dev", bind.WorkItemTypeKey, bind.WorkItemID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get stage service configs: %w", err)
 		}
