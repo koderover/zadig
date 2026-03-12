@@ -23,6 +23,14 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
+// @Summary 本地登录
+// @Description 本地账号密码登录，若命中 MFA 策略则返回 mfa_required、required_action 和 mfa_challenge_token，由前端继续完成 MFA 流程
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param body body login.LoginArgs true "body"
+// @Success 200 {object} login.User
+// @Router /api/v1/login [post]
 func LocalLogin(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -45,6 +53,12 @@ type getCaptchaResp struct {
 	Content string `json:"content"`
 }
 
+// @Summary 获取登录验证码
+// @Description 当登录失败次数达到阈值后，前端可调用该接口获取验证码
+// @Tags user
+// @Produce json
+// @Success 200 {object} getCaptchaResp
+// @Router /api/v1/captcha [get]
 func GetCaptcha(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -65,6 +79,12 @@ type LocalLogoutResp struct {
 	RedirectURL    string `json:"redirect_url"`
 }
 
+// @Summary 退出登录
+// @Description 清理当前用户登录态；若为第三方登录，可返回额外登出跳转地址
+// @Tags user
+// @Produce json
+// @Success 200 {object} LocalLogoutResp
+// @Router /api/v1/logout [get]
 func LocalLogout(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

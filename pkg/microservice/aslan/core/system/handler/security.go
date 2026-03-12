@@ -26,9 +26,16 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+// @Summary 更新安全与隐私设置
+// @Description 更新系统安全与隐私设置，包括 token 过期时间、MFA 开关和改进计划开关
+// @Tags system
+// @Accept json
+// @Produce json
+// @Param body body service.SecurityAndPrivacySettings true "body"
+// @Success 200
+// @Router /api/aslan/system/security [post]
 func CreateOrUpdateSecuritySettings(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -43,24 +50,21 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("upsert security settings GetRawData err : %s", err)
+		ctx.RespErr = fmt.Errorf("upsert security settings get raw data err: %w", err)
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("upsert security settings Unmarshal err : %s", err)
+		ctx.RespErr = fmt.Errorf("upsert security settings unmarshal err: %w", err)
+		return
 	}
 
-	detail := fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
-	detailEn := fmt.Sprintf("Token Expiration: %d \n Improvement Plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
+	detail := fmt.Sprintf("token expiration: %d \n mfa enabled: %v \n improvement plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
+	detailEn := fmt.Sprintf("Token Expiration: %d \n MFA Enabled: %v \n Improvement Plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
-		return
-	}
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
 		return
 	}
 

@@ -32,6 +32,7 @@ type Claims struct {
 	Phone             string          `json:"phone"`
 	UID               string          `json:"uid"`
 	PreferredUsername string          `json:"preferred_username"`
+	MFAVerified       bool            `json:"mfa_verified"`
 	FederatedClaims   FederatedClaims `json:"federated_claims"`
 	jwt.StandardClaims
 }
@@ -56,6 +57,7 @@ func GetInternalToken(name string) (string, error) {
 		UID:               "",
 		Email:             fmt.Sprintf("%s@koderover.com", name),
 		PreferredUsername: name,
+		MFAVerified:       true,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: 0,

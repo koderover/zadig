@@ -22,14 +22,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"golang.org/x/oauth2"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -51,6 +48,11 @@ func provider() *oidc.Provider {
 	return provider
 }
 
+// @Summary 发起第三方登录
+// @Description 跳转到 Dex/OIDC 登录入口
+// @Tags user
+// @Success 303
+// @Router /api/v1/login [get]
 func Login(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -80,6 +82,12 @@ func Login(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
+// @Summary 查询第三方登录是否开启
+// @Description 返回系统当前是否配置了可用的第三方登录连接器
+// @Tags user
+// @Produce json
+// @Success 200 {object} login.enabledStatus
+// @Router /api/v1/login-enabled [get]
 func ThirdPartyLoginEnabled(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -128,6 +136,11 @@ func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	return &claims, nil
 }
 
+// @Summary 第三方登录回调
+// @Description 处理 Dex/OIDC 回调并重定向到前端页面；若命中 MFA 策略，将重定向到 MFA 继续页
+// @Tags user
+// @Success 303
+// @Router /api/v1/callback [get]
 func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -152,40 +165,22 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	claims.IssuedAt = time.Now().Unix()
-
 	user, err := permission.SyncUser(&permission.SyncUserInfo{
 		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,
 		Phone:        claims.Phone,
 		IdentityType: claims.FederatedClaims.ConnectorId,
-	}, true, ctx.Logger)
+	}, false, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
 
-	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
-	if err != nil {
-		log.Errorf("failed to get system security settings, error: %s", err)
-		ctx.RespErr = fmt.Errorf("failed to get system security settings, error: %s", err)
-		return
-	}
-
-	claims.UID = user.UID
-	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix()
-	userToken, err := login.CreateToken(claims)
+	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
-	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(claims.UID, userToken, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
-	if err != nil {
-		log.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
-	}
-	v := url.Values{}
-	v.Add("token", userToken)
-	redirectUrl := "/?" + v.Encode()
-	c.Redirect(http.StatusSeeOther, redirectUrl)
+	c.Redirect(http.StatusSeeOther, redirectURL)
 }
