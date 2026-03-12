@@ -10,6 +10,19 @@ CREATE TABLE IF NOT EXISTS user_login(
     PRIMARY KEY (id)
 ) ;
 
+CREATE TABLE IF NOT EXISTS user_mfa(
+    id bigint NOT NULL AUTO_INCREMENT,
+    uid varchar(64) NOT NULL DEFAULT '0' COMMENT '用户id',
+    enabled int NOT NULL DEFAULT '0' COMMENT '是否启用mfa',
+    secret_cipher text COMMENT 'mfa密钥(加密存储)',
+    recovery_codes_json text COMMENT '恢复码哈希数组(json)',
+    created_at int NOT NULL DEFAULT '0' COMMENT '创建时间',
+    updated_at int NOT NULL DEFAULT '0' COMMENT '更新时间',
+    PRIMARY KEY (id)
+) ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_mfa_uid ON user_mfa(uid);
+
 CREATE INDEX IF NOT EXISTS idx_uid ON user_login(uid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS "login" ON user_login(uid,login_id,login_type);

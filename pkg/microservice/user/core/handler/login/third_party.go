@@ -22,14 +22,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"golang.org/x/oauth2"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -152,40 +149,22 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	claims.IssuedAt = time.Now().Unix()
-
 	user, err := permission.SyncUser(&permission.SyncUserInfo{
 		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,
 		Phone:        claims.Phone,
 		IdentityType: claims.FederatedClaims.ConnectorId,
-	}, true, ctx.Logger)
+	}, false, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
 
-	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
-	if err != nil {
-		log.Errorf("failed to get system security settings, error: %s", err)
-		ctx.RespErr = fmt.Errorf("failed to get system security settings, error: %s", err)
-		return
-	}
-
-	claims.UID = user.UID
-	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix()
-	userToken, err := login.CreateToken(claims)
+	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
-	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(claims.UID, userToken, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
-	if err != nil {
-		log.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
-	}
-	v := url.Values{}
-	v.Add("token", userToken)
-	redirectUrl := "/?" + v.Encode()
-	c.Redirect(http.StatusSeeOther, redirectUrl)
+	c.Redirect(http.StatusSeeOther, redirectURL)
 }

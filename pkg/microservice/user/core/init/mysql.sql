@@ -14,6 +14,18 @@ CREATE TABLE IF NOT EXISTS `user_login`(
     KEY `idx_uid` (`uid`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '账号登陆表' ROW_FORMAT = Compact;
 
+CREATE TABLE IF NOT EXISTS `user_mfa`(
+    `id` bigint(20) NOT NULL AUTO_INCREMENT,
+    `uid` varchar(64) NOT NULL DEFAULT '0' COMMENT '用户id',
+    `enabled` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否启用mfa',
+    `secret_cipher` text COMMENT 'mfa密钥(加密存储)',
+    `recovery_codes_json` text COMMENT '恢复码哈希数组(json)',
+    `created_at` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+    `updated_at` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间',
+    UNIQUE KEY `uid` (`uid`),
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户MFA配置表' ROW_FORMAT = Compact;
+
 CREATE TABLE IF NOT EXISTS `user`(
     `uid` varchar(64) NOT NULL COMMENT '用户ID',
     `account` varchar(32) NOT NULL DEFAULT '' COMMENT '用户账号',

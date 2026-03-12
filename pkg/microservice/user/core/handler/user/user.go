@@ -128,13 +128,8 @@ func OpenAPIGetUser(c *gin.Context) {
 
 	userInfo, err := permission.GetUser(c.Param("uid"), ctx.Logger)
 	if err != nil {
-		ctx.Resp = err
+		ctx.RespErr = err
 		return
-	}
-
-	roles := make([]string, 0)
-	for _, role := range userInfo.SystemRoleBindings {
-		roles = append(roles, role.Role)
 	}
 
 	resp := &OpenAPIGetUserResponse{
@@ -148,12 +143,23 @@ func OpenAPIGetUser(c *gin.Context) {
 	}
 
 	ctx.Resp = resp
-	return
 }
 
 func OpenAPIDeleteUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.RespErr = permission.DeleteUserByUID(c.Param("uid"), ctx.Logger)
 }

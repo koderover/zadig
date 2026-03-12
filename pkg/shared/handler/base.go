@@ -70,6 +70,7 @@ type jwtClaims struct {
 	Email           string          `json:"email"`
 	UID             string          `json:"uid"`
 	Account         string          `json:"preferred_username"`
+	MFAVerified     bool            `json:"mfa_verified"`
 	FederatedClaims FederatedClaims `json:"federated_claims"`
 	jwt.StandardClaims
 }

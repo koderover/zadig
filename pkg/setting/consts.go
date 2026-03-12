@@ -222,6 +222,8 @@ const (
 	ProductName = "zadig"
 	RequestID   = "requestID"
 
+	SystemSecuritySettingsCacheKey = "system:security:settings"
+
 	ProtocolHTTP  string = "http"
 	ProtocolHTTPS string = "https"
 	ProtocolTCP   string = "tcp"

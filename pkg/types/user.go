@@ -26,6 +26,7 @@ type UserInfo struct {
 	Email              string         `json:"email"`
 	Phone              string         `json:"phone"`
 	Account            string         `json:"account"`
+	MFAEnabled         bool           `json:"mfa_enabled"`
 	APIToken           string         `json:"token"`
 	UserGroups         []*UserGroup   `json:"user_groups"`
 	SystemRoleBindings []*RoleBinding `json:"system_role_bindings"`

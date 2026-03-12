@@ -17,13 +17,22 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
+	"time"
+
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	aslanclient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
+const securitySettingsCacheTTL = 30 * time.Second
+
 func CreateOrUpdateSecuritySettings(args *SecurityAndPrivacySettings, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewSystemSettingColl().UpdateSecuritySetting(args.TokenExpirationTime)
+	err := commonrepo.NewSystemSettingColl().UpdateSecuritySetting(args.TokenExpirationTime, args.MFAEnabled)
 	if err != nil {
 		logger.Errorf("failed to update security settings, error: %s", err)
 		return err
@@ -32,6 +41,10 @@ func CreateOrUpdateSecuritySettings(args *SecurityAndPrivacySettings, logger *za
 	err = commonrepo.NewSystemSettingColl().UpdatePrivacySetting(args.ImprovementPlan)
 	if err != nil {
 		logger.Errorf("failed to update privacy settings, error: %s", err)
+	}
+
+	if cacheErr := syncSystemSecuritySettingsCache(logger); cacheErr != nil {
+		logger.Warnf("failed to sync security settings cache: %v", cacheErr)
 	}
 
 	return err
@@ -44,8 +57,10 @@ func GetSecuritySettings(logger *zap.SugaredLogger) (*SecurityAndPrivacySettings
 		return nil, err
 	}
 	var tokenExpirationTime int64 = 24
+	var mfaEnabled bool
 	if systemSetting.Security != nil {
 		tokenExpirationTime = systemSetting.Security.TokenExpirationTime
+		mfaEnabled = systemSetting.Security.MFAEnabled
 	}
 
 	var improvementPlan bool = true
@@ -54,6 +69,29 @@ func GetSecuritySettings(logger *zap.SugaredLogger) (*SecurityAndPrivacySettings
 	}
 	return &SecurityAndPrivacySettings{
 		TokenExpirationTime: tokenExpirationTime,
+		MFAEnabled:          mfaEnabled,
 		ImprovementPlan:     improvementPlan,
 	}, nil
+}
+
+func syncSystemSecuritySettingsCache(logger *zap.SugaredLogger) error {
+	settings, err := GetSecuritySettings(logger)
+	if err != nil {
+		return err
+	}
+
+	payload, err := json.Marshal(&aslanclient.SystemSetting{
+		TokenExpirationTime: settings.TokenExpirationTime,
+		MFAEnabled:          settings.MFAEnabled,
+		ImprovementPlan:     settings.ImprovementPlan,
+	})
+	if err != nil {
+		return err
+	}
+
+	return cache.NewRedisCache(configbase.RedisCommonCacheTokenDB()).Write(
+		setting.SystemSecuritySettingsCacheKey,
+		string(payload),
+		securitySettingsCacheTTL,
+	)
 }
