@@ -39,6 +39,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
@@ -55,7 +56,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/helm/pkg/chartutil"
+	k8schartutil "k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -88,6 +89,7 @@ type HelmClient struct {
 	*hc.HelmClient
 	kubeClient     client.Client
 	Namespace      string
+	KubeVersion    *helmchartutil.KubeVersion
 	lock           *sync.Mutex
 	RestConfig     *rest.Config
 	RegistryClient *registry.Client
@@ -111,21 +113,24 @@ func NewClient() (*HelmClient, error) {
 		HelmClient:     helmClient,
 		kubeClient:     nil,
 		Namespace:      "",
+		KubeVersion:    nil,
 		lock:           &sync.Mutex{},
 		RestConfig:     nil,
 		RegistryClient: nil,
 	}, nil
 }
 
-// NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
-// a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
+// NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace.
+// A kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts.
 func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
-	restConfig, err := clientmanager.NewKubeClientManager().GetRestConfig(clusterID)
+	kubeManager := clientmanager.NewKubeClientManager()
+
+	restConfig, err := kubeManager.GetRestConfig(clusterID)
 	if err != nil {
 		return nil, err
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	kubeClient, err := kubeManager.GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +147,26 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 	}
 
 	helmClient := hcClient.(*hc.HelmClient)
+	clientset, err := kubeManager.GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes clientset for cluster %s: %v", clusterID, err)
+	}
+
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes server version for cluster %s: %v", clusterID, err)
+	}
+
+	kubeVersion, err := helmchartutil.ParseKubeVersion(versionInfo.GitVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kubernetes server version %q for cluster %s: %v", versionInfo.GitVersion, clusterID, err)
+	}
+
 	return &HelmClient{
 		HelmClient:     helmClient,
 		kubeClient:     kubeClient,
 		Namespace:      namespace,
+		KubeVersion:    kubeVersion,
 		lock:           &sync.Mutex{},
 		RestConfig:     restConfig,
 		RegistryClient: nil,
@@ -171,6 +192,7 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, err
 		HelmClient:     helmClient,
 		kubeClient:     nil,
 		Namespace:      ns,
+		KubeVersion:    nil,
 		lock:           &sync.Mutex{},
 		RestConfig:     restConfig,
 		RegistryClient: nil,
@@ -817,7 +839,7 @@ func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, err
 			return out.String(), errors.Errorf("failed to untar: a file or directory with the name %s already exists", udCheck)
 		}
 
-		return out.String(), chartutil.ExpandFile(ud, saved)
+		return out.String(), k8schartutil.ExpandFile(ud, saved)
 	}
 	return out.String(), nil
 }

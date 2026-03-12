@@ -1605,19 +1605,27 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
 		// service already exists in the current environment, create it
 
-		currentReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
-		latestReleaseName = currentReleaseName
+		if !isHelmChartDeploy {
+			currentReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
+			latestReleaseName = currentReleaseName
+		} else {
+			currentReleaseName = serviceOrReleaseName
+			latestReleaseName = serviceOrReleaseName
+		}
 
 		currentYaml = ""
 	} else if scene == EstimateValuesSceneUpdateService {
 		// service exists in the current environment, update it
 		if isHelmChartDeploy {
+			currentReleaseName = serviceOrReleaseName
+			latestReleaseName = serviceOrReleaseName
+
 			render := prodSvc.GetServiceRender()
 			chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: render.ChartRepo})
 			if err != nil {
 				return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", render.ChartRepo)
 			}
-			client, err := commonutil.NewHelmClient(chartRepo)
+			client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
@@ -1646,7 +1654,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 					return nil, fmt.Errorf("failed to download instantiate chart, err: %w", err)
 				}
 
-				helmClient, err := helmtool.NewClient()
+				helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 				if err != nil {
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
@@ -1672,7 +1680,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 
 			if contextType == EstimateContentTypeManifest {
 				render := prodSvc.GetServiceRender()
-				helmClient, err := helmtool.NewClient()
+				helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 				if err != nil {
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
@@ -1691,7 +1699,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		if err != nil {
 			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
 		}
-		client, err := commonutil.NewHelmClient(chartRepo)
+		client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
@@ -1724,7 +1732,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 				return nil, fmt.Errorf("failed to download instantiate chart, err: %w", err)
 			}
 
-			helmClient, err := helmtool.NewClient()
+			helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
@@ -1777,7 +1785,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 
 		if contextType == EstimateContentTypeManifest {
 			render := prodSvc.GetServiceRender()
-			helmClient, err := helmtool.NewClient()
+			helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
