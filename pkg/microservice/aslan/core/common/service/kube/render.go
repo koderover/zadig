@@ -143,6 +143,10 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		}
 		decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(modifiedYamlStr)), 5*1024*1024)
 
+		if resKind == nil || len(resKind.Kind) == 0 {
+			continue
+		}
+
 		switch resKind.Kind {
 		case setting.Deployment:
 			deployment := &appsv1.Deployment{}
