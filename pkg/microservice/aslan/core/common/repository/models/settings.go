@@ -66,6 +66,7 @@ type CustomTheme struct {
 
 type SecuritySettings struct {
 	TokenExpirationTime int64 `json:"token_expiration_time" bson:"token_expiration_time"`
+	MFAEnabled          bool  `json:"mfa_enabled" bson:"mfa_enabled"`
 }
 
 type PrivacySettings struct {

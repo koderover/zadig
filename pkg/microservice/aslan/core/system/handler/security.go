@@ -26,7 +26,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func CreateOrUpdateSecuritySettings(c *gin.Context) {
@@ -43,24 +42,21 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("upsert security settings GetRawData err : %s", err)
+		ctx.RespErr = fmt.Errorf("upsert security settings get raw data err: %w", err)
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("upsert security settings Unmarshal err : %s", err)
+		ctx.RespErr = fmt.Errorf("upsert security settings unmarshal err: %w", err)
+		return
 	}
 
-	detail := fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
-	detailEn := fmt.Sprintf("Token Expiration: %d \n Improvement Plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
+	detail := fmt.Sprintf("token expiration: %d \n mfa enabled: %v \n improvement plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
+	detailEn := fmt.Sprintf("Token Expiration: %d \n MFA Enabled: %v \n Improvement Plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
-		return
-	}
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
 		return
 	}
 

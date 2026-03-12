@@ -26,13 +26,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
 )
@@ -45,14 +44,19 @@ type LoginArgs struct {
 }
 
 type User struct {
-	Uid          string   `json:"uid"`
-	Token        string   `json:"token"`
-	Email        string   `json:"email"`
-	Phone        string   `json:"phone"`
-	Name         string   `json:"name"`
-	Account      string   `json:"account"`
-	GroupIDs     []string `json:"group_ids"`
-	IdentityType string   `json:"identityType"`
+	Uid               string   `json:"uid"`
+	Token             string   `json:"token,omitempty"`
+	Email             string   `json:"email"`
+	Phone             string   `json:"phone"`
+	Name              string   `json:"name"`
+	Account           string   `json:"account"`
+	GroupIDs          []string `json:"group_ids"`
+	IdentityType      string   `json:"identityType"`
+	MFARequired       bool     `json:"mfa_required"`
+	RequiredAction    string   `json:"required_action,omitempty"`
+	MFAChallengeToken string   `json:"mfa_challenge_token,omitempty"`
+	MFAExpiresAt      int64    `json:"mfa_expires_at,omitempty"`
+	RecoveryCodes     []string `json:"recovery_codes,omitempty"`
 }
 
 type CheckSignatureRes struct {
@@ -163,17 +167,64 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
-	userLogin.LastLoginTime = time.Now().Unix()
-	err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB)
+	mfaRequired, err := IsMFARequiredForUser(user.UID, logger)
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("failed to check mfa requirement for user:%s, error: %s", user.UID, err)
 		return nil, 0, err
 	}
 
-	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
+	if !mfaRequired {
+		if err = markUserLoginSuccess(user.UID, user.Account, logger); err != nil {
+			logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
+			return nil, 0, err
+		}
+		resp, err := issueLoginToken(user, false, logger)
+		if err != nil {
+			return nil, 0, err
+		}
+		return resp, 0, nil
+	}
+
+	action, challengeToken, expiresAt, err := PrepareMFALoginChallengeForUser(user.UID, logger)
+	if err != nil {
+		logger.Errorf("LocalLogin user:%s prepare mfa challenge error, error msg:%s", args.Account, err.Error())
+		return nil, 0, err
+	}
+
+	return &User{
+		Uid:               user.UID,
+		Email:             user.Email,
+		Phone:             user.Phone,
+		Name:              user.Name,
+		Account:           user.Account,
+		IdentityType:      user.IdentityType,
+		MFARequired:       true,
+		RequiredAction:    string(action),
+		MFAChallengeToken: challengeToken,
+		MFAExpiresAt:      expiresAt,
+	}, 0, nil
+}
+
+func issueLoginTokenByUID(uid string, mfaVerified bool, logger *zap.SugaredLogger) (*User, error) {
+	user, err := orm.GetUserByUid(uid, repository.DB)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not exist")
+	}
+
+	if err := markUserLoginSuccess(user.UID, user.Account, logger); err != nil {
+		return nil, err
+	}
+	return issueLoginToken(user, mfaVerified, logger)
+}
+
+func issueLoginToken(user *models.User, mfaVerified bool, logger *zap.SugaredLogger) (*User, error) {
+	systemSettings, err := common.GetSystemSecuritySettings(logger)
 	if err != nil {
 		logger.Errorf("failed to get system security settings, error: %s", err)
-		return nil, 0, fmt.Errorf("failed to get system security settings, error: %s", err)
+		return nil, fmt.Errorf("failed to get system security settings, error: %s", err)
 	}
 
 	token, err := CreateToken(&Claims{
@@ -181,6 +232,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		UID:               user.UID,
 		Email:             user.Email,
 		PreferredUsername: user.Account,
+		MFAVerified:       mfaVerified,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix(),
@@ -191,19 +243,19 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		},
 	})
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
-		return nil, 0, err
+		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", user.Account, err.Error())
+		return nil, err
 	}
 
 	groupIDList, err := common.GetUserGroupByUID(user.UID)
 	if err != nil {
-		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", args.Account, err.Error())
-		return nil, 0, err
+		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", user.Account, err.Error())
+		return nil, err
 	}
 	allUserGroupID, err := common.GetAllUserGroup()
 	if err != nil {
 		logger.Errorf("LocalLogin get all user group error, error msg:%s", err.Error())
-		return nil, 0, err
+		return nil, err
 	}
 	groupIDList = append(groupIDList, allUserGroupID)
 
@@ -221,7 +273,26 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		Account:      user.Account,
 		GroupIDs:     groupIDList,
 		IdentityType: user.IdentityType,
-	}, 0, nil
+	}, nil
+}
+
+func markUserLoginSuccess(uid, account string, logger *zap.SugaredLogger) error {
+	userLogin, err := orm.GetUserLogin(uid, account, config.AccountLoginType, repository.DB)
+	if err != nil {
+		logger.Errorf("markUserLoginSuccess get user login failed, uid:%s, error:%s", uid, err)
+		return err
+	}
+	if userLogin == nil {
+		// OAuth users may not have local password but should still have a login record after sync.
+		return nil
+	}
+
+	userLogin.LastLoginTime = time.Now().Unix()
+	if err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB); err != nil {
+		logger.Errorf("markUserLoginSuccess update user login failed, uid:%s, error:%s", uid, err)
+		return err
+	}
+	return nil
 }
 
 func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error) {
