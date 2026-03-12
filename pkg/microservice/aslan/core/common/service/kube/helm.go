@@ -952,7 +952,12 @@ func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, 
 		ValuesYaml:   valuesYaml,
 	}
 
-	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	var templateOptions *helmclient.HelmTemplateOptions
+	if helmClient != nil && helmClient.KubeVersion != nil {
+		templateOptions = &helmclient.HelmTemplateOptions{KubeVersion: helmClient.KubeVersion}
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, templateOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", chartName, chartVersion, chartPath, err)
 	}
