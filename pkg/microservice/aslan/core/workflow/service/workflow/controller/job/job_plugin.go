@@ -167,6 +167,17 @@ func (j PluginJobController) GetVariableList(jobName string, getAggregatedVariab
 			Type:         "string",
 			IsCredential: false,
 		})
+
+		for _, output := range j.jobSpec.Plugin.Outputs {
+			if getServiceSpecificVariables {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", j.name, "output", output.Name}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
 	}
 	return resp, nil
 }
