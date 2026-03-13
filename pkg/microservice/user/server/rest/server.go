@@ -53,9 +53,9 @@ func (s *engine) injectMiddlewares() {
 		return
 	}
 	g.Use(ginmiddleware.OperationLogStatus())
-	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
 	g.Use(ginmiddleware.RequestLog(log.NewFileLogger(config.RequestLogFile())))
+	g.Use(ginmiddleware.Response())
 	g.Use(gin.Recovery())
 }
 
