@@ -136,6 +136,10 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	if realPath == "/api/v1/sso/token-callback" && method == http.MethodGet {
+		return true
+	}
+
 	if realPath == "/api/v1/captcha" && method == http.MethodGet {
 		return true
 	}

@@ -110,6 +110,7 @@ const (
 	ENVClientSecret    = "CLIENT_SECRET"
 	ENVRedirectURI     = "REDIRECT_URI"
 	ENVSecretKey       = "SECRET_KEY"
+	ENVSsoTokenSecret  = "SSO_TOKEN_SECRET"
 	ENVMysqlUserDB     = "MYSQL_USER_DB"
 	ENVScopes          = "SCOPES"
 	ENVTokenExpiresAt  = "TOKEN_EXPIRES_AT"
