@@ -142,13 +142,13 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	data := make(map[string][]byte)
 
 	dockerConfig := fmt.Sprintf(
-		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
+		`{"auths":{"%s":{"username":"%s","password":"%s","email":"%s"}}}`,
 		reg.RegAddr,
 		reg.AccessKey,
 		reg.SecretKey,
 		"bot@koderover.com",
 	)
-	data[".dockercfg"] = []byte(dockerConfig)
+	data[".dockerconfigjson"] = []byte(dockerConfig)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -156,7 +156,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 			Name:      secretName,
 		},
 		Data: data,
-		Type: corev1.SecretTypeDockercfg,
+		Type: corev1.SecretTypeDockerConfigJson,
 	}
 	return updater.UpdateOrCreateSecret(secret, kubeClient)
 }
