@@ -36,4 +36,24 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("workitem/:workitemTypeKey/:workItemID/workflow", ExecuteLarkWorkitemWorkflow)
 		lark.GET("workitem/:workitemTypeKey/:workItemID/workflow/:workflowName/task", ListLarkWorkitemWorkflowTask)
 	}
+
+	larkv2 := lark.Group("v2")
+	{
+		larkv2.GET("config/stages/:stage/workflow", GetLarkWorkflowConfigV2)
+		larkv2.PUT("config/stages/:stage/workflow", UpdateLarkWorkflowConfigV2)
+		larkv2.GET("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", GetLarkStageServiceConfigV2)
+		larkv2.PUT("config/stages/:stage/:workitemTypeKey/:workItemID/service-configs", UpdateLarkWorkItemStageWorkflowInputV2)
+		larkv2.GET("config/stages/:stage/workitems", GetLarkReleaseWorkItemsV2)
+
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/services", GetLarkWorkitemServicesV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/prs", GetLarkWorkitemPRsV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/branches", GetLarkWorkitemBranchesV2)
+		larkv2.POST("workitem/:workitemTypeKey/:workItemID/execute", ExecuteLarkWorkitemWorkflowV2)
+		larkv2.POST("workitem/:workitemTypeKey/:workItemID/bind", BindLarkWorkitemToReleaseV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/bind", GetLarkWorkitemBindV2)
+		larkv2.DELETE("workitem/:workitemTypeKey/:workItemID/bind", DeleteLarkWorkitemBindV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/release-items", ListLarkReleaseBindItemsV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/stages", ListLarkWorkitemStagesV2)
+		larkv2.GET("workitem/:workitemTypeKey/:workItemID/info", GetLarkWorkitemInfoV2)
+	}
 }
