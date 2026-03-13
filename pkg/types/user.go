@@ -27,6 +27,7 @@ type UserInfo struct {
 	Phone              string         `json:"phone"`
 	Account            string         `json:"account"`
 	APIToken           string         `json:"token"`
+	APITokenEnabled    bool           `json:"api_token_enabled"`
 	UserGroups         []*UserGroup   `json:"user_groups"`
 	SystemRoleBindings []*RoleBinding `json:"system_role_bindings"`
 	Admin              bool           `json:"admin"`

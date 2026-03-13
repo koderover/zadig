@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS "user"(
     phone varchar(16) NOT NULL DEFAULT '' COMMENT '手机号码',
     email varchar(100) NOT NULL DEFAULT '' COMMENT '邮箱',
     api_token varchar(1024) NOT NULL DEFAULT '' COMMENT 'openAPIToken',
+    api_token_enabled int NOT NULL DEFAULT '0' COMMENT 'api token authorization enabled',
     created_at int NOT NULL COMMENT '创建时间',
     updated_at int NOT NULL COMMENT '修改时间',
     PRIMARY KEY (uid)

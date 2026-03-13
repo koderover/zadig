@@ -254,6 +254,16 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 	return nil
 }
 
+func UpdateUserValues(uid string, values map[string]interface{}, db *gorm.DB) error {
+	if len(values) == 0 {
+		return nil
+	}
+	if err := db.Model(&models.User{}).Where("uid = ?", uid).Updates(values).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func CountUserByType(db *gorm.DB) ([]*types.UserCountByType, error) {
 	var resp []*types.UserCountByType
 	err := db.Model(&models.User{}).Select("count(*) as count, identity_type").Group("identity_type").Find(&resp).Error

@@ -21,10 +21,13 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/koderover/zadig/v2/pkg/config"
+	globalConfig "github.com/koderover/zadig/v2/pkg/config"
+	userConfig "github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -247,7 +250,7 @@ func IsPublicURL(reqPath, method string) bool {
 
 // ValidateToken validates if the token is valid and returns the claims that belongs to this token if the token is valid
 func ValidateToken(tokenString string) (*login.Claims, bool, error) {
-	secretKey := config.SecretKey()
+	secretKey := globalConfig.SecretKey()
 
 	token, err := jwt.ParseWithClaims(tokenString, &login.Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
@@ -259,9 +262,48 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 	}
 
 	if claims, ok := token.Claims.(*login.Claims); ok && token.Valid {
+		// internal tokens bypass runtime revocation checks
+		if isInternalTokenClaims(claims) {
+			return claims, true, nil
+		}
+
+		// short-lived login token: validate against redis cache
+		if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
+			cachedToken, err := cache.NewRedisCache(userConfig.RedisUserTokenDB()).GetString(claims.UID)
+			if err != nil {
+				log.Errorf("Failed to validate token against redis cache, uid: %s, err: %s", claims.UID, err)
+				return nil, false, err
+			}
+			if cachedToken != tokenString {
+				log.Errorf("token mismatch for uid: %s", claims.UID)
+				return nil, false, fmt.Errorf("token mismatch")
+			}
+			return claims, true, nil
+		}
+
+		// long-lived api token: validate against current user token and authorization switch
+		matched, err := ValidateAPIToken(claims.UID, tokenString)
+		if err != nil {
+			log.Errorf("Failed to validate api token, uid: %s, err: %s", claims.UID, err)
+			return nil, false, err
+		}
+		if !matched {
+			log.Errorf("api token mismatch or unauthorized for uid: %s", claims.UID)
+			return nil, false, fmt.Errorf("token mismatch")
+		}
+
 		return claims, true, nil
 	} else {
 		log.Errorf("invalid token detected")
 		return nil, false, fmt.Errorf("invalid token")
 	}
+}
+
+func isInternalTokenClaims(claims *login.Claims) bool {
+	return claims.ExpiresAt == 0 &&
+		(claims.Name == "aslan" && claims.PreferredUsername == "aslan" && claims.FederatedClaims.UserId == "aslan" && claims.Email == "aslan@koderover.com" ||
+			claims.Name == "user" && claims.PreferredUsername == "user" && claims.FederatedClaims.UserId == "user" && claims.Email == "user@koderover.com" ||
+			claims.Name == "cron" && claims.PreferredUsername == "cron" && claims.FederatedClaims.UserId == "cron" && claims.Email == "cron@koderover.com" ||
+			claims.Name == "hub-agent" && claims.PreferredUsername == "hub-agent" && claims.FederatedClaims.UserId == "hub-agent" && claims.Email == "hub-agent@koderover.com" ||
+			claims.Name == "hub-server" && claims.PreferredUsername == "hub-server" && claims.FederatedClaims.UserId == "hub-server" && claims.Email == "hub-server@koderover.com")
 }
