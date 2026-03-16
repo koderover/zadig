@@ -493,6 +493,9 @@ func ListAuthorizedWorkflowWithVerb(uid, projectKey string, logger *zap.SugaredL
 					if verb == types.WorkflowActionRun {
 						workflowActions.Execute = true
 					}
+					if verb == types.WorkflowActionRollback {
+						workflowActions.Rollback = true
+					}
 					if verb == types.WorkflowActionDebug {
 						workflowActions.Debug = true
 					}
@@ -577,17 +580,20 @@ func generateAdminRoleResource() *AuthorizedResources {
 func generateDefaultProjectActions() *ProjectActions {
 	return &ProjectActions{
 		Workflow: &WorkflowActions{
-			View:    false,
-			Create:  false,
-			Edit:    false,
-			Delete:  false,
-			Execute: false,
+			View:     false,
+			Create:   false,
+			Edit:     false,
+			Delete:   false,
+			Execute:  false,
+			Rollback: false,
 		},
 		Env: &EnvActions{
 			View:       false,
 			Create:     false,
 			EditConfig: false,
 			ManagePods: false,
+			Restart:    false,
+			Rollback:   false,
 			Delete:     false,
 			DebugPod:   false,
 		},
@@ -596,6 +602,8 @@ func generateDefaultProjectActions() *ProjectActions {
 			Create:     false,
 			EditConfig: false,
 			ManagePods: false,
+			Restart:    false,
+			Rollback:   false,
 			Delete:     false,
 			DebugPod:   false,
 		},
@@ -788,6 +796,8 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Workflow.View = true
 	case VerbRunWorkflow:
 		userAuthInfo.Workflow.Execute = true
+	case VerbRollbackWorkflow:
+		userAuthInfo.Workflow.Rollback = true
 	case VerbDebugWorkflow:
 		userAuthInfo.Workflow.Debug = true
 	case VerbGetEnvironment:
@@ -798,6 +808,10 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Env.EditConfig = true
 	case VerbManageEnvironment:
 		userAuthInfo.Env.ManagePods = true
+	case VerbRestartEnvironment:
+		userAuthInfo.Env.Restart = true
+	case VerbRollbackEnvironment:
+		userAuthInfo.Env.Rollback = true
 	case VerbDeleteEnvironment:
 		userAuthInfo.Env.Delete = true
 	case VerbDebugEnvironmentPod:
@@ -812,6 +826,10 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.ProductionEnv.EditConfig = true
 	case VerbEditProductionEnv:
 		userAuthInfo.ProductionEnv.ManagePods = true
+	case VerbRestartProductionEnv:
+		userAuthInfo.ProductionEnv.Restart = true
+	case VerbRollbackProductionEnv:
+		userAuthInfo.ProductionEnv.Rollback = true
 	case VerbDeleteProductionEnv:
 		userAuthInfo.ProductionEnv.Delete = true
 	case VerbDebugProductionEnvPod:

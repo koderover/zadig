@@ -134,12 +134,21 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		}
 
 		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+				if !ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if args.RestartAssociatedSvc &&
+					!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Restart {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRestart)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
 			}
 
@@ -149,12 +158,21 @@ func CreateCommonEnvCfg(c *gin.Context) {
 				return
 			}
 		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+				if !ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if args.RestartAssociatedSvc &&
+					!ctx.Resources.ProjectAuthInfo[projectKey].Env.Restart {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRestart)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
 			}
 		}
@@ -200,6 +218,14 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	production := c.Query("production") == "true"
+	isRollBack := false
+	if len(c.Query("rollback")) > 0 {
+		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+			return
+		}
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -209,12 +235,27 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		}
 
 		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+				if !isRollBack && !ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if isRollBack && !ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Rollback {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRollback)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if args.RestartAssociatedSvc && !ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Restart {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRestart)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
 			}
 
@@ -224,12 +265,27 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 				return
 			}
 		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+				if !isRollBack && !ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if isRollBack && !ctx.Resources.ProjectAuthInfo[projectKey].Env.Rollback {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRollback)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+				if args.RestartAssociatedSvc && !ctx.Resources.ProjectAuthInfo[projectKey].Env.Restart {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRestart)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
 			}
 		}
@@ -246,14 +302,6 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	args.EnvName = envName
 	args.ProductName = projectKey
 	args.Production = production
-	isRollBack := false
-	if len(c.Query("rollback")) > 0 {
-		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
-		if err != nil {
-			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
-			return
-		}
-	}
 
 	ctx.RespErr = service.UpdateCommonEnvCfg(args, ctx.UserName, isRollBack, ctx.Logger)
 }

@@ -623,6 +623,7 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 			actions.Edit = true
 			actions.Delete = true
 			actions.Execute = true
+			actions.Rollback = true
 			actions.Debug = true
 		} else if projectAuth, ok := projectAuthMap[workflow.ProjectName]; ok {
 			if projectAuth.IsProjectAdmin {
@@ -631,6 +632,7 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 				actions.Edit = true
 				actions.Delete = true
 				actions.Execute = true
+				actions.Rollback = true
 				actions.Debug = true
 			} else {
 				actions.Create = projectAuth.Actions.Create
@@ -638,6 +640,7 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 				actions.Edit = projectAuth.Actions.Edit
 				actions.Delete = projectAuth.Actions.Delete
 				actions.Execute = projectAuth.Actions.Execute
+				actions.Rollback = projectAuth.Actions.Rollback
 				actions.Debug = projectAuth.Actions.Debug
 			}
 
@@ -655,6 +658,9 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 					}
 					if collModeWorkflowPerm.Action.Execute {
 						actions.Execute = true
+					}
+					if collModeWorkflowPerm.Action.Rollback {
+						actions.Rollback = true
 					}
 					if collModeWorkflowPerm.Action.Debug {
 						actions.Debug = true

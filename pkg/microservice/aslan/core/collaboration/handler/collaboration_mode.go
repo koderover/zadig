@@ -170,20 +170,26 @@ func DeleteCollaborationMode(c *gin.Context) {
 
 func generateCollaborationDetailLog(username string, args *commonmodels.CollaborationMode, logger *zap.SugaredLogger) (string, error) {
 	collaborationWorkflowVerbTranslateMap := map[string]string{
-		"get_workflow":   "查看",
-		"edit_workflow":  "编辑",
-		"run_workflow":   "执行",
-		"debug_workflow": "调试",
+		"get_workflow":      "查看",
+		"edit_workflow":     "编辑",
+		"run_workflow":      "执行",
+		"rollback_workflow": "回滚",
+		"debug_workflow":    "调试",
 	}
 
 	collaborationProductVerbTranslateMap := map[string]string{
-		"get_environment":             "查看",
-		"config_environment":          "配置",
-		"manage_environment":          "管理服务实例",
-		"debug_pod":                   "服务调试",
-		"get_production_environment":  "查看",
-		"edit_production_environment": "编辑",
-		"production_debug_pod":        "服务调试",
+		"get_environment":                 "查看",
+		"config_environment":              "配置",
+		"manage_environment":              "管理服务实例",
+		"restart_environment":             "重启",
+		"rollback_environment":            "回滚",
+		"debug_pod":                       "服务调试",
+		"get_production_environment":      "查看",
+		"config_production_environment":   "配置",
+		"edit_production_environment":     "管理服务实例",
+		"restart_production_environment":  "重启",
+		"rollback_production_environment": "回滚",
+		"production_debug_pod":            "服务调试",
 	}
 
 	collaborationTypeTranslateMap := map[string]string{

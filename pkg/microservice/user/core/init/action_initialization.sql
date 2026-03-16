@@ -6,11 +6,14 @@ VALUES
     ("编辑", "edit_workflow", "Workflow", 1),
     ("删除", "delete_workflow", "Workflow", 1),
     ("执行", "run_workflow", "Workflow", 1),
+    ("回滚", "rollback_workflow", "Workflow", 1),
     ("调试", "debug_workflow", "Workflow", 1),
     ("查看", "get_environment", "Environment", 1),
     ("创建", "create_environment", "Environment", 1),
     ("配置", "config_environment", "Environment", 1),
     ("管理服务实例", "manage_environment", "Environment", 1),
+    ("重启", "restart_environment", "Environment", 1),
+    ("回滚", "rollback_environment", "Environment", 1),
     ("删除", "delete_environment", "Environment", 1),
     ("服务调试", "debug_pod", "Environment", 1),
     ("主机登录", "ssh_pm", "Environment", 1),
@@ -18,6 +21,8 @@ VALUES
     ("创建", "create_production_environment", "ProductionEnvironment", 1),
     ("配置", "config_production_environment", "ProductionEnvironment", 1),
     ("管理服务实例", "edit_production_environment", "ProductionEnvironment", 1),
+    ("重启", "restart_production_environment", "ProductionEnvironment", 1),
+    ("回滚", "rollback_production_environment", "ProductionEnvironment", 1),
     ("删除", "delete_production_environment", "ProductionEnvironment", 1),
     ("服务调试", "production_debug_pod", "ProductionEnvironment", 1),
     ("查看", "get_service", "Service", 1),
@@ -99,4 +104,3 @@ VALUES
     ("新建", "create_label_setting", "LabelManagement", 2),
     ("编辑", "edit_label_setting", "LabelManagement", 2),
     ("删除", "delete_label_setting", "LabelManagement", 2) ON DUPLICATE KEY UPDATE id=id;
-

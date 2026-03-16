@@ -390,11 +390,12 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 				authWorkflow = &workflow.ProjectAuthWorkflow{
 					IsProjectAdmin: false,
 					Actions: &user.WorkflowActions{
-						View:    false,
-						Edit:    false,
-						Create:  false,
-						Delete:  false,
-						Execute: false,
+						View:     false,
+						Edit:     false,
+						Create:   false,
+						Delete:   false,
+						Execute:  false,
+						Rollback: false,
 					},
 					ProjectName:              projectName,
 					CollModeWorkflowPermsMap: make(map[string]*workflow.WorkflowWithAction),

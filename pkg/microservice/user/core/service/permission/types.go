@@ -52,17 +52,20 @@ const (
 	VerbEditBuild   = "edit_build"
 	VerbDeleteBuild = "delete_build"
 	// Workflow
-	VerbGetWorkflow    = "get_workflow"
-	VerbCreateWorkflow = "create_workflow"
-	VerbEditWorkflow   = "edit_workflow"
-	VerbDeleteWorkflow = "delete_workflow"
-	VerbRunWorkflow    = "run_workflow"
-	VerbDebugWorkflow  = "debug_workflow"
+	VerbGetWorkflow      = "get_workflow"
+	VerbCreateWorkflow   = "create_workflow"
+	VerbEditWorkflow     = "edit_workflow"
+	VerbDeleteWorkflow   = "delete_workflow"
+	VerbRunWorkflow      = "run_workflow"
+	VerbRollbackWorkflow = "rollback_workflow"
+	VerbDebugWorkflow    = "debug_workflow"
 	// Environment
 	VerbGetEnvironment      = "get_environment"
 	VerbCreateEnvironment   = "create_environment"
 	VerbConfigEnvironment   = "config_environment"
 	VerbManageEnvironment   = "manage_environment"
+	VerbRestartEnvironment  = "restart_environment"
+	VerbRollbackEnvironment = "rollback_environment"
 	VerbDeleteEnvironment   = "delete_environment"
 	VerbDebugEnvironmentPod = "debug_pod"
 	VerbEnvironmentSSHPM    = "ssh_pm"
@@ -71,6 +74,8 @@ const (
 	VerbCreateProductionEnv   = "create_production_environment"
 	VerbConfigProductionEnv   = "config_production_environment"
 	VerbEditProductionEnv     = "edit_production_environment"
+	VerbRestartProductionEnv  = "restart_production_environment"
+	VerbRollbackProductionEnv = "rollback_production_environment"
 	VerbDeleteProductionEnv   = "delete_production_environment"
 	VerbDebugProductionEnvPod = "production_debug_pod"
 	// Scanning
@@ -200,12 +205,13 @@ type SystemActions struct {
 }
 
 type WorkflowActions struct {
-	View    bool
-	Create  bool
-	Edit    bool
-	Delete  bool
-	Execute bool
-	Debug   bool
+	View     bool
+	Create   bool
+	Edit     bool
+	Delete   bool
+	Execute  bool
+	Rollback bool
+	Debug    bool
 }
 
 type EnvActions struct {
@@ -215,6 +221,8 @@ type EnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Restart    bool
+	Rollback   bool
 	Delete     bool
 	DebugPod   bool
 	// 主机登录
@@ -228,6 +236,8 @@ type ProductionEnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Restart    bool
+	Rollback   bool
 	Delete     bool
 	DebugPod   bool
 }
@@ -324,12 +334,12 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
-	Create     bool
-	View       bool
+	Create       bool
+	View         bool
 	EditMetadata bool
 	EditApproval bool
 	EditSubtasks bool
-	Delete     bool
+	Delete       bool
 	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
 }

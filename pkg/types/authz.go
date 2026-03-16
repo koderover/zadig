@@ -28,20 +28,25 @@ const (
 // collaboration mode resource actions
 const (
 	// workflow actions for collaboration
-	WorkflowActionView  = "get_workflow"
-	WorkflowActionEdit  = "edit_workflow"
-	WorkflowActionRun   = "run_workflow"
-	WorkflowActionDebug = "debug_workflow"
+	WorkflowActionView     = "get_workflow"
+	WorkflowActionEdit     = "edit_workflow"
+	WorkflowActionRun      = "run_workflow"
+	WorkflowActionRollback = "rollback_workflow"
+	WorkflowActionDebug    = "debug_workflow"
 	// env actions for collaboration
 	EnvActionView       = "get_environment"
 	EnvActionEditConfig = "config_environment"
 	EnvActionManagePod  = "manage_environment"
+	EnvActionRestart    = "restart_environment"
+	EnvActionRollback   = "rollback_environment"
 	EnvActionDebug      = "debug_pod"
 	EnvActionSSH        = "ssh_pm"
 	// production env actions
 	ProductionEnvActionView       = "get_production_environment"
 	ProductionEnvActionEditConfig = "config_production_environment"
 	ProductionEnvActionManagePod  = "edit_production_environment"
+	ProductionEnvActionRestart    = "restart_production_environment"
+	ProductionEnvActionRollback   = "rollback_production_environment"
 	ProductionEnvActionDebug      = "production_debug_pod"
 	// test actions
 	TestActionView = "get_test"

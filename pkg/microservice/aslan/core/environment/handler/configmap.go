@@ -127,8 +127,8 @@ func RollBackConfigMap(c *gin.Context) {
 		}
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionRollback)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -142,8 +142,8 @@ func RollBackConfigMap(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionRollback)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return

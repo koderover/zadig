@@ -109,7 +109,7 @@ func DeletePod(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	detail := fmt.Sprintf("环境名称:%s,pod名称:%s",
-			c.Query("envName"), c.Param("podName"))
+		c.Query("envName"), c.Param("podName"))
 	detailEn := fmt.Sprintf("Environment Name: %s, Pod Name: %s",
 		c.Query("envName"), c.Param("podName"))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
@@ -124,9 +124,9 @@ func DeletePod(c *gin.Context) {
 		}
 
 		if production {
-			if !(ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.ManagePods ||
+			if !(ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.Restart ||
 				ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin) {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRestart)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -139,9 +139,9 @@ func DeletePod(c *gin.Context) {
 				return
 			}
 		} else {
-			if !(ctx.Resources.ProjectAuthInfo[projectName].Env.ManagePods ||
+			if !(ctx.Resources.ProjectAuthInfo[projectName].Env.Restart ||
 				ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin) {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionRestart)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
