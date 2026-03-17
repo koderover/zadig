@@ -53,14 +53,16 @@ import (
 )
 
 type GeneSvcYamlOption struct {
-	ProductName           string
-	EnvName               string
-	ServiceName           string
-	UpdateServiceRevision bool
-	VariableYaml          string
-	VariableKVs           []*commontypes.RenderVariableKV
-	UnInstall             bool
-	Containers            []*models.Container
+	ProductName                   string
+	EnvName                       string
+	ServiceName                   string
+	UpdateServiceRevision         bool
+	VariableYaml                  string
+	VariableKVs                   []*commontypes.RenderVariableKV
+	ReplicaOverrides              []*commonmodels.WorkLoad
+	IgnoreCurrentReplicaOverrides bool
+	UnInstall                     bool
+	Containers                    []*models.Container
 }
 
 type WorkloadResource struct {
@@ -404,7 +406,13 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 	mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 	fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
-	return fullRenderedYaml, 0, nil
+	if err != nil {
+		return "", 0, err
+	}
+
+	replicaOverrides := resolveReplicaOverrides(curProductSvc.WorkLoads, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
+	return fullRenderedYaml, 0, err
 }
 
 func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
@@ -580,7 +588,27 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+	if err != nil {
+		return "", 0, nil, err
+	}
+
+	var currentReplicaOverrides []*commonmodels.WorkLoad
+	if curProductSvc != nil {
+		currentReplicaOverrides = curProductSvc.WorkLoads
+	}
+	replicaOverrides := resolveReplicaOverrides(currentReplicaOverrides, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
+}
+
+func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.WorkLoad, ignoreCurrent bool) []*commonmodels.WorkLoad {
+	if optionOverrides != nil {
+		return optionOverrides
+	}
+	if ignoreCurrent {
+		return nil
+	}
+	return currentOverrides
 }
 
 func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *template.ServiceRender) (string, error) {
@@ -618,5 +646,8 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
-	return parsedYaml, err
+	if err != nil {
+		return "", err
+	}
+	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }

@@ -79,8 +79,8 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 		ctx.Logger.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
 
-	detail := fmt.Sprintf("环境名称:%s,%s:%s", req.EnvName, req.WorkloadType, req.WorkloadName)
-	detailEn := fmt.Sprintf("Environment name: %s,%s,%s", req.EnvName, req.WorkloadType, req.WorkloadName)
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,%s:%s", req.EnvName, req.ServiceName, req.WorkloadType, req.WorkloadName)
+	detailEn := fmt.Sprintf("Environment name: %s, service name: %s,%s,%s", req.EnvName, req.ServiceName, req.WorkloadType, req.WorkloadName)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName+"(openAPI)",
 		req.ProjectKey, setting.OperationSceneEnv,
@@ -119,7 +119,7 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.OpenAPIScale(req, ctx.Logger)
+	ctx.RespErr = service.OpenAPIScale(req, ctx.UserName+"(openAPI)", ctx.Logger)
 }
 
 // @Summary 获取测试环境中k8s服务yaml

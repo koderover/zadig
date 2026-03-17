@@ -548,7 +548,7 @@ type UpdateEnv struct {
 }
 
 func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, username string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", productName))
+	mutexAutoUpdate := cache.NewRedisLock(updateMultipleProductLockKey(productName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
 		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
@@ -758,16 +758,19 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				Revision:    prodService.Revision,
 				Render:      prodService.Render,
 				Containers:  prodService.Containers,
+				WorkLoads:   prodService.WorkLoads,
 			}
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvcs) {
-				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
+				svcRev, ok := serviceRevisionMap[serviceNameTypeKey(prodService.ServiceName, prodService.Type)]
 				if !ok {
 					groupSvcs = append(groupSvcs, prodService)
 					continue
 				}
-				service.Revision = svcRev.NextRevision
+				if svcRev.NextRevision > 0 {
+					service.Revision = svcRev.NextRevision
+				}
 				service.Containers = svcRev.Containers
 				service.UpdateTime = time.Now().Unix()
 			}
@@ -2237,7 +2240,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 }
 
 func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+	mutexAutoUpdate := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
 		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
@@ -2314,7 +2317,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 }
 
 func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexUpdateMultiHelm := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+	mutexUpdateMultiHelm := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 
 	err := mutexUpdateMultiHelm.Lock()
 	if err != nil {
@@ -3116,7 +3119,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRevision {
 	serviceRevisionMap := make(map[string]*SvcRevision)
 	for _, revision := range serviceRevisionList {
-		serviceRevisionMap[revision.ServiceName+revision.Type] = revision
+		serviceRevisionMap[serviceNameTypeKey(revision.ServiceName, revision.Type)] = revision
 	}
 	return serviceRevisionMap
 }

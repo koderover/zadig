@@ -48,61 +48,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{
-		Name:       args.ProductName,
-		EnvName:    args.EnvName,
-		Production: &args.Production,
-	}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-	if prod.IsSleeping() {
-		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
-	}
-
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
-	if err != nil {
-		return e.ErrScaleService.AddErr(err)
-	}
-
-	namespace := prod.Namespace
-
-	switch args.Type {
-	case setting.Deployment:
-		err = updater.ScaleDeployment(namespace, args.Name, args.Number, kubeClient)
-		if err != nil {
-			logger.Errorf("failed to scale %s/deploy/%s to %d", namespace, args.Name, args.Number)
-		}
-	case setting.StatefulSet:
-		err = updater.ScaleStatefulSet(namespace, args.Name, args.Number, kubeClient)
-		if err != nil {
-			logger.Errorf("failed to scale %s/sts/%s to %d", namespace, args.Name, args.Number)
-		}
-	case setting.CloneSet:
-		err = updater.ScaleCloneSet(namespace, args.Name, args.Number, kubeClient)
-		if err != nil {
-			logger.Errorf("failed to scale %s/cloneset/%s to %d", namespace, args.Name, args.Number)
-		}
-	}
-
-	return nil
-}
-
-func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error {
-	args := &ScaleArgs{
-		Type:        req.WorkloadType,
-		ProductName: req.ProjectKey,
-		EnvName:     req.EnvName,
-		Name:        req.WorkloadName,
-		Number:      req.TargetReplicas,
-		Production:  false,
-	}
-
-	return Scale(args, logger)
-}
-
 func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{
 		Name:       args.ProductName,
@@ -407,14 +352,29 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return ret, nil
 	}
 
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
+	candidateOverrides, err := buildPreviewCandidateOverrides(product, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
 	latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
-		ProductName:           args.ProductName,
-		EnvName:               args.EnvName,
-		ServiceName:           args.ServiceName,
-		UpdateServiceRevision: args.UpdateServiceRevision,
-		VariableYaml:          newVariableYaml,
-		VariableKVs:           args.VariableKVs,
-		Containers:            args.ServiceModules,
+		ProductName:                   args.ProductName,
+		EnvName:                       args.EnvName,
+		ServiceName:                   args.ServiceName,
+		UpdateServiceRevision:         args.UpdateServiceRevision,
+		VariableYaml:                  newVariableYaml,
+		VariableKVs:                   args.VariableKVs,
+		Containers:                    args.ServiceModules,
+		ReplicaOverrides:              candidateOverrides,
+		IgnoreCurrentReplicaOverrides: true,
 	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)

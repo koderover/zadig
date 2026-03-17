@@ -513,9 +513,6 @@ func ScaleNewService(c *gin.Context) {
 		return
 	}
 
-	args := new(service.ScaleArgs)
-	args.Type = setting.Deployment
-
 	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	envName := c.Param("name")
@@ -580,7 +577,7 @@ func ScaleNewService(c *gin.Context) {
 		Name:        name,
 		Number:      number,
 		Production:  production,
-	}, ctx.Logger)
+	}, ctx.UserName, ctx.Logger)
 }
 
 type OpenAPIGetServiceResponse struct {
