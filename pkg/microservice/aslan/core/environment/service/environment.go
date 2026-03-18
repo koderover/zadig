@@ -2868,7 +2868,7 @@ func getProjectType(productName string) string {
 }
 
 func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.ProductService,
-	kubeClient client.Client, log *zap.SugaredLogger) error {
+	clusterID string, log *zap.SugaredLogger) error {
 	parsedYaml, err := kube.RenderEnvService(env, service.GetServiceRender(), service)
 	if err != nil {
 		return fmt.Errorf("service template %s error: %v", service.ServiceName, err)
@@ -2888,10 +2888,10 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 	for _, u := range resources {
 		switch u.GetKind() {
 		case setting.Deployment:
-			err = updater.RestartDeployment(env.Namespace, u.GetName(), kubeClient)
+			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
 		case setting.StatefulSet:
-			err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}
@@ -4450,7 +4450,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		switch workload.Type {
 		case setting.Deployment:
 			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
-			err := updater.ScaleDeployment(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			err := updater.ScaleDeploymentV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name, scaleNum)
 			if err != nil {
 				log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}

@@ -422,7 +422,7 @@ L:
 				// Check if Deployment is stuck before updating
 				isStuck := kube.IsDeploymentStuckInUpdate(deploy, logger)
 
-				err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateDeploymentImageV2(ctx, env.ClusterID, deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}
@@ -455,7 +455,7 @@ L:
 
 		for _, container := range deploy.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateDeploymentInitImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateDeploymentInitImageV2(ctx, env.ClusterID, deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}

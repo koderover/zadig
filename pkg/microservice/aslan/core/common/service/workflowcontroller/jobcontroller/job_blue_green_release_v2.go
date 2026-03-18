@@ -84,7 +84,7 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 	}
 
 	// ensure delete blue deployment and service
-	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
+	err = updater.DeleteDeploymentAndWaitV2(context.Background(), clusterID, c.namespace, config.DefaultDeleteDeploymentTimeout, updater.WithName(c.jobTaskSpec.Service.BlueDeploymentName))
 	if err != nil {
 		c.logger.Warnf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
 	}
@@ -172,7 +172,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 
 	// update green deployment image to new version
 	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
-		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
+		err := updater.UpdateDeploymentImageV2(ctx, clusterID, c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image)
 		if err != nil {
 			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
 				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)

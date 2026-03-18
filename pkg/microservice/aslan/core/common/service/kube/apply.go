@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -840,7 +841,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchDeployment(res, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(res)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal deployment %s to YAML: %v", res.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, err)

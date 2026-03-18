@@ -133,7 +133,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		}
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
-				err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient)
+				err = updater.UpdateDeploymentImageV2(ctx, c.jobTaskSpec.ClusterID, deployment.Namespace, deployment.Name, container.Name, c.jobTaskSpec.Image)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,

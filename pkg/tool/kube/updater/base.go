@@ -234,3 +234,22 @@ func deleteObjectsAndWait(ns string, selector labels.Selector, obj client.Object
 		return len(us) == 0, nil
 	})
 }
+
+/*
+V2 related base definitions
+*/
+
+type deleteConfig struct {
+	name     string
+	selector string
+}
+
+type DeleteOption func(*deleteConfig)
+
+func WithName(name string) DeleteOption {
+	return func(c *deleteConfig) { c.name = name }
+}
+
+func WithSelector(selector string) DeleteOption {
+	return func(c *deleteConfig) { c.selector = selector }
+}

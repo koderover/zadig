@@ -189,7 +189,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	blueDeployment.Spec.Selector.MatchLabels[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
 	blueDeployment.Spec.Template.Labels[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
 	blueDeployment.ObjectMeta.ResourceVersion = ""
-	if err := updater.CreateOrPatchDeployment(blueDeployment, c.kubeClient); err != nil {
+	if err := updater.CreateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, blueDeployment); err != nil {
 		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.BlueWorkloadName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)

@@ -81,7 +81,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 
 	errors := new(multierror.Error)
 
-	if err := updater.DeleteDeployments(namespace, selector, clientset); err != nil {
+	if err := updater.DeleteDeploymentV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteDeployments error: %v", err))
 	}

@@ -129,7 +129,7 @@ func (c *CanaryDeployJobCtl) run(ctx context.Context) error {
 			break
 		}
 	}
-	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+	if err := updater.CreateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, deployment); err != nil {
 		msg := fmt.Sprintf("create canary deployment: %s failed: %v", c.jobTaskSpec.CanaryWorkloadName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)

@@ -142,7 +142,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 	} else {
 		switch args.Type {
 		case setting.Deployment:
-			if err := updater.UpdateDeploymentImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+			if err := updater.UpdateDeploymentImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateDeploymentImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
 			}

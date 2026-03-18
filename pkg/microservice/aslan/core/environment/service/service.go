@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -47,6 +48,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
+
 
 func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{
@@ -85,7 +87,7 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 
 	switch args.Type {
 	case setting.Deployment:
-		err = updater.RestartDeployment(prod.Namespace, args.Name, kubeClient)
+		err = updater.RestartDeploymentV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	case setting.StatefulSet:
 		err = updater.RestartStatefulSet(prod.Namespace, args.Name, kubeClient)
 	}
@@ -428,7 +430,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.Deployment, err.Error())
 		}
 		if found {
-			return updater.RestartDeployment(productObj.Namespace, deploy.Name, kubeClient)
+			return updater.RestartDeploymentV2(context.Background(), productObj.ClusterID, productObj.Namespace, deploy.Name)
 		}
 
 		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)
@@ -446,7 +448,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		}
 		productService = serviceObj
 
-		err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
+		err = restartRelatedWorkloads(productObj, productService, productObj.ClusterID, log)
 		log.Infof("restart resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 
 		if err != nil {
