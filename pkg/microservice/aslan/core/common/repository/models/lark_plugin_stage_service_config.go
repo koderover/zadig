@@ -1,0 +1,42 @@
+/*
+Copyright 2025 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package models
+
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type LarkPluginWorkItemStageWorkflowInputConfig struct {
+	ID              primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
+	StageName       string             `bson:"stage_name"             json:"stage_name"`
+	WorkspaceID     string             `bson:"workspace_id"           json:"workspace_id"`
+
+	WorkItemTypeKey string             `bson:"work_item_type_key"     json:"work_item_type_key"`
+	WorkItemID      string             `bson:"work_item_id"           json:"work_item_id"`
+
+	ServiceName     string             `bson:"service_name"           json:"service_name"`
+	ServiceModule   string             `bson:"service_module"         json:"service_module"`
+	Branch          string             `bson:"branch"                 json:"branch"`
+	PRs             []int              `bson:"prs"                    json:"prs"`
+	
+	UpdateBy        string             `bson:"update_by"              json:"update_by"`
+	UpdateTime      int64              `bson:"update_time"            json:"update_time"`
+}
+
+func (LarkPluginWorkItemStageWorkflowInputConfig) TableName() string {
+	return "lark_plugin_workitem_stage_workflow_input_config"
+}
