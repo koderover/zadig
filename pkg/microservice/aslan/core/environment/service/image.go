@@ -147,7 +147,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
 			}
 		case setting.StatefulSet:
-			if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+			if err := updater.UpdateStatefulSetImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}

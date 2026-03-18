@@ -4456,7 +4456,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 			}
 		case setting.StatefulSet:
 			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
-			err := updater.ScaleStatefulSet(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			err := updater.ScaleStatefulSetV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name, scaleNum)
 			if err != nil {
 				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}

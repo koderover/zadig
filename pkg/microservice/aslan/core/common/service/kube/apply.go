@@ -881,7 +881,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(res)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal statefulset %s to YAML: %v", res.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))

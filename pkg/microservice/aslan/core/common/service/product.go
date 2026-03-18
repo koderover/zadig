@@ -92,7 +92,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteReplicaSets error: %v", err))
 	}
 
-	if err := updater.DeleteStatefulSets(namespace, selector, clientset); err != nil {
+	if err := updater.DeleteStatefulSetV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteStatefulSets error: %v", err))
 	}

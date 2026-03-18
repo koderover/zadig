@@ -282,7 +282,7 @@ func restartWorkloadResources(ctx context.Context, clusterID string, resources [
 	// }
 
 	// for _, sts := range statefulSets {
-	// 	err = updater.RestartStatefulSet(sts.Namespace, sts.Name, kubeClient)
+	// 	err = updater.RestartStatefulSetV2(ctx, clusterID, sts.Namespace, sts.Name)
 	// 	if err != nil {
 	// 		return nil, nil, fmt.Errorf("failed to restart statefulset %s/%s: %v", sts.Namespace, sts.Name, err)
 	// 	}

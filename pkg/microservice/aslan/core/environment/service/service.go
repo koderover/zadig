@@ -49,7 +49,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-
 func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{
 		Name:       args.ProductName,
@@ -89,7 +88,7 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	case setting.Deployment:
 		err = updater.RestartDeploymentV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	case setting.StatefulSet:
-		err = updater.RestartStatefulSet(prod.Namespace, args.Name, kubeClient)
+		err = updater.RestartStatefulSetV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	}
 
 	if err != nil {
@@ -438,7 +437,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.StatefulSet, err.Error())
 		}
 		if found {
-			return updater.RestartStatefulSet(productObj.Namespace, sts.Name, kubeClient)
+			return updater.RestartStatefulSetV2(context.Background(), productObj.ClusterID, productObj.Namespace, sts.Name)
 		}
 	default:
 		var productService *commonmodels.ProductService

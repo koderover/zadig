@@ -482,7 +482,7 @@ Loop:
 				// Check if StatefulSet is stuck before updating
 				isStuck := kube.IsStatefulSetStuckInUpdate(sts, logger)
 
-				err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateStatefulSetImageV2(ctx, env.ClusterID, sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
@@ -514,7 +514,7 @@ Loop:
 		}
 		for _, container := range sts.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateStatefulSetInitImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateStatefulSetInitImageV2(ctx, env.ClusterID, sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
