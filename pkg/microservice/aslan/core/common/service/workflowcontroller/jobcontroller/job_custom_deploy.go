@@ -162,7 +162,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		}
 		for _, container := range statefulSet.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
-				err = updater.UpdateDeploymentImage(statefulSet.Namespace, statefulSet.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient)
+				err = updater.UpdateStatefulSetImageV2(ctx, c.jobTaskSpec.ClusterID, statefulSet.Namespace, statefulSet.Name, container.Name, c.jobTaskSpec.Image)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
@@ -190,7 +190,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		if cronJob != nil {
 			for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ContainerName {
-					err = updater.UpdateCronJobImage(cronJob.Namespace, cronJob.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+					err = updater.UpdateCronJobImageV2(ctx, c.jobTaskSpec.ClusterID, cronJob.Namespace, cronJob.Name, container.Name, c.jobTaskSpec.Image)
 					if err != nil {
 						err = errors.WithMessagef(
 							err,
@@ -213,7 +213,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 		if cronJobBeta != nil {
 			for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ContainerName {
-					err = updater.UpdateCronJobImage(cronJobBeta.Namespace, cronJobBeta.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+					err = updater.UpdateCronJobImageV2(ctx, c.jobTaskSpec.ClusterID, cronJobBeta.Namespace, cronJobBeta.Name, container.Name, c.jobTaskSpec.Image)
 					if err != nil {
 						err = errors.WithMessagef(
 							err,

@@ -227,13 +227,13 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		JobType: string(c.job.JobType),
 		JobName: c.job.K8sJobName,
 	}
-	if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+	if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
 
 	if err := createJobConfigMap(
-		c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, jobLabel, string(jobCtxBytes), c.kubeclient); err != nil {
+		c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, jobLabel, string(jobCtxBytes), c.jobTaskSpec.Properties.ClusterID); err != nil {
 		msg := fmt.Sprintf("createJobConfigMap error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
@@ -280,7 +280,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	job.Namespace = c.jobTaskSpec.Properties.Namespace
 
-	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 		msg := fmt.Sprintf("delete job error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
@@ -292,7 +292,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	if err := updater.CreateJob(job, c.kubeclient); err != nil {
+	if err := updater.CreateJobV2(ctx, c.jobTaskSpec.Properties.ClusterID, job); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
@@ -1233,10 +1233,10 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 					c.logger.Errorf("Failed to cleanup files PVCs: %v", err)
 				}
 			}
-			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 				c.logger.Error(err)
 			}
-			if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			if err := ensureDeleteConfigMap(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 				c.logger.Error(err)
 			}
 		}()

@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -101,8 +102,10 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 			if pod.ObjectMeta.Labels[config.BlueGreenVersionLabelName] != config.OriginVersion {
 				continue
 			}
-			deleteLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVersionLabelName)
-			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(deleteLabelPatch), kubeClient); err != nil {
+			if err := updater.UpdatePodV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, pod.Name, func(p *corev1.Pod) error {
+				delete(p.Labels, config.BlueGreenVersionLabelName)
+				return nil
+			}); err != nil {
 				c.logger.Errorf("patch pod error: %v", err)
 			}
 		}
@@ -121,14 +124,16 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	service, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
+	_, exist, err := getter.GetService(c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, c.kubeClient)
 	if err != nil || !exist {
 		msg := fmt.Sprintf("get service %s failed, err: %v", c.jobTaskSpec.K8sServiceName, err)
 		logError(c.job, msg, c.logger)
 		return
 	}
-	service.Spec.Selector[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
-	if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
+	if err := updater.UpdateServiceV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, func(svc *corev1.Service) error {
+		svc.Spec.Selector[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
+		return nil
+	}); err != nil {
 		msg := fmt.Sprintf("point service: %s to deployment: %s failed: %v", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName, err)
 		logError(c.job, msg, c.logger)
 		return

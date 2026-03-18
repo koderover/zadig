@@ -538,7 +538,7 @@ CronLoop:
 	for _, cron := range cronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, false)
+				err = updater.UpdateCronJobImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -559,7 +559,7 @@ CronLoop:
 		}
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, false)
+				err = updater.UpdateCronJobInitImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -583,7 +583,7 @@ BetaCronLoop:
 	for _, cron := range betaCronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, true)
+				err = updater.UpdateCronJobImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -605,7 +605,7 @@ BetaCronLoop:
 		}
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, true)
+				err = updater.UpdateCronJobInitImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}

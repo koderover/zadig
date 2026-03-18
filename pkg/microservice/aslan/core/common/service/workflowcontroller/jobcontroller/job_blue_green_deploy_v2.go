@@ -134,8 +134,13 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	for _, pod := range pods {
-		addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
-		if err := updater.PatchPod(c.namespace, pod.Name, []byte(addlabelPatch), c.kubeClient); err != nil {
+		if err := updater.UpdatePodV2(ctx, clusterID, c.namespace, pod.Name, func(p *corev1.Pod) error {
+			if p.Labels == nil {
+				p.Labels = make(map[string]string)
+			}
+			p.Labels[config.BlueGreenVersionLabelName] = config.OriginVersion
+			return nil
+		}); err != nil {
 			msg := fmt.Sprintf("add origin label to pod error: %v", err)
 			logError(c.job, msg, c.logger)
 			c.jobTaskSpec.Events.Error(msg)
@@ -146,8 +151,10 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	c.ack()
 
 	// green service selector add original version label
-	greenService.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
-	if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
+	if err := updater.UpdateServiceV2(ctx, clusterID, c.namespace, greenService.Name, func(svc *corev1.Service) error {
+		svc.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
+		return nil
+	}); err != nil {
 		msg := fmt.Sprintf("add origin label selector to green service: %s error: %v", greenService.Name, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)

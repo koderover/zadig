@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"time"
@@ -44,11 +45,11 @@ func CleanJobCronJob(log *zap.SugaredLogger) {
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()
 	artifactSelector := labels.Set{"p-type": "artifact"}.AsSelector()
-	cleanJob(config.Namespace(), workflowSelector, kubeClient, log)
-	cleanJob(config.Namespace(), singleSelector, kubeClient, log)
-	cleanJob(config.Namespace(), testSelector, kubeClient, log)
-	cleanJob(config.Namespace(), artifactSelector, kubeClient, log)
-	cleanServiceJob(kubeClient, log)
+	cleanJob(config.Namespace(), workflowSelector, "", kubeClient, log)
+	cleanJob(config.Namespace(), singleSelector, "", kubeClient, log)
+	cleanJob(config.Namespace(), testSelector, "", kubeClient, log)
+	cleanJob(config.Namespace(), artifactSelector, "", kubeClient, log)
+	cleanServiceJob("", kubeClient, log)
 	log.Infof("finnish clean job...")
 }
 
@@ -63,15 +64,15 @@ func CleanConfigmapCronJob(log *zap.SugaredLogger) {
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()
 	artifactSelector := labels.Set{"p-type": "artifact"}.AsSelector()
-	cleanConfigmap(config.Namespace(), workflowSelector, kubeClient, log)
-	cleanConfigmap(config.Namespace(), singleSelector, kubeClient, log)
-	cleanConfigmap(config.Namespace(), testSelector, kubeClient, log)
-	cleanConfigmap(config.Namespace(), artifactSelector, kubeClient, log)
-	cleanServiceConfigmap(kubeClient, log)
+	cleanConfigmap(config.Namespace(), "", workflowSelector, kubeClient, log)
+	cleanConfigmap(config.Namespace(), "", singleSelector, kubeClient, log)
+	cleanConfigmap(config.Namespace(), "", testSelector, kubeClient, log)
+	cleanConfigmap(config.Namespace(), "", artifactSelector, kubeClient, log)
+	cleanServiceConfigmap("", kubeClient, log)
 	log.Infof("finnish clean configmap...")
 }
 
-func cleanJob(namespace string, selector labels.Selector, client client.Client, log *zap.SugaredLogger) {
+func cleanJob(namespace string, selector labels.Selector, clusterID string, client client.Client, log *zap.SugaredLogger) {
 	jobList, err := getter.ListJobs(namespace, selector, client)
 	if err != nil {
 		log.Infof("[%s]list jobs error: %v", namespace, err)
@@ -81,7 +82,7 @@ func cleanJob(namespace string, selector labels.Selector, client client.Client, 
 		if job.CreationTimestamp.Unix() < time.Now().Unix()-60*60*24 {
 			name := job.Name
 			log.Infof("[%s][%s]deleting job", namespace, name)
-			err := ensureDeleteJob(namespace, name, client, log)
+			err := ensureDeleteJob(namespace, name, clusterID, log)
 			if err != nil {
 				log.Infof("[%s][%s]delete job error: %v", namespace, name, err)
 			} else {
@@ -91,7 +92,7 @@ func cleanJob(namespace string, selector labels.Selector, client client.Client, 
 	}
 }
 
-func cleanConfigmap(namespace string, selector labels.Selector, client client.Client, log *zap.SugaredLogger) {
+func cleanConfigmap(namespace, clusterID string, selector labels.Selector, client client.Client, log *zap.SugaredLogger) {
 	configmaps, err := getter.ListConfigMaps(namespace, selector, client)
 	if err != nil {
 		log.Infof("[%s]list configmaps error: %v", namespace, err)
@@ -103,7 +104,7 @@ func cleanConfigmap(namespace string, selector labels.Selector, client client.Cl
 		if configmap.CreationTimestamp.Unix() < time.Now().Unix()-60*60*24*7 {
 			name := configmap.Name
 			log.Infof("[%s][%s]deleting configmap", namespace, name)
-			err := ensureDeleteConfigmap(namespace, name, client, log)
+			err := ensureDeleteConfigmap(namespace, name, clusterID, client, log)
 			if err != nil {
 				log.Infof("[%s][%s]delete configmap error: %v", namespace, name, err)
 			} else {
@@ -113,7 +114,7 @@ func cleanConfigmap(namespace string, selector labels.Selector, client client.Cl
 	}
 }
 
-func cleanServiceJob(client client.Client, log *zap.SugaredLogger) {
+func cleanServiceJob(clusterID string, client client.Client, log *zap.SugaredLogger) {
 	taskServiceMap, err := commonservice.GetServiceTasks(log)
 	if err != nil {
 		log.Infof("cleanServiceJob getServiceTasks error: %v", err)
@@ -136,7 +137,7 @@ func cleanServiceJob(client client.Client, log *zap.SugaredLogger) {
 				if index > 0 && job.CreationTimestamp.Unix() < time.Now().Unix()-60*60*24 {
 					name := job.Name
 					log.Infof("[%s][%s]deleting job", namespace, name)
-					err := ensureDeleteJob(namespace, name, client, log)
+					err := ensureDeleteJob(namespace, name, clusterID, log)
 					if err != nil {
 						log.Infof("[%s][%s]delete job error: %v", namespace, name, err)
 					} else {
@@ -148,7 +149,7 @@ func cleanServiceJob(client client.Client, log *zap.SugaredLogger) {
 	}
 }
 
-func cleanServiceConfigmap(client client.Client, log *zap.SugaredLogger) {
+func cleanServiceConfigmap(clusterID string, client client.Client, log *zap.SugaredLogger) {
 	taskServiceMap, err := commonservice.GetServiceTasks(log)
 	if err != nil {
 		log.Infof("cleanServiceConfigmap getServiceTasks error: %v", err)
@@ -172,7 +173,7 @@ func cleanServiceConfigmap(client client.Client, log *zap.SugaredLogger) {
 				if index > 0 && configmap.CreationTimestamp.Unix() < time.Now().Unix()-60*60*24*7 {
 					name := configmap.Name
 					log.Infof("[%s][%s]deleting configmap", namespace, name)
-					err := ensureDeleteConfigmap(namespace, name, client, log)
+					err := ensureDeleteConfigmap(namespace, name, clusterID, client, log)
 					if err != nil {
 						log.Infof("[%s][%s]delete configmap error: %v", namespace, name, err)
 					} else {
@@ -184,15 +185,15 @@ func cleanServiceConfigmap(client client.Client, log *zap.SugaredLogger) {
 	}
 }
 
-func ensureDeleteJob(namespace, jobName string, client client.Client, log *zap.SugaredLogger) error {
-	return updater.DeleteJobAndWait(namespace, jobName, client)
+func ensureDeleteJob(namespace, jobName, clusterID string, log *zap.SugaredLogger) error {
+	return updater.DeleteJobAndWaitV2(context.TODO(), clusterID, namespace, jobName)
 }
 
-func ensureDeleteConfigmap(namespace, configmapName string, client client.Client, log *zap.SugaredLogger) error {
+func ensureDeleteConfigmap(namespace, configmapName, clusterID string, client client.Client, log *zap.SugaredLogger) error {
 
 	_, found, err := getter.GetConfigMap(namespace, configmapName, client)
 	if err == nil && found {
-		updater.DeleteConfigMap(namespace, configmapName, client)
+		updater.DeleteConfigMapV2(context.TODO(), clusterID, namespace, configmapName)
 	}
 
 	timeout := false

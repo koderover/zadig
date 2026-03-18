@@ -216,11 +216,7 @@ func (creator *ExternalProductCreator) Create(user, requestID string, args *Prod
 	args.Status = setting.ProductStatusUnstable
 	args.RecycleDay = config.DefaultRecycleDay()
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(args.ClusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	err = kube.EnsureNamespaceLabels(args.Namespace, map[string]string{setting.ProductLabel: args.ProductName}, kubeClient)
+	err := kube.EnsureNamespaceLabels(args.Namespace, args.ClusterID, map[string]string{setting.ProductLabel: args.ProductName})
 	if err != nil {
 		log.Errorf("[%s][%s] create add namesapce label error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())

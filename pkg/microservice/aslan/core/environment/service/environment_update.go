@@ -225,7 +225,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, exitedProd.ClusterID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.updateK8sProduct create kubeEnv error: %v", envName, productName, err)
 		return err

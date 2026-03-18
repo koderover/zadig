@@ -30,8 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -611,15 +609,15 @@ func (c *workflowCtl) CleanShareStorage() {
 			continue
 		}
 		job.Namespace = namespace
-		if err := updater.CreateJob(job, kubeClient); err != nil {
+		if err := updater.CreateJobV2(context.Background(), clusterID, job); err != nil {
 			c.logger.Errorf("create job error: %v", err)
 			continue
 		}
-		defer func(client client.Client, name, namespace string) {
-			if err := updater.DeleteJobAndWait(namespace, name, client); err != nil {
+		defer func(clusterID, name, namespace string) {
+			if err := updater.DeleteJobAndWaitV2(context.Background(), clusterID, namespace, name); err != nil {
 				c.logger.Errorf("delete job error: %v", err)
 			}
-		}(kubeClient, cleanJobName, namespace)
+		}(clusterID, cleanJobName, namespace)
 		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, kubeApiServer, c.logger)
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}

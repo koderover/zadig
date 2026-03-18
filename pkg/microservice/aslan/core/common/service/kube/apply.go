@@ -935,7 +935,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Deleting old %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
+			if err := updater.DeleteJobAndWaitV2(context.TODO(), productInfo.ClusterID, namespace, obj.Name); err != nil {
 				log.Errorf("Failed to delete Job, error: %v", err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
@@ -944,7 +944,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent = fmt.Sprintf("Applying new %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			if err := updater.CreateJob(obj, kubeClient); err != nil {
+			if err := updater.CreateJobV2(context.TODO(), productInfo.ClusterID, obj); err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
@@ -977,7 +977,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(obj)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal cronjob %s to YAML: %v", obj.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1004,7 +1010,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(obj)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal cronjob-beta %s to YAML: %v", obj.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))

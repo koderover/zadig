@@ -181,13 +181,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 	if !args.RestartAssociatedSvc {
 		return nil
 	}
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrUpdateConfigMap.AddErr(err)
-	}
-
-	if err := restartPod(secret.Name, args.ProductName, args.EnvName, product.Namespace, config.CommonEnvCfgTypeSecret, clientset, kubeClient); err != nil {
+	if err := restartPod(secret.Name, args.ProductName, args.EnvName, product.Namespace, product.ClusterID, config.CommonEnvCfgTypeSecret, kubeClient); err != nil {
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
 	return nil

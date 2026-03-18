@@ -152,7 +152,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		case setting.CronJob:
-			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient, VersionLessThan121(version)); err != nil {
+			if err := updater.UpdateCronJobImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 CronJob 容器镜像失败")
 			}
