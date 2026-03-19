@@ -35,7 +35,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func RestartDeploymentV2(ctx context.Context, clusterID, namespace, name string) error {
@@ -246,66 +245,36 @@ func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, origin
 		}
 	}
 
-	// since there might be 409 conflict on when the object is being updated frequently, we use a retry on conflict to handle it
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// getting the live object from the cluster
-		liveObj, err := c.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		// if the object wasn't there, just deploy it
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.AppsV1().Deployments(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.AppsV1().Deployments(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create deployment: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		// otherwise, calculate the 3-way merge based on
-		// 1. the original yaml this system saved
-		// 2. the target yaml this system wants to create
-		// 3. the live state in the cluster
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&appsv1.Deployment{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		log.Infof("[CreateOrPatchDeploymentV2] original yaml is: %s", string(originalJSONMutated))
-		log.Infof("[CreateOrPatchDeploymentV2] target yaml is: %s", string(targetJSONMutated))
-		log.Infof("[CreateOrPatchDeploymentV2] live yaml is: %s", string(liveJSON))
-		log.Infof("[CreateOrPatchDeploymentV2] patch bytes is: %s", string(patchBytes))
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.AppsV1().Deployments(namespace).Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("deployment operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check deployment existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &appsv1.Deployment{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.AppsV1().Deployments(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("deployment patch failed: %w", err)
 	}
 
 	return nil

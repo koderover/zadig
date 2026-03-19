@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -117,7 +116,7 @@ func UpdateConfigMapV2(ctx context.Context, clusterID, namespace string, cm *cor
 	return nil
 }
 
-// CreateOrPatchConfigMapV2 implements a 3-way merge patch for ConfigMap, similar to CreateOrPatchDeploymentV2.
+// CreateOrPatchConfigMapV2 implements a 2-way merge patch for ConfigMap.
 func CreateOrPatchConfigMapV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
@@ -161,50 +160,32 @@ func CreateOrPatchConfigMapV2(ctx context.Context, clusterID, namespace, origina
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.CoreV1().ConfigMaps(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.CoreV1().ConfigMaps(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create configmap: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&corev1.ConfigMap{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.CoreV1().ConfigMaps(namespace).Patch(
-			ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("configmap operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check configmap existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.ConfigMap{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.CoreV1().ConfigMaps(namespace).Patch(
+		ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("configmap patch failed: %w", err)
 	}
 
 	return nil

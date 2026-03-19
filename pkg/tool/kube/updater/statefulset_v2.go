@@ -200,7 +200,7 @@ func DeleteStatefulSetAndWaitV2(ctx context.Context, clusterID, namespace string
 	return nil
 }
 
-// CreateOrPatchStatefulSetV2 is used when the YAML is fully controlled by this system, it implements a 3-way merge patch for the statefulset.
+// CreateOrPatchStatefulSetV2 is used when the YAML is fully controlled by this system, it implements a 2-way merge patch for the statefulset.
 // If we are simply editing the statefulset, use UpdateStatefulSetV2 instead.
 func CreateOrPatchStatefulSetV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
@@ -245,54 +245,36 @@ func CreateOrPatchStatefulSetV2(ctx context.Context, clusterID, namespace, origi
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.AppsV1().StatefulSets(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.AppsV1().StatefulSets(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create statefulset: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&appsv1.StatefulSet{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.AppsV1().StatefulSets(namespace).Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("statefulset operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check statefulset existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &appsv1.StatefulSet{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.AppsV1().StatefulSets(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("statefulset patch failed: %w", err)
 	}
 
 	return nil

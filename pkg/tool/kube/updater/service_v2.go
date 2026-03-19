@@ -120,7 +120,7 @@ func UpdateServiceV2(ctx context.Context, clusterID, namespace, serviceName stri
 	return err
 }
 
-// CreateOrPatchServiceV2 implements a 3-way merge patch for Service.
+// CreateOrPatchServiceV2 implements a 2-way merge patch for Service.
 func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
@@ -164,50 +164,32 @@ func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalY
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.CoreV1().Services(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.CoreV1().Services(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create service: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&corev1.Service{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.CoreV1().Services(namespace).Patch(
-			ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("service operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check service existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.Service{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.CoreV1().Services(namespace).Patch(
+		ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("service patch failed: %w", err)
 	}
 
 	return nil

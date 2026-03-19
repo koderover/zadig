@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -134,54 +133,36 @@ func createOrPatchIngressV1(ctx context.Context, c kubernetes.Interface, namespa
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.NetworkingV1().Ingresses(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.NetworkingV1().Ingresses(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create ingress: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&networkingv1.Ingress{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.NetworkingV1().Ingresses(namespace).Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("ingress operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check ingress existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &networkingv1.Ingress{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.NetworkingV1().Ingresses(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("ingress patch failed: %w", err)
 	}
 
 	return nil
@@ -225,54 +206,36 @@ func createOrPatchIngressBeta(ctx context.Context, c kubernetes.Interface, names
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.ExtensionsV1beta1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.ExtensionsV1beta1().Ingresses(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.ExtensionsV1beta1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.ExtensionsV1beta1().Ingresses(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create ingress (v1beta1): %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&extensionsv1beta1.Ingress{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.ExtensionsV1beta1().Ingresses(namespace).Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("ingress (v1beta1) operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check ingress existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &extensionsv1beta1.Ingress{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.ExtensionsV1beta1().Ingresses(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("ingress (v1beta1) patch failed: %w", err)
 	}
 
 	return nil

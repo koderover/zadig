@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -106,54 +105,36 @@ func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, ta
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.RbacV1().ClusterRoles().Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.RbacV1().ClusterRoles().Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create clusterrole: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&rbacv1.ClusterRole{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.RbacV1().ClusterRoles().Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("clusterrole operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check clusterrole existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &rbacv1.ClusterRole{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.RbacV1().ClusterRoles().Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("clusterrole patch failed: %w", err)
 	}
 
 	return nil
@@ -201,54 +182,36 @@ func CreateOrPatchClusterRoleBindingV2(ctx context.Context, clusterID, originalY
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.RbacV1().ClusterRoleBindings().Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.RbacV1().ClusterRoleBindings().Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create clusterrolebinding: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&rbacv1.ClusterRoleBinding{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.RbacV1().ClusterRoleBindings().Patch(
-			ctx,
-			name,
-			types.StrategicMergePatchType,
-			patchBytes,
-			metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("clusterrolebinding operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check clusterrolebinding existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &rbacv1.ClusterRoleBinding{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.RbacV1().ClusterRoleBindings().Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("clusterrolebinding patch failed: %w", err)
 	}
 
 	return nil

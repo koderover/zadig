@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -90,7 +89,7 @@ func DeleteCronJobsV2(ctx context.Context, clusterID, namespace string, opts ...
 	return util.IgnoreNotFoundError(err)
 }
 
-// CreateOrPatchCronJobV2 implements a 3-way merge patch for CronJob, similar to CreateOrPatchDeploymentV2.
+// CreateOrPatchCronJobV2 implements a 2-way merge patch for CronJob, similar to CreateOrPatchDeploymentV2.
 // On clusters < 1.21, it falls back to batch/v1beta1 API.
 func CreateOrPatchCronJobV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
@@ -147,50 +146,32 @@ func createOrPatchCronJobV1(ctx context.Context, c *kubernetes.Clientset, namesp
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.BatchV1().CronJobs(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.BatchV1().CronJobs(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create cronjob: %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&batchv1.CronJob{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.BatchV1().CronJobs(namespace).Patch(
-			ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("cronjob operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check cronjob existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &batchv1.CronJob{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.BatchV1().CronJobs(namespace).Patch(
+		ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("cronjob patch failed: %w", err)
 	}
 
 	return nil
@@ -234,50 +215,32 @@ func createOrPatchCronJobBeta(ctx context.Context, c *kubernetes.Clientset, name
 		}
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		liveObj, err := c.BatchV1beta1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
-
-		if apierrors.IsNotFound(err) {
-			_, createErr := c.BatchV1beta1().CronJobs(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
-			return createErr
+	_, err = c.BatchV1beta1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.BatchV1beta1().CronJobs(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create cronjob (v1beta1): %w", createErr)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get live state: %w", err)
-		}
-
-		liveJSON, err := json.Marshal(liveObj)
-		if err != nil {
-			return fmt.Errorf("failed to marshal live object: %w", err)
-		}
-
-		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&batchv1beta1.CronJob{})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup patch meta: %w", err)
-		}
-
-		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
-			originalJSONMutated,
-			targetJSONMutated,
-			liveJSON,
-			lookupPatchMeta,
-			true,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
-		}
-
-		if string(patchBytes) == "{}" {
-			return nil
-		}
-
-		_, err = c.BatchV1beta1().CronJobs(namespace).Patch(
-			ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
-		)
-		return err
-	})
-
+		return nil
+	}
 	if err != nil {
-		return fmt.Errorf("cronjob operation failed after retries: %w", err)
+		return fmt.Errorf("failed to check cronjob existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &batchv1beta1.CronJob{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.BatchV1beta1().CronJobs(namespace).Patch(
+		ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("cronjob (v1beta1) patch failed: %w", err)
 	}
 
 	return nil
