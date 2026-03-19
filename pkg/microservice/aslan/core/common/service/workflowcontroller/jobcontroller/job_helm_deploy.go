@@ -365,11 +365,12 @@ func genHelmResourceMap(helmDeploySvc *helmservice.HelmDeployService, env *commo
 		return nil, fmt.Errorf("failed to pre load helm service chart, serviceName: %s, err: %s", tmplSvc.ServiceName, err)
 	}
 
+	releaseName := util.GeneReleaseName(tmplSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, tmplSvc.ServiceName)
 	chartSpec := &helmclient.ChartSpec{
-		GenerateName: true,
-		ChartName:    chartPath,
-		Version:      envSvc.GetServiceRender().ChartVersion,
-		ValuesYaml:   valuesYaml,
+		ReleaseName: releaseName,
+		ChartName:   chartPath,
+		Version:     envSvc.GetServiceRender().ChartVersion,
+		ValuesYaml:  valuesYaml,
 	}
 
 	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
