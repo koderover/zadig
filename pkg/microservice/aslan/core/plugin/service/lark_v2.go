@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 	sdkcore "github.com/larksuite/project-oapi-sdk-golang/core"
@@ -79,11 +81,11 @@ func GetLarkWorkflowConfigV2(ctx *internalhandler.Context, workspaceID, stageNam
 	}
 
 	return &GetLarkWorkflowConfigV2Resp{
-		StageName:    cfg.StageName,
-		WorkspaceID:  cfg.WorkspaceID,
-		UpdateTime:   cfg.UpdateTime,
-		CodeSource:   cfg.CodeSource,
-		WorkItemTypeKey:   cfg.WorkItemTypeKey,
+		StageName:       cfg.StageName,
+		WorkspaceID:     cfg.WorkspaceID,
+		UpdateTime:      cfg.UpdateTime,
+		CodeSource:      cfg.CodeSource,
+		WorkItemTypeKey: cfg.WorkItemTypeKey,
 		WorkItemType:    cfg.WorkItemType,
 		BranchFilter:    cfg.BranchFilter,
 		TargetBranch:    cfg.TargetBranch,
@@ -323,12 +325,12 @@ func GetLarkStageServiceConfigV2(ctx *internalhandler.Context, workspaceID, stag
 	if err != nil {
 		return nil, fmt.Errorf("failed to get work item info: %w", err)
 	}
-	
+
 	workflowCfg, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().List(&mongodb.ListWorkflowConfigV2Args{
-		WorkspaceID: workspaceID,
+		WorkspaceID:     workspaceID,
 		WorkItemTypeKey: workItemTypeKey,
-		StageName: stageName,
-		TemplateID: templateID,
+		StageName:       stageName,
+		TemplateID:      templateID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflow configs: %w", err)
@@ -353,11 +355,11 @@ func GetLarkStageServiceConfigV2(ctx *internalhandler.Context, workspaceID, stag
 }
 
 type UpdateLarkWorkItemStageWorkflowInputV2Req struct {
-	Configs     []*struct {
-		ServiceName     string `json:"service_name"`
-		ServiceModule   string `json:"service_module"`
-		Branch          string `json:"branch"`
-		PRs             []int  `json:"prs"`
+	Configs []*struct {
+		ServiceName   string `json:"service_name"`
+		ServiceModule string `json:"service_module"`
+		Branch        string `json:"branch"`
+		PRs           []int  `json:"prs"`
 	} `json:"configs"`
 }
 
@@ -366,16 +368,16 @@ func UpdateLarkWorkItemStageWorkflowInputV2(ctx *internalhandler.Context, stageN
 
 	for _, item := range req.Configs {
 		inputConfig = append(inputConfig, &commonmodels.LarkPluginWorkItemStageWorkflowInputConfig{
-			StageName: stageName,
-			WorkspaceID: workspaceID,
+			StageName:       stageName,
+			WorkspaceID:     workspaceID,
 			WorkItemTypeKey: workItemTypeKey,
-			WorkItemID: workItemID,
-			
-			ServiceName: item.ServiceName,
+			WorkItemID:      workItemID,
+
+			ServiceName:   item.ServiceName,
 			ServiceModule: item.ServiceModule,
-			Branch: item.Branch,
-			PRs: item.PRs,
-			UpdateBy: ctx.UserName,
+			Branch:        item.Branch,
+			PRs:           item.PRs,
+			UpdateBy:      ctx.UserName,
 		})
 	}
 	if err := mongodb.NewLarkPluginWorkItemStageWorkflowInputConfigColl().ReplaceByWorkItem(workspaceID, stageName, workItemTypeKey, workItemID, inputConfig); err != nil {
@@ -614,7 +616,7 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 }
 
 type LarkWorkItemResp struct {
-	ID              int64 `json:"id"`
+	ID              int64  `json:"id"`
 	Name            string `json:"name"`
 	WorkItemTypeKey string `json:"work_item_type_key,omitempty"`
 	WorkItemStatus  string `json:"status,omitempty"`
@@ -623,7 +625,7 @@ type LarkWorkItemResp struct {
 func GetLarkReleaseWorkItemsV2(ctx *internalhandler.Context, workspaceID, stageName string) ([]*LarkWorkItemResp, error) {
 	if stageName != "release" {
 		return nil, fmt.Errorf("stage name must be release")
-	}	
+	}
 	stageConfig, err := mongodb.NewLarkPluginStageConfigV2Coll().GetByStage(workspaceID, stageName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stage config: %w", err)
@@ -651,10 +653,10 @@ func GetLarkReleaseWorkItemsV2(ctx *internalhandler.Context, workspaceID, stageN
 
 	for _, item := range larkResp.Data {
 		resp = append(resp, &LarkWorkItemResp{
-			ID: util.GetInt64FromPointer(item.ID),
-			Name: util.GetStringFromPointer(item.Name),
+			ID:              util.GetInt64FromPointer(item.ID),
+			Name:            util.GetStringFromPointer(item.Name),
 			WorkItemTypeKey: util.GetStringFromPointer(item.WorkItemTypeKey),
-			WorkItemStatus: util.GetStringFromPointer(item.WorkItemStatus.StateKey),
+			WorkItemStatus:  util.GetStringFromPointer(item.WorkItemStatus.StateKey),
 		})
 	}
 
@@ -684,7 +686,7 @@ func BindLarkWorkitemToReleaseV2(ctx *internalhandler.Context, workspaceID, work
 		ReleaseItemID:      req.RealeaseItemID,
 		ReleaseItemTypeKey: req.RealeaseItemTypeKey,
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create workitem bind: %w", err)
 	}
@@ -711,7 +713,7 @@ func GetLarkWorkitemBindV2(ctx *internalhandler.Context, workspaceID, workItemTy
 	}
 
 	return &GetLarkWorkitemBindV2Resp{
-		Bound: true,
+		Bound:               true,
 		RealeaseItemTypeKey: bind.ReleaseItemTypeKey,
 		RealeaseItemID:      bind.ReleaseItemID,
 	}, nil
@@ -730,12 +732,13 @@ type ListLarkReleaseBindItemsV2Resp struct {
 }
 
 type LarkReleaseBindItem struct {
-	WorkItemTypeKey string `json:"work_item_type_key"`
-	WorkItemID      string `json:"work_item_id"`
-	WorkItemName    string `json:"work_item_name"`
+	WorkItemTypeKey string   `json:"work_item_type_key"`
+	WorkItemID      string   `json:"work_item_id"`
+	WorkItemName    string   `json:"work_item_name"`
+	WorkItemStatus  []string `json:"work_item_status,omitempty"`
 
-	Branch          string `json:"branch"`
-	Services        []*commonmodels.ServiceWithModule `json:"services"`
+	Branch   string                            `json:"branch"`
+	Services []*commonmodels.ServiceWithModule `json:"services"`
 }
 
 func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, releaseItemID string) (*ListLarkReleaseBindItemsV2Resp, error) {
@@ -749,14 +752,76 @@ func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, relea
 		return nil, fmt.Errorf("failed to get release stage setting: %w", err)
 	}
 
+	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	workItemStatusByKey := make(map[string][]string)
+
+	workItemIDsByType := make(map[string]map[int64]struct{})
+	for _, bind := range binds {
+		if bind.WorkItemTypeKey == "" || bind.WorkItemID == "" {
+			continue
+		}
+		workItemID, err := strconv.ParseInt(bind.WorkItemID, 10, 64)
+		if err != nil {
+			ctx.Logger.Warnf("ListLarkReleaseBindItemsV2: skip invalid work item id %q for type %q: %v", bind.WorkItemID, bind.WorkItemTypeKey, err)
+			continue
+		}
+		if _, ok := workItemIDsByType[bind.WorkItemTypeKey]; !ok {
+			workItemIDsByType[bind.WorkItemTypeKey] = make(map[int64]struct{})
+		}
+		workItemIDsByType[bind.WorkItemTypeKey][workItemID] = struct{}{}
+	}
+
+	for workItemTypeKey, idSet := range workItemIDsByType {
+		workItemIDs := make([]int64, 0, len(idSet))
+		for id := range idSet {
+			workItemIDs = append(workItemIDs, id)
+		}
+
+		larkResp, err := larkClient.ClientV2.WorkItem.GetWorkItemsByIds(ctx, workitem.NewGetWorkItemsByIdsReqBuilder().
+			ProjectKey(workspaceID).
+			WorkItemTypeKey(workItemTypeKey).
+			WorkItemIDs(workItemIDs).
+			Build(),
+			sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+			sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get lark workitem status: %w", err)
+		}
+		if larkResp.Code() != 0 {
+			return nil, fmt.Errorf("failed to get lark workitem status, code: %d, message: %s", larkResp.Code(), larkResp.ErrMsg)
+		}
+
+		for _, workItem := range larkResp.Data {
+			key := fmt.Sprintf("%s:%d", workItemTypeKey, util.GetInt64FromPointer(workItem.ID))
+
+			var currentStatus []string
+			if *workItem.Pattern == string(meego.WorkItemPatternNode) {
+				for _, currentNode := range workItem.CurrentNodes {
+					currentStatus = append(currentStatus, *currentNode.Name)
+				}
+			} else if *workItem.Pattern == string(meego.WorkItemPatternState) {
+				currentStatus = append(currentStatus, *workItem.WorkItemStatus.StateKey)
+			} else {
+				return nil, fmt.Errorf("unsupported pattern %s", *workItem.Pattern)
+			}
+
+			workItemStatusByKey[key] = currentStatus
+		}
+	}
+
 	resp := make([]*LarkReleaseBindItem, 0)
 
 	for _, bind := range binds {
 		item := &LarkReleaseBindItem{
 			WorkItemTypeKey: bind.WorkItemTypeKey,
-			WorkItemID: bind.WorkItemID,
-			WorkItemName: bind.WorkItemName,
-			Branch: releaseStageSetting.TargetBranch,
+			WorkItemID:      bind.WorkItemID,
+			WorkItemName:    bind.WorkItemName,
+			Branch:          releaseStageSetting.TargetBranch,
+		}
+
+		if workItemStatus, ok := workItemStatusByKey[fmt.Sprintf("%s:%s", bind.WorkItemTypeKey, bind.WorkItemID)]; ok {
+			item.WorkItemStatus = workItemStatus
 		}
 
 		services := make([]*commonmodels.ServiceWithModule, 0)
@@ -765,7 +830,7 @@ func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, relea
 		if err != nil {
 			return nil, fmt.Errorf("failed to get stage service configs: %w", err)
 		}
-		
+
 		for _, cfg := range configs {
 			services = append(services, &commonmodels.ServiceWithModule{
 				ServiceName:   cfg.ServiceName,
@@ -784,20 +849,20 @@ func ListLarkReleaseBindItemsV2(ctx *internalhandler.Context, workspaceID, relea
 
 type LarkWorkitemStage struct {
 	// stageName/workspaceID is the foreign key combination to link to the LarkPluginWorkflowConfigV2
-	StageName    string             `json:"stage_name"`
-	WorkspaceID  string             `json:"workspace_id"`
+	StageName   string `json:"stage_name"`
+	WorkspaceID string `json:"workspace_id"`
 
-	Items        []*LarkWorkItemSpec `json:"items"`
+	Items []*LarkWorkItemSpec `json:"items"`
 }
 
 type LarkWorkItemSpec struct {
 	// when the stage name is not release, work item type/templateID/nodeID together forms the unique node setting
-	WorkItemTypeKey   string             `json:"work_item_type_key"`
-	WorkItemType      string             `json:"work_item_type"`
-	TemplateID        int64              `json:"template_id"`
-	TemplateName      string             `json:"template_name"`
-	NodeID            string             `json:"node_id"`
-	NodeName          string             `json:"node_name"`
+	WorkItemTypeKey string `json:"work_item_type_key"`
+	WorkItemType    string `json:"work_item_type"`
+	TemplateID      int64  `json:"template_id"`
+	TemplateName    string `json:"template_name"`
+	NodeID          string `json:"node_id"`
+	NodeName        string `json:"node_name"`
 }
 
 func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) ([]*LarkWorkitemStage, error) {
@@ -807,9 +872,9 @@ func ListLarkWorkitemStagesV2(ctx *internalhandler.Context, workspaceID, workIte
 	}
 
 	workflowConfigs, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().List(&mongodb.ListWorkflowConfigV2Args{
-		WorkspaceID: workspaceID,
+		WorkspaceID:     workspaceID,
 		WorkItemTypeKey: workItemTypeKey,
-		TemplateID: templateID,
+		TemplateID:      templateID,
 	})
 
 	if err != nil {
@@ -858,6 +923,6 @@ func GetLarkWorkitemInfoV2(ctx *internalhandler.Context, workspaceID, workItemTy
 
 	return &GetLarkWorkitemInfoV2Resp{
 		TemplateID: templateID,
-		NodeID: nodeID,
+		NodeID:     nodeID,
 	}, nil
 }
