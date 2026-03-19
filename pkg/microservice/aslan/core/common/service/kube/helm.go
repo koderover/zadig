@@ -935,7 +935,7 @@ type HelmManifestFile struct {
 	Content string `json:"content"`
 }
 
-func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, chartVersion string, production bool, isChartInstantiateDeploy bool, helmClient *helmtool.HelmClient) ([]*HelmManifestFile, error) {
+func GetHelmChartManifest(env *commonmodels.Product, service *commonmodels.Service, valuesYaml, chartName, chartVersion string, production bool, isChartInstantiateDeploy bool, helmClient *helmtool.HelmClient) ([]*HelmManifestFile, error) {
 	chartPath, err := PreLoadHelmServiceChart(service, production, &chartInstantiateDeploy{
 		ChartName:                chartName,
 		ChartVersion:             chartVersion,
@@ -945,8 +945,9 @@ func GetHelmChartManifest(service *commonmodels.Service, valuesYaml, chartName, 
 		return nil, fmt.Errorf("failed to pre load helm service chart, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", service.ServiceName, chartName, chartVersion, err)
 	}
 
+	releaseName := util.GeneReleaseName(service.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, service.ServiceName)
 	chartSpec := &helmclient.ChartSpec{
-		GenerateName: true,
+		ReleaseName: releaseName,
 		ChartName:    chartPath,
 		Version:      chartVersion,
 		ValuesYaml:   valuesYaml,

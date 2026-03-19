@@ -1659,7 +1659,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				currentManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(prod, latestTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, true, helmClient)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
@@ -1685,7 +1685,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 					return nil, fmt.Errorf("failed to new helm client, err %s", err)
 				}
 
-				currentManifestFiles, err = kube.GetHelmChartManifest(currentTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+				currentManifestFiles, err = kube.GetHelmChartManifest(prod, currentTmplSvc, currentYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get current helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", currentTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 				}
@@ -1737,7 +1737,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			latestManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(prod, latestTmplSvc, latestYaml, arg.ChartName, arg.ChartVersion, arg.Production, true, helmClient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, arg.ChartName, arg.ChartVersion, err)
 			}
@@ -1790,7 +1790,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
 
-			latestManifestFiles, err = kube.GetHelmChartManifest(latestTmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
+			latestManifestFiles, err = kube.GetHelmChartManifest(prod, latestTmplSvc, latestYaml, render.ChartName, render.ChartVersion, arg.Production, false, helmClient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest helm chart manifest, serviceName: %s, chartName: %s, chartVersion: %s, err: %s", latestTmplSvc.ServiceName, render.ChartName, render.ChartVersion, err)
 			}
