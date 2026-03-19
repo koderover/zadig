@@ -35,6 +35,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func RestartDeploymentV2(ctx context.Context, clusterID, namespace, name string) error {
@@ -283,6 +284,11 @@ func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, origin
 		if err != nil {
 			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
 		}
+
+		log.Infof("[CreateOrPatchDeploymentV2] original yaml is: %s", string(originalJSONMutated))
+		log.Infof("[CreateOrPatchDeploymentV2] target yaml is: %s", string(targetJSONMutated))
+		log.Infof("[CreateOrPatchDeploymentV2] live yaml is: %s", string(liveJSON))
+		log.Infof("[CreateOrPatchDeploymentV2] patch bytes is: %s", string(patchBytes))
 
 		if string(patchBytes) == "{}" {
 			return nil
