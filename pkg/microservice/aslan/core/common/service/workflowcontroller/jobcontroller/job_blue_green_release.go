@@ -72,7 +72,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 		return
 	}
 	// ensure delete blue service.
-	if err := updater.DeleteService(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueK8sServiceName, kubeClient); err != nil {
+	if err := updater.DeleteServicesV2(context.TODO(), c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, updater.WithName(c.jobTaskSpec.BlueK8sServiceName)); err != nil {
 		c.logger.Errorf("delete blue service error: %v", err)
 	}
 	//
@@ -86,8 +86,10 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 	}
 	// if it was the first time blue-green deployment, clean the origin labels.
 	if service.Spec.Selector[config.BlueGreenVersionLabelName] == config.OriginVersion {
-		delete(service.Spec.Selector, config.BlueGreenVersionLabelName)
-		if err := updater.CreateOrPatchService(service, kubeClient); err != nil {
+		if err := updater.UpdateServiceV2(context.TODO(), c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, c.jobTaskSpec.K8sServiceName, func(svc *corev1.Service) error {
+			delete(svc.Spec.Selector, config.BlueGreenVersionLabelName)
+			return nil
+		}); err != nil {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
 		}
@@ -142,7 +144,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	blueServiceName := c.jobTaskSpec.BlueK8sServiceName
-	if err := updater.DeleteService(c.jobTaskSpec.Namespace, blueServiceName, c.kubeClient); err != nil {
+	if err := updater.DeleteServicesV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, updater.WithName(blueServiceName)); err != nil {
 		// delete failed, but we don't care
 		msg := fmt.Sprintf("delete blue service: %s failed: %v", blueServiceName, err)
 		c.jobTaskSpec.Events.Error(msg)

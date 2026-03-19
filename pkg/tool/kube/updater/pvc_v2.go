@@ -17,14 +17,19 @@ package updater
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -94,6 +99,102 @@ func CreatePVCV2(ctx context.Context, clusterID, namespace string, pvc *corev1.P
 	if err != nil {
 		return fmt.Errorf("failed to create PVC %s/%s: %w", namespace, pvc.Name, err)
 	}
+	return nil
+}
+
+func CreateOrPatchPVCV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
+	if err != nil {
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj corev1.PersistentVolumeClaim
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to PVC: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("PVC name cannot be empty in target YAML")
+	}
+
+	targetObj.SetNamespace(namespace)
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj corev1.PersistentVolumeClaim
+		if err := json.Unmarshal(originalJSON, &originalObj); err == nil {
+			originalObj.SetNamespace(namespace)
+			originalJSONMutated, _ = json.Marshal(originalObj)
+		} else {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		liveObj, err := c.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+
+		if apierrors.IsNotFound(err) {
+			_, createErr := c.CoreV1().PersistentVolumeClaims(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+			return createErr
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get live state: %w", err)
+		}
+
+		liveJSON, err := json.Marshal(liveObj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal live object: %w", err)
+		}
+
+		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return fmt.Errorf("failed to create lookup patch meta: %w", err)
+		}
+
+		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
+			originalJSONMutated,
+			targetJSONMutated,
+			liveJSON,
+			lookupPatchMeta,
+			true,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
+		}
+
+		if string(patchBytes) == "{}" {
+			return nil
+		}
+
+		_, err = c.CoreV1().PersistentVolumeClaims(namespace).Patch(
+			ctx,
+			name,
+			types.StrategicMergePatchType,
+			patchBytes,
+			metav1.PatchOptions{},
+		)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("PVC operation failed after retries: %w", err)
+	}
+
 	return nil
 }
 

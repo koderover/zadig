@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -193,13 +192,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 
 		for _, env := range envs {
 			if env.RegistryID == id {
-				kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
-				if err != nil {
-					log.Errorf("[UpdateRegistryNamespace] GetKubeClient %s error: %v", env.ClusterID, err)
-					continue
-				}
-
-				err = kube.CreateOrUpdateDefaultRegistrySecret(env.Namespace, args, kubeClient)
+				err = kube.CreateOrUpdateDefaultRegistrySecret(env.Namespace, env.ClusterID, args)
 				if err != nil {
 					log.Errorf("[UpdateRegistryNamespaces] CreateOrUpdateDefaultRegistrySecret, namespace: %s, regID: %s error: %s", env.Namespace, id, err)
 				}

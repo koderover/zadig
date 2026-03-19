@@ -1226,7 +1226,7 @@ func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, 
 	}
 }
 
-func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.RegistryNamespace, kubeClient crClient.Client) error {
+func createOrUpdateRegistrySecrets(namespace, clusterID string, registries []*commonmodels.RegistryNamespace) error {
 	for _, reg := range registries {
 		if reg.AccessKey == "" {
 			continue
@@ -1255,7 +1255,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.
 			Data: data,
 			Type: corev1.SecretTypeDockercfg,
 		}
-		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+		if err := updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret); err != nil {
 			return err
 		}
 	}

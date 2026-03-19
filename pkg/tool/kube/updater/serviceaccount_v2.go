@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -34,13 +33,26 @@ func DeleteServiceAccountsV2(ctx context.Context, clusterID, namespace string, o
 		opt(config)
 	}
 
-	if config.selector == "" {
-		return fmt.Errorf("must specify a selector for service account deletion")
+	if config.name == "" && config.selector == "" {
+		return fmt.Errorf("must specify either a name or a selector for deletion to prevent accidental namespace wipeout")
+	}
+	if config.name != "" && config.selector != "" {
+		return fmt.Errorf("cannot specify both name and selector simultaneously")
 	}
 
-	c, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	propagationPolicy := metav1.DeletePropagationForeground
+	deleteOpts := metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}
+
+	if config.name != "" {
+		err = c.CoreV1().ServiceAccounts(namespace).Delete(ctx, config.name, deleteOpts)
+		return util.IgnoreNotFoundError(err)
 	}
 
 	selector, err := labels.Parse(config.selector)
@@ -48,13 +60,9 @@ func DeleteServiceAccountsV2(ctx context.Context, clusterID, namespace string, o
 		return fmt.Errorf("failed to parse selector %q: %w", config.selector, err)
 	}
 
-	propagationPolicy := metav1.DeletePropagationForeground
-	deleteOpts := &client.DeleteAllOfOptions{
-		DeleteOptions: client.DeleteOptions{PropagationPolicy: &propagationPolicy},
-		ListOptions:   client.ListOptions{LabelSelector: selector, Namespace: namespace},
-	}
-
-	err = c.DeleteAllOf(ctx, &corev1.ServiceAccount{}, deleteOpts)
+	err = c.CoreV1().ServiceAccounts(namespace).DeleteCollection(ctx, deleteOpts, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
 	return util.IgnoreNotFoundError(err)
 }
 

@@ -50,14 +50,8 @@ func FilterWorkloadsByEnv(exist []commonmodels.Workload, productName, env string
 func DeleteClusterResource(selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("Deleting cluster resources with selector: [%s]", selector)
 
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
-		return err
-	}
-
 	errors := new(multierror.Error)
-	if err := updater.DeleteClusterRoles(selector, clientset); err != nil {
+	if err := updater.DeleteClusterRolesV2(context.Background(), clusterID, updater.WithSelector(selector.String())); err != nil {
 		log.Errorf("failed to delete clusterRoles for clusterID: %s, the error is: %s", clusterID, err)
 		errors = multierror.Append(errors, err)
 	}
@@ -73,12 +67,6 @@ func DeleteClusterResource(selector labels.Selector, clusterID string, log *zap.
 // DeleteNamespacedResource deletes the namespaced resources by labels.
 func DeleteNamespacedResource(namespace string, selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("Deleting namespaced resources with selector: [%s] in namespace [%s]", selector, namespace)
-
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
-		return err
-	}
 
 	errors := new(multierror.Error)
 
@@ -103,7 +91,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteJobs error: %v", err))
 	}
 
-	if err := updater.DeleteServices(namespace, selector, clientset); err != nil {
+	if err := updater.DeleteServicesV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteServices error: %v", err))
 	}
@@ -114,7 +102,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteIngresses error: %v", err))
 	}
 
-	if err := updater.DeleteSecrets(namespace, selector, clientset); err != nil {
+	if err := updater.DeleteSecretsV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteSecrets error: %v", err))
 	}
@@ -129,7 +117,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeletePersistentVolumeClaim error: %v", err))
 	}
 
-	if err := updater.DeleteServiceAccounts(namespace, selector, clientset); err != nil {
+	if err := updater.DeleteServiceAccountsV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteServiceAccounts error: %v", err))
 	}

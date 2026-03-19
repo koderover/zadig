@@ -115,7 +115,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(namespace, product.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr

@@ -17,12 +17,18 @@ package updater
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -56,4 +62,194 @@ func DeleteClusterRolesV2(ctx context.Context, clusterID string, opts ...DeleteO
 
 	err = c.DeleteAllOf(ctx, &rbacv1.ClusterRole{}, deleteOpts)
 	return util.IgnoreNotFoundError(err)
+}
+
+// CreateOrPatchClusterRoleV2 is cluster-scoped (no namespace).
+func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, targetYAML string) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
+	if err != nil {
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj rbacv1.ClusterRole
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to ClusterRole: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("clusterrole name cannot be empty in target YAML")
+	}
+
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj rbacv1.ClusterRole
+		if err := json.Unmarshal(originalJSON, &originalObj); err == nil {
+			originalJSONMutated, _ = json.Marshal(originalObj)
+		} else {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		liveObj, err := c.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+
+		if apierrors.IsNotFound(err) {
+			_, createErr := c.RbacV1().ClusterRoles().Create(ctx, &targetObj, metav1.CreateOptions{})
+			return createErr
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get live state: %w", err)
+		}
+
+		liveJSON, err := json.Marshal(liveObj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal live object: %w", err)
+		}
+
+		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&rbacv1.ClusterRole{})
+		if err != nil {
+			return fmt.Errorf("failed to create lookup patch meta: %w", err)
+		}
+
+		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
+			originalJSONMutated,
+			targetJSONMutated,
+			liveJSON,
+			lookupPatchMeta,
+			true,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
+		}
+
+		if string(patchBytes) == "{}" {
+			return nil
+		}
+
+		_, err = c.RbacV1().ClusterRoles().Patch(
+			ctx,
+			name,
+			types.StrategicMergePatchType,
+			patchBytes,
+			metav1.PatchOptions{},
+		)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("clusterrole operation failed after retries: %w", err)
+	}
+
+	return nil
+}
+
+// CreateOrPatchClusterRoleBindingV2 is cluster-scoped (no namespace).
+func CreateOrPatchClusterRoleBindingV2(ctx context.Context, clusterID, originalYAML, targetYAML string) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
+	if err != nil {
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj rbacv1.ClusterRoleBinding
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to ClusterRoleBinding: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("clusterrolebinding name cannot be empty in target YAML")
+	}
+
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj rbacv1.ClusterRoleBinding
+		if err := json.Unmarshal(originalJSON, &originalObj); err == nil {
+			originalJSONMutated, _ = json.Marshal(originalObj)
+		} else {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		liveObj, err := c.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{})
+
+		if apierrors.IsNotFound(err) {
+			_, createErr := c.RbacV1().ClusterRoleBindings().Create(ctx, &targetObj, metav1.CreateOptions{})
+			return createErr
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get live state: %w", err)
+		}
+
+		liveJSON, err := json.Marshal(liveObj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal live object: %w", err)
+		}
+
+		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&rbacv1.ClusterRoleBinding{})
+		if err != nil {
+			return fmt.Errorf("failed to create lookup patch meta: %w", err)
+		}
+
+		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
+			originalJSONMutated,
+			targetJSONMutated,
+			liveJSON,
+			lookupPatchMeta,
+			true,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
+		}
+
+		if string(patchBytes) == "{}" {
+			return nil
+		}
+
+		_, err = c.RbacV1().ClusterRoleBindings().Patch(
+			ctx,
+			name,
+			types.StrategicMergePatchType,
+			patchBytes,
+			metav1.PatchOptions{},
+		)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("clusterrolebinding operation failed after retries: %w", err)
+	}
+
+	return nil
 }

@@ -89,7 +89,7 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 	if err != nil {
 		c.logger.Warnf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
 	}
-	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
+	err = updater.DeleteServicesV2(context.TODO(), clusterID, c.namespace, updater.WithName(c.jobTaskSpec.Service.BlueServiceName))
 	if err != nil {
 		c.logger.Warnf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
 	}

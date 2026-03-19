@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"sync"
@@ -158,7 +159,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	err = updater.UpdateOrCreateSecret(secret, kubeClient)
+	err = updater.CreateOrUpdateSecretV2(context.TODO(), product.ClusterID, secret)
 	if err != nil {
 		log.Error(err)
 		return e.ErrUpdateResource.AddDesc(err.Error())

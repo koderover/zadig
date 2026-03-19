@@ -63,11 +63,6 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
-	if err != nil {
-		return err
-	}
-
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
@@ -76,7 +71,7 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, prod.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -414,7 +409,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, productObj.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr

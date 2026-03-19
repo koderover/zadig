@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -219,17 +220,12 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName s
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrUpdateResource.AddErr(err)
-	}
-
 	yamlData, err := ensureLabelAndNs(u, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	err = updater.UpdateOrCreateUnstructured(u, kubeClient)
+	err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData)
 	if err != nil {
 		log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 		return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))

@@ -17,13 +17,17 @@ package updater
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -42,41 +46,54 @@ func DeleteServicesV2(ctx context.Context, clusterID, namespace string, opts ...
 		return fmt.Errorf("cannot specify both name and selector simultaneously")
 	}
 
-	cl, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
 	}
 
+	propagationPolicy := metav1.DeletePropagationForeground
+	deleteOpts := metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}
+
 	if config.name != "" {
-		svc := &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      config.name,
-			},
-		}
-		err = cl.Delete(ctx, svc)
+		err = c.CoreV1().Services(namespace).Delete(ctx, config.name, deleteOpts)
 		return util.IgnoreNotFoundError(err)
 	}
 
-	if config.selector != "" {
-		selector, err := labels.Parse(config.selector)
-		if err != nil {
-			return fmt.Errorf("failed to parse selector %q: %w", config.selector, err)
-		}
-
-		deploy := &corev1.Service{}
-
-		propagationPolicy := metav1.DeletePropagationBackground
-		deleteOpts := &client.DeleteAllOfOptions{
-			DeleteOptions: client.DeleteOptions{PropagationPolicy: &propagationPolicy},
-			ListOptions:   client.ListOptions{LabelSelector: selector, Namespace: namespace},
-		}
-
-		err = cl.DeleteAllOf(ctx, deploy, deleteOpts)
-		return util.IgnoreNotFoundError(err)
+	// Kubernetes Services don't support DeleteCollection, so list + delete individually
+	selector, err := labels.Parse(config.selector)
+	if err != nil {
+		return fmt.Errorf("failed to parse selector %q: %w", config.selector, err)
 	}
 
-	return fmt.Errorf("must specify either a name or a selector for deletion of the service to prevent accidental namespace wipeout")
+	services, err := c.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return fmt.Errorf("failed to list services matching %q in %s: %w", config.selector, namespace, err)
+	}
+
+	var lastErr error
+	for _, svc := range services.Items {
+		if err := c.CoreV1().Services(namespace).Delete(ctx, svc.Name, deleteOpts); err != nil {
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
+func CreateServiceV2(ctx context.Context, clusterID, namespace string, svc *corev1.Service) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	svc.SetNamespace(namespace)
+	_, err = c.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create service %s/%s: %w", namespace, svc.Name, err)
+	}
+
+	return nil
 }
 
 // UpdateServiceV2 takes the cluster and resource info to identify a service, and uses the mutation function to update it with retry on conflict.
@@ -103,16 +120,94 @@ func UpdateServiceV2(ctx context.Context, clusterID, namespace, serviceName stri
 	return err
 }
 
-func CreateServiceV2(ctx context.Context, clusterID, namespace string, svc *corev1.Service) error {
+// CreateOrPatchServiceV2 implements a 3-way merge patch for Service.
+func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
 	}
 
-	svc.SetNamespace(namespace)
-	_, err = c.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
 	if err != nil {
-		return fmt.Errorf("failed to create service %s/%s: %w", namespace, svc.Name, err)
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj corev1.Service
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to Service: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("service name cannot be empty in target YAML")
+	}
+
+	targetObj.SetNamespace(namespace)
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj corev1.Service
+		if err := json.Unmarshal(originalJSON, &originalObj); err == nil {
+			originalObj.SetNamespace(namespace)
+			originalJSONMutated, _ = json.Marshal(originalObj)
+		} else {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		liveObj, err := c.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+
+		if apierrors.IsNotFound(err) {
+			_, createErr := c.CoreV1().Services(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+			return createErr
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get live state: %w", err)
+		}
+
+		liveJSON, err := json.Marshal(liveObj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal live object: %w", err)
+		}
+
+		lookupPatchMeta, err := strategicpatch.NewPatchMetaFromStruct(&corev1.Service{})
+		if err != nil {
+			return fmt.Errorf("failed to create lookup patch meta: %w", err)
+		}
+
+		patchBytes, err := strategicpatch.CreateThreeWayMergePatch(
+			originalJSONMutated,
+			targetJSONMutated,
+			liveJSON,
+			lookupPatchMeta,
+			true,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to calculate 3-way merge patch: %w", err)
+		}
+
+		if string(patchBytes) == "{}" {
+			return nil
+		}
+
+		_, err = c.CoreV1().Services(namespace).Patch(
+			ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+		)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("service operation failed after retries: %w", err)
 	}
 
 	return nil

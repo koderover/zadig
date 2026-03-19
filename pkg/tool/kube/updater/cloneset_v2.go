@@ -27,13 +27,15 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 )
 
-func ScaleCloneSetV2(ctx context.Context, clusterID, namespace, name string, replicas int) error {
+// PatchCloneSetV2 applies a raw merge patch to a CloneSet.
+// CloneSet is a CRD from OpenKruise so we use controller-runtime client
+// (no typed kubernetes clientset API available for CRDs).
+func PatchCloneSetV2(ctx context.Context, clusterID, namespace, name string, patchBytes []byte) error {
 	c, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
 	}
 
-	patchBytes := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
 	err = c.Patch(ctx, &v1alpha1.CloneSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -41,7 +43,12 @@ func ScaleCloneSetV2(ctx context.Context, clusterID, namespace, name string, rep
 		},
 	}, client.RawPatch(types.MergePatchType, patchBytes))
 	if err != nil {
-		return fmt.Errorf("failed to scale CloneSet %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("failed to patch CloneSet %s/%s: %w", namespace, name, err)
 	}
 	return nil
+}
+
+func ScaleCloneSetV2(ctx context.Context, clusterID, namespace, name string, replicas int) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
+	return PatchCloneSetV2(ctx, clusterID, namespace, name, patchBytes)
 }

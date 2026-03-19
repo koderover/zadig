@@ -88,6 +88,7 @@ func init() {
 type HelmClient struct {
 	*hc.HelmClient
 	kubeClient     client.Client
+	ClusterID      string
 	Namespace      string
 	KubeVersion    *helmchartutil.KubeVersion
 	lock           *sync.Mutex
@@ -165,6 +166,7 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 	return &HelmClient{
 		HelmClient:     helmClient,
 		kubeClient:     kubeClient,
+		ClusterID:      clusterID,
 		Namespace:      namespace,
 		KubeVersion:    kubeVersion,
 		lock:           &sync.Mutex{},
@@ -473,11 +475,8 @@ func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string
 	if maxHistoryCount <= 0 || len(releases) < maxHistoryCount {
 		return nil
 	}
-	if hClient.kubeClient == nil {
-		return errors.New("kubeClient is nil")
-	}
 	secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, releaseName, releases[len(releases)-1].Version)
-	return updater.DeleteSecretWithName(hClient.Namespace, secretName, hClient.kubeClient)
+	return updater.DeleteSecretWithNameV2(context.TODO(), hClient.ClusterID, hClient.Namespace, secretName)
 }
 
 // getChart returns a chart matching the provided chart name and options.

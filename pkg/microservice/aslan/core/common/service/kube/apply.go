@@ -724,7 +724,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal ingress %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchIngressV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -737,7 +748,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal service %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchServiceV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1023,13 +1045,47 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					continue
 				}
 			}
-		case setting.ClusterRole, setting.ClusterRoleBinding:
+		case setting.ClusterRole:
 			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
 
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal clusterrole %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchClusterRoleV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
+		case setting.ClusterRoleBinding:
+			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal clusterrolebinding %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchClusterRoleBindingV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))

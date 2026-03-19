@@ -286,7 +286,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.Registries, c.kubeclient); err != nil {
+	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Registries); err != nil {
 		msg := fmt.Sprintf("create secret error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)

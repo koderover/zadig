@@ -95,16 +95,11 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 		return e.ErrDeleteResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrDeleteResource.AddErr(err)
-	}
-
 	switch commonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
 		err = updater.DeleteConfigMapV2(context.TODO(), product.ClusterID, product.Namespace, objectName)
 	case config.CommonEnvCfgTypeSecret:
-		err = updater.DeleteSecretWithName(product.Namespace, objectName, kubeClient)
+		err = updater.DeleteSecretWithNameV2(context.TODO(), product.ClusterID, product.Namespace, objectName)
 	case config.CommonEnvCfgTypeIngress:
 		err = updater.DeleteIngressesV2(context.TODO(), product.ClusterID, product.Namespace, updater.WithName(objectName))
 	case config.CommonEnvCfgTypePvc:
@@ -239,11 +234,6 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrUpdateResource.AddErr(err)
-	}
-
 	u, err := serializer.NewDecoder().YamlToUnstructured(js)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -296,7 +286,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+		if err := updater.CreateOrUpdateSecretV2(context.TODO(), product.ClusterID, secret); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddDesc(err.Error())
 		}
@@ -315,7 +305,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		err = updater.UpdateOrCreateUnstructured(u, kubeClient)
+		err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData)
 		if err != nil {
 			log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 			return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))

@@ -100,7 +100,7 @@ func EnsureNamespaceLabels(namespace, clusterID string, customLabels map[string]
 	})
 }
 
-func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {
+func CreateOrUpdateRSASecret(publicKey, privateKey []byte, clusterID string) error {
 	data := make(map[string][]byte)
 
 	data["publicKey"] = publicKey
@@ -114,14 +114,14 @@ func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Cli
 		Data: data,
 		Type: corev1.SecretTypeOpaque,
 	}
-	return updater.UpdateOrCreateSecret(secret, kubeClient)
+	return updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret)
 }
 
-func CreateOrUpdateDefaultRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
-	return CreateOrUpdateRegistrySecret(namespace, reg, true, kubeClient)
+func CreateOrUpdateDefaultRegistrySecret(namespace, clusterID string, reg *commonmodels.RegistryNamespace) error {
+	return CreateOrUpdateRegistrySecret(namespace, clusterID, reg, true)
 }
 
-func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, isDefault bool, kubeClient client.Client) error {
+func CreateOrUpdateRegistrySecret(namespace, clusterID string, reg *commonmodels.RegistryNamespace, isDefault bool) error {
 	var secretName string
 	var err error
 	if !isDefault {
@@ -152,7 +152,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 		Data: data,
 		Type: corev1.SecretTypeDockercfg,
 	}
-	return updater.UpdateOrCreateSecret(secret, kubeClient)
+	return updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret)
 }
 
 func GenRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
