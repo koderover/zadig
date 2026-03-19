@@ -139,7 +139,7 @@ func (c *Client) GetWorkItemTypesList(projectKey string) ([]*WorkItemType, error
 	)
 
 	if err != nil {
-		log.Errorf("error occured when getting meego workload item types, error: %s", err)
+		log.Errorf("error occurred when getting meego workload item types, error: %s", err)
 		return nil, err
 	}
 
