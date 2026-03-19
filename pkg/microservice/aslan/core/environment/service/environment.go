@@ -536,9 +536,10 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 }
 
 type UpdateServiceArg struct {
-	ServiceName    string                          `json:"service_name"`
-	DeployStrategy string                          `json:"deploy_strategy"`
-	VariableKVs    []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	ServiceName     string                          `json:"service_name"`
+	DeployStrategy  string                          `json:"deploy_strategy"`
+	VariableKVs     []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	OverrideResource bool                           `json:"override_resource"`
 }
 
 type UpdateEnv struct {
@@ -593,10 +594,12 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		}
 
 		strategyMap := make(map[string]string)
+		overrideResourceMap := make(map[string]bool)
 		updateSvcs := make([]*templatemodels.ServiceRender, 0)
 		updateRevisionSvcs := make([]string, 0)
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
+			overrideResourceMap[svc.ServiceName] = svc.OverrideResource
 
 			err = commontypes.ValidateRenderVariables(exitedProd.GlobalVariables, svc.VariableKVs)
 			if err != nil {
@@ -620,7 +623,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, exitedProd.GlobalVariables, log)
+		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, overrideResourceMap, force, exitedProd.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -647,7 +650,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 // TODO need optimize
 // cvm and k8s yaml projects should not be handled together
-func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) (err error) {
+func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, overrideResource map[string]bool, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) (err error) {
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -813,7 +816,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						updateProd,
 						service,
 						curEnv.GetServiceMap()[service.ServiceName],
-						!updateProd.Production, inf, kubeClient, istioClient, log)
+						!updateProd.Production, overrideResource[service.ServiceName], inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
 						service.Error = errUpsertService.Error()
 					} else {
@@ -2181,7 +2184,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 		}
 		return false
 	}
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, false, productResp.GlobalVariables, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, nil, false, productResp.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
@@ -2898,7 +2901,7 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 }
 
 // upsertService
-func upsertService(env *commonmodels.Product, newService *commonmodels.ProductService, prevSvc *commonmodels.ProductService, addLabel bool, informer informers.SharedInformerFactory,
+func upsertService(env *commonmodels.Product, newService *commonmodels.ProductService, prevSvc *commonmodels.ProductService, addLabel bool, overrideResource bool, informer informers.SharedInformerFactory,
 	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
@@ -2966,6 +2969,7 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		SharedEnvHandler:         EnsureUpdateZadigService,
 		IstioGrayscaleEnvHandler: kube.EnsureUpdateGrayscaleService,
 		IsFromImportToDeploy:     isFromImportToDeploy,
+		OverrideResource:         overrideResource,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)

@@ -365,6 +365,7 @@ func UpdateService(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
+	overrideResource := c.Query("overrideResource") == "true"
 
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName"))
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s", envName, c.Param("serviceName"))
@@ -424,6 +425,7 @@ func UpdateService(c *gin.Context) {
 		ServiceRev:        svcRev,
 		UpdateBy:          ctx.UserName,
 		UpdateServiceTmpl: svcRev.UpdateServiceTmpl,
+		OverrideResource:  overrideResource,
 	}
 
 	ctx.RespErr = service.UpdateService(args, ctx.Logger)

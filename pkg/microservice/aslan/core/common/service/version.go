@@ -276,7 +276,7 @@ type RollbackEnvServiceVersionData struct {
 	HelmDeployStatusChan chan bool
 }
 
-func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
+func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
 	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
 		if mongodb.IsErrNoDocuments(err) {
@@ -462,6 +462,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					Uninstall:           false,
 					AddZadigLabel:       !isProduction,
 					SharedEnvHandler:    kube.EnsureUpdateZadigService,
+					OverrideResource:    overrideResource,
 				}
 
 				unstructuredList, err := kube.CreateOrPatchResource(resourceApplyParam, log)

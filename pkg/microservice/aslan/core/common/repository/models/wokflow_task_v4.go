@@ -233,6 +233,8 @@ type JobTaskDeploySpec struct {
 	Timeout            int                             `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
+	// overrideResource is used to do a full yaml override instead of a 2-way merge patching for all the resources
+	OverrideResource   bool                            `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
@@ -264,6 +266,7 @@ type JobTaskDeployRevertSpec struct {
 	OverrideKVs             string       `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	Revision                int64        `bson:"revision"                         json:"revision"                            yaml:"revision"`
 	RevisionCreateTime      int64        `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
+	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"` 
 }
 
 type DeployServiceModule struct {

@@ -282,7 +282,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 
 	// if not only deploy image, we will redeploy service
 	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
+		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
@@ -335,7 +335,8 @@ func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, curre
 }
 
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
-	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string) error {
+	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string, overrideResource bool) error {
+
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
 		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
@@ -360,6 +361,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		SharedEnvHandler:    nil,
 		ProductInfo:         env,
 		JobLogContext:       &joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job},
+		OverrideResource:    overrideResource,
 	}, c.logger)
 
 	if err != nil {

@@ -576,6 +576,7 @@ type DeployServiceVariableConfigList []*DeployServiceVariableConfig
 
 type DeployVariableInfo struct {
 	ValueMergeStrategy config.ValueMergeStrategy `bson:"value_merge_strategy,omitempty" json:"value_merge_strategy,omitempty" yaml:"value_merge_strategy,omitempty"`
+	YAMLMergeStrategy  config.YAMLMergeStrategy  `bson:"yaml_merge_strategy,omitempty" json:"yaml_merge_strategy,omitempty" yaml:"yaml_merge_strategy,omitempty"`
 
 	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"              json:"variable_kvs"`
 	OverrideKVs string                          `bson:"override_kvs"                     yaml:"override_kvs"              json:"override_kvs"` // used for helm services, json-encoded string of kv value

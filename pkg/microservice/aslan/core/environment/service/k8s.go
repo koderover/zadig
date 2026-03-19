@@ -209,7 +209,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 			prodinfo,
 			newProductSvc,
 			currentProductSvc,
-			!prodinfo.Production, inf, kubeClient, istioClient, k.log)
+			!prodinfo.Production, args.OverrideResource, inf, kubeClient, istioClient, k.log)
 		if err != nil {
 			k.log.Error(err)
 			newProductSvc.Error = err.Error()
@@ -677,7 +677,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, !prod.Production, false, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

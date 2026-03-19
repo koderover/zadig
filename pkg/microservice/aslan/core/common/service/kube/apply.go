@@ -81,6 +81,7 @@ type ResourceApplyParam struct {
 	JobLogContext            *joblog.JobLogContext
 	Uninstall                bool
 	WaitForUninstall         bool
+	OverrideResource         bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {

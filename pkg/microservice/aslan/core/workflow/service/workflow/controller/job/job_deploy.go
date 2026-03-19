@@ -489,6 +489,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				VersionName:        j.jobSpec.VersionName,
 				DeployContents:     j.jobSpec.DeployContents,
 				Timeout:            timeout,
+				OverrideResource:   svc.YAMLMergeStrategy == config.YAMLMergeStrategyOverride,
 			}
 
 			for _, module := range svc.Modules {

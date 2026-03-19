@@ -73,6 +73,7 @@ type SvcOptArgs struct {
 	ServiceRev        *SvcRevision
 	UpdateBy          string
 	UpdateServiceTmpl bool
+	OverrideResource  bool
 }
 
 type PreviewServiceArgs struct {
