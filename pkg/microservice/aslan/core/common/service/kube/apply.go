@@ -869,7 +869,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, err)
@@ -909,7 +914,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1005,7 +1015,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1038,7 +1053,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, "", string(resYAML))
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))

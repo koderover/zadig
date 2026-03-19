@@ -442,6 +442,9 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 				preProdSvc.RenderedYaml = preResourceYaml
 
+				log.Infof("current yaml is: %s", preProdSvc.RenderedYaml)
+				log.Infof("rollback yaml is: %s", parsedYaml)
+
 				err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
