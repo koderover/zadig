@@ -1111,6 +1111,51 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
+		case setting.ConfigMap, setting.Secret, setting.PersistentVolumeClaim,
+			setting.ServiceAccount, setting.Role, setting.RoleBinding,
+			setting.Pod, setting.ReplicaSet:
+			u.SetNamespace(namespace)
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal %s %s to YAML: %v", u.GetKind(), u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+
+			switch u.GetKind() {
+			case setting.ConfigMap:
+				err = updater.CreateOrPatchConfigMapV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.Secret:
+				err = updater.CreateOrPatchSecretV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.PersistentVolumeClaim:
+				err = updater.CreateOrPatchPVCV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.ServiceAccount:
+				err = updater.CreateOrPatchServiceAccountV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.Role:
+				err = updater.CreateOrPatchRoleV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.RoleBinding:
+				err = updater.CreateOrPatchRoleBindingV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.Pod:
+				err = updater.CreateOrPatchPodV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			case setting.ReplicaSet:
+				err = updater.CreateOrPatchReplicaSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			}
+
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
 		default:
 			u.SetNamespace(namespace)
 			u.SetLabels(MergeLabels(labels, u.GetLabels()))

@@ -17,12 +17,17 @@ package updater
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -56,4 +61,79 @@ func DeleteRolesV2(ctx context.Context, clusterID, namespace string, opts ...Del
 
 	err = c.DeleteAllOf(ctx, &rbacv1.Role{}, deleteOpts)
 	return util.IgnoreNotFoundError(err)
+}
+
+// CreateOrPatchRoleV2 implements a 2-way merge patch for Role.
+func CreateOrPatchRoleV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
+	if err != nil {
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj rbacv1.Role
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to Role: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("role name cannot be empty in target YAML")
+	}
+
+	targetObj.SetNamespace(namespace)
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj rbacv1.Role
+		if err := json.Unmarshal(originalJSON, &originalObj); err == nil {
+			originalObj.SetNamespace(namespace)
+			originalJSONMutated, _ = json.Marshal(originalObj)
+		} else {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+	}
+
+	_, err = c.RbacV1().Roles(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.RbacV1().Roles(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create role: %w", createErr)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to check role existence: %w", err)
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &rbacv1.Role{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.RbacV1().Roles(namespace).Patch(
+		ctx, name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("role patch failed: %w", err)
+	}
+
+	return nil
 }
