@@ -548,6 +548,7 @@ type LarkWorkitemWorkflowTask struct {
 	ProjectName         string                            `json:"project_name"`
 	WorkflowName        string                            `json:"workflow_name"`
 	WorkflowDisplayName string                            `json:"workflow_display_name"`
+	Stages              []*LarkWorkitemWorkflowStage      `json:"stages"`
 	Remark              string                            `json:"remark"`
 	Status              aslanconfig.Status                `json:"status"`
 	Reverted            bool                              `json:"reverted"`
@@ -558,6 +559,19 @@ type LarkWorkitemWorkflowTask struct {
 	Repos               []*types.Repository               `json:"repos"`
 	ServiceModules      []*commonmodels.ServiceWithModule `json:"service_modules"`
 	DeployEnvs          []*commonmodels.WorkflowEnv       `json:"deploy_envs"`
+}
+
+type LarkWorkitemWorkflowStage struct {
+	Name      string                     `json:"name"`
+	Status    aslanconfig.Status         `json:"status"`
+	Jobs      []*LarkWorkitemWorkflowJob `json:"jobs"`
+	StartTime int64                      `json:"start_time,omitempty"`
+	EndTime   int64                      `json:"end_time,omitempty"`
+}
+
+type LarkWorkitemWorkflowJob struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type ListLarkWorkitemWorkflowTaskResponse struct {
@@ -580,7 +594,7 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 
 	envMap := make(map[string]*commonmodels.Product)
 	resp := make([]*LarkWorkitemWorkflowTask, 0)
-	for _, task := range tasks {
+	for i, task := range tasks {
 		respTask := &LarkWorkitemWorkflowTask{
 			TaskID:              task.TaskID,
 			TaskCreator:         task.TaskCreator,
@@ -594,6 +608,27 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 			StartTime:           task.StartTime,
 			EndTime:             task.EndTime,
 			Hash:                task.Hash,
+		}
+
+		if i == 0 {
+			stages := make([]*LarkWorkitemWorkflowStage, 0)
+			for _, stage := range task.Stages {
+				jobs := make([]*LarkWorkitemWorkflowJob, 0)
+				for _, job := range stage.Jobs {
+					jobs = append(jobs, &LarkWorkitemWorkflowJob{
+						Name: job.Name,
+						Type: job.JobType,
+					})
+				}
+				stages = append(stages, &LarkWorkitemWorkflowStage{
+					Name:      stage.Name,
+					Status:    stage.Status,
+					Jobs:      jobs,
+					StartTime: stage.StartTime,
+					EndTime:   stage.EndTime,
+				})
+			}
+			respTask.Stages = stages
 		}
 
 		repoSet := sets.New[string]()
@@ -743,4 +778,3 @@ func ExecuteLarkWorkitemWorkflow(ctx *internalhandler.Context, workItemTypeKey, 
 
 	return nil
 }
-
