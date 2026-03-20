@@ -181,6 +181,10 @@ func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalY
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
 	}
 
+	fmt.Printf("originalJSONMutated: %s\n", string(originalJSONMutated))
+	fmt.Printf("targetJSONMutated: %s\n", string(targetJSONMutated))
+	fmt.Printf("patchBytes: %s\n", string(patchBytes))
+
 	if string(patchBytes) == "{}" {
 		return nil
 	}
