@@ -54,12 +54,13 @@ type SystemActions struct {
 }
 
 type WorkflowActions struct {
-	View    bool
-	Create  bool
-	Edit    bool
-	Delete  bool
-	Execute bool
-	Debug   bool
+	View     bool
+	Create   bool
+	Edit     bool
+	Delete   bool
+	Execute  bool
+	Rollback bool
+	Debug    bool
 }
 
 type EnvActions struct {
@@ -69,6 +70,8 @@ type EnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Restart    bool
+	Rollback   bool
 	Delete     bool
 	DebugPod   bool
 	// 主机登录
@@ -82,6 +85,8 @@ type ProductionEnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Restart    bool
+	Rollback   bool
 	Delete     bool
 	DebugPod   bool
 }
@@ -161,12 +166,12 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
-	Create     bool
-	View       bool
+	Create       bool
+	View         bool
 	EditMetadata bool
 	EditApproval bool
 	EditSubtasks bool
-	Delete     bool
+	Delete       bool
 	// edit config is the ability to edit the global config for release plan
 	EditConfig bool
 }

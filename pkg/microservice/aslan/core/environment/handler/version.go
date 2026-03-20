@@ -336,8 +336,8 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRollback)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -345,8 +345,8 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRollback)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return

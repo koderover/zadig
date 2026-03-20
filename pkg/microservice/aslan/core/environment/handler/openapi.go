@@ -1623,8 +1623,8 @@ func OpenAPIRestartService(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.ManagePods {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.Restart {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionRestart)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -1667,8 +1667,8 @@ func OpenAPIProductionRestartService(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.ManagePods {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.Restart {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRestart)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return

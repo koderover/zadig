@@ -681,9 +681,9 @@ func RevertWorkflowTaskV4Job(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[w.Project].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[w.Project].Workflow.Execute {
+			!ctx.Resources.ProjectAuthInfo[w.Project].Workflow.Rollback {
 			// check if the permission is given by collaboration mode
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.Project, types.ResourceTypeWorkflow, w.Name, types.WorkflowActionRun)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.Project, types.ResourceTypeWorkflow, w.Name, types.WorkflowActionRollback)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return

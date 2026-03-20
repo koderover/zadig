@@ -52,6 +52,7 @@ func checkLicense(actions []string) error {
 			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
 			actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
 			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
+			actionSet.Has(permission.VerbRestartProductionEnv) || actionSet.Has(permission.VerbRollbackProductionEnv) ||
 			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
 			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
 			return e.ErrLicenseInvalid.AddDesc("")

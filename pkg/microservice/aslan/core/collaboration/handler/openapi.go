@@ -137,7 +137,7 @@ type OpenAPICollaborationModeWorkflowItem struct {
 	Name string `json:"name"`
 	// 协作类型，share或new
 	CollaborationType config.CollaborationType `json:"collaboration_type"`
-	// 操作权限，get_workflow、edit_workflow、run_workflow、debug_workflow
+	// 操作权限，get_workflow、edit_workflow、run_workflow、rollback_workflow、debug_workflow
 	Verbs []string `json:"verbs"`
 }
 
@@ -146,7 +146,7 @@ type OpenAPICollaborationModeEnvItem struct {
 	Name string `json:"name"`
 	// 协作类型，share或new
 	CollaborationType config.CollaborationType `json:"collaboration_type"`
-	// 操作权限，get_environment、config_environment、manage_environment、debug_pod
+	// 操作权限，get_environment、config_environment、manage_environment、restart_environment、rollback_environment、get_production_environment、config_production_environment、edit_production_environment、restart_production_environment、rollback_production_environment、debug_pod、production_debug_pod
 	Verbs []string `json:"verbs"`
 }
 

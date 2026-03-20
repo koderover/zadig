@@ -21,23 +21,25 @@ import (
 )
 
 type Migration struct {
-	ID                                   primitive.ObjectID `bson:"_id,omitempty"`
-	SonarMigration                       bool               `bson:"sonar_migration"`
-	UpdateWorkflow340JobSpec             bool               `bson:"update_workflow_340_job_spec"`
-	UpdateWorkflow340JobTemplateSpec     bool               `bson:"update_workflow_340_job_template_spec"`
-	WorkflowV4341HookMigration           bool               `bson:"workflow_v4_341_hook_migration"`
-	Migration341VMDeploy                 bool               `bson:"migration_341_vm_deploy"`
-	UpdateLarkEventSetting               bool               `bson:"update_lark_event_setting"`
-	Migration400DeliveryVersionV2        bool               `bson:"migration_400_delivery_version_v2"`
-	Migration400AllUserGroup             bool               `bson:"migration_400_all_user_group"`
-	Migration400CollaborationInstance    bool               `bson:"migration_400_collaboration_instance"`
-	Migration400ProjectManagement        bool               `bson:"migration_400_project_management"`
-	Migration400ProjectReleaseMaxHistory bool               `bson:"migration_400_project_release_max_history"`
-	Migration420VMDeploy                 bool               `bson:"migration_420_vm_deploy"`
-	Migration420VMDeployEnvSource        bool               `bson:"migration_420_vm_deploy_env_source"`
-	Migration420EditReleasePlanAction    bool               `bson:"migration_420_edit_release_plan_action"`
-	Migration420SAE                      bool               `bson:"migration_420_sae"`
-	Error                                string             `bson:"error"`
+	ID                                          primitive.ObjectID `bson:"_id,omitempty"`
+	SonarMigration                              bool               `bson:"sonar_migration"`
+	UpdateWorkflow340JobSpec                    bool               `bson:"update_workflow_340_job_spec"`
+	UpdateWorkflow340JobTemplateSpec            bool               `bson:"update_workflow_340_job_template_spec"`
+	WorkflowV4341HookMigration                  bool               `bson:"workflow_v4_341_hook_migration"`
+	Migration341VMDeploy                        bool               `bson:"migration_341_vm_deploy"`
+	UpdateLarkEventSetting                      bool               `bson:"update_lark_event_setting"`
+	Migration400DeliveryVersionV2               bool               `bson:"migration_400_delivery_version_v2"`
+	Migration400AllUserGroup                    bool               `bson:"migration_400_all_user_group"`
+	Migration400CollaborationInstance           bool               `bson:"migration_400_collaboration_instance"`
+	Migration400ProjectManagement               bool               `bson:"migration_400_project_management"`
+	Migration400ProjectReleaseMaxHistory        bool               `bson:"migration_400_project_release_max_history"`
+	Migration420VMDeploy                        bool               `bson:"migration_420_vm_deploy"`
+	Migration420VMDeployEnvSource               bool               `bson:"migration_420_vm_deploy_env_source"`
+	Migration420EditReleasePlanAction           bool               `bson:"migration_420_edit_release_plan_action"`
+	Migration420SAE                             bool               `bson:"migration_420_sae"`
+	Migration421RollbackPermission              bool               `bson:"migration_421_rollback_permission"`
+	Migration421CollaborationRollbackPermission bool               `bson:"migration_421_collaboration_rollback_permission"`
+	Error                                       string             `bson:"error"`
 }
 
 func (Migration) TableName() string {
