@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -552,6 +553,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	serviceRender := productInfo.GetSvcRender(option.ServiceName)
+	shouldUseRenderedReplicaOverrides := option.ReplicaOverrides == nil && !option.IgnoreCurrentReplicaOverrides
 
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -597,6 +599,14 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		currentReplicaOverrides = curProductSvc.WorkLoads
 	}
 	replicaOverrides := resolveReplicaOverrides(currentReplicaOverrides, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+	if shouldUseRenderedReplicaOverrides {
+		renderedReplicaOverrides, overrideErr := buildReplicaOverridesByRenderedYaml(fullRenderedYaml)
+		if overrideErr != nil {
+			log.Warnf("failed to resolve replica overrides from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, overrideErr)
+		} else {
+			replicaOverrides = renderedReplicaOverrides
+		}
+	}
 	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }
@@ -609,6 +619,35 @@ func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.W
 		return nil
 	}
 	return currentOverrides
+}
+
+func buildReplicaOverridesByRenderedYaml(renderedYaml string) ([]*commonmodels.WorkLoad, error) {
+	candidateReplicaMap, err := ExtractWorkloadReplicas(renderedYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
+	keys := make([]string, 0, len(candidateReplicaMap))
+	for key := range candidateReplicaMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		candidateReplica := candidateReplicaMap[key]
+		workloadType, workloadName := "", key
+		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+			workloadType = NormalizeReplicaWorkloadType(parts[0])
+			workloadName = parts[1]
+		}
+		ret, err = UpsertWorkLoadsReplicas(ret, workloadType, workloadName, candidateReplica)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
 }
 
 func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *template.ServiceRender) (string, error) {

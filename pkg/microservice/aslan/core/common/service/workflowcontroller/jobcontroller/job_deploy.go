@@ -303,20 +303,15 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 }
 
 func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, currentWorkLoads []*commonmodels.WorkLoad) ([]*commonmodels.WorkLoad, error) {
-	if len(currentWorkLoads) == 0 && len(strings.TrimSpace(currentYaml)) == 0 {
-		return nil, nil
-	}
+	_ = currentYaml
+	_ = currentWorkLoads
 
-	currentReplicaMap, err := kube.ExtractWorkloadReplicas(currentYaml)
-	if err != nil {
-		return nil, err
-	}
 	candidateReplicaMap, err := kube.ExtractWorkloadReplicas(candidateYaml)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := cloneWorkLoads(currentWorkLoads)
+	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
 	keys := make([]string, 0, len(candidateReplicaMap))
 	for key := range candidateReplicaMap {
 		keys = append(keys, key)
@@ -325,11 +320,6 @@ func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, curre
 
 	for _, key := range keys {
 		candidateReplica := candidateReplicaMap[key]
-		currentReplica, exists := currentReplicaMap[key]
-		if exists && currentReplica == candidateReplica {
-			continue
-		}
-
 		workloadType, workloadName := "", key
 		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
 			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])

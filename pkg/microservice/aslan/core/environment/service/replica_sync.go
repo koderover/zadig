@@ -186,25 +186,10 @@ func syncUpdatedProductReplicaOverrides(prod *commonmodels.Product, currentSvcSn
 	return nil
 }
 
-// reconcileReplicaOverrides 在副本未变化时保留现有 override，仅对变化的 workload 执行 upsert。
+// reconcileReplicaOverrides 始终以候选服务（模板+变量渲染）的 replicas 为准，生成完整副本 override。
 func reconcileReplicaOverrides(prod *commonmodels.Product, currentSvc *commonmodels.ProductService, currentTmpl *commonmodels.Service, candidateSvc *commonmodels.ProductService, candidateTmpl *commonmodels.Service) ([]*commonmodels.WorkLoad, error) {
-	var (
-		currentReplicaMap map[string]int32
-		err               error
-	)
-
-	if currentSvc != nil && currentTmpl != nil {
-		currentYaml, err := renderServiceWithOverrides(prod, currentSvc, currentTmpl, currentSvc.WorkLoads)
-		if err != nil {
-			return nil, err
-		}
-		currentReplicaMap, err = kube.ExtractWorkloadReplicas(currentYaml)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		currentReplicaMap = map[string]int32{}
-	}
+	_ = currentSvc
+	_ = currentTmpl
 
 	candidateYaml, err := renderServiceWithOverrides(prod, candidateSvc, candidateTmpl, nil)
 	if err != nil {
@@ -215,10 +200,7 @@ func reconcileReplicaOverrides(prod *commonmodels.Product, currentSvc *commonmod
 		return nil, err
 	}
 
-	baseOverrides := cloneWorkLoads(candidateSvc.WorkLoads)
-	if currentSvc != nil {
-		baseOverrides = cloneWorkLoads(currentSvc.WorkLoads)
-	}
+	baseOverrides := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
 
 	keys := make([]string, 0, len(candidateReplicaMap))
 	for key := range candidateReplicaMap {
@@ -228,10 +210,6 @@ func reconcileReplicaOverrides(prod *commonmodels.Product, currentSvc *commonmod
 
 	for _, key := range keys {
 		candidateReplica := candidateReplicaMap[key]
-		currentReplica, exists := currentReplicaMap[key]
-		if exists && currentReplica == candidateReplica {
-			continue
-		}
 		workloadType, workloadName := "", key
 		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
 			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])
