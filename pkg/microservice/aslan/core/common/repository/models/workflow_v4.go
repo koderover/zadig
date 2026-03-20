@@ -481,6 +481,9 @@ type ZadigDeployJobSpec struct {
 	ValueMergeStrategy  config.ValueMergeStrategy `bson:"value_merge_strategy"             json:"value_merge_strategy"                yaml:"value_merge_strategy"`
 	MergeStrategySource config.ParamSourceType    `bson:"merge_strategy_source"            json:"merge_strategy_source"               yaml:"merge_strategy_source"`
 
+	// YAML deploy only field
+	YAMLMergeStrategy config.YAMLMergeStrategy `bson:"yaml_merge_strategy"            json:"yaml_merge_strategy"               yaml:"yaml_merge_strategy"`
+
 	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
 	DefaultServices []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
 }

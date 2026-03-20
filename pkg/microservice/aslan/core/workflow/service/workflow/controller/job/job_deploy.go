@@ -146,6 +146,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	j.jobSpec.EnvSource = latestSpec.EnvSource
 	j.jobSpec.ValueMergeStrategy = latestSpec.ValueMergeStrategy
 	j.jobSpec.MergeStrategySource = latestSpec.MergeStrategySource
+	j.jobSpec.YAMLMergeStrategy = latestSpec.YAMLMergeStrategy
 
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
 	// we need to not only update its source but also set services to empty slice.
