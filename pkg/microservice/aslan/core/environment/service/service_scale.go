@@ -51,7 +51,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 	}
 
 	if !project.IsK8sYamlProduct() {
-		return scaleWorkload(prod.Namespace, args.Type, args.Name, args.Number, kubeClient, logger)
+		return scaleWorkload(context.Background(), prod.ClusterID, prod.Namespace, args.Type, args.Name, args.Number, logger)
 	}
 
 	mutexAutoUpdate := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
@@ -113,7 +113,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 	}
 
 	if liveReplica != targetReplica {
-		if err := scaleWorkload(prod.Namespace, args.Type, args.Name, args.Number, kubeClient, logger); err != nil {
+		if err := scaleWorkload(context.TODO(), prod.ClusterID, prod.Namespace, args.Type, args.Name, args.Number, logger); err != nil {
 			return e.ErrScaleService.AddErr(err)
 		}
 	}
@@ -164,20 +164,20 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, updateBy string, logger *zap.Suga
 	return Scale(args, updateBy, logger)
 }
 
-func scaleWorkload(namespace, workloadType, workloadName string, replicas int, kubeClient client.Client, logger *zap.SugaredLogger) error {
+func scaleWorkload(ctx context.Context, clusterID, namespace, workloadType, workloadName string, replicas int, logger *zap.SugaredLogger) error {
 	switch kube.NormalizeReplicaWorkloadType(workloadType) {
 	case setting.Deployment:
-		if err := updater.ScaleDeployment(namespace, workloadName, replicas, kubeClient); err != nil {
+		if err := updater.ScaleDeploymentV2(ctx, clusterID, namespace, workloadName, replicas); err != nil {
 			logger.Errorf("failed to scale %s/deployment/%s to %d", namespace, workloadName, replicas)
 			return err
 		}
 	case setting.StatefulSet:
-		if err := updater.ScaleStatefulSet(namespace, workloadName, replicas, kubeClient); err != nil {
+		if err := updater.ScaleStatefulSetV2(ctx, clusterID, namespace, workloadName, replicas); err != nil {
 			logger.Errorf("failed to scale %s/statefulset/%s to %d", namespace, workloadName, replicas)
 			return err
 		}
 	case setting.CloneSet:
-		if err := updater.ScaleCloneSet(namespace, workloadName, replicas, kubeClient); err != nil {
+		if err := updater.ScaleCloneSetV2(ctx, clusterID, namespace, workloadName, replicas); err != nil {
 			logger.Errorf("failed to scale %s/cloneset/%s to %d", namespace, workloadName, replicas)
 			return err
 		}
