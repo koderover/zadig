@@ -281,57 +281,12 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	c.ack()
 
 	// if not only deploy image, we will redeploy service
-	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
-		return nil
-	}
-	// if only deploy image, we only patch image.
-	if err := c.updateServiceModuleImages(ctx, resources, env); err != nil {
+	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
 
 	return nil
-}
-
-func onlyDeployImage(deployContents []config.DeployContent) bool {
-	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
-}
-
-func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, currentWorkLoads []*commonmodels.WorkLoad) ([]*commonmodels.WorkLoad, error) {
-	_ = currentYaml
-	_ = currentWorkLoads
-
-	candidateReplicaMap, err := kube.ExtractWorkloadReplicas(candidateYaml)
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
-	keys := make([]string, 0, len(candidateReplicaMap))
-	for key := range candidateReplicaMap {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		candidateReplica := candidateReplicaMap[key]
-		workloadType, workloadName := "", key
-		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
-			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])
-			workloadName = parts[1]
-		}
-		ret, err = kube.UpsertWorkLoadsReplicas(ret, workloadType, workloadName, candidateReplica)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ret, nil
 }
 
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
@@ -656,34 +611,6 @@ Job:
 		return nil, nil, err
 	}
 	return replaceResources, relatedPodLabels, nil
-}
-
-func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources []*kube.WorkloadResource, env *commonmodels.Product) error {
-	jobTaskctx := &joblog.JobLogContext{
-		WorkflowCtx: c.workflowCtx,
-		JobTask:     c.job,
-	}
-
-	errList := new(multierror.Error)
-	wg := sync.WaitGroup{}
-	for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
-		wg.Add(1)
-		go func(serviceModule *commonmodels.DeployServiceModule) {
-			defer wg.Done()
-			replaceResources, relatedPodLabels, err := UpdateExternalServiceModule(ctx, c.kubeClient, c.clientSet, resources, env, c.jobTaskSpec.ServiceName, serviceModule, "", c.workflowCtx.WorkflowTaskCreatorUsername, jobTaskctx, c.logger)
-			if err != nil {
-				errList = multierror.Append(errList, err)
-			} else {
-				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, replaceResources...)
-				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, relatedPodLabels...)
-			}
-		}(serviceModule)
-	}
-	wg.Wait()
-	if err := errList.ErrorOrNil(); err != nil {
-		return err
-	}
-	return nil
 }
 
 // 5.26 temporarily deactivate this function
