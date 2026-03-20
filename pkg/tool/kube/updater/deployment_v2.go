@@ -330,7 +330,7 @@ func UpdateDeploymentImageV2(ctx context.Context, clusterID, namespace, deployme
 		"spec": map[string]interface{}{
 			"template": map[string]interface{}{
 				"spec": map[string]interface{}{
-					"initContainers": []map[string]interface{}{
+					"containers": []map[string]interface{}{
 						{
 							"name":  containerName,
 							"image": newImage,
@@ -371,7 +371,7 @@ func UpdateDeploymentInitImageV2(ctx context.Context, clusterID, namespace, depl
 		"spec": map[string]interface{}{
 			"template": map[string]interface{}{
 				"spec": map[string]interface{}{
-					"containers": []map[string]interface{}{
+					"initContainers": []map[string]interface{}{
 						{
 							"name":  containerName,
 							"image": newImage,
