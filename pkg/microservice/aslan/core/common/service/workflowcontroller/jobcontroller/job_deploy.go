@@ -221,30 +221,54 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 	}
 
-	option := &kube.GeneSvcYamlOption{
-		ProductName:           env.ProductName,
-		EnvName:               c.jobTaskSpec.Env,
-		ServiceName:           c.jobTaskSpec.ServiceName,
-		UpdateServiceRevision: updateRevision,
-		VariableYaml:          varsYaml,
-		VariableKVs:           varKVs,
-		Containers:            containers,
-	}
-	updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
-	if err != nil {
-		msg := fmt.Sprintf("generate service yaml error: %v", err)
-		logError(c.job, msg, c.logger)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.YamlContent = updatedYaml
-	c.ack()
-
-	currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
+	currentYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName: env.ProductName,
+		EnvName:     c.jobTaskSpec.Env,
+		ServiceName: c.jobTaskSpec.ServiceName,
+	})
 	if err != nil {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+
+	option := &kube.GeneSvcYamlOption{
+		ProductName:                   env.ProductName,
+		EnvName:                       c.jobTaskSpec.Env,
+		ServiceName:                   c.jobTaskSpec.ServiceName,
+		UpdateServiceRevision:         updateRevision,
+		VariableYaml:                  varsYaml,
+		VariableKVs:                   varKVs,
+		IgnoreCurrentReplicaOverrides: updateRevision,
+		Containers:                    containers,
+	}
+	candidateYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
+	if err != nil {
+		msg := fmt.Sprintf("generate service yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	var currentWorkLoads []*commonmodels.WorkLoad
+	if currentService := env.GetServiceMap()[c.jobTaskSpec.ServiceName]; currentService != nil {
+		currentWorkLoads = currentService.WorkLoads
+	}
+	candidateReplicaOverrides, err := reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml, currentWorkLoads)
+	if err != nil {
+		msg := fmt.Sprintf("failed to calculate replicas overrides for service %s: %v", c.jobTaskSpec.ServiceName, err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	updatedYaml, err := kube.ApplyReplicaOverrides(candidateYaml, candidateReplicaOverrides)
+	if err != nil {
+		msg := fmt.Sprintf("failed to apply replicas overrides for service %s: %v", c.jobTaskSpec.ServiceName, err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	c.jobTaskSpec.YamlContent = updatedYaml
+	c.ack()
 
 	latestRevision, err := commonrepo.NewEnvServiceVersionColl().GetLatestRevision(env.ProductName, env.EnvName, c.jobTaskSpec.ServiceName, false, env.Production)
 	if err != nil {
@@ -258,7 +282,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 
 	// if not only deploy image, we will redeploy service
 	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
+		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
@@ -278,8 +302,50 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
+func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, currentWorkLoads []*commonmodels.WorkLoad) ([]*commonmodels.WorkLoad, error) {
+	if len(currentWorkLoads) == 0 && len(strings.TrimSpace(currentYaml)) == 0 {
+		return nil, nil
+	}
+
+	currentReplicaMap, err := kube.ExtractWorkloadReplicas(currentYaml)
+	if err != nil {
+		return nil, err
+	}
+	candidateReplicaMap, err := kube.ExtractWorkloadReplicas(candidateYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := cloneWorkLoads(currentWorkLoads)
+	keys := make([]string, 0, len(candidateReplicaMap))
+	for key := range candidateReplicaMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		candidateReplica := candidateReplicaMap[key]
+		currentReplica, exists := currentReplicaMap[key]
+		if exists && currentReplica == candidateReplica {
+			continue
+		}
+
+		workloadType, workloadName := "", key
+		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])
+			workloadName = parts[1]
+		}
+		ret, err = kube.UpsertWorkLoadsReplicas(ret, workloadType, workloadName, candidateReplica)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
-	containers []*commonmodels.Container, updateRevision bool, serviceName string) error {
+	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string) error {
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
 		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
@@ -325,6 +391,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		VariableYaml:          variableYaml,
 		VariableKVs:           variableKVs,
 		Containers:            containers,
+		WorkLoads:             workLoads,
 		UpdateServiceRevision: updateRevision,
 		UserName:              c.workflowCtx.WorkflowTaskCreatorUsername,
 		Resources:             unstructuredList,
@@ -909,4 +976,16 @@ func (c *DeployJobCtl) SaveInfo(ctx context.Context) error {
 		TargetEnv:     c.jobTaskSpec.Env,
 		Production:    c.jobTaskSpec.Production,
 	})
+}
+
+func cloneWorkLoads(workLoads []*commonmodels.WorkLoad) []*commonmodels.WorkLoad {
+	ret := make([]*commonmodels.WorkLoad, 0, len(workLoads))
+	for _, item := range workLoads {
+		if item == nil {
+			continue
+		}
+		copied := *item
+		ret = append(ret, &copied)
+	}
+	return ret
 }

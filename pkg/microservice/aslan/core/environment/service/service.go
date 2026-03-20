@@ -374,7 +374,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		VariableKVs:                   args.VariableKVs,
 		Containers:                    args.ServiceModules,
 		ReplicaOverrides:              candidateOverrides,
-		IgnoreCurrentReplicaOverrides: true,
+		IgnoreCurrentReplicaOverrides: args.UpdateServiceRevision,
 	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)

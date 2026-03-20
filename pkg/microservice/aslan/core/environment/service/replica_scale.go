@@ -182,6 +182,10 @@ func buildPreviewCandidateOverrides(prod *commonmodels.Product, serviceName stri
 	if currentSvc == nil {
 		return nil, nil
 	}
+	if !updateServiceRevision {
+		// Keep environment-recorded replica overrides when service template revision is unchanged.
+		return cloneWorkLoads(currentSvc.WorkLoads), nil
+	}
 
 	currentTmpl, err := loadServiceTemplateByRevision(currentSvc, prod.Production)
 	if err != nil {
