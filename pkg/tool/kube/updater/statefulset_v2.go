@@ -202,10 +202,14 @@ func DeleteStatefulSetAndWaitV2(ctx context.Context, clusterID, namespace string
 
 // CreateOrPatchStatefulSetV2 is used when the YAML is fully controlled by this system, it implements a 2-way merge patch for the statefulset.
 // If we are simply editing the statefulset, use UpdateStatefulSetV2 instead.
-func CreateOrPatchStatefulSetV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchStatefulSetV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -255,6 +259,18 @@ func CreateOrPatchStatefulSetV2(ctx context.Context, clusterID, namespace, origi
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check statefulset existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get statefulset for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.AppsV1().StatefulSets(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &appsv1.StatefulSet{})

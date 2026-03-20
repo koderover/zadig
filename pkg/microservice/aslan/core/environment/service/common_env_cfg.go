@@ -305,7 +305,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData)
+		err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData, true)
 		if err != nil {
 			log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 			return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))

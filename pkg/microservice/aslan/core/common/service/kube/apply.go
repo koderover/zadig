@@ -736,10 +736,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
-			if applyParam.OverrideResource {
-				originalYAML = ""
-			}
-			err = updater.CreateOrPatchIngressV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			err = updater.CreateOrPatchIngressV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -763,10 +760,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
-			if applyParam.OverrideResource {
-				originalYAML = ""
-			}
-			err = updater.CreateOrPatchServiceV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+			err = updater.CreateOrPatchServiceV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -881,11 +875,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
-				log.Infof("OverrideResource: %v", applyParam.OverrideResource)
-				if applyParam.OverrideResource {
-					originalYAML = ""
-				}
-				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
+				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, err)
@@ -930,10 +920,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
-				if applyParam.OverrideResource {
-					originalYAML = ""
-				}
-				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
+				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1034,10 +1021,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
-				if applyParam.OverrideResource {
-					originalYAML = ""
-				}
-				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1075,10 +1059,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
-				if applyParam.OverrideResource {
-					originalYAML = ""
-				}
-				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1102,10 +1083,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
-			if applyParam.OverrideResource {
-				originalYAML = ""
-			}
-			err = updater.CreateOrPatchClusterRoleV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
+			err = updater.CreateOrPatchClusterRoleV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1128,10 +1106,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
-			if applyParam.OverrideResource {
-				originalYAML = ""
-			}
-			err = updater.CreateOrPatchClusterRoleBindingV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
+			err = updater.CreateOrPatchClusterRoleBindingV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -1157,27 +1132,24 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
-			if applyParam.OverrideResource {
-				originalYAML = ""
-			}
 
 			switch u.GetKind() {
 			case setting.ConfigMap:
-				err = updater.CreateOrPatchConfigMapV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchConfigMapV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.Secret:
-				err = updater.CreateOrPatchSecretV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchSecretV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.PersistentVolumeClaim:
-				err = updater.CreateOrPatchPVCV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchPVCV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.ServiceAccount:
-				err = updater.CreateOrPatchServiceAccountV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchServiceAccountV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.Role:
-				err = updater.CreateOrPatchRoleV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchRoleV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.RoleBinding:
-				err = updater.CreateOrPatchRoleBindingV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchRoleBindingV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.Pod:
-				err = updater.CreateOrPatchPodV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchPodV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			case setting.ReplicaSet:
-				err = updater.CreateOrPatchReplicaSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
+				err = updater.CreateOrPatchReplicaSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			}
 
 			if err != nil {

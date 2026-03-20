@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -106,10 +107,14 @@ func CreateOrUpdateSecretV2(ctx context.Context, clusterID string, s *corev1.Sec
 }
 
 // CreateOrPatchSecretV2 implements a 3-way merge patch for Secret.
-func CreateOrPatchSecretV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchSecretV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -159,6 +164,18 @@ func CreateOrPatchSecretV2(ctx context.Context, clusterID, namespace, originalYA
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check secret existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get secret for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.CoreV1().Secrets(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.Secret{})

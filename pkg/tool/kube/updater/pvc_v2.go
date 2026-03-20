@@ -102,10 +102,14 @@ func CreatePVCV2(ctx context.Context, clusterID, namespace string, pvc *corev1.P
 	return nil
 }
 
-func CreateOrPatchPVCV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchPVCV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -155,6 +159,18 @@ func CreateOrPatchPVCV2(ctx context.Context, clusterID, namespace, originalYAML,
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check PVC existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get PVC for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.CoreV1().PersistentVolumeClaims(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.PersistentVolumeClaim{})

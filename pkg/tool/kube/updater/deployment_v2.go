@@ -202,10 +202,14 @@ func DeleteDeploymentAndWaitV2(ctx context.Context, clusterID, namespace string,
 
 // CreateOrPatchDeploymentV2 is used when the YAML is fully controlled by this system, it implements a 3-way merge patch for the deployment. 
 // If we are simply editing the deployment, use UpdateDeploymentV2 instead.
-func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -257,14 +261,22 @@ func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, origin
 		return fmt.Errorf("failed to check deployment existence: %w", err)
 	}
 
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get deployment for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.AppsV1().Deployments(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &appsv1.Deployment{})
 	if err != nil {
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
 	}
-
-	fmt.Printf("originalJSONMutated: %s\n", string(originalJSONMutated))
-	fmt.Printf("targetJSONMutated: %s\n", string(targetJSONMutated))
-	fmt.Printf("patchBytes: %s\n", string(patchBytes))
 
 	if string(patchBytes) == "{}" {
 		return nil

@@ -110,10 +110,14 @@ func UpdatePodV2(ctx context.Context, clusterID, namespace, name string, mutatio
 	return err
 }
 
-func CreateOrPatchPodV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchPodV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -163,6 +167,18 @@ func CreateOrPatchPodV2(ctx context.Context, clusterID, namespace, originalYAML,
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check pod existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get pod for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.CoreV1().Pods(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.Pod{})

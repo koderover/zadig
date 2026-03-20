@@ -121,10 +121,14 @@ func UpdateServiceV2(ctx context.Context, clusterID, namespace, serviceName stri
 }
 
 // CreateOrPatchServiceV2 implements a 2-way merge patch for Service.
-func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -176,14 +180,22 @@ func CreateOrPatchServiceV2(ctx context.Context, clusterID, namespace, originalY
 		return fmt.Errorf("failed to check service existence: %w", err)
 	}
 
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get service for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.CoreV1().Services(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &corev1.Service{})
 	if err != nil {
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
 	}
-
-	fmt.Printf("originalJSONMutated: %s\n", string(originalJSONMutated))
-	fmt.Printf("targetJSONMutated: %s\n", string(targetJSONMutated))
-	fmt.Printf("patchBytes: %s\n", string(patchBytes))
 
 	if string(patchBytes) == "{}" {
 		return nil

@@ -381,13 +381,13 @@ func initEnvConfigSetAction(envName, namespace, productName, userName, clusterID
 			}
 			switch u.GetKind() {
 			case setting.ConfigMap:
-				err = updater.CreateOrPatchConfigMapV2(context.TODO(), clusterID, namespace, "", string(targetYAML))
+				err = updater.CreateOrPatchConfigMapV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
 			case setting.Ingress:
-				err = updater.CreateOrPatchIngressV2(context.TODO(), clusterID, namespace, "", string(targetYAML))
+				err = updater.CreateOrPatchIngressV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
 			case setting.Secret:
-				err = updater.CreateOrPatchSecretV2(context.TODO(), clusterID, namespace, "", string(targetYAML))
+				err = updater.CreateOrPatchSecretV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
 			case setting.PersistentVolumeClaim:
-				err = updater.CreateOrPatchPVCV2(context.TODO(), clusterID, namespace, "", string(targetYAML))
+				err = updater.CreateOrPatchPVCV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
 			}
 			if err != nil {
 				log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)

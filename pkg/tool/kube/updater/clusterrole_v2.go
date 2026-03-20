@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -64,10 +65,14 @@ func DeleteClusterRolesV2(ctx context.Context, clusterID string, opts ...DeleteO
 }
 
 // CreateOrPatchClusterRoleV2 is cluster-scoped (no namespace).
-func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, targetYAML string) error {
+func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -117,6 +122,18 @@ func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, ta
 		return fmt.Errorf("failed to check clusterrole existence: %w", err)
 	}
 
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get clusterrole for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.RbacV1().ClusterRoles().Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &rbacv1.ClusterRole{})
 	if err != nil {
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
@@ -141,10 +158,14 @@ func CreateOrPatchClusterRoleV2(ctx context.Context, clusterID, originalYAML, ta
 }
 
 // CreateOrPatchClusterRoleBindingV2 is cluster-scoped (no namespace).
-func CreateOrPatchClusterRoleBindingV2(ctx context.Context, clusterID, originalYAML, targetYAML string) error {
+func CreateOrPatchClusterRoleBindingV2(ctx context.Context, clusterID, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
 	}
 
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
@@ -192,6 +213,18 @@ func CreateOrPatchClusterRoleBindingV2(ctx context.Context, clusterID, originalY
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check clusterrolebinding existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.RbacV1().ClusterRoleBindings().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get clusterrolebinding for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.RbacV1().ClusterRoleBindings().Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &rbacv1.ClusterRoleBinding{})

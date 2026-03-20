@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -78,7 +79,7 @@ func DeleteIngressesV2(ctx context.Context, clusterID, namespace string, opts ..
 	return nil
 }
 
-func CreateOrPatchIngressV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchIngressV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
@@ -90,12 +91,16 @@ func CreateOrPatchIngressV2(ctx context.Context, clusterID, namespace, originalY
 	}
 
 	if kubeclient.VersionLessThan122(version) {
-		return createOrPatchIngressBeta(ctx, c, namespace, originalYAML, targetYAML)
+		return createOrPatchIngressBeta(ctx, c, namespace, originalYAML, targetYAML, resourceOverride)
 	}
-	return createOrPatchIngressV1(ctx, c, namespace, originalYAML, targetYAML)
+	return createOrPatchIngressV1(ctx, c, namespace, originalYAML, targetYAML, resourceOverride)
 }
 
-func createOrPatchIngressV1(ctx context.Context, c kubernetes.Interface, namespace, originalYAML, targetYAML string) error {
+func createOrPatchIngressV1(ctx context.Context, c kubernetes.Interface, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
+	if resourceOverride {
+		originalYAML = ""
+	}
+
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
 	if err != nil {
 		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
@@ -145,6 +150,18 @@ func createOrPatchIngressV1(ctx context.Context, c kubernetes.Interface, namespa
 		return fmt.Errorf("failed to check ingress existence: %w", err)
 	}
 
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get ingress for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.NetworkingV1().Ingresses(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &networkingv1.Ingress{})
 	if err != nil {
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
@@ -168,7 +185,11 @@ func createOrPatchIngressV1(ctx context.Context, c kubernetes.Interface, namespa
 	return nil
 }
 
-func createOrPatchIngressBeta(ctx context.Context, c kubernetes.Interface, namespace, originalYAML, targetYAML string) error {
+func createOrPatchIngressBeta(ctx context.Context, c kubernetes.Interface, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
+	if resourceOverride {
+		originalYAML = ""
+	}
+
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
 	if err != nil {
 		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
@@ -216,6 +237,18 @@ func createOrPatchIngressBeta(ctx context.Context, c kubernetes.Interface, names
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check ingress existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.ExtensionsV1beta1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get ingress (v1beta1) for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.ExtensionsV1beta1().Ingresses(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &extensionsv1beta1.Ingress{})

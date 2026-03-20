@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/yaml"
 
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -91,7 +92,7 @@ func DeleteCronJobsV2(ctx context.Context, clusterID, namespace string, opts ...
 
 // CreateOrPatchCronJobV2 implements a 2-way merge patch for CronJob, similar to CreateOrPatchDeploymentV2.
 // On clusters < 1.21, it falls back to batch/v1beta1 API.
-func CreateOrPatchCronJobV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string) error {
+func CreateOrPatchCronJobV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
@@ -103,12 +104,16 @@ func CreateOrPatchCronJobV2(ctx context.Context, clusterID, namespace, originalY
 	}
 
 	if kubeclient.VersionLessThan121(version) {
-		return createOrPatchCronJobBeta(ctx, c, namespace, originalYAML, targetYAML)
+		return createOrPatchCronJobBeta(ctx, c, namespace, originalYAML, targetYAML, resourceOverride)
 	}
-	return createOrPatchCronJobV1(ctx, c, namespace, originalYAML, targetYAML)
+	return createOrPatchCronJobV1(ctx, c, namespace, originalYAML, targetYAML, resourceOverride)
 }
 
-func createOrPatchCronJobV1(ctx context.Context, c *kubernetes.Clientset, namespace, originalYAML, targetYAML string) error {
+func createOrPatchCronJobV1(ctx context.Context, c *kubernetes.Clientset, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
+	if resourceOverride {
+		originalYAML = ""
+	}
+
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
 	if err != nil {
 		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
@@ -158,6 +163,18 @@ func createOrPatchCronJobV1(ctx context.Context, c *kubernetes.Clientset, namesp
 		return fmt.Errorf("failed to check cronjob existence: %w", err)
 	}
 
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get cronjob for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.BatchV1().CronJobs(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &batchv1.CronJob{})
 	if err != nil {
 		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
@@ -177,7 +194,11 @@ func createOrPatchCronJobV1(ctx context.Context, c *kubernetes.Clientset, namesp
 	return nil
 }
 
-func createOrPatchCronJobBeta(ctx context.Context, c *kubernetes.Clientset, namespace, originalYAML, targetYAML string) error {
+func createOrPatchCronJobBeta(ctx context.Context, c *kubernetes.Clientset, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
+	if resourceOverride {
+		originalYAML = ""
+	}
+
 	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
 	if err != nil {
 		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
@@ -225,6 +246,18 @@ func createOrPatchCronJobBeta(ctx context.Context, c *kubernetes.Clientset, name
 	}
 	if err != nil {
 		return fmt.Errorf("failed to check cronjob existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.BatchV1beta1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get cronjob (v1beta1) for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.BatchV1beta1().CronJobs(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
 	}
 
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &batchv1beta1.CronJob{})

@@ -225,7 +225,7 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName s
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData)
+	err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData, false)
 	if err != nil {
 		log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 		return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))
