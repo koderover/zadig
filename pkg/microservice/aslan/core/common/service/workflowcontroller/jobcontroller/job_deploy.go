@@ -288,6 +288,38 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	return nil
 }
 
+func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, currentWorkLoads []*commonmodels.WorkLoad) ([]*commonmodels.WorkLoad, error) {
+	_ = currentYaml
+	_ = currentWorkLoads
+
+	candidateReplicaMap, err := kube.ExtractWorkloadReplicas(candidateYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
+	keys := make([]string, 0, len(candidateReplicaMap))
+	for key := range candidateReplicaMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		candidateReplica := candidateReplicaMap[key]
+		workloadType, workloadName := "", key
+		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])
+			workloadName = parts[1]
+		}
+		ret, err = kube.UpsertWorkLoadsReplicas(ret, workloadType, workloadName, candidateReplica)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
 	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string, overrideResource bool) error {
 
