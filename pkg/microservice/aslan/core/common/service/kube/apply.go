@@ -736,6 +736,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
+			if applyParam.OverrideResource {
+				originalYAML = ""
+			}
 			err = updater.CreateOrPatchIngressV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
@@ -759,6 +762,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
+			}
+			if applyParam.OverrideResource {
+				originalYAML = ""
 			}
 			err = updater.CreateOrPatchServiceV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML))
 			if err != nil {
@@ -875,6 +881,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
+				if applyParam.OverrideResource {
+					originalYAML = ""
+				}
 				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
@@ -919,6 +928,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
+				}
+				if applyParam.OverrideResource {
+					originalYAML = ""
 				}
 				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
@@ -1021,6 +1033,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
+				if applyParam.OverrideResource {
+					originalYAML = ""
+				}
 				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
@@ -1059,6 +1074,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
+				if applyParam.OverrideResource {
+					originalYAML = ""
+				}
 				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML))
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
@@ -1083,6 +1101,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
 			}
+			if applyParam.OverrideResource {
+				originalYAML = ""
+			}
 			err = updater.CreateOrPatchClusterRoleV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
@@ -1105,6 +1126,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
+			}
+			if applyParam.OverrideResource {
+				originalYAML = ""
 			}
 			err = updater.CreateOrPatchClusterRoleBindingV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML))
 			if err != nil {
@@ -1131,6 +1155,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
+			}
+			if applyParam.OverrideResource {
+				originalYAML = ""
 			}
 
 			switch u.GetKind() {
