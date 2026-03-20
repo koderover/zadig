@@ -553,7 +553,26 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	serviceRender := productInfo.GetSvcRender(option.ServiceName)
-	shouldUseRenderedReplicaOverrides := option.ReplicaOverrides == nil && !option.IgnoreCurrentReplicaOverrides
+	var (
+		currentBaseReplicaMap    map[string]int32
+		hasCurrentBaseReplicaMap bool
+	)
+	if curProductSvc != nil &&
+		commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) &&
+		!option.UpdateServiceRevision &&
+		option.ReplicaOverrides == nil &&
+		!option.IgnoreCurrentReplicaOverrides {
+		currentRenderedYaml, renderErr := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
+		if renderErr != nil {
+			return "", 0, nil, renderErr
+		}
+		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, currentRenderedYaml)
+		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
+		if err != nil {
+			return "", 0, nil, err
+		}
+		hasCurrentBaseReplicaMap = true
+	}
 
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -599,12 +618,19 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		currentReplicaOverrides = curProductSvc.WorkLoads
 	}
 	replicaOverrides := resolveReplicaOverrides(currentReplicaOverrides, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
-	if shouldUseRenderedReplicaOverrides {
-		renderedReplicaOverrides, overrideErr := buildReplicaOverridesByRenderedYaml(fullRenderedYaml)
-		if overrideErr != nil {
-			log.Warnf("failed to resolve replica overrides from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, overrideErr)
+	if option.ReplicaOverrides == nil && !option.IgnoreCurrentReplicaOverrides {
+		candidateReplicaMap, extractErr := ExtractWorkloadReplicas(fullRenderedYaml)
+		if extractErr != nil {
+			log.Warnf("failed to resolve replicas from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, extractErr)
+		} else if hasCurrentBaseReplicaMap && replicaMapsEqual(currentBaseReplicaMap, candidateReplicaMap) {
+			replicaOverrides = currentReplicaOverrides
 		} else {
-			replicaOverrides = renderedReplicaOverrides
+			renderedReplicaOverrides, overrideErr := buildReplicaOverridesFromReplicaMap(candidateReplicaMap)
+			if overrideErr != nil {
+				log.Warnf("failed to resolve replica overrides from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, overrideErr)
+			} else {
+				replicaOverrides = renderedReplicaOverrides
+			}
 		}
 	}
 	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
@@ -621,12 +647,8 @@ func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.W
 	return currentOverrides
 }
 
-func buildReplicaOverridesByRenderedYaml(renderedYaml string) ([]*commonmodels.WorkLoad, error) {
-	candidateReplicaMap, err := ExtractWorkloadReplicas(renderedYaml)
-	if err != nil {
-		return nil, err
-	}
-
+func buildReplicaOverridesFromReplicaMap(candidateReplicaMap map[string]int32) ([]*commonmodels.WorkLoad, error) {
+	var err error
 	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
 	keys := make([]string, 0, len(candidateReplicaMap))
 	for key := range candidateReplicaMap {
@@ -648,6 +670,19 @@ func buildReplicaOverridesByRenderedYaml(renderedYaml string) ([]*commonmodels.W
 	}
 
 	return ret, nil
+}
+
+func replicaMapsEqual(left, right map[string]int32) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		rightValue, ok := right[key]
+		if !ok || leftValue != rightValue {
+			return false
+		}
+	}
+	return true
 }
 
 func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *template.ServiceRender) (string, error) {

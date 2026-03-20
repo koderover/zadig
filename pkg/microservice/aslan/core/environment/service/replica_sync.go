@@ -186,11 +186,8 @@ func syncUpdatedProductReplicaOverrides(prod *commonmodels.Product, currentSvcSn
 	return nil
 }
 
-// reconcileReplicaOverrides 始终以候选服务（模板+变量渲染）的 replicas 为准，生成完整副本 override。
+// reconcileReplicaOverrides 在升版或副本来源变化时使用候选渲染副本；否则保留当前环境副本 override。
 func reconcileReplicaOverrides(prod *commonmodels.Product, currentSvc *commonmodels.ProductService, currentTmpl *commonmodels.Service, candidateSvc *commonmodels.ProductService, candidateTmpl *commonmodels.Service) ([]*commonmodels.WorkLoad, error) {
-	_ = currentSvc
-	_ = currentTmpl
-
 	candidateYaml, err := renderServiceWithOverrides(prod, candidateSvc, candidateTmpl, nil)
 	if err != nil {
 		return nil, err
@@ -199,27 +196,65 @@ func reconcileReplicaOverrides(prod *commonmodels.Product, currentSvc *commonmod
 	if err != nil {
 		return nil, err
 	}
+	candidateOverrides, err := buildReplicaOverridesFromMap(candidateReplicaMap)
+	if err != nil {
+		return nil, err
+	}
 
-	baseOverrides := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
+	if currentSvc == nil || currentTmpl == nil {
+		return candidateOverrides, nil
+	}
+	if candidateSvc.Revision != currentSvc.Revision {
+		return candidateOverrides, nil
+	}
 
-	keys := make([]string, 0, len(candidateReplicaMap))
-	for key := range candidateReplicaMap {
+	currentYaml, err := renderServiceWithOverrides(prod, currentSvc, currentTmpl, nil)
+	if err != nil {
+		return nil, err
+	}
+	currentReplicaMap, err := kube.ExtractWorkloadReplicas(currentYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	if replicaMapEqual(currentReplicaMap, candidateReplicaMap) {
+		return cloneWorkLoads(currentSvc.WorkLoads), nil
+	}
+
+	return candidateOverrides, nil
+}
+
+func buildReplicaOverridesFromMap(replicaMap map[string]int32) ([]*commonmodels.WorkLoad, error) {
+	overrides := make([]*commonmodels.WorkLoad, 0, len(replicaMap))
+	keys := make([]string, 0, len(replicaMap))
+	for key := range replicaMap {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-
 	for _, key := range keys {
-		candidateReplica := candidateReplicaMap[key]
 		workloadType, workloadName := "", key
 		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
 			workloadType = kube.NormalizeReplicaWorkloadType(parts[0])
 			workloadName = parts[1]
 		}
-		baseOverrides, err = kube.UpsertWorkLoadsReplicas(baseOverrides, workloadType, workloadName, candidateReplica)
+		var err error
+		overrides, err = kube.UpsertWorkLoadsReplicas(overrides, workloadType, workloadName, replicaMap[key])
 		if err != nil {
 			return nil, err
 		}
 	}
+	return overrides, nil
+}
 
-	return baseOverrides, nil
+func replicaMapEqual(left, right map[string]int32) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		rightValue, ok := right[key]
+		if !ok || rightValue != leftValue {
+			return false
+		}
+	}
+	return true
 }

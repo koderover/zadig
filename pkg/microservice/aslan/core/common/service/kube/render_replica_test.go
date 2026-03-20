@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReconcileReplicaOverridesByRenderedYaml_ReplicaChanged(t *testing.T) {
+func TestBuildReplicaOverridesByRenderedYaml_ReplicaChanged(t *testing.T) {
 	candidateYaml := `
 apiVersion: apps/v1
 kind: Deployment
@@ -18,7 +18,9 @@ spec:
   replicas: 3
 `
 
-	got, err := buildReplicaOverridesByRenderedYaml(candidateYaml)
+	replicaMap, err := ExtractWorkloadReplicas(candidateYaml)
+	require.NoError(t, err)
+	got, err := buildReplicaOverridesFromReplicaMap(replicaMap)
 	require.NoError(t, err)
 
 	overrideMap := toOverrideMap(got)
@@ -42,7 +44,9 @@ spec:
   replicas: 1
 `
 
-	got, err := buildReplicaOverridesByRenderedYaml(candidateYaml)
+	replicaMap, err := ExtractWorkloadReplicas(candidateYaml)
+	require.NoError(t, err)
+	got, err := buildReplicaOverridesFromReplicaMap(replicaMap)
 	require.NoError(t, err)
 
 	overrideMap := toOverrideMap(got)
