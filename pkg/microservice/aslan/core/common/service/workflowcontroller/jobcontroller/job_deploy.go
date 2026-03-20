@@ -21,10 +21,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -226,6 +224,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		EnvName:     c.jobTaskSpec.Env,
 		ServiceName: c.jobTaskSpec.ServiceName,
 	})
+
 	if err != nil {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -242,7 +241,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		IgnoreCurrentReplicaOverrides: updateRevision,
 		Containers:                    containers,
 	}
-	candidateYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
+	candidateYaml, revision, _, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
 		msg := fmt.Sprintf("generate service yaml error: %v", err)
 		logError(c.job, msg, c.logger)

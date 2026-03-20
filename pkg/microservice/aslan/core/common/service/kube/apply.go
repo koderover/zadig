@@ -881,6 +881,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
 				}
+				log.Infof("OverrideResource: %v", applyParam.OverrideResource)
 				if applyParam.OverrideResource {
 					originalYAML = ""
 				}
