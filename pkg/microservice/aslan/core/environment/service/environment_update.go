@@ -281,6 +281,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 		}
 	}
+	exitedProd.GlobalVariables = globalVariables
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
@@ -301,6 +302,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
+	currentSvcSnapshotMap := make(map[string]*commonmodels.ProductService)
+	for _, svcGroup := range exitedProd.Services {
+		for _, svc := range svcGroup {
+			if svc == nil || !svc.FromZadig() {
+				continue
+			}
+			currentSvcSnapshotMap[serviceNameTypeKey(svc.ServiceName, svc.Type)] = cloneProductService(svc)
+		}
+	}
 	svcGroupMap := make(map[string]int)
 	for i, svg := range exitedProd.Services {
 		for _, svc := range svg {
@@ -357,6 +367,14 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get product revision, err: %v", err))
 	}
 	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
+	latestServiceMap := make(map[string]*commonmodels.Service)
+	for _, svc := range allServices {
+		latestServiceMap[serviceNameTypeKey(svc.ServiceName, svc.Type)] = svc
+	}
+
+	if err := syncUpdatedProductReplicaOverrides(updateProd, currentSvcSnapshotMap, serviceRevisionMap, updateRevisionSvc, latestServiceMap); err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
 
 	for _, prodServiceGroup := range updateProd.Services {
 		for _, prodService := range prodServiceGroup {
@@ -371,11 +389,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 				Revision:    prodService.Revision,
 				Render:      prodService.Render,
 				Containers:  prodService.Containers,
+				WorkLoads:   prodService.WorkLoads,
 			}
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvc) {
-				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
+				svcRev, ok := serviceRevisionMap[serviceNameTypeKey(prodService.ServiceName, prodService.Type)]
 				if !ok {
 					continue
 				}

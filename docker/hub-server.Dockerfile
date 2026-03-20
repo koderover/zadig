@@ -10,6 +10,8 @@ COPY go.mod go.sum ./
 COPY cmd cmd
 COPY pkg pkg
 
+RUN apk add --no-cache git
+
 RUN go mod download
 
 RUN --mount=type=cache,id=gobuild,target=/gocache \

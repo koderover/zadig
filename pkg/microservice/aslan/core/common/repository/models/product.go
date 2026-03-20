@@ -170,6 +170,7 @@ type ProductService struct {
 	Type        string                        `bson:"type"                       json:"type"`
 	Revision    int64                         `bson:"revision"                   json:"revision"`
 	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
+	WorkLoads   []*WorkLoad                   `bson:"workloads"                  json:"workloads"`
 	Error       string                        `bson:"error,omitempty"            json:"error,omitempty"`
 	Resources   []*ServiceResource            `bson:"resources,omitempty"        json:"resources,omitempty"`
 	UpdateTime  int64                         `bson:"update_time"                json:"update_time"`
@@ -226,6 +227,12 @@ func (svc *ProductService) GetContainerImageMap() map[string]string {
 	}
 
 	return resp
+}
+
+type WorkLoad struct {
+	WorkloadType string `bson:"workload_type" json:"workload_type"`
+	WorkloadName string `bson:"workload_name" json:"workload_name"`
+	Replicas     int32  `bson:"replicas"      json:"replicas"`
 }
 
 type ServiceConfig struct {

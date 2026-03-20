@@ -163,6 +163,11 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
 	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
 
+	newProductSvc.WorkLoads, err = syncServiceReplicaOverrides(prodinfo, currentProductSvc, newProductSvc, nil)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to reconcile replica overrides, err: %s", err))
+	}
+
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)

@@ -244,6 +244,7 @@ type MatchedEnv struct {
 type OpenAPIScaleServiceReq struct {
 	ProjectKey     string `json:"project_key"`
 	EnvName        string `json:"env_key"`
+	ServiceName    string `json:"service_name"`
 	WorkloadName   string `json:"workload_name"`
 	WorkloadType   string `json:"workload_type"`
 	TargetReplicas int    `json:"target_replicas"`
@@ -256,6 +257,9 @@ func (req *OpenAPIScaleServiceReq) Validate() error {
 	if req.EnvName == "" {
 		return fmt.Errorf("env_key is required")
 	}
+	if req.ServiceName == "" {
+		return fmt.Errorf("service_name is required")
+	}
 	if req.WorkloadName == "" {
 		return fmt.Errorf("workload_name is required")
 	}
@@ -264,7 +268,7 @@ func (req *OpenAPIScaleServiceReq) Validate() error {
 	}
 
 	switch req.WorkloadType {
-	case setting.Deployment, setting.StatefulSet:
+	case setting.Deployment, setting.StatefulSet, setting.CloneSet:
 	default:
 		return fmt.Errorf("unsupported workload type: %s", req.WorkloadType)
 	}

@@ -49,6 +49,7 @@ type ProductServiceDeployInfo struct {
 	VariableYaml          string
 	VariableKVs           []*commontypes.RenderVariableKV
 	Containers            []*models.Container
+	WorkLoads             []*models.WorkLoad
 	UpdateServiceRevision bool
 	UserName              string
 	Resources             []*unstructured.Unstructured
@@ -168,6 +169,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 
 		// update product info
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
+		productSvc.WorkLoads = deployInfo.WorkLoads
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
 		productSvc.Resources = kube.UnstructuredToResources(deployInfo.Resources)
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)

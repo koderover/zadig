@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -30,11 +31,18 @@ func CombineManifests(yamls []string) string {
 	return strings.Join(yamls, separator)
 }
 
+// SplitManifests 按原始文件顺序返回 manifest 列表。
+// Helm 的 SplitManifests 返回 map，这里显式排序 key，避免顺序不稳定。
 func SplitManifests(content string) []string {
-	var res []string
+	res := make([]string, 0)
 	manifests := releaseutil.SplitManifests(content)
-	for _, m := range manifests {
-		res = append(res, m)
+	manifestKeys := make([]string, 0, len(manifests))
+	for key := range manifests {
+		manifestKeys = append(manifestKeys, key)
+	}
+	sort.Sort(releaseutil.BySplitManifestsOrder(manifestKeys))
+	for _, key := range manifestKeys {
+		res = append(res, manifests[key])
 	}
 
 	return res

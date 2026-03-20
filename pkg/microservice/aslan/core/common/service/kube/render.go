@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -53,14 +54,16 @@ import (
 )
 
 type GeneSvcYamlOption struct {
-	ProductName           string
-	EnvName               string
-	ServiceName           string
-	UpdateServiceRevision bool
-	VariableYaml          string
-	VariableKVs           []*commontypes.RenderVariableKV
-	UnInstall             bool
-	Containers            []*models.Container
+	ProductName                   string
+	EnvName                       string
+	ServiceName                   string
+	UpdateServiceRevision         bool
+	VariableYaml                  string
+	VariableKVs                   []*commontypes.RenderVariableKV
+	ReplicaOverrides              []*commonmodels.WorkLoad
+	IgnoreCurrentReplicaOverrides bool
+	UnInstall                     bool
+	Containers                    []*models.Container
 }
 
 type WorkloadResource struct {
@@ -404,7 +407,13 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 	mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 	fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
-	return fullRenderedYaml, 0, nil
+	if err != nil {
+		return "", 0, err
+	}
+
+	replicaOverrides := resolveReplicaOverrides(curProductSvc.WorkLoads, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
+	return fullRenderedYaml, 0, err
 }
 
 func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
@@ -544,6 +553,26 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	serviceRender := productInfo.GetSvcRender(option.ServiceName)
+	var (
+		currentBaseReplicaMap    map[string]int32
+		hasCurrentBaseReplicaMap bool
+	)
+	if curProductSvc != nil &&
+		commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) &&
+		!option.UpdateServiceRevision &&
+		option.ReplicaOverrides == nil &&
+		!option.IgnoreCurrentReplicaOverrides {
+		currentRenderedYaml, renderErr := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
+		if renderErr != nil {
+			return "", 0, nil, renderErr
+		}
+		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, currentRenderedYaml)
+		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
+		if err != nil {
+			return "", 0, nil, err
+		}
+		hasCurrentBaseReplicaMap = true
+	}
 
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -580,7 +609,80 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+	if err != nil {
+		return "", 0, nil, err
+	}
+
+	var currentReplicaOverrides []*commonmodels.WorkLoad
+	if curProductSvc != nil {
+		currentReplicaOverrides = curProductSvc.WorkLoads
+	}
+	replicaOverrides := resolveReplicaOverrides(currentReplicaOverrides, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+	if option.ReplicaOverrides == nil && !option.IgnoreCurrentReplicaOverrides {
+		candidateReplicaMap, extractErr := ExtractWorkloadReplicas(fullRenderedYaml)
+		if extractErr != nil {
+			log.Warnf("failed to resolve replicas from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, extractErr)
+		} else if hasCurrentBaseReplicaMap && replicaMapsEqual(currentBaseReplicaMap, candidateReplicaMap) {
+			replicaOverrides = currentReplicaOverrides
+		} else {
+			renderedReplicaOverrides, overrideErr := buildReplicaOverridesFromReplicaMap(candidateReplicaMap)
+			if overrideErr != nil {
+				log.Warnf("failed to resolve replica overrides from rendered yaml for %s/%s, fallback to current overrides: %v", option.EnvName, option.ServiceName, overrideErr)
+			} else {
+				replicaOverrides = renderedReplicaOverrides
+			}
+		}
+	}
+	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
+}
+
+func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.WorkLoad, ignoreCurrent bool) []*commonmodels.WorkLoad {
+	if optionOverrides != nil {
+		return optionOverrides
+	}
+	if ignoreCurrent {
+		return nil
+	}
+	return currentOverrides
+}
+
+func buildReplicaOverridesFromReplicaMap(candidateReplicaMap map[string]int32) ([]*commonmodels.WorkLoad, error) {
+	var err error
+	ret := make([]*commonmodels.WorkLoad, 0, len(candidateReplicaMap))
+	keys := make([]string, 0, len(candidateReplicaMap))
+	for key := range candidateReplicaMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		candidateReplica := candidateReplicaMap[key]
+		workloadType, workloadName := "", key
+		if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+			workloadType = NormalizeReplicaWorkloadType(parts[0])
+			workloadName = parts[1]
+		}
+		ret, err = UpsertWorkLoadsReplicas(ret, workloadType, workloadName, candidateReplica)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
+func replicaMapsEqual(left, right map[string]int32) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		rightValue, ok := right[key]
+		if !ok || leftValue != rightValue {
+			return false
+		}
+	}
+	return true
 }
 
 func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *template.ServiceRender) (string, error) {
@@ -618,5 +720,8 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
-	return parsedYaml, err
+	if err != nil {
+		return "", err
+	}
+	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }
