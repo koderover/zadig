@@ -387,10 +387,51 @@ func UpdateLarkWorkItemStageWorkflowInputV2(ctx *internalhandler.Context, stageN
 }
 
 func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, workItemTypeKey, workItemID string) error {
-	templateID, nodeID, err := getWorkItemInfo(ctx, workspaceID, workItemTypeKey, workItemID)
+	workItemIDInt, err := strconv.ParseInt(workItemID, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to get work item info: %w", err)
+		return fmt.Errorf("failed to parse workitem id: %w", err)
 	}
+
+	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
+	workItemResp, err := larkClient.ClientV2.WorkItem.GetWorkItemsByIds(ctx, workitem.NewGetWorkItemsByIdsReqBuilder().
+		ProjectKey(workspaceID).
+		WorkItemTypeKey(workItemTypeKey).
+		WorkItemIDs([]int64{workItemIDInt}).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get lark workitem: %w", err)
+	}
+	if workItemResp.Code() != 0 {
+		return fmt.Errorf("failed to get lark workitem, code: %d, message: %s", workItemResp.Code(), workItemResp.ErrMsg)
+	}
+	if len(workItemResp.Data) == 0 {
+		return fmt.Errorf("workitem could not be found")
+	}
+
+	currentWorkItem := workItemResp.Data[0]
+	currentWorkItemPattern := util.GetStringFromPointer(currentWorkItem.Pattern)
+
+	templateID := util.GetInt64FromPointer(currentWorkItem.TemplateID)
+	currentNodeIDs := make([]string, 0)
+	if currentWorkItemPattern == string(meego.WorkItemPatternNode) {
+		for _, currentNode := range currentWorkItem.CurrentNodes {
+			currentNodeIDs = append(currentNodeIDs, util.GetStringFromPointer(currentNode.ID))
+		}
+	} else if currentWorkItemPattern == string(meego.WorkItemPatternState) {
+		if currentWorkItem.WorkItemStatus == nil {
+			return fmt.Errorf("workitem status could not be found")
+		}
+		currentNodeIDs = append(currentNodeIDs, util.GetStringFromPointer(currentWorkItem.WorkItemStatus.StateKey))
+	} else {
+		return fmt.Errorf("unsupported pattern %s", currentWorkItemPattern)
+	}
+	if len(currentNodeIDs) == 0 {
+		return fmt.Errorf("no current node found")
+	}
+	nodeID := currentNodeIDs[0]
 
 	workflowConfig, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().Find(workspaceID, workItemTypeKey, templateID, nodeID)
 	if err != nil {
@@ -445,7 +486,6 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 	}
 
 	// Get Lark project info for task metadata
-	larkClient := larkplugin.NewClient(config.LarkPluginID(), config.LarkPluginSecret(), ctx.LarkPlugin.LarkType)
 	projectResp, err := larkClient.Client.Project.GetProjectDetail(ctx, project.NewGetProjectDetailReqBuilder().
 		ProjectKeys([]string{workspaceID}).
 		Build(),
@@ -472,12 +512,22 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 		return fmt.Errorf("failed to list project work item type: %w", err)
 	}
 
+	projectName := projectResp.Data[workspaceID].Name
+	workItemTypeName := stageConfig.WorkItemType
+	if workItemTypeName == "" {
+		workItemTypeName = workItemTypeKey
+	}
 	workitemTypeApiName := workItemTypeKey
 	for _, workitemType := range projectWorkItemTypes.Data {
 		if workitemType.TypeKey == workItemTypeKey {
+			workItemTypeName = workitemType.Name
 			workitemTypeApiName = workitemType.APIName
 			break
 		}
+	}
+	meegoLink := ""
+	if baseURL := strings.TrimRight(larkplugin.GetLarkPluginBaseUrl(ctx.LarkPlugin.LarkType), "/"); baseURL != "" {
+		meegoLink = fmt.Sprintf("%s/%s/%s/detail/%s", baseURL, projectResp.Data[workspaceID].SimpleName, workitemTypeApiName, workItemID)
 	}
 
 	// Build lookup map from user-selected service configs
@@ -594,6 +644,44 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 				}
 				// ProductTestType: keep all defaults
 				job.Spec = testSpec
+			case aslanconfig.JobMeegoTransition:
+				if workflowConfig.StageName != "release" {
+					job.Skipped = true
+					continue
+				}
+
+				meegoTransitionSpec := &commonmodels.MeegoTransitionJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, meegoTransitionSpec); err != nil {
+					return fmt.Errorf("failed to parse meego transition job spec: %w", err)
+				}
+
+				statusWorkItems := make([]*commonmodels.MeegoWorkItemTransition, 0)
+				nodeWorkItems := make([]*commonmodels.MeegoWorkItemNodeOperate, 0)
+				switch currentWorkItemPattern {
+				case string(meego.WorkItemPatternState):
+					statusWorkItem, err := buildAutoMeegoStatusWorkItemForLarkV2(ctx, larkClient, workspaceID, workItemTypeKey, workItemIDInt, currentWorkItem, meegoTransitionSpec.StatusWorkItems)
+					if err != nil {
+						return fmt.Errorf("failed to build meego status work item: %w", err)
+					}
+					statusWorkItems = append(statusWorkItems, statusWorkItem)
+				case string(meego.WorkItemPatternNode):
+					nodeWorkItems, err = buildAutoMeegoNodeWorkItemsForLarkV2(currentWorkItem)
+					if err != nil {
+						return fmt.Errorf("failed to build meego node work items: %w", err)
+					}
+				default:
+					return fmt.Errorf("unsupported pattern %s", currentWorkItemPattern)
+				}
+
+				meegoTransitionSpec.ProjectName = projectName
+				meegoTransitionSpec.ProjectKey = workspaceID
+				meegoTransitionSpec.WorkItemType = workItemTypeName
+				meegoTransitionSpec.WorkItemTypeKey = workItemTypeKey
+				meegoTransitionSpec.StatusWorkItems = statusWorkItems
+				meegoTransitionSpec.NodeWorkItems = nodeWorkItems
+				meegoTransitionSpec.Link = meegoLink
+
+				job.Spec = meegoTransitionSpec
 			}
 		}
 	}
@@ -613,6 +701,141 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 	}
 
 	return nil
+}
+
+func buildAutoMeegoStatusWorkItemForLarkV2(ctx *internalhandler.Context,
+	larkClient *larkplugin.Client, workspaceID, workItemTypeKey string, workItemID int64,
+	currentWorkItem workitem.WorkItem_work_item_WorkItemInfo, templateItems []*commonmodels.MeegoWorkItemTransition,
+) (*commonmodels.MeegoWorkItemTransition, error) {
+	if currentWorkItem.WorkItemStatus == nil {
+		return nil, fmt.Errorf("workitem status could not be found")
+	}
+
+	currentStateKey := util.GetStringFromPointer(currentWorkItem.WorkItemStatus.StateKey)
+	if currentStateKey == "" {
+		return nil, fmt.Errorf("current state key could not be found")
+	}
+
+	workflowResp, err := larkClient.ClientV2.WorkItem.GetWorkFlow(ctx, workitem.NewGetWorkFlowReqBuilder().
+		ProjectKey(workspaceID).
+		WorkItemTypeKey(workItemTypeKey).
+		WorkItemID(workItemID).
+		FlowType(int64(meego.StatusFlowType)).
+		Build(),
+		sdkcore.WithAccessToken(ctx.LarkPlugin.PluginAccessToken),
+		sdkcore.WithUserKey(ctx.LarkPlugin.UserKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lark workflow: %w", err)
+	}
+	if workflowResp.Code() != 0 {
+		return nil, fmt.Errorf("failed to get lark workflow, code: %d, message: %s", workflowResp.Code(), workflowResp.ErrMsg)
+	}
+	if workflowResp.Data == nil {
+		return nil, fmt.Errorf("workflow data could not be found")
+	}
+
+	preferredTargetStateKey := ""
+	preferredTargetStateName := ""
+	for _, item := range templateItems {
+		if item == nil {
+			continue
+		}
+		if item.TargetStateKey != "" {
+			preferredTargetStateKey = item.TargetStateKey
+			break
+		}
+		if preferredTargetStateName == "" && item.TargetStateName != "" {
+			preferredTargetStateName = item.TargetStateName
+		}
+	}
+	if preferredTargetStateKey == "" && preferredTargetStateName != "" {
+		for _, state := range workflowResp.Data.StateFlowNodes {
+			if util.GetStringFromPointer(state.Name) == preferredTargetStateName {
+				preferredTargetStateKey = util.GetStringFromPointer(state.ID)
+				break
+			}
+		}
+	}
+
+	transitionID := int64(0)
+	targetStateKey := ""
+	hasAvailableTransition := false
+	matchedPreferred := preferredTargetStateKey == ""
+	for _, conn := range workflowResp.Data.Connections {
+		if util.GetStringFromPointer(conn.SourceStateKey) != currentStateKey {
+			continue
+		}
+
+		hasAvailableTransition = true
+		currentTransitionID := util.GetInt64FromPointer(conn.TransitionID)
+		if currentTransitionID == 0 {
+			continue
+		}
+		if transitionID == 0 {
+			transitionID = currentTransitionID
+			targetStateKey = util.GetStringFromPointer(conn.TargetStateKey)
+		}
+		if preferredTargetStateKey != "" && util.GetStringFromPointer(conn.TargetStateKey) == preferredTargetStateKey {
+			transitionID = currentTransitionID
+			targetStateKey = preferredTargetStateKey
+			matchedPreferred = true
+			break
+		}
+	}
+	if !hasAvailableTransition {
+		return nil, fmt.Errorf("no available next state transition from state %s", currentStateKey)
+	}
+	if preferredTargetStateKey != "" && !matchedPreferred {
+		return nil, fmt.Errorf("no available transition from state %s to target state %s", currentStateKey, preferredTargetStateKey)
+	}
+	if transitionID == 0 {
+		return nil, fmt.Errorf("next state transition is incomplete")
+	}
+
+	targetStateName := ""
+	for _, state := range workflowResp.Data.StateFlowNodes {
+		if util.GetStringFromPointer(state.ID) == targetStateKey {
+			targetStateName = util.GetStringFromPointer(state.Name)
+			break
+		}
+	}
+
+	return &commonmodels.MeegoWorkItemTransition{
+		ID:              int(util.GetInt64FromPointer(currentWorkItem.ID)),
+		Name:            util.GetStringFromPointer(currentWorkItem.Name),
+		TransitionID:    transitionID,
+		TargetStateKey:  targetStateKey,
+		TargetStateName: targetStateName,
+	}, nil
+}
+
+func buildAutoMeegoNodeWorkItemsForLarkV2(currentWorkItem workitem.WorkItem_work_item_WorkItemInfo) ([]*commonmodels.MeegoWorkItemNodeOperate, error) {
+	if len(currentWorkItem.CurrentNodes) == 0 {
+		return nil, fmt.Errorf("no current nodes found")
+	}
+
+	seenNodeIDs := sets.New[string]()
+	resp := make([]*commonmodels.MeegoWorkItemNodeOperate, 0, len(currentWorkItem.CurrentNodes))
+	for _, node := range currentWorkItem.CurrentNodes {
+		nodeID := util.GetStringFromPointer(node.ID)
+		if nodeID == "" || seenNodeIDs.Has(nodeID) {
+			continue
+		}
+		seenNodeIDs.Insert(nodeID)
+		resp = append(resp, &commonmodels.MeegoWorkItemNodeOperate{
+			ID:       int(util.GetInt64FromPointer(currentWorkItem.ID)),
+			Name:     util.GetStringFromPointer(currentWorkItem.Name),
+			NodeID:   nodeID,
+			NodeName: util.GetStringFromPointer(node.Name),
+		})
+	}
+
+	if len(resp) == 0 {
+		return nil, fmt.Errorf("no current nodes found")
+	}
+
+	return resp, nil
 }
 
 type LarkWorkItemResp struct {
