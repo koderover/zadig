@@ -41,9 +41,10 @@ const (
 	VerbUpdateManager             = "update_manager"
 	VerbUpdateJiraSprint          = "update_jira_sprint"
 
-	VerbCreateReleaseJob = "create_release_job"
-	VerbUpdateReleaseJob = "update_release_job"
-	VerbDeleteReleaseJob = "delete_release_job"
+	VerbCreateReleaseJob  = "create_release_job"
+	VerbUpdateReleaseJob  = "update_release_job"
+	VerbDeleteReleaseJob  = "delete_release_job"
+	VerbReorderReleaseJob = "reorder_release_job"
 
 	VerbUpdateApproval = "update_approval"
 	VerbDeleteApproval = "delete_approval"
@@ -123,6 +124,8 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewUpdateReleaseJobUpdater(args)
 	case VerbDeleteReleaseJob:
 		return NewDeleteReleaseJobUpdater(args)
+	case VerbReorderReleaseJob:
+		return NewReorderReleaseJobUpdater(args)
 	case VerbUpdateApproval:
 		return NewUpdateApprovalUpdater(args)
 	case VerbDeleteApproval:
@@ -441,6 +444,62 @@ func (u *DeleteReleaseJobUpdater) TargetType() string {
 
 func (u *DeleteReleaseJobUpdater) Verb() string {
 	return VerbDelete
+}
+
+type ReorderReleaseJobUpdater struct {
+	JobIDs []string `json:"job_ids"`
+}
+
+func NewReorderReleaseJobUpdater(args *UpdateReleasePlanArgs) (*ReorderReleaseJobUpdater, error) {
+	var updater ReorderReleaseJobUpdater
+	if err := models.IToi(args.Spec, &updater); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	return &updater, nil
+}
+
+func (u *ReorderReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	beforeIDs := make([]string, 0, len(plan.Jobs))
+	for _, job := range plan.Jobs {
+		beforeIDs = append(beforeIDs, job.ID)
+	}
+	before = beforeIDs
+
+	jobMap := make(map[string]*models.ReleaseJob, len(plan.Jobs))
+	for _, job := range plan.Jobs {
+		jobMap[job.ID] = job
+	}
+
+	newJobs := make([]*models.ReleaseJob, 0, len(u.JobIDs))
+	for _, id := range u.JobIDs {
+		job, ok := jobMap[id]
+		if !ok {
+			return nil, nil, fmt.Errorf("job %s not found", id)
+		}
+		newJobs = append(newJobs, job)
+	}
+	plan.Jobs = newJobs
+	after = u.JobIDs
+	return
+}
+
+func (u *ReorderReleaseJobUpdater) Lint() error {
+	if len(u.JobIDs) == 0 {
+		return fmt.Errorf("job_ids cannot be empty")
+	}
+	return nil
+}
+
+func (u *ReorderReleaseJobUpdater) TargetName() string {
+	return "发布内容"
+}
+
+func (u *ReorderReleaseJobUpdater) TargetType() string {
+	return TargetTypeReleaseJob
+}
+
+func (u *ReorderReleaseJobUpdater) Verb() string {
+	return VerbUpdate
 }
 
 type UpdateApprovalUpdater struct {
