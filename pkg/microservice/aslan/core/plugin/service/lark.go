@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	sdkcore "github.com/larksuite/project-oapi-sdk-golang/core"
@@ -41,6 +42,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/types"
+	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 )
 
 type LarkLoginRequest struct {
@@ -555,6 +557,7 @@ type LarkWorkitemWorkflowTask struct {
 	StartTime           int64                             `json:"start_time,omitempty"`
 	EndTime             int64                             `json:"end_time,omitempty"`
 	Hash                string                            `json:"hash"`
+	Images              []string                          `json:"images"`
 	Repos               []*types.Repository               `json:"repos"`
 	ServiceModules      []*commonmodels.ServiceWithModule `json:"service_modules"`
 	DeployEnvs          []*commonmodels.WorkflowEnv       `json:"deploy_envs"`
@@ -596,10 +599,12 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 			Hash:                task.Hash,
 		}
 
+		imageSet := sets.New[string]()
 		repoSet := sets.New[string]()
 		serviceModuleSet := sets.New[string]()
 		deployEnvSet := sets.New[string]()
 
+		images := make([]string, 0)
 		repos := make([]*types.Repository, 0)
 		serviceModules := make([]*commonmodels.ServiceWithModule, 0)
 		deployEnvs := make([]*commonmodels.WorkflowEnv, 0)
@@ -677,6 +682,46 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 			}
 		}
 
+		for _, stage := range task.Stages {
+			for _, jobTask := range stage.Jobs {
+				switch jobTask.JobType {
+				case string(aslanconfig.JobZadigBuild):
+					jobTaskSpec := new(commonmodels.JobTaskFreestyleSpec)
+					if err := commonmodels.IToi(jobTask.Spec, jobTaskSpec); err != nil {
+						return nil, fmt.Errorf("failed to convert job spec to build job spec: %w", err)
+					}
+
+					image := ""
+					imageContextKey := strings.Join(strings.Split(jobspec.GetJobOutputKey(jobTask.Key, "IMAGE"), "."), "@?")
+					if task.GlobalContext != nil {
+						image = task.GlobalContext[imageContextKey]
+					}
+
+					if jobTask.Status == aslanconfig.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
+						if imageSet.Has(image) {
+							continue
+						}
+						imageSet.Insert(image)
+						images = append(images, image)
+					}
+				case string(aslanconfig.JobZadigDeploy):
+					deploy := new(commonmodels.JobTaskDeploySpec)
+					if err := commonmodels.IToi(jobTask.Spec, deploy); err != nil {
+						return nil, fmt.Errorf("failed to convert job spec to deploy job spec: %w", err)
+					}
+
+					for _, serviceAndImage := range deploy.ServiceAndImages {
+						if imageSet.Has(serviceAndImage.Image) {
+							continue
+						}
+						imageSet.Insert(serviceAndImage.Image)
+						images = append(images, serviceAndImage.Image)
+					}
+				}
+			}
+		}
+
+		respTask.Images = images
 		respTask.Repos = repos
 		respTask.ServiceModules = serviceModules
 		respTask.DeployEnvs = deployEnvs
