@@ -73,8 +73,8 @@ func UpsertWorkLoadsReplicas(origins []*commonmodels.WorkLoad, workloadType, wor
 
 // ApplyReplicaOverrides 按归一化后的 workload 目标，把 override 写入渲染结果中的 spec.replicas。
 func ApplyReplicaOverrides(renderedYaml string, overrides []*commonmodels.WorkLoad) (string, error) {
-	if len(overrides) == 0 || len(strings.TrimSpace(renderedYaml)) == 0 {
-		return renderedYaml, nil
+	if len(strings.TrimSpace(renderedYaml)) == 0 {
+		return "", nil
 	}
 
 	overrideMap := make(map[string]int32, len(overrides))
