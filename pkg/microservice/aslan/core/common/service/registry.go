@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -130,7 +129,7 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 	return resp, nil
 }
 
-func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func EnsureDefaultRegistrySecret(namespace, registryId, clusterID string, log *zap.SugaredLogger) error {
 	var reg *models.RegistryNamespace
 	var err error
 	if len(registryId) > 0 {
@@ -153,7 +152,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 		}
 	}
 
-	err = kube.CreateOrUpdateDefaultRegistrySecret(namespace, reg, kubeClient)
+	err = kube.CreateOrUpdateDefaultRegistrySecret(namespace, clusterID, reg)
 	if err != nil {
 		log.Errorf("[%s] CreateDockerSecret error: %s", namespace, err)
 		return e.ErrUpdateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)

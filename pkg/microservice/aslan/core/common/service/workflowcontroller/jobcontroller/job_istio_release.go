@@ -144,7 +144,17 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	if c.jobTaskSpec.FirstJob {
 		c.Infof("Adding annotation to original deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
-		if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+		if err := updater.UpdateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, c.jobTaskSpec.Targets.WorkloadName, func(d *appsv1.Deployment) error {
+			if d.Annotations == nil {
+				d.Annotations = make(map[string]string)
+			}
+			if c.jobTaskSpec.Targets.VirtualServiceName != "" {
+				d.Annotations[ZadigIstioOriginalVSLabel] = c.jobTaskSpec.Targets.VirtualServiceName
+			} else {
+				d.Annotations[ZadigIstioOriginalVSLabel] = "none"
+			}
+			return nil
+		}); err != nil {
 			c.Errorf("add annotations to origin deployment: %s failed: %v", c.jobTaskSpec.Targets.WorkloadName, err)
 			return
 		}
@@ -200,7 +210,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 		c.Infof("Creating deployment copy for deployment: %s", c.jobTaskSpec.Targets.WorkloadName)
 		c.ack()
-		if err := updater.CreateOrPatchDeployment(newDeployment, c.kubeClient); err != nil {
+		if err := updater.CreateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, newDeployment); err != nil {
 			c.Errorf("creating deployment copy: %s failed: %v", fmt.Sprintf("%s-%s", deployment.Name, config.ZadigIstioCopySuffix), err)
 			return
 		}
@@ -482,13 +492,29 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			targetReplica := int32(c.jobTaskSpec.Replicas)
 			deployment.Spec.Replicas = &targetReplica
 
-			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
-			c.ack()
+		c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
+		c.ack()
 
-			if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
-				c.Errorf("update origin deployment: %s failed: %v", deployment.Name, err)
-				return
+		if err := updater.UpdateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, deployment.Name, func(d *appsv1.Deployment) error {
+			var oldImg string
+			for i, container := range d.Spec.Template.Spec.Containers {
+				if container.Name == c.jobTaskSpec.Targets.ContainerName {
+					oldImg = container.Image
+					d.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Targets.Image
+				}
 			}
+			if d.Annotations == nil {
+				d.Annotations = make(map[string]string)
+			}
+			d.Annotations[config.ZadigLastAppliedReplicas] = strconv.Itoa(int(*d.Spec.Replicas))
+			d.Annotations[config.ZadigLastAppliedImage] = oldImg
+			targetReplica := int32(c.jobTaskSpec.Replicas)
+			d.Spec.Replicas = &targetReplica
+			return nil
+		}); err != nil {
+			c.Errorf("update origin deployment: %s failed: %v", deployment.Name, err)
+			return
+		}
 
 			// waiting for original deployment to run
 			c.Infof("Waiting for deployment: %s to start", c.jobTaskSpec.Targets.WorkloadName)

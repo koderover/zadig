@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -62,11 +63,6 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
-	if err != nil {
-		return err
-	}
-
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
 	if err != nil {
@@ -75,7 +71,7 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, prod.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -85,9 +81,9 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 
 	switch args.Type {
 	case setting.Deployment:
-		err = updater.RestartDeployment(prod.Namespace, args.Name, kubeClient)
+		err = updater.RestartDeploymentV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	case setting.StatefulSet:
-		err = updater.RestartStatefulSet(prod.Namespace, args.Name, kubeClient)
+		err = updater.RestartStatefulSetV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	}
 
 	if err != nil {
@@ -413,7 +409,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, productObj.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -428,7 +424,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.Deployment, err.Error())
 		}
 		if found {
-			return updater.RestartDeployment(productObj.Namespace, deploy.Name, kubeClient)
+			return updater.RestartDeploymentV2(context.Background(), productObj.ClusterID, productObj.Namespace, deploy.Name)
 		}
 
 		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)
@@ -436,7 +432,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.StatefulSet, err.Error())
 		}
 		if found {
-			return updater.RestartStatefulSet(productObj.Namespace, sts.Name, kubeClient)
+			return updater.RestartStatefulSetV2(context.Background(), productObj.ClusterID, productObj.Namespace, sts.Name)
 		}
 	default:
 		var productService *commonmodels.ProductService
@@ -446,7 +442,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		}
 		productService = serviceObj
 
-		err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
+		err = restartRelatedWorkloads(productObj, productService, productObj.ClusterID, log)
 		log.Infof("restart resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 
 		if err != nil {

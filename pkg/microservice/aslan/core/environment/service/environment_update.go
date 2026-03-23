@@ -191,7 +191,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 			}
 			return false
 		}
-		err = updateK8sProduct(product, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, product.GlobalVariables, log.SugaredLogger())
+		err = updateK8sProduct(product, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, nil, false, product.GlobalVariables, log.SugaredLogger())
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
@@ -199,7 +199,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 	return retErr.ErrorOrNil()
 }
 
-func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string,
+func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string, overrideResource map[string]bool,
 	force bool, globalVariables []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(exitedProd.ClusterID)
@@ -225,7 +225,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, exitedProd.ClusterID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.updateK8sProduct create kubeEnv error: %v", envName, productName, err)
 		return err
@@ -425,7 +425,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, filter, user, log)
+		err = updateProductImpl(updateRevisionSvc, deployStrategy, overrideResource, exitedProd, updateProd, filter, user, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -486,7 +486,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(serviceNames, nil, exitedProd, updateProd, nil, user, log)
+		err = updateProductImpl(serviceNames, nil, nil, exitedProd, updateProd, nil, user, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)

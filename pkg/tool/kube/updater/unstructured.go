@@ -26,16 +26,13 @@ func CreateOrPatchUnstructured(u *unstructured.Unstructured, cl client.Client) e
 	return createOrPatchObject(u, cl)
 }
 
+// remain as is
 func PatchUnstructured(u *unstructured.Unstructured, patchBytes []byte, patchType types.PatchType, cl client.Client) error {
 	return PatchObject(u, patchBytes, patchType, cl)
 }
 
 func CreateOrPatchUnstructuredNeverAnnotation(u *unstructured.Unstructured, cl client.Client) error {
 	return createOrPatchObjectNeverAnnotation(u, cl)
-}
-
-func UpdateOrCreateUnstructured(u *unstructured.Unstructured, cl client.Client) error {
-	return updateOrCreateObject(u, cl)
 }
 
 func DeleteUnstructured(u *unstructured.Unstructured, cl client.Client) error {

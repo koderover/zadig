@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"sync"
@@ -158,7 +159,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	err = updater.UpdateOrCreateSecret(secret, kubeClient)
+	err = updater.CreateOrUpdateSecretV2(context.TODO(), product.ClusterID, secret)
 	if err != nil {
 		log.Error(err)
 		return e.ErrUpdateResource.AddDesc(err.Error())
@@ -181,13 +182,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 	if !args.RestartAssociatedSvc {
 		return nil
 	}
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrUpdateConfigMap.AddErr(err)
-	}
-
-	if err := restartPod(secret.Name, args.ProductName, args.EnvName, product.Namespace, config.CommonEnvCfgTypeSecret, clientset, kubeClient); err != nil {
+	if err := restartPod(secret.Name, args.ProductName, args.EnvName, product.Namespace, product.ClusterID, config.CommonEnvCfgTypeSecret, kubeClient); err != nil {
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
 	return nil

@@ -115,7 +115,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 	}
 	for _, reg := range regs {
 		if reg.RegProvider == config.RegistryTypeAWS {
-			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, false, kubeClient); err != nil {
+			if err := kube.CreateOrUpdateRegistrySecret(namespace, product.ClusterID, reg, false); err != nil {
 				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
 				log.Errorf("%s\n", retErr.Error())
 				return retErr
@@ -142,17 +142,17 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 	} else {
 		switch args.Type {
 		case setting.Deployment:
-			if err := updater.UpdateDeploymentImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+			if err := updater.UpdateDeploymentImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateDeploymentImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
 			}
 		case setting.StatefulSet:
-			if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+			if err := updater.UpdateStatefulSetImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		case setting.CronJob:
-			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient, VersionLessThan121(version)); err != nil {
+			if err := updater.UpdateCronJobImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 CronJob 容器镜像失败")
 			}

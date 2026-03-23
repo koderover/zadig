@@ -21,10 +21,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -226,6 +224,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		EnvName:     c.jobTaskSpec.Env,
 		ServiceName: c.jobTaskSpec.ServiceName,
 	})
+
 	if err != nil {
 		msg := fmt.Sprintf("get current service yaml error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -242,7 +241,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		IgnoreCurrentReplicaOverrides: updateRevision,
 		Containers:                    containers,
 	}
-	candidateYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
+	candidateYaml, revision, _, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
 		msg := fmt.Sprintf("generate service yaml error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -281,25 +280,12 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	c.ack()
 
 	// if not only deploy image, we will redeploy service
-	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
-		return nil
-	}
-	// if only deploy image, we only patch image.
-	if err := c.updateServiceModuleImages(ctx, resources, env); err != nil {
+	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
 
 	return nil
-}
-
-func onlyDeployImage(deployContents []config.DeployContent) bool {
-	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
 func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, currentWorkLoads []*commonmodels.WorkLoad) ([]*commonmodels.WorkLoad, error) {
@@ -335,7 +321,8 @@ func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, curre
 }
 
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
-	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string) error {
+	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string, overrideResource bool) error {
+
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
 		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
@@ -360,6 +347,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		SharedEnvHandler:    nil,
 		ProductInfo:         env,
 		JobLogContext:       &joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job},
+		OverrideResource:    overrideResource,
 	}, c.logger)
 
 	if err != nil {
@@ -422,7 +410,7 @@ L:
 				// Check if Deployment is stuck before updating
 				isStuck := kube.IsDeploymentStuckInUpdate(deploy, logger)
 
-				err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateDeploymentImageV2(ctx, env.ClusterID, deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}
@@ -455,7 +443,7 @@ L:
 
 		for _, container := range deploy.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateDeploymentInitImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateDeploymentInitImageV2(ctx, env.ClusterID, deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}
@@ -482,7 +470,7 @@ Loop:
 				// Check if StatefulSet is stuck before updating
 				isStuck := kube.IsStatefulSetStuckInUpdate(sts, logger)
 
-				err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateStatefulSetImageV2(ctx, env.ClusterID, sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
@@ -514,7 +502,7 @@ Loop:
 		}
 		for _, container := range sts.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateStatefulSetInitImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
+				err = updater.UpdateStatefulSetInitImageV2(ctx, env.ClusterID, sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
@@ -538,7 +526,7 @@ CronLoop:
 	for _, cron := range cronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, false)
+				err = updater.UpdateCronJobImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -559,7 +547,7 @@ CronLoop:
 		}
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, false)
+				err = updater.UpdateCronJobInitImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -583,7 +571,7 @@ BetaCronLoop:
 	for _, cron := range betaCronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, true)
+				err = updater.UpdateCronJobImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -605,7 +593,7 @@ BetaCronLoop:
 		}
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient, true)
+				err = updater.UpdateCronJobInitImageV2(ctx, env.ClusterID, cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -654,34 +642,6 @@ Job:
 		return nil, nil, err
 	}
 	return replaceResources, relatedPodLabels, nil
-}
-
-func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources []*kube.WorkloadResource, env *commonmodels.Product) error {
-	jobTaskctx := &joblog.JobLogContext{
-		WorkflowCtx: c.workflowCtx,
-		JobTask:     c.job,
-	}
-
-	errList := new(multierror.Error)
-	wg := sync.WaitGroup{}
-	for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
-		wg.Add(1)
-		go func(serviceModule *commonmodels.DeployServiceModule) {
-			defer wg.Done()
-			replaceResources, relatedPodLabels, err := UpdateExternalServiceModule(ctx, c.kubeClient, c.clientSet, resources, env, c.jobTaskSpec.ServiceName, serviceModule, "", c.workflowCtx.WorkflowTaskCreatorUsername, jobTaskctx, c.logger)
-			if err != nil {
-				errList = multierror.Append(errList, err)
-			} else {
-				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, replaceResources...)
-				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, relatedPodLabels...)
-			}
-		}(serviceModule)
-	}
-	wg.Wait()
-	if err := errList.ErrorOrNil(); err != nil {
-		return err
-	}
-	return nil
 }
 
 // 5.26 temporarily deactivate this function

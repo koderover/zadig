@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"sync"
@@ -181,18 +182,17 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrUpdateResource.AddErr(err)
-	}
-
 	yamlData, err := ensureLabelAndNs(pvc, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	err = updater.UpdatePvc(product.Namespace, pvc, clientset)
+	err = updater.UpdatePvcV2(context.TODO(), product.ClusterID, product.Namespace, pvc.Name, func(livePvc *corev1.PersistentVolumeClaim) error {
+		livePvc.Spec = pvc.Spec
+		livePvc.Labels = pvc.Labels
+		livePvc.Annotations = pvc.Annotations
+		return nil
+	})
 	if err != nil {
 		log.Error(err)
 		return e.ErrUpdateResource.AddDesc(err.Error())
@@ -220,7 +220,7 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	if err := restartPod(pvc.Name, args.ProductName, args.EnvName, product.Namespace, config.CommonEnvCfgTypeSecret, clientset, kubeClient); err != nil {
+	if err := restartPod(pvc.Name, args.ProductName, args.EnvName, product.Namespace, product.ClusterID, config.CommonEnvCfgTypeSecret, kubeClient); err != nil {
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
 	return nil

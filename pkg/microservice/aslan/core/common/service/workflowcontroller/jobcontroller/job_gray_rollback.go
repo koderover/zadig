@@ -20,6 +20,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -70,19 +71,16 @@ func (c *GrayRollbackJobCtl) Run(ctx context.Context) {
 		c.Errorf("can't init k8s client: %v", err)
 		return
 	}
-	deployment, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
-	if err != nil || !found {
-		c.Errorf("deployment: %s not found: %v", c.jobTaskSpec.WorkloadName, err)
-		return
-	}
-	deployment.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.TotalReplica))
-	for i := range deployment.Spec.Template.Spec.Containers {
-		if deployment.Spec.Template.Spec.Containers[i].Name == c.jobTaskSpec.ContainerName {
-			deployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
-			break
+	if err := updater.UpdateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, func(d *appsv1.Deployment) error {
+		d.Spec.Replicas = int32Ptr(int32(c.jobTaskSpec.TotalReplica))
+		for i, container := range d.Spec.Template.Spec.Containers {
+			if container.Name == c.jobTaskSpec.ContainerName {
+				d.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
+				break
+			}
 		}
-	}
-	if err := updater.CreateOrPatchDeployment(deployment, c.kubeClient); err != nil {
+		return nil
+	}); err != nil {
 		c.Errorf("update origin deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		return
 	}
@@ -97,13 +95,13 @@ func (c *GrayRollbackJobCtl) Run(ctx context.Context) {
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s image set to %s", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Image))
 	c.ack()
 
-	_, found, err = getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient)
+	_, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient)
 	if err != nil {
 		c.Errorf("get gray release deployment: %s error: %v", c.jobTaskSpec.GrayWorkloadName, err)
 		return
 	}
 	if found {
-		if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, time.Duration(c.timeout())*time.Second, c.kubeClient); err != nil {
+		if err := updater.DeleteDeploymentAndWaitV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, time.Duration(c.timeout())*time.Second, updater.WithName(c.jobTaskSpec.GrayWorkloadName)); err != nil {
 			msg := fmt.Sprintf("delete gray deployment %s error: %v", c.jobTaskSpec.GrayWorkloadName, err)
 			logError(c.job, msg, c.logger)
 			c.jobTaskSpec.Events.Error(msg)

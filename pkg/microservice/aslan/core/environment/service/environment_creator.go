@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -174,7 +175,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 
 	// before create product, do install -dryRun to expose errors earlier
 	dryRunClient := client.NewDryRunClient(kubeClient)
-	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, clusterID, args.EnvConfigs, true, dryRunClient)
 	if err != nil {
 		log.Errorf("failed to dyrRun env resource [%s][P:%s], the error is: %s", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
@@ -193,7 +194,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, false, kubeClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, clusterID, args.EnvConfigs, false, kubeClient)
 	if err != nil {
 		log.Errorf("failed to helmInitEnvConfigSet [%s][P:%s], the error is: %s", args.EnvName, args.ProductName, err)
 		if err := commonrepo.NewProductColl().UpdateStatusAndError(args.EnvName, args.ProductName, setting.ProductStatusFailed, err.Error()); err != nil {
@@ -216,11 +217,7 @@ func (creator *ExternalProductCreator) Create(user, requestID string, args *Prod
 	args.Status = setting.ProductStatusUnstable
 	args.RecycleDay = config.DefaultRecycleDay()
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(args.ClusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	err = kube.EnsureNamespaceLabels(args.Namespace, map[string]string{setting.ProductLabel: args.ProductName}, kubeClient)
+	err := kube.EnsureNamespaceLabels(args.Namespace, args.ClusterID, map[string]string{setting.ProductLabel: args.ProductName})
 	if err != nil {
 		log.Errorf("[%s][%s] create add namesapce label error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -310,7 +307,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)
-	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, clusterID, args.EnvConfigs, true, dryRunClient)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -340,7 +337,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 	return nil
 }
 
-func initEnvConfigSetAction(envName, namespace, productName, userName string, envResources []*models.CreateUpdateCommonEnvCfgArgs, dryRun bool, kubeClient client.Client) error {
+func initEnvConfigSetAction(envName, namespace, productName, userName, clusterID string, envResources []*models.CreateUpdateCommonEnvCfgArgs, dryRun bool, kubeClient client.Client) error {
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
 			format := "创建环境配置"
@@ -376,7 +373,22 @@ func initEnvConfigSetAction(envName, namespace, productName, userName string, en
 				continue
 			}
 
-			err = updater.CreateOrPatchUnstructuredNeverAnnotation(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal %s %s to YAML: %v", u.GetKind(), u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			switch u.GetKind() {
+			case setting.ConfigMap:
+				err = updater.CreateOrPatchConfigMapV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
+			case setting.Ingress:
+				err = updater.CreateOrPatchIngressV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
+			case setting.Secret:
+				err = updater.CreateOrPatchSecretV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
+			case setting.PersistentVolumeClaim:
+				err = updater.CreateOrPatchPVCV2(context.TODO(), clusterID, namespace, "", string(targetYAML), false)
+			}
 			if err != nil {
 				log.Errorf("Failed to initEnvConfigSet %s, manifest is\n%v\n, error: %s", u.GetKind(), u, err)
 				errList = multierror.Append(errList, err)

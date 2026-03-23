@@ -320,6 +320,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 	production := c.Query("production") == "true"
+	overrideResource := c.Query("overrideResource") == "true"
 
 	req := &RollbackEnvServiceVersionRequest{}
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -382,5 +383,5 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 	detailEn := fmt.Sprintf("Environment: %s, Service: %s, Version: %d", envName, serviceName, revision)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
-	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, req.Detail, ctx.Logger)
+	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, overrideResource, req.Detail, ctx.Logger)
 }

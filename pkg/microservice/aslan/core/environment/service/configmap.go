@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -214,18 +215,12 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		cm.Data[key] = value
 	}
 
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrUpdateConfigMap.AddErr(err)
-	}
-
 	yamlData, err := ensureLabelAndNs(cm, product.Namespace, args.ProductName)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	if err := updater.UpdateConfigMap(namespace, cm, clientset); err != nil {
+	if err := updater.UpdateConfigMapV2(context.TODO(), product.ClusterID, namespace, cm); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
@@ -255,7 +250,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	if err := restartPod(cm.Name, args.ProductName, args.EnvName, namespace, config.CommonEnvCfgTypeConfigMap, clientset, kubeClient); err != nil {
+	if err := restartPod(cm.Name, args.ProductName, args.EnvName, namespace, product.ClusterID, config.CommonEnvCfgTypeConfigMap, kubeClient); err != nil {
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
 	return nil
@@ -272,12 +267,6 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	}
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
-		return e.ErrUpdateConfigMap.AddErr(err)
-	}
-
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
@@ -298,7 +287,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 		return e.ErrGetConfigMap.AddDesc("target configMap not found")
 	}
 
-	if err := archiveConfigMap(namespace, destinSrc, kubeClient, log); err != nil {
+	if err := archiveConfigMap(namespace, product.ClusterID, destinSrc, kubeClient, log); err != nil {
 		log.Error(err)
 		return err
 	}
@@ -311,7 +300,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	if updateTime, ok := srcCfg.Labels[setting.UpdateTime]; ok {
 		destinSrc.Labels[setting.UpdateTime] = updateTime
 	}
-	if err := updater.UpdateConfigMap(namespace, destinSrc, clientset); err != nil {
+	if err := updater.UpdateConfigMapV2(context.TODO(), product.ClusterID, namespace, destinSrc); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
@@ -322,7 +311,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 		ServiceName: args.ServiceName,
 	}
 
-	if err := restartK8sPod(restartArgs, namespace, clientset); err != nil {
+	if err := restartK8sPod(restartArgs, namespace, product.ClusterID); err != nil {
 		log.Error(err)
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
@@ -331,7 +320,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 }
 
 // archiveConfigMap 备份当前configmap，时间戳最小间隔为秒，需要控制每秒只能更新一次configmap, 只保留最近10次配置
-func archiveConfigMap(namespace string, cfg *corev1.ConfigMap, kubeClient client.Client, log *zap.SugaredLogger) error {
+func archiveConfigMap(namespace, clusterID string, cfg *corev1.ConfigMap, kubeClient client.Client, log *zap.SugaredLogger) error {
 	archiveLabel := make(map[string]string)
 
 	for k, v := range cfg.Labels {
@@ -355,17 +344,17 @@ func archiveConfigMap(namespace string, cfg *corev1.ConfigMap, kubeClient client
 		Data: cfg.Data,
 	}
 
-	if err := updater.CreateConfigMap(configMap, kubeClient); err != nil {
+	if err := updater.CreateConfigMapV2(context.TODO(), clusterID, configMap); err != nil {
 		log.Error(err)
 		return e.ErrCreateConfigMap.AddDesc(err.Error())
 	}
 
-	cleanArchiveConfigMap(namespace, configMap.Labels, kubeClient, log)
+	cleanArchiveConfigMap(namespace, clusterID, configMap.Labels, kubeClient, log)
 
 	return nil
 }
 
-func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient client.Client, log *zap.SugaredLogger) {
+func cleanArchiveConfigMap(namespace, clusterID string, ls map[string]string, kubeClient client.Client, log *zap.SugaredLogger) {
 	selector := labels.Set{
 		setting.ProductLabel:      ls[setting.ProductLabel],
 		setting.ServiceLabel:      ls[setting.ServiceLabel],
@@ -384,7 +373,7 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 			continue
 		}
 
-		if err := updater.DeleteConfigMap(namespace, v.Name, kubeClient); err != nil {
+		if err := updater.DeleteConfigMapV2(context.TODO(), clusterID, namespace, v.Name); err != nil {
 			log.Errorf("kubeCli.DeleteConfigMap error: %v", err)
 		}
 	}

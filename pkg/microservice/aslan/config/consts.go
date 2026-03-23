@@ -760,8 +760,15 @@ const (
 type ValueMergeStrategy string
 
 const (
-	ValueMergeStrategyReuseValue = "reuse-values"
-	ValueMergeStrategyOverride   = "override"
+	ValueMergeStrategyReuseValue ValueMergeStrategy = "reuse-values"
+	ValueMergeStrategyOverride   ValueMergeStrategy= "override"
+)
+
+type YAMLMergeStrategy string
+
+const (
+	YAMLMergeStrategyMerge    YAMLMergeStrategy = "merge"
+	YAMLMergeStrategyOverride YAMLMergeStrategy = "override"
 )
 
 type SystemLanguage string

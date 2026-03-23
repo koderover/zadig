@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -42,7 +43,7 @@ import (
 
 var registrySecretSuffix = "-registry-secret"
 
-func CreateNamespace(namespace string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client) error {
+func CreateNamespace(namespace, clusterID string, customLabels map[string]string, enableIstioInjection bool) error {
 	nsLabels := map[string]string{
 		setting.EnvCreatedBy: setting.EnvCreator,
 	}
@@ -54,59 +55,52 @@ func CreateNamespace(namespace string, customLabels map[string]string, enableIst
 		customLabels = map[string]string{}
 	}
 	mergedLabels := labels.Merge(customLabels, nsLabels)
-	createErr := updater.CreateNamespaceByName(namespace, mergedLabels, kubeClient)
+	createErr := updater.CreateNamespaceByNameV2(context.TODO(), clusterID, namespace, mergedLabels)
 	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
 		return createErr
 	}
 
-	var err error
-	nsObj := &corev1.Namespace{}
-	// It may fail to obtain the namespace immediately after it is created due to synchronization delay.
-	// Try twice.
-	for i := 0; i < 2; i++ {
-		err = kubeClient.Get(context.TODO(), client.ObjectKey{
-			Name: namespace,
-		}, nsObj)
-		if err == nil {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-	if err != nil {
-		return err
-	}
 	if enableIstioInjection && createErr != nil && apierrors.IsAlreadyExists(createErr) {
-		nsObj.Labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
-		err = updater.UpdateNamespace(nsObj, kubeClient)
+		err := updater.UpdateNamespaceV2(context.TODO(), clusterID, namespace, func(ns *corev1.Namespace) error {
+			if ns.Labels == nil {
+				ns.Labels = make(map[string]string)
+			}
+			ns.Labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+			return nil
+		})
 		if err != nil {
 			return fmt.Errorf("failed to add istio-injection label and update namespace %s: %s", namespace, err)
 		}
 	}
 
-	if nsObj.Status.Phase == corev1.NamespaceTerminating {
-		return fmt.Errorf("namespace `%s` is in terminating state, please wait for a whilie and try again", namespace)
+	if createErr != nil && apierrors.IsAlreadyExists(createErr) {
+		c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get kube client: %w", err)
+		}
+		nsObj, err := c.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
+		}
+		if nsObj.Status.Phase == corev1.NamespaceTerminating {
+			return fmt.Errorf("namespace `%s` is in terminating state, please wait for a while and try again", namespace)
+		}
 	}
 
 	return nil
 }
 
-func EnsureNamespaceLabels(namespace string, customLabels map[string]string, kubeClient client.Client) error {
-	nsObj := &corev1.Namespace{}
-	err := kubeClient.Get(context.TODO(), client.ObjectKey{
-		Name: namespace,
-	}, nsObj)
-	if err != nil {
-		return err
-	}
-	if labels.SelectorFromValidatedSet(customLabels).Matches(labels.Set(nsObj.Labels)) {
+func EnsureNamespaceLabels(namespace, clusterID string, customLabels map[string]string) error {
+	return updater.UpdateNamespaceV2(context.TODO(), clusterID, namespace, func(ns *corev1.Namespace) error {
+		if labels.SelectorFromValidatedSet(customLabels).Matches(labels.Set(ns.Labels)) {
+			return nil
+		}
+		ns.Labels = labels.Merge(ns.Labels, customLabels)
 		return nil
-	}
-	nsObj.Labels = labels.Merge(nsObj.Labels, customLabels)
-	return updater.UpdateNamespace(nsObj, kubeClient)
+	})
 }
 
-func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Client) error {
+func CreateOrUpdateRSASecret(publicKey, privateKey []byte, clusterID string) error {
 	data := make(map[string][]byte)
 
 	data["publicKey"] = publicKey
@@ -120,14 +114,14 @@ func CreateOrUpdateRSASecret(publicKey, privateKey []byte, kubeClient client.Cli
 		Data: data,
 		Type: corev1.SecretTypeOpaque,
 	}
-	return updater.UpdateOrCreateSecret(secret, kubeClient)
+	return updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret)
 }
 
-func CreateOrUpdateDefaultRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
-	return CreateOrUpdateRegistrySecret(namespace, reg, true, kubeClient)
+func CreateOrUpdateDefaultRegistrySecret(namespace, clusterID string, reg *commonmodels.RegistryNamespace) error {
+	return CreateOrUpdateRegistrySecret(namespace, clusterID, reg, true)
 }
 
-func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, isDefault bool, kubeClient client.Client) error {
+func CreateOrUpdateRegistrySecret(namespace, clusterID string, reg *commonmodels.RegistryNamespace, isDefault bool) error {
 	var secretName string
 	var err error
 	if !isDefault {
@@ -158,7 +152,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 		Data: data,
 		Type: corev1.SecretTypeDockercfg,
 	}
-	return updater.UpdateOrCreateSecret(secret, kubeClient)
+	return updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret)
 }
 
 func GenRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {

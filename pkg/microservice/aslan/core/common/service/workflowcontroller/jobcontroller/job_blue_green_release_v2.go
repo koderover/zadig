@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -84,11 +85,11 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 	}
 
 	// ensure delete blue deployment and service
-	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
+	err = updater.DeleteDeploymentAndWaitV2(context.Background(), clusterID, c.namespace, config.DefaultDeleteDeploymentTimeout, updater.WithName(c.jobTaskSpec.Service.BlueDeploymentName))
 	if err != nil {
 		c.logger.Warnf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
 	}
-	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
+	err = updater.DeleteServicesV2(context.TODO(), clusterID, c.namespace, updater.WithName(c.jobTaskSpec.Service.BlueServiceName))
 	if err != nil {
 		c.logger.Warnf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
 	}
@@ -110,8 +111,10 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 	}
 	// must remove service selector before remove pods labels
 	if _, ok := greenService.Spec.Selector[config.BlueGreenVersionLabelName]; ok {
-		delete(greenService.Spec.Selector, config.BlueGreenVersionLabelName)
-		if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
+		if err := updater.UpdateServiceV2(ctx, clusterID, c.namespace, greenService.Name, func(svc *corev1.Service) error {
+			delete(svc.Spec.Selector, config.BlueGreenVersionLabelName)
+			return nil
+		}); err != nil {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
 		}
@@ -126,8 +129,10 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 			continue
 		}
 		if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; ok {
-			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVersionLabelName)
-			if err := updater.PatchPod(c.namespace, pod.Name, []byte(removeLabelPatch), c.kubeClient); err != nil {
+			if err := updater.UpdatePodV2(ctx, clusterID, c.namespace, pod.Name, func(p *corev1.Pod) error {
+				delete(p.Labels, config.BlueGreenVersionLabelName)
+				return nil
+			}); err != nil {
 				c.logger.Errorf("remove origin label to pod error: %v", err)
 				continue
 			}
@@ -172,7 +177,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 
 	// update green deployment image to new version
 	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
-		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
+		err := updater.UpdateDeploymentImageV2(ctx, clusterID, c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image)
 		if err != nil {
 			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
 				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
@@ -224,8 +229,13 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 							continue
 						}
 						if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; !ok {
-							addLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
-							if err := updater.PatchPod(c.namespace, pod.Name, []byte(addLabelPatch), c.kubeClient); err != nil {
+							if err := updater.UpdatePodV2(ctx, clusterID, c.namespace, pod.Name, func(p *corev1.Pod) error {
+								if p.Labels == nil {
+									p.Labels = make(map[string]string)
+								}
+								p.Labels[config.BlueGreenVersionLabelName] = config.OriginVersion
+								return nil
+							}); err != nil {
 								c.logger.Errorf("remove origin label to pod error: %v", err)
 								continue
 							}

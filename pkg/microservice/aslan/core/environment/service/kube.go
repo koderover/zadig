@@ -18,6 +18,7 @@ package service
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -254,13 +255,9 @@ func DeletePod(envName, productName, podName string, production bool, log *zap.S
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrDeletePod.AddErr(err)
-	}
 
 	namespace := product.Namespace
-	err = updater.DeletePod(namespace, podName, kubeClient)
+	err = updater.DeletePodsV2(context.TODO(), product.ClusterID, namespace, updater.WithName(podName))
 	if err != nil {
 		errMsg := fmt.Sprintf("[%s] delete pod %s error: %v", namespace, podName, err)
 		log.Error(errMsg)

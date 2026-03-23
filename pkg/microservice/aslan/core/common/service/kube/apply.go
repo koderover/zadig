@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -80,6 +81,7 @@ type ResourceApplyParam struct {
 	JobLogContext            *joblog.JobLogContext
 	Uninstall                bool
 	WaitForUninstall         bool
+	OverrideResource         bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -723,7 +725,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal ingress %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchIngressV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -736,7 +749,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal service %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchServiceV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -840,7 +864,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchDeployment(res, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(res)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal deployment %s to YAML: %v", res.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchDeploymentV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, err)
@@ -874,7 +909,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(res)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal statefulset %s to YAML: %v", res.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchStatefulSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -922,7 +968,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent := fmt.Sprintf("Deleting old %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
+			if err := updater.DeleteJobAndWaitV2(context.TODO(), productInfo.ClusterID, namespace, obj.Name); err != nil {
 				log.Errorf("Failed to delete Job, error: %v", err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
@@ -931,7 +977,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			logContent = fmt.Sprintf("Applying new %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			if err := updater.CreateJob(obj, kubeClient); err != nil {
+			if err := updater.CreateJobV2(context.TODO(), productInfo.ClusterID, obj); err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
@@ -964,7 +1010,18 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(obj)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal cronjob %s to YAML: %v", obj.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
@@ -991,20 +1048,110 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 				jobLogManager.SaveJobLog(logContent)
 
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				resYAML, marshalErr := yaml.Marshal(obj)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal cronjob-beta %s to YAML: %v", obj.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchCronJobV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
 				if err != nil {
 					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 					continue
 				}
 			}
-		case setting.ClusterRole, setting.ClusterRoleBinding:
+		case setting.ClusterRole:
 			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
 
 			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
 			jobLogManager.SaveJobLog(logContent)
 
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal clusterrole %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchClusterRoleV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
+		case setting.ClusterRoleBinding:
+			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal clusterrolebinding %s to YAML: %v", u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+			err = updater.CreateOrPatchClusterRoleBindingV2(context.TODO(), productInfo.ClusterID, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
+		case setting.ConfigMap, setting.Secret, setting.PersistentVolumeClaim,
+			setting.ServiceAccount, setting.Role, setting.RoleBinding,
+			setting.Pod, setting.ReplicaSet:
+			u.SetNamespace(namespace)
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			jobLogManager.SaveJobLog(logContent)
+
+			targetYAML, marshalErr := yaml.Marshal(u.UnstructuredContent())
+			if marshalErr != nil {
+				log.Errorf("Failed to marshal %s %s to YAML: %v", u.GetKind(), u.GetName(), marshalErr)
+				errList = multierror.Append(errList, marshalErr)
+				continue
+			}
+			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			originalYAML := ""
+			if curRes, ok := curResourceMap[gvkn]; ok {
+				originalYAML = curRes.Manifest
+			}
+
+			switch u.GetKind() {
+			case setting.ConfigMap:
+				err = updater.CreateOrPatchConfigMapV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.Secret:
+				err = updater.CreateOrPatchSecretV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.PersistentVolumeClaim:
+				err = updater.CreateOrPatchPVCV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.ServiceAccount:
+				err = updater.CreateOrPatchServiceAccountV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.Role:
+				err = updater.CreateOrPatchRoleV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.RoleBinding:
+				err = updater.CreateOrPatchRoleBindingV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.Pod:
+				err = updater.CreateOrPatchPodV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			case setting.ReplicaSet:
+				err = updater.CreateOrPatchReplicaSetV2(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(targetYAML), applyParam.OverrideResource)
+			}
+
 			if err != nil {
 				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))

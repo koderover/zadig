@@ -86,10 +86,6 @@ func StartControllers(stopCh <-chan struct{}) {
 }
 
 func initRsaKey() {
-	client, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(setting.LocalClusterID)
-	if err != nil {
-		log.DPanic(err)
-	}
 	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
 	if err != nil {
 		log.DPanic(err)
@@ -102,7 +98,7 @@ func initRsaKey() {
 			if err != nil {
 				log.DPanic(err)
 			}
-			err = kube.CreateOrUpdateRSASecret(publicKey, privateKey, client)
+			err = kube.CreateOrUpdateRSASecret(publicKey, privateKey, setting.LocalClusterID)
 			if err != nil {
 				log.DPanic(err)
 			}

@@ -63,14 +63,8 @@ func NewCanaryReleaseJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels
 }
 
 func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(c.jobTaskSpec.ClusterID)
-	if err != nil {
-		c.logger.Errorf("can't init k8s client: %v", err)
-		return
-	}
-
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, time.Duration(c.timeout())*time.Second, updater.WithName(canarydeploymentName)); err != nil {
 		c.logger.Errorf("delete canary deployment %s error: %v", canarydeploymentName, err)
 	}
 }
@@ -95,7 +89,7 @@ func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, c.kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, time.Duration(c.timeout())*time.Second, updater.WithName(canarydeploymentName)); err != nil {
 		msg := fmt.Sprintf("delete canary deployment %s error: %v", canarydeploymentName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
@@ -104,7 +98,7 @@ func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 	msg := fmt.Sprintf("canary deployment: %s deleted", canarydeploymentName)
 	c.jobTaskSpec.Events.Info(msg)
 	c.ack()
-	if err := updater.UpdateDeploymentImage(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Image, c.kubeClient); err != nil {
+	if err := updater.UpdateDeploymentImageV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.jobTaskSpec.ContainerName, c.jobTaskSpec.Image); err != nil {
 		msg := fmt.Sprintf("update deployment: %s image error: %v", c.jobTaskSpec.WorkloadName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)

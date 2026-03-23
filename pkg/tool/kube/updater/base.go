@@ -27,12 +27,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/patcher"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
+
+func init() {
+	controllerruntime.SetLogger(klog.Background())
+}
 
 func patchObject(obj client.Object, patchBytes []byte, cl client.Client) error {
 	return cl.Patch(context.TODO(), obj, client.RawPatch(types.StrategicMergePatchType, patchBytes))
@@ -233,4 +239,23 @@ func deleteObjectsAndWait(ns string, selector labels.Selector, obj client.Object
 
 		return len(us) == 0, nil
 	})
+}
+
+/*
+V2 related base definitions
+*/
+
+type deleteConfig struct {
+	name     string
+	selector string
+}
+
+type DeleteOption func(*deleteConfig)
+
+func WithName(name string) DeleteOption {
+	return func(c *deleteConfig) { c.name = name }
+}
+
+func WithSelector(selector string) DeleteOption {
+	return func(c *deleteConfig) { c.selector = selector }
 }

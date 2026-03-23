@@ -126,19 +126,19 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 
 	job.Namespace = c.jobTaskSpec.Properties.Namespace
 
-	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+	if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 		msg := fmt.Sprintf("delete job error: %v", err)
 		logError(c.job, msg, c.logger)
 		return err
 	}
 
-	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.Registries, c.kubeclient); err != nil {
+	if err := createOrUpdateRegistrySecrets(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Registries); err != nil {
 		msg := fmt.Sprintf("create secret error: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
 
-	if err := updater.CreateJob(job, c.kubeclient); err != nil {
+	if err := updater.CreateJobV2(ctx, c.jobTaskSpec.Properties.ClusterID, job); err != nil {
 		msg := fmt.Sprintf("create job error: %v", err)
 		logError(c.job, msg, c.logger)
 		return err
@@ -172,7 +172,7 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 	// 清理用户取消和超时的任务
 	defer func() {
 		go func() {
-			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
+			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.jobTaskSpec.Properties.ClusterID); err != nil {
 				c.logger.Error(err)
 			}
 		}()

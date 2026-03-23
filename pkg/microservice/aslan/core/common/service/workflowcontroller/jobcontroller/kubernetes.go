@@ -125,14 +125,14 @@ func ensureDeletePVC(pvcName, namespace string, storage *types.NFSProperties, ku
 	})
 }
 
-func ensureDeleteConfigMap(namespace string, jobLabel *JobLabel, kubeClient crClient.Client) error {
+func ensureDeleteConfigMap(namespace string, jobLabel *JobLabel, clusterID string) error {
 	ls := getJobLabels(jobLabel)
-	return updater.DeleteConfigMapsAndWait(namespace, labels.Set(ls).AsSelector(), kubeClient)
+	return updater.DeleteConfigMapsAndWaitV2(context.TODO(), clusterID, namespace, updater.WithSelector(labels.Set(ls).AsSelector().String()))
 }
 
-func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient crClient.Client) error {
+func ensureDeleteJob(namespace string, jobLabel *JobLabel, clusterID string) error {
 	ls := getJobLabels(jobLabel)
-	return updater.DeleteJobsAndWait(namespace, labels.Set(ls).AsSelector(), kubeClient)
+	return updater.DeleteJobsAndWaitV2(context.TODO(), clusterID, namespace, updater.WithSelector(labels.Set(ls).AsSelector().String()))
 }
 
 func getJobLabelsWithCustomizeData(jobLabel *JobLabel, customizedData map[string]string) map[string]string {
@@ -187,7 +187,7 @@ func GetJobContainerName(name string) string {
 	return resp
 }
 
-func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient crClient.Client) error {
+func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx, clusterID string) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -199,7 +199,7 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 		},
 	}
 
-	return updater.CreateConfigMap(cm, kubeClient)
+	return updater.CreateConfigMapV2(context.TODO(), clusterID, cm)
 }
 
 func getBaseImage(buildOS, imageFrom string) string {
@@ -1226,7 +1226,7 @@ func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, 
 	}
 }
 
-func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.RegistryNamespace, kubeClient crClient.Client) error {
+func createOrUpdateRegistrySecrets(namespace, clusterID string, registries []*commonmodels.RegistryNamespace) error {
 	for _, reg := range registries {
 		if reg.AccessKey == "" {
 			continue
@@ -1255,7 +1255,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*commonmodels.
 			Data: data,
 			Type: corev1.SecretTypeDockercfg,
 		}
-		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+		if err := updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret); err != nil {
 			return err
 		}
 	}

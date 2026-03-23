@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -94,25 +95,15 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 		return e.ErrDeleteResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrDeleteResource.AddErr(err)
-	}
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrDeleteResource.AddErr(err)
-	}
-
 	switch commonEnvCfgType {
 	case config.CommonEnvCfgTypeConfigMap:
-		err = updater.DeleteConfigMap(product.Namespace, objectName, kubeClient)
+		err = updater.DeleteConfigMapV2(context.TODO(), product.ClusterID, product.Namespace, objectName)
 	case config.CommonEnvCfgTypeSecret:
-		err = updater.DeleteSecretWithName(product.Namespace, objectName, kubeClient)
+		err = updater.DeleteSecretWithNameV2(context.TODO(), product.ClusterID, product.Namespace, objectName)
 	case config.CommonEnvCfgTypeIngress:
-		err = updater.DeleteIngresseWithName(product.Namespace, objectName, clientset)
+		err = updater.DeleteIngressesV2(context.TODO(), product.ClusterID, product.Namespace, updater.WithName(objectName))
 	case config.CommonEnvCfgTypePvc:
-		err = updater.DeletePvcWithName(product.Namespace, objectName, clientset)
+		err = updater.DeletePVCV2(context.TODO(), product.ClusterID, product.Namespace, updater.WithName(objectName))
 	default:
 		return e.ErrDeleteResource.AddDesc(fmt.Sprintf("%s is not support delete", commonEnvCfgType))
 	}
@@ -243,16 +234,6 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
-	if err != nil {
-		return e.ErrUpdateResource.AddErr(err)
-	}
-	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
-	if err != nil {
-		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
-		return e.ErrUpdateResource.AddErr(err)
-	}
-
 	u, err := serializer.NewDecoder().YamlToUnstructured(js)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
@@ -287,7 +268,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		if err := updater.CreateConfigMap(cm, kubeClient); err != nil {
+		if err := updater.CreateConfigMapV2(context.TODO(), product.ClusterID, cm); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -305,7 +286,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
+		if err := updater.CreateOrUpdateSecretV2(context.TODO(), product.ClusterID, secret); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddDesc(err.Error())
 		}
@@ -324,7 +305,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		err = updater.UpdateOrCreateUnstructured(u, kubeClient)
+		err = updater.CreateOrPatchIngressV2(context.TODO(), product.ClusterID, product.Namespace, "", yamlData, true)
 		if err != nil {
 			log.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 			return e.ErrUpdateResource.AddErr(fmt.Errorf("Failed to UpdateOrCreateIngress %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err))
@@ -344,7 +325,7 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 			return e.ErrUpdateResource.AddErr(err)
 		}
 
-		if err := updater.CreatePvc(product.Namespace, pvc, clientset); err != nil {
+		if err := updater.CreatePVCV2(context.TODO(), product.ClusterID, product.Namespace, pvc); err != nil {
 			log.Error(err)
 			return e.ErrUpdateResource.AddErr(err)
 		}
@@ -634,7 +615,7 @@ func SyncEnvResource(args *SyncEnvResourceArg, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func restartPod(name, productName, envName, namespace string, commonEnvCfgType config.CommonEnvCfgType, clientset *kubernetes.Clientset, kubcli client.Client) error {
+func restartPod(name, productName, envName, namespace, clusterID string, commonEnvCfgType config.CommonEnvCfgType, kubcli client.Client) error {
 	opts := &commonrepo.ListEnvSvcDependOption{
 		ProductName: productName,
 		EnvName:     envName,
@@ -672,14 +653,14 @@ func restartPod(name, productName, envName, namespace string, commonEnvCfgType c
 			ServiceName: esp.ServiceName,
 		}
 		if tplProduct.ProductFeature.DeployType == "k8s" {
-			if err := restartK8sPod(restartArgs, namespace, clientset); err != nil {
+			if err := restartK8sPod(restartArgs, namespace, clusterID); err != nil {
 				log.Error(err)
 				return err
 			}
 			continue
 		}
 
-		if err := restartPodHelmByWorkload(restartArgs, namespace, clientset, kubcli); err != nil {
+		if err := restartPodHelmByWorkload(restartArgs, namespace, clusterID, kubcli); err != nil {
 			log.Error(err)
 			return err
 		}
@@ -687,13 +668,13 @@ func restartPod(name, productName, envName, namespace string, commonEnvCfgType c
 	return nil
 }
 
-func restartK8sPod(args *SvcOptArgs, ns string, clientset *kubernetes.Clientset) error {
+func restartK8sPod(args *SvcOptArgs, ns, clusterID string) error {
 	selector := labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
 	log.Infof("deleting pod from %s where %s", ns, selector)
-	return updater.DeletePods(ns, selector, clientset)
+	return updater.DeletePodsV2(context.TODO(), clusterID, ns, updater.WithSelector(selector.String()))
 }
 
-func restartPodHelmByWorkload(args *SvcOptArgs, ns string, clientset *kubernetes.Clientset, kucli client.Client) error {
+func restartPodHelmByWorkload(args *SvcOptArgs, ns, clusterID string, kucli client.Client) error {
 	deployment, found, err := getter.GetDeployment(ns, args.ServiceName, kucli)
 	if err != nil {
 		return err
@@ -701,7 +682,7 @@ func restartPodHelmByWorkload(args *SvcOptArgs, ns string, clientset *kubernetes
 	if found {
 		selector := labels.Set(deployment.GetLabels()).AsSelector()
 		log.Infof("deleting deploy %s pod from %s where %s", args.ServiceName, ns, selector)
-		return updater.DeletePods(ns, selector, clientset)
+		return updater.DeletePodsV2(context.TODO(), clusterID, ns, updater.WithSelector(selector.String()))
 	}
 
 	sts, found, err := getter.GetStatefulSet(ns, args.ServiceName, kucli)
@@ -711,7 +692,7 @@ func restartPodHelmByWorkload(args *SvcOptArgs, ns string, clientset *kubernetes
 	if found {
 		selector := labels.Set(sts.GetLabels()).AsSelector()
 		log.Infof("deleting sts %s pod from %s where %s", args.ServiceName, ns, selector)
-		return updater.DeletePods(ns, selector, clientset)
+		return updater.DeletePodsV2(context.TODO(), clusterID, ns, updater.WithSelector(selector.String()))
 	}
 
 	return nil

@@ -63,7 +63,6 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -537,9 +536,10 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 }
 
 type UpdateServiceArg struct {
-	ServiceName    string                          `json:"service_name"`
-	DeployStrategy string                          `json:"deploy_strategy"`
-	VariableKVs    []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	ServiceName     string                          `json:"service_name"`
+	DeployStrategy  string                          `json:"deploy_strategy"`
+	VariableKVs     []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	OverrideResource bool                           `json:"override_resource"`
 }
 
 type UpdateEnv struct {
@@ -594,10 +594,12 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		}
 
 		strategyMap := make(map[string]string)
+		overrideResourceMap := make(map[string]bool)
 		updateSvcs := make([]*templatemodels.ServiceRender, 0)
 		updateRevisionSvcs := make([]string, 0)
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
+			overrideResourceMap[svc.ServiceName] = svc.OverrideResource
 
 			err = commontypes.ValidateRenderVariables(exitedProd.GlobalVariables, svc.VariableKVs)
 			if err != nil {
@@ -621,7 +623,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, exitedProd.GlobalVariables, log)
+		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, overrideResourceMap, force, exitedProd.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -648,7 +650,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 // TODO need optimize
 // cvm and k8s yaml projects should not be handled together
-func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) (err error) {
+func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, overrideResource map[string]bool, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) (err error) {
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -814,7 +816,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						updateProd,
 						service,
 						curEnv.GetServiceMap()[service.ServiceName],
-						!updateProd.Production, inf, kubeClient, istioClient, log)
+						!updateProd.Production, overrideResource[service.ServiceName], inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
 						service.Error = errUpsertService.Error()
 					} else {
@@ -923,7 +925,7 @@ func UpdateProductRegistry(envName, productName, registryID string, production b
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	err = ensureKubeEnv(exitedProd.Namespace, registryID, map[string]string{setting.ProductLabel: productName}, false, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, registryID, exitedProd.ClusterID, map[string]string{setting.ProductLabel: productName}, false, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("UpdateProductRegistry ensureKubeEnv by envName:%s,error: %v", envName, err)
@@ -1895,7 +1897,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, product.ClusterID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
 func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, production bool, log *zap.SugaredLogger) error {
@@ -2182,7 +2184,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 		}
 		return false
 	}
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, false, productResp.GlobalVariables, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, nil, false, productResp.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
@@ -2803,7 +2805,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		}
 	}()
 
-	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, false, kubeClient)
+	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.ClusterID, args.EnvConfigs, false, kubeClient)
 	if err != nil {
 		args.Status = setting.ProductStatusFailed
 		log.Errorf("initEnvConfigSet error :%s", err)
@@ -2868,7 +2870,7 @@ func getProjectType(productName string) string {
 }
 
 func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.ProductService,
-	kubeClient client.Client, log *zap.SugaredLogger) error {
+	clusterID string, log *zap.SugaredLogger) error {
 	parsedYaml, err := kube.RenderEnvService(env, service.GetServiceRender(), service)
 	if err != nil {
 		return fmt.Errorf("service template %s error: %v", service.ServiceName, err)
@@ -2888,10 +2890,10 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 	for _, u := range resources {
 		switch u.GetKind() {
 		case setting.Deployment:
-			err = updater.RestartDeployment(env.Namespace, u.GetName(), kubeClient)
+			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
 		case setting.StatefulSet:
-			err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}
@@ -2899,7 +2901,7 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 }
 
 // upsertService
-func upsertService(env *commonmodels.Product, newService *commonmodels.ProductService, prevSvc *commonmodels.ProductService, addLabel bool, informer informers.SharedInformerFactory,
+func upsertService(env *commonmodels.Product, newService *commonmodels.ProductService, prevSvc *commonmodels.ProductService, addLabel bool, overrideResource bool, informer informers.SharedInformerFactory,
 	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
@@ -2967,6 +2969,7 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		SharedEnvHandler:         EnsureUpdateZadigService,
 		IstioGrayscaleEnvHandler: kube.EnsureUpdateGrayscaleService,
 		IsFromImportToDeploy:     isFromImportToDeploy,
+		OverrideResource:         overrideResource,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
@@ -3038,7 +3041,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		if args.ShareEnv.Enable || args.IstioGrayscale.Enable {
 			enableIstioInjection = true
 		}
-		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, enableIstioInjection, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryID, args.ClusterID, map[string]string{setting.ProductLabel: args.ProductName}, enableIstioInjection, kubeClient, log)
 	}
 	return nil
 }
@@ -3053,15 +3056,15 @@ func preCreateNSAndSecret(productFeature *templatemodels.ProductFeature) bool {
 	return false
 }
 
-func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client, log *zap.SugaredLogger) error {
-	err := kube.CreateNamespace(namespace, customLabels, enableIstioInjection, kubeClient)
+func ensureKubeEnv(namespace, registryId, clusterID string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client, log *zap.SugaredLogger) error {
+	err := kube.CreateNamespace(namespace, clusterID, customLabels, enableIstioInjection)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateNamspace.AddDesc(err.Error())
 	}
 
 	// 创建默认的镜像仓库secret
-	if err := commonservice.EnsureDefaultRegistrySecret(namespace, registryId, kubeClient, log); err != nil {
+	if err := commonservice.EnsureDefaultRegistrySecret(namespace, registryId, clusterID, log); err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)
 	}
@@ -3514,7 +3517,7 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, product.ClusterID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
 func UpdateProductGlobalVariablesWithRender(templateProduct *templatemodels.Product, product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
@@ -4274,12 +4277,6 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		return e.ErrAnalysisEnvResource.AddErr(err)
 	}
 
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
-	if err != nil {
-		err = fmt.Errorf("failed to get kube client, err: %s", err)
-		log.Error(err)
-		return e.ErrEnvSleep.AddErr(err)
-	}
 	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(prod.ClusterID)
 	if err != nil {
 		wrapErr := fmt.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", prod.ClusterID, err)
@@ -4450,26 +4447,26 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		switch workload.Type {
 		case setting.Deployment:
 			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
-			err := updater.ScaleDeployment(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			err := updater.ScaleDeploymentV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name, scaleNum)
 			if err != nil {
 				log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}
 		case setting.StatefulSet:
 			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
-			err := updater.ScaleStatefulSet(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			err := updater.ScaleStatefulSetV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name, scaleNum)
 			if err != nil {
 				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}
 		case setting.CronJob:
 			if isEnable {
 				log.Infof("suspend cronjob %s", workload.Name)
-				err := updater.SuspendCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				err := updater.SuspendCronJobV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name)
 				if err != nil {
 					log.Errorf("failed to suspend %s/cronjob/%s", prod.Namespace, workload.Name)
 				}
 			} else {
 				log.Infof("resume cronjob %s", workload.Name)
-				err := updater.ResumeCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				err := updater.ResumeCronJobV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name)
 				if err != nil {
 					log.Errorf("failed to resume %s/cronjob/%s", prod.Namespace, workload.Name)
 				}

@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -28,11 +27,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -41,8 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 )
 
 type RestartJobCtl struct {
@@ -127,20 +121,6 @@ func (c *RestartJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(c.jobTaskSpec.ClusterID, c.namespace)
-	if err != nil {
-		msg := fmt.Sprintf("can't init k8s informer: %v", err)
-		logError(c.job, msg, c.logger)
-		return errors.New(msg)
-	}
-
-	c.istioClient, err = clientmanager.NewKubeClientManager().GetIstioClientSet(c.jobTaskSpec.ClusterID)
-	if err != nil {
-		msg := fmt.Sprintf("can't init k8s istio client: %v", err)
-		logError(c.job, msg, c.logger)
-		return errors.New(msg)
-	}
-
 	if c.jobTaskSpec.DeployType == setting.K8SDeployType {
 		err = c.restartK8sService(ctx, env, c.jobTaskSpec.ServiceName)
 		if err != nil {
@@ -188,7 +168,7 @@ func (c *RestartJobCtl) restartK8sService(ctx context.Context, env *commonmodels
 		return fmt.Errorf("failed to fetch imported manifests: %v", err)
 	}
 
-	replaceResources, relatedPodLabels, err := restartWorkloadResources(ctx, c.kubeClient, c.clientSet, resources, env)
+	replaceResources, relatedPodLabels, err := restartWorkloadResources(ctx, c.jobTaskSpec.ClusterID, resources, env)
 	if err != nil {
 		return fmt.Errorf("failed to restart workload resources: %v", err)
 	}
@@ -245,7 +225,7 @@ func (c *RestartJobCtl) restartHelmService(ctx context.Context, env *commonmodel
 		}
 	}
 
-	replaceResources, relatedPodLabels, err := restartWorkloadResources(ctx, c.kubeClient, c.clientSet, resources, env)
+	replaceResources, relatedPodLabels, err := restartWorkloadResources(ctx, c.jobTaskSpec.ClusterID, resources, env)
 	if err != nil {
 		return fmt.Errorf("failed to restart workload resources: %v", err)
 	}
@@ -256,64 +236,64 @@ func (c *RestartJobCtl) restartHelmService(ctx context.Context, env *commonmodel
 	return nil
 }
 
-func restartWorkloadResources(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
-	deployments, statefulSets, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
-	if err != nil {
-		return nil, nil, err
-	}
+func restartWorkloadResources(ctx context.Context, clusterID string, resources []*kube.WorkloadResource, env *commonmodels.Product) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
+	// deployments, statefulSets, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
-	for _, deployment := range deployments {
-		err = updater.RestartDeployment(deployment.Namespace, deployment.Name, kubeClient)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to restart deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
-		}
+	// for _, deployment := range deployments {
+	// 	err = updater.RestartDeploymentV2(ctx, clusterID, deployment.Namespace, deployment.Name)
+	// 	if err != nil {
+	// 		return nil, nil, fmt.Errorf("failed to restart deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
+	// 	}
 
-		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get selector for deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
-		}
+	// 	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	// 	if err != nil {
+	// 		return nil, nil, fmt.Errorf("failed to get selector for deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
+	// 	}
 
-		// ensure latest replicaset to be created
-		replicaSets, err := getter.ListReplicaSets(deployment.Namespace, selector, kubeClient)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to list replica sets for deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
-		}
+	// 	// ensure latest replicaset to be created
+	// 	replicaSets, err := getter.ListReplicaSets(deployment.Namespace, selector, kubeClient)
+	// 	if err != nil {
+	// 		return nil, nil, fmt.Errorf("failed to list replica sets for deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
+	// 	}
 
-		// Only include those whose ControllerRef matches the Deployment.
-		owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
-		for _, rs := range replicaSets {
-			if metav1.IsControlledBy(rs, deployment) {
-				owned = append(owned, rs)
-			}
-		}
-		if len(owned) <= 0 {
-			return nil, nil, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
-		}
-		sort.Slice(owned, func(i, j int) bool {
-			return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
-		})
+	// 	// Only include those whose ControllerRef matches the Deployment.
+	// 	owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
+	// 	for _, rs := range replicaSets {
+	// 		if metav1.IsControlledBy(rs, deployment) {
+	// 			owned = append(owned, rs)
+	// 		}
+	// 	}
+	// 	if len(owned) <= 0 {
+	// 		return nil, nil, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
+	// 	}
+	// 	sort.Slice(owned, func(i, j int) bool {
+	// 		return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
+	// 	})
 
-		replaceResources = append(replaceResources, commonmodels.Resource{
-			Kind:        setting.Deployment,
-			Name:        deployment.Name,
-			PodOwnerUID: string(owned[0].ObjectMeta.UID),
-		})
-		relatedPodLabels = append(relatedPodLabels, deployment.Spec.Template.Labels)
-	}
+	// 	replaceResources = append(replaceResources, commonmodels.Resource{
+	// 		Kind:        setting.Deployment,
+	// 		Name:        deployment.Name,
+	// 		PodOwnerUID: string(owned[0].ObjectMeta.UID),
+	// 	})
+	// 	relatedPodLabels = append(relatedPodLabels, deployment.Spec.Template.Labels)
+	// }
 
-	for _, sts := range statefulSets {
-		err = updater.RestartStatefulSet(sts.Namespace, sts.Name, kubeClient)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to restart statefulset %s/%s: %v", sts.Namespace, sts.Name, err)
-		}
+	// for _, sts := range statefulSets {
+	// 	err = updater.RestartStatefulSetV2(ctx, clusterID, sts.Namespace, sts.Name)
+	// 	if err != nil {
+	// 		return nil, nil, fmt.Errorf("failed to restart statefulset %s/%s: %v", sts.Namespace, sts.Name, err)
+	// 	}
 
-		replaceResources = append(replaceResources, commonmodels.Resource{
-			Kind:        setting.StatefulSet,
-			Name:        sts.Name,
-			PodOwnerUID: string(sts.ObjectMeta.UID),
-		})
-		relatedPodLabels = append(relatedPodLabels, sts.Spec.Template.Labels)
-	}
+	// 	replaceResources = append(replaceResources, commonmodels.Resource{
+	// 		Kind:        setting.StatefulSet,
+	// 		Name:        sts.Name,
+	// 		PodOwnerUID: string(sts.ObjectMeta.UID),
+	// 	})
+	// 	relatedPodLabels = append(relatedPodLabels, sts.Spec.Template.Labels)
+	// }
 
 	return replaceResources, relatedPodLabels, nil
 }

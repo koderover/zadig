@@ -1300,6 +1300,11 @@ type CommonRevertInput struct {
 	Detail string `json:"detail"`
 }
 
+type DeployRevertInput struct {
+	Detail           string `json:"detail"`
+	OverrideResource bool   `json:"override_resource"`
+}
+
 type SQLRevertInput struct {
 	CommonRevertInput `json:",inline"`
 	SQL               string `json:"sql"`
@@ -1337,7 +1342,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						return err
 					}
 
-					inputSpec := new(CommonRevertInput)
+					inputSpec := new(DeployRevertInput)
 					err = commonmodels.IToi(input, inputSpec)
 					if err != nil {
 						return fmt.Errorf("failed to decode deploy revert job spec, error: %s", err)
@@ -1378,9 +1383,10 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
 							Detail: inputSpec.Detail,
 						},
+						OverrideResource: inputSpec.OverrideResource,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.Detail, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.OverrideResource, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
@@ -1501,7 +1507,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						},
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, inputSpec.Detail, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, false, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
