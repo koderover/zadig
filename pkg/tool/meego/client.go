@@ -147,7 +147,7 @@ func GetPluginToken(host, pluginID, pluginSecret string) (token string, expirati
 	result := new(GetPluginTokenResult)
 	_, err = httpclient.Post(tokenExchangeAPI, httpclient.SetBody(body), httpclient.SetResult(result))
 	if err != nil {
-		log.Errorf("error occured when getting temporary plugin, error: ", err)
+		log.Errorf("error occurred when getting temporary plugin, error: ", err)
 		return "", 0, err
 	}
 
