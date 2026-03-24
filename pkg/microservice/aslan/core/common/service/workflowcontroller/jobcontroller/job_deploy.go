@@ -676,14 +676,14 @@ func getResourcesPodOwnerUIDImpl(kubeClient client.Client, namespace string, ser
 	for _, resource := range replaceResources {
 		switch resource.Kind {
 		case setting.StatefulSet:
-			sts, _, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
-			if err != nil {
+			sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
+			if err != nil || !found || sts == nil {
 				return newResources, err
 			}
 			resource.PodOwnerUID = string(sts.ObjectMeta.UID)
 		case setting.Deployment:
-			deployment, _, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
-			if err != nil {
+			deployment, found, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
+			if err != nil || !found || deployment == nil {
 				return newResources, err
 			}
 			selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
