@@ -370,6 +370,7 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.datetime", Value: time.Now().Format(time.DateTime), ParamsType: "string", IsCredential: false})
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		w.Project,
@@ -650,6 +651,13 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "workflow.task.timestamp",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.datetime",
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
