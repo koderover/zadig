@@ -126,18 +126,11 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 
 	switch c.jobTaskSpec.WorkloadType {
 	case setting.Deployment:
-		deployment, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
+		deployment, _, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
-
-		if !found || deployment == nil {
-			err = fmt.Errorf("deployment %s not found", c.jobTaskSpec.WorkloadName)
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
 				err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient)
@@ -162,18 +155,11 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 			}
 		}
 	case setting.StatefulSet:
-		statefulSet, found, err := getter.GetStatefulSet(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
+		statefulSet, _, err := getter.GetStatefulSet(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
-
-		if !found || statefulSet == nil {
-			err = fmt.Errorf("statefulset %s not found", c.jobTaskSpec.WorkloadName)
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
 		for _, container := range statefulSet.Spec.Template.Spec.Containers {
 			if container.Name == c.jobTaskSpec.ContainerName {
 				err = updater.UpdateDeploymentImage(statefulSet.Namespace, statefulSet.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient)
@@ -196,18 +182,11 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 			}
 		}
 	case setting.CronJob:
-		cronJob, cronJobBeta, found, err := getter.GetCronJob(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+		cronJob, cronJobBeta, _, err := getter.GetCronJob(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient, kubeclient.VersionLessThan121(c.version))
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
-
-		if !found {
-			err = fmt.Errorf("cronjob %s not found", c.jobTaskSpec.WorkloadName)
-			logError(c.job, err.Error(), c.logger)
-			return err
-		}
-
 		if cronJob != nil {
 			for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
 				if container.Name == c.jobTaskSpec.ContainerName {
