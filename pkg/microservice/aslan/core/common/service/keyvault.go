@@ -45,6 +45,8 @@ func ListAvailableKeyVaultItemsForProject(projectName string, getSensitiveValue 
 		return nil, e.ErrListKeyVaultItem.AddErr(err)
 	}
 
+	log.Infof("[ListAvailableKeyVaultItemsForProject]: project items count %d", len(projectItems))
+
 	// 2. List all system-wide KV pairs
 	systemItems, err := commonrepo.NewKeyVaultItemColl().List(&commonrepo.KeyVaultItemListOption{
 		IsSystemWide: true,
@@ -53,6 +55,8 @@ func ListAvailableKeyVaultItemsForProject(projectName string, getSensitiveValue 
 		log.Errorf("KeyVaultItem.List for system-wide error: %s", err)
 		return nil, e.ErrListKeyVaultItem.AddErr(err)
 	}
+
+	log.Infof("[ListAvailableKeyVaultItemsForProject]: system items count %d", len(systemItems))
 
 	// 3. Merge with project items taking priority
 	mergedMap := make(map[string]*commonmodels.KeyVaultItem)
