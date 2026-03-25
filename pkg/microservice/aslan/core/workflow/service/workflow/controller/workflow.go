@@ -726,7 +726,6 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
 				// you cant get a job's output if the current job is runs before given job
 				getRuntimeVariableFlag = false
-				getAggregatedVariableFlag = false
 			}
 
 			// service_module cannot be determined in
