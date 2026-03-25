@@ -349,9 +349,7 @@ func ListApolloConfig(id, appID, env, cluster, namespace string, log *zap.Sugare
 	}
 	resp := make([]*commonmodels.ApolloKV, 0)
 	for _, item := range namespaceInfo.Items {
-		if item.Key == "" {
-			continue
-		}
+		item.Key = apollo.NormalizeItemKey(namespaceInfo.Format, item.Key)
 		resp = append(resp, &commonmodels.ApolloKV{
 			Key: item.Key,
 			Val: item.Value,

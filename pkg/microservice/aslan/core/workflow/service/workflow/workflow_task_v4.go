@@ -1601,7 +1601,8 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						revertDatas = append(revertDatas, revertData)
 
 						for _, kv := range namespace.KeyValList {
-							err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, info.ApolloAuthConfig.User)
+							key := apollo.NormalizeItemKey(namespace.Type, kv.Key)
+							err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, key, kv.Val, info.ApolloAuthConfig.User)
 							if err != nil {
 								fail = true
 								revertData.Error = fmt.Sprintf("update error: %v", err)
