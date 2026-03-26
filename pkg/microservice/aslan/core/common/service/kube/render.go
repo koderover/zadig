@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -59,6 +60,7 @@ type GeneSvcYamlOption struct {
 	UpdateServiceRevision bool
 	VariableYaml          string
 	VariableKVs           []*commontypes.RenderVariableKV
+	DeployContents        []config.DeployContent
 	UnInstall             bool
 	Containers            []*models.Container
 }
@@ -480,6 +482,10 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
+func onlyDeployImage(deployContents []config.DeployContent) bool {
+	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
+}
+
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
@@ -546,7 +552,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	serviceRender := productInfo.GetSvcRender(option.ServiceName)
 
 	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+	if !option.UnInstall && onlyDeployImage(option.DeployContents) && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
 		manifest, workloads, err := FetchImportedManifests(option, productInfo, prodSvcTemplate, serviceRender)
 		return manifest, int(curProductSvc.Revision), workloads, err
 	}

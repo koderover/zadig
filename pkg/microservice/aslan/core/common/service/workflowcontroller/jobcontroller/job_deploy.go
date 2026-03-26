@@ -229,6 +229,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		VariableYaml:          varsYaml,
 		VariableKVs:           varKVs,
 		Containers:            containers,
+		DeployContents:        c.jobTaskSpec.DeployContents,
 	}
 	updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
