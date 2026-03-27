@@ -628,25 +628,16 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	}
 
 	if notFoundErr != nil {
-		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
-			//获取项目里面的所有服务
-			if production {
-				if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
-					productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
-				} else {
-					productTempl.ProductionServices = [][]string{{args.ServiceName}}
-				}
-			} else {
-				if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
-					productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
-				} else {
-					productTempl.Services = [][]string{{args.ServiceName}}
-				}
+		// Use atomic operations to avoid the read-modify-write race when multiple services
+		// are created concurrently for the same project.
+		if production {
+			if err := templaterepo.NewProductColl().AddProductionServiceToFirstGroup(args.ProductName, args.ServiceName); err != nil {
+				log.Errorf("CreateServiceTemplate update production orchestration %s error: %s", args.ServiceName, err)
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
-			//更新项目模板
-			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
-			if err != nil {
-				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
+		} else {
+			if err := templaterepo.NewProductColl().AddServiceToFirstGroup(args.ProductName, args.ServiceName); err != nil {
+				log.Errorf("CreateServiceTemplate update orchestration %s error: %s", args.ServiceName, err)
 				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
