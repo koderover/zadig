@@ -438,7 +438,7 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 			if hasChange {
 				hashMutex.Lock()
 
-				old := &consistent.Consistent{}
+				var old *consistent.Consistent
 				if len(consistentHash.GetMembers()) > 0 {
 					old = consistent.New(consistentHash.GetMembers(), cfg)
 				}
