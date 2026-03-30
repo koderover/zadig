@@ -762,9 +762,11 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 					gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
 				}
 			}
+
 			branchList = append(branchList, branch)
 			gitURLs = append(gitURLs, gitURL)
 		}
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
 			Value:        strings.Join(serviceAndModuleName, ","),
@@ -780,13 +782,6 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "GITURLS"}, "."),
 			Value:        strings.Join(gitURLs, ","),
 			Type:         "string",
@@ -795,6 +790,13 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 	}
 
 	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
 		outputKeys := sets.NewString()
 		buildSvc := commonservice.NewBuildService()
 		for _, build := range j.jobSpec.ServiceAndBuildsOptions {
