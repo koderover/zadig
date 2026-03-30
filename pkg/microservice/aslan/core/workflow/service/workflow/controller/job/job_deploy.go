@@ -419,6 +419,10 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 
 	productServiceMap := product.GetServiceMap()
 
+	if len(j.jobSpec.Services) == 0 {
+		return nil, fmt.Errorf("deploy service is empty for env %s, source: %s, env source: %s, from job name: %s", j.jobSpec.Env, j.jobSpec.Source, j.jobSpec.EnvSource, j.jobSpec.JobName)
+	}
+
 	// get deploy info from previous build job
 	if j.jobSpec.Source == config.SourceFromJob {
 		// adapt to the front end, use the direct quoted job name
