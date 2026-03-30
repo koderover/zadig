@@ -16,6 +16,30 @@
 
 package apollo
 
+import "strings"
+
+const (
+	FormatYAML  = "yaml"
+	FormatYML   = "yml"
+	YAMLItemKey = "content"
+)
+
+func IsYAMLNamespace(format string) bool {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case FormatYAML, FormatYML:
+		return true
+	default:
+		return false
+	}
+}
+
+func NormalizeItemKey(format, key string) string {
+	if key == "" && IsYAMLNamespace(format) {
+		return YAMLItemKey
+	}
+	return key
+}
+
 type BriefNamespace struct {
 	AppID         string `json:"appId"`
 	Env           string `json:"env"`
