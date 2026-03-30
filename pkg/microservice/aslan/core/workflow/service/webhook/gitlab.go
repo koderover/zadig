@@ -32,6 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -144,7 +145,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}()
 	}
 
-	if mergeEvent != nil {
+	if mergeEvent != nil && !shouldIgnoreGitlabMRWebhook(mergeEvent) {
 		//测试管理webhook
 		wg.Add(1)
 		go func() {
@@ -504,4 +505,23 @@ func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWith
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func shouldIgnoreGitlabMRWebhook(ev *gitlab.MergeEvent) bool {
+	if ev == nil {
+		return false
+	}
+
+	// Only filter update events. Newly opened merge requests still need to flow
+	// through the existing MR trigger path.
+	if ev.ObjectAttributes.Action != "update" {
+		log.Debugf("skip ignoring gitlab mr webhook: iid=%d action=%s", ev.ObjectAttributes.IID, ev.ObjectAttributes.Action)
+		return false
+	}
+
+	// GitLab sets oldrev on update events that carry actual code changes,
+	// such as new commits pushed to the source branch.
+	ignored := ev.ObjectAttributes.OldRev == ""
+	log.Debugf("evaluate gitlab mr webhook ignore: iid=%d action=%s has_oldrev=%t ignored=%t", ev.ObjectAttributes.IID, ev.ObjectAttributes.Action, ev.ObjectAttributes.OldRev != "", ignored)
+	return ignored
 }
