@@ -374,6 +374,7 @@ const (
 	ActionUpdateReleaseJob          = "update_release_job"
 	ActionCreateReleaseJob          = "create_release_job"
 	ActionDeleteReleaseJob          = "delete_release_job"
+	ActionReorderReleaseJob         = "reorder_release_job"
 	ActionUpdateApproval            = "update_approval"
 	ActionDeleteApproval            = "delete_approval"
 	ActionUpdateName                = "update_name"
@@ -1061,7 +1062,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 				return fmtErr
 			}
 		}
-		
+
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 		if shouldWait {
 			plan.Status = *nextStatus
