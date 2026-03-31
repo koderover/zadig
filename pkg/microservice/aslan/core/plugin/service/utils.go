@@ -41,7 +41,7 @@ func validateWorkflowForLarkPlugin(workflowName string) error {
 		return fmt.Errorf("failed to find workflow %s: %w", workflowName, err)
 	}
 
-	var buildCount, deployCount, testCount int
+	var buildCount, deployCount, testCount, meegoCount int
 	buildIdx, deployIdx := -1, -1
 	jobIdx := 0
 
@@ -56,6 +56,8 @@ func validateWorkflowForLarkPlugin(workflowName string) error {
 				deployIdx = jobIdx
 			case aslanconfig.JobZadigTesting:
 				testCount++
+			case aslanconfig.JobMeegoTransition:
+				meegoCount++
 			default:
 				return fmt.Errorf("workflow %s contains unsupported job type %s, only build, deploy, and test jobs are allowed", workflowName, job.JobType)
 			}
@@ -123,12 +125,10 @@ func getWorkItemInfo(ctx *internalhandler.Context, workspaceID, workItemType, wo
 		return 0, "", fmt.Errorf("no current node found")
 	}
 
-	
-	
 	templateID = util.GetInt64FromPointer(workItem.TemplateID)
 	nodeID = currentNodeIDs[0]
 
-	return 
+	return
 }
 
 // getWorkflowFromWorkItem gets the workflow from the given work item
@@ -138,7 +138,7 @@ func getWorkflowFromWorkItem(ctx *internalhandler.Context, workspaceID, workItem
 		return nil, fmt.Errorf("failed to get work item info: %s", err)
 	}
 
-    config, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().Find(workspaceID, workItemType, templateID, nodeID)
+	config, err := mongodb.NewLarkPluginWorkflowConfigV2Coll().Find(workspaceID, workItemType, templateID, nodeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find workflow config: %w", err)
 	}
