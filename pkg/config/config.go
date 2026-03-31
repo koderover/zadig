@@ -161,6 +161,15 @@ func VendorServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
+func EnterpriseServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Enterprise)
+}
+
+func EnterpriseServiceAddress() string {
+	s := EnterpriseServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
 func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }

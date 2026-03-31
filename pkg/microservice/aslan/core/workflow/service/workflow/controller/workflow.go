@@ -33,7 +33,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -413,7 +413,7 @@ func (w *Workflow) Validate(isExecution bool) error {
 		return e.ErrLintWorkflow.AddErr(err)
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}

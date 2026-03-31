@@ -42,7 +42,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -1113,7 +1113,7 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		return nil, err
 	}
 
-	vendorClient := plutusvendor.New()
+	vendorClient := plutusenterprise.New()
 	err = vendorClient.Health()
 	if err != nil {
 		return nil, err

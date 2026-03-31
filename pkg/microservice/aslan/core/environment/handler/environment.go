@@ -41,7 +41,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -860,7 +860,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
@@ -1206,7 +1206,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
@@ -1215,9 +1215,9 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 	for _, arg := range args {
 		for _, service := range arg.Services {
 			if service.DeployStrategy == setting.ServiceDeployStrategyImport {
-				if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-					licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-					licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+				if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+					licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+					licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 					ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 					return
 				}
@@ -1381,7 +1381,7 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return

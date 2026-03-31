@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -87,7 +87,7 @@ func (ns *RegistryNamespace) GetRegistryAddress() (string, error) {
 }
 
 func (args *RegistryNamespace) LicenseValidate() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
@@ -95,9 +95,9 @@ func (args *RegistryNamespace) LicenseValidate() error {
 		args.RegProvider == config.RegistryProviderTCREnterprise ||
 		args.RegProvider == config.RegistryProviderECR ||
 		args.RegProvider == config.RegistryProviderJFrog {
-		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+			licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+			licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 			return e.ErrLicenseInvalid.AddDesc("")
 		}
 	}

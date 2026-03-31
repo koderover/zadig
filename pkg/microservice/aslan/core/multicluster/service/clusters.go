@@ -53,7 +53,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -115,13 +115,13 @@ type ScheduleStrategy struct {
 }
 
 func (args *K8SCluster) Validate() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 		if args.Provider == config.ClusterProviderTKEServerless || args.Provider == config.ClusterProviderAmazonEKS || args.Production {
 			return e.ErrLicenseInvalid.AddDesc("")
 		}
