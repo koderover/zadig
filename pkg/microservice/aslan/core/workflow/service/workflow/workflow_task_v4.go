@@ -931,6 +931,18 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		}
 	}
 
+	keyvaultKV, err := commonservice.ListAvailableKeyVaultItemsForProject(task.ProjectName, true)
+	if err != nil {
+		return fmt.Errorf("failed to get kv pair from keyvault for project %s, error: %s", task.ProjectName, err)
+	}
+
+	for _, group := range keyvaultKV.Groups {
+		for _, item := range group.KVs {
+			key := strings.Join([]string{"parameter", item.Group, item.Key}, ".")
+			globalKeyMap[key] = item.Value
+		}
+	}
+
 	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
 			continue
