@@ -373,7 +373,7 @@ func (cm *KubeClientManager) GetInformer(clusterID, namespace string) (informers
 	// wait for the cache to be synced for the first time, with a timeout to
 	// prevent blocking indefinitely when the cluster is unreachable or RBAC
 	// prevents list/watch operations.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer syncCancel()
 	informerFactory.WaitForCacheSync(syncCtx.Done())
 
