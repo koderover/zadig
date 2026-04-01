@@ -37,10 +37,10 @@ func ConvertProductServiceToOpenAPIEnvService(productService *models.ProductServ
 	}
 
 	resp := &types.OpenAPIEnvService{
-		ServiceName:    productService.ServiceName,
-		ReleaseName:    productService.ReleaseName,
-		RenderedYaml:   productService.RenderedYaml,
-		Containers:     ConvertContainerToOpenAPIContainer(productService.Containers),
+		ServiceName:  productService.ServiceName,
+		ReleaseName:  productService.ReleaseName,
+		RenderedYaml: productService.RenderedYaml,
+		Containers:   ConvertContainerToOpenAPIContainer(productService.Containers),
 		// ValuesYaml:     productService.GetServiceRender().ValuesYaml,
 		OverrideValues: productService.GetServiceRender().OverrideValues,
 		UpdateTime:     productService.UpdateTime,
@@ -86,10 +86,11 @@ func ConvertUserBriefInfoToOpenAPIUserBriefInfo(userBriefInfo *types.UserBriefIn
 	}
 
 	resp := &types.OpenAPIUserBriefInfo{
-		UID:          userBriefInfo.UID,
-		Account:      userBriefInfo.Account,
-		Name:         userBriefInfo.Name,
-		IdentityType: userBriefInfo.IdentityType,
+		LastLoginTime: userBriefInfo.LastLoginTime,
+		UID:           userBriefInfo.UID,
+		Account:       userBriefInfo.Account,
+		Name:          userBriefInfo.Name,
+		IdentityType:  userBriefInfo.IdentityType,
 	}
 	return resp
 }

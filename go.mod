@@ -90,7 +90,6 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
-	github.com/swaggo/swag v1.16.3
 	github.com/tidwall/gjson v1.14.3
 	github.com/traefik/yaegi v0.16.1
 	github.com/xanzy/go-gitlab v0.73.1
@@ -300,6 +299,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/swaggo/swag v1.16.3 // indirect
 	github.com/tdewolff/parse/v2 v2.7.11 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

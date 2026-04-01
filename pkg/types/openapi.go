@@ -142,10 +142,11 @@ type KV struct {
 }
 
 type OpenAPIUserBriefInfo struct {
-	UID          string `json:"uid" validate:"required"`           // 用户ID
-	Account      string `json:"account" validate:"required"`       // 用户账号 (登陆名)
-	Name         string `json:"name" validate:"required"`          // 用户名称 (昵称)
-	IdentityType string `json:"identity_type" validate:"required"` // 用户身份类型
+	LastLoginTime int64  `json:"last_login_time"`                   // 最后登录时间
+	UID           string `json:"uid" validate:"required"`           // 用户ID
+	Account       string `json:"account" validate:"required"`       // 用户账号 (登陆名)
+	Name          string `json:"name" validate:"required"`          // 用户名称 (昵称)
+	IdentityType  string `json:"identity_type" validate:"required"` // 用户身份类型
 }
 
 type OpenAPIRollBackStat struct {

@@ -38,10 +38,11 @@ type UserGroup struct {
 }
 
 type UserBriefInfo struct {
-	UID          string `json:"uid"`
-	Account      string `json:"account"`
-	Name         string `json:"name"`
-	IdentityType string `json:"identity_type"`
+	LastLoginTime int64  `json:"last_login_time"`
+	UID           string `json:"uid"`
+	Account       string `json:"account"`
+	Name          string `json:"name"`
+	IdentityType  string `json:"identity_type"`
 }
 
 type UsersResp struct {
