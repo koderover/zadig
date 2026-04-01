@@ -59,9 +59,10 @@ type User struct {
 }
 
 type UpdateUserInfo struct {
-	Name  string `json:"name,omitempty"`
-	Email string `json:"email,omitempty"`
-	Phone string `json:"phone,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Email           string `json:"email,omitempty"`
+	Phone           string `json:"phone,omitempty"`
+	APITokenEnabled *bool  `json:"api_token_enabled,omitempty"`
 }
 
 type OpenAPIQueryArgs struct {
@@ -194,7 +195,9 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
 	userInfoRes := userInfo[0]
-	userInfoRes.APIToken = user.APIToken
+	userInfoRes.HasAPIToken = len(userInfoRes.APIToken) != 0
+	userInfoRes.APIToken = ""
+	userInfoRes.APITokenEnabled = user.APITokenEnabled
 
 	userGroups, err := orm.ListUserGroupByUID(uid, repository.DB)
 	if err != nil {
@@ -228,39 +231,104 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	}
 	userInfoRes.UserGroups = userGroupList
 
-	//TODO Create a permanent OpenAPI token
-	if user.APIToken == "" {
-		token, err := login.CreateToken(&login.Claims{
-			Name:              user.Name,
-			UID:               user.UID,
-			Email:             user.Email,
-			PreferredUsername: user.Account,
-			StandardClaims: jwt.StandardClaims{
-				Audience: setting.ProductName,
-				//24*365*100=876000
-				ExpiresAt: time.Now().Add(876000 * time.Hour).Unix(),
-			},
-			FederatedClaims: login.FederatedClaims{
-				ConnectorId: user.IdentityType,
-				UserId:      user.Account,
-			},
-		})
-		if err != nil {
-			logger.Errorf("LocalLogin user:%s create token error, error msg:%s", user.Account, err.Error())
-			return nil, err
-		}
-		userInfoRes.APIToken = token
-		userWithToken := &models.User{
-			APIToken: token,
-		}
-		err = orm.UpdateUser(uid, userWithToken, repository.DB)
-		if err != nil {
-			logger.Errorf("UpdateUser user:%s save token error:%s", user.Account, err.Error())
-			return nil, err
-		}
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("GetUser checkUserIsSystemAdmin uid:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+	if isSystemAdmin {
+		userInfoRes.Admin = true
+		userInfoRes.APITokenEnabled = true
 	}
 
 	return userInfoRes, nil
+}
+
+func GenerateAPIToken(uid string, logger *zap.SugaredLogger) (string, error) {
+	user, err := orm.GetUserByUid(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("GenerateAPIToken getUserByUid:%s error, error msg:%s", uid, err.Error())
+		return "", err
+	}
+	if user == nil {
+		return "", fmt.Errorf("user not exist")
+	}
+
+	tokenEnabled, err := userCanUseAPIToken(user)
+	if err != nil {
+		logger.Errorf("GenerateAPIToken check user token authorization uid:%s error, error msg:%s", uid, err.Error())
+		return "", err
+	}
+	if !tokenEnabled {
+		return "", e.ErrForbidden
+	}
+
+	token, err := generatePermanentAPIToken(user)
+	if err != nil {
+		logger.Errorf("GenerateAPIToken create token for user:%s error, error msg:%s", user.Account, err.Error())
+		return "", err
+	}
+
+	err = orm.UpdateUser(uid, &models.User{
+		APIToken: token,
+	}, repository.DB)
+	if err != nil {
+		logger.Errorf("GenerateAPIToken save token for user:%s error, error msg:%s", user.Account, err.Error())
+		return "", err
+	}
+
+	return token, nil
+}
+
+func ValidateAPIToken(uid, token string) (bool, error) {
+	if uid == "" || token == "" {
+		return false, nil
+	}
+
+	user, err := orm.GetUserByUid(uid, repository.DB)
+	if err != nil {
+		return false, err
+	}
+	if user == nil {
+		return false, nil
+	}
+
+	tokenEnabled, err := userCanUseAPIToken(user)
+	if err != nil {
+		return false, err
+	}
+	if !tokenEnabled || user.APIToken == "" {
+		return false, nil
+	}
+
+	return token == user.APIToken, nil
+}
+
+func userCanUseAPIToken(user *models.User) (bool, error) {
+	isSystemAdmin, err := checkUserIsSystemAdmin(user.UID, repository.DB)
+	if err != nil {
+		return false, err
+	}
+	return isSystemAdmin || user.APITokenEnabled, nil
+}
+
+func generatePermanentAPIToken(user *models.User) (string, error) {
+	return login.CreateToken(&login.Claims{
+		Name:              user.Name,
+		UID:               user.UID,
+		Email:             user.Email,
+		PreferredUsername: user.Account,
+		StandardClaims: jwt.StandardClaims{
+			Audience: setting.ProductName,
+			// 24*365*100=876000
+			ExpiresAt: time.Now().Add(876000 * time.Hour).Unix(),
+			Id:        uuid.NewString(),
+		},
+		FederatedClaims: login.FederatedClaims{
+			ConnectorId: user.IdentityType,
+			UserId:      user.Account,
+		},
+	})
 }
 
 func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, error) {
@@ -321,6 +389,7 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 			})
 			if role.Name == string(setting.SystemAdmin) {
 				uInfo.Admin = true
+				uInfo.APITokenEnabled = true
 			}
 		}
 		uInfo.SystemRoleBindings = rolebindings
@@ -386,13 +455,14 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	if args.OrderBy == setting.ListUserOrderByLoginTime {
 		for _, user := range users {
 			usersInfo = append(usersInfo, &types.UserInfo{
-				LastLoginTime: user.LastLoginTime,
-				Uid:           user.UID,
-				Phone:         user.Phone,
-				Name:          user.Name,
-				Email:         user.Email,
-				IdentityType:  user.IdentityType,
-				Account:       user.Account,
+				LastLoginTime:   user.LastLoginTime,
+				Uid:             user.UID,
+				Phone:           user.Phone,
+				Name:            user.Name,
+				Email:           user.Email,
+				IdentityType:    user.IdentityType,
+				Account:         user.Account,
+				APITokenEnabled: user.APITokenEnabled,
 			})
 		}
 	} else {
@@ -418,6 +488,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 			})
 			if role.Name == string(setting.SystemAdmin) {
 				uInfo.Admin = true
+				uInfo.APITokenEnabled = true
 			}
 		}
 		uInfo.SystemRoleBindings = rolebindings
@@ -438,13 +509,14 @@ func mergeUserLoginWithLoginTime(users []models.UserWithLoginTime, userLogins []
 	for _, user := range users {
 		if userLogin, ok := userLoginMap[user.UID]; ok {
 			usersInfo = append(usersInfo, &types.UserInfo{
-				LastLoginTime: userLogin.LastLoginTime,
-				Uid:           user.UID,
-				Phone:         user.Phone,
-				Name:          user.Name,
-				Email:         user.Email,
-				IdentityType:  user.IdentityType,
-				Account:       user.Account,
+				LastLoginTime:   userLogin.LastLoginTime,
+				Uid:             user.UID,
+				Phone:           user.Phone,
+				Name:            user.Name,
+				Email:           user.Email,
+				IdentityType:    user.IdentityType,
+				Account:         user.Account,
+				APITokenEnabled: user.APITokenEnabled,
 			})
 		} else {
 			logger.Error("user:%s login info not exist")
@@ -462,13 +534,15 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 	for _, user := range users {
 		if userLogin, ok := userLoginMap[user.UID]; ok {
 			usersInfo = append(usersInfo, &types.UserInfo{
-				LastLoginTime: userLogin.LastLoginTime,
-				Uid:           user.UID,
-				Phone:         user.Phone,
-				Name:          user.Name,
-				Email:         user.Email,
-				IdentityType:  user.IdentityType,
-				Account:       user.Account,
+				LastLoginTime:   userLogin.LastLoginTime,
+				Uid:             user.UID,
+				Phone:           user.Phone,
+				Name:            user.Name,
+				Email:           user.Email,
+				IdentityType:    user.IdentityType,
+				Account:         user.Account,
+				APIToken:        user.APIToken,
+				APITokenEnabled: user.APITokenEnabled,
 			})
 		} else {
 			logger.Error("user:%s login info not exist")
@@ -504,6 +578,7 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 			})
 			if role.Name == string(setting.SystemAdmin) {
 				uInfo.Admin = true
+				uInfo.APITokenEnabled = true
 			}
 		}
 		uInfo.SystemRoleBindings = rolebindings
@@ -709,12 +784,23 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 }
 
 func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
-	user := &models.User{
-		Name:  args.Name,
-		Email: args.Email,
-		Phone: args.Phone,
+	updates := make(map[string]interface{})
+	if args.Name != "" {
+		updates["name"] = args.Name
 	}
-	return orm.UpdateUser(uid, user, repository.DB)
+	if args.Email != "" {
+		updates["email"] = args.Email
+	}
+	if args.Phone != "" {
+		updates["phone"] = args.Phone
+	}
+	if args.APITokenEnabled != nil {
+		updates["api_token_enabled"] = *args.APITokenEnabled
+		if !*args.APITokenEnabled {
+			updates["api_token"] = ""
+		}
+	}
+	return orm.UpdateUserValues(uid, updates, repository.DB)
 }
 
 func UpdateUserSetting(uid string, args *UserSetting) error {

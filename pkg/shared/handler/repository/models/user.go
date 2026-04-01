@@ -17,15 +17,16 @@ limitations under the License.
 package models
 
 type User struct {
-	UID          string `json:"uid"`
-	Name         string `json:"name"`
-	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	Account      string `json:"account"`
-	APIToken     string `gorm:"api_token" json:"api_token"`
-	CreatedAt    int64  `json:"created_at"`
-	UpdatedAt    int64  `json:"updated_at"`
+	UID             string `json:"uid"`
+	Name            string `json:"name"`
+	IdentityType    string `gorm:"default:'unknown'" json:"identity_type"`
+	Email           string `json:"email"`
+	Phone           string `json:"phone"`
+	Account         string `json:"account"`
+	APIToken        string `gorm:"api_token" json:"api_token"`
+	APITokenEnabled bool   `gorm:"column:api_token_enabled;default:0" json:"api_token_enabled"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 // TableName sets the insert table name for this struct type

@@ -105,6 +105,10 @@ type OpenAPIGetUserResponse struct {
 	Account       string `json:"account"`
 }
 
+type APITokenResponse struct {
+	Token string `json:"token"`
+}
+
 func OpenAPIGetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -188,6 +192,27 @@ func GetPersonalUser(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.RespErr = permission.GetUser(uid, ctx.Logger)
+}
+
+func GenerateAPIToken(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	uid := c.Param("uid")
+	if ctx.UserID != uid {
+		ctx.RespErr = e.ErrForbidden
+		return
+	}
+
+	token, err := permission.GenerateAPIToken(uid, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = &APITokenResponse{
+		Token: token,
+	}
 }
 
 func GetUserSetting(c *gin.Context) {
@@ -439,7 +464,14 @@ func UpdateUser(c *gin.Context) {
 func UpdatePersonalUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &permission.UpdateUserInfo{}
+
+	type updatePersonalUserReq struct {
+		Name  string `json:"name,omitempty"`
+		Email string `json:"email,omitempty"`
+		Phone string `json:"phone,omitempty"`
+	}
+
+	args := &updatePersonalUserReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = err
 		return
@@ -449,7 +481,11 @@ func UpdatePersonalUser(c *gin.Context) {
 		ctx.RespErr = e.ErrForbidden
 		return
 	}
-	ctx.RespErr = permission.UpdateUser(uid, args, ctx.Logger)
+	ctx.RespErr = permission.UpdateUser(uid, &permission.UpdateUserInfo{
+		Name:  args.Name,
+		Email: args.Email,
+		Phone: args.Phone,
+	}, ctx.Logger)
 }
 
 func UpdateUserSetting(c *gin.Context) {
