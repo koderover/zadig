@@ -26,12 +26,13 @@ import (
 )
 
 type User struct {
-	UID          string `json:"uid"`
-	Name         string `json:"name"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	IdentityType string `json:"identity_type"`
-	Account      string `json:"account"`
+	UID             string `json:"uid"`
+	Name            string `json:"name"`
+	Email           string `json:"email"`
+	Phone           string `json:"phone"`
+	IdentityType    string `json:"identity_type"`
+	Account         string `json:"account"`
+	APITokenEnabled bool   `json:"api_token_enabled"`
 }
 
 type usersResp struct {

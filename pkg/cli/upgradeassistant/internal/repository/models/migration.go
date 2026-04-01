@@ -39,6 +39,7 @@ type Migration struct {
 	Migration420SAE                             bool               `bson:"migration_420_sae"`
 	Migration421RollbackPermission              bool               `bson:"migration_421_rollback_permission"`
 	Migration421CollaborationRollbackPermission bool               `bson:"migration_421_collaboration_rollback_permission"`
+	Migration430UserAPITokenEnabled             bool               `bson:"migration_430_user_api_token_enabled"`
 	Error                                       string             `bson:"error"`
 }
 
