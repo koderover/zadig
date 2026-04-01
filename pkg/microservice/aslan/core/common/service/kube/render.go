@@ -574,12 +574,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		hasCurrentBaseReplicaMap = true
 	}
 
-	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
-		manifest, workloads, err := FetchImportedManifests(option, productInfo, prodSvcTemplate, serviceRender)
-		return manifest, int(curProductSvc.Revision), workloads, err
-	}
-
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers

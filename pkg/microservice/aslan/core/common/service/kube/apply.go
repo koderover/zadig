@@ -695,7 +695,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		updateResources = append(updateResources, r.Unstructured)
 	}
 
-	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, nil, log)
+	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, applyParam.JobLogContext, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
