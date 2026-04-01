@@ -592,6 +592,7 @@ func generateDefaultProjectActions() *ProjectActions {
 			Create:     false,
 			EditConfig: false,
 			ManagePods: false,
+			Scale:      false,
 			Restart:    false,
 			Rollback:   false,
 			Delete:     false,
@@ -602,6 +603,7 @@ func generateDefaultProjectActions() *ProjectActions {
 			Create:     false,
 			EditConfig: false,
 			ManagePods: false,
+			Scale:      false,
 			Restart:    false,
 			Rollback:   false,
 			Delete:     false,
@@ -808,6 +810,8 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Env.EditConfig = true
 	case VerbManageEnvironment:
 		userAuthInfo.Env.ManagePods = true
+	case VerbScaleEnvironment:
+		userAuthInfo.Env.Scale = true
 	case VerbRestartEnvironment:
 		userAuthInfo.Env.Restart = true
 	case VerbRollbackEnvironment:
@@ -826,6 +830,8 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.ProductionEnv.EditConfig = true
 	case VerbEditProductionEnv:
 		userAuthInfo.ProductionEnv.ManagePods = true
+	case VerbScaleProductionEnv:
+		userAuthInfo.ProductionEnv.Scale = true
 	case VerbRestartProductionEnv:
 		userAuthInfo.ProductionEnv.Restart = true
 	case VerbRollbackProductionEnv:

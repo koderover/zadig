@@ -531,9 +531,15 @@ func ScaleNewService(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Scale &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
-				if err != nil || !permitted {
+				permittedByScale, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionScale)
+				if err != nil {
+					ctx.UnAuthorized = true
+					return
+				}
+				permittedByManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+				if err != nil || (!permittedByScale && !permittedByManagePod) {
 					ctx.UnAuthorized = true
 					return
 				}
@@ -545,9 +551,15 @@ func ScaleNewService(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Scale &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
-				if err != nil || !permitted {
+				permittedByScale, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionScale)
+				if err != nil {
+					ctx.UnAuthorized = true
+					return
+				}
+				permittedByManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+				if err != nil || (!permittedByScale && !permittedByManagePod) {
 					ctx.UnAuthorized = true
 					return
 				}

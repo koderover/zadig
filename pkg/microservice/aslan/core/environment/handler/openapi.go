@@ -110,9 +110,15 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Env.Scale &&
 			!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Env.ManagePods {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, req.ProjectKey, types.ResourceTypeEnvironment, req.EnvName, types.EnvActionManagePod)
-			if err != nil || !permitted {
+			permittedByScale, err := internalhandler.GetCollaborationModePermission(ctx.UserID, req.ProjectKey, types.ResourceTypeEnvironment, req.EnvName, types.EnvActionScale)
+			if err != nil {
+				ctx.UnAuthorized = true
+				return
+			}
+			permittedByManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, req.ProjectKey, types.ResourceTypeEnvironment, req.EnvName, types.EnvActionManagePod)
+			if err != nil || (!permittedByScale && !permittedByManagePod) {
 				ctx.UnAuthorized = true
 				return
 			}

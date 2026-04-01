@@ -70,6 +70,7 @@ type EnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Scale      bool
 	Restart    bool
 	Rollback   bool
 	Delete     bool
@@ -85,6 +86,7 @@ type ProductionEnvActions struct {
 	EditConfig bool
 	// 管理服务实例
 	ManagePods bool
+	Scale      bool
 	Restart    bool
 	Rollback   bool
 	Delete     bool
