@@ -127,13 +127,17 @@ func (c *WorkflowV4GitHookColl) Get(ctx *internalhandler.Context, workflowName, 
 }
 
 func (c *WorkflowV4GitHookColl) Exists(ctx *internalhandler.Context, workflowName, hookName string) (bool, error) {
-	if err := c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}); err != nil {
-		if err.Err() == mongo.ErrNoDocuments {
-			return false, nil
-		}
-		return false, err.Err()
-	}
+	return singleResultExists(c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}))
+}
 
+func singleResultExists(result *mongo.SingleResult) (bool, error) {
+	err := result.Err()
+	if err == mongo.ErrNoDocuments {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
