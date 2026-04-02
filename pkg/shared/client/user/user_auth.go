@@ -68,12 +68,15 @@ type EnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
-	Restart    bool
-	Rollback   bool
-	Delete     bool
-	DebugPod   bool
+	// 副本扩展
+	Restart  bool
+	Rollback bool
+	Delete   bool
+	DebugPod bool
 	// 主机登录
 	SSH bool
 }
@@ -83,6 +86,8 @@ type ProductionEnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
 	Restart    bool
