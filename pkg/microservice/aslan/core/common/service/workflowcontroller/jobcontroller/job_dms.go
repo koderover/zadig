@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	dms "github.com/alibabacloud-go/dms-enterprise-20181101/v3/client"
@@ -72,9 +73,18 @@ func (c *DMSJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	switch normalizeDMSJobExecuteMode(c.jobTaskSpec.ExecuteMode) {
+	case config.DMSJobExecuteModeSerial:
+		c.runSerial(ctx, client)
+	default:
+		c.runParallel(ctx, client)
+	}
+}
+
+func (c *DMSJobCtl) runParallel(ctx context.Context, client *dms.Client) {
 	failed := false
 	for _, order := range c.jobTaskSpec.Orders {
-		err = execDMSDataCorrectOrder(ctx, client, order.ID)
+		err := execDMSDataCorrectOrder(ctx, client, order.ID)
 		if err != nil {
 			failed = true
 			order.Error = err.Error()
@@ -86,21 +96,18 @@ func (c *DMSJobCtl) Run(ctx context.Context) {
 	for {
 		c.ack()
 
-		select {
-		case <-ctx.Done():
-			c.job.Status = config.StatusCancelled
-			logError(c.job, "job cancelled", c.logger)
+		if c.checkCancelled(ctx) {
 			return
-		default:
 		}
 
 		allDone := true
 		for _, order := range c.jobTaskSpec.Orders {
 			if order.Error != "" {
+				failed = true
 				continue
 			}
 
-			if order.JobStatus == "FAIL" || order.JobStatus == "SUCCESS" || order.JobStatus == "DELETE" {
+			if isDMSOrderDone(order.JobStatus) {
 				if order.JobStatus == "FAIL" {
 					failed = true
 				}
@@ -118,6 +125,9 @@ func (c *DMSJobCtl) Run(ctx context.Context) {
 			}
 
 			order.JobStatus = tea.StringValue(taskDetail.GetJobStatus())
+			if order.JobStatus == "FAIL" {
+				failed = true
+			}
 		}
 
 		if allDone {
@@ -130,6 +140,74 @@ func (c *DMSJobCtl) Run(ctx context.Context) {
 		}
 
 		time.Sleep(time.Second * 3)
+	}
+}
+
+func (c *DMSJobCtl) runSerial(ctx context.Context, client *dms.Client) {
+	for _, order := range c.jobTaskSpec.Orders {
+		if c.checkCancelled(ctx) {
+			return
+		}
+
+		err := execDMSDataCorrectOrder(ctx, client, order.ID)
+		if err != nil {
+			order.Error = err.Error()
+			logError(c.job, err.Error(), c.logger)
+			c.job.Status = config.StatusFailed
+			return
+		}
+
+		for {
+			c.ack()
+
+			if c.checkCancelled(ctx) {
+				return
+			}
+
+			taskDetail, err := getDMSDataCorrectTaskDetail(ctx, client, order.ID)
+			if err != nil {
+				order.Error = err.Error()
+				logError(c.job, err.Error(), c.logger)
+				c.job.Status = config.StatusFailed
+				return
+			}
+
+			order.JobStatus = tea.StringValue(taskDetail.GetJobStatus())
+			if !isDMSOrderDone(order.JobStatus) {
+				time.Sleep(time.Second * 3)
+				continue
+			}
+			if order.JobStatus == "FAIL" {
+				c.job.Status = config.StatusFailed
+				return
+			}
+			break
+		}
+	}
+	c.job.Status = config.StatusPassed
+}
+
+func (c *DMSJobCtl) checkCancelled(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		c.job.Status = config.StatusCancelled
+		logError(c.job, "job cancelled", c.logger)
+		return true
+	default:
+		return false
+	}
+}
+
+func isDMSOrderDone(status string) bool {
+	return status == "FAIL" || status == "SUCCESS" || status == "DELETE"
+}
+
+func normalizeDMSJobExecuteMode(mode string) config.DMSJobExecuteMode {
+	switch strings.ToLower(mode) {
+	case string(config.DMSJobExecuteModeSerial):
+		return config.DMSJobExecuteModeSerial
+	default:
+		return config.DMSJobExecuteModeParallel
 	}
 }
 

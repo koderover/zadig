@@ -276,6 +276,13 @@ const (
 	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
 )
 
+type DMSJobExecuteMode string
+
+const (
+	DMSJobExecuteModeParallel DMSJobExecuteMode = "parallel"
+	DMSJobExecuteModeSerial   DMSJobExecuteMode = "serial"
+)
+
 type ObservabilityType string
 
 const (
@@ -761,7 +768,7 @@ type ValueMergeStrategy string
 
 const (
 	ValueMergeStrategyReuseValue ValueMergeStrategy = "reuse-values"
-	ValueMergeStrategyOverride   ValueMergeStrategy= "override"
+	ValueMergeStrategyOverride   ValueMergeStrategy = "override"
 )
 
 type YAMLMergeStrategy string
