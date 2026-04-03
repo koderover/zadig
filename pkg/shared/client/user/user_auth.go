@@ -72,11 +72,10 @@ type EnvActions struct {
 	Scale bool
 	// 管理服务实例
 	ManagePods bool
-	// 副本扩展
-	Restart  bool
-	Rollback bool
-	Delete   bool
-	DebugPod bool
+	Restart    bool
+	Rollback   bool
+	Delete     bool
+	DebugPod   bool
 	// 主机登录
 	SSH bool
 }

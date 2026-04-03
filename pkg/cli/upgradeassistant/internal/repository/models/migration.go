@@ -40,6 +40,8 @@ type Migration struct {
 	Migration421RollbackPermission              bool               `bson:"migration_421_rollback_permission"`
 	Migration421CollaborationRollbackPermission bool               `bson:"migration_421_collaboration_rollback_permission"`
 	Migration430UserAPITokenEnabled             bool               `bson:"migration_430_user_api_token_enabled"`
+	Migration430ScalePermission                 bool               `bson:"migration_430_scale_permission"`
+	Migration430CollaborationScalePermission    bool               `bson:"migration_430_collaboration_scale_permission"`
 	Error                                       string             `bson:"error"`
 }
 
