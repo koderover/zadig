@@ -17,12 +17,18 @@ limitations under the License.
 package migrate
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	collaborationmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	userrepo "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	userorm "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
@@ -106,6 +112,42 @@ func V420ToV421() error {
 
 	if err = migrateCollaborationRollbackPermissions(migrationInfo); err != nil {
 		return err
+	}
+
+	if !migrationInfo.Migration421WorkflowDeploySpec {
+		workflowCursor, err := commonrepo.NewWorkflowV4Coll().ListByCursor(&commonrepo.ListWorkflowV4Option{})
+		if err != nil {
+			return fmt.Errorf("failed to list all custom workflow to update, error: %s", err)
+		}
+
+		for workflowCursor.Next(context.Background()) {
+			workflow := new(commonmodels.WorkflowV4)
+			if err := workflowCursor.Decode(workflow); err != nil {
+				// continue converting to have maximum coverage
+				log.Warnf(err.Error())
+			}
+
+			log.Infof("migrating workflow: %s in project: %s ......", workflow.Name, workflow.Project)
+
+			err = update421WorkflowDeployJobTaskSpec(workflow.Stages)
+			if err != nil {
+				// continue converting to have maximum coverage
+				log.Warnf(err.Error())
+			}
+
+			err = commonrepo.NewWorkflowV4Coll().Update(
+				workflow.ID.Hex(),
+				workflow,
+			)
+			if err != nil {
+				log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
+			}
+			log.Infof("workflow: %s migration done ......", workflow.Name)
+		}
+
+		_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+			"migration_421_workflow_deploy_spec": true,
+		})
 	}
 
 	return nil
@@ -197,6 +239,31 @@ func ensureAction421(tx *gorm.DB, seed permissionActionSeed) (uint, error) {
 	}
 
 	return action.ID, nil
+}
+
+func update421WorkflowDeployJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
+	for _, stage := range stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigDeploy:
+				newSpec := new(commonmodels.ZadigDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
+				}
+				if strings.HasPrefix(newSpec.Env, "<+fixed>") {
+					newSpec.Env = strings.TrimPrefix(newSpec.Env, "<+fixed>")
+					newSpec.EnvSource = config.ParamSourceFixed
+				} else {
+					newSpec.EnvSource = config.ParamSourceRuntime
+				}
+				newSpec.YAMLMergeStrategy = config.YAMLMergeStrategyMerge
+				newSpec.MergeStrategySource = config.ParamSourceFixed
+				job.Spec = newSpec
+			default:
+			}
+		}
+	}
+	return nil
 }
 
 func backfillRoleTemplatePermissions421(tx *gorm.DB, actionIDs map[string]uint) (int, error) {
