@@ -26,7 +26,6 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	commonconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -36,8 +35,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -45,7 +42,7 @@ import (
 func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
 	var resp []*commonmodels.PrivateKey
 	var err error
-	latestAgentVersion, versionErr := getCurrentZadigAgentVersion()
+	latestAgentVersion, versionErr := config.GetZadigAgentVersion()
 	if versionErr != nil {
 		log.Warnf("failed to get current zadig-agent version: %v", versionErr)
 	}
@@ -93,20 +90,6 @@ func isAgentVersionOutdated(currentVersion, latestVersion string) bool {
 	}
 	normalizedCurrentVersion := strings.TrimPrefix(currentVersion, "v")
 	return normalizedCurrentVersion != normalizedLatestVersion
-}
-
-func getCurrentZadigAgentVersion() (string, error) {
-	ns := commonconfig.Namespace()
-	kubeClient := krkubeclient.Client()
-	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
-	if err != nil || !found {
-		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
-	}
-	version := strings.TrimPrefix(configMap.Data["ZADIG_AGENT_VERSION"], "v")
-	if version == "" {
-		return "", fmt.Errorf("zadig-agent version not found")
-	}
-	return version, nil
 }
 
 func ListPrivateKeysInternal(log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {

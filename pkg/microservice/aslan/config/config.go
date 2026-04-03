@@ -22,10 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
-
+	commonconfig "github.com/koderover/zadig/v2/pkg/config"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/spf13/viper"
 )
 
 func DefaultIngressClass() string {
@@ -245,4 +247,36 @@ func DindImage() string {
 
 func Features() string {
 	return viper.GetString(setting.FeatureFlag)
+}
+
+func GetZadigAgentVersion() (string, error) {
+	ns := commonconfig.Namespace()
+	kubeClient := krkubeclient.Client()
+	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
+	if err != nil || !found {
+		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
+	}
+	if found {
+		version := configMap.Data["ZADIG_AGENT_VERSION"]
+		if version != "" {
+			return strings.TrimPrefix(version, "v"), nil
+		}
+	}
+	return "", fmt.Errorf("zadig-agent version not found")
+}
+
+func GetRepoURL() (string, error) {
+	ns := commonconfig.Namespace()
+	kubeClient := krkubeclient.Client()
+	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
+	if err != nil || !found {
+		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
+	}
+	if found {
+		version := configMap.Data["ZADIG_AGENT_REPO_URL"]
+		if version != "" {
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("zadig-agent repo URL not found")
 }
