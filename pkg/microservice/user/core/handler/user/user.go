@@ -334,6 +334,7 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	briefUserList := make([]*types.UserBriefInfo, 0)
 	for _, userInfo := range resp.Users {
 		briefUserList = append(briefUserList, &types.UserBriefInfo{
+			LastLoginTime: userInfo.LastLoginTime,
 			UID:          userInfo.Uid,
 			Account:      userInfo.Account,
 			IdentityType: userInfo.IdentityType,
@@ -393,6 +394,7 @@ func ListUsersBrief(c *gin.Context) {
 	briefUserList := make([]*types.UserBriefInfo, 0)
 	for _, userInfo := range resp.Users {
 		briefUserList = append(briefUserList, &types.UserBriefInfo{
+			LastLoginTime: userInfo.LastLoginTime,
 			UID:          userInfo.Uid,
 			Account:      userInfo.Account,
 			IdentityType: userInfo.IdentityType,
