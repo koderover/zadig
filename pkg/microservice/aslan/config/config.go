@@ -255,9 +255,9 @@ func GetZadigAgentVersion() (string, error) {
 }
 
 func GetRepoURL() (string, error) {
-	version := viper.GetString(setting.ZadigAgentRepoURL)
-	if version != "" {
-		return version, nil
+	url := viper.GetString(setting.ZadigAgentRepoURL)
+	if url != "" {
+		return url, nil
 	}
 	return "", fmt.Errorf("zadig-agent repo URL not found")
 }
