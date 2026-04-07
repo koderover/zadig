@@ -22,6 +22,7 @@ import (
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	collaborationmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
 	collaborationmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
@@ -64,6 +65,21 @@ var permissionBackfillRules430 = []permissionBackfillRule430{
 		Source: permissionservice.VerbEditProductionEnv,
 		Targets: []string{
 			permissionservice.VerbScaleProductionEnv,
+		},
+	},
+}
+
+var collaborationBackfillRules430 = []permissionBackfillRule430{
+	{
+		Source: pkgtypes.EnvActionManagePod,
+		Targets: []string{
+			pkgtypes.EnvActionScale,
+		},
+	},
+	{
+		Source: pkgtypes.ProductionEnvActionManagePod,
+		Targets: []string{
+			pkgtypes.ProductionEnvActionScale,
 		},
 	},
 }
@@ -244,7 +260,7 @@ func backfillActionBindings430(tx *gorm.DB, ids []uint, actionIDs map[string]uin
 }
 
 func collectMissingActionIDs430(actions []*usermodels.Action, actionIDs map[string]uint) []uint {
-	missingVerbs := collectMissingBackfillTargets430(actionVerbs430(actions))
+	missingVerbs := collectMissingBackfillTargets430(actionVerbs430(actions), permissionBackfillRules430)
 	missingActionIDs := make([]uint, 0, len(missingVerbs))
 	for _, verb := range missingVerbs {
 		actionID, ok := actionIDs[verb]
@@ -263,10 +279,10 @@ func actionVerbs430(actions []*usermodels.Action) []string {
 	return verbs
 }
 
-func collectMissingBackfillTargets430(verbs []string) []string {
+func collectMissingBackfillTargets430(verbs []string, rules []permissionBackfillRule430) []string {
 	verbSet := sets.NewString(verbs...)
 	missingVerbs := make([]string, 0)
-	for _, rule := range permissionBackfillRules430 {
+	for _, rule := range rules {
 		if !verbSet.Has(rule.Source) {
 			continue
 		}
@@ -297,21 +313,7 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 	modeRevisionMap := make(map[string]int64, len(modes))
 	modeUpdatedCount := 0
 	for _, mode := range modes {
-		changed := false
-		for i := range mode.Workflows {
-			itemChanged, verbs := appendBackfillTargets430(mode.Workflows[i].Verbs)
-			if itemChanged {
-				mode.Workflows[i].Verbs = verbs
-				changed = true
-			}
-		}
-		for i := range mode.Products {
-			itemChanged, verbs := appendBackfillTargets430(mode.Products[i].Verbs)
-			if itemChanged {
-				mode.Products[i].Verbs = verbs
-				changed = true
-			}
-		}
+		changed := appendBackfillTargetsToMode430(mode)
 
 		revision := mode.Revision
 		if changed {
@@ -331,21 +333,7 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 
 	instanceUpdatedCount := 0
 	for _, instance := range instances {
-		changed := false
-		for i := range instance.Workflows {
-			itemChanged, verbs := appendBackfillTargets430(instance.Workflows[i].Verbs)
-			if itemChanged {
-				instance.Workflows[i].Verbs = verbs
-				changed = true
-			}
-		}
-		for i := range instance.Products {
-			itemChanged, verbs := appendBackfillTargets430(instance.Products[i].Verbs)
-			if itemChanged {
-				instance.Products[i].Verbs = verbs
-				changed = true
-			}
-		}
+		changed := appendBackfillTargetsToInstance430(instance)
 
 		if revision, ok := modeRevisionMap[collaborationModeKey430(instance.ProjectName, instance.CollaborationName)]; ok && instance.Revision != revision {
 			instance.Revision = revision
@@ -374,7 +362,7 @@ func collaborationModeKey430(projectName, modeName string) string {
 }
 
 func appendBackfillTargets430(verbs []string) (bool, []string) {
-	missingVerbs := collectMissingBackfillTargets430(verbs)
+	missingVerbs := collectMissingBackfillTargets430(verbs, collaborationBackfillRules430)
 	if len(missingVerbs) == 0 {
 		return false, verbs
 	}
@@ -382,6 +370,44 @@ func appendBackfillTargets430(verbs []string) (bool, []string) {
 	updatedVerbs := append([]string{}, verbs...)
 	updatedVerbs = append(updatedVerbs, missingVerbs...)
 	return true, updatedVerbs
+}
+
+func appendBackfillTargetsToMode430(mode *collaborationmodels.CollaborationMode) bool {
+	changed := false
+	for i := range mode.Workflows {
+		itemChanged, verbs := appendBackfillTargets430(mode.Workflows[i].Verbs)
+		if itemChanged {
+			mode.Workflows[i].Verbs = verbs
+			changed = true
+		}
+	}
+	for i := range mode.Products {
+		itemChanged, verbs := appendBackfillTargets430(mode.Products[i].Verbs)
+		if itemChanged {
+			mode.Products[i].Verbs = verbs
+			changed = true
+		}
+	}
+	return changed
+}
+
+func appendBackfillTargetsToInstance430(instance *collaborationmodels.CollaborationInstance) bool {
+	changed := false
+	for i := range instance.Workflows {
+		itemChanged, verbs := appendBackfillTargets430(instance.Workflows[i].Verbs)
+		if itemChanged {
+			instance.Workflows[i].Verbs = verbs
+			changed = true
+		}
+	}
+	for i := range instance.Products {
+		itemChanged, verbs := appendBackfillTargets430(instance.Products[i].Verbs)
+		if itemChanged {
+			instance.Products[i].Verbs = verbs
+			changed = true
+		}
+	}
+	return changed
 }
 
 func V430ToV420() error {
