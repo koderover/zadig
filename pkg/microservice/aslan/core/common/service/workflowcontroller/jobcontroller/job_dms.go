@@ -82,14 +82,13 @@ func (c *DMSJobCtl) Run(ctx context.Context) {
 }
 
 func (c *DMSJobCtl) runParallel(ctx context.Context, client *dms.Client) {
-	failed := false
 	for _, order := range c.jobTaskSpec.Orders {
 		err := execDMSDataCorrectOrder(ctx, client, order.ID)
 		if err != nil {
-			failed = true
 			order.Error = err.Error()
 			logError(c.job, err.Error(), c.logger)
-			continue
+			c.job.Status = config.StatusFailed
+			return
 		}
 	}
 
@@ -103,13 +102,14 @@ func (c *DMSJobCtl) runParallel(ctx context.Context, client *dms.Client) {
 		allDone := true
 		for _, order := range c.jobTaskSpec.Orders {
 			if order.Error != "" {
-				failed = true
-				continue
+				c.job.Status = config.StatusFailed
+				return
 			}
 
 			if isDMSOrderDone(order.JobStatus) {
 				if order.JobStatus == "FAIL" {
-					failed = true
+					c.job.Status = config.StatusFailed
+					return
 				}
 				continue
 			}
@@ -118,24 +118,21 @@ func (c *DMSJobCtl) runParallel(ctx context.Context, client *dms.Client) {
 
 			taskDetail, err := getDMSDataCorrectTaskDetail(ctx, client, order.ID)
 			if err != nil {
-				failed = true
 				order.Error = err.Error()
 				logError(c.job, err.Error(), c.logger)
-				continue
+				c.job.Status = config.StatusFailed
+				return
 			}
 
 			order.JobStatus = tea.StringValue(taskDetail.GetJobStatus())
 			if order.JobStatus == "FAIL" {
-				failed = true
+				c.job.Status = config.StatusFailed
+				return
 			}
 		}
 
 		if allDone {
-			if failed {
-				c.job.Status = config.StatusFailed
-			} else {
-				c.job.Status = config.StatusPassed
-			}
+			c.job.Status = config.StatusPassed
 			return
 		}
 
