@@ -52,7 +52,6 @@ func (s *engine) injectMiddlewares() {
 		return
 	}
 	g.Use(ginmiddleware.ProcessLicense())
-	g.Use(ginmiddleware.RegisterRequest())
 	g.Use(ginmiddleware.OperationLogStatus())
 	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
