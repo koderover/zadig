@@ -67,6 +67,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	systemActions := generateDefaultSystemActions()
 	// we generate a map of namespaced(project) permission
 	projectActionMap := make(map[string]*ProjectActions)
+	globalReadVerbSet := sets.NewString()
 
 	roles, err := ListRoleByUID(uid)
 	if err != nil {
@@ -98,6 +99,9 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
+				if isReadOnlyActionVerb(action) {
+					globalReadVerbSet.Insert(action)
+				}
 			default:
 				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
@@ -141,10 +145,17 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
+				if isReadOnlyActionVerb(action) {
+					globalReadVerbSet.Insert(action)
+				}
 			default:
 				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
 		}
+	}
+
+	if err := grantGlobalReadAuthToAllProjects(projectActionMap, globalReadVerbSet.List()); err != nil {
+		return nil, err
 	}
 
 	projectInfo := make(map[string]ProjectActions)
@@ -277,9 +288,23 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	for _, role := range roles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			hasPermission, err := roleHasGlobalReadPermission(role.ID)
+			if err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
+				return nil, fmt.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
+			}
+			if hasPermission {
+				if err := insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list projects for global read permission, error: %s", err)
+					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
@@ -290,9 +315,23 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	for _, role := range groupRoles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			hasPermission, err := roleHasGlobalReadPermission(role.ID)
+			if err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
+				return nil, fmt.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
+			}
+			if hasPermission {
+				if err := insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list projects for global read permission, error: %s", err)
+					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	// TODO: add user group support for collaboration mode
@@ -370,9 +409,17 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	for _, role := range roles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			if isReadOnlyActionVerb(verb) {
+				if err := insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list projects for global read permission, error: %s", err)
+					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	adminRoles, err := orm.ListProjectAdminRoleByUID(uid, tx)
@@ -396,9 +443,17 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	for _, role := range groupRoles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			if isReadOnlyActionVerb(verb) {
+				if err := insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list projects for global read permission, error: %s", err)
+					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	groupAdminRoles, err := orm.ListProjectAdminRoleByGroupIDs(groupIDList, tx)
@@ -566,6 +621,53 @@ func checkEnvPermission(list []models.ProductCIItem, envName, action string) boo
 		}
 	}
 	return false
+}
+
+func isReadOnlyActionVerb(verb string) bool {
+	return sets.NewString(readOnlyAction...).Has(verb)
+}
+
+func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {
+	if len(verbs) == 0 {
+		return nil
+	}
+	projectList, err := mongodb.NewProjectColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+	}
+	for _, project := range projectList {
+		if _, ok := projectActionMap[project.ProductName]; !ok {
+			projectActionMap[project.ProductName] = generateDefaultProjectActions()
+		}
+		for _, verb := range verbs {
+			modifyUserProjectAuth(projectActionMap[project.ProductName], verb)
+		}
+	}
+	return nil
+}
+
+func roleHasGlobalReadPermission(roleID uint) (bool, error) {
+	actions, err := ListActionByRole(roleID)
+	if err != nil {
+		return false, err
+	}
+	for _, action := range actions {
+		if isReadOnlyActionVerb(action) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func insertAllProjects(respSet sets.String) error {
+	projectList, err := mongodb.NewProjectColl().List()
+	if err != nil {
+		return err
+	}
+	for _, project := range projectList {
+		respSet.Insert(project.ProductName)
+	}
+	return nil
 }
 
 func generateAdminRoleResource() *AuthorizedResources {
