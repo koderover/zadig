@@ -78,6 +78,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		general.GET("/callback", login.Callback)
 		general.GET("/login", login.Login)
 		general.POST("/login", login.LocalLogin)
+		general.GET("/sso/token-callback", login.SsoTokenCallback)
 		general.GET("/login-enabled", login.ThirdPartyLoginEnabled)
 		general.GET("/captcha", login.GetCaptcha)
 		general.GET("/logout", login.LocalLogout)
