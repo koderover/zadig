@@ -18,8 +18,6 @@ package rest
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
 
@@ -29,13 +27,11 @@ import (
 	codehosthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/handler"
 	collaborationhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/handler"
 	commonhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/handler"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	cronhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/cron/handler"
 	deliveryhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/handler"
 	loghandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/handler"
 	multiclusterhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/handler"
-	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	pluginhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/plugin/handler"
 	projecthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/handler"
 	releaseplanhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/handler"
@@ -56,28 +52,9 @@ import (
 	connectorHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/connector/handler"
 	emailHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/handler"
-	"github.com/koderover/zadig/v2/pkg/tool/metrics"
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	// _ "github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest/doc"
 )
-
-func init() {
-	// initialization for prometheus metrics
-	metrics.Metrics = prometheus.NewRegistry()
-
-	metrics.Metrics.MustRegister(metrics.RunningWorkflows)
-	metrics.Metrics.MustRegister(metrics.PendingWorkflows)
-	metrics.Metrics.MustRegister(metrics.RequestTotal)
-	metrics.Metrics.MustRegister(metrics.CPU)
-	metrics.Metrics.MustRegister(metrics.Memory)
-	metrics.Metrics.MustRegister(metrics.CPUPercentage)
-	metrics.Metrics.MustRegister(metrics.MemoryPercentage)
-	metrics.Metrics.MustRegister(metrics.Healthy)
-	metrics.Metrics.MustRegister(metrics.Cluster)
-	metrics.Metrics.MustRegister(metrics.ResponseTime)
-
-	metrics.UpdatePodMetrics()
-}
 
 // @title Zadig aslan service REST APIs
 // @version 1.0
@@ -188,26 +165,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
-
-	// prometheus metrics API
-	handlefunc := func(c *gin.Context) {
-		metrics.UpdatePodMetrics()
-
-		runningCustomQueue := workflowcontroller.RunningTasks()
-		pendingCustomQueue := workflowcontroller.PendingTasks()
-
-		metrics.SetRunningWorkflows(int64(len(runningCustomQueue)))
-		metrics.SetPendingWorkflows(int64(len(pendingCustomQueue)))
-
-		metrics.Cluster.Reset()
-		clusterStatusMap := clusterservice.GetClusterStatus()
-		for clusterName, status := range clusterStatusMap {
-			metrics.SetClusterStatus(clusterName, status)
-		}
-
-		promhttp.HandlerFor(metrics.Metrics, promhttp.HandlerOpts{}).ServeHTTP(c.Writer, c.Request)
-	}
-	router.GET("/api/metrics", handlefunc)
 }
 
 type injector interface {
