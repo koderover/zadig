@@ -52,6 +52,10 @@ func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
 }
 
 func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
+	if err := validateScalePermissionDependency(req.Actions); err != nil {
+		return err
+	}
+
 	tx := repository.DB.Begin()
 
 	roleTemplate := &models.RoleTemplate{
@@ -95,6 +99,10 @@ func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 }
 
 func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
+	if err := validateScalePermissionDependency(req.Actions); err != nil {
+		return err
+	}
+
 	tx := repository.DB.Begin()
 
 	roleTemplateInfo, err := orm.GetRoleTemplate(req.Name, repository.DB)

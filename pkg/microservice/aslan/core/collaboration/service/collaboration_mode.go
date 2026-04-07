@@ -25,23 +25,15 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
-
-func validateMemberInfo(collaborationMode *models.CollaborationMode) bool {
-	if len(collaborationMode.Members) != len(collaborationMode.MemberInfo) {
-		return false
-	}
-	memberSet := sets.NewString(collaborationMode.Members...)
-	memberInfoSet := sets.NewString()
-	for _, memberInfo := range collaborationMode.MemberInfo {
-		memberInfoSet.Insert(memberInfo.GetID())
-	}
-	return memberSet.Equal(memberInfoSet)
-}
 
 func CreateCollaborationMode(userName string, collaborationMode *models.CollaborationMode, logger *zap.SugaredLogger) error {
 	if !validateMemberInfo(collaborationMode) {
 		return fmt.Errorf("members and member_info not match")
+	}
+	if err := validateScalePermissionDependencyInProducts(collaborationMode.Products); err != nil {
+		return err
 	}
 	err := mongodb.NewCollaborationModeColl().Create(userName, collaborationMode)
 	if err != nil {
@@ -54,6 +46,9 @@ func CreateCollaborationMode(userName string, collaborationMode *models.Collabor
 func UpdateCollaborationMode(userName string, collaborationMode *models.CollaborationMode, logger *zap.SugaredLogger) error {
 	if !validateMemberInfo(collaborationMode) {
 		return fmt.Errorf("members and member_info not match")
+	}
+	if err := validateScalePermissionDependencyInProducts(collaborationMode.Products); err != nil {
+		return err
 	}
 	err := mongodb.NewCollaborationModeColl().Update(userName, collaborationMode)
 	if err != nil {
@@ -87,4 +82,36 @@ func GetCollaborationMode(username, projectName, name string, logger *zap.Sugare
 		return nil, false, err
 	}
 	return resp, true, nil
+}
+
+func validateMemberInfo(collaborationMode *models.CollaborationMode) bool {
+	if len(collaborationMode.Members) != len(collaborationMode.MemberInfo) {
+		return false
+	}
+	memberSet := sets.NewString(collaborationMode.Members...)
+	memberInfoSet := sets.NewString()
+	for _, memberInfo := range collaborationMode.MemberInfo {
+		memberInfoSet.Insert(memberInfo.GetID())
+	}
+	return memberSet.Equal(memberInfoSet)
+}
+
+func validateScalePermissionDependencyInProducts(products []models.ProductCMItem) error {
+	for _, product := range products {
+		if err := validateScalePermissionDependency(product.Verbs); err != nil {
+			return fmt.Errorf("invalid verbs for env %s: %w", product.Name, err)
+		}
+	}
+	return nil
+}
+
+func validateScalePermissionDependency(verbs []string) error {
+	verbSet := sets.NewString(verbs...)
+	if verbSet.Has(types.EnvActionScale) && !verbSet.Has(types.EnvActionManagePod) {
+		return fmt.Errorf("action %s requires %s", types.EnvActionScale, types.EnvActionManagePod)
+	}
+	if verbSet.Has(types.ProductionEnvActionScale) && !verbSet.Has(types.ProductionEnvActionManagePod) {
+		return fmt.Errorf("action %s requires %s", types.ProductionEnvActionScale, types.ProductionEnvActionManagePod)
+	}
+	return nil
 }
