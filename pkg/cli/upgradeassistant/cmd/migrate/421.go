@@ -250,12 +250,6 @@ func update421WorkflowDeployJobTaskSpec(stages []*commonmodels.WorkflowStage) er
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
 				}
-				if strings.HasPrefix(newSpec.Env, "<+fixed>") {
-					newSpec.Env = strings.TrimPrefix(newSpec.Env, "<+fixed>")
-					newSpec.EnvSource = config.ParamSourceFixed
-				} else {
-					newSpec.EnvSource = config.ParamSourceRuntime
-				}
 				newSpec.YAMLMergeStrategy = config.YAMLMergeStrategyMerge
 				newSpec.MergeStrategySource = config.ParamSourceFixed
 				job.Spec = newSpec
