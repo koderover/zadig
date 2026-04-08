@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// GetUserAuthInfo get user auth info
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
 	// system calls
 	if uid == "" {
@@ -99,7 +100,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
-				if isReadOnlyActionVerb(action) {
+				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
 					globalReadVerbSet.Insert(action)
 				}
 			default:
@@ -145,7 +146,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
-				if isReadOnlyActionVerb(action) {
+				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
 					globalReadVerbSet.Insert(action)
 				}
 			default:
@@ -232,6 +233,9 @@ func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action s
 	return
 }
 
+// ListAuthorizedProject list authorized projects for a user
+// if user is system admin, return all projects
+// if user is not system admin, return projects that user is in
 func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
 	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
@@ -289,17 +293,11 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 	for _, role := range roles {
 		if role.Namespace == GeneralNamespace {
-			hasPermission, err := roleHasGlobalReadPermission(role.ID)
-			if err != nil {
-				tx.Rollback()
-				logger.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
-				return nil, fmt.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
-			}
-			if hasPermission {
+			if role.GlobalReadOnly {
 				if err := insertAllProjects(respSet); err != nil {
 					tx.Rollback()
-					logger.Errorf("failed to list projects for global read permission, error: %s", err)
-					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
 				}
 			}
 			continue
@@ -316,17 +314,11 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 	for _, role := range groupRoles {
 		if role.Namespace == GeneralNamespace {
-			hasPermission, err := roleHasGlobalReadPermission(role.ID)
-			if err != nil {
-				tx.Rollback()
-				logger.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
-				return nil, fmt.Errorf("failed to list actions for role %d, error: %s", role.ID, err)
-			}
-			if hasPermission {
+			if role.GlobalReadOnly {
 				if err := insertAllProjects(respSet); err != nil {
 					tx.Rollback()
-					logger.Errorf("failed to list projects for global read permission, error: %s", err)
-					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
 				}
 			}
 			continue
@@ -410,11 +402,11 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 	for _, role := range roles {
 		if role.Namespace == GeneralNamespace {
-			if isReadOnlyActionVerb(verb) {
+			if role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
 				if err := insertAllProjects(respSet); err != nil {
 					tx.Rollback()
-					logger.Errorf("failed to list projects for global read permission, error: %s", err)
-					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
 				}
 			}
 			continue
@@ -444,11 +436,11 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 	for _, role := range groupRoles {
 		if role.Namespace == GeneralNamespace {
-			if isReadOnlyActionVerb(verb) {
+			if role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
 				if err := insertAllProjects(respSet); err != nil {
 					tx.Rollback()
-					logger.Errorf("failed to list projects for global read permission, error: %s", err)
-					return nil, fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
 				}
 			}
 			continue
@@ -570,8 +562,8 @@ func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (read
 	readEnvList = make([]string, 0)
 	editEnvList = make([]string, 0)
 
-	readEnvSet := sets.New[string]()
-	editEnvSet := sets.New[string]()
+	readEnvSet := sets.NewString()
+	editEnvSet := sets.NewString()
 	collaborationInstances, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if findErr != nil {
 		logger.Errorf("failed to find user collaboration mode, error: %s", findErr)
@@ -592,8 +584,8 @@ func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (read
 		}
 	}
 
-	readEnvList = readEnvSet.UnsortedList()
-	editEnvList = editEnvSet.UnsortedList()
+	readEnvList = readEnvSet.List()
+	editEnvList = editEnvSet.List()
 	return
 }
 
@@ -623,8 +615,21 @@ func checkEnvPermission(list []models.ProductCIItem, envName, action string) boo
 	return false
 }
 
-func isReadOnlyActionVerb(verb string) bool {
-	return sets.New(readOnlyAction...).Has(verb)
+func generateAdminRoleResource() *AuthorizedResources {
+	return &AuthorizedResources{
+		IsSystemAdmin:   true,
+		ProjectAuthInfo: nil,
+		SystemActions:   nil,
+	}
+}
+
+func isReadOnlyActionVerb(action string) bool {
+	for _, verb := range readOnlyAction {
+		if verb == action {
+			return true
+		}
+	}
+	return false
 }
 
 func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {
@@ -646,19 +651,6 @@ func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectAction
 	return nil
 }
 
-func roleHasGlobalReadPermission(roleID uint) (bool, error) {
-	actions, err := ListActionByRole(roleID)
-	if err != nil {
-		return false, err
-	}
-	for _, action := range actions {
-		if isReadOnlyActionVerb(action) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func insertAllProjects(respSet sets.Set[string]) error {
 	projectList, err := mongodb.NewProjectColl().List()
 	if err != nil {
@@ -668,14 +660,6 @@ func insertAllProjects(respSet sets.Set[string]) error {
 		respSet.Insert(project.ProductName)
 	}
 	return nil
-}
-
-func generateAdminRoleResource() *AuthorizedResources {
-	return &AuthorizedResources{
-		IsSystemAdmin:   true,
-		ProjectAuthInfo: nil,
-		SystemActions:   nil,
-	}
 }
 
 // generateDefaultProjectActions generate an ProjectActions without any authorization info.

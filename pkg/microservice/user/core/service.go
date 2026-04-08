@@ -253,11 +253,34 @@ func syncUserRoleBinding() {
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   "*",
 		}
+		// add new role: global read only
+		globalReadOnlyRole := &models.NewRole{
+			Name:           "global-read-only",
+			Description:    "拥有所有项目中只读资源的权限",
+			Type:           int64(setting.RoleTypeSystem),
+			Namespace:      "*",
+			GlobalReadOnly: true,
+		}
 
-		err := orm.CreateRole(adminRole, tx)
+		err := orm.BulkCreateRole([]*models.NewRole{adminRole, globalReadOnlyRole}, tx)
 		if err != nil {
 			tx.Rollback()
-			log.Panicf("failed to initialize admin role for system, tearing down user service...")
+			log.Panicf("failed to initialize system default roles, tearing down user service...")
+		}
+
+		actionIDList := make([]uint, 0, len(readOnlyAction))
+		for _, verb := range readOnlyAction {
+			action, err := orm.GetActionByVerb(verb, tx)
+			if err != nil || action.ID == 0 {
+				tx.Rollback()
+				log.Panicf("failed to find action %s for global-read-only role, error: %s", verb, err)
+			}
+			actionIDList = append(actionIDList, action.ID)
+		}
+		err = orm.BulkCreateRoleActionBindings(globalReadOnlyRole.ID, actionIDList, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Panicf("failed to create action binding for role %s in namespace %s, error: %s", globalReadOnlyRole.Name, globalReadOnlyRole.Namespace, err)
 		}
 	}
 

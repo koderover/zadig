@@ -17,19 +17,21 @@ limitations under the License.
 package types
 
 type Role struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Description string `json:"desc"`
-	Type        string `json:"type"`
+	ID             uint   `json:"id"`
+	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
+	Description    string `json:"desc"`
+	Type           string `json:"type"`
+	GlobalReadOnly bool   `json:"global_read_only,omitempty"`
 }
 
 type DetailedRole struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Description string `json:"desc"`
-	Type        string `json:"type"`
+	ID             uint   `json:"id"`
+	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
+	Description    string `json:"desc"`
+	Type           string `json:"type"`
+	GlobalReadOnly bool   `json:"global_read_only,omitempty"`
 	// ResourceActions represents a set of verbs with its corresponding resource.
 	// the json response of this field `rules` is used for compatibility.
 	ResourceActions []*ResourceAction `json:"rules"`
