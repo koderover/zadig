@@ -72,3 +72,26 @@ func (c *Client) Health() error {
 	_, err := c.Get(url)
 	return err
 }
+
+type UpgradeCheckResponse struct {
+	AllowUpgrade        bool   `json:"allow_upgrade"`
+	IsUpgrade           bool   `json:"is_upgrade"`
+	FromVersion         string `json:"from_version"`
+	ToVersion           string `json:"to_version"`
+	MaintenanceExpireAt int64  `json:"maintenance_expire_at"`
+}
+
+type checkUpgradePermissionReq struct {
+	FromVersion string `json:"from_version"`
+	ToVersion   string `json:"to_version"`
+}
+
+func (c *Client) CheckUpgrade(fromVersion, toVersion string) (*UpgradeCheckResponse, error) {
+	url := "/license/upgrade/check"
+	res := &UpgradeCheckResponse{}
+	_, err := c.Post(url, httpclient.SetBody(&checkUpgradePermissionReq{
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+	}), httpclient.SetResult(res))
+	return res, err
+}

@@ -40,8 +40,6 @@ func init() {
 
 	migrateCmd.PersistentFlags().StringP("from-version", "f", oldestVersion, "current version to migrate from")
 	migrateCmd.PersistentFlags().StringP("to-version", "t", "", "target version to migrate to")
-	_ = viper.BindPFlag("fromVersion", migrateCmd.PersistentFlags().Lookup("from-version"))
-	_ = viper.BindPFlag("toVersion", migrateCmd.PersistentFlags().Lookup("to-version"))
 }
 
 var migrateCmd = &cobra.Command{
@@ -52,7 +50,9 @@ var migrateCmd = &cobra.Command{
 		return preRun()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := run(); err != nil {
+		from, _ := cmd.Flags().GetString("from-version")
+		to, _ := cmd.Flags().GetString("to-version")
+		if err := run(from, to); err != nil {
 			log.Fatal(err)
 		}
 	},
@@ -90,10 +90,7 @@ func nextVersionFromList(targetVersion semver.Version, versionList semver.Versio
 	return targetVersion.FinalizeVersion()
 }
 
-func run() error {
-	from := viper.GetString("fromVersion")
-	to := viper.GetString("toVersion")
-
+func run(from, to string) error {
 	log.Infof("Migrating from %s to %s", from, to)
 
 	versionSets := sets.NewString()
@@ -158,6 +155,18 @@ func run() error {
 	for _, rh := range upgradepath.RegisteredHandlers {
 		upgradepath.AddHandler(upgradepath.VersionDatas.VersionIndex(rh.FromVersion), upgradepath.VersionDatas.VersionIndex(rh.ToVersion), rh.Fn)
 	}
+
+	// resp, err := plutusenterprise.New().CheckUpgrade(from, to)
+	// if err != nil {
+	// 	nerr := e.ErrUpgradeNotAllowed.AddErr(err)
+	// 	log.Error(nerr)
+	// 	return nerr
+	// }
+	// if !resp.AllowUpgrade {
+	// 	nerr := e.ErrUpgradeNotAllowed
+	// 	log.Error(nerr)
+	// 	return nerr
+	// }
 
 	err := upgradepath.UpgradeWithBestPath(from, to)
 	if err == nil {
