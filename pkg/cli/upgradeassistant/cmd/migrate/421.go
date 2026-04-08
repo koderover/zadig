@@ -19,7 +19,6 @@ package migrate
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
