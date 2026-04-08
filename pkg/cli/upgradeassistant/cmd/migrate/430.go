@@ -32,7 +32,9 @@ import (
 
 func init() {
 	upgradepath.RegisterHandler("4.2.0", "4.3.0", V420ToV430)
+	upgradepath.RegisterHandler("4.2.1", "4.3.0", V420ToV430)
 	upgradepath.RegisterHandler("4.3.0", "4.2.0", V430ToV420)
+	upgradepath.RegisterHandler("4.3.0", "4.2.1", V430ToV420)
 }
 
 func V420ToV430() error {
