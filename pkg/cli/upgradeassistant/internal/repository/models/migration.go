@@ -41,6 +41,7 @@ type Migration struct {
 	Migration421CollaborationRollbackPermission bool               `bson:"migration_421_collaboration_rollback_permission"`
 	Migration421WorkflowDeploySpec              bool               `bson:"migration_421_workflow_deploy_spec"`
 	Migration430UserAPITokenEnabled             bool               `bson:"migration_430_user_api_token_enabled"`
+	Migration430GlobalReadOnlyRole              bool               `bson:"migration_430_global_read_only_role"`
 	Error                                       string             `bson:"error"`
 }
 

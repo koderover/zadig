@@ -24,6 +24,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	permissionservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
@@ -49,6 +52,11 @@ func V420ToV430() error {
 		return err
 	}
 
+	err = migrateGlobalReadOnlyRole(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -63,6 +71,82 @@ func migrateUserAPITokenEnabledColumn(_ *internalhandler.Context, migrationInfo 
 
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430UserAPITokenEnabled): true,
+	})
+
+	return nil
+}
+
+func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration430GlobalReadOnlyRole {
+		if !repository.DB.Migrator().HasColumn(&usermodels.NewRole{}, "GlobalReadOnly") {
+			if err := repository.DB.Migrator().AddColumn(&usermodels.NewRole{}, "GlobalReadOnly"); err != nil {
+				return fmt.Errorf("failed to add global_read_only column for role table, err: %s", err)
+			}
+		}
+
+		tx := repository.DB.Begin()
+
+		role, err := orm.GetRole("global-read-only", "*", tx)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to query global-read-only role, err: %s", err)
+		}
+
+		if role == nil || role.ID == 0 {
+			role = &usermodels.NewRole{
+				Name:           "global-read-only",
+				Description:    "拥有所有项目中只读资源的权限",
+				Type:           int64(setting.RoleTypeSystem),
+				Namespace:      "*",
+				GlobalReadOnly: true,
+			}
+			if err := orm.CreateRole(role, tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to create global-read-only role, err: %s", err)
+			}
+		} else if !role.GlobalReadOnly {
+			if err := orm.UpdateRoleInfo(role.ID, &usermodels.NewRole{GlobalReadOnly: true}, tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to update global-read-only role flag, err: %s", err)
+			}
+		}
+
+		readOnlyAction := []string{
+			permissionservice.VerbGetDelivery,
+			permissionservice.VerbGetTest,
+			permissionservice.VerbGetService,
+			permissionservice.VerbGetProductionService,
+			permissionservice.VerbGetBuild,
+			permissionservice.VerbGetWorkflow,
+			permissionservice.VerbGetEnvironment,
+			permissionservice.VerbGetProductionEnv,
+			permissionservice.VerbGetScan,
+			permissionservice.VerbGetSprint,
+		}
+		actionIDList := make([]uint, 0, len(readOnlyAction))
+		for _, verb := range readOnlyAction {
+			action, err := orm.GetActionByVerb(verb, tx)
+			if err != nil || action.ID == 0 {
+				tx.Rollback()
+				return fmt.Errorf("failed to find action %s for global-read-only role, err: %s", verb, err)
+			}
+			actionIDList = append(actionIDList, action.ID)
+		}
+
+		if err := orm.DeleteRoleActionBindingByRole(role.ID, tx); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to clear role-action bindings for global-read-only role, err: %s", err)
+		}
+		if err := orm.BulkCreateRoleActionBindings(role.ID, actionIDList, tx); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create role-action bindings for global-read-only role, err: %s", err)
+		}
+
+		tx.Commit()
+	}
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430GlobalReadOnlyRole): true,
 	})
 
 	return nil
