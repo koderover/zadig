@@ -143,6 +143,18 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	if realPath == "/api/v1/login/mfa/setup" && method == http.MethodPost {
+		return true
+	}
+
+	if realPath == "/api/v1/login/mfa/enroll" && method == http.MethodPost {
+		return true
+	}
+
+	if realPath == "/api/v1/login/mfa/verify" && method == http.MethodPost {
+		return true
+	}
+
 	if realPath == "/api/v1/signup" && (method == http.MethodGet || method == http.MethodPost) {
 		return true
 	}

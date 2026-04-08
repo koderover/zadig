@@ -17,6 +17,12 @@ limitations under the License.
 package login
 
 import (
+	"fmt"
+	"net/url"
+
+	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -33,4 +39,35 @@ func ThirdPartyLoginEnabled() *enabledStatus {
 	return &enabledStatus{
 		Enabled: len(connectors) > 0,
 	}
+}
+
+func HandleThirdPartyLoginSuccess(user *models.User, logger *zap.SugaredLogger) (string, error) {
+	if user == nil {
+		return "", fmt.Errorf("user not found")
+	}
+
+	mfaRequired, err := IsMFARequiredForUser(user.UID, logger)
+	if err != nil {
+		return "", fmt.Errorf("failed to check mfa requirement for user: %s", err)
+	}
+
+	if !mfaRequired {
+		if err = markUserLoginSuccess(user.UID, user.Account, logger); err != nil {
+			return "", err
+		}
+
+		resp, err := issueLoginToken(user, false, logger)
+		if err != nil {
+			return "", err
+		}
+		v := url.Values{}
+		v.Add("token", resp.Token)
+		return "/?" + v.Encode(), nil
+	}
+
+	action, challengeToken, expiresAt, err := PrepareMFALoginChallengeForUser(user.UID, logger)
+	if err != nil {
+		return "", err
+	}
+	return buildMFARedirectURL(challengeToken, action, expiresAt), nil
 }

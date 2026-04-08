@@ -54,6 +54,7 @@ type user struct {
 
 type SystemSetting struct {
 	TokenExpirationTime int64 `json:"token_expiration_time"`
+	MFAEnabled          bool  `json:"mfa_enabled"`
 	ImprovementPlan     bool  `json:"improvement_plan"`
 }
 

@@ -241,6 +241,62 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 		userInfoRes.APITokenEnabled = true
 	}
 
+	userMFA, err := orm.GetUserMFA(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("GetUser GetUserMFA:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+	userInfoRes.MFAEnabled = userMFA != nil && userMFA.Enabled
+
+	mfaRequired, err := login.IsMFARequiredForUser(user.UID, logger)
+	if err != nil {
+		logger.Errorf("GetUser IsMFARequiredForUser:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+
+	// TODO: this should be turned into explicit rotate/revoke API token operations.
+	shouldRefreshAPIToken := user.APIToken == ""
+	if !shouldRefreshAPIToken {
+		claims, valid, err := ValidateToken(user.APIToken)
+		if err != nil || !valid || claims == nil {
+			shouldRefreshAPIToken = true
+		} else if mfaRequired && !claims.MFAVerified {
+			shouldRefreshAPIToken = true
+		}
+	}
+
+	if shouldRefreshAPIToken {
+		token, err := login.CreateToken(&login.Claims{
+			Name:              user.Name,
+			UID:               user.UID,
+			Email:             user.Email,
+			PreferredUsername: user.Account,
+			MFAVerified:       mfaRequired,
+			StandardClaims: jwt.StandardClaims{
+				Audience: setting.ProductName,
+				//24*365*100=876000
+				ExpiresAt: time.Now().Add(876000 * time.Hour).Unix(),
+			},
+			FederatedClaims: login.FederatedClaims{
+				ConnectorId: user.IdentityType,
+				UserId:      user.Account,
+			},
+		})
+		if err != nil {
+			logger.Errorf("LocalLogin user:%s create token error, error msg:%s", user.Account, err.Error())
+			return nil, err
+		}
+		userInfoRes.APIToken = token
+		userWithToken := &models.User{
+			APIToken: token,
+		}
+		err = orm.UpdateUser(uid, userWithToken, repository.DB)
+		if err != nil {
+			logger.Errorf("UpdateUser user:%s save token error:%s", user.Account, err.Error())
+			return nil, err
+		}
+	}
+
 	return userInfoRes, nil
 }
 
@@ -394,6 +450,10 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 		}
 		uInfo.SystemRoleBindings = rolebindings
 	}
+	if err := fillUsersMFAEnabled(usersInfo); err != nil {
+		logger.Errorf("SearchUserByAccount fillUsersMFAEnabled error, error msg:%s", err.Error())
+		return nil, err
+	}
 
 	return &types.UsersResp{
 		Users:      usersInfo,
@@ -493,11 +553,53 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}
 		uInfo.SystemRoleBindings = rolebindings
 	}
+	if err := fillUsersMFAEnabled(usersInfo); err != nil {
+		logger.Errorf("SearchUsers fillUsersMFAEnabled error, error msg:%s", err.Error())
+		return nil, err
+	}
 
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: count,
 	}, nil
+}
+
+func fillUsersMFAEnabled(usersInfo []*types.UserInfo) error {
+	if len(usersInfo) == 0 {
+		return nil
+	}
+
+	uids := make([]string, 0, len(usersInfo))
+	for _, userInfo := range usersInfo {
+		if userInfo == nil || userInfo.Uid == "" {
+			continue
+		}
+		uids = append(uids, userInfo.Uid)
+	}
+	if len(uids) == 0 {
+		return nil
+	}
+
+	userMFAs, err := orm.ListUserMFAsByUIDs(uids, repository.DB)
+	if err != nil {
+		return err
+	}
+
+	enabledMap := make(map[string]bool, len(userMFAs))
+	for _, userMFA := range userMFAs {
+		if userMFA == nil || !userMFA.Enabled {
+			continue
+		}
+		enabledMap[userMFA.UID] = true
+	}
+	for _, userInfo := range usersInfo {
+		if userInfo == nil {
+			continue
+		}
+		userInfo.MFAEnabled = enabledMap[userInfo.Uid]
+	}
+
+	return nil
 }
 
 func mergeUserLoginWithLoginTime(users []models.UserWithLoginTime, userLogins []models.UserLogin, logger *zap.SugaredLogger) []*types.UserInfo {
@@ -583,6 +685,10 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 		}
 		uInfo.SystemRoleBindings = rolebindings
 	}
+	if err := fillUsersMFAEnabled(usersInfo); err != nil {
+		logger.Errorf("SearchUsersByUIDs fillUsersMFAEnabled error, error msg:%s", err.Error())
+		return nil, err
+	}
 
 	return &types.UsersResp{
 		Users:      usersInfo,
@@ -619,6 +725,12 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
+	err = orm.DeleteUserMFA(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteUserMFA:%s error, error msg:%s", uid, err.Error())
+		return err
+	}
 	err = mongodb.NewUserSettingColl().DeleteUserSettingByUid(uid)
 	if err != nil {
 		tx.Rollback()
@@ -633,6 +745,10 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 	}
 	if err := tx.Commit().Error; err != nil {
 		return err
+	}
+
+	if err := login.SyncUserMFAEnabledCache(uid, false); err != nil {
+		logger.Warnf("failed to sync mfa cache for deleted user %s: %v", uid, err)
 	}
 
 	if err := zadigCache.NewRedisCache(config.RedisUserTokenDB()).Delete(uid); err != nil {
@@ -956,12 +1072,14 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		return nil, err
 	}
 	if userLogin != nil {
-		userLogin.LastLoginTime = time.Now().Unix()
-		err = orm.UpdateUserLogin(user.UID, userLogin, tx)
-		if err != nil {
-			tx.Rollback()
-			logger.Errorf("UpdateLoginInfo update user:%s login error, error msg:%s", user.UID, err.Error())
-			return nil, err
+		if ifUpdateLoginTime {
+			userLogin.LastLoginTime = time.Now().Unix()
+			err = orm.UpdateUserLogin(user.UID, userLogin, tx)
+			if err != nil {
+				tx.Rollback()
+				logger.Errorf("UpdateLoginInfo update user:%s login error, error msg:%s", user.UID, err.Error())
+				return nil, err
+			}
 		}
 	} else {
 		userLoginModel := &models.UserLogin{

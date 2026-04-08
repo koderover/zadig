@@ -26,6 +26,7 @@ type UserInfo struct {
 	Email              string         `json:"email"`
 	Phone              string         `json:"phone"`
 	Account            string         `json:"account"`
+	MFAEnabled         bool           `json:"mfa_enabled"`
 	APIToken           string         `json:"token"`
 	HasAPIToken        bool           `json:"has_api_token"`
 	APITokenEnabled    bool           `json:"api_token_enabled"`

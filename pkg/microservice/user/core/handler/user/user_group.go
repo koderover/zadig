@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -32,13 +33,15 @@ type createUserGroupReq struct {
 	UIDs        []string `json:"uids"`
 }
 
+type createUserGroupResp usermodels.UserGroup
+
 // @Summary 创建用户组
 // @Description 创建用户组
 // @Tags 	user
 // @Accept 	json
 // @Produce json
 // @Param 	body 			body 		createUserGroupReq 	true 	"body"
-// @Success 200             {object} models.UserGroup
+// @Success 200             {object} createUserGroupResp
 // @Router /api/v1/user-group [post]
 func CreateUserGroup(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

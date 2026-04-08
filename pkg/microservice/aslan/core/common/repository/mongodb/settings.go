@@ -80,10 +80,11 @@ func (c *SystemSettingColl) UpdateConcurrencySetting(workflowConcurrency, buildC
 	return err
 }
 
-func (c *SystemSettingColl) UpdateSecuritySetting(tokenExpirationTime int64) error {
+func (c *SystemSettingColl) UpdateSecuritySetting(tokenExpirationTime int64, mfaEnabled bool) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	change := bson.M{"$set": bson.M{
 		"security.token_expiration_time": tokenExpirationTime,
+		"security.mfa_enabled":           mfaEnabled,
 	}}
 	query := bson.M{"_id": id}
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -138,7 +139,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 				},
 			},
 			Privacy:  &models.PrivacySettings{ImprovementPlan: true},
-			Security: &models.SecuritySettings{TokenExpirationTime: 24},
+			Security: &models.SecuritySettings{TokenExpirationTime: 24, MFAEnabled: false},
 		})
 	}
 	return nil
