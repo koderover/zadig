@@ -82,6 +82,14 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
 			}
 		}
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, verb := range readOnlyAction {
+				globalReadVerbSet.Insert(verb)
+			}
+			for _, verb := range globalReadOnlySystemAction {
+				modifySystemAction(systemActions, verb)
+			}
+		}
 
 		// project admin does not have any bindings, it is special
 		if role.Name == ProjectAdminRole {
@@ -127,6 +135,14 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		if role.Namespace != GeneralNamespace {
 			if _, ok := projectActionMap[role.Namespace]; !ok {
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, verb := range readOnlyAction {
+				globalReadVerbSet.Insert(verb)
+			}
+			for _, verb := range globalReadOnlySystemAction {
+				modifySystemAction(systemActions, verb)
 			}
 		}
 
@@ -414,6 +430,22 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		respSet.Insert(role.Namespace)
 	}
 
+	userRoles, err := orm.ListRoleByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+	for _, role := range userRoles {
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
+			if err := insertAllProjects(respSet); err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+				return nil, err
+			}
+		}
+	}
+
 	adminRoles, err := orm.ListProjectAdminRoleByUID(uid, tx)
 	if err != nil {
 		tx.Rollback()
@@ -446,6 +478,22 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 			continue
 		}
 		respSet.Insert(role.Namespace)
+	}
+
+	allGroupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+		return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+	}
+	for _, role := range allGroupRoles {
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
+			if err := insertAllProjects(respSet); err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+				return nil, err
+			}
+		}
 	}
 
 	groupAdminRoles, err := orm.ListProjectAdminRoleByGroupIDs(groupIDList, tx)
@@ -630,6 +678,19 @@ func isReadOnlyActionVerb(action string) bool {
 		}
 	}
 	return false
+}
+
+func isGlobalReadOnlySystemActionVerb(action string) bool {
+	for _, verb := range globalReadOnlySystemAction {
+		if verb == action {
+			return true
+		}
+	}
+	return false
+}
+
+func isGlobalReadOnlyRoleActionVerb(action string) bool {
+	return isReadOnlyActionVerb(action) || isGlobalReadOnlySystemActionVerb(action)
 }
 
 func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {

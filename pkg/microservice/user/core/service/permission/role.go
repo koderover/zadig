@@ -436,12 +436,9 @@ func validateGlobalReadOnlyRole(ns string, req *CreateRoleReq) error {
 	if req.Type != string(setting.ResourceTypeSystem) {
 		return fmt.Errorf("global_read_only role must be a system role")
 	}
-	if len(req.Actions) == 0 {
-		return fmt.Errorf("global_read_only role must have at least one read-only action")
-	}
 	actionSet := sets.NewString(req.Actions...)
 	for _, action := range actionSet.List() {
-		if !isReadOnlyActionVerb(action) {
+		if !isGlobalReadOnlyRoleActionVerb(action) {
 			return fmt.Errorf("global_read_only role only supports read-only actions, invalid action: %s", action)
 		}
 	}

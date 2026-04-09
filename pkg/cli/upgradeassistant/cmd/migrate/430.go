@@ -28,11 +28,11 @@ import (
 )
 
 func init() {
-	upgradepath.RegisterHandler("4.2.1", "4.3.0", V420ToV430)
-	upgradepath.RegisterHandler("4.3.0", "4.2.1", V430ToV420)
+	upgradepath.RegisterHandler("4.2.1", "4.3.0", V421ToV430)
+	upgradepath.RegisterHandler("4.3.0", "4.2.1", V430ToV421)
 }
 
-func V420ToV430() error {
+func V421ToV430() error {
 	ctx := internalhandler.NewBackgroupContext()
 
 	migrationInfo, err := getMigrationInfo()
@@ -73,6 +73,7 @@ func migrateUserAPITokenEnabledColumn(_ *internalhandler.Context, migrationInfo 
 	return nil
 }
 
+// check global read only role column
 func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
 	if !migrationInfo.Migration430GlobalReadOnlyRole {
 		if !repository.DB.Migrator().HasColumn(&usermodels.NewRole{}, "GlobalReadOnly") {
@@ -89,6 +90,6 @@ func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *intern
 	return nil
 }
 
-func V430ToV420() error {
+func V430ToV421() error {
 	return nil
 }

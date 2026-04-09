@@ -266,6 +266,9 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		switch role.Namespace {
 		case GeneralNamespace:
+			if role.GlobalReadOnly {
+				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
+			}
 			for _, action := range actions {
 				systemVerbs = append(systemVerbs, action)
 			}
@@ -311,6 +314,9 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		switch role.Namespace {
 		case GeneralNamespace:
+			if role.GlobalReadOnly {
+				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
+			}
 			for _, action := range actions {
 				systemVerbs = append(systemVerbs, action)
 			}
