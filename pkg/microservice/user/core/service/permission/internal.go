@@ -55,6 +55,7 @@ var globalReadOnlySystemAction = []string{
 	VerbGetDataCenterOverview,
 	VerbGetDataCenterInsight,
 	VerbGetReleasePlan,
+	VerbGetRegistryManagement,
 }
 
 func InitializeProjectAuthorization(namespace string, isPublic bool, admins []string, log *zap.SugaredLogger) error {
