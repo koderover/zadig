@@ -28,5 +28,5 @@ func HandleError(err error) error {
 	}
 
 	log.Error(err)
-	return respErr
+	// return respErr
 }
