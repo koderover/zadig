@@ -14,7 +14,7 @@ steps:
   ut:
     title: unit test
     stage: ut
-    image: golang:1.16.5
+    image: golang:1.16.8
     commands:
       - go env -w GOCACHE="/koderover/volume/buildcache"
       - go env -w GOMODCACHE="/koderover/volume/go/pkg/mod" GO111MODULE="on"
