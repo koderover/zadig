@@ -699,6 +699,7 @@ func isGlobalReadOnlyRoleActionVerb(action string) bool {
 	return isReadOnlyActionVerb(action) || isGlobalReadOnlySystemActionVerb(action)
 }
 
+
 func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {
 	if len(verbs) == 0 {
 		return nil
