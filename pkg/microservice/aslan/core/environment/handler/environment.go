@@ -1354,6 +1354,8 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 		if production {
 			if projectAuthInfo.ProductionEnv.EditConfig {
 				permitted = true
+			} else {
+				permitted = true
 			}
 		} else {
 			if projectAuthInfo.Env.EditConfig {

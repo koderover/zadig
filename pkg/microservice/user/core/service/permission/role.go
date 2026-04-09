@@ -273,6 +273,11 @@ func ListActionByRole(roleID uint) ([]string, error) {
 func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
+	if err := validateGlobalReadOnlyRole(ns, req); err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	role := &models.NewRole{
 		Name:           req.Name,
 		Description:    req.Desc,
@@ -347,6 +352,12 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 // UpdateRole updates the role and its action binding.
 func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
+
+	if err := validateGlobalReadOnlyRole(ns, req); err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	// Doing a tricky thing here: removing the whole role-action binding, then re-adding them.
 	roleInfo, err := orm.GetRole(req.Name, ns, repository.DB)
 	if err != nil {
@@ -415,7 +426,28 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	return nil
 }
 
-
+func validateGlobalReadOnlyRole(ns string, req *CreateRoleReq) error {
+	if !req.GlobalReadOnly {
+		return nil
+	}
+	if ns != GeneralNamespace {
+		return fmt.Errorf("global_read_only role must be created under namespace %s", GeneralNamespace)
+	}
+	if req.Type != string(setting.ResourceTypeSystem) {
+		return fmt.Errorf("global_read_only role must be a system role")
+	}
+	// remove global_read_only role must have at least one read-only action
+	// if len(req.Actions) == 0 {
+	// 	return fmt.Errorf("global_read_only role must have at least one read-only action")
+	// }
+	actionSet := sets.NewString(req.Actions...)
+	for _, action := range actionSet.List() {
+		if !isReadOnlyActionVerb(action) {
+			return fmt.Errorf("global_read_only role only supports read-only actions, invalid action: %s", action)
+		}
+	}
+	return nil
+}
 
 // ListRolesByNamespace list roles
 // For roles in projects, system roles will be returned as lazy initialization
