@@ -518,6 +518,7 @@ RoleLoop:
 	log.Info("User role and role binding synchronization done successfully!")
 }
 
+// 回填数据 backfillGlobalReadOnlyRoles 表非空
 func backfillGlobalReadOnlyRoles() {
 	tx := repository.DB.Begin()
 	roles, err := orm.ListRoleByNamespace("*", tx)

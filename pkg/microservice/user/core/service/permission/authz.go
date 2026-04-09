@@ -110,6 +110,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			}
 			switch role.Namespace {
 			case GeneralNamespace:
+				// inject system actions for global read-only role
 				modifySystemAction(systemActions, action)
 				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
 					globalReadVerbSet.Insert(action)
@@ -167,6 +168,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			}
 			switch role.Namespace {
 			case GeneralNamespace:
+				// inject system actions for global read-only role
 				modifySystemAction(systemActions, action)
 				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
 					globalReadVerbSet.Insert(action)
@@ -681,6 +683,7 @@ func generateAdminRoleResource() *AuthorizedResources {
 	}
 }
 
+// isReadOnlyActionVerb check if the action is a read-only action.
 func isReadOnlyActionVerb(action string) bool {
 	for _, verb := range readOnlyAction {
 		if verb == action {
@@ -690,6 +693,7 @@ func isReadOnlyActionVerb(action string) bool {
 	return false
 }
 
+// isGlobalReadOnlySystemActionVerb check if the action is a global read-only system action.
 func isGlobalReadOnlySystemActionVerb(action string) bool {
 	for _, verb := range globalReadOnlySystemAction {
 		if verb == action {
@@ -703,6 +707,7 @@ func isGlobalReadOnlyRoleActionVerb(action string) bool {
 	return isReadOnlyActionVerb(action) || isGlobalReadOnlySystemActionVerb(action)
 }
 
+// grantGlobalReadAuthToAllProjects grant global read permission to all projects.
 func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {
 	if len(verbs) == 0 {
 		return nil

@@ -273,6 +273,7 @@ func ListActionByRole(roleID uint) ([]string, error) {
 func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
+	// check namespace of global read-only role must be "*"
 	if err := validateGlobalReadOnlyRole(ns, req); err != nil {
 		tx.Rollback()
 		return err
