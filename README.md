@@ -117,7 +117,7 @@ Please check out [our contributing guideline](CONTRIBUTING.md).
 
 ## Getting help
 
-- More about Zadig, see [here](https://docs.koderover.com?type=zadig)
+- More about Zadig, see [here](https://docs.koderover.com)
 - Submit bugs or feature requests following [contributing instructions](CONTRIBUTING.md#contribution-option-1---reporting-an-issue)
 - Email：contact@koderover.com
 - [Slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
