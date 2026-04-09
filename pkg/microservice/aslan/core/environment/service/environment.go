@@ -536,10 +536,10 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 }
 
 type UpdateServiceArg struct {
-	ServiceName     string                          `json:"service_name"`
-	DeployStrategy  string                          `json:"deploy_strategy"`
-	VariableKVs     []*commontypes.RenderVariableKV `json:"variable_kvs"`
-	OverrideResource bool                           `json:"override_resource"`
+	ServiceName      string                          `json:"service_name"`
+	DeployStrategy   string                          `json:"deploy_strategy"`
+	VariableKVs      []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	OverrideResource bool                            `json:"override_resource"`
 }
 
 type UpdateEnv struct {
@@ -1630,7 +1630,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 			if err != nil {
 				return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", render.ChartRepo)
 			}
-			client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
+			client, err := commonutil.NewHelmClient(chartRepo)
 			if err != nil {
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
@@ -1704,7 +1704,8 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		if err != nil {
 			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
 		}
-		client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
+
+		client, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
