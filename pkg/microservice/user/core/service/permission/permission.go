@@ -270,6 +270,9 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
 			}
 			for _, action := range actions {
+				if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+					continue
+				}
 				systemVerbs = append(systemVerbs, action)
 			}
 		}
@@ -318,6 +321,9 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
 			}
 			for _, action := range actions {
+				if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+					continue
+				}
 				systemVerbs = append(systemVerbs, action)
 			}
 		}

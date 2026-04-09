@@ -105,6 +105,9 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		for _, action := range actions {
+			if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+				continue
+			}
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
@@ -159,6 +162,9 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		for _, action := range actions {
+			if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+				continue
+			}
 			switch role.Namespace {
 			case GeneralNamespace:
 				modifySystemAction(systemActions, action)
