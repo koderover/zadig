@@ -54,6 +54,7 @@ var permissionActionSeeds430 = []permissionActionSeed430{
 	{Name: "调整副本", Action: permissionservice.VerbScaleProductionEnv, Resource: "ProductionEnvironment"},
 }
 
+// permissionBackfillRules430 backfills scale permissions.
 var permissionBackfillRules430 = []permissionBackfillRule430{
 	{
 		Source: permissionservice.VerbManageEnvironment,
@@ -69,6 +70,7 @@ var permissionBackfillRules430 = []permissionBackfillRule430{
 	},
 }
 
+// collaborationBackfillRules430 backfills collaboration scale permissions.
 var collaborationBackfillRules430 = []permissionBackfillRule430{
 	{
 		Source: pkgtypes.EnvActionManagePod,
@@ -85,11 +87,12 @@ var collaborationBackfillRules430 = []permissionBackfillRule430{
 }
 
 func init() {
-	upgradepath.RegisterHandler("4.2.0", "4.3.0", V420ToV430)
-	upgradepath.RegisterHandler("4.3.0", "4.2.0", V430ToV420)
+	upgradepath.RegisterHandler("4.2.1", "4.3.0", V421ToV430)
+	upgradepath.RegisterHandler("4.3.0", "4.2.1", V430ToV421)
 }
 
-func V420ToV430() error {
+// V421ToV430 executes all 4.3.0 upgrade steps for user/collaboration permissions.
+func V421ToV430() error {
 	ctx := internalhandler.NewBackgroupContext()
 
 	migrationInfo, err := getMigrationInfo()
@@ -391,6 +394,7 @@ func appendBackfillTargetsToMode430(mode *collaborationmodels.CollaborationMode)
 	return changed
 }
 
+// appendBackfillTargetsToInstance430 backfills collaboration scale permissions for instance
 func appendBackfillTargetsToInstance430(instance *collaborationmodels.CollaborationInstance) bool {
 	changed := false
 	for i := range instance.Workflows {
@@ -410,6 +414,6 @@ func appendBackfillTargetsToInstance430(instance *collaborationmodels.Collaborat
 	return changed
 }
 
-func V430ToV420() error {
+func V430ToV421() error {
 	return nil
 }
