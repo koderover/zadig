@@ -1625,7 +1625,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 			if err != nil {
 				return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", render.ChartRepo)
 			}
-			client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
+			client, err := commonutil.NewHelmClient(chartRepo)
 			if err != nil {
 				return nil, fmt.Errorf("failed to new helm client, err %s", err)
 			}
@@ -1699,7 +1699,8 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		if err != nil {
 			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
 		}
-		client, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
+
+		client, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
