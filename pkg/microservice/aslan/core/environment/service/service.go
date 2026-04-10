@@ -313,6 +313,14 @@ func FetchServiceYaml(productName, envName, serviceName string, _ *zap.SugaredLo
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
+	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs, true)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -324,11 +332,18 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		Latest:      TmplYaml{},
 	}
 
-	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+	curYaml := ""
+	isImportToDeploy := false
+	if envInfo.ServiceDeployStrategy[args.ServiceName] == setting.ServiceDeployStrategyImport && (args.UpdateServiceRevision || len(args.VariableKVs) > 0) {
+		isImportToDeploy = true
+	}
+
+	curYaml, _, err = kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
+		IsImportToDeploy:      isImportToDeploy,
 	})
 	if err != nil {
 		curYaml = ""
@@ -348,15 +363,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		return ret, nil
 	}
 
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
-	})
-	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(err)
-	}
-
-	candidateOverrides, err := buildPreviewCandidateOverrides(product, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
+	candidateOverrides, err := buildPreviewCandidateOverrides(envInfo, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}

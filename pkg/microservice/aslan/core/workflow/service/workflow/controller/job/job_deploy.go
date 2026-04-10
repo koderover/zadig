@@ -1087,11 +1087,12 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		}
 
 		svcBasicInfo := commonmodels.DeployBasicInfo{
-			ServiceName: service.ServiceName,
-			Modules:     modules,
-			Deployed:    true,
-			AutoSync:    service.GetServiceRender().GetAutoSync(),
-			Updatable:   serviceGeneralInfoMap[service.ServiceName].Updatable,
+			ServiceName:    service.ServiceName,
+			DeployStrategy: envInfo.ServiceDeployStrategy[service.ServiceName],
+			Modules:        modules,
+			Deployed:       true,
+			AutoSync:       service.GetServiceRender().GetAutoSync(),
+			Updatable:      serviceGeneralInfoMap[service.ServiceName].Updatable,
 		}
 
 		serviceVariableInfo := &commonmodels.DeployVariableInfo{

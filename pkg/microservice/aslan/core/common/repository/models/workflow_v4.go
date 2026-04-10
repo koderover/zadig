@@ -544,12 +544,13 @@ type DeployHelmChart struct {
 }
 
 type DeployBasicInfo struct {
-	ServiceName  string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
-	Modules      []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
-	Deployed     bool                `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
-	AutoSync     bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
-	UpdateConfig bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable    bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
+	ServiceName    string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	DeployStrategy string              `bson:"deploy_strategy"                     yaml:"deploy_strategy"                        json:"deploy_strategy"`
+	Modules        []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	Deployed       bool                `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
+	AutoSync       bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
+	UpdateConfig   bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable      bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
 }
 
 type DeployOptionInfo struct {

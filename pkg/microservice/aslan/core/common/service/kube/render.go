@@ -32,7 +32,7 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
-	yaml "sigs.k8s.io/yaml/goyaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -58,6 +58,7 @@ type GeneSvcYamlOption struct {
 	EnvName                       string
 	ServiceName                   string
 	UpdateServiceRevision         bool
+	IsImportToDeploy              bool
 	VariableYaml                  string
 	VariableKVs                   []*commontypes.RenderVariableKV
 	ReplicaOverrides              []*commonmodels.WorkLoad
@@ -400,20 +401,284 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 	}
 
-	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
-	if err != nil {
-		return "", 0, err
+	if option.IsImportToDeploy {
+		importedAllManifests, _, err := FetchImportedAllManifests(productInfo, prodSvcTemplate, curProductSvc.GetServiceRender())
+		if err != nil {
+			return "", 0, err
+		}
+		return importedAllManifests, 0, err
+	} else {
+		fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
+		if err != nil {
+			return "", 0, err
+		}
+		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
+		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+		if err != nil {
+			return "", 0, err
+		}
+
+		replicaOverrides := resolveReplicaOverrides(curProductSvc.WorkLoads, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
+		fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
+		return fullRenderedYaml, 0, err
 	}
-	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
-	mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
-	fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+}
+
+func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
+	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, envInfo.ProductName, serviceTmp.ServiceName, svcRender)
 	if err != nil {
-		return "", 0, err
+		return "", nil, err
+	}
+	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, fullRenderedYaml)
+
+	manifests := releaseutil.SplitManifests(fullRenderedYaml)
+
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(envInfo.ClusterID)
+	if err != nil {
+		log.Errorf("cluster is not connected [%s]", envInfo.ClusterID)
+		return "", nil, errors.Wrapf(err, "cluster is not connected [%s]", envInfo.ClusterID)
 	}
 
-	replicaOverrides := resolveReplicaOverrides(curProductSvc.WorkLoads, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
-	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
-	return fullRenderedYaml, 0, err
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(envInfo.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return "", nil, err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return "", nil, err
+	}
+	manifestArr := make([]string, 0)
+	workloadRes := make([]*WorkloadResource, 0)
+
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "failed to decode yaml %s", item)
+		}
+		kind := u.GetKind()
+		name := u.GetName()
+
+		var bs []byte
+		var exist bool
+		isWorkload := false
+
+		switch kind {
+		case setting.Deployment:
+			bs, exist, err = getter.GetDeploymentYamlFormat(envInfo.Namespace, name, kubeClient)
+			isWorkload = true
+		case setting.StatefulSet:
+			bs, exist, err = getter.GetStatefulSetYamlFormat(envInfo.Namespace, name, kubeClient)
+			isWorkload = true
+		case setting.CronJob:
+			bs, exist, err = getter.GetCronJobYamlFormat(envInfo.Namespace, name, kubeClient, kubeclient.VersionLessThan121(versionInfo))
+			isWorkload = true
+		case setting.Job:
+			bs, exist, err = getter.GetJobYaml(envInfo.Namespace, name, kubeClient)
+			isWorkload = true
+		case setting.Service:
+			bs, exist, err = getter.GetServiceYamlFormat(envInfo.Namespace, name, kubeClient)
+		case setting.ConfigMap:
+			bs, exist, err = getter.GetConfigMapYamlFormat(envInfo.Namespace, name, kubeClient)
+		case setting.Secret:
+			bs, exist, err = getter.GetSecretYamlFormat(envInfo.Namespace, name, kubeClient)
+		case setting.Ingress:
+			bs, exist, err = getter.GetIngressYamlFormat(envInfo.Namespace, name, kubeClient)
+		case setting.PersistentVolumeClaim:
+			bs, exist, err = getter.GetPVCYamlFormat(envInfo.Namespace, name, kubeClient)
+		default:
+			log.Warnf("unsupported resource kind %s/%s, skipping", kind, name)
+			continue
+		}
+
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "failed to get %s %s", kind, name)
+		}
+		if !exist {
+			return "", nil, errors.Errorf("%s %s not found", kind, name)
+		}
+		if isWorkload {
+			workloadRes = append(workloadRes, &WorkloadResource{Type: kind, Name: name})
+		}
+
+		cleaned, err := cleanupClusterResource(bs)
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "failed to cleanup %s %s", kind, name)
+		}
+		manifestArr = append(manifestArr, cleaned)
+	}
+
+	return util.JoinYamls(manifestArr), workloadRes, nil
+}
+
+var serverGeneratedAnnotations = []string{
+	"kubectl.kubernetes.io/last-applied-configuration",
+	"deployment.kubernetes.io/revision",
+	"deprecated.daemonset.template.generation",
+	"pv.kubernetes.io/bind-completed",
+	"pv.kubernetes.io/bound-by-controller",
+}
+
+func cleanupClusterResource(yamlData []byte) (string, error) {
+	obj, err := serializer.NewDecoder().YamlToUnstructured(yamlData)
+	if err != nil {
+		return "", err
+	}
+
+	delete(obj.Object, "status")
+
+	if metadata, ok := obj.Object["metadata"].(map[string]interface{}); ok {
+		delete(metadata, "managedFields")
+		delete(metadata, "resourceVersion")
+		delete(metadata, "uid")
+		delete(metadata, "selfLink")
+		delete(metadata, "creationTimestamp")
+		delete(metadata, "generation")
+	}
+
+	annotations := obj.GetAnnotations()
+	if annotations != nil {
+		for _, key := range serverGeneratedAnnotations {
+			delete(annotations, key)
+		}
+		if len(annotations) == 0 {
+			obj.SetAnnotations(nil)
+		} else {
+			obj.SetAnnotations(annotations)
+		}
+	}
+
+	cleanupDefaultedSpec(obj.Object, obj.GetKind())
+
+	resp, err := yaml.Marshal(obj.Object)
+	if err != nil {
+		return "", err
+	}
+	return string(resp), nil
+}
+
+func cleanupDefaultedSpec(objMap map[string]interface{}, kind string) {
+	cleanupPodTemplate(objMap, "spec", "template")
+	cleanupPodTemplate(objMap, "spec", "jobTemplate", "spec", "template")
+
+	if jobTmpl := nestedMap(objMap, "spec", "jobTemplate"); jobTmpl != nil {
+		if metadata, ok := jobTmpl["metadata"].(map[string]interface{}); ok {
+			delete(metadata, "creationTimestamp")
+		}
+	}
+
+	switch kind {
+	case setting.Service:
+		cleanupServiceDefaults(objMap)
+	case setting.PersistentVolumeClaim:
+		if spec := nestedMap(objMap, "spec"); spec != nil {
+			deleteIfDefaultStr(spec, "volumeMode", "Filesystem")
+		}
+	case setting.Secret:
+		deleteIfDefaultStr(objMap, "type", "Opaque")
+	}
+}
+
+func cleanupPodTemplate(objMap map[string]interface{}, path ...string) {
+	tmpl := nestedMap(objMap, path...)
+	if tmpl == nil {
+		return
+	}
+
+	if metadata, ok := tmpl["metadata"].(map[string]interface{}); ok {
+		delete(metadata, "creationTimestamp")
+	}
+
+	podSpec, ok := tmpl["spec"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	deleteIfDefaultStr(podSpec, "dnsPolicy", "ClusterFirst")
+	deleteIfDefaultStr(podSpec, "schedulerName", "default-scheduler")
+	deleteIfDefaultBool(podSpec, "enableServiceLinks", true)
+	deleteEmptyMap(podSpec, "securityContext")
+	delete(podSpec, "serviceAccount")
+
+	for _, key := range []string{"containers", "initContainers"} {
+		containers, ok := podSpec[key].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, c := range containers {
+			container, ok := c.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			deleteIfDefaultStr(container, "terminationMessagePath", "/dev/termination-log")
+			deleteIfDefaultStr(container, "terminationMessagePolicy", "File")
+			deleteEmptyMap(container, "resources")
+			if ports, ok := container["ports"].([]interface{}); ok {
+				for _, p := range ports {
+					if port, ok := p.(map[string]interface{}); ok {
+						deleteIfDefaultStr(port, "protocol", "TCP")
+					}
+				}
+			}
+		}
+	}
+}
+
+func cleanupServiceDefaults(objMap map[string]interface{}) {
+	spec := nestedMap(objMap, "spec")
+	if spec == nil {
+		return
+	}
+
+	if clusterIP, ok := spec["clusterIP"].(string); ok && clusterIP != "None" {
+		delete(spec, "clusterIP")
+		delete(spec, "clusterIPs")
+	}
+
+	deleteIfDefaultStr(spec, "sessionAffinity", "None")
+	deleteIfDefaultStr(spec, "internalTrafficPolicy", "Cluster")
+	delete(spec, "ipFamilies")
+	delete(spec, "ipFamilyPolicy")
+
+	if ports, ok := spec["ports"].([]interface{}); ok {
+		for _, p := range ports {
+			if port, ok := p.(map[string]interface{}); ok {
+				deleteIfDefaultStr(port, "protocol", "TCP")
+			}
+		}
+	}
+}
+
+func nestedMap(obj map[string]interface{}, keys ...string) map[string]interface{} {
+	cur := obj
+	for _, k := range keys {
+		next, ok := cur[k].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		cur = next
+	}
+	return cur
+}
+
+func deleteIfDefaultStr(m map[string]interface{}, key, defaultVal string) {
+	if v, ok := m[key].(string); ok && v == defaultVal {
+		delete(m, key)
+	}
+}
+
+func deleteIfDefaultBool(m map[string]interface{}, key string, defaultVal bool) {
+	if v, ok := m[key].(bool); ok && v == defaultVal {
+		delete(m, key)
+	}
+}
+
+func deleteEmptyMap(m map[string]interface{}, key string) {
+	if v, ok := m[key].(map[string]interface{}); ok && len(v) == 0 {
+		delete(m, key)
+	}
 }
 
 func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {

@@ -187,9 +187,18 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			deployContentStr += contentStr + ", "
 		}
 	}
-	deployContentStr = strings.TrimSuffix(deployContentStr, ", ")
 
+	isImportToDeploy := false
+	deployContentStr = strings.TrimSuffix(deployContentStr, ", ")
 	logContent := fmt.Sprintf("Start to deploy k8s yaml service %s, env: %s, namespace: %s, deploy contents: %s", c.jobTaskSpec.ServiceName, c.jobTaskSpec.Env, c.namespace, deployContentStr)
+
+	if env.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] == setting.ServiceDeployStrategyImport && (slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) || slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig)) {
+		isImportToDeploy = true
+		c.jobTaskSpec.IsImportToDeploy = true
+		logContent += fmt.Sprintf(", isImportToDeploy: %v", true)
+		c.logger.Infof("Deploy job: deploy service %s from import to deploy, override resource", c.jobTaskSpec.ServiceName)
+	}
+
 	logManager.SaveJobLog(logContent)
 
 	var updateRevision bool
@@ -220,9 +229,10 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 
 	currentYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-		ProductName: env.ProductName,
-		EnvName:     c.jobTaskSpec.Env,
-		ServiceName: c.jobTaskSpec.ServiceName,
+		ProductName:      env.ProductName,
+		EnvName:          c.jobTaskSpec.Env,
+		ServiceName:      c.jobTaskSpec.ServiceName,
+		IsImportToDeploy: isImportToDeploy,
 	})
 
 	if err != nil {
@@ -278,6 +288,10 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 
 	c.jobTaskSpec.OriginRevision = latestRevision
 	c.ack()
+
+	if env.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] == setting.ServiceDeployStrategyImport && (slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) || slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig)) {
+		c.jobTaskSpec.OverrideResource = true
+	}
 
 	// if not only deploy image, we will redeploy service
 	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {

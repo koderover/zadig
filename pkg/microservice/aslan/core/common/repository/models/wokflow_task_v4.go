@@ -223,6 +223,7 @@ type JobTaskDeploySpec struct {
 	KeyVals            []*ServiceKeyVal                `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`     // deprecated since 1.18.0
 	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                     json:"variable_kvs"                        yaml:"variable_kvs"` // new since 1.18.0, only used for k8s
 	UpdateConfig       bool                            `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	IsImportToDeploy   bool                            `bson:"is_import_to_deploy"                    json:"is_import_to_deploy"                       yaml:"is_import_to_deploy"`
 	YamlContent        string                          `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	ServiceAndImages   []*DeployServiceModule          `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
 	ServiceType        string                          `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
@@ -234,7 +235,7 @@ type JobTaskDeploySpec struct {
 	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
 	// overrideResource is used to do a full yaml override instead of a 2-way merge patching for all the resources
-	OverrideResource   bool                            `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
+	OverrideResource bool `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
@@ -266,7 +267,7 @@ type JobTaskDeployRevertSpec struct {
 	OverrideKVs             string       `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	Revision                int64        `bson:"revision"                         json:"revision"                            yaml:"revision"`
 	RevisionCreateTime      int64        `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
-	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"` 
+	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 }
 
 type DeployServiceModule struct {
