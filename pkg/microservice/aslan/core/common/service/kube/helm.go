@@ -688,6 +688,7 @@ func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, r
 	if err != nil {
 		return err
 	}
+
 	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepoEntry), chartRef, chartVersion, localPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, chartRepo, err)
@@ -948,9 +949,9 @@ func GetHelmChartManifest(env *commonmodels.Product, service *commonmodels.Servi
 	releaseName := util.GeneReleaseName(service.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, service.ServiceName)
 	chartSpec := &helmclient.ChartSpec{
 		ReleaseName: releaseName,
-		ChartName:    chartPath,
-		Version:      chartVersion,
-		ValuesYaml:   valuesYaml,
+		ChartName:   chartPath,
+		Version:     chartVersion,
+		ValuesYaml:  valuesYaml,
 	}
 
 	var templateOptions *helmclient.HelmTemplateOptions
