@@ -752,9 +752,9 @@ const (
 )
 
 const (
-	VariableRegEx             = `{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*.)}}`
-	VariableOutputRegEx       = `{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*).output.[\p{L}\d-]+}}`
-	ReplacedTempVariableRegEx = `TEMP_PLACEHOLDER_([\p{L}\d-]+(\.[\p{L}\d-]+)*)`
+	VariableRegEx             = `{{\.([\p{L}\d-]+(\.[\p{L}\d_-]+)*.)}}`
+	VariableOutputRegEx       = `{{\.([\p{L}\d-]+(\.[\p{L}\d_-]+)*).output.[\p{L}\d_-]+}}`
+	ReplacedTempVariableRegEx = `TEMP_PLACEHOLDER_([\p{L}\d-]+(\.[\p{L}\d_-]+)*)`
 )
 
 type ValueMergeStrategy string
