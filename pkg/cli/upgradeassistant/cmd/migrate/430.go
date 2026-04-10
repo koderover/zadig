@@ -49,12 +49,15 @@ type permissionBackfillRule430 struct {
 type listActionBindings430 func(uint, *gorm.DB) ([]*usermodels.Action, error)
 type createActionBindings430 func(uint, []uint, *gorm.DB) error
 
+// 新版本新增的 action。历史实例升级时，先保证这些 action 已经存在，再去补 role/template 绑定。
 var permissionActionSeeds430 = []permissionActionSeed430{
 	{Name: "调整副本", Action: permissionservice.VerbScaleEnvironment, Resource: "Environment"},
 	{Name: "调整副本", Action: permissionservice.VerbScaleProductionEnv, Resource: "ProductionEnvironment"},
 }
 
-// permissionBackfillRules430 backfills scale permissions.
+// 回填规则只认历史权限：
+// 旧环境管理权限 -> 新环境调整副本
+// 旧生产环境管理权限 -> 新生产环境调整副本
 var permissionBackfillRules430 = []permissionBackfillRule430{
 	{
 		Source: permissionservice.VerbManageEnvironment,
@@ -104,6 +107,10 @@ func V421ToV430() error {
 		updateMigrationError(migrationInfo.ID, err)
 	}()
 
+	// 这次迁移分三段：
+	// 1. MySQL: user 表新增 api_token_enabled
+	// 2. MySQL: permission action + role/template 绑定
+	// 3. Mongo: collaboration mode / instance verbs
 	err = migrateUserAPITokenEnabledColumn(ctx, migrationInfo)
 	if err != nil {
 		return err
@@ -122,6 +129,7 @@ func V421ToV430() error {
 	return nil
 }
 
+// migrateUserAPITokenEnabledColumn adds api_token_enabled column for user table.
 func migrateUserAPITokenEnabledColumn(_ *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
 	if !migrationInfo.Migration430UserAPITokenEnabled {
 		if !repository.DB.Migrator().HasColumn(&usermodels.User{}, "APITokenEnabled") {
@@ -148,6 +156,7 @@ func migrateScalePermissions(migrationInfo *internalmodels.Migration) error {
 		return fmt.Errorf("failed to begin migration 4.3.0 transaction, err: %s", tx.Error)
 	}
 
+	// 先补 action，再根据历史权限补 role 和 role template 绑定。
 	actionIDs, err := ensurePermissionActions430(tx)
 	if err != nil {
 		tx.Rollback()
@@ -177,35 +186,52 @@ func migrateScalePermissions(migrationInfo *internalmodels.Migration) error {
 	})
 }
 
+// ensurePermissionActions430 ensures permission actions exist.
 func ensurePermissionActions430(tx *gorm.DB) (map[string]uint, error) {
 	actionIDs := make(map[string]uint, len(permissionActionSeeds430))
 	for _, seed := range permissionActionSeeds430 {
-		action, err := userorm.GetActionByVerb(seed.Action, tx)
+		actionID, err := ensureAction430(tx, seed)
 		if err != nil {
-			return nil, fmt.Errorf("failed to query action %s, err: %s", seed.Action, err)
+			return nil, err
 		}
-		if action == nil || action.ID == 0 {
-			action = &usermodels.Action{
-				Name:     seed.Name,
-				Action:   seed.Action,
-				Resource: seed.Resource,
-				Scope:    pkgtypes.DBProjectScope,
-			}
-			if err := userorm.CreateAction(action, tx); err != nil {
-				action, err = userorm.GetActionByVerb(seed.Action, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create action %s, err: %s", seed.Action, err)
-				}
-			}
-		}
-		if action == nil || action.ID == 0 {
-			return nil, fmt.Errorf("action %s still missing after migration", seed.Action)
-		}
-		actionIDs[seed.Action] = action.ID
+		actionIDs[seed.Action] = actionID
 	}
+
 	return actionIDs, nil
 }
 
+// ensureAction430 保证某个 action 在表里存在。
+// 如果是重复执行迁移，会直接复用已有数据。
+func ensureAction430(tx *gorm.DB, seed permissionActionSeed430) (uint, error) {
+	action, err := userorm.GetActionByVerb(seed.Action, tx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query action %s, err: %s", seed.Action, err)
+	}
+	if action != nil && action.ID != 0 {
+		return action.ID, nil
+	}
+
+	action = &usermodels.Action{
+		Name:     seed.Name,
+		Action:   seed.Action,
+		Resource: seed.Resource,
+		Scope:    pkgtypes.DBProjectScope,
+	}
+	if err := userorm.CreateAction(action, tx); err != nil {
+		action, err = userorm.GetActionByVerb(seed.Action, tx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create action %s, err: %s", seed.Action, err)
+		}
+	}
+
+	if action == nil || action.ID == 0 {
+		return 0, fmt.Errorf("action %s still missing after migration", seed.Action)
+	}
+
+	return action.ID, nil
+}
+
+// backfillRoleTemplatePermissions430 backfills role template permissions
 func backfillRoleTemplatePermissions430(tx *gorm.DB, actionIDs map[string]uint) (int, error) {
 	roleTemplates, err := userorm.ListRoleTemplates(tx)
 	if err != nil {
@@ -219,6 +245,7 @@ func backfillRoleTemplatePermissions430(tx *gorm.DB, actionIDs map[string]uint) 
 	return backfillActionBindings430(tx, ids, actionIDs, userorm.ListActionByRoleTemplate, userorm.BulkCreateRoleTemplateActionBindings)
 }
 
+// backfillRolePermissions430 backfills role permissions
 func backfillRolePermissions430(tx *gorm.DB, actionIDs map[string]uint) (int, error) {
 	roles := make([]*usermodels.NewRole, 0)
 	if err := tx.Where("namespace <> ?", permissionservice.GeneralNamespace).Find(&roles).Error; err != nil {
@@ -263,7 +290,7 @@ func backfillActionBindings430(tx *gorm.DB, ids []uint, actionIDs map[string]uin
 }
 
 func collectMissingActionIDs430(actions []*usermodels.Action, actionIDs map[string]uint) []uint {
-	missingVerbs := collectMissingBackfillTargets430(actionVerbs430(actions), permissionBackfillRules430)
+	missingVerbs := collectMissingBackfillTargets430(actionVerbs430(actions))
 	missingActionIDs := make([]uint, 0, len(missingVerbs))
 	for _, verb := range missingVerbs {
 		actionID, ok := actionIDs[verb]
@@ -282,7 +309,11 @@ func actionVerbs430(actions []*usermodels.Action) []string {
 	return verbs
 }
 
-func collectMissingBackfillTargets430(verbs []string, rules []permissionBackfillRule430) []string {
+func collectMissingBackfillTargets430(verbs []string) []string {
+	return collectMissingBackfillTargetsByRules430(verbs, permissionBackfillRules430)
+}
+
+func collectMissingBackfillTargetsByRules430(verbs []string, rules []permissionBackfillRule430) []string {
 	verbSet := sets.NewString(verbs...)
 	missingVerbs := make([]string, 0)
 	for _, rule := range rules {
@@ -365,7 +396,7 @@ func collaborationModeKey430(projectName, modeName string) string {
 }
 
 func appendBackfillTargets430(verbs []string) (bool, []string) {
-	missingVerbs := collectMissingBackfillTargets430(verbs, collaborationBackfillRules430)
+	missingVerbs := collectMissingBackfillTargetsByRules430(verbs, collaborationBackfillRules430)
 	if len(missingVerbs) == 0 {
 		return false, verbs
 	}
