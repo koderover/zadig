@@ -363,6 +363,8 @@ func NewHelmClient(chartRepo *commonmodels.HelmRepo) (*helmtool.HelmClient, erro
 			return nil, fmt.Errorf("enabled proxy for helm client, but no proxy found")
 		}
 
+		log.Debugf("add proxy to helm client, proxy url: %s", proxy[0].GetProxyURL())
+
 		transport, err := util.NewTransport(chartRepo.URL, "", "", "", false, proxy[0].GetProxyURL())
 		if err != nil {
 			return nil, fmt.Errorf("failed to new transport, err: %s", err)
