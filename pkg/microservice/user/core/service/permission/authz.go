@@ -319,6 +319,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
+	// TODO: remove global read-only role
 	for _, role := range roles {
 		if role.Namespace == GeneralNamespace {
 			if role.GlobalReadOnly {
@@ -340,6 +341,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
 	}
 
+	// TODO: remove global read-only role
 	for _, role := range groupRoles {
 		if role.Namespace == GeneralNamespace {
 			if role.GlobalReadOnly {
