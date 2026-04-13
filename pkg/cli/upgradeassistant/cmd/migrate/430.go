@@ -24,6 +24,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
@@ -83,9 +85,33 @@ func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *intern
 		}
 	}
 
+	// 写入 globalreadonly role
+	err := backfillGlobalReadOnlyRole()
+	if err != nil {
+		return err
+	}
+
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430GlobalReadOnlyRole): true,
 	})
+
+	return nil
+}
+
+// backfill global read only role
+func backfillGlobalReadOnlyRole() error {
+	tx := repository.DB.Begin()
+	role := &usermodels.NewRole{
+		Name:           "global-read-only",
+		Description:    "拥有系统全局只读的权限",
+		Type:           int64(setting.RoleTypeSystem),
+		Namespace:      "*",
+		GlobalReadOnly: true,
+	}
+	if err := orm.CreateRole(role, tx); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to create global-read-only role in backfill, error: %s", err)
+	}
 
 	return nil
 }

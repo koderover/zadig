@@ -257,7 +257,7 @@ func syncUserRoleBinding() {
 		// add new role: global read only
 		globalReadOnlyRole := &models.NewRole{
 			Name:           "global-read-only",
-			Description:    "拥有所有项目中只读资源的权限",
+			Description:    "拥有系统全局只读的权限",
 			Type:           int64(setting.RoleTypeSystem),
 			Namespace:      "*",
 			GlobalReadOnly: true,
@@ -519,110 +519,3 @@ RoleLoop:
 	tx.Commit()
 	log.Info("User role and role binding synchronization done successfully!")
 }
-
-// 回填数据 backfillGlobalReadOnlyRoles 表非空
-// func backfillGlobalReadOnlyRoles() {
-// 	tx := repository.DB.Begin()
-// 	roles, err := orm.ListRoleByNamespace("*", tx)
-// 	if err != nil {
-// 		tx.Rollback()
-// 		log.Panicf("failed to list system roles for global read only backfill, error: %s", err)
-// 	}
-
-// 	targetRoles := make([]*models.NewRole, 0)
-// 	for _, role := range roles {
-// 		if role.Name == "global-read-only" && !role.GlobalReadOnly {
-// 			if err := orm.UpdateRoleInfo(role.ID, &models.NewRole{GlobalReadOnly: true}, tx); err != nil {
-// 				tx.Rollback()
-// 				log.Panicf("failed to set global_read_only for role %s, error: %s", role.Name, err)
-// 			}
-// 			role.GlobalReadOnly = true
-// 		}
-// 		if role.GlobalReadOnly {
-// 			targetRoles = append(targetRoles, role)
-// 		}
-// 	}
-
-// 	if len(targetRoles) == 0 {
-// 		role := &models.NewRole{
-// 			Name:           "global-read-only",
-// 			Description:    "拥有所有项目中只读资源的权限",
-// 			Type:           int64(setting.RoleTypeSystem),
-// 			Namespace:      "*",
-// 			GlobalReadOnly: true,
-// 		}
-// 		if err := orm.CreateRole(role, tx); err != nil {
-// 			tx.Rollback()
-// 			log.Panicf("failed to create global-read-only role in backfill, error: %s", err)
-// 		}
-// 		targetRoles = append(targetRoles, role)
-// 	}
-
-// 	actionIDMap := make(map[string]uint)
-// 	for _, verb := range readOnlyAction {
-// 		action, err := orm.GetActionByVerb(verb, tx)
-// 		if err != nil || action.ID == 0 {
-// 			tx.Rollback()
-// 			log.Panicf("failed to find action %s for global-read-only role backfill, error: %s", verb, err)
-// 		}
-// 		actionIDMap[verb] = action.ID
-// 	}
-
-// 	for _, role := range targetRoles {
-// 		actions, err := orm.ListActionByRole(role.ID, tx)
-// 		if err != nil {
-// 			tx.Rollback()
-// 			log.Panicf("failed to list actions for role %s during global read backfill, error: %s", role.Name, err)
-// 		}
-// 		actionSet := make(map[string]struct{}, len(actions))
-// 		for _, action := range actions {
-// 			actionSet[action.Action] = struct{}{}
-// 		}
-// 		appendActionIDs := make([]uint, 0)
-// 		for _, verb := range readOnlyAction {
-// 			if _, ok := actionSet[verb]; ok {
-// 				continue
-// 			}
-// 			appendActionIDs = append(appendActionIDs, actionIDMap[verb])
-// 		}
-// 		if len(appendActionIDs) == 0 {
-// 			continue
-// 		}
-// 		if err := orm.BulkCreateRoleActionBindings(role.ID, appendActionIDs, tx); err != nil {
-// 			tx.Rollback()
-// 			log.Panicf("failed to backfill global-read-only actions for role %s, error: %s", role.Name, err)
-// 		}
-// 	}
-
-// 	tx.Commit()
-// }
-
-// isLegacyGlobalReadOnlyRole check if the role is a legacy global read only role
-// func isLegacyGlobalReadOnlyRole(role *models.Role) bool {
-// 	if role == nil {
-// 		return false
-// 	}
-// 	if role.Namespace != "*" || role.Type != setting.ResourceTypeSystem {
-// 		return false
-// 	}
-// 	if role.Name == "admin" || role.Name == "project-admin" {
-// 		return false
-// 	}
-// 	readOnlySet := make(map[string]struct{}, len(readOnlyAction))
-// 	for _, verb := range readOnlyAction {
-// 		readOnlySet[verb] = struct{}{}
-// 	}
-// 	hasReadVerb := false
-// 	for _, rule := range role.Rules {
-// 		for _, verb := range rule.Verbs {
-// 			if verb == "*" {
-// 				return false
-// 			}
-// 			if _, ok := readOnlySet[verb]; !ok {
-// 				return false
-// 			}
-// 			hasReadVerb = true
-// 		}
-// 	}
-// 	return hasReadVerb
-// }
