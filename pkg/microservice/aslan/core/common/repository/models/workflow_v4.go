@@ -1011,6 +1011,7 @@ type SQLJobSpec struct {
 type DMSJobSpec struct {
 	ID             string      `bson:"id" json:"id" yaml:"id"`
 	RemarkTemplate string      `bson:"remark_template" json:"remark_template" yaml:"remark_template"`
+	ExecuteMode    string      `bson:"execute_mode" json:"execute_mode" yaml:"execute_mode"`
 	Orders         []*DMSOrder `bson:"orders" json:"orders" yaml:"orders"`
 }
 

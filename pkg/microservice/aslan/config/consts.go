@@ -276,6 +276,13 @@ const (
 	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
 )
 
+type DMSJobExecuteMode string
+
+const (
+	DMSJobExecuteModeParallel DMSJobExecuteMode = "parallel"
+	DMSJobExecuteModeSerial   DMSJobExecuteMode = "serial"
+)
+
 type ObservabilityType string
 
 const (

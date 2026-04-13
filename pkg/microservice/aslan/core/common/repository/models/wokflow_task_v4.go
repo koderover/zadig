@@ -234,7 +234,7 @@ type JobTaskDeploySpec struct {
 	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
 	// overrideResource is used to do a full yaml override instead of a 2-way merge patching for all the resources
-	OverrideResource   bool                            `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
+	OverrideResource bool `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
@@ -266,7 +266,7 @@ type JobTaskDeployRevertSpec struct {
 	OverrideKVs             string       `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	Revision                int64        `bson:"revision"                         json:"revision"                            yaml:"revision"`
 	RevisionCreateTime      int64        `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
-	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"` 
+	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 }
 
 type DeployServiceModule struct {
@@ -614,8 +614,9 @@ type SQLExecResult struct {
 }
 
 type JobTaskDMSSpec struct {
-	ID     string          `bson:"id" json:"id" yaml:"id"`
-	Orders []*DMSTaskOrder `bson:"orders" json:"orders" yaml:"orders"`
+	ID          string          `bson:"id" json:"id" yaml:"id"`
+	ExecuteMode string          `bson:"execute_mode" json:"execute_mode" yaml:"execute_mode"`
+	Orders      []*DMSTaskOrder `bson:"orders" json:"orders" yaml:"orders"`
 }
 
 type DMSTaskOrder struct {

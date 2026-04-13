@@ -80,6 +80,11 @@ func (j DMSJobController) Validate(isExecution bool) error {
 	if j.jobSpec.ID != currJobSpec.ID {
 		return fmt.Errorf("given apollo job spec does not match current apollo job")
 	}
+	if mode := strings.ToLower(j.jobSpec.ExecuteMode); mode != "" &&
+		mode != string(config.DMSJobExecuteModeParallel) &&
+		mode != string(config.DMSJobExecuteModeSerial) {
+		return fmt.Errorf("invalid dms execute mode: %s", j.jobSpec.ExecuteMode)
+	}
 
 	if isExecution {
 	}
@@ -109,6 +114,7 @@ func (j DMSJobController) Update(useUserInput bool, ticket *commonmodels.Approva
 
 	j.jobSpec.ID = currJobSpec.ID
 	j.jobSpec.RemarkTemplate = currJobSpec.RemarkTemplate
+	j.jobSpec.ExecuteMode = normalizeDMSExecuteMode(currJobSpec.ExecuteMode)
 
 	return nil
 }
@@ -138,7 +144,8 @@ func (j DMSJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) 
 		},
 		JobType: string(config.JobDMS),
 		Spec: &commonmodels.JobTaskDMSSpec{
-			ID: j.jobSpec.ID,
+			ID:          j.jobSpec.ID,
+			ExecuteMode: normalizeDMSExecuteMode(j.jobSpec.ExecuteMode),
 			Orders: func() (list []*commonmodels.DMSTaskOrder) {
 				for _, order := range j.jobSpec.Orders {
 					list = append(list, &commonmodels.DMSTaskOrder{
@@ -187,4 +194,13 @@ func (j DMSJobController) RenderDynamicVariableOptions(key string, option *Rende
 
 func (j DMSJobController) IsServiceTypeJob() bool {
 	return false
+}
+
+func normalizeDMSExecuteMode(mode string) string {
+	switch strings.ToLower(mode) {
+	case string(config.DMSJobExecuteModeSerial):
+		return string(config.DMSJobExecuteModeSerial)
+	default:
+		return string(config.DMSJobExecuteModeParallel)
+	}
 }
