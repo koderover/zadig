@@ -77,6 +77,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
+	//
 	for _, role := range roles {
 		if role.Namespace != GeneralNamespace {
 			if _, ok := projectActionMap[role.Namespace]; !ok {
@@ -106,6 +107,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		for _, action := range actions {
+			//
 			if role.Namespace == GeneralNamespace && role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
 				continue
 			}
@@ -183,6 +185,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
+	//
 	if err := grantGlobalReadAuthToAllProjects(projectActionMap, globalReadVerbSet.UnsortedList()); err != nil {
 		return nil, err
 	}
@@ -340,7 +343,6 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
 	}
 
-	
 	for _, role := range groupRoles {
 		if role.Namespace == GeneralNamespace {
 			if role.GlobalReadOnly {
@@ -477,19 +479,14 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
 	}
 
+	// if user has global read only role, we must return all projects.
 	for _, role := range groupRoles {
-		if role.Namespace == GeneralNamespace {
-			if role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
-				if err := insertAllProjects(respSet); err != nil {
-					tx.Rollback()
-					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
-					return nil, err
-				}
-			}
-			continue
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
 		}
-		respSet.Insert(role.Namespace)
 	}
+
+	//
 	if isReadOnlyActionVerb(verb) {
 		systemRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
 		if err != nil {
@@ -708,10 +705,13 @@ func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectAction
 	if err != nil {
 		return fmt.Errorf("failed to list projects for global read permission, error: %s", err)
 	}
+
+	// get project list
 	for _, project := range projectList {
 		if _, ok := projectActionMap[project.ProductName]; !ok {
 			projectActionMap[project.ProductName] = generateDefaultProjectActions()
 		}
+		// 对用户所有的project action开启
 		for _, verb := range verbs {
 			modifyUserProjectAuth(projectActionMap[project.ProductName], verb)
 		}
