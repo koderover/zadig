@@ -23,6 +23,7 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 
 	mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, req.VariableYaml)
 	if err != nil {
+		logger.Errorf("failed to merge variable yaml, err: %s", err)
 		return fmt.Errorf("failed to merge variable yaml, err: %w", err)
 	}
 

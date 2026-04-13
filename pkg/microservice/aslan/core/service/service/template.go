@@ -56,6 +56,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
 	// check if serviceName has upper case
 	if strings.ToLower(serviceName) != serviceName {
+		logger.Errorf("service name should be lowercase")
 		return fmt.Errorf("service name should be lowercase")
 	}
 
@@ -68,6 +69,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
 	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
+		logger.Errorf("failed to render service yaml, err: %s", err)
 		return err
 	}
 
