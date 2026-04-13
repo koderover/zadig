@@ -19,6 +19,7 @@ package permission
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -141,10 +142,13 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
 			}
 		}
+		// global read-only role has special permission
 		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
 			for _, verb := range readOnlyAction {
 				globalReadVerbSet.Insert(verb)
 			}
+
+			// 开启 SystemAction read权限 for global read-only role
 			for _, verb := range globalReadOnlySystemAction {
 				modifySystemAction(systemActions, verb)
 			}
@@ -425,18 +429,12 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	for _, role := range roles {
-		if role.Namespace == GeneralNamespace {
-			if role.GlobalReadOnly && isReadOnlyActionVerb(verb) {
-				if err := insertAllProjects(respSet); err != nil {
-					tx.Rollback()
-					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
-					return nil, err
-				}
-			}
-			continue
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
 		}
-		respSet.Insert(role.Namespace)
 	}
+
+	// if user has global read only role, we must return all projects.
 	if isReadOnlyActionVerb(verb) {
 		systemRoles, err := orm.ListRoleByUID(uid, tx)
 		if err != nil {
@@ -444,6 +442,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 			logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 			return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 		}
+
 		for _, role := range systemRoles {
 			if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
 				if err := insertAllProjects(respSet); err != nil {
@@ -456,6 +455,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		}
 	}
 
+	// if user has project admin role, we must return all projects.
 	adminRoles, err := orm.ListProjectAdminRoleByUID(uid, tx)
 	if err != nil {
 		tx.Rollback()
@@ -685,24 +685,15 @@ func generateAdminRoleResource() *AuthorizedResources {
 
 // isReadOnlyActionVerb check if the action is a read-only action.
 func isReadOnlyActionVerb(action string) bool {
-	for _, verb := range readOnlyAction {
-		if verb == action {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(readOnlyAction, action)
 }
 
 // isGlobalReadOnlySystemActionVerb check if the action is a global read-only system action.
 func isGlobalReadOnlySystemActionVerb(action string) bool {
-	for _, verb := range globalReadOnlySystemAction {
-		if verb == action {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(globalReadOnlySystemAction, action)
 }
 
+// project action 和 system action 的交集
 func isGlobalReadOnlyRoleActionVerb(action string) bool {
 	return isReadOnlyActionVerb(action) || isGlobalReadOnlySystemActionVerb(action)
 }
