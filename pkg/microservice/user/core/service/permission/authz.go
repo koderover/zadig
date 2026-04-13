@@ -107,10 +107,6 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		for _, action := range actions {
-			//
-			if role.Namespace == GeneralNamespace && role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
-				continue
-			}
 			switch role.Namespace {
 			case GeneralNamespace:
 				// inject system actions for global read-only role
@@ -185,7 +181,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
-	//
+	//grant global read permission to all projects.
 	if err := grantGlobalReadAuthToAllProjects(projectActionMap, globalReadVerbSet.UnsortedList()); err != nil {
 		return nil, err
 	}

@@ -348,11 +348,6 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
-	// if err := validateGlobalReadOnlyRole(ns, req); err != nil {
-	// 	tx.Rollback()
-	// 	return err
-	// }
-
 	// Doing a tricky thing here: removing the whole role-action binding, then re-adding them.
 	roleInfo, err := orm.GetRole(req.Name, ns, repository.DB)
 	if err != nil {
