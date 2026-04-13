@@ -231,10 +231,10 @@ func syncUserRoleBinding() {
 		log.Panicf("Failed to count roles in the mysql role table to do the data initialization, error: %s", err)
 	}
 
-	// if roleCount > 0 {
-	// 	backfillGlobalReadOnlyRoles()
-	// 	return
-	// }
+	// if roleCount > 0, it means that the data has already been initialized, so we can return
+	if roleCount > 0 {
+		return
+	}
 
 	tx := repository.DB.Begin()
 
