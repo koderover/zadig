@@ -250,7 +250,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
-			log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+			log.Warnf("Failed to decode yaml to Unstructured, err: %s. \n the rendered YAML is: \n %s \n", err, item)
 			continue
 		}
 

@@ -1428,7 +1428,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 		for _, item := range manifests {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 			if err != nil {
-				log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+				log.Warnf("Failed to decode yaml to Unstructured, err: %s. rendered YAML is: \n %s \n", err, item)
 				continue
 			}
 
