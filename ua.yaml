@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "admin-post-upgrade"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: post-upgrade-job
+          image: koderover.tencentcloudcr.com/koderover-public/ua:20260413111430-5686-main-pr-4604
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 400m
+              memory: 1024Mi
+          volumeMounts:
+            - mountPath: /etc/encryption
+              name: aes-key
+              readOnly: true
+          args:
+            - "migrate"
+            - "-c"
+            - "mongodb://admin:bhbJYuyZ22!!@150.158.53.16:27007/admin"
+            - "-d"
+            - "uat_zadig"
+            - "-f"
+            - "4.2.1"
+            - "-t"
+            - "4.3.0"
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zadig-aes-key
+                  key: aesKey
+            - name: ADDRESS
+              value: http://uat.8slan.com
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: "bhbJYuyZ22!!"
+            - name: MYSQL_HOST
+              value: 150.158.53.16:27008
+            - name: MYSQL_USER_DB
+              value: uat_user
+            - name: REDIS_HOST
+              value: admin-kr-redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_USERNAME
+              value: ""
+            - name: REDIS_PASSWORD
+              value: ""
+            - name: REDIS_COMMON_CACHE_DB
+              value: "1"
+      volumes:
+        - name: aes-key
+          secret:
+            secretName: zadig-aes-key
+            items:
+              - key: aesKey
+                path: aes

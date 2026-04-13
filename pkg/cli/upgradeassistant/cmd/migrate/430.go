@@ -108,9 +108,21 @@ func backfillGlobalReadOnlyRole() error {
 		Namespace:      "*",
 		GlobalReadOnly: true,
 	}
+	
+	// Check if role already exists
+	existingRole, err := orm.GetRole("global-read-only", "*", tx)
+	if err == nil && existingRole != nil && existingRole.ID != 0 {
+		tx.Commit()
+		return nil
+	}
+	
 	if err := orm.CreateRole(role, tx); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to create global-read-only role in backfill, error: %s", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit tx, err: %s", err)
 	}
 
 	return nil
