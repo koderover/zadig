@@ -57,6 +57,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
+	// add all user group to the group list
 	allUserGroup, err := common.GetAllUserGroup()
 	if err != nil || allUserGroup == "" {
 		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
@@ -77,21 +78,9 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
-	//
 	for _, role := range roles {
-		if role.Namespace != GeneralNamespace {
-			if _, ok := projectActionMap[role.Namespace]; !ok {
-				projectActionMap[role.Namespace] = generateDefaultProjectActions()
-			}
-		}
-		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
-			for _, verb := range readOnlyAction {
-				globalReadVerbSet.Insert(verb)
-			}
-			for _, verb := range globalReadOnlySystemAction {
-				modifySystemAction(systemActions, verb)
-			}
-		}
+		ensureProjectActionMapEntry(projectActionMap, role.Namespace)
+		applyGlobalReadOnlyRoleDefaults(role, globalReadVerbSet, systemActions)
 
 		// project admin does not have any bindings, it is special
 		if role.Name == ProjectAdminRole {
@@ -106,18 +95,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			return nil, err
 		}
 
-		for _, action := range actions {
-			switch role.Namespace {
-			case GeneralNamespace:
-				// inject system actions for global read-only role
-				modifySystemAction(systemActions, action)
-				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
-					globalReadVerbSet.Insert(action)
-				}
-			default:
-				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
-			}
-		}
+		applyRoleActions(role, actions, projectActionMap, globalReadVerbSet, systemActions, false)
 	}
 
 	groupRoleMap := make(map[uint]*types.Role)
@@ -135,22 +113,8 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	}
 
 	for _, role := range groupRoleMap {
-		if role.Namespace != GeneralNamespace {
-			if _, ok := projectActionMap[role.Namespace]; !ok {
-				projectActionMap[role.Namespace] = generateDefaultProjectActions()
-			}
-		}
-		// global read-only role has special permission
-		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
-			for _, verb := range readOnlyAction {
-				globalReadVerbSet.Insert(verb)
-			}
-
-			// 开启 SystemAction read权限 for global read-only role
-			for _, verb := range globalReadOnlySystemAction {
-				modifySystemAction(systemActions, verb)
-			}
-		}
+		ensureProjectActionMapEntry(projectActionMap, role.Namespace)
+		applyGlobalReadOnlyRoleDefaults(role, globalReadVerbSet, systemActions)
 
 		if role.Name == ProjectAdminRole {
 			projectActionMap[role.Namespace].IsProjectAdmin = true
@@ -164,21 +128,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			return nil, err
 		}
 
-		for _, action := range actions {
-			if role.Namespace == GeneralNamespace && role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
-				continue
-			}
-			switch role.Namespace {
-			case GeneralNamespace:
-				// inject system actions for global read-only role
-				modifySystemAction(systemActions, action)
-				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
-					globalReadVerbSet.Insert(action)
-				}
-			default:
-				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
-			}
-		}
+		applyRoleActions(role, actions, projectActionMap, globalReadVerbSet, systemActions, true)
 	}
 
 	//grant global read permission to all projects.
@@ -674,6 +624,59 @@ func generateAdminRoleResource() *AuthorizedResources {
 		IsSystemAdmin:   true,
 		ProjectAuthInfo: nil,
 		SystemActions:   nil,
+	}
+}
+
+// ensureProjectActionMapEntry lazily initializes project-scoped permission container for a namespace.
+func ensureProjectActionMapEntry(projectActionMap map[string]*ProjectActions, namespace string) {
+	if namespace == GeneralNamespace {
+		return
+	}
+	if _, ok := projectActionMap[namespace]; !ok {
+		projectActionMap[namespace] = generateDefaultProjectActions()
+	}
+}
+
+// applyGlobalReadOnlyRoleDefaults seeds default read verbs for global-read-only role.
+func applyGlobalReadOnlyRoleDefaults(role *types.Role, globalReadVerbSet sets.Set[string], systemActions *SystemActions) {
+	if role.Namespace != GeneralNamespace || !role.GlobalReadOnly {
+		return
+	}
+	for _, verb := range readOnlyAction {
+		globalReadVerbSet.Insert(verb)
+	}
+	for _, verb := range globalReadOnlySystemAction {
+		modifySystemAction(systemActions, verb)
+	}
+}
+
+// applyRoleActions applies role actions to either system actions or project actions.
+// When filterGlobalReadOnlyActions is true, non-read actions on global-read-only role are skipped.
+func applyRoleActions(
+	role *types.Role,
+	actions []string,
+	projectActionMap map[string]*ProjectActions,
+	globalReadVerbSet sets.Set[string],
+	systemActions *SystemActions,
+	filterGlobalReadOnlyActions bool,
+) {
+	for _, action := range actions {
+		if filterGlobalReadOnlyActions &&
+			role.Namespace == GeneralNamespace &&
+			role.GlobalReadOnly &&
+			!isGlobalReadOnlyRoleActionVerb(action) {
+			continue
+		}
+
+		switch role.Namespace {
+		case GeneralNamespace:
+			modifySystemAction(systemActions, action)
+			if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
+				globalReadVerbSet.Insert(action)
+			}
+		default:
+			modifyUserProjectAuth(projectActionMap[role.Namespace], action)
+		}
 	}
 }
 
