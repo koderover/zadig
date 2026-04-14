@@ -19,7 +19,10 @@ package service
 import (
 	"fmt"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -105,12 +108,42 @@ func lintApproval(approval *models.Approval) error {
 		if len(approval.LarkApproval.ApprovalNodes) == 0 {
 			return errors.New("num of approval-node is 0")
 		}
+
 		for i, node := range approval.LarkApproval.ApprovalNodes {
-			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
-				continue
-			}
-			if len(node.ApproveUsers) == 0 {
-				return errors.Errorf("num of approval-node %d approver is 0", i)
+			if node.ApproveNodeType == lark.ApproveNodeTypeUser {
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					continue
+				}
+				if len(node.ApproveUsers) == 0 {
+					return errors.Errorf("num of approval-node %d approver is 0", i)
+				}
+			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
+				if node.Type != lark.ApproveTypeStart && node.Type != lark.ApproveTypeEnd {
+					if len(node.ApproveGroups) == 0 {
+						return errors.Errorf("num of approval-node %d approver is 0", i)
+					}
+				}
+
+				users, err := convertLarkUserGroupToUser(approval.LarkApproval.ID, node.ApproveGroups)
+				if err != nil {
+					return errors.Errorf("failed to convert lark user group to user: %s", err)
+				}
+
+				approveUsers := make([]*commonmodels.LarkApprovalUser, 0)
+				for _, user := range users {
+					approveUsers = append(approveUsers, &commonmodels.LarkApprovalUser{
+						UserInfo: *user,
+					})
+				}
+				node.ApproveUsers = approveUsers
+
+				users, err = convertLarkUserGroupToUser(approval.LarkApproval.ID, node.CcGroups)
+				if err != nil {
+					return errors.Errorf("failed to convert lark user group to user: %s", err)
+				}
+				node.CcUsers = users
+
+				approval.LarkApproval.ApprovalNodes[i] = node
 			}
 			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
 				return errors.Errorf("approval-node %d type should be AND or OR", i)
@@ -149,4 +182,44 @@ func lintApproval(approval *models.Approval) error {
 	}
 
 	return nil
+}
+
+func convertLarkUserGroupToUser(larkApprovalID string, groups []*models.LarkApprovalGroup) ([]*lark.UserInfo, error) {
+	userSet := sets.NewString()
+	users := make([]*lark.UserInfo, 0)
+	for _, group := range groups {
+		userGroup, err := larkservice.GetLarkUserGroup(larkApprovalID, group.GroupID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get lark user group: %s", err)
+		}
+
+		if userGroup.MemberUserCount > 0 {
+			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "user", setting.LarkUserOpenID, "")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+			}
+
+			for _, user := range userInfos {
+				if !userSet.Has(user.ID) {
+					users = append(users, user)
+					userSet.Insert(user.ID)
+				}
+			}
+		}
+
+		if userGroup.MemberDepartmentCount > 0 {
+			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "department", setting.LarkDepartmentID, "")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+			}
+
+			for _, user := range userInfos {
+				if !userSet.Has(user.ID) {
+					users = append(users, user)
+					userSet.Insert(user.ID)
+				}
+			}
+		}
+	}
+	return users, nil
 }
