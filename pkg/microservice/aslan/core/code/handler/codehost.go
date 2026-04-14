@@ -60,7 +60,12 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 		return
 	}
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
+	namespaces, err := service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListNamespaces.AddDesc("Failed to connect to code host or invalid configuration. Please check your code host settings.")
+		return
+	}
+	ctx.Resp = namespaces
 }
 
 type CodeHostListProjectsArgs struct {
@@ -110,7 +115,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		args.Key,
 		ctx.Logger)
 	if err != nil {
-		ctx.RespErr = err
+		ctx.RespErr = e.ErrCodehostListProjects.AddDesc("Failed to fetch repositories. Please verify the code host connection and namespace permissions.")
 		return
 	}
 
@@ -168,7 +173,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.CodeHostListBranches(
+	branches, err := service.CodeHostListBranches(
 		chID,
 		repoName,
 		strings.Replace(repoOwner, "%2F", "/", -1),
@@ -176,6 +181,11 @@ func CodeHostGetBranchList(c *gin.Context) {
 		args.Page,
 		args.PerPage,
 		ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListBranches.AddDesc("Failed to fetch branches. Please check if the repository exists and you have access permissions.")
+		return
+	}
+	ctx.Resp = branches
 }
 
 // @Summary 获取代码仓库标签列表
@@ -217,7 +227,12 @@ func CodeHostGetTagList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
+	tags, err := service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListTags.AddDesc("Failed to fetch tags. Please check if the repository exists and you have access permissions.")
+		return
+	}
+	ctx.Resp = tags
 }
 
 func CodeHostGetPRList(c *gin.Context) {
@@ -250,7 +265,12 @@ func CodeHostGetPRList(c *gin.Context) {
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
+	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListPrs.AddDesc("Failed to fetch pull requests. Please verify repository access and permissions.")
+		return
+	}
+	ctx.Resp = prs
 }
 
 func CodeHostGetCommits(c *gin.Context) {
@@ -283,7 +303,12 @@ func CodeHostGetCommits(c *gin.Context) {
 	targetBr := c.Query("branchName")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.CodeHostListCommits(chID, repoName, strings.Replace(repoNamespace, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
+	commits, err := service.CodeHostListCommits(chID, repoName, strings.Replace(repoNamespace, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListCommits.AddDesc("Failed to fetch commits. Please check if the branch exists and you have access permissions.")
+		return
+	}
+	ctx.Resp = commits
 }
 
 func ListRepoInfos(c *gin.Context) {
@@ -306,7 +331,12 @@ func ListRepoInfos(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListRepoInfos(args.Infos, page, perPage, ctx.Logger)
+	repoInfos, err := service.ListRepoInfos(args.Infos, page, perPage, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListProjects.AddDesc(err.Error())
+		return
+	}
+	ctx.Resp = repoInfos
 }
 
 type MatchBranchesListRequest struct {
@@ -343,7 +373,7 @@ func MatchRegularList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.MatchRegularList(
+	branches, err := service.MatchRegularList(
 		chID,
 		req.RepoName,
 		strings.Replace(req.RepoOwner, "%2F", "/", -1),
@@ -352,4 +382,9 @@ func MatchRegularList(c *gin.Context) {
 		perPage,
 		req.Regular,
 		ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCodehostListBranches.AddDesc(err.Error())
+		return
+	}
+	ctx.Resp = branches
 }
