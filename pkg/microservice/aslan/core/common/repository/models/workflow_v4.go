@@ -1754,3 +1754,10 @@ type CustomField struct {
 	DeployEnv              map[string]int `bson:"deploy_env,omitempty"                json:"deploy_env,omitempty"`
 	TestResult             map[string]int `bson:"test_result,omitempty"               json:"test_result,omitempty"`
 }
+
+type AICheckJobSpec struct {
+	Timeout            int64   `bson:"timeout"               json:"timeout"                yaml:"timeout"`
+	CheckContent       string  `bson:"check_content"         json:"check_content"          yaml:"check_content"`
+	ManualConfirm      bool    `bson:"manual_confirm"        json:"manual_confirm"         yaml:"manual_confirm"`
+	ManualConfirmUsers []*User `bson:"manual_confirm_users"  json:"manual_confirm_users"   yaml:"manual_confirm_users"`
+}

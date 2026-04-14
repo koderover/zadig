@@ -680,6 +680,27 @@ type JobTaskApprovalSpec struct {
 	ApprovalMessage  string              `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
 }
 
+type JobTaskAICheckSpec struct {
+	Timeout            int64            `bson:"timeout"               json:"timeout"                yaml:"timeout"`
+	CheckContent       string           `bson:"check_content"         json:"check_content"          yaml:"check_content"`
+	ManualConfirm      bool             `bson:"manual_confirm"        json:"manual_confirm"         yaml:"manual_confirm"`
+	ManualConfirmUsers []*User          `bson:"manual_confirm_users"  json:"manual_confirm_users"   yaml:"manual_confirm_users"`
+	CheckResult        *AICheckResult   `bson:"check_result"          json:"check_result"           yaml:"check_result"`
+}
+
+type AICheckResult struct {
+	OverallStatus string          `bson:"overall_status" json:"overall_status" yaml:"overall_status"`
+	Summary       string          `bson:"summary"        json:"summary"        yaml:"summary"`
+	Items         []*AICheckItem  `bson:"items"          json:"items"          yaml:"items"`
+}
+
+type AICheckItem struct {
+	Name    string `bson:"name"    json:"name"    yaml:"name"`
+	Status  string `bson:"status"  json:"status"  yaml:"status"`
+	Summary string `bson:"summary" json:"summary" yaml:"summary"`
+	Detail  string `bson:"detail"  json:"detail"  yaml:"detail"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`

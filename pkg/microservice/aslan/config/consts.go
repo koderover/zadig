@@ -261,6 +261,7 @@ const (
 	JobNotification         JobType = "notification"
 	JobSAEDeploy            JobType = "sae-deploy"
 	JobApisix               JobType = "apisix"
+	JobAICheck              JobType = "ai-check"
 )
 
 const (
