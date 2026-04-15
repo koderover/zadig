@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	loginsvc "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -73,6 +74,12 @@ func ResetUserMFAByAdmin(c *gin.Context) {
 	}
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.RespErr = e.ErrForbidden
+		return
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
 		return
 	}
 
@@ -133,6 +140,12 @@ func EnableUserMFA(c *gin.Context) {
 	}
 	if ctx.UserID != uid {
 		ctx.RespErr = e.ErrForbidden
+		return
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
 		return
 	}
 
