@@ -319,7 +319,14 @@ func GenerateAPIToken(uid string, logger *zap.SugaredLogger) (string, error) {
 		return "", e.ErrForbidden
 	}
 
-	token, err := generatePermanentAPIToken(user)
+	userMFA, err := orm.GetUserMFA(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("GenerateAPIToken GetUserMFA:%s error, error msg:%s", uid, err.Error())
+		return "", err
+	}
+	mfaEnabled := userMFA != nil && userMFA.Enabled
+
+	token, err := generatePermanentAPIToken(user, mfaEnabled)
 	if err != nil {
 		logger.Errorf("GenerateAPIToken create token for user:%s error, error msg:%s", user.Account, err.Error())
 		return "", err
@@ -368,12 +375,13 @@ func userCanUseAPIToken(user *models.User) (bool, error) {
 	return isSystemAdmin || user.APITokenEnabled, nil
 }
 
-func generatePermanentAPIToken(user *models.User) (string, error) {
+func generatePermanentAPIToken(user *models.User, mfaVerified bool) (string, error) {
 	return login.CreateToken(&login.Claims{
 		Name:              user.Name,
 		UID:               user.UID,
 		Email:             user.Email,
 		PreferredUsername: user.Account,
+		MFAVerified:       mfaVerified,
 		StandardClaims: jwt.StandardClaims{
 			Audience: setting.ProductName,
 			// 24*365*100=876000
