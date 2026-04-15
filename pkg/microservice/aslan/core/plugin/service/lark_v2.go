@@ -456,7 +456,9 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 			return fmt.Errorf("failed to get input configs: %w", err)
 		}
 		for _, inputConfig := range inputConfigs {
-			inputConfig.Branch = stageConfig.TargetBranch
+			if stageConfig.TargetBranch != "" {
+				inputConfig.Branch = stageConfig.TargetBranch
+			}
 		}
 	} else {
 		binds, err := mongodb.NewLarkPluginReleaseWorkItemBindColl().ListReleaseBindItems(workspaceID, workItemID)
