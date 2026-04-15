@@ -482,52 +482,56 @@ func EnableUserMFA(uid string, args *MFAEnrollArgs, logger *zap.SugaredLogger) (
 	return EnrollMFA(args, logger)
 }
 
-func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger) error {
+type MFADisableResponse struct {
+	Token string `json:"token"`
+}
+
+func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger) (*MFADisableResponse, error) {
 	if uid == "" {
-		return fmt.Errorf("uid is empty")
+		return nil, fmt.Errorf("uid is empty")
 	}
 	if args == nil {
-		return fmt.Errorf("disable mfa args are required")
+		return nil, fmt.Errorf("disable mfa args are required")
 	}
 	if args.OTPCode == "" && args.RecoveryCode == "" {
-		return fmt.Errorf("otp code or recovery code is required")
+		return nil, fmt.Errorf("otp code or recovery code is required")
 	}
 
 	settings, err := common.GetSystemSecuritySettings(logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if settings.MFAEnabled {
-		return fmt.Errorf("mfa is enforced by administrator")
+		return nil, fmt.Errorf("mfa is enforced by administrator")
 	}
 
 	userMFA, err := orm.GetUserMFA(uid, repository.DB)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if userMFA == nil || !userMFA.Enabled {
-		return fmt.Errorf("mfa not enabled")
+		return nil, fmt.Errorf("mfa not enabled")
 	}
 
 	valid := false
 	if args.OTPCode != "" {
 		secret, err := zadigcrypto.AesDecrypt(userMFA.SecretCipher)
 		if err != nil {
-			return fmt.Errorf("failed to decode mfa secret")
+			return nil, fmt.Errorf("failed to decode mfa secret")
 		}
 		valid = validateTOTPCode(secret, args.OTPCode)
 	} else {
 		valid, err = consumeRecoveryCode(userMFA, args.RecoveryCode, logger)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if !valid {
-		return fmt.Errorf("invalid mfa verification code")
+		return nil, fmt.Errorf("invalid mfa verification code")
 	}
 
 	if err := orm.DeleteUserMFA(uid, repository.DB); err != nil {
-		return err
+		return nil, err
 	}
 	if cacheErr := setUserMFAEnabledCache(uid, false); cacheErr != nil && logger != nil {
 		logger.Warnf("failed to sync user mfa cache during disable, uid: %s, err: %v", uid, cacheErr)
@@ -537,7 +541,13 @@ func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger)
 			logger.Warnf("failed to clear user token cache during mfa disable, uid: %s, err: %v", uid, err)
 		}
 	}
-	return nil
+
+	user, err := issueLoginTokenByUID(uid, false, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MFADisableResponse{Token: user.Token}, nil
 }
 
 func RegenerateRecoveryCodes(uid string, args *MFARecoveryCodesArgs, logger *zap.SugaredLogger) (*MFARecoveryCodesResp, error) {
