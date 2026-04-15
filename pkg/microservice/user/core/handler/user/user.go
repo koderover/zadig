@@ -341,10 +341,10 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	for _, userInfo := range resp.Users {
 		briefUserList = append(briefUserList, &types.UserBriefInfo{
 			LastLoginTime: userInfo.LastLoginTime,
-			UID:          userInfo.Uid,
-			Account:      userInfo.Account,
-			IdentityType: userInfo.IdentityType,
-			Name:         userInfo.Name,
+			UID:           userInfo.Uid,
+			Account:       userInfo.Account,
+			IdentityType:  userInfo.IdentityType,
+			Name:          userInfo.Name,
 		})
 	}
 
@@ -401,10 +401,10 @@ func ListUsersBrief(c *gin.Context) {
 	for _, userInfo := range resp.Users {
 		briefUserList = append(briefUserList, &types.UserBriefInfo{
 			LastLoginTime: userInfo.LastLoginTime,
-			UID:          userInfo.Uid,
-			Account:      userInfo.Account,
-			IdentityType: userInfo.IdentityType,
-			Name:         userInfo.Name,
+			UID:           userInfo.Uid,
+			Account:       userInfo.Account,
+			IdentityType:  userInfo.IdentityType,
+			Name:          userInfo.Name,
 		})
 	}
 

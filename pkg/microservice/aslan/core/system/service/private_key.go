@@ -42,6 +42,10 @@ import (
 func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
 	var resp []*commonmodels.PrivateKey
 	var err error
+	latestAgentVersion, versionErr := config.GetZadigAgentVersion()
+	if versionErr != nil {
+		log.Warnf("failed to get current zadig-agent version: %v", versionErr)
+	}
 	privateKeys, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
 	if err != nil {
 		log.Errorf("PrivateKey.List error: %s", err)
@@ -70,8 +74,22 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool,
 		if err != nil {
 			return nil, err
 		}
+		if key.Agent != nil && key.ScheduleWorkflow {
+			key.Agent.ZadigVersion = latestAgentVersion
+			key.Agent.NeedUpdate = isAgentVersionOutdated(key.Agent.AgentVersion, latestAgentVersion)
+		}
 	}
 	return resp, nil
+}
+
+// check agent version
+func isAgentVersionOutdated(currentVersion, latestVersion string) bool {
+	normalizedLatestVersion := strings.TrimPrefix(latestVersion, "v")
+	if normalizedLatestVersion == "" {
+		return false
+	}
+	normalizedCurrentVersion := strings.TrimPrefix(currentVersion, "v")
+	return normalizedCurrentVersion != normalizedLatestVersion
 }
 
 func ListPrivateKeysInternal(log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {

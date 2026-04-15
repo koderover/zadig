@@ -58,6 +58,8 @@ const (
 	ENVLarkPluginID              = "LARK_PLUGIN_ID"
 	ENVLarkPluginSecret          = "LARK_PLUGIN_SECRET"
 	ENVLarkPluginAccessTokenType = "LARK_PLUGIN_ACCESS_TOKEN_TYPE"
+	ZadigAgentVersion            = "ZADIG_AGENT_VERSION"
+	ZadigAgentRepoURL            = "ZADIG_AGENT_REPO_URL"
 
 	ENVBuildBaseImage = "BUILD_BASE_IMAGE"
 

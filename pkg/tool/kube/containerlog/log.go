@@ -47,6 +47,7 @@ func GetContainerLogs(namespace, podName, containerName string, follow bool, tai
 		if len(pod.Status.ContainerStatuses) == 0 {
 			return fmt.Errorf("length of container statuses is 0 for pod %s in ns %s", podName, namespace)
 		}
+
 		if pod.Status.ContainerStatuses[0].State.Terminated == nil {
 			return fmt.Errorf("failed to get pod status' terminated message")
 		}

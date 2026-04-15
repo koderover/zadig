@@ -22,10 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
-
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/spf13/viper"
 )
 
 func DefaultIngressClass() string {
@@ -245,4 +244,20 @@ func DindImage() string {
 
 func Features() string {
 	return viper.GetString(setting.FeatureFlag)
+}
+
+func GetZadigAgentVersion() (string, error) {
+	version := viper.GetString(setting.ZadigAgentVersion)
+	if version != "" {
+		return strings.TrimPrefix(version, "v"), nil
+	}
+	return "", fmt.Errorf("zadig-agent version not found")
+}
+
+func GetRepoURL() (string, error) {
+	url := viper.GetString(setting.ZadigAgentRepoURL)
+	if url != "" {
+		return url, nil
+	}
+	return "", fmt.Errorf("zadig-agent repo URL not found")
 }

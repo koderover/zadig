@@ -99,7 +99,14 @@ func (c *WorkflowV4JiraHookColl) Create(ctx *internalhandler.Context, obj *model
 }
 
 func (c *WorkflowV4JiraHookColl) Exists(ctx *internalhandler.Context, workflowName, hookName string) (bool, error) {
-	return singleResultExists(c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}))
+	if err := c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}); err != nil {
+		if err.Err() == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		return false, err.Err()
+	}
+
+	return true, nil
 }
 
 func (c *WorkflowV4JiraHookColl) List(ctx *internalhandler.Context, workflowName string) ([]*models.WorkflowV4JiraHook, error) {

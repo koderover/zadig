@@ -99,7 +99,14 @@ func (c *WorkflowV4MeegoHookColl) Create(ctx *internalhandler.Context, obj *mode
 }
 
 func (c *WorkflowV4MeegoHookColl) Exists(ctx *internalhandler.Context, workflowName, hookName string) (bool, error) {
-	return singleResultExists(c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}))
+	if err := c.Collection.FindOne(ctx, bson.M{"workflow_name": workflowName, "name": hookName}); err != nil {
+		if err.Err() == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		return false, err.Err()
+	}
+
+	return true, nil
 }
 
 func (c *WorkflowV4MeegoHookColl) List(ctx *internalhandler.Context, workflowName string) ([]*models.WorkflowV4MeegoHook, error) {
