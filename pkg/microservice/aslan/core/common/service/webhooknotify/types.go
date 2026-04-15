@@ -657,3 +657,35 @@ type OpenAPIWorkflowDistributeTarget struct {
 	// 如果 UpdateTag 为 false，则使用源标签作为目标标签
 	UpdateTag bool `json:"update_tag"`
 }
+
+// TapdJobSpec
+
+type OpenAPIWorkflowTapdJobSpec struct {
+	// Tapd ID
+	TapdID string `json:"tapd_id"`
+	// 类型
+	Type string `json:"type"`
+	// 项目 ID
+	ProjectID string `json:"project_id"`
+	// 项目名称
+	ProjectName string `json:"project_name"`
+	// 源状态
+	SourceStatus config.TapdIterationStatus `json:"source_status"`
+	// 目标状态
+	Status config.TapdIterationStatus `json:"status"`
+	// 迭代列表
+	Iterations []*OpenAPIWorkflowTapdIteration `json:"iterations"`
+}
+
+type OpenAPIWorkflowTapdIteration struct {
+	// 迭代 ID
+	IterationID string `json:"iteration_id"`
+	// 迭代名称
+	IterationName string `json:"iteration_name"`
+	// 开始日期
+	StartDate string `json:"start_date"`
+	// 结束日期
+	EndDate string `json:"end_date"`
+	// 错误信息
+	Error string `json:"error"`
+}

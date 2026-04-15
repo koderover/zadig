@@ -1483,10 +1483,11 @@ type ReleasePlanCallBackBody struct {
 	HookEvent     models.ReleasePlanHookEvent           `json:"hook_event"`
 	Result        setting.ReleasePlanCallBackResultType `json:"result"`
 	FailedReason  string                                `json:"failed_reason"`
+	Description   string                                `json:"description"`
 }
 
 func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBody) error {
-	log.Infof("release plan hook callback, id: %s, instance code: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.InstanceCode, callback.HookEvent, callback.Result, callback.FailedReason)
+	log.Infof("release plan hook callback, id: %s, instance code: %s, hook event: %s, result: %s, failed reason: %s, description: %s", callback.ReleasePlanID, callback.InstanceCode, callback.HookEvent, callback.Result, callback.FailedReason, callback.Description)
 
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
@@ -1618,6 +1619,14 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 			releasePlan.WaitForAllDoneExternalCheckTime = time.Now().Unix()
 		}
 		releasePlan.ExternalCheckFailedReason = callback.FailedReason
+
+		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
+			fmtErr := fmt.Errorf("failed update release plan, id: %s, err: %v", releasePlan.ID.Hex(), err)
+			log.Error(fmtErr)
+			return fmtErr
+		}
+	} else if callback.Result == setting.ReleasePlanCallBackResultTypeExecuting {
+		releasePlan.CallbackDescription = callback.Description
 
 		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
 			fmtErr := fmt.Errorf("failed update release plan, id: %s, err: %v", releasePlan.ID.Hex(), err)
@@ -2134,6 +2143,35 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 					NamespaceID: spec.NamespaceID,
 					Source:      spec.Source,
 					NacosDatas:  spec.NacosDatas,
+				}
+			case config.JobTapd:
+				spec := new(commonmodels.TapdJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to nacos job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				iterations := []*webhooknotify.OpenAPIWorkflowTapdIteration{}
+				for _, iteration := range spec.Iterations {
+					iterations = append(iterations, &webhooknotify.OpenAPIWorkflowTapdIteration{
+						IterationID:   iteration.IterationID,
+						IterationName: iteration.IterationName,
+						StartDate:     iteration.StartDate,
+						EndDate:       iteration.EndDate,
+						Error:         iteration.Error,
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowTapdJobSpec{
+					TapdID:       spec.TapdID,
+					Type:         spec.Type,
+					ProjectID:    spec.ProjectID,
+					ProjectName:  spec.ProjectName,
+					SourceStatus: spec.SourceStatus,
+					Status:       spec.Status,
+					Iterations:   iterations,
 				}
 			case config.JobZadigDistributeImage:
 				spec := new(commonmodels.ZadigDistributeImageJobSpec)
