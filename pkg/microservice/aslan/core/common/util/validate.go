@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -57,7 +57,7 @@ func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) 
 }
 
 func CheckZadigProfessionalLicense() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
@@ -68,7 +68,7 @@ func CheckZadigProfessionalLicense() error {
 }
 
 func CheckZadigEnterpriseLicense() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
@@ -78,25 +78,25 @@ func CheckZadigEnterpriseLicense() error {
 	return nil
 }
 
-func ValidateZadigProfessionalLicense(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
-	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+func ValidateZadigProfessionalLicense(licenseStatus *plutusenterprise.ZadigXLicenseStatus) bool {
+	if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 		return false
 	}
 	return true
 }
 
-func ValidateZadigEnterpriseLicense(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+func ValidateZadigEnterpriseLicense(licenseStatus *plutusenterprise.ZadigXLicenseStatus) bool {
+	if !(licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise &&
+		licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 		return false
 	}
 	return true
 }
 
 func CheckZadigLicenseFeatureSae() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
@@ -104,7 +104,7 @@ func CheckZadigLicenseFeatureSae() error {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	for _, feature := range licenseStatus.Features {
-		if feature == plutusvendor.ZadigLicenseFeatureSae {
+		if feature == plutusenterprise.ZadigLicenseFeatureSae {
 			return nil
 		}
 	}
@@ -112,7 +112,7 @@ func CheckZadigLicenseFeatureSae() error {
 }
 
 func CheckZadigLicenseFeatureDelivery() error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
@@ -120,7 +120,7 @@ func CheckZadigLicenseFeatureDelivery() error {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	for _, feature := range licenseStatus.Features {
-		if feature == plutusvendor.ZadigLicenseFeatureDelivery {
+		if feature == plutusenterprise.ZadigLicenseFeatureDelivery {
 			return nil
 		}
 	}

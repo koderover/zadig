@@ -83,11 +83,11 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
-	if realPath == "/api/plutus/license" && (method == http.MethodPost || method == http.MethodGet) {
+	if realPath == "/api/plutus-enterprise/license" && (method == http.MethodPost || method == http.MethodGet) {
 		return true
 	}
 
-	if realPath == "/api/plutus/organization" && method == http.MethodGet {
+	if realPath == "/api/plutus-enterprise/organization" && method == http.MethodGet {
 		return true
 	}
 

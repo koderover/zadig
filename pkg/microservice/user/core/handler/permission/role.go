@@ -28,20 +28,20 @@ import (
 	userhandler "github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func checkLicense(actions []string) error {
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 		actionSet := sets.NewString(actions...)
 		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
 			actionSet.Has(permission.VerbEditReleasePlanMetadata) || actionSet.Has(permission.VerbEditReleasePlanApproval) ||
@@ -240,14 +240,14 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 
-	//licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	//licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	//if err != nil {
 	//	ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	//	return
 	//}
-	//if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-	//	licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-	//	licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	//if !((licenseStatus.Type == plutusenterprise.ZadigSystemTypeProfessional ||
+	//	licenseStatus.Type == plutusenterprise.ZadigSystemTypeEnterprise) &&
+	//	licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal) {
 	//	actionSet := sets.NewString(args.Actions...)
 	//	if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
 	//		actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||

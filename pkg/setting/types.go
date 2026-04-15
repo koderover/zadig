@@ -139,6 +139,7 @@ const (
 	Vendor
 	User
 	TimeNlp
+	Enterprise
 )
 
 type ServiceInfo struct {
@@ -202,5 +203,9 @@ var Services = map[int]*ServiceInfo{
 	TimeNlp: {
 		Name: "time-nlp",
 		Port: 8000,
+	},
+	Enterprise: {
+		Name: "plutus-enterprise",
+		Port: 28000,
 	},
 }

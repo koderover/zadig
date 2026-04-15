@@ -32,7 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
@@ -68,13 +68,13 @@ type CheckSignatureRes struct {
 }
 
 func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
-	vendorClient := plutusvendor.New()
-	err := vendorClient.Health()
+	enterpriseClient := plutusenterprise.New()
+	err := enterpriseClient.Health()
 	if err != nil {
 		return err
 	}
 
-	status, checkErr := vendorClient.CheckZadigXLicenseStatus()
+	status, checkErr := enterpriseClient.CheckZadigXLicenseStatus()
 	if checkErr != nil {
 		return checkErr
 	}
@@ -84,7 +84,7 @@ func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
 		return err
 	}
 
-	res, checkErr := vendorClient.CheckSignature(userNum)
+	res, checkErr := enterpriseClient.CheckSignature(userNum)
 	if checkErr != nil {
 		return checkErr
 	}

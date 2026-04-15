@@ -66,7 +66,7 @@ func ProcessLicense() gin.HandlerFunc {
 		//	return
 		//}
 		//// for the rest of the apis we need to check if the license works
-		//client := plutusvendor.New()
+		//client := plutusenterprise.New()
 		//resp, err := client.CheckZadigXLicenseStatus()
 		//if err != nil {
 		//	// if there are some unknown errors we return a
