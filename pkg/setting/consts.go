@@ -1016,8 +1016,9 @@ const (
 type ReleasePlanCallBackResultType string
 
 const (
-	ReleasePlanCallBackResultTypeSuccess ReleasePlanCallBackResultType = "success"
-	ReleasePlanCallBackResultTypeFailed  ReleasePlanCallBackResultType = "failed"
+	ReleasePlanCallBackResultTypeSuccess   ReleasePlanCallBackResultType = "success"
+	ReleasePlanCallBackResultTypeExecuting ReleasePlanCallBackResultType = "executing"
+	ReleasePlanCallBackResultTypeFailed    ReleasePlanCallBackResultType = "failed"
 )
 
 type ListWorkflowV4InGlobalSortBy string
