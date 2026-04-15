@@ -408,6 +408,7 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 			return nil, fmt.Errorf("zadig server vm %s agent is nil in db", args.Token)
 		}
 		vm.Agent.AgentVersion = args.Parameters.AgentVersion
+		updateAgentVersionStatus(vm.Agent, logger)
 	}
 	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
 	if err != nil {
@@ -483,6 +484,10 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 		return nil, fmt.Errorf("zadig server vm %s agent is nil in db", args.Token)
 	}
 	vm.Agent.LastHeartbeatTime = time.Now().Unix()
+	if args.Parameters != nil && args.Parameters.AgentVersion != "" {
+		vm.Agent.AgentVersion = args.Parameters.AgentVersion
+	}
+	updateAgentVersionStatus(vm.Agent, logger)
 
 	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
 	if err != nil {
@@ -492,8 +497,9 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 
 	if vm.Agent.NeedUpdate {
 		resp.NeedUpdateAgentVersion = true
-		resp.AgentVersion = vm.Agent.AgentVersion
+		resp.AgentVersion = vm.Agent.ZadigVersion
 	}
+	resp.ZadigVersion = vm.Agent.ZadigVersion
 
 	resp.ScheduleWorkflow = vm.ScheduleWorkflow
 	if vm.ScheduleWorkflow && vm.Agent.Workspace != "" {
@@ -504,6 +510,24 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	}
 
 	return resp, nil
+}
+
+func updateAgentVersionStatus(agent *commonmodels.VMAgent, logger *zap.SugaredLogger) {
+	latestVersion, err := config.GetZadigAgentVersion()
+	if err != nil {
+		logger.Warnf("failed to get zadig-agent version while handling heartbeat: %v", err)
+		return
+	}
+	agent.ZadigVersion = latestVersion
+
+	normalizedLatestVersion := strings.TrimPrefix(latestVersion, "v")
+	if normalizedLatestVersion == "" {
+		agent.NeedUpdate = false
+		return
+	}
+
+	normalizedCurrentVersion := strings.TrimPrefix(agent.AgentVersion, "v")
+	agent.NeedUpdate = normalizedCurrentVersion != normalizedLatestVersion
 }
 
 type VMJobGetterMap struct {

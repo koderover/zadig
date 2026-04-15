@@ -142,6 +142,7 @@ type HeartbeatParameters struct {
 	DiskSpace     uint64 `json:"disk_space"`
 	FreeDiskSpace uint64 `json:"free_disk_space"`
 	Hostname      string `json:"hostname"`
+	AgentVersion  string `json:"agent_version"`
 }
 
 type HeartbeatServerRequest struct {

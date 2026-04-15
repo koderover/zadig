@@ -116,6 +116,7 @@ func Heartbeat(agentCtl *agent.AgentController, errChan chan error, successChan 
 	if err != nil {
 		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
 	}
+	params.AgentVersion = agentconfig.GetAgentVersion()
 
 	config := &network.AgentConfig{
 		Token: agentconfig.GetAgentToken(),
