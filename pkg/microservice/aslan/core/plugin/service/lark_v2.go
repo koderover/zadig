@@ -572,12 +572,11 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 
 					repos := make([]*types.Repository, len(buildInfo.Repos))
 					for i, repo := range buildInfo.Repos {
-						repoCopy := *repo
 						if i == 0 {
-							repoCopy.Branch = sc.Branch
-							repoCopy.PRs = sc.PRs
+							repo.Branch = sc.Branch
+							repo.PRs = sc.PRs
 						}
-						repos[i] = &repoCopy
+						repos[i] = repo
 					}
 
 					serviceAndBuilds = append(serviceAndBuilds, &commonmodels.ServiceAndBuild{
