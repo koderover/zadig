@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/larkplugin"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -573,6 +574,8 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 					repos := make([]*types.Repository, len(buildInfo.Repos))
 					for i, repo := range buildInfo.Repos {
 						if i == 0 {
+							log.Infof("update repo branch %s for %s/%s", sc.Branch, opt.ServiceName, opt.ServiceModule)
+							log.Infof("update repo prs %+v for %s/%s", sc.PRs, opt.ServiceName, opt.ServiceModule)
 							repo.Branch = sc.Branch
 							repo.PRs = sc.PRs
 						}
