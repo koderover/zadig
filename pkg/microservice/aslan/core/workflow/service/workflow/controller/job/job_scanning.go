@@ -374,7 +374,7 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 						IsCredential: false,
 					})
 				}
-				
+
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
 					Value:        "",
@@ -610,6 +610,9 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 				jobTaskSpec.Properties.CacheEnable = false
 			}
 		}
+	}
+	if j.workflow.IgnoreCache {
+		jobTaskSpec.Properties.CacheEnable = false
 	}
 
 	if len(scanning.Repos) > 0 {

@@ -41,6 +41,7 @@ type WorkflowTask struct {
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
 	Reverted            bool                          `bson:"reverted"                  json:"reverted"`
+	IgnoreCache         bool                          `bson:"ignore_cache"              json:"ignore_cache"`
 	Remark              string                        `bson:"remark,omitempty"          json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorAccount  string                        `bson:"task_creator_account"      json:"task_creator_account,omitempty"`
@@ -234,7 +235,7 @@ type JobTaskDeploySpec struct {
 	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
 	// overrideResource is used to do a full yaml override instead of a 2-way merge patching for all the resources
-	OverrideResource   bool                            `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
+	OverrideResource bool `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
@@ -266,7 +267,7 @@ type JobTaskDeployRevertSpec struct {
 	OverrideKVs             string       `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	Revision                int64        `bson:"revision"                         json:"revision"                            yaml:"revision"`
 	RevisionCreateTime      int64        `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
-	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"` 
+	OverrideResource        bool         `bson:"override_resource"                json:"override_resource"                   yaml:"override_resource"`
 }
 
 type DeployServiceModule struct {
