@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
@@ -72,6 +73,15 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 		ctx.RespErr = errors.New("token expiration time cannot be greater than 8640 hour")
 		return
 	}
+
+	if args.MFAEnabled {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
 	ctx.RespErr = service.CreateOrUpdateSecuritySettings(args, ctx.Logger)
 }
 
