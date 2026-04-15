@@ -466,6 +466,9 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				}
 			}
 		}
+		if j.workflow.IgnoreCache {
+			jobTaskSpec.Properties.CacheEnable = false
+		}
 
 		// for other job refer current latest image.
 		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")

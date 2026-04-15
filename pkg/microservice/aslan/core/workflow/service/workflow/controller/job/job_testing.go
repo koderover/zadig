@@ -708,6 +708,9 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			}
 		}
 	}
+	if j.workflow.IgnoreCache {
+		jobTaskSpec.Properties.CacheEnable = false
+	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
