@@ -177,7 +177,7 @@ func DisableUserMFA(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	ctx.RespErr = loginsvc.DisableUserMFA(uid, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = loginsvc.DisableUserMFA(uid, args, ctx.Logger)
 }
 
 // @Summary 重新生成恢复码
