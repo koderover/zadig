@@ -116,10 +116,18 @@ func lintApproval(approval *models.Approval) error {
 					return errors.Errorf("num of approval-node %d approver is 0", i)
 				}
 			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
-				if node.Type != lark.ApproveTypeStart && node.Type != lark.ApproveTypeEnd {
-					if len(node.ApproveGroups) == 0 {
-						return errors.Errorf("num of approval-node %d approver is 0", i)
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					users, err := util.ConvertLarkUserGroupToUser(approval.LarkApproval.ID, node.CcGroups)
+					if err != nil {
+						return errors.Errorf("failed to convert lark user group to user: %s", err)
 					}
+					node.CcUsers = users
+					approval.LarkApproval.ApprovalNodes[i] = node
+					continue
+				}
+
+				if len(node.ApproveGroups) == 0 {
+					return errors.Errorf("num of approval-node %d approver is 0", i)
 				}
 
 				users, err := util.ConvertLarkUserGroupToUser(approval.LarkApproval.ID, node.ApproveGroups)
@@ -134,12 +142,6 @@ func lintApproval(approval *models.Approval) error {
 					})
 				}
 				node.ApproveUsers = approveUsers
-
-				users, err = util.ConvertLarkUserGroupToUser(approval.LarkApproval.ID, node.CcGroups)
-				if err != nil {
-					return errors.Errorf("failed to convert lark user group to user: %s", err)
-				}
-				node.CcUsers = users
 
 				approval.LarkApproval.ApprovalNodes[i] = node
 			}

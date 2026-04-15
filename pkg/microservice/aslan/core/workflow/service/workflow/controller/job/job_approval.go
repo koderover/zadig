@@ -287,10 +287,19 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
 				}
 			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
-				if node.Type != lark.ApproveTypeStart && node.Type != lark.ApproveTypeEnd {
-					if len(node.ApproveGroups) == 0 {
-						return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					users, err := util.ConvertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.CcGroups)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
 					}
+					node.CcUsers = users
+					jobSpec.LarkApproval.ApprovalNodes[i] = node
+					continue
+				}
+
+				if len(node.ApproveGroups) == 0 {
+					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
 				}
 
 				users, err := util.ConvertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.ApproveGroups)
@@ -305,12 +314,6 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 					})
 				}
 				node.ApproveUsers = approveUsers
-
-				users, err = util.ConvertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.CcGroups)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
-				}
-				node.CcUsers = users
 
 				jobSpec.LarkApproval.ApprovalNodes[i] = node
 			}
