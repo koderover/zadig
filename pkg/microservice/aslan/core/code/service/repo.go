@@ -21,12 +21,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/open"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 )
 
@@ -63,20 +63,37 @@ func (repo *GitRepoInfo) GetNamespace() string {
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var wg sync.WaitGroup
-	var errList *multierror.Error
 
 	for _, info := range infos {
 		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
 		if err != nil {
 			log.Errorf("get code host info err:%s", err)
-			return nil, err
+			info.ErrorMsg = util.FormatRepoInfoError(err)
+			info.Branches = []*client.Branch{}
+			info.Tags = []*client.Tag{}
+			info.PRs = []*client.PullRequest{}
+			continue
 		}
 		if ch.Type == types.ProviderPerforce {
 			continue
 		}
 		codehostClient, err := open.OpenClient(ch, log)
 		if err != nil {
-			return nil, err
+			log.Errorf("open client err:%s", err)
+			info.ErrorMsg = util.FormatRepoInfoError(err)
+			info.Branches = []*client.Branch{}
+			info.Tags = []*client.Tag{}
+			info.PRs = []*client.PullRequest{}
+			continue
+		}
+		var setErrorOnce sync.Once
+		setRepoInfoError := func(err error) {
+			if err == nil {
+				return
+			}
+			setErrorOnce.Do(func() {
+				info.ErrorMsg = util.FormatRepoInfoError(err)
+			})
 		}
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
@@ -88,18 +105,19 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 				return
 			}
 
-			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
+			prs, err := codehostClient.ListPrs(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
 				Page:        page,
 				PerPage:     perPage,
 			})
 			if err != nil {
-				errList = multierror.Append(errList, err)
-				info.ErrorMsg = err.Error()
+				log.Errorf("list pr err:%s", err)
+				setRepoInfoError(err)
 				info.PRs = []*client.PullRequest{}
 				return
 			}
+			info.PRs = prs
 		}(info)
 
 		wg.Add(1)
@@ -108,7 +126,7 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 				wg.Done()
 			}()
 			projectName := info.Repo
-			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
+			branches, err := codehostClient.ListBranches(client.ListOpt{
 				Namespace:     strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName:   projectName,
 				Key:           info.Key,
@@ -117,11 +135,12 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 				MatchBranches: true,
 			})
 			if err != nil {
-				errList = multierror.Append(errList, err)
-				info.ErrorMsg = err.Error()
+				log.Errorf("list branch err:%s", err)
+				setRepoInfoError(err)
 				info.Branches = []*client.Branch{}
 				return
 			}
+			info.Branches = branches
 
 			if info.DefaultBranch != "" {
 				foundDefaultBranch := false
@@ -139,8 +158,8 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 						Key:         info.DefaultBranch,
 					})
 					if err != nil {
-						errList = multierror.Append(errList, err)
-						info.ErrorMsg = err.Error()
+						log.Errorf("list default branch err:%s", err)
+						setRepoInfoError(err)
 						info.Branches = []*client.Branch{}
 						return
 					}
@@ -162,7 +181,7 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 			}()
 			projectName := info.Repo
 
-			info.Tags, err = codehostClient.ListTags(client.ListOpt{
+			tags, err := codehostClient.ListTags(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 				Key:         info.Key,
@@ -170,11 +189,12 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 				PerPage:     perPage,
 			})
 			if err != nil {
-				errList = multierror.Append(errList, err)
-				info.ErrorMsg = err.Error()
+				log.Errorf("list tag err:%s", err)
+				setRepoInfoError(err)
 				info.Tags = []*client.Tag{}
 				return
 			}
+			info.Tags = tags
 		}(info)
 	}
 
@@ -215,10 +235,6 @@ func ListRepoInfos(infos []*GitRepoInfo, page, perPage int, log *zap.SugaredLogg
 				info.DefaultBranch = ""
 			}
 		}
-	}
-	if err := errList.ErrorOrNil(); err != nil {
-		log.Errorf("list repo info error: %v", err)
-		return nil, err
 	}
 	return infos, nil
 }
