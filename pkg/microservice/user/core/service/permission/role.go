@@ -671,5 +671,3 @@ func convertDBRoleType(tid int64) string {
 	}
 	return string(setting.ResourceTypeCustom)
 }
-
-
