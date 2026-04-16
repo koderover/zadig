@@ -266,9 +266,6 @@ func ListActionByRole(roleID uint) ([]string, error) {
 }
 
 func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
-	if err := validateScalePermissionDependency(req.Actions); err != nil {
-		return err
-	}
 
 	tx := repository.DB.Begin()
 
@@ -344,9 +341,6 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 
 // UpdateRole updates the role and its action binding.
 func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
-	if err := validateScalePermissionDependency(req.Actions); err != nil {
-		return err
-	}
 
 	tx := repository.DB.Begin()
 
@@ -678,13 +672,4 @@ func convertDBRoleType(tid int64) string {
 	return string(setting.ResourceTypeCustom)
 }
 
-func validateScalePermissionDependency(actions []string) error {
-	actionSet := sets.NewString(actions...)
-	if actionSet.Has(VerbScaleEnvironment) && !actionSet.Has(VerbManageEnvironment) {
-		return fmt.Errorf("action %s requires %s", VerbScaleEnvironment, VerbManageEnvironment)
-	}
-	if actionSet.Has(VerbScaleProductionEnv) && !actionSet.Has(VerbEditProductionEnv) {
-		return fmt.Errorf("action %s requires %s", VerbScaleProductionEnv, VerbEditProductionEnv)
-	}
-	return nil
-}
+

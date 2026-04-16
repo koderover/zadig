@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -71,9 +72,6 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
-	if source.Kind == replicaSourceGlobal {
-		return e.ErrScaleService.AddErr(fmt.Errorf("replicas of workload %s/%s is sourced from environment global variables and cannot be updated by scale", args.Type, args.Name))
-	}
 
 	liveReplica, err := getWorkloadLiveReplica(prod.Namespace, args.Type, args.Name, kubeClient)
 	if err != nil {
@@ -81,6 +79,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 	}
 
 	candidateSvc := cloneProductService(currentSvc)
+	globalVariableChanged := false
 	switch source.Kind {
 	case replicaSourceLiteral:
 	case replicaSourceService:
@@ -97,6 +96,24 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 		if err != nil {
 			return e.ErrScaleService.AddErr(err)
 		}
+	case replicaSourceGlobal:
+		updatedGlobalVars, err := updateGlobalVariableReplicaValue(prod.GlobalVariables, source.RootKey, source.SubPath, args.Number)
+		if err != nil {
+			return e.ErrScaleService.AddErr(err)
+		}
+		globalVariableChanged = !reflect.DeepEqual(prod.GlobalVariables, updatedGlobalVars)
+		prod.GlobalVariables = updatedGlobalVars
+
+		mergedRenderKVs, err := mergeServiceRenderVariableKVs(currentTmpl.ServiceVariableKVs, currentSvc.GetServiceRender().OverrideYaml.RenderVariableKVs)
+		if err != nil {
+			return e.ErrScaleService.AddErr(err)
+		}
+		updatedRenderKVs := commontypes.UpdateRenderVariable(updatedGlobalVars, mergedRenderKVs)
+		candidateSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = updatedRenderKVs
+		candidateSvc.GetServiceRender().OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(updatedRenderKVs, true)
+		if err != nil {
+			return e.ErrScaleService.AddErr(err)
+		}
 	default:
 		return e.ErrScaleService.AddErr(fmt.Errorf("unsupported replicas source for workload %s/%s", args.Type, args.Name))
 	}
@@ -108,7 +125,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 
 	envStateChanged := serviceReplicaStateChanged(currentSvc, candidateSvc)
 	targetReplica := int32(args.Number)
-	if liveReplica == targetReplica && !envStateChanged {
+	if liveReplica == targetReplica && !envStateChanged && !globalVariableChanged {
 		return nil
 	}
 
