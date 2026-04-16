@@ -455,9 +455,12 @@ func ExecuteLarkWorkitemWorkflowV2(ctx *internalhandler.Context, workspaceID, wo
 		if err != nil {
 			return fmt.Errorf("failed to get input configs: %w", err)
 		}
-		// for _, inputConfig := range inputConfigs {
-		// 	inputConfig.Branch = stageConfig.TargetBranch
-		// }
+		// if target branch is set and branch filter is not set, set the branch for all input configs
+		if stageConfig.TargetBranch != "" && len(stageConfig.BranchFilter) == 0 {
+			for _, inputConfig := range inputConfigs {
+				inputConfig.Branch = stageConfig.TargetBranch
+			}
+		}
 	} else {
 		binds, err := mongodb.NewLarkPluginReleaseWorkItemBindColl().ListReleaseBindItems(workspaceID, workItemID)
 		if err != nil {
