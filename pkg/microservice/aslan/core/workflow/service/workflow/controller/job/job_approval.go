@@ -25,9 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -289,13 +287,22 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
 				}
 			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
-				if node.Type != lark.ApproveTypeStart && node.Type != lark.ApproveTypeEnd {
-					if len(node.ApproveGroups) == 0 {
-						return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					users, err := util.ConvertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.CcGroups)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
 					}
+					node.CcUsers = users
+					jobSpec.LarkApproval.ApprovalNodes[i] = node
+					continue
 				}
 
-				users, err := convertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.ApproveGroups)
+				if len(node.ApproveGroups) == 0 {
+					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+				}
+
+				users, err := util.ConvertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.ApproveGroups)
 				if err != nil {
 					return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
 				}
@@ -307,12 +314,6 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 					})
 				}
 				node.ApproveUsers = approveUsers
-
-				users, err = convertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.CcGroups)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
-				}
-				node.CcUsers = users
 
 				jobSpec.LarkApproval.ApprovalNodes[i] = node
 			}
@@ -335,46 +336,6 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	resp = append(resp, jobTask)
 
 	return resp, nil
-}
-
-func convertLarkUserGroupToUser(larkApprovalID string, groups []*commonmodels.LarkApprovalGroup) ([]*lark.UserInfo, error) {
-	userSet := sets.NewString()
-	users := make([]*lark.UserInfo, 0)
-	for _, group := range groups {
-		userGroup, err := larkservice.GetLarkUserGroup(larkApprovalID, group.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get lark user group: %s", err)
-		}
-
-		if userGroup.MemberUserCount > 0 {
-			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "user", setting.LarkUserOpenID, "")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
-			}
-
-			for _, user := range userInfos {
-				if !userSet.Has(user.ID) {
-					users = append(users, user)
-					userSet.Insert(user.ID)
-				}
-			}
-		}
-
-		if userGroup.MemberDepartmentCount > 0 {
-			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "department", setting.LarkDepartmentID, "")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
-			}
-
-			for _, user := range userInfos {
-				if !userSet.Has(user.ID) {
-					users = append(users, user)
-					userSet.Insert(user.ID)
-				}
-			}
-		}
-	}
-	return users, nil
 }
 
 func (j ApprovalJobController) SetRepo(repo *types.Repository) error {

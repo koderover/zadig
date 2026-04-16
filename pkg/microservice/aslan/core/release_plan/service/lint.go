@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/pkg/errors"
@@ -105,12 +106,44 @@ func lintApproval(approval *models.Approval) error {
 		if len(approval.LarkApproval.ApprovalNodes) == 0 {
 			return errors.New("num of approval-node is 0")
 		}
+
 		for i, node := range approval.LarkApproval.ApprovalNodes {
-			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
-				continue
-			}
-			if len(node.ApproveUsers) == 0 {
-				return errors.Errorf("num of approval-node %d approver is 0", i)
+			if node.ApproveNodeType == lark.ApproveNodeTypeUser {
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					continue
+				}
+				if len(node.ApproveUsers) == 0 {
+					return errors.Errorf("num of approval-node %d approver is 0", i)
+				}
+			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					users, err := util.ConvertLarkUserGroupToUser(approval.LarkApproval.ID, node.CcGroups)
+					if err != nil {
+						return errors.Errorf("failed to convert lark user group to user: %s", err)
+					}
+					node.CcUsers = users
+					approval.LarkApproval.ApprovalNodes[i] = node
+					continue
+				}
+
+				if len(node.ApproveGroups) == 0 {
+					return errors.Errorf("num of approval-node %d approver is 0", i)
+				}
+
+				users, err := util.ConvertLarkUserGroupToUser(approval.LarkApproval.ID, node.ApproveGroups)
+				if err != nil {
+					return errors.Errorf("failed to convert lark user group to user: %s", err)
+				}
+
+				approveUsers := make([]*commonmodels.LarkApprovalUser, 0)
+				for _, user := range users {
+					approveUsers = append(approveUsers, &commonmodels.LarkApprovalUser{
+						UserInfo: *user,
+					})
+				}
+				node.ApproveUsers = approveUsers
+
+				approval.LarkApproval.ApprovalNodes[i] = node
 			}
 			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
 				return errors.Errorf("approval-node %d type should be AND or OR", i)
