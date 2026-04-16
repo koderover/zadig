@@ -117,14 +117,14 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 	return users, nil
 }
 
-// ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, and the roles of the user
-func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, db *gorm.DB) ([]models.User, error) {
+// ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, the roles, and namespace
+func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, namespace string, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
 	)
 
-	err = db.Where("user.name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
+	err = db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page - 1) * perPage).
 		Group("user.uid").
@@ -223,15 +223,15 @@ func GetUsersCount(name string) (int64, error) {
 	return count, nil
 }
 
-// GetUsersCount gets user count
-func GetUsersCountByRoles(name string, roles []string) (int64, error) {
+// GetUsersCountByRoles gets user count filtered by roles and namespace
+func GetUsersCountByRoles(name string, roles []string, namespace string) (int64, error) {
 	var (
 		users []models.User
 		err   error
 		count int64
 	)
 
-	err = repository.DB.Where("user.name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
+	err = repository.DB.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").
 		Group("user.uid").
