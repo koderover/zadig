@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -43,6 +44,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -102,6 +105,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
+
+	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(c.jobTaskSpec.ClusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
 
 	// calc update service revision
 	updateServiceRevision := false
@@ -276,7 +286,37 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			jobLogManager.SaveJobLog(fmt.Sprintf("Deleting %s %s/%s", resource.Unstructured.GetKind(), c.namespace, resource.Unstructured.GetName()))
 		}
 	}
+
+	stuckDeployments := make([]*appsv1.Deployment, 0)
+	stuckStatefulSets := make([]*appsv1.StatefulSet, 0)
 	for key, newManifest := range newResourceMap {
+		if newManifest.Unstructured.GetKind() == setting.Deployment {
+			existingDeploy, deployExists, getErr := getter.GetDeployment(c.namespace, newManifest.Unstructured.GetName(), c.kubeClient)
+			isStuck := false
+			if getErr != nil {
+				log.Warnf("Failed to get existing Deployment %s/%s: %v", c.namespace, newManifest.Unstructured.GetName(), getErr)
+			} else if deployExists {
+				isStuck = kube.IsDeploymentStuckInUpdate(existingDeploy, c.logger)
+				if isStuck {
+					stuckDeployments = append(stuckDeployments, existingDeploy)
+
+					jobLogManager.SaveJobLog(fmt.Sprintf("Deployment %s/%s is stuck, cleaning up stuck pods after applying patch", c.namespace, newManifest.Unstructured.GetName()))
+				}
+			}
+		} else if newManifest.Unstructured.GetKind() == setting.StatefulSet {
+			existingSts, stsExists, getErr := getter.GetStatefulSet(c.namespace, newManifest.Unstructured.GetName(), c.kubeClient)
+			if getErr != nil {
+				log.Warnf("Failed to get existing StatefulSet %s/%s: %v", c.namespace, newManifest.Unstructured.GetName(), getErr)
+			} else if stsExists {
+				isStuck := kube.IsStatefulSetStuckInUpdate(existingSts, c.logger)
+				if isStuck {
+					stuckStatefulSets = append(stuckStatefulSets, existingSts)
+
+					jobLogManager.SaveJobLog(fmt.Sprintf("StatefulSet %s/%s is stuck, cleaning up stuck pods after applying patch", c.namespace, newManifest.Unstructured.GetName()))
+				}
+			}
+		}
+
 		currentManifest, ok := currentResourceMap[key]
 		if !ok {
 			jobLogManager.SaveJobLog(fmt.Sprintf("Applying %s %s/%s", newManifest.Unstructured.GetKind(), c.namespace, newManifest.Unstructured.GetName()))
@@ -312,6 +352,12 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			}
 			jobLogManager.SaveJobLog("Helm release is ready")
 
+			err := cleanupStuckWorkloads(c.jobTaskSpec.ClusterID, stuckDeployments, stuckStatefulSets, c.logger, jobLogManager)
+			if err != nil {
+				logError(c.job, err.Error(), c.logger)
+				return
+			}
+
 			if !c.jobTaskSpec.SkipCheckHelmWorkfloadStatus {
 				jobLogManager.SaveJobLog("Checking helm release's workload status ...")
 
@@ -342,6 +388,33 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+func cleanupStuckWorkloads(clusterID string, stuckDeployments []*appsv1.Deployment, stuckStatefulSets []*appsv1.StatefulSet, logger *zap.SugaredLogger, jobLogManager *joblog.JobLogManager) error {
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get controller runtime client, err: %v", err)
+	}
+
+	for _, deploy := range stuckDeployments {
+		err = kube.HandleStuckDeployment(deploy, clientSet, logger)
+		if err != nil {
+			err = fmt.Errorf("failed to handle stuck deployment, name: %s, error: %v", deploy.Name, err)
+			return err
+		}
+
+		jobLogManager.SaveJobLog(fmt.Sprintf("Stuck deployment %s/%s is cleaned up", deploy.Namespace, deploy.Name))
+	}
+	for _, sts := range stuckStatefulSets {
+		err = kube.HandleStuckStatefulSet(sts, clientSet, logger)
+		if err != nil {
+			err = fmt.Errorf("failed to handle stuck statefulset, name: %s, error: %v", sts.Name, err)
+			return err
+		}
+
+		jobLogManager.SaveJobLog(fmt.Sprintf("Stuck statefulset %s/%s is cleaned up", sts.Namespace, sts.Name))
+	}
+	return nil
 }
 
 type ManifestStruct struct {

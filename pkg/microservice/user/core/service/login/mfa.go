@@ -292,7 +292,7 @@ func SetupMFA(args *MFASetupArgs, logger *zap.SugaredLogger) (*MFASetupResp, err
 		secret = key.Secret()
 		challenge.PendingSecret, err = zadigcrypto.AesEncrypt(secret)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt mfa secret")
+			return nil, fmt.Errorf("failed to encrypt mfa secret, err: %s", err)
 		}
 		challenge.LastRefreshUnixTs = time.Now().Unix()
 
