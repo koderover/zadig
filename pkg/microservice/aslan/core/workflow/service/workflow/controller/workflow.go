@@ -450,6 +450,15 @@ func (w *Workflow) Validate(isExecution bool) error {
 				return e.ErrLicenseInvalid.AddDesc("基础版不支持工作流手动执行")
 			}
 		}
+		if stage.ManualExec != nil && stage.ManualExec.LarkPersonNotificationConfig != nil {
+			cfg := stage.ManualExec.LarkPersonNotificationConfig
+			if cfg.AppID == "" {
+				return e.ErrLintWorkflow.AddDesc(fmt.Sprintf("stage %s manual execute feishu notification app id is empty", stage.Name))
+			}
+			if len(cfg.TargetUsers) == 0 {
+				return e.ErrLintWorkflow.AddDesc(fmt.Sprintf("stage %s manual execute feishu notification users are empty", stage.Name))
+			}
+		}
 
 		if _, ok := stageNameMap[stage.Name]; !ok {
 			stageNameMap[stage.Name] = true

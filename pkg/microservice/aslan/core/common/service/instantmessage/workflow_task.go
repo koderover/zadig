@@ -117,8 +117,10 @@ var (
 
 		"notificationTextWorkflow":           "工作流",
 		"notificationTextWaitingForApproval": "等待审批",
+		"notificationTextManualExecPending":  "等待手动执行",
 		"notificationTextExecutor":           "执行用户",
 		"notificationTextProjectName":        "项目名称",
+		"notificationTextStageName":          "阶段名称",
 		"notificationTextStartTime":          "开始时间",
 		"notificationTextDuration":           "持续时间",
 		"notificationTextRemark":             "备注",
@@ -197,8 +199,10 @@ var (
 
 		"notificationTextWorkflow":           "Workflow",
 		"notificationTextWaitingForApproval": "waiting for approval",
+		"notificationTextManualExecPending":  "Waiting for Manual Execution",
 		"notificationTextExecutor":           "Executor",
 		"notificationTextProjectName":        "Project Name",
+		"notificationTextStageName":          "Stage Name",
 		"notificationTextStartTime":          "Start Time",
 		"notificationTextDuration":           "Duration",
 		"notificationTextRemark":             "Remark",
@@ -435,6 +439,75 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	}
 	return nil
 }
+
+func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {
+	if workflowCtx == nil || stage == nil || stage.ManualExec == nil {
+		return nil
+	}
+	notifyCfg := stage.ManualExec.LarkPersonNotificationConfig
+	if notifyCfg == nil || notifyCfg.AppID == "" || len(notifyCfg.TargetUsers) == 0 {
+		return nil
+	}
+
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		return fmt.Errorf("get system language error: %w", err)
+	}
+	language := systemSetting.Language
+
+	client, err := larkservice.GetLarkClientByIMAppID(notifyCfg.AppID)
+	if err != nil {
+		return fmt.Errorf("create feishu client error: %w", err)
+	}
+
+	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stage, language))
+	if err != nil {
+		return fmt.Errorf("marshal manual exec stage notification card error: %w", err)
+	}
+
+	respErr := new(multierror.Error)
+	sentTargets := sets.NewString()
+	for _, target := range notifyCfg.TargetUsers {
+		if target == nil || target.ID == "" || target.IDType == "" {
+			continue
+		}
+		targetKey := fmt.Sprintf("%s:%s", target.IDType, target.ID)
+		if sentTargets.Has(targetKey) {
+			continue
+		}
+		sentTargets.Insert(targetKey)
+
+		err = w.sendFeishuMessageFromClient(client, target.IDType, target.ID, LarkMessageTypeCard, string(messageContent))
+		if err != nil {
+			respErr = multierror.Append(respErr, err)
+		}
+	}
+
+	return respErr.ErrorOrNil()
+}
+
+func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language string) *LarkCard {
+	title := fmt.Sprintf("%s %s #%d %s", getText("notificationTextWorkflow", language), workflowCtx.WorkflowDisplayName, workflowCtx.TaskID, getText("notificationTextManualExecPending", language))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+
+	lc := NewLarkCard()
+	lc.SetConfig(true)
+	lc.SetHeader(feishuHeaderTemplateTurquoise, title, feiShuTagText)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextProjectName", language), workflowCtx.ProjectDisplayName), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStageName", language), stage.Name), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextExecutor", language), workflowCtx.WorkflowTaskCreatorUsername), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStartTime", language), time.Now().Format(time.DateTime)), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextRemark", language), workflowCtx.Remark), true)
+	lc.AddI18NElementsZhcnAction(getText("notificationTextClickForMore", language), detailURL)
+	return lc
+}
+
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
 	project, err := templaterepo.NewProductColl().Find(task.ProjectName)
 	if err != nil {
