@@ -101,7 +101,7 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 		err   error
 	)
 
-	err = db.Select("user.uid, user.name, user.account, user.identity_type, IFNULL(user_login.last_login_time, 0) as last_login_time").
+	err = db.Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) as last_login_time").
 		Where("user.name LIKE ?", "%"+name+"%").
 		Joins("LEFT JOIN user_login on user_login.uid = user.uid").
 		Order("IFNULL(user_login.last_login_time, 0) " + string(order)).
@@ -114,6 +114,50 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 		return nil, err
 	}
 
+	return users, nil
+}
+
+// listUIDsByRoles returns distinct user uids that have any of the given role names.
+func listUIDsByRoles(roles []string, db *gorm.DB) ([]string, error) {
+	var uids []string
+	err := db.Table("role_binding").
+		Distinct("role_binding.uid").
+		Joins("INNER JOIN role ON role.id = role_binding.role_id").
+		Where("role.name IN ?", roles).
+		Pluck("role_binding.uid", &uids).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	return uids, nil
+}
+
+// ListUsersByNameAndRoleWithLoginTime gets a list of users filtered by name and roles,
+// ordered by last_login_time with pagination. It is implemented in two simple steps:
+//  1. Find the uids of users that have any of the given roles (role_binding + role).
+//  2. Query user + user_login for those uids, filter by name, order by last_login_time and paginate.
+func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
+	uids, err := listUIDsByRoles(roles, db)
+	if err != nil {
+		return nil, err
+	}
+	if len(uids) == 0 {
+		return []models.UserWithLoginTime{}, nil
+	}
+
+	var users []models.UserWithLoginTime
+	err = db.Table("user").
+		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) AS last_login_time").
+		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
+		Where("user.uid IN ? AND user.name LIKE ?", uids, "%"+name+"%").
+		Order("last_login_time " + string(order)).
+		Offset((page - 1) * perPage).
+		Limit(perPage).
+		Find(&users).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
 	return users, nil
 }
 
