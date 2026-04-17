@@ -708,9 +708,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			}
 		}
 	}
-	if j.workflow.IgnoreCache {
-		jobTaskSpec.Properties.CacheEnable = false
-	}
+	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
@@ -740,7 +738,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 	// init download object cache step
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium && !ignoreObjectCacheRestore {
 		cacheDir := "/workspace"
 		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 			cacheDir = jobTaskSpec.Properties.CacheUserDir
