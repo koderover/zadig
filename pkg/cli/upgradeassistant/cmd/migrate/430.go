@@ -147,9 +147,7 @@ func migrateUserAPITokenEnabledColumn(_ *internalhandler.Context, migrationInfo 
 }
 
 func migrateScalePermissions(migrationInfo *internalmodels.Migration) error {
-	if migrationInfo.Migration430ScalePermission {
-		return nil
-	}
+	alreadyMigrated := migrationInfo.Migration430ScalePermission
 
 	tx := repository.DB.Begin()
 	if tx.Error != nil {
@@ -180,6 +178,10 @@ func migrateScalePermissions(migrationInfo *internalmodels.Migration) error {
 	}
 
 	log.Infof("migration 4.3.0 backfilled scale permissions for %d role templates and %d roles", templateCount, roleCount)
+
+	if alreadyMigrated {
+		return nil
+	}
 
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430ScalePermission): true,
@@ -332,9 +334,7 @@ func collectMissingBackfillTargetsByRules430(verbs []string, rules []permissionB
 }
 
 func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migration) error {
-	if migrationInfo.Migration430CollaborationScalePermission {
-		return nil
-	}
+	alreadyMigrated := migrationInfo.Migration430CollaborationScalePermission
 
 	modeColl := collaborationmongodb.NewCollaborationModeColl()
 	instanceColl := collaborationmongodb.NewCollaborationInstanceColl()
@@ -385,6 +385,10 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 	}
 
 	log.Infof("migration 4.3.0 backfilled collaboration scale permissions for %d modes and %d instances", modeUpdatedCount, instanceUpdatedCount)
+
+	if alreadyMigrated {
+		return nil
+	}
 
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430CollaborationScalePermission): true,
