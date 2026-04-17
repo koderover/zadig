@@ -54,6 +54,7 @@ var globalReadOnlySystemAction = []string{
 	VerbDeliveryCenterGetArtifact,
 	VerbGetDataCenterOverview,
 	VerbGetDataCenterInsight,
+	VerbGetBusinessDirectory,
 	VerbGetReleasePlan,
 	VerbGetRegistryManagement,
 	VerbGetS3StorageManagement,
