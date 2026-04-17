@@ -612,6 +612,12 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		}
 	}
 	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
+	ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
+	sharedCacheDir := "/workspace"
+	if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+		sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
+	}
+	sharedCacheKey := getScanningJobCacheObjectPath(j.workflow.Name, scanning.Name)
 
 	if len(scanning.Repos) > 0 {
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
@@ -635,6 +641,14 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium && !ignoreSharedCacheRestore {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
+			fmt.Sprintf("%s-%s", scanning.Name, "shared-cache-restore"),
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+		))
+	}
 
 	// init download object cache step
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium && !ignoreObjectCacheRestore {
@@ -936,6 +950,16 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+	}
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
+			fmt.Sprintf("%s-%s", scanning.Name, "shared-cache-publish"),
+			j.workflow.Name,
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+			taskID,
+		))
 	}
 
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)

@@ -709,6 +709,12 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		}
 	}
 	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
+	ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
+	sharedCacheDir := "/workspace"
+	if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+		sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
+	}
+	sharedCacheKey := getTestingJobCacheObjectPath(j.workflow.Name, testing.Name)
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
@@ -737,6 +743,14 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium && !ignoreSharedCacheRestore {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
+			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-restore"),
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+		))
+	}
 	// init download object cache step
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium && !ignoreObjectCacheRestore {
 		cacheDir := "/workspace"
@@ -923,6 +937,16 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+	}
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
+			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-publish"),
+			j.workflow.Name,
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+			taskID,
+		))
 	}
 
 	// init object storage step
