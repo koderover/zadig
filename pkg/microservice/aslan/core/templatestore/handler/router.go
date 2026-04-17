@@ -54,6 +54,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	yaml := router.Group("yaml")
 	{
 		yaml.POST("", CreateYamlTemplate)
+		yaml.POST("/preload/:codehostId", PreloadYamlTemplateFromCodeHost)
+		yaml.POST("/load/:codehostId", LoadYamlTemplateFromCodeHost)
+		yaml.PUT("/load/:codehostId", SyncYamlTemplateFromCodeHost)
 		yaml.PUT("/:id", UpdateYamlTemplate)
 		yaml.PUT("/:id/variable", UpdateYamlTemplateVariable)
 		yaml.GET("", ListYamlTemplate)

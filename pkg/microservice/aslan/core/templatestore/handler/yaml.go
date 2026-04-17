@@ -19,6 +19,8 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -27,7 +29,18 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
+
+type PreloadYamlTemplateFromCodeHostReq struct {
+	RepoOwner  string                                    `json:"repo_owner"`
+	RepoName   string                                    `json:"repo_name"`
+	NameSpace  string                                    `json:"namespace"`
+	RepoUUID   string                                    `json:"repo_uuid"`
+	BranchName string                                    `json:"branch_name"`
+	RemoteName string                                    `json:"remote_name"`
+	Paths      []templateservice.PreloadYamlTemplatePath `json:"paths"`
+}
 
 // @Summary Create yaml template
 // @Description Create yaml template
@@ -67,6 +80,189 @@ func CreateYamlTemplate(c *gin.Context) {
 	}
 
 	ctx.RespErr = templateservice.CreateYamlTemplate(req, ctx.Logger)
+}
+
+// @Summary Preload yaml template from codehost
+// @Description Preload yaml template from codehost
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	codehostId 	path 		int 												true 	"codehostId"
+// @Param 	repoName 	query 		string 												false 	"repoName"
+// @Param 	branchName 	query 		string 												false 	"branchName"
+// @Param 	repoOwner 	query 		string 												false 	"repoOwner"
+// @Param 	namespace 	query 		string 												false 	"namespace"
+// @Param 	remoteName 	query 		string 												false 	"remoteName"
+// @Param 	body 		body 		PreloadYamlTemplateFromCodeHostReq					true	"body"
+// @Success 200 		{array} 	templateservice.LoadYamlTemplatePath
+// @Router /api/aslan/template/yaml/preload/{codehostId} [post]
+func PreloadYamlTemplateFromCodeHost(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	codehostIDStr := c.Param("codehostId")
+	codehostID, err := strconv.Atoi(codehostIDStr)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		return
+	}
+
+	var req PreloadYamlTemplateFromCodeHostReq
+	if err := c.BindJSON(&req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PreloadYamlTemplateFromCodeHostReq json args")
+		return
+	}
+
+	if req.RepoName == "" && req.RepoUUID == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = templateservice.PreloadYamlTemplateFromCodeHost(codehostID, req.RepoOwner, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, req.Paths, ctx.Logger)
+}
+
+// @Summary Load yaml template from codehost
+// @Description Load yaml template from codehost
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	codehostId 	path 		int 											true 	"codehostId"
+// @Param 	repoName 	query 		string 											true 	"repoName"
+// @Param 	branchName 	query 		string 											true 	"branchName"
+// @Param 	repoOwner 	query 		string 											true 	"repoOwner"
+// @Param 	namespace 	query 		string 											false 	"namespace"
+// @Param 	remoteName 	query 		string 											false 	"remoteName"
+// @Param 	body 		body 		templateservice.LoadYamlTemplateFromCodeHostReq true	"body"
+// @Success 200
+// @Router /api/aslan/template/yaml/load/{codehostId} [post]
+func LoadYamlTemplateFromCodeHost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	codehostIDStr := c.Param("codehostId")
+
+	codehostID, err := strconv.Atoi(codehostIDStr)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		return
+	}
+
+	repoName := c.Query("repoName")
+	repoUUID := c.Query("repoUUID")
+	if repoName == "" && repoUUID == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		return
+	}
+
+	branchName := c.Query("branchName")
+
+	args := new(templateservice.LoadYamlTemplateFromCodeHostReq)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid LoadYamlTemplateFromCodeHostReq json args")
+		return
+	}
+
+	remoteName := c.Query("remoteName")
+	repoOwner := c.Query("repoOwner")
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = repoOwner
+	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板-YAML", "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.RespErr = templateservice.LoadYamlTemplateFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, ctx.Logger)
+}
+
+// @Summary Sync yaml template from codehost
+// @Description Sync yaml template from codehost
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	codehostId 	path 		int 										true 	"codehostId"
+// @Param 	repoName 	query 		string 									true 	"repoName"
+// @Param 	branchName 	query 		string 									true 	"branchName"
+// @Param 	repoOwner 	query 		string 									true 	"repoOwner"
+// @Param 	namespace 	query 		string 									false 	"namespace"
+// @Param 	remoteName 	query 		string 									false 	"remoteName"
+// @Param 	body 		body 		templateservice.LoadYamlTemplateFromCodeHostReq true "body"
+// @Success 200
+// @Router /api/aslan/template/yaml/load/{codehostId} [put]
+func SyncYamlTemplateFromCodeHost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	codehostIDStr := c.Param("codehostId")
+
+	codehostID, err := strconv.Atoi(codehostIDStr)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		return
+	}
+
+	repoName := c.Query("repoName")
+	repoUUID := c.Query("repoUUID")
+	if repoName == "" && repoUUID == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		return
+	}
+
+	branchName := c.Query("branchName")
+
+	args := new(templateservice.LoadYamlTemplateFromCodeHostReq)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid LoadYamlTemplateFromCodeHostReq json args")
+		return
+	}
+
+	remoteName := c.Query("remoteName")
+	repoOwner := c.Query("repoOwner")
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = repoOwner
+	}
+
+	if len(args.Paths) != 1 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("paths must contain only one path")
+		return
+	}
+
+	bs, _ := json.Marshal(args)
+	templateNames := make([]string, 0, len(args.Paths))
+	for _, loadPath := range args.Paths {
+		templateNames = append(templateNames, loadPath.Name)
+	}
+	templateNameStr := strings.Join(templateNames, ",")
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML", templateNameStr, templateNameStr, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.RespErr = templateservice.LoadYamlTemplateFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, ctx.Logger)
 }
 
 // @Summary Update yaml template

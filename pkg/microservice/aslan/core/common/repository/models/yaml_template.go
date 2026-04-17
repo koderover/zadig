@@ -29,6 +29,16 @@ type YamlTemplate struct {
 	VariableYaml       string                           `bson:"variable_yaml"        json:"variable_yaml"`
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `bson:"service_variable_kvs" json:"service_variable_kvs"`
 	ServiceVars        []string                         `bson:"service_vars"         json:"service_vars"` // Deprecated since 1.18.0
+	Source             string                           `bson:"source,omitempty"     json:"source,omitempty"`
+	RepoOwner          string                           `bson:"repo_owner,omitempty" json:"repo_owner,omitempty"`
+	Namespace          string                           `bson:"namespace,omitempty"  json:"namespace,omitempty"`
+	RepoName           string                           `bson:"repo_name,omitempty"  json:"repo_name,omitempty"`
+	Path               string                           `bson:"path,omitempty"       json:"path,omitempty"`
+	BranchName         string                           `bson:"branch_name,omitempty" json:"branch_name,omitempty"`
+	RemoteName         string                           `bson:"remote_name,omitempty" json:"remote_name,omitempty"`
+	CodeHostID         int                              `bson:"codehost_id,omitempty" json:"codeHostID,omitempty"`
+	LoadFromDir        bool                             `bson:"load_from_dir,omitempty"     json:"load_from_dir,omitempty"`
+	Commit             *Commit                          `bson:"commit,omitempty"      json:"commit,omitempty"`
 }
 
 type Variable struct {
