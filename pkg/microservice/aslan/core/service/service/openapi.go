@@ -200,8 +200,9 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
 	var resp *OpenAPIGetYamlServiceResp
 	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: projectKey,
-		ServiceName: serviceName,
+		ProductName:   projectKey,
+		ServiceName:   serviceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
 	})
 	if err != nil {
 		msg := fmt.Errorf("failed to get service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
