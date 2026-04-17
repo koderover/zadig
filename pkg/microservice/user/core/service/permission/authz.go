@@ -1057,6 +1057,12 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.ReleasePlan.EditConfig = true
 	case VerbGetBusinessDirectory:
 		systemActions.BusinessDirectory.View = true
+	case VerbCreateBusinessDirectory:
+		systemActions.BusinessDirectory.Create = true
+	case VerbEditBusinessDirectory:
+		systemActions.BusinessDirectory.Edit = true
+	case VerbDeleteBusinessDirectory:
+		systemActions.BusinessDirectory.Delete = true
 	case VerbGetClusterManagement:
 		systemActions.ClusterManagement.View = true
 	case VerbCreateClusterManagement:

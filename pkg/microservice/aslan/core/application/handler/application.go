@@ -39,6 +39,10 @@ func CreateApplication(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Create {
+		ctx.UnAuthorized = true
+		return
+	}
 	args := new(commonmodels.Application)
 	data, _ := c.GetRawData()
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
@@ -54,6 +58,11 @@ func BulkCreateApplications(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -74,8 +83,17 @@ func BulkCreateApplications(c *gin.Context) {
 }
 
 func GetApplication(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	ctx.Resp, ctx.RespErr = service.GetApplication(c.Param("id"), ctx.Logger)
 }
 
@@ -84,6 +102,10 @@ func UpdateApplication(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -104,12 +126,25 @@ func DeleteApplication(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Delete {
+		ctx.UnAuthorized = true
+		return
+	}
 	ctx.RespErr = service.DeleteApplication(c.Param("id"), ctx.Logger)
 }
 
 func SearchApplications(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	var req service.SearchApplicationsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
@@ -124,8 +159,17 @@ func SearchApplications(c *gin.Context) {
 }
 
 func ListApplicationEnvs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	resp, err := service.ListApplicationEnvs(c.Param("id"), ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
