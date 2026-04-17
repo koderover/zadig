@@ -153,6 +153,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 				logError(c.job, err.Error(), c.logger)
 				return
 			}
+
 			break
 		case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
 			err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", deploy.ReleaseName)

@@ -276,6 +276,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			jobLogManager.SaveJobLog(fmt.Sprintf("Deleting %s %s/%s", resource.Unstructured.GetKind(), c.namespace, resource.Unstructured.GetName()))
 		}
 	}
+
 	for key, newManifest := range newResourceMap {
 		currentManifest, ok := currentResourceMap[key]
 		if !ok {
