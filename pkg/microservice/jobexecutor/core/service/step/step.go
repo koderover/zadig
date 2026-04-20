@@ -87,6 +87,16 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "shared_cache_restore":
+		stepInstance, err = NewSharedCacheRestoreStep(step.Spec)
+		if err != nil {
+			return err
+		}
+	case "shared_cache_publish":
+		stepInstance, err = NewSharedCachePublishStep(step.Spec)
+		if err != nil {
+			return err
+		}
 	case "sonar_check":
 		stepInstance, err = NewSonarCheckStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {

@@ -480,14 +480,9 @@ EOF`,
 			},
 		})
 
-		mountPath := strings.ReplaceAll(jobTaskSpec.Properties.CacheUserDir, "$WORKSPACE", workflowCtx.Workspace)
-		if jobTaskSpec.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
-			mountPath = workflowCtx.Workspace
-		}
-
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
-			MountPath: mountPath,
+			MountPath: setting.SharedCacheStoreRoot,
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
