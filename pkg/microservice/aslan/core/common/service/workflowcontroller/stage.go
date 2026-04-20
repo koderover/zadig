@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 )
 
 type StageCtl interface {
@@ -94,6 +95,13 @@ func waitForManualExec(ctx context.Context, stage *commonmodels.StageTask, workf
 	}
 
 	stage.Status = config.StatusPause
+	if !stage.ManualExec.NotificationSent && stage.ManualExec.LarkPersonNotificationConfig != nil {
+		if err := instantmessage.NewWeChatClient().SendManualExecStageNotifications(workflowCtx, stage); err != nil {
+			logger.Errorf("failed to send manual execution stage notification for stage %s: %v", stage.Name, err)
+		} else {
+			stage.ManualExec.NotificationSent = true
+		}
+	}
 
 	return true, err
 }

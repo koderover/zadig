@@ -39,6 +39,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -438,6 +439,96 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 	}
 	return nil
+}
+
+func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {
+	if workflowCtx == nil || stage == nil || stage.ManualExec == nil {
+		return nil
+	}
+	notifyCfg := stage.ManualExec.LarkPersonNotificationConfig
+	if notifyCfg == nil || notifyCfg.AppID == "" || len(stage.ManualExec.ManualExecUsers) == 0 {
+		return nil
+	}
+
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		return fmt.Errorf("get system language error: %w", err)
+	}
+	language := systemSetting.Language
+
+	client, err := larkservice.GetLarkClientByIMAppID(notifyCfg.AppID)
+	if err != nil {
+		return fmt.Errorf("create feishu client error: %w", err)
+	}
+
+	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stage, language))
+	if err != nil {
+		return fmt.Errorf("marshal manual exec stage notification card error: %w", err)
+	}
+
+	manualExecUsers, userInfoMap := commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, workflowCtx.WorkflowTaskCreatorUserID)
+	respErr := new(multierror.Error)
+	sentTargets := sets.NewString()
+	for _, execUser := range manualExecUsers {
+		if execUser == nil || execUser.UserID == "" {
+			continue
+		}
+		userInfo, ok := userInfoMap[execUser.UserID]
+		if !ok {
+			var getErr error
+			userInfo, getErr = userclient.New().GetUserByID(execUser.UserID)
+			if getErr != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("find manual executor %s error: %w", execUser.UserID, getErr))
+				continue
+			}
+		}
+		if userInfo.Phone == "" {
+			respErr = multierror.Append(respErr, fmt.Errorf("manual executor %s phone not configured", execUser.UserID))
+			continue
+		}
+
+		larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+		if err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("find lark user with phone %s error: %w", userInfo.Phone, err))
+			continue
+		}
+		targetID := util.GetStringFromPointer(larkUser.UserId)
+		if targetID == "" {
+			continue
+		}
+		if sentTargets.Has(targetID) {
+			continue
+		}
+		sentTargets.Insert(targetID)
+
+		if err := w.sendFeishuMessageFromClient(client, setting.LarkUserID, targetID, LarkMessageTypeCard, string(messageContent)); err != nil {
+			respErr = multierror.Append(respErr, err)
+		}
+	}
+
+	return respErr.ErrorOrNil()
+}
+
+func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language string) *LarkCard {
+	title := fmt.Sprintf("%s %s #%d %s", getText("notificationTextWorkflow", language), workflowCtx.WorkflowDisplayName, workflowCtx.TaskID, getText("notificationTextManualExecPending", language))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+
+	lc := NewLarkCard()
+	lc.SetConfig(true)
+	lc.SetHeader(feishuHeaderTemplateTurquoise, title, feiShuTagText)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextProjectName", language), workflowCtx.ProjectDisplayName), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStageName", language), stage.Name), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextExecutor", language), workflowCtx.WorkflowTaskCreatorUsername), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStartTime", language), workflowCtx.StartTime.Format(time.DateTime)), true)
+	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextRemark", language), workflowCtx.Remark), true)
+	lc.AddI18NElementsZhcnAction(getText("notificationTextClickForMore", language), detailURL)
+	return lc
 }
 
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
@@ -1087,7 +1178,7 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
-				return getText("notificationTextManualExecPending", language)
+				return getText("taskStatusPause", language)
 			} else {
 				return getText("taskStatusFailed", language)
 			}
@@ -1147,7 +1238,7 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
-				return getText("notificationTextManualExecPending", language)
+				return getText("taskStatusPause", language)
 			} else if status == "" {
 				return getText("jobStatusUnstarted", language)
 			}
