@@ -101,7 +101,7 @@ func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *intern
 		}
 	}
 
-	// 写入 globalreadonly role
+	// write globalreadonly role into system roles
 	err := backfillGlobalReadOnlyRole()
 	if err != nil {
 		return err
@@ -112,7 +112,6 @@ func migrateGlobalReadOnlyRole(_ *internalhandler.Context, migrationInfo *intern
 	}
 	// Fallback backfill:
 	// - if a role already has get_business_directory, append create/edit/delete
-	// - otherwise append the full business-directory action set.
 	if err := backfillBusinessDirectoryRolePermissions430(); err != nil {
 		return err
 	}

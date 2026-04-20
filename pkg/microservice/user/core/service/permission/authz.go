@@ -267,6 +267,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
 	respSet := sets.New[string]()
+	projectCache := &allProjectCache{}
 
 	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
 	if err != nil {
@@ -276,14 +277,10 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	if isSystemAdmin {
-		projectList, err := mongodb.NewProjectColl().List()
-		if err != nil {
+		if err := projectCache.insertAllProjects(respSet); err != nil {
 			tx.Rollback()
 			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
-		}
-		for _, project := range projectList {
-			respSet.Insert(project.ProductName)
 		}
 		tx.Commit()
 		return respSet.UnsortedList(), nil
@@ -321,7 +318,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	for _, role := range roles {
 		if role.Namespace == GeneralNamespace {
 			if role.GlobalReadOnly {
-				if err := insertAllProjects(respSet); err != nil {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
 					tx.Rollback()
 					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
 					return nil, err
@@ -342,7 +339,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	for _, role := range groupRoles {
 		if role.Namespace == GeneralNamespace {
 			if role.GlobalReadOnly {
-				if err := insertAllProjects(respSet); err != nil {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
 					tx.Rollback()
 					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
 					return nil, err
@@ -374,6 +371,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
 	respSet := sets.New[string]()
+	projectCache := &allProjectCache{}
 
 	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
@@ -385,14 +383,10 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	if isSystemAdmin {
-		projectList, err := mongodb.NewProjectColl().List()
-		if err != nil {
+		if err := projectCache.insertAllProjects(respSet); err != nil {
 			tx.Rollback()
 			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
-		}
-		for _, project := range projectList {
-			respSet.Insert(project.ProductName)
 		}
 		tx.Commit()
 		return respSet.UnsortedList(), nil
@@ -444,7 +438,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 		for _, role := range systemRoles {
 			if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
-				if err := insertAllProjects(respSet); err != nil {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
 					tx.Rollback()
 					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
 					return nil, err
@@ -492,7 +486,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		}
 		for _, role := range systemRoles {
 			if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
-				if err := insertAllProjects(respSet); err != nil {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
 					tx.Rollback()
 					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
 					return nil, err
@@ -715,17 +709,33 @@ func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectAction
 	return nil
 }
 
-func insertAllProjects(respSet sets.Set[string]) error {
-	projectList, err := mongodb.NewProjectColl().List()
-	if err != nil {
-		return err
+
+// allProjectCache caches all project names (lazy-loaded)
+type allProjectCache struct {
+	loaded       bool     // whether data has been loaded from DB
+	projectNames []string // cached project names
+}
+
+// insertAllProjects loads all projects once and inserts them into respSet
+func (c *allProjectCache) insertAllProjects(respSet sets.Set[string]) error {
+	// load from DB only on first call
+	if !c.loaded {
+		projectList, err := mongodb.NewProjectColl().List()
+		if err != nil {
+			return err
+		}
+		for _, project := range projectList {
+			c.projectNames = append(c.projectNames, project.ProductName)
+		}
+		c.loaded = true
 	}
-	for _, project := range projectList {
-		respSet.Insert(project.ProductName)
+
+	// reuse cache
+	for _, projectName := range c.projectNames {
+		respSet.Insert(projectName)
 	}
 	return nil
 }
-
 // generateDefaultProjectActions generate an ProjectActions without any authorization info.
 func generateDefaultProjectActions() *ProjectActions {
 	return &ProjectActions{
