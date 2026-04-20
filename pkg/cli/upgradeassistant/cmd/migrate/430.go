@@ -212,21 +212,14 @@ func backfillBusinessDirectoryRolePermissions430() error {
 			existingVerbs[action.Action] = struct{}{}
 		}
 
-		// Fallback strategy:
-		// - has get_business_directory: only backfill create/edit/delete
-		// - does not have get_business_directory: backfill get/create/edit/delete
+		// Only backfill write verbs for roles that already have get_business_directory.
+		if _, hasGet := existingVerbs[permissionservice.VerbGetBusinessDirectory]; !hasGet {
+			continue
+		}
 		targetVerbs := []string{
-			permissionservice.VerbGetBusinessDirectory,
 			permissionservice.VerbCreateBusinessDirectory,
 			permissionservice.VerbEditBusinessDirectory,
 			permissionservice.VerbDeleteBusinessDirectory,
-		}
-		if _, hasGet := existingVerbs[permissionservice.VerbGetBusinessDirectory]; hasGet {
-			targetVerbs = []string{
-				permissionservice.VerbCreateBusinessDirectory,
-				permissionservice.VerbEditBusinessDirectory,
-				permissionservice.VerbDeleteBusinessDirectory,
-			}
 		}
 
 		missingActionIDs := make([]uint, 0)
