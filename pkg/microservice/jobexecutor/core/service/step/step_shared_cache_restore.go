@@ -50,22 +50,11 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 			log.Infof("Shared cache restore skipped because merged cache dir %s does not exist.", s.spec.MergedDir)
 			return nil
 		}
-		return s.handleErr(fmt.Errorf("stat merged cache dir failed: %w", err))
+		return fmt.Errorf("stat merged cache dir failed: %w", err)
 	}
 	if err := copyDirContent(s.spec.MergedDir, s.spec.CacheDir); err != nil {
-		return s.handleErr(fmt.Errorf("restore shared cache failed: %w", err))
+		return fmt.Errorf("restore shared cache failed: %w", err)
 	}
 	log.Infof("Shared cache restore finished.")
 	return nil
-}
-
-func (s *SharedCacheRestoreStep) handleErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	if s.spec.IgnoreErr {
-		log.Errorf("shared cache restore failed: %v", err)
-		return nil
-	}
-	return err
 }

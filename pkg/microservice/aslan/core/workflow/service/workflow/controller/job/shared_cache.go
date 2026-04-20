@@ -52,7 +52,6 @@ func buildSharedCacheRestoreStep(stepName, jobName, cacheDir, cacheKey string) *
 		Spec: &typesstep.StepSharedCacheRestoreSpec{
 			CacheDir:  cacheDir,
 			MergedDir: getSharedCacheMergedDir(cacheKey),
-			IgnoreErr: true,
 		},
 	}
 }
@@ -66,7 +65,6 @@ func buildSharedCachePublishStep(stepName, jobName, cacheDir, cacheKey string, t
 			CacheDir:  cacheDir,
 			TaskDir:   getSharedCacheTaskDir(cacheKey, taskID, jobName),
 			MergedDir: getSharedCacheMergedDir(cacheKey),
-			IgnoreErr: true,
 		},
 	}
 }

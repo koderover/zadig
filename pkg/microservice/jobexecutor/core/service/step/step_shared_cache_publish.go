@@ -50,26 +50,15 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 			log.Infof("Shared cache publish skipped because cache dir %s does not exist.", s.spec.CacheDir)
 			return nil
 		}
-		return s.handleErr(fmt.Errorf("stat cache dir failed: %w", err))
+		return fmt.Errorf("stat cache dir failed: %w", err)
 	}
 	_ = os.RemoveAll(s.spec.TaskDir)
 	if err := copyDirContent(s.spec.CacheDir, s.spec.TaskDir); err != nil {
-		return s.handleErr(fmt.Errorf("copy cache content to task dir failed: %w", err))
+		return fmt.Errorf("copy cache content to task dir failed: %w", err)
 	}
 	if err := copyDirContent(s.spec.TaskDir, s.spec.MergedDir); err != nil {
-		return s.handleErr(fmt.Errorf("merge task cache into shared cache dir failed: %w", err))
+		return fmt.Errorf("merge task cache into shared cache dir failed: %w", err)
 	}
 	log.Infof("Shared cache publish finished.")
 	return nil
-}
-
-func (s *SharedCachePublishStep) handleErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	if s.spec.IgnoreErr {
-		log.Errorf("shared cache publish failed: %v", err)
-		return nil
-	}
-	return err
 }

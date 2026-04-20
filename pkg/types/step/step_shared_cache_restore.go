@@ -19,5 +19,4 @@ package step
 type StepSharedCacheRestoreSpec struct {
 	CacheDir  string `bson:"cache_dir"  json:"cache_dir"  yaml:"cache_dir"`
 	MergedDir string `bson:"merged_dir" json:"merged_dir" yaml:"merged_dir"`
-	IgnoreErr bool   `bson:"ignore_err" json:"ignore_err" yaml:"ignore_err"`
 }
