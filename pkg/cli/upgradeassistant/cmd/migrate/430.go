@@ -160,8 +160,6 @@ func ensureBusinessDirectoryActions430() error {
 // backfillBusinessDirectoryRolePermissions430 provides a migration fallback for
 // historical system roles:
 // 1) If a role already has get_business_directory, only append write verbs.
-// 2) If a role does not have get_business_directory, append the full set.
-// global-read-only role is skipped to keep readonly semantics.
 func backfillBusinessDirectoryRolePermissions430() error {
 	tx := repository.DB.Begin()
 	if tx.Error != nil {
