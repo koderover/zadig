@@ -694,6 +694,28 @@ func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyl
 		Name:  setting.ENVLogLevel,
 		Value: config.ExecutorLogLevel(),
 	})
+	ret = append(ret,
+		corev1.EnvVar{
+			Name:  setting.ENVRedisHost,
+			Value: configbase.RedisHost(),
+		},
+		corev1.EnvVar{
+			Name:  setting.ENVRedisPort,
+			Value: strconv.Itoa(configbase.RedisPort()),
+		},
+		corev1.EnvVar{
+			Name:  setting.ENVRedisUserName,
+			Value: configbase.RedisUserName(),
+		},
+		corev1.EnvVar{
+			Name:  setting.ENVRedisPassword,
+			Value: configbase.RedisPassword(),
+		},
+		corev1.EnvVar{
+			Name:  setting.ENVRedisCommonCacheDB,
+			Value: strconv.Itoa(configbase.RedisCommonCacheTokenDB()),
+		},
+	)
 
 	return ret
 }
