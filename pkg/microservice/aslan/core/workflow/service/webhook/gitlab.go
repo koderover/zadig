@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -92,6 +95,9 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		pathWithNamespace := pushEvent.Project.PathWithNamespace
 		// trigger service template to re-sync from remote repo
 		if err = updateServiceTemplateByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+		if err = updateYamlTemplateByGitlabPush(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
 		if err = updateServiceTemplateValuesByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
@@ -325,6 +331,122 @@ func updateServiceTemplateByPushEvent(ref string, diffs []string, pathWithNamesp
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func updateYamlTemplateByGitlabPush(ref string, diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
+	templates, err := commonrepo.NewYamlTemplateColl().ListBySource(setting.SourceFromGitlab)
+	if err != nil {
+		return err
+	}
+
+	errs := &multierror.Error{}
+	for _, tmpl := range templates {
+		if tmpl == nil || tmpl.Source != setting.SourceFromGitlab {
+			continue
+		}
+		namespace := tmpl.Namespace
+		if namespace == "" {
+			namespace = tmpl.RepoOwner
+		}
+		if namespace+"/"+tmpl.RepoName != pathWithNamespace {
+			continue
+		}
+		if strings.TrimPrefix(ref, "refs/heads/") != tmpl.BranchName {
+			continue
+		}
+
+		affected := len(diffs) == 0
+		for _, diff := range diffs {
+			if subElem(tmpl.Path, diff) {
+				affected = true
+				break
+			}
+		}
+		if affected {
+			log.Infof("Started to sync yaml template %s from gitlab path %s", tmpl.Name, tmpl.Path)
+			if err := SyncYamlTemplateFromGitlab(tmpl, log); err != nil {
+				log.Errorf("failed to sync yaml template %s from gitlab, error: %v", tmpl.Name, err)
+				errs = multierror.Append(errs, err)
+			}
+		} else {
+			log.Infof("Yaml template %s from gitlab %s is not affected, no sync", tmpl.Name, tmpl.Path)
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
+func SyncYamlTemplateFromGitlab(tmpl *commonmodels.YamlTemplate, log *zap.SugaredLogger) error {
+	if tmpl.Source != setting.SourceFromGitlab {
+		return fmt.Errorf("yaml template is not from gitlab")
+	}
+
+	var before string
+	if tmpl.Commit != nil {
+		before = tmpl.Commit.SHA
+	}
+
+	client, err := getGitlabClientByCodehostId(tmpl.CodeHostID)
+	if err != nil {
+		return err
+	}
+
+	namespace := tmpl.Namespace
+	if namespace == "" {
+		namespace = tmpl.RepoOwner
+	}
+
+	commit, err := GitlabGetLatestCommit(client, namespace, tmpl.RepoName, tmpl.BranchName, tmpl.Path)
+	if err != nil {
+		return err
+	}
+
+	tmpl.Commit = &commonmodels.Commit{
+		SHA:     commit.ID,
+		Message: commit.Message,
+	}
+
+	if before == tmpl.Commit.SHA {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync", before)
+		return nil
+	}
+
+	pathType := "blob"
+	if tmpl.LoadFromDir {
+		pathType = "tree"
+	}
+	files, err := GitlabGetRawFiles(client, namespace, tmpl.RepoName, tmpl.BranchName, tmpl.Path, pathType)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return fmt.Errorf("no yaml file is found under directory %s", tmpl.Path)
+	}
+
+	content := util.JoinYamls(files)
+	if pathType == "blob" {
+		content = files[0]
+	}
+
+	if err := templateservice.UpdateYamlTemplate(tmpl.ID.Hex(), &template.YamlTemplate{
+		Name:        tmpl.Name,
+		Content:     content,
+		Source:      tmpl.Source,
+		CodehostID:  tmpl.CodeHostID,
+		RepoOwner:   tmpl.RepoOwner,
+		Namespace:   tmpl.Namespace,
+		RepoName:    tmpl.RepoName,
+		Path:        tmpl.Path,
+		BranchName:  tmpl.BranchName,
+		RemoteName:  tmpl.RemoteName,
+		LoadFromDir: tmpl.LoadFromDir,
+		Commit:      tmpl.Commit,
+	}, log); err != nil {
+		return err
+	}
+
+	log.Infof("End of sync yaml template %s from gitlab path %s", tmpl.Name, tmpl.Path)
+	return nil
 }
 
 func GetGitlabTestingServiceTemplates() ([]*commonmodels.Service, error) {

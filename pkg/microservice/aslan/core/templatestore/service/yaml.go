@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commmonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
@@ -710,7 +711,7 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
 	}
 
-	err = commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
+	created := &models.YamlTemplate{
 		Name:               template.Name,
 		Content:            template.Content,
 		Source:             template.Source,
@@ -725,11 +726,18 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 		Commit:             template.Commit,
 		VariableYaml:       extractVariableYmal,
 		ServiceVariableKVs: extractServiceVariableKVs,
-	})
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Create(created)
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
+		return err
 	}
-	return err
+
+	if err := commmonservice.ProcessYamlTemplateWebhook(created, nil, logger); err != nil {
+		logger.Errorf("failed to process yaml template webhook for create %s, err: %s", created.Name, err)
+	}
+	return nil
 }
 
 func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
@@ -752,29 +760,33 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 		return fmt.Errorf("failed to merge service variables, err %w", err)
 	}
 
-	err = commonrepo.NewYamlTemplateColl().Update(
-		id,
-		&models.YamlTemplate{
-			Name:               template.Name,
-			Content:            template.Content,
-			Source:             template.Source,
-			CodeHostID:         template.CodehostID,
-			RepoOwner:          template.RepoOwner,
-			Namespace:          template.Namespace,
-			RepoName:           template.RepoName,
-			BranchName:         template.BranchName,
-			RemoteName:         template.RemoteName,
-			LoadFromDir:        template.LoadFromDir,
-			Path:               template.Path,
-			Commit:             template.Commit,
-			VariableYaml:       template.VariableYaml,
-			ServiceVariableKVs: template.ServiceVariableKVs,
-		},
-	)
+	updated := &models.YamlTemplate{
+		Name:               template.Name,
+		Content:            template.Content,
+		Source:             template.Source,
+		CodeHostID:         template.CodehostID,
+		RepoOwner:          template.RepoOwner,
+		Namespace:          template.Namespace,
+		RepoName:           template.RepoName,
+		BranchName:         template.BranchName,
+		RemoteName:         template.RemoteName,
+		LoadFromDir:        template.LoadFromDir,
+		Path:               template.Path,
+		Commit:             template.Commit,
+		VariableYaml:       template.VariableYaml,
+		ServiceVariableKVs: template.ServiceVariableKVs,
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Update(id, updated)
 	if err != nil {
 		logger.Errorf("update yaml template error: %s", err)
+		return err
 	}
-	return err
+
+	if err := commmonservice.ProcessYamlTemplateWebhook(updated, origin, logger); err != nil {
+		logger.Errorf("failed to process yaml template webhook for update %s, err: %s", updated.Name, err)
+	}
+	return nil
 }
 
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
@@ -864,11 +876,22 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 		return errors.New("this template is in use")
 	}
 
+	origin, err := commonrepo.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		logger.Errorf("Failed to get yaml template of id: %s, the error is: %s", id, err)
+		return err
+	}
+
 	err = commonrepo.NewYamlTemplateColl().DeleteByID(id)
 	if err != nil {
-		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
+		logger.Errorf("Failed to delete yaml template of id: %s, the error is: %s", id, err)
+		return err
 	}
-	return err
+
+	if err := commmonservice.ProcessYamlTemplateWebhook(nil, origin, logger); err != nil {
+		logger.Errorf("failed to process yaml template webhook for delete %s, err: %s", origin.Name, err)
+	}
+	return nil
 }
 
 func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) error {
