@@ -17,13 +17,11 @@ limitations under the License.
 package migrate
 
 import (
-	"context"
 	"fmt"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
-	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	collaborationmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
 	collaborationmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
@@ -33,7 +31,6 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	pkgtypes "github.com/koderover/zadig/v2/pkg/types"
-	"go.mongodb.org/mongo-driver/bson"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -341,7 +338,6 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 
 	modeColl := collaborationmongodb.NewCollaborationModeColl()
 	instanceColl := collaborationmongodb.NewCollaborationInstanceColl()
-	logCollaborationMongoContext430(modeColl, instanceColl, alreadyMigrated)
 
 	modes, err := modeColl.List(&collaborationmongodb.CollaborationModeListOptions{})
 	if err != nil {
@@ -355,8 +351,8 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 
 		revision := mode.Revision
 		if changed {
-			if updateErr := modeColl.Update("system", mode); updateErr != nil {
-				return fmt.Errorf("failed to update collaboration mode %s/%s, err: %s", mode.ProjectName, mode.Name, updateErr)
+			if err := modeColl.Update("system", mode); err != nil {
+				return fmt.Errorf("failed to update collaboration mode %s/%s, err: %s", mode.ProjectName, mode.Name, err)
 			}
 			revision++
 			modeUpdatedCount++
@@ -397,32 +393,6 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430CollaborationScalePermission): true,
 	})
-}
-
-func logCollaborationMongoContext430(
-	modeColl *collaborationmongodb.CollaborationModeColl,
-	instanceColl *collaborationmongodb.CollaborationInstanceColl,
-	alreadyMigrated bool,
-) {
-	modeCount, modeErr := modeColl.CountDocuments(context.TODO(), bson.M{"is_deleted": false})
-	if modeErr != nil {
-		log.Infof("migration 4.3.0 collaboration precheck: failed to count collection %s, err: %s", modeColl.GetCollectionName(), modeErr)
-	}
-
-	instanceCount, instanceErr := instanceColl.CountDocuments(context.TODO(), bson.M{"is_deleted": false})
-	if instanceErr != nil {
-		log.Infof("migration 4.3.0 collaboration precheck: failed to count collection %s, err: %s", instanceColl.GetCollectionName(), instanceErr)
-	}
-
-	log.Infof(
-		"migration 4.3.0 collaboration precheck: db=%s, already_migrated=%v, mode_collection=%s count=%d, instance_collection=%s count=%d",
-		aslanconfig.MongoDatabase(),
-		alreadyMigrated,
-		modeColl.GetCollectionName(),
-		modeCount,
-		instanceColl.GetCollectionName(),
-		instanceCount,
-	)
 }
 
 func collaborationModeKey430(projectName, modeName string) string {
