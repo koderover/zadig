@@ -120,6 +120,8 @@ var (
 		"notificationTextWaitingForApproval": "等待审批",
 		"notificationTextManualExecPending":  "等待手动执行",
 		"notificationTextExecutor":           "执行用户",
+		"notificationTextNotifiedUsers":      "被通知人",
+		"notificationTextJobs":               "任务信息",
 		"notificationTextProjectName":        "项目名称",
 		"notificationTextStageName":          "阶段名称",
 		"notificationTextStartTime":          "开始时间",
@@ -202,6 +204,8 @@ var (
 		"notificationTextWaitingForApproval": "waiting for approval",
 		"notificationTextManualExecPending":  "Waiting for Manual Execution",
 		"notificationTextExecutor":           "Executor",
+		"notificationTextNotifiedUsers":      "Notified Users",
+		"notificationTextJobs":               "Jobs",
 		"notificationTextProjectName":        "Project Name",
 		"notificationTextStageName":          "Stage Name",
 		"notificationTextStartTime":          "Start Time",
@@ -461,12 +465,14 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 		return fmt.Errorf("create feishu client error: %w", err)
 	}
 
-	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stage, language))
+	manualExecUsers, userInfoMap := commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, workflowCtx.WorkflowTaskCreatorUserID)
+	notifiedUsers := formatManualExecNotifiedUsers(manualExecUsers, userInfoMap)
+
+	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stage, language, notifiedUsers))
 	if err != nil {
 		return fmt.Errorf("marshal manual exec stage notification card error: %w", err)
 	}
 
-	manualExecUsers, userInfoMap := commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, workflowCtx.WorkflowTaskCreatorUserID)
 	respErr := new(multierror.Error)
 	sentTargets := sets.NewString()
 	for _, execUser := range manualExecUsers {
@@ -509,7 +515,108 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 	return respErr.ErrorOrNil()
 }
 
-func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language string) *LarkCard {
+func formatManualExecNotifiedUsers(users []*models.User, userInfoMap map[string]*types.UserInfo) string {
+	if len(users) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(users))
+	nameSet := sets.NewString()
+	for _, user := range users {
+		if user == nil || user.UserID == "" {
+			continue
+		}
+
+		name := user.UserName
+		if info, ok := userInfoMap[user.UserID]; ok && info != nil && info.Name != "" {
+			name = info.Name
+		}
+		if name == "" {
+			name = user.UserID
+		}
+		if nameSet.Has(name) {
+			continue
+		}
+		nameSet.Insert(name)
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return strings.Join(names, ", ")
+}
+
+func formatManualExecStageJobs(stage *models.StageTask, language string) string {
+	if stage == nil || len(stage.Jobs) == 0 {
+		return ""
+	}
+
+	const maxJobsShown = 5
+	lines := make([]string, 0, maxJobsShown+1)
+	for idx, job := range stage.Jobs {
+		if job == nil {
+			continue
+		}
+		if len(lines) >= maxJobsShown {
+			remaining := len(stage.Jobs) - idx
+			if remaining > 0 {
+				lines = append(lines, fmt.Sprintf("... and %d more", remaining))
+			}
+			break
+		}
+
+		jobName := job.DisplayName
+		if jobName == "" {
+			jobName = job.Name
+		}
+		jobLine := fmt.Sprintf("%s: %s", formatManualExecJobType(job.JobType, language), jobName)
+
+		switch job.JobType {
+		case string(config.JobZadigDeploy):
+			jobSpec := &models.JobTaskDeploySpec{}
+			models.IToi(job.Spec, jobSpec)
+			if jobSpec.Env != "" {
+				jobLine = fmt.Sprintf("%s (env: %s)", jobLine, jobSpec.Env)
+			}
+		case string(config.JobZadigHelmDeploy):
+			jobSpec := &models.JobTaskHelmDeploySpec{}
+			models.IToi(job.Spec, jobSpec)
+			if jobSpec.Env != "" {
+				jobLine = fmt.Sprintf("%s (env: %s)", jobLine, jobSpec.Env)
+			}
+		}
+
+		lines = append(lines, jobLine)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatManualExecJobType(jobType, language string) string {
+	switch jobType {
+	case string(config.JobZadigBuild):
+		return getText("jobTypeBuild", language)
+	case string(config.JobZadigDeploy):
+		return getText("jobTypeDeploy", language)
+	case string(config.JobZadigTesting):
+		return getText("jobTypeTest", language)
+	case string(config.JobZadigScanning):
+		return getText("jobTypeScan", language)
+	case string(config.JobFreestyle):
+		return getText("jobTypeFreestyle", language)
+	case string(config.JobPlugin):
+		return getText("jobTypePlugin", language)
+	case string(config.JobWorkflowTrigger):
+		return getText("jobTypeWorkflowTrigger", language)
+	case string(config.JobApproval):
+		return getText("jobTypeApproval", language)
+	case string(config.JobZadigHelmDeploy):
+		return getText("jobTypeDeploy", language)
+	default:
+		return jobType
+	}
+}
+
+func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language, notifiedUsers string) *LarkCard {
 	title := fmt.Sprintf("%s %s #%d %s", getText("notificationTextWorkflow", language), workflowCtx.WorkflowDisplayName, workflowCtx.TaskID, getText("notificationTextManualExecPending", language))
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
@@ -525,6 +632,12 @@ func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextProjectName", language), workflowCtx.ProjectDisplayName), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStageName", language), stage.Name), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextExecutor", language), workflowCtx.WorkflowTaskCreatorUsername), true)
+	if notifiedUsers != "" {
+		lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextNotifiedUsers", language), notifiedUsers), true)
+	}
+	if jobsSummary := formatManualExecStageJobs(stage, language); jobsSummary != "" {
+		lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextJobs", language), jobsSummary), true)
+	}
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStartTime", language), workflowCtx.StartTime.Format(time.DateTime)), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextRemark", language), workflowCtx.Remark), true)
 	lc.AddI18NElementsZhcnAction(getText("notificationTextClickForMore", language), detailURL)
