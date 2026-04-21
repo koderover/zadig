@@ -91,5 +91,3 @@ func validateMemberInfo(collaborationMode *models.CollaborationMode) bool {
 	return memberSet.Equal(memberInfoSet)
 }
 
-
-

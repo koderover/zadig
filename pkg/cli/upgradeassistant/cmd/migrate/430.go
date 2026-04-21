@@ -345,14 +345,26 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 	}
 
 	modeRevisionMap := make(map[string]int64, len(modes))
+	modeScannedCount := 0
 	modeUpdatedCount := 0
+	modeAddedVerbCount := 0
+	modeProdAddedVerbCount := 0
 	for _, mode := range modes {
-		changed := appendBackfillTargetsToMode430(mode)
+		if mode == nil {
+			continue
+		}
+		modeScannedCount++
+		changed, addedVerbCount, prodAddedVerbCount := appendBackfillTargetsToMode430(mode)
+		modeAddedVerbCount += addedVerbCount
+		modeProdAddedVerbCount += prodAddedVerbCount
+		if prodAddedVerbCount > 0 {
+			log.Infof("migration 4.3.0 mode %s/%s backfilled prod verbs count: %d", mode.ProjectName, mode.Name, prodAddedVerbCount)
+		}
 
 		revision := mode.Revision
 		if changed {
-			if err := modeColl.Update("system", mode); err != nil {
-				return fmt.Errorf("failed to update collaboration mode %s/%s, err: %s", mode.ProjectName, mode.Name, err)
+			if updateErr := modeColl.Update("system", mode); updateErr != nil {
+				return fmt.Errorf("failed to update collaboration mode %s/%s, err: %s", mode.ProjectName, mode.Name, updateErr)
 			}
 			revision++
 			modeUpdatedCount++
@@ -365,9 +377,24 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 		return fmt.Errorf("failed to list collaboration instances, err: %s", err)
 	}
 
+	instanceScannedCount := 0
 	instanceUpdatedCount := 0
+	instanceAddedVerbCount := 0
+	instanceProdAddedVerbCount := 0
 	for _, instance := range instances {
-		changed := appendBackfillTargetsToInstance430(instance)
+		if instance == nil {
+			continue
+		}
+		instanceScannedCount++
+		changed, addedVerbCount, prodAddedVerbCount := appendBackfillTargetsToInstance430(instance)
+		instanceAddedVerbCount += addedVerbCount
+		instanceProdAddedVerbCount += prodAddedVerbCount
+		if prodAddedVerbCount > 0 {
+			log.Infof(
+				"migration 4.3.0 instance %s/%s/%s backfilled prod verbs count: %d",
+				instance.ProjectName, instance.CollaborationName, instance.UserUID, prodAddedVerbCount,
+			)
+		}
 
 		if revision, ok := modeRevisionMap[collaborationModeKey430(instance.ProjectName, instance.CollaborationName)]; ok && instance.Revision != revision {
 			instance.Revision = revision
@@ -384,7 +411,11 @@ func migrateCollaborationScalePermissions(migrationInfo *internalmodels.Migratio
 		instanceUpdatedCount++
 	}
 
-	log.Infof("migration 4.3.0 backfilled collaboration scale permissions for %d modes and %d instances", modeUpdatedCount, instanceUpdatedCount)
+	log.Infof(
+		"migration 4.3.0 collaboration scale summary: modes scanned=%d updated=%d verbs_added=%d prod_verbs_added=%d, instances scanned=%d updated=%d verbs_added=%d prod_verbs_added=%d",
+		modeScannedCount, modeUpdatedCount, modeAddedVerbCount, modeProdAddedVerbCount,
+		instanceScannedCount, instanceUpdatedCount, instanceAddedVerbCount, instanceProdAddedVerbCount,
+	)
 
 	if alreadyMigrated {
 		return nil
@@ -399,54 +430,68 @@ func collaborationModeKey430(projectName, modeName string) string {
 	return fmt.Sprintf("%s/%s", projectName, modeName)
 }
 
-func appendBackfillTargets430(verbs []string) (bool, []string) {
+func appendBackfillTargets430(verbs []string) (bool, []string, int) {
 	missingVerbs := collectMissingBackfillTargetsByRules430(verbs, collaborationBackfillRules430)
 	if len(missingVerbs) == 0 {
-		return false, verbs
+		return false, verbs, 0
 	}
 
 	updatedVerbs := append([]string{}, verbs...)
 	updatedVerbs = append(updatedVerbs, missingVerbs...)
-	return true, updatedVerbs
+	return true, updatedVerbs, len(missingVerbs)
 }
 
-func appendBackfillTargetsToMode430(mode *collaborationmodels.CollaborationMode) bool {
+func appendBackfillTargetsToMode430(mode *collaborationmodels.CollaborationMode) (bool, int, int) {
 	changed := false
+	addedVerbCount := 0
+	prodAddedVerbCount := 0
 	for i := range mode.Workflows {
-		itemChanged, verbs := appendBackfillTargets430(mode.Workflows[i].Verbs)
+		itemChanged, verbs, addedCount := appendBackfillTargets430(mode.Workflows[i].Verbs)
 		if itemChanged {
 			mode.Workflows[i].Verbs = verbs
 			changed = true
+			addedVerbCount += addedCount
 		}
 	}
 	for i := range mode.Products {
-		itemChanged, verbs := appendBackfillTargets430(mode.Products[i].Verbs)
+		itemChanged, verbs, addedCount := appendBackfillTargets430(mode.Products[i].Verbs)
 		if itemChanged {
 			mode.Products[i].Verbs = verbs
 			changed = true
+			addedVerbCount += addedCount
+			if mode.Products[i].Name == "prod" {
+				prodAddedVerbCount += addedCount
+			}
 		}
 	}
-	return changed
+	return changed, addedVerbCount, prodAddedVerbCount
 }
 
 // appendBackfillTargetsToInstance430 backfills collaboration scale permissions for instance
-func appendBackfillTargetsToInstance430(instance *collaborationmodels.CollaborationInstance) bool {
+func appendBackfillTargetsToInstance430(instance *collaborationmodels.CollaborationInstance) (bool, int, int) {
 	changed := false
+	addedVerbCount := 0
+	prodAddedVerbCount := 0
 	for i := range instance.Workflows {
-		itemChanged, verbs := appendBackfillTargets430(instance.Workflows[i].Verbs)
+		itemChanged, verbs, addedCount := appendBackfillTargets430(instance.Workflows[i].Verbs)
 		if itemChanged {
 			instance.Workflows[i].Verbs = verbs
 			changed = true
+			addedVerbCount += addedCount
 		}
 	}
 	for i := range instance.Products {
-		itemChanged, verbs := appendBackfillTargets430(instance.Products[i].Verbs)
+		itemChanged, verbs, addedCount := appendBackfillTargets430(instance.Products[i].Verbs)
 		if itemChanged {
 			instance.Products[i].Verbs = verbs
 			changed = true
+			addedVerbCount += addedCount
+			if instance.Products[i].Name == "prod" {
+				prodAddedVerbCount += addedCount
+			}
 		}
 	}
-	return changed
+	return changed, addedVerbCount, prodAddedVerbCount
 }
 
 func V430ToV421() error {
