@@ -40,13 +40,13 @@ import (
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	workflownotifyutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util/workflownotify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
-	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -468,7 +468,39 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 	manualExecUsers, userInfoMap := commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, workflowCtx.WorkflowTaskCreatorUserID)
 	notifiedUsers := formatManualExecNotifiedUsers(manualExecUsers, userInfoMap)
 
-	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stage, language, notifiedUsers))
+	jobContents := []string{}
+	taskForNotification := &models.WorkflowTask{
+		WorkflowName: workflowCtx.WorkflowName,
+		TaskID:       workflowCtx.TaskID,
+		Stages:       []*models.StageTask{stage},
+	}
+	stageForNotification := stage
+	if taskInColl, findErr := w.workflowTaskV4Coll.Find(workflowCtx.WorkflowName, workflowCtx.TaskID); findErr == nil && taskInColl != nil {
+		taskForNotification = taskInColl
+		if matchedStage := getStageTaskByName(taskInColl.Stages, stage.Name); matchedStage != nil {
+			stageForNotification = matchedStage
+		}
+	}
+
+	jobContents, _, err = workflownotifyutil.BuildWorkflowJobContents(&workflownotifyutil.BuildJobContentsArgs{
+		Task:        taskForNotification,
+		Stages:      []*models.StageTask{stageForNotification},
+		WebHookType: setting.NotifyWebHookTypeFeishuPerson,
+		RenderTemplate: func(tpl string, job *models.JobTask) (string, error) {
+			return getJobTaskTplExec(tpl, &jobTaskNotification{Job: job, WebHookType: setting.NotifyWebHookTypeFeishuPerson}, language)
+		},
+		GetTestResult: func(jobName string) (string, error) {
+			return genTestResultText(taskForNotification.WorkflowName, jobName, taskForNotification.TaskID, language)
+		},
+		GetSonarMetrics: func(jobSpec *models.JobTaskFreestyleSpec) (string, string, error) {
+			return genSonartMetricsText(jobSpec, language)
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("build manual exec stage notification jobs error: %w", err)
+	}
+
+	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stageForNotification, language, notifiedUsers, jobContents))
 	if err != nil {
 		return fmt.Errorf("marshal manual exec stage notification card error: %w", err)
 	}
@@ -545,74 +577,16 @@ func formatManualExecNotifiedUsers(users []*models.User, userInfoMap map[string]
 	return strings.Join(names, ", ")
 }
 
-func formatManualExecStageJobs(stage *models.StageTask, language string) string {
-	if stage == nil || len(stage.Jobs) == 0 {
-		return ""
+func getStageTaskByName(stages []*models.StageTask, stageName string) *models.StageTask {
+	for _, stage := range stages {
+		if stage != nil && stage.Name == stageName {
+			return stage
+		}
 	}
-
-	lines := make([]string, 0, len(stage.Jobs))
-	for _, job := range stage.Jobs {
-		if job == nil {
-			continue
-		}
-
-		jobName := job.DisplayName
-		if jobName == "" {
-			jobName = job.Name
-		}
-		jobLine := fmt.Sprintf("%s: %s", formatManualExecJobType(job.JobType, language), jobName)
-
-		switch job.JobType {
-		case string(config.JobZadigDeploy):
-			jobSpec := &models.JobTaskDeploySpec{}
-			models.IToi(job.Spec, jobSpec)
-			if jobSpec.Env != "" {
-				jobLine = fmt.Sprintf("%s (env: %s)", jobLine, jobSpec.Env)
-			}
-		case string(config.JobZadigHelmDeploy):
-			jobSpec := &models.JobTaskHelmDeploySpec{}
-			models.IToi(job.Spec, jobSpec)
-			if jobSpec.Env != "" {
-				jobLine = fmt.Sprintf("%s (env: %s)", jobLine, jobSpec.Env)
-			}
-		}
-
-		lines = append(lines, jobLine)
-	}
-
-	return strings.Join(lines, "\n")
+	return nil
 }
 
-func formatManualExecJobType(jobType, language string) string {
-	switch jobType {
-	case string(config.JobZadigBuild):
-		return getText("jobTypeBuild", language)
-	case string(config.JobZadigDeploy):
-		return getText("jobTypeDeploy", language)
-	case string(config.JobCustomDeploy):
-		return getText("jobTypeCustomDeploy", language)
-	case string(config.JobZadigTesting):
-		return getText("jobTypeTest", language)
-	case string(config.JobZadigScanning):
-		return getText("jobTypeScan", language)
-	case string(config.JobFreestyle):
-		return getText("jobTypeFreestyle", language)
-	case string(config.JobPlugin):
-		return getText("jobTypePlugin", language)
-	case string(config.JobWorkflowTrigger):
-		return getText("jobTypeWorkflowTrigger", language)
-	case string(config.JobApproval):
-		return getText("jobTypeApproval", language)
-	case string(config.JobZadigHelmDeploy):
-		return getText("jobTypeDeploy", language)
-	case string(config.JobZadigHelmChartDeploy):
-		return getText("jobTypeHelmChartDeploy", language)
-	default:
-		return jobType
-	}
-}
-
-func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language, notifiedUsers string) *LarkCard {
+func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language, notifiedUsers string, jobContents []string) *LarkCard {
 	title := fmt.Sprintf("%s %s #%d %s", getText("notificationTextWorkflow", language), workflowCtx.WorkflowDisplayName, workflowCtx.TaskID, getText("notificationTextManualExecPending", language))
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
@@ -631,8 +605,15 @@ func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx
 	if notifiedUsers != "" {
 		lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextNotifiedUsers", language), notifiedUsers), true)
 	}
-	if jobsSummary := formatManualExecStageJobs(stage, language); jobsSummary != "" {
-		lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextJobs", language), jobsSummary), true)
+	for idx, jobContent := range jobContents {
+		if jobContent == "" {
+			continue
+		}
+		if idx == 0 {
+			lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：\n%s", getText("notificationTextJobs", language), jobContent), true)
+			continue
+		}
+		lc.AddI18NElementsZhcnFeild(jobContent, true)
 	}
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStartTime", language), workflowCtx.StartTime.Format(time.DateTime)), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextRemark", language), workflowCtx.Remark), true)
@@ -883,247 +864,22 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		"{{getText \"notificationTextRemark\"}}：{{ .Task.Remark}} \n",
 	}
 
-	jobContents := []string{}
-	workflowNotifyStages := []*webhooknotify.WorkflowNotifyStage{}
-	for _, stage := range task.Stages {
-		workflowNotifyStage := &webhooknotify.WorkflowNotifyStage{
-			Name:      stage.Name,
-			Status:    stage.Status,
-			StartTime: stage.StartTime,
-			EndTime:   stage.EndTime,
-			Error:     stage.Error,
-		}
-
-		for _, job := range stage.Jobs {
-			workflowNotifyJob := &webhooknotify.WorkflowNotifyJobTask{
-				Name:        job.Name,
-				DisplayName: job.DisplayName,
-				JobType:     job.JobType,
-				Status:      job.Status,
-				StartTime:   job.StartTime,
-				EndTime:     job.EndTime,
-				Error:       job.Error,
-			}
-
-			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **{{getText \"notificationTextStatus\"}}**: {{taskStatus .Job.Status }}  \n"
-			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    {{getText \"notificationTextStatus\"}}：{{taskStatus .Job.Status }} \n"
-			switch job.JobType {
-			case string(config.JobZadigBuild):
-				fallthrough
-			case string(config.JobFreestyle):
-				jobSpec := &models.JobTaskFreestyleSpec{}
-				models.IToi(job.Spec, jobSpec)
-
-				workflowNotifyJobTaskSpec := &webhooknotify.WorkflowNotifyJobTaskBuildSpec{}
-
-				repos := []*types.Repository{}
-				for _, stepTask := range jobSpec.Steps {
-					if stepTask.StepType == config.StepGit {
-						stepSpec := &step.StepGitSpec{}
-						models.IToi(stepTask.Spec, stepSpec)
-						repos = stepSpec.Repos
-					}
-				}
-
-				branchTag, commitID, gitCommitURL := "", "", ""
-				commitMsgs := []string{}
-				var prInfoList []string
-				var prInfo string
-				for idx, buildRepo := range repos {
-					workflowNotifyRepository := &webhooknotify.WorkflowNotifyRepository{
-						Source:        buildRepo.Source,
-						RepoOwner:     buildRepo.RepoOwner,
-						RepoNamespace: buildRepo.RepoNamespace,
-						RepoName:      buildRepo.RepoName,
-						Branch:        buildRepo.Branch,
-						Tag:           buildRepo.Tag,
-						AuthorName:    buildRepo.AuthorName,
-						CommitID:      buildRepo.CommitID,
-						CommitMessage: buildRepo.CommitMessage,
-					}
-					if idx == 0 || buildRepo.IsPrimary {
-						branchTag = buildRepo.Branch
-						if buildRepo.Tag != "" {
-							branchTag = buildRepo.Tag
-						}
-						if len(buildRepo.CommitID) > 8 {
-							commitID = buildRepo.CommitID[0:8]
-						}
-						var prLinkBuilder func(baseURL, owner, repoName string, prID int) string
-						switch buildRepo.Source {
-						case types.ProviderGithub:
-							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/pull/%d", baseURL, owner, repoName, prID)
-							}
-						case types.ProviderGitee:
-							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/pulls/%d", baseURL, owner, repoName, prID)
-							}
-						case types.ProviderGitlab:
-							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", baseURL, owner, repoName, prID)
-							}
-						case types.ProviderGerrit:
-							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return fmt.Sprintf("%s/%d", baseURL, prID)
-							}
-						default:
-							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
-								return ""
-							}
-						}
-						prInfoList = []string{}
-						sort.Ints(buildRepo.PRs)
-						for _, id := range buildRepo.PRs {
-							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
-							if link != "" {
-								prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
-							}
-						}
-						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
-						commitMsgs = strings.Split(commitMsg, "\n")
-						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
-						workflowNotifyRepository.CommitURL = gitCommitURL
-					}
-
-					workflowNotifyJobTaskSpec.Repositories = append(workflowNotifyJobTaskSpec.Repositories, workflowNotifyRepository)
-				}
-				if len(prInfoList) != 0 {
-					// need an extra space at the end
-					prInfo = strings.Join(prInfoList, " ") + " "
-				}
-				image := ""
-				imageContextKey := strings.Join(strings.Split(jobspec.GetJobOutputKey(job.Key, "IMAGE"), "."), "@?")
-				if task.GlobalContext != nil {
-					image = task.GlobalContext[imageContextKey]
-				}
-				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRepositoryInfo\"}}**：%s %s[%s](%s)  ", branchTag, prInfo, commitID, gitCommitURL)
-					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextCommitMessage\"}}**："
-					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextRepositoryInfo\"}}：%s %s[%s]( %s )  ", branchTag, prInfo, commitID, gitCommitURL)
-					if len(commitMsgs) == 1 {
-						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
-					} else {
-						jobTplcontent += "\n"
-						for _, commitMsg := range commitMsgs {
-							jobTplcontent += fmt.Sprintf("%s \n", commitMsg)
-						}
-					}
-				}
-				if job.Status == config.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：%s  \n", image)
-					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：%s \n", image)
-					workflowNotifyJobTaskSpec.Image = image
-				}
-
-				workflowNotifyJob.Spec = workflowNotifyJobTaskSpec
-			case string(config.JobZadigDeploy):
-				jobSpec := &models.JobTaskDeploySpec{}
-				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
-				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
-
-				if job.Status == config.StatusPassed && len(jobSpec.ServiceAndImages) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：  \n")
-					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：  \n")
-				}
-
-				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
-				for _, serviceAndImage := range jobSpec.ServiceAndImages {
-					if job.Status == config.StatusPassed && !strings.HasPrefix(serviceAndImage.Image, "{{.") && !strings.Contains(serviceAndImage.Image, "}}") {
-						jobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
-						mailJobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
-					}
-
-					serviceModule := &webhooknotify.WorkflowNotifyDeployServiceModule{
-						ServiceModule: serviceAndImage.ServiceModule,
-						Image:         serviceAndImage.Image,
-					}
-					serviceModules = append(serviceModules, serviceModule)
-				}
-
-				workflowNotifyJobTaskSpec := &webhooknotify.WorkflowNotifyJobTaskDeploySpec{
-					Env:            jobSpec.Env,
-					ServiceName:    jobSpec.ServiceName,
-					ServiceModules: serviceModules,
-				}
-				workflowNotifyJob.Spec = workflowNotifyJobTaskSpec
-			case string(config.JobZadigHelmDeploy):
-				jobSpec := &models.JobTaskHelmDeploySpec{}
-				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
-				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
-
-				if job.Status == config.StatusPassed && len(jobSpec.ImageAndModules) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：  \n")
-					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：  \n")
-				}
-
-				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
-				for _, serviceAndImage := range jobSpec.ImageAndModules {
-					if !strings.HasPrefix(serviceAndImage.Image, "{{.") && !strings.Contains(serviceAndImage.Image, "}}") {
-						jobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
-						mailJobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
-					}
-
-					serviceModule := &webhooknotify.WorkflowNotifyDeployServiceModule{
-						ServiceModule: serviceAndImage.ServiceModule,
-						Image:         serviceAndImage.Image,
-					}
-					serviceModules = append(serviceModules, serviceModule)
-				}
-
-				workflowNotifyJobTaskSpec := &webhooknotify.WorkflowNotifyJobTaskDeploySpec{
-					Env:            jobSpec.Env,
-					ServiceName:    jobSpec.ServiceName,
-					ServiceModules: serviceModules,
-				}
-				workflowNotifyJob.Spec = workflowNotifyJobTaskSpec
-			case string(config.JobZadigTesting):
-				testResult, err := genTestResultText(task.WorkflowName, job.Name, task.TaskID, language)
-				if err != nil {
-					log.Errorf("genTestResultText err:%s", err)
-					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
-				}
-
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**: %s  \n", testResult)
-				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}: %s \n", testResult)
-			case string(config.JobZadigScanning):
-				jobSpec := &models.JobTaskFreestyleSpec{}
-				models.IToi(job.Spec, jobSpec)
-				sonarMetricsText, mailSonarMetricsText, err := genSonartMetricsText(jobSpec, language)
-				if err != nil {
-					log.Errorf("genTestResultText err:%s", err)
-					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
-				}
-
-				if sonarMetricsText != "" {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextSonarMetrics\"}}**: %s  \n", sonarMetricsText)
-					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextSonarMetrics\"}}: %s \n", mailSonarMetricsText)
-				}
-			}
-			jobNotifaication := &jobTaskNotification{
-				Job:         job,
-				WebHookType: notify.WebHookType,
-			}
-
-			if notify.WebHookType == setting.NotifyWebHookTypeMail {
-				jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication, language)
-				if err != nil {
-					return "", "", nil, nil, err
-				}
-				jobContents = append(jobContents, jobContent)
-			} else {
-				jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication, language)
-				if err != nil {
-					return "", "", nil, nil, err
-				}
-				jobContents = append(jobContents, jobContent)
-			}
-
-			workflowNotifyStage.Jobs = append(workflowNotifyStage.Jobs, workflowNotifyJob)
-		}
-		workflowNotifyStages = append(workflowNotifyStages, workflowNotifyStage)
+	jobContents, workflowNotifyStages, err := workflownotifyutil.BuildWorkflowJobContents(&workflownotifyutil.BuildJobContentsArgs{
+		Task:        task,
+		Stages:      task.Stages,
+		WebHookType: notify.WebHookType,
+		RenderTemplate: func(tpl string, job *models.JobTask) (string, error) {
+			return getJobTaskTplExec(tpl, &jobTaskNotification{Job: job, WebHookType: notify.WebHookType}, language)
+		},
+		GetTestResult: func(jobName string) (string, error) {
+			return genTestResultText(task.WorkflowName, jobName, task.TaskID, language)
+		},
+		GetSonarMetrics: func(jobSpec *models.JobTaskFreestyleSpec) (string, string, error) {
+			return genSonartMetricsText(jobSpec, language)
+		},
+	})
+	if err != nil {
+		return "", "", nil, nil, err
 	}
 	webhookNotify.Stages = workflowNotifyStages
 
