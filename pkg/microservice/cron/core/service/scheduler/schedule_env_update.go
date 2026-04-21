@@ -17,6 +17,8 @@ limitations under the License.
 package scheduler
 
 import (
+	"strings"
+
 	"github.com/jasonlvhit/gocron"
 	"go.uber.org/zap"
 
@@ -64,11 +66,19 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		}
 
 		envKey := buildEnvNameKey(env)
+
+		if strings.HasSuffix(envKey, "-cron") {
+			log.Infof("envObj: %+v", envObj)
+		}
+
 		c.lastEnvSchedulerDataRWMutex.Lock()
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
 			// render not changed, no need to update scheduler
 			if lastEnvData.UpdateTime == envObj.UpdateTime {
 				c.lastEnvSchedulerDataRWMutex.Unlock()
+				if strings.HasSuffix(envKey, "-cron") {
+					log.Infof("skip update scheduler")
+				}
 				continue
 			}
 		}
