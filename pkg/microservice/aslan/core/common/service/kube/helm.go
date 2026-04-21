@@ -143,11 +143,15 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		}
 	}
 
-	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(helmClient.ClusterID)
+	restCfg := helmClient.RestConfig
+	if restCfg == nil {
+		return fmt.Errorf("failed to get kubernetes client set, err: helm client rest config is nil")
+	}
+
+	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes client set, err: %v", err)
 	}
-
 	err = cleanupStuckWorkloads(clientSet, stuckDeployments, stuckStatefulSets, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to cleanup stuck workloads, err: %v", err)
