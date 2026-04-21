@@ -550,18 +550,10 @@ func formatManualExecStageJobs(stage *models.StageTask, language string) string 
 		return ""
 	}
 
-	const maxJobsShown = 5
-	lines := make([]string, 0, maxJobsShown+1)
-	for idx, job := range stage.Jobs {
+	lines := make([]string, 0, len(stage.Jobs))
+	for _, job := range stage.Jobs {
 		if job == nil {
 			continue
-		}
-		if len(lines) >= maxJobsShown {
-			remaining := len(stage.Jobs) - idx
-			if remaining > 0 {
-				lines = append(lines, fmt.Sprintf("... and %d more", remaining))
-			}
-			break
 		}
 
 		jobName := job.DisplayName
@@ -597,6 +589,8 @@ func formatManualExecJobType(jobType, language string) string {
 		return getText("jobTypeBuild", language)
 	case string(config.JobZadigDeploy):
 		return getText("jobTypeDeploy", language)
+	case string(config.JobCustomDeploy):
+		return getText("jobTypeCustomDeploy", language)
 	case string(config.JobZadigTesting):
 		return getText("jobTypeTest", language)
 	case string(config.JobZadigScanning):
@@ -611,6 +605,8 @@ func formatManualExecJobType(jobType, language string) string {
 		return getText("jobTypeApproval", language)
 	case string(config.JobZadigHelmDeploy):
 		return getText("jobTypeDeploy", language)
+	case string(config.JobZadigHelmChartDeploy):
+		return getText("jobTypeHelmChartDeploy", language)
 	default:
 		return jobType
 	}
