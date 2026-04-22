@@ -450,7 +450,11 @@ func (w *Workflow) Validate(isExecution bool) error {
 				return e.ErrLicenseInvalid.AddDesc("基础版不支持工作流手动执行")
 			}
 		}
-
+		if stage.ManualExec != nil && stage.ManualExec.LarkPersonNotificationConfig != nil {
+			if stage.ManualExec.LarkPersonNotificationConfig.AppID == "" {
+				return e.ErrLintWorkflow.AddDesc(fmt.Sprintf("manual execution notification app id cannot be empty for stage %s", stage.Name))
+			}
+		}
 		if _, ok := stageNameMap[stage.Name]; !ok {
 			stageNameMap[stage.Name] = true
 		} else {
