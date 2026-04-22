@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -47,6 +50,7 @@ type EventPush struct {
 }
 
 func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
+	start := time.Now()
 	token := req.Header.Get("X-Gitlab-Token")
 	secret := util.GetGitHookSecret()
 
@@ -55,10 +59,12 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	}
 
 	eventType := gitlab.HookEventType(req)
+	parseStart := time.Now()
 	event, err := gitlab.ParseHook(eventType, payload)
 	if err != nil {
 		return err
 	}
+	log.Infof("gitlab webhook parsed event type %s in %s", eventType, time.Since(parseStart))
 
 	baseURI := config.SystemAddress()
 	var pushEvent *gitlab.PushEvent
@@ -68,12 +74,14 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 
 	switch event.(type) {
 	case *gitlab.PushSystemEvent:
+		parsePushSystemEventStart := time.Now()
 		if ev, err := gitlab.ParseWebhook(gitlab.EventTypePush, payload); err != nil {
 			errorList = multierror.Append(errorList, err)
 		} else {
 			event = ev
 			eventType = gitlab.EventTypePush
 		}
+		log.Infof("gitlab webhook parsed push system event in %s", time.Since(parsePushSystemEventStart))
 	case *gitlab.MergeEvent:
 		if eventType == gitlab.EventTypeSystemHook {
 			eventType = gitlab.EventTypeMergeRequest
@@ -83,20 +91,31 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	switch event := event.(type) {
 	case *gitlab.PushEvent:
 		pushEvent = event
+		pushEventStart := time.Now()
 		changeFiles := make([]string, 0)
 		for _, commit := range pushEvent.Commits {
 			changeFiles = append(changeFiles, commit.Added...)
 			changeFiles = append(changeFiles, commit.Removed...)
 			changeFiles = append(changeFiles, commit.Modified...)
 		}
+		log.Infof("gitlab webhook collected %d changed files in %s", len(changeFiles), time.Since(pushEventStart))
 		pathWithNamespace := pushEvent.Project.PathWithNamespace
 		// trigger service template to re-sync from remote repo
+		serviceSyncStart := time.Now()
 		if err = updateServiceTemplateByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
+		log.Infof("gitlab webhook updateServiceTemplateByPushEvent cost %s", time.Since(serviceSyncStart))
+		valuesSyncStart := time.Now()
 		if err = updateServiceTemplateValuesByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
+		log.Infof("gitlab webhook updateServiceTemplateValuesByPushEvent cost %s", time.Since(valuesSyncStart))
+		yamlSyncStart := time.Now()
+		if err = updateYamlTemplateByGitlabPush(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+		log.Infof("gitlab webhook updateYamlTemplateByGitlabPush cost %s", time.Since(yamlSyncStart))
 	case *gitlab.MergeEvent:
 		mergeEvent = event
 	case *gitlab.TagEvent:
@@ -123,25 +142,31 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerTestStart := time.Now()
 			if err = TriggerTestByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerTestByGitlabEvent push cost %s", time.Since(triggerTestStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerScanningStart := time.Now()
 			if err = TriggerScanningByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerScanningByGitlabEvent push cost %s", time.Since(triggerScanningStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerWorkflowV4Start := time.Now()
 			if err = TriggerWorkflowV4ByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent push cost %s", time.Since(triggerWorkflowV4Start))
 		}()
 	}
 
@@ -150,25 +175,31 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerTestStart := time.Now()
 			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerTestByGitlabEvent merge cost %s", time.Since(triggerTestStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerScanningStart := time.Now()
 			if err = TriggerScanningByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerScanningByGitlabEvent merge cost %s", time.Since(triggerScanningStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerWorkflowV4Start := time.Now()
 			if err = TriggerWorkflowV4ByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent merge cost %s", time.Since(triggerWorkflowV4Start))
 		}()
 	}
 
@@ -177,29 +208,38 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerTestStart := time.Now()
 			if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerTestByGitlabEvent tag cost %s", time.Since(triggerTestStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerScanningStart := time.Now()
 			if err = TriggerScanningByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerScanningByGitlabEvent tag cost %s", time.Since(triggerScanningStart))
 		}()
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			triggerWorkflowV4Start := time.Now()
 			if err = TriggerWorkflowV4ByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
+			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent tag cost %s", time.Since(triggerWorkflowV4Start))
 		}()
 	}
 
+	waitStart := time.Now()
 	wg.Wait()
+	log.Infof("gitlab webhook wait async tasks cost %s", time.Since(waitStart))
+	log.Infof("gitlab webhook total cost %s", time.Since(start))
 
 	return errorList.ErrorOrNil()
 }
@@ -325,6 +365,131 @@ func updateServiceTemplateByPushEvent(ref string, diffs []string, pathWithNamesp
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func updateYamlTemplateByGitlabPush(ref string, diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
+	start := time.Now()
+	templates, err := commonrepo.NewYamlTemplateColl().ListBySource(setting.SourceFromGitlab)
+	if err != nil {
+		return err
+	}
+
+	errs := &multierror.Error{}
+	for _, tmpl := range templates {
+		if tmpl == nil || tmpl.Source != setting.SourceFromGitlab {
+			continue
+		}
+		namespace := tmpl.Namespace
+		if namespace == "" {
+			namespace = tmpl.RepoOwner
+		}
+		if namespace+"/"+tmpl.RepoName != pathWithNamespace {
+			continue
+		}
+		if strings.TrimPrefix(ref, "refs/heads/") != tmpl.BranchName {
+			continue
+		}
+
+		affected := len(diffs) == 0
+		for _, diff := range diffs {
+			if subElem(tmpl.Path, diff) {
+				affected = true
+				break
+			}
+		}
+		if affected {
+			log.Infof("Started to sync yaml template %s from gitlab path %s", tmpl.Name, tmpl.Path)
+			if err := SyncYamlTemplateFromGitlab(tmpl, log); err != nil {
+				log.Errorf("failed to sync yaml template %s from gitlab, error: %v", tmpl.Name, err)
+				errs = multierror.Append(errs, err)
+			}
+		} else {
+			log.Infof("Yaml template %s from gitlab %s is not affected, no sync", tmpl.Name, tmpl.Path)
+		}
+	}
+
+	log.Infof("gitlab webhook updateYamlTemplateByGitlabPush scanned %d templates in %s", len(templates), time.Since(start))
+	return errs.ErrorOrNil()
+}
+
+func SyncYamlTemplateFromGitlab(tmpl *commonmodels.YamlTemplate, log *zap.SugaredLogger) error {
+	start := time.Now()
+	if tmpl.Source != setting.SourceFromGitlab {
+		return fmt.Errorf("yaml template is not from gitlab")
+	}
+
+	var before string
+	if tmpl.Commit != nil {
+		before = tmpl.Commit.SHA
+	}
+
+	client, err := getGitlabClientByCodehostId(tmpl.CodeHostID)
+	if err != nil {
+		return err
+	}
+
+	namespace := tmpl.Namespace
+	if namespace == "" {
+		namespace = tmpl.RepoOwner
+	}
+
+	latestCommitStart := time.Now()
+	commit, err := GitlabGetLatestCommit(client, namespace, tmpl.RepoName, tmpl.BranchName, tmpl.Path)
+	if err != nil {
+		return err
+	}
+	log.Infof("gitlab webhook sync yaml template %s get latest commit cost %s", tmpl.Name, time.Since(latestCommitStart))
+
+	tmpl.Commit = &commonmodels.Commit{
+		SHA:     commit.ID,
+		Message: commit.Message,
+	}
+
+	if before == tmpl.Commit.SHA {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync", before)
+		return nil
+	}
+
+	pathType := "blob"
+	if tmpl.LoadFromDir {
+		pathType = "tree"
+	}
+	rawFilesStart := time.Now()
+	files, err := GitlabGetRawFiles(client, namespace, tmpl.RepoName, tmpl.BranchName, tmpl.Path, pathType)
+	if err != nil {
+		return err
+	}
+	log.Infof("gitlab webhook sync yaml template %s get raw files cost %s", tmpl.Name, time.Since(rawFilesStart))
+	if len(files) == 0 {
+		return fmt.Errorf("no yaml file is found under directory %s", tmpl.Path)
+	}
+
+	content := util.JoinYamls(files)
+	if pathType == "blob" {
+		content = files[0]
+	}
+
+	updateTemplateStart := time.Now()
+	if err := templateservice.UpdateYamlTemplate(tmpl.ID.Hex(), &template.YamlTemplate{
+		Name:        tmpl.Name,
+		Content:     content,
+		Source:      tmpl.Source,
+		CodehostID:  tmpl.CodeHostID,
+		RepoOwner:   tmpl.RepoOwner,
+		Namespace:   tmpl.Namespace,
+		RepoName:    tmpl.RepoName,
+		Path:        tmpl.Path,
+		BranchName:  tmpl.BranchName,
+		RemoteName:  tmpl.RemoteName,
+		LoadFromDir: tmpl.LoadFromDir,
+		Commit:      tmpl.Commit,
+	}, log); err != nil {
+		return err
+	}
+	log.Infof("gitlab webhook sync yaml template %s update template cost %s", tmpl.Name, time.Since(updateTemplateStart))
+
+	log.Infof("End of sync yaml template %s from gitlab path %s, total cost %s", tmpl.Name, tmpl.Path, time.Since(start))
+	return nil
 }
 
 func GetGitlabTestingServiceTemplates() ([]*commonmodels.Service, error) {

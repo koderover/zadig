@@ -32,6 +32,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -308,6 +310,11 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		// sync service template
 		if err = updateServiceTemplateByGithubPush(et, log); err != nil {
 			log.Errorf("updateServiceTemplateByGithubPush failed, error:%v", err)
+		}
+
+		// sync yaml template
+		if err = updateYamlTemplateByGithubPush(et, log); err != nil {
+			log.Errorf("updateYamlTemplateByGithubPush failed, error:%v", err)
 		}
 
 		// sync service template helm values
@@ -755,5 +762,156 @@ func SyncServiceTemplateHelmValuesFromGithub(service *commonmodels.Service, late
 	}
 
 	log.Infof("End of sync service template %s's helm values from github path %s", service.ServiceName, sourceFrom.LoadPath)
+	return nil
+}
+
+func updateYamlTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.SugaredLogger) error {
+
+	changeFiles := make([]string, 0)
+	for _, commit := range pushEvent.Commits {
+		changeFiles = append(changeFiles, commit.Added...)
+		changeFiles = append(changeFiles, commit.Removed...)
+		changeFiles = append(changeFiles, commit.Modified...)
+	}
+
+	latestCommitID := *pushEvent.After
+	latestCommitMessage := ""
+	for _, commit := range pushEvent.Commits {
+		if *commit.ID == latestCommitID {
+			latestCommitMessage = *commit.Message
+			break
+		}
+	}
+
+	templates, err := commonrepo.NewYamlTemplateColl().ListBySource(setting.SourceFromGithub)
+	if err != nil {
+		log.Errorf("Failed to get github yaml templates, error: %v", err)
+		return fmt.Errorf("failed to get github yaml templates: %w", err)
+	}
+
+	errs := &multierror.Error{}
+	for _, tmpl := range templates {
+
+		namespace := tmpl.Namespace
+		if namespace == "" {
+			namespace = tmpl.RepoOwner
+		}
+
+		// 判断 PushEvent 的 Repo 和 Branch 是否匹配该 yaml 模板
+		if namespace+"/"+tmpl.RepoName != pushEvent.GetRepo().GetFullName() {
+			continue
+		}
+		if strings.TrimPrefix(pushEvent.GetRef(), "refs/heads/") != tmpl.BranchName {
+			continue
+		}
+
+		affected := false
+		for _, changeFile := range changeFiles {
+			if subElem(tmpl.Path, changeFile) {
+				affected = true
+				break
+			}
+		}
+		if affected {
+			log.Infof("Started to sync yaml template %s from github %s", tmpl.Name, tmpl.Path)
+			if err := SyncYamlTemplateFromGithub(tmpl, latestCommitID, latestCommitMessage, log); err != nil {
+				log.Errorf("SyncYamlTemplateFromGithub failed, error: %v", err)
+				errs = multierror.Append(errs, err)
+			}
+		} else {
+			log.Infof("Yaml template %s from github %s is not affected, no sync", tmpl.Name, tmpl.Path)
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
+func SyncYamlTemplateFromGithub(tmpl *commonmodels.YamlTemplate, latestCommitID, latestCommitMessage string, log *zap.SugaredLogger) error {
+	if tmpl.Source != setting.SourceFromGithub {
+		log.Error("YAML template is not from github")
+		return errors.New("yaml template is not from github")
+	}
+
+	var before string
+	if tmpl.Commit != nil {
+		before = tmpl.Commit.SHA
+	}
+
+	tmpl.Commit = &commonmodels.Commit{
+		SHA:     latestCommitID,
+		Message: latestCommitMessage,
+	}
+
+	if before == latestCommitID {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync, source:%s", before, tmpl.Source)
+		return nil
+	}
+
+	ch, err := systemconfig.New().GetCodeHost(tmpl.CodeHostID)
+	if err != nil {
+		log.Errorf("failed to get codehost %d, err: %s", tmpl.CodeHostID, err)
+		return err
+	}
+
+	namespace := tmpl.Namespace
+	if namespace == "" {
+		namespace = tmpl.RepoOwner
+	}
+
+	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
+	fileContent, directoryContent, err := gc.GetContents(context.TODO(), namespace, tmpl.RepoName, tmpl.Path, &github.RepositoryContentGetOptions{Ref: tmpl.BranchName})
+	if err != nil {
+		return err
+	}
+
+	content := ""
+	if fileContent != nil {
+		content, err = fileContent.GetContent()
+		if err != nil {
+			return err
+		}
+	} else {
+		files := make([]string, 0)
+		for _, f := range directoryContent {
+			if f.GetType() != "file" {
+				continue
+			}
+			fileName := strings.ToLower(f.GetPath())
+			if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
+				continue
+			}
+
+			file, err := syncSingleFileFromGithub(namespace, tmpl.RepoName, tmpl.BranchName, f.GetPath(), ch.AccessToken)
+			if err != nil {
+				log.Errorf("syncSingleFileFromGithub failed, path: %s, err: %v", f.GetPath(), err)
+				continue
+			}
+			files = append(files, file)
+		}
+		if len(files) == 0 {
+			return fmt.Errorf("no yaml file is found under directory %s", tmpl.Path)
+		}
+		content = util.JoinYamls(files)
+	}
+
+	if err := templateservice.UpdateYamlTemplate(tmpl.ID.Hex(), &template.YamlTemplate{
+		Name:        tmpl.Name,
+		Content:     content,
+		Source:      tmpl.Source,
+		CodehostID:  tmpl.CodeHostID,
+		RepoOwner:   tmpl.RepoOwner,
+		Namespace:   tmpl.Namespace,
+		RepoName:    tmpl.RepoName,
+		Path:        tmpl.Path,
+		BranchName:  tmpl.BranchName,
+		RemoteName:  tmpl.RemoteName,
+		LoadFromDir: tmpl.LoadFromDir,
+		Commit:      tmpl.Commit,
+	}, log); err != nil {
+		log.Errorf("update yaml template error: %s", err)
+		return err
+	}
+
+	log.Infof("End of sync yaml template %s from github path %s", tmpl.Name, tmpl.Path)
 	return nil
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -128,7 +129,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 		filePath := path.Join(base, loadPath.Path)
 
 		if !loadPath.IsDir {
-			if !isYaml(loadPath.Path) {
+			if !commonutil.IsYaml(loadPath.Path) {
 				log.Error("trying to preload a non-yaml file")
 				return nil, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 			}
@@ -145,7 +146,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 				log.Error("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 				return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidServiceDir(fileInfos) {
+			if commonutil.IsValidServiceDir(fileInfos) {
 				svcName := loadPath.Path
 				if loadPath.Path == "" {
 					svcName = repoName
@@ -168,7 +169,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 						log.Errorf("Failed to get subdir content from gerrit with path: %s, the error is: %+v", subDirPath, err)
 						return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 					}
-					if isValidServiceDir(subtree) {
+					if commonutil.IsValidServiceDir(subtree) {
 						ret = append(ret, LoadServicePath{
 							ServiceName: getFileName(file.Name()),
 							Path:        loadPath.Path,
@@ -210,7 +211,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 		filePath := path.Join(base, loadPath.Path)
 
 		if !loadPath.IsDir {
-			if !isYaml(loadPath.Path) {
+			if !commonutil.IsYaml(loadPath.Path) {
 				log.Error("trying to preload a non-yaml file")
 				return nil, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
 			}
@@ -228,7 +229,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 				os.RemoveAll(base)
 				return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidServiceDir(fileInfos) {
+			if commonutil.IsValidServiceDir(fileInfos) {
 				svcName := loadPath.Path
 				if loadPath.Path == "" {
 					svcName = repoName
@@ -251,7 +252,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 						log.Errorf("Failed to get subdir content from gitee with path: %s, the error is: %s", subDirPath, err)
 						return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 					}
-					if isValidServiceDir(subtree) {
+					if commonutil.IsValidServiceDir(subtree) {
 						ret = append(ret, LoadServicePath{
 							ServiceName: getFileName(file.Name()),
 							Path:        loadPath.Path,
@@ -348,7 +349,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 				log.Errorf("Failed to read directory info of path: %s, the error is: %+v", filePath, err)
 				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidServiceDir(fileInfos) {
+			if commonutil.IsValidServiceDir(fileInfos) {
 				return loadServiceFromGerrit(fileInfos, ch.ID, username, branchName, loadPath.Path, loadPath.ServiceName, filePath, repoOwner, remoteName, repoName, args.Type, args.ProductName, loadPath.IsDir, commitInfo, force, production, log)
 			} else {
 				return e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("%s 路径下没有yaml文件，请重新选择", loadPath.Path))
@@ -361,7 +362,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			// 		log.Errorf("Failed to read subdir info from gerrit package of path: %s, the error is: %+v", subtreePath, err)
 			// 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			// 	}
-			// 	if isValidServiceDir(subtreeInfo) {
+			// 	if commonutil.IsValidServiceDir(subtreeInfo) {
 			// 		if err := loadServiceFromGerrit(subtreeInfo, ch.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, force, production, log); err != nil {
 			// 			return err
 			// 		}
@@ -482,7 +483,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 				log.Errorf("Failed to read directory info of path: %s, the error is: %s", filePath, err)
 				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidServiceDir(fileInfos) {
+			if commonutil.IsValidServiceDir(fileInfos) {
 				return loadServiceFromGitee(fileInfos, ch, username, branchName, loadPath.Path, loadPath.ServiceName, filePath, repoOwner, remoteName, repoName, args.Type, args.ProductName, loadPath.IsDir, commitInfo, force, production, log)
 			} else {
 				return e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("%s 路径下没有yaml文件，请重新选择", loadPath.Path))
@@ -496,7 +497,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 			// 		log.Errorf("Failed to read subdir info from gitee package of path: %s, the error is: %s", subtreePath, err)
 			// 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			// 	}
-			// 	if isValidServiceDir(subtreeInfo) {
+			// 	if commonutil.IsValidServiceDir(subtreeInfo) {
 			// 		if err := loadServiceFromGitee(subtreeInfo, ch, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, force, production, log); err != nil {
 			// 			return err
 			// 		}
@@ -552,7 +553,7 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 
 func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 	for _, entry := range child {
-		if entry.GetType() == "file" && isYaml(entry.GetName()) {
+		if entry.GetType() == "file" && commonutil.IsYaml(entry.GetName()) {
 			return true
 		}
 	}
@@ -561,16 +562,7 @@ func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 
 func isValidGitlabServiceDir(child []*gitlab.TreeNode) bool {
 	for _, entry := range child {
-		if entry.Type == "blob" && isYaml(entry.Name) {
-			return true
-		}
-	}
-	return false
-}
-
-func isValidServiceDir(child []os.FileInfo) bool {
-	for _, file := range child {
-		if !file.IsDir() && isYaml(file.Name()) {
+		if entry.Type == "blob" && commonutil.IsYaml(entry.Name) {
 			return true
 		}
 	}
@@ -580,7 +572,7 @@ func isValidServiceDir(child []os.FileInfo) bool {
 func extractYamls(basePath string, tree []os.FileInfo) ([]string, error) {
 	var ret []string
 	for _, entry := range tree {
-		if !entry.IsDir() && isYaml(entry.Name()) {
+		if !entry.IsDir() && commonutil.IsYaml(entry.Name()) {
 			tmpFilepath := fmt.Sprintf("%s/%s", basePath, entry.Name())
 			yamlByte, err := ioutil.ReadFile(tmpFilepath)
 			if err != nil {

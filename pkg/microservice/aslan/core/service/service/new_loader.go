@@ -19,16 +19,11 @@ package service
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
-	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
-	gitlabservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitlab"
-	"github.com/koderover/zadig/v2/pkg/setting"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -44,7 +39,7 @@ type LoadServicePath struct {
 func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths []PreLoadServicePath, logger *zap.SugaredLogger) ([]LoadServicePath, error) {
 	logger.Infof("Preloading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, paths)
 
-	loader, err := getLoader(ch)
+	loader, err := commonutil.GetYAMLLoader(ch)
 	if err != nil {
 		logger.Errorf("Failed to create loader client, err: %s", err)
 		return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -53,7 +48,7 @@ func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths
 	resp := make([]LoadServicePath, 0)
 	for _, path := range paths {
 		if !path.IsDir {
-			if !isYaml(path.Path) {
+			if !commonutil.IsYaml(path.Path) {
 				return nil, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
 			}
 
@@ -69,7 +64,7 @@ func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths
 				return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
 
-			folders, files := getFoldersAndYAMLFiles(treeNodes)
+			folders, files := commonutil.GetFoldersAndYAMLFiles(treeNodes)
 			// if load path is a directory, we will load services in following rules:
 			// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
 			// 2. if not, but there is some directories under this directory, load each of them as a service
@@ -87,7 +82,7 @@ func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths
 						return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
 					}
 
-					if hasYAMLFiles(tns) {
+					if commonutil.HasYAMLFiles(tns) {
 						resp = append(resp, LoadServicePath{
 							ServiceName: getFileName(f.FullPath),
 							Path:        f.FullPath,
@@ -118,7 +113,7 @@ type serviceInfo struct {
 func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force, production bool, logger *zap.SugaredLogger) error {
 	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %v", ch.Type, owner, namespace, repo, branch, args.ServicePaths)
 
-	loader, err := getLoader(ch)
+	loader, err := commonutil.GetYAMLLoader(ch)
 	if err != nil {
 		logger.Errorf("Failed to create loader client, err: %s", err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -141,7 +136,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
 
-			_, files := getFoldersAndYAMLFiles(treeNodes)
+			_, files := commonutil.GetFoldersAndYAMLFiles(treeNodes)
 			// if load path is a directory, we will load services in following rules:
 			// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
 			// 2. if not, but there is some directories under this directory, load each of them as a service
@@ -218,53 +213,6 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 	}
 
 	return nil
-}
-
-func getFoldersAndYAMLFiles(treeNodes []*git.TreeNode) ([]*git.TreeNode, []*git.TreeNode) {
-	var folders, files []*git.TreeNode
-	for _, tn := range treeNodes {
-		if tn.IsDir {
-			folders = append(folders, tn)
-		} else if isYaml(tn.Name) {
-			files = append(files, tn)
-		}
-	}
-
-	return folders, files
-}
-
-func hasYAMLFiles(treeNodes []*git.TreeNode) bool {
-	for _, tn := range treeNodes {
-		if !tn.IsDir && isYaml(tn.Name) {
-			return true
-		}
-	}
-
-	return false
-}
-
-type yamlLoader interface {
-	GetYAMLContents(owner, repo, path, branch string, isDir, split bool) ([]string, error)
-	GetLatestRepositoryCommit(owner, repo, path, branch string) (*git.RepositoryCommit, error)
-	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
-}
-
-func getLoader(ch *systemconfig.CodeHost) (yamlLoader, error) {
-	switch ch.Type {
-	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
-	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy, ch.DisableSSL)
-	default:
-		// should not have happened here
-		log.DPanicf("invalid source: %s", ch.Type)
-		return nil, fmt.Errorf("invalid source: %s", ch.Type)
-	}
-}
-
-func isYaml(filename string) bool {
-	filename = strings.ToLower(filename)
-	return strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml")
 }
 
 func getFileName(fullName string) string {

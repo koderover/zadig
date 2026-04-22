@@ -62,11 +62,32 @@ type YamlTemplate struct {
 	Content            string                           `json:"content"`
 	VariableYaml       string                           `json:"variable_yaml"`
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
+
+	Source      string         `json:"source,omitempty"`
+	CodehostID  int            `json:"codehostID,omitempty"`
+	RepoOwner   string         `json:"repo_owner,omitempty"`
+	Namespace   string         `json:"namespace,omitempty"`
+	RepoName    string         `json:"repo,omitempty"`
+	Path        string         `json:"path,omitempty"`
+	BranchName  string         `json:"branch,omitempty"`
+	RemoteName  string         `json:"remote_name,omitempty"`
+	LoadFromDir bool           `json:"load_from_dir,omitempty"`
+	Commit      *models.Commit `json:"commit,omitempty"`
 }
 
 type YamlListObject struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Source      string         `json:"source,omitempty"`
+	CodehostID  int            `json:"codehostID,omitempty"`
+	RepoOwner   string         `json:"repo_owner,omitempty"`
+	Namespace   string         `json:"namespace,omitempty"`
+	Repo        string         `json:"repo,omitempty"`
+	Path        string         `json:"path,omitempty"`
+	Branch      string         `json:"branch,omitempty"`
+	RemoteName  string         `json:"remote_name,omitempty"`
+	LoadFromDir bool           `json:"load_from_dir,omitempty"`
+	Commit      *models.Commit `json:"commit,omitempty"`
 }
 
 type YamlDetail struct {
@@ -75,6 +96,16 @@ type YamlDetail struct {
 	Content            string                           `json:"content"`
 	VariableYaml       string                           `json:"variable_yaml"`
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
+	Source             string                           `json:"source,omitempty"`
+	CodehostID         int                              `json:"codehostID,omitempty"`
+	RepoOwner          string                           `json:"repo_owner,omitempty"`
+	Namespace          string                           `json:"namespace,omitempty"`
+	RepoName           string                           `json:"repo_name,omitempty"`
+	Path               string                           `json:"path,omitempty"`
+	BranchName         string                           `json:"branch_name,omitempty"`
+	RemoteName         string                           `json:"remote_name,omitempty"`
+	LoadFromDir        bool                             `json:"load_from_dir,omitempty"`
+	Commit             *models.Commit                   `json:"commit,omitempty"`
 }
 
 type ServiceReference struct {
