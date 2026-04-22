@@ -76,6 +76,8 @@ func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption s
 
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
+	variableYaml = strings.ReplaceAll(variableYaml, setting.ServiceVariableProduct, productName)
+	variableYaml = strings.ReplaceAll(variableYaml, setting.ServiceVariableService, serviceName)
 
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
@@ -94,6 +96,8 @@ func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption s
 	// replace system variables
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+	originYaml = strings.ReplaceAll(originYaml, setting.ServiceVariableProduct, productName)
+	originYaml = strings.ReplaceAll(originYaml, setting.ServiceVariableService, serviceName)
 
 	for rk, rv := range replacedKv {
 		originYaml = strings.ReplaceAll(originYaml, rk, rv)
