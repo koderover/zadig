@@ -19,6 +19,7 @@ package permission
 import (
 	"errors"
 	"fmt"
+
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
@@ -52,6 +53,7 @@ func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
 }
 
 func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
+
 	tx := repository.DB.Begin()
 
 	roleTemplate := &models.RoleTemplate{
@@ -95,6 +97,7 @@ func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 }
 
 func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
+
 	tx := repository.DB.Begin()
 
 	roleTemplateInfo, err := orm.GetRoleTemplate(req.Name, repository.DB)

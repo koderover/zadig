@@ -68,6 +68,8 @@ type EnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
 	Restart    bool
@@ -83,6 +85,8 @@ type ProductionEnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
 	Restart    bool
