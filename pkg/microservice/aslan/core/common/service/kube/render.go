@@ -593,6 +593,8 @@ func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *t
 	if svcRender == nil {
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
+		originYaml = strings.ReplaceAll(originYaml, setting.ServiceVariableProduct, productName)
+		originYaml = strings.ReplaceAll(originYaml, setting.ServiceVariableService, serviceName)
 		return originYaml, nil
 	}
 	variableYaml := svcRender.GetSafeVariable()
