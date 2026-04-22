@@ -1005,6 +1005,22 @@ func DeleteServiceTemplate(serviceName, serviceType, productName string, product
 		if production {
 			return e.ErrDeleteTemplate.AddDesc("PM service type only support testing service")
 		}
+
+		// 删除与该PM服务关联的部署
+		deploy, err := commonrepo.NewDeployColl().Find(&commonrepo.DeployFindOption{
+			ProjectName: productName,
+			ServiceName: serviceName,
+		})
+		if err != nil && err != mongo.ErrNoDocuments {
+			log.Errorf("DeleteServiceTemplate: failed to find deploy for pm service %s/%s, err: %v", productName, serviceName, err)
+			return e.ErrDeleteTemplate.AddDesc(err.Error())
+		}
+		if deploy != nil {
+			if err := commonrepo.NewDeployColl().Delete(deploy.ProjectName, deploy.Name); err != nil {
+				log.Errorf("DeleteServiceTemplate: failed to delete deploy %s/%s for pm service %s, err: %v", deploy.ProjectName, deploy.Name, serviceName, err)
+				return e.ErrDeleteTemplate.AddDesc(err.Error())
+			}
+		}
 	}
 
 	err := repository.UpdateStatus(serviceName, productName, setting.ProductStatusDeleting, production)
