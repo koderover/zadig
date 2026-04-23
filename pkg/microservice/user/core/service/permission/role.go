@@ -271,6 +271,7 @@ func ListActionByRole(roleID uint) ([]string, error) {
 }
 
 func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
+
 	tx := repository.DB.Begin()
 
 	role := &models.NewRole{
@@ -346,6 +347,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 
 // UpdateRole updates the role and its action binding.
 func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
+
 	tx := repository.DB.Begin()
 
 	// Doing a tricky thing here: removing the whole role-action binding, then re-adding them.

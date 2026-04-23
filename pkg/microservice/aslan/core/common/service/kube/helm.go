@@ -27,6 +27,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 	helmclient "github.com/mittwald/go-helm-client"
@@ -35,10 +36,12 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -53,6 +56,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -106,6 +110,11 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		chartSpec.Timeout = time.Second * time.Duration(param.Timeout)
 	}
 
+	stuckDeployments, stuckStatefulSets, err := getStuckWorkload(helmClient, chartSpec)
+	if err != nil {
+		return fmt.Errorf("failed to get stuck workloads: %s", err)
+	}
+
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
 	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
@@ -125,14 +134,94 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 			err,
 			"failed to install or upgrade helm chart %s/%s",
 			namespace, serviceObj.ServiceName)
+		return err
 	} else {
 		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
 		if err != nil {
 			err = errors.WithMessagef(err, "failed to ensure Zadig Service, err: %s", err)
+			return err
 		}
 	}
 
-	return err
+	restCfg := helmClient.RestConfig
+	if restCfg == nil {
+		return fmt.Errorf("failed to get kubernetes client set, err: helm client rest config is nil")
+	}
+
+	clientSet, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes client set, err: %v", err)
+	}
+	err = cleanupStuckWorkloads(clientSet, stuckDeployments, stuckStatefulSets, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to cleanup stuck workloads, err: %v", err)
+	}
+
+	return nil
+}
+
+func getStuckWorkload(helmClient *helmtool.HelmClient, chartSpec *helmclient.ChartSpec) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to template chart %s/%s, err: %s", chartSpec.ReleaseName, chartSpec.ChartName, err)
+	}
+
+	_, resourceMap, err := ManifestToUnstructured(string(manifestBytes))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert manifest to unstructured: %v", err)
+	}
+
+	kubeClient, err := helmClient.GetKubeClient()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	stuckDeployments := make([]*appsv1.Deployment, 0)
+	stuckStatefulSets := make([]*appsv1.StatefulSet, 0)
+	for _, resource := range resourceMap {
+		if resource.Unstructured.GetKind() == setting.Deployment {
+			existingDeploy, deployExists, getErr := getter.GetDeployment(chartSpec.Namespace, resource.Unstructured.GetName(), kubeClient)
+			isStuck := false
+			if getErr != nil {
+				log.Warnf("Failed to get existing Deployment %s/%s: %v", chartSpec.Namespace, resource.Unstructured.GetName(), getErr)
+			} else if deployExists {
+				isStuck = IsDeploymentStuckInUpdate(existingDeploy, log.SugaredLogger())
+				if isStuck {
+					stuckDeployments = append(stuckDeployments, existingDeploy)
+				}
+			}
+		} else if resource.Unstructured.GetKind() == setting.StatefulSet {
+			existingSts, stsExists, getErr := getter.GetStatefulSet(chartSpec.Namespace, resource.Unstructured.GetName(), kubeClient)
+			if getErr != nil {
+				log.Warnf("Failed to get existing StatefulSet %s/%s: %v", chartSpec.Namespace, resource.Unstructured.GetName(), getErr)
+			} else if stsExists {
+				isStuck := IsStatefulSetStuckInUpdate(existingSts, log.SugaredLogger())
+				if isStuck {
+					stuckStatefulSets = append(stuckStatefulSets, existingSts)
+				}
+			}
+		}
+	}
+	return stuckDeployments, stuckStatefulSets, nil
+}
+
+func cleanupStuckWorkloads(clientSet *kubernetes.Clientset, stuckDeployments []*appsv1.Deployment, stuckStatefulSets []*appsv1.StatefulSet, logger *zap.SugaredLogger) error {
+	var err error
+	for _, deploy := range stuckDeployments {
+		err = HandleStuckDeployment(deploy, clientSet, logger)
+		if err != nil {
+			err = fmt.Errorf("failed to handle stuck deployment, name: %s, error: %v", deploy.Name, err)
+			return err
+		}
+	}
+	for _, sts := range stuckStatefulSets {
+		err = HandleStuckStatefulSet(sts, clientSet, logger)
+		if err != nil {
+			err = fmt.Errorf("failed to handle stuck statefulset, name: %s, error: %v", sts.Name, err)
+			return err
+		}
+	}
+	return nil
 }
 
 type chartInstantiateDeploy struct {

@@ -176,6 +176,67 @@ func updateRenderVariableReplicaValue(renderVars []*commontypes.RenderVariableKV
 	return nil, fmt.Errorf("failed to find render variable %s", rootKey)
 }
 
+func cloneGlobalVariableKVs(kvs []*commontypes.GlobalVariableKV) []*commontypes.GlobalVariableKV {
+	ret := make([]*commontypes.GlobalVariableKV, 0, len(kvs))
+	for _, kv := range kvs {
+		if kv == nil {
+			continue
+		}
+		copied := *kv
+		copied.Options = append([]string{}, kv.Options...)
+		copied.RelatedServices = append([]string{}, kv.RelatedServices...)
+		ret = append(ret, &copied)
+	}
+	return ret
+}
+
+func updateGlobalVariableReplicaValue(globalVars []*commontypes.GlobalVariableKV, rootKey, subPath string, replicas int) ([]*commontypes.GlobalVariableKV, error) {
+	cloned := cloneGlobalVariableKVs(globalVars)
+	for _, kv := range cloned {
+		if kv == nil || kv.Key != rootKey {
+			continue
+		}
+		if subPath == "" {
+			if kv.Type == commontypes.ServiceVariableKVTypeYaml {
+				renderedValue, err := yaml.Marshal(replicas)
+				if err != nil {
+					return nil, err
+				}
+				kv.Value = strings.TrimSpace(string(renderedValue))
+				return cloned, nil
+			}
+			kv.Value = replicas
+			return cloned, nil
+		}
+
+		if kv.Type != commontypes.ServiceVariableKVTypeYaml {
+			return nil, fmt.Errorf("global variable %s does not support nested replica path %s", kv.Key, subPath)
+		}
+		yamlValue, ok := kv.Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("global variable %s is not a valid yaml value", kv.Key)
+		}
+
+		flatMap, err := converter.YamlToFlatMap([]byte(yamlValue))
+		if err != nil {
+			return nil, fmt.Errorf("failed to flatten global variable %s: %w", kv.Key, err)
+		}
+		flatMap[subPath] = replicas
+
+		expanded, err := converter.Expand(flatMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to expand global variable %s: %w", kv.Key, err)
+		}
+		renderedValue, err := yaml.Marshal(expanded)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal global variable %s: %w", kv.Key, err)
+		}
+		kv.Value = string(renderedValue)
+		return cloned, nil
+	}
+	return nil, fmt.Errorf("failed to find global variable %s", rootKey)
+}
+
 // buildPreviewCandidateOverrides 仅用于预览：基于候选变量/版本计算预期的副本 override，不修改当前环境状态。
 func buildPreviewCandidateOverrides(prod *commonmodels.Product, serviceName string, updateServiceRevision bool, variableKVs []*commontypes.RenderVariableKV) ([]*commonmodels.WorkLoad, error) {
 	currentSvc := cloneProductService(prod.GetServiceMap()[serviceName])

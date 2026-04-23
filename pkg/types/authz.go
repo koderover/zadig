@@ -36,6 +36,7 @@ const (
 	// env actions for collaboration
 	EnvActionView       = "get_environment"
 	EnvActionEditConfig = "config_environment"
+	EnvActionScale = "scale_environment"
 	EnvActionManagePod  = "manage_environment"
 	EnvActionRestart    = "restart_environment"
 	EnvActionRollback   = "rollback_environment"
@@ -44,6 +45,7 @@ const (
 	// production env actions
 	ProductionEnvActionView       = "get_production_environment"
 	ProductionEnvActionEditConfig = "config_production_environment"
+	ProductionEnvActionScale = "scale_production_environment"
 	ProductionEnvActionManagePod  = "edit_production_environment"
 	ProductionEnvActionRestart    = "restart_production_environment"
 	ProductionEnvActionRollback   = "rollback_production_environment"

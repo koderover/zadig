@@ -63,6 +63,7 @@ const (
 	VerbGetEnvironment      = "get_environment"
 	VerbCreateEnvironment   = "create_environment"
 	VerbConfigEnvironment   = "config_environment"
+	VerbScaleEnvironment    = "scale_environment"
 	VerbManageEnvironment   = "manage_environment"
 	VerbRestartEnvironment  = "restart_environment"
 	VerbRollbackEnvironment = "rollback_environment"
@@ -73,6 +74,7 @@ const (
 	VerbGetProductionEnv      = "get_production_environment"
 	VerbCreateProductionEnv   = "create_production_environment"
 	VerbConfigProductionEnv   = "config_production_environment"
+	VerbScaleProductionEnv    = "scale_production_environment"
 	VerbEditProductionEnv     = "edit_production_environment"
 	VerbRestartProductionEnv  = "restart_production_environment"
 	VerbRollbackProductionEnv = "rollback_production_environment"
@@ -222,6 +224,8 @@ type EnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
 	Restart    bool
@@ -237,6 +241,8 @@ type ProductionEnvActions struct {
 	Create bool
 	// 配置
 	EditConfig bool
+	// 调整副本
+	Scale bool
 	// 管理服务实例
 	ManagePods bool
 	Restart    bool

@@ -183,12 +183,14 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 		"manage_environment":              "管理服务实例",
 		"restart_environment":             "重启",
 		"rollback_environment":            "回滚",
+		"scale_environment":               "调整副本",
 		"debug_pod":                       "服务调试",
 		"get_production_environment":      "查看",
 		"config_production_environment":   "配置",
 		"edit_production_environment":     "管理服务实例",
 		"restart_production_environment":  "重启",
 		"rollback_production_environment": "回滚",
+		"scale_production_environment":    "调整副本",
 		"production_debug_pod":            "服务调试",
 	}
 

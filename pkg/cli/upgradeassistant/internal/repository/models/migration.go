@@ -42,6 +42,8 @@ type Migration struct {
 	Migration421WorkflowDeploySpec              bool               `bson:"migration_421_workflow_deploy_spec"`
 	Migration430UserAPITokenEnabled             bool               `bson:"migration_430_user_api_token_enabled"`
 	Migration430GlobalReadOnlyRole              bool               `bson:"migration_430_global_read_only_role"`
+	Migration430ScalePermission                 bool               `bson:"migration_430_scale_permission"`
+	Migration430CollaborationScalePermission    bool               `bson:"migration_430_collaboration_scale_permission"`
 	Error                                       string             `bson:"error"`
 }
 

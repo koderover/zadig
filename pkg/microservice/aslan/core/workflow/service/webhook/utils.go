@@ -20,9 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -672,17 +670,28 @@ func checkRepoNamespaceMatch(hookRepo *commonmodels.MainHookRepo, pathWithNamesp
 	return (hookRepo.GetRepoNamespace() + "/" + hookRepo.RepoName) == pathWithNamespace
 }
 
+func normalizeRepoRelativePath(p string) string {
+	p = strings.TrimSpace(strings.ReplaceAll(p, "\\", "/"))
+	if p == "" {
+		return ""
+	}
+	cleaned := path.Clean("/" + strings.TrimLeft(p, "/"))
+	if cleaned == "/" || cleaned == "." {
+		return ""
+	}
+	return strings.TrimPrefix(cleaned, "/")
+}
+
 // check if sub path is a part of parent path
 // eg: parent: k1/k2   sub: k1/k2/k3  return true
 // parent k1/k2-2  sub: k1/k2/k3 return false
 func subElem(parent, sub string) bool {
-	up := ".." + string(os.PathSeparator)
-	rel, err := filepath.Rel(parent, sub)
-	if err != nil {
-		log.Errorf("failed to check path is relative, parent: %s, sub: %s", parent, sub)
-		return false
+	parent = normalizeRepoRelativePath(parent)
+	sub = normalizeRepoRelativePath(sub)
+	if parent == "" {
+		return true
 	}
-	if !strings.HasPrefix(rel, up) && rel != ".." {
+	if sub == parent || strings.HasPrefix(sub, parent+"/") {
 		return true
 	}
 	return false

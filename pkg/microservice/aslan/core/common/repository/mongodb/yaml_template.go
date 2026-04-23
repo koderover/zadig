@@ -123,6 +123,24 @@ func (c *YamlTemplateColl) List(pageNum, pageSize int) ([]*models.YamlTemplate, 
 	return resp, int(count), nil
 }
 
+func (c *YamlTemplateColl) ListBySource(source string) ([]*models.YamlTemplate, error) {
+	resp := make([]*models.YamlTemplate, 0)
+	query := bson.M{}
+	if source != "" {
+		query["source"] = source
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *YamlTemplateColl) GetById(idstring string) (*models.YamlTemplate, error) {
 	resp := new(models.YamlTemplate)
 	id, err := primitive.ObjectIDFromHex(idstring)

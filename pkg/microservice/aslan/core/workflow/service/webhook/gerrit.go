@@ -40,9 +40,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -75,6 +77,10 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 		err := updateServiceTemplateByGerritEvent(req.RequestURI, log)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent err : %v", err)
+		}
+		err = updateYamlTemplateByGerritEvent(req.RequestURI, log)
+		if err != nil {
+			log.Errorf("updateYamlTemplateByGerritEvent err : %v", err)
 		}
 	}
 	var wg sync.WaitGroup
@@ -198,6 +204,128 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func updateYamlTemplateByGerritEvent(uri string, log *zap.SugaredLogger) error {
+	templates, err := commonrepo.NewYamlTemplateColl().ListBySource(setting.SourceFromGerrit)
+	if err != nil {
+		return err
+	}
+
+	errs := &multierror.Error{}
+	for _, tmpl := range templates {
+		if tmpl == nil || tmpl.Source != setting.SourceFromGerrit {
+			continue
+		}
+		if strings.Contains(uri, "?") && !strings.Contains(uri, tmpl.Name) {
+			continue
+		}
+
+		log.Infof("Started to sync yaml template %s from gerrit path %s", tmpl.Name, tmpl.Path)
+		if err := SyncYamlTemplateFromGerrit(tmpl, log); err != nil {
+			log.Errorf("failed to sync yaml template %s from gerrit, error: %v", tmpl.Name, err)
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
+func SyncYamlTemplateFromGerrit(tmpl *commonmodels.YamlTemplate, log *zap.SugaredLogger) error {
+	if tmpl.Source != setting.SourceFromGerrit {
+		return fmt.Errorf("yaml template is not from gerrit")
+	}
+
+	var before string
+	if tmpl.Commit != nil {
+		before = tmpl.Commit.SHA
+	}
+
+	ch, err := systemconfig.New().GetCodeHost(tmpl.CodeHostID)
+	if err != nil {
+		return err
+	}
+
+	remoteName := tmpl.RemoteName
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	commit, err := gerritCli.GetCommitByBranch(tmpl.RepoName, tmpl.BranchName)
+	if err != nil {
+		return err
+	}
+
+	tmpl.Commit = &commonmodels.Commit{
+		SHA:     commit.Commit,
+		Message: commit.Message,
+	}
+
+	if before == tmpl.Commit.SHA {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync, source:%s", before, tmpl.Source)
+		return nil
+	}
+
+	if err := command.RunGitCmds(ch, setting.GerritDefaultOwner, setting.GerritDefaultOwner, tmpl.RepoName, tmpl.BranchName, remoteName); err != nil {
+		return err
+	}
+
+	base, err := GetGerritWorkspaceBasePath(tmpl.RepoName)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	fullPath := path.Join(base, tmpl.Path)
+	content := ""
+	if tmpl.LoadFromDir {
+		fileInfos, err := ioutil.ReadDir(fullPath)
+		if err != nil {
+			return err
+		}
+
+		files := make([]string, 0)
+		for _, fileInfo := range fileInfos {
+			if fileInfo.IsDir() || !commonutil.IsYaml(fileInfo.Name()) {
+				continue
+			}
+			file, err := os.ReadFile(path.Join(fullPath, fileInfo.Name()))
+			if err != nil {
+				return err
+			}
+			files = append(files, string(file))
+		}
+		if len(files) == 0 {
+			return fmt.Errorf("no yaml file is found under directory %s", tmpl.Path)
+		}
+		content = util.CombineManifests(files)
+	} else {
+		file, err := os.ReadFile(fullPath)
+		if err != nil {
+			return err
+		}
+		content = string(file)
+	}
+
+	if err := templateservice.UpdateYamlTemplate(tmpl.ID.Hex(), &template.YamlTemplate{
+		Name:        tmpl.Name,
+		Content:     content,
+		Source:      tmpl.Source,
+		CodehostID:  tmpl.CodeHostID,
+		RepoOwner:   tmpl.RepoOwner,
+		Namespace:   tmpl.Namespace,
+		RepoName:    tmpl.RepoName,
+		Path:        tmpl.Path,
+		BranchName:  tmpl.BranchName,
+		RemoteName:  tmpl.RemoteName,
+		LoadFromDir: tmpl.LoadFromDir,
+		Commit:      tmpl.Commit,
+	}, log); err != nil {
+		return err
+	}
+
+	log.Infof("End of sync yaml template %s from gerrit path %s", tmpl.Name, tmpl.Path)
+	return nil
 }
 
 func GetGerritWorkspaceBasePath(repoName string) (string, error) {

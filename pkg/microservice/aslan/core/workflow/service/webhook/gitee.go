@@ -32,14 +32,18 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	microserviceConfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -85,6 +89,9 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 
 		// FIXME: this func maybe panic if any errors occurred, just like gitee token expired
 		if err := updateServiceTemplateByGiteeEvent(req.RequestURI, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
+		if err := updateYamlTemplateByGiteePush(event, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
 		// build webhook
@@ -294,6 +301,153 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func updateYamlTemplateByGiteePush(pushEvent *gitee.PushEvent, log *zap.SugaredLogger) error {
+	changeFiles := make([]string, 0)
+	for _, commit := range pushEvent.Commits {
+		changeFiles = append(changeFiles, commit.Added...)
+		changeFiles = append(changeFiles, commit.Removed...)
+		changeFiles = append(changeFiles, commit.Modified...)
+	}
+
+	templates, _, err := commonrepo.NewYamlTemplateColl().List(0, 0)
+	if err != nil {
+		return err
+	}
+
+	errs := &multierror.Error{}
+	for _, tmpl := range templates {
+		if tmpl == nil || (tmpl.Source != setting.SourceFromGitee && tmpl.Source != setting.SourceFromGiteeEE) {
+			continue
+		}
+		namespace := tmpl.Namespace
+		if namespace == "" {
+			namespace = tmpl.RepoOwner
+		}
+		if namespace+"/"+tmpl.RepoName != pushEvent.Repository.PathWithNamespace {
+			continue
+		}
+		if strings.TrimPrefix(pushEvent.Ref, "refs/heads/") != tmpl.BranchName {
+			continue
+		}
+
+		affected := len(changeFiles) == 0
+		for _, changeFile := range changeFiles {
+			if subElem(tmpl.Path, changeFile) {
+				affected = true
+				break
+			}
+		}
+		if affected {
+			log.Infof("Started to sync yaml template %s from gitee path %s", tmpl.Name, tmpl.Path)
+			if err := SyncYamlTemplateFromGitee(tmpl, log); err != nil {
+				log.Errorf("failed to sync yaml template %s from gitee, error: %v", tmpl.Name, err)
+				errs = multierror.Append(errs, err)
+			}
+		} else {
+			log.Infof("Yaml template %s from gitee %s is not affected, no sync", tmpl.Name, tmpl.Path)
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
+func SyncYamlTemplateFromGitee(tmpl *commonmodels.YamlTemplate, log *zap.SugaredLogger) error {
+	if tmpl.Source != setting.SourceFromGitee && tmpl.Source != setting.SourceFromGiteeEE {
+		return fmt.Errorf("yaml template is not from gitee")
+	}
+
+	var before string
+	if tmpl.Commit != nil {
+		before = tmpl.Commit.SHA
+	}
+
+	ch, err := systemconfig.New().GetCodeHost(tmpl.CodeHostID)
+	if err != nil {
+		return err
+	}
+
+	namespace := tmpl.Namespace
+	if namespace == "" {
+		namespace = tmpl.RepoOwner
+	}
+
+	giteeCli := gitee.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	branch, err := giteeCli.GetSingleBranch(ch.Address, ch.AccessToken, tmpl.RepoOwner, tmpl.RepoName, tmpl.BranchName)
+	if err != nil {
+		return err
+	}
+
+	tmpl.Commit = &commonmodels.Commit{
+		SHA:     branch.Commit.Sha,
+		Message: branch.Commit.Commit.Message,
+	}
+
+	if before == tmpl.Commit.SHA {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync, source:%s", before, tmpl.Source)
+		return nil
+	}
+
+	if err := command.RunGitCmds(ch, tmpl.RepoOwner, namespace, tmpl.RepoName, tmpl.BranchName, "origin"); err != nil {
+		return err
+	}
+
+	base, err := GetWorkspaceBasePath(tmpl.RepoName)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	fullPath := path.Join(base, tmpl.Path)
+	content := ""
+	if tmpl.LoadFromDir {
+		fileInfos, err := ioutil.ReadDir(fullPath)
+		if err != nil {
+			return err
+		}
+
+		files := make([]string, 0)
+		for _, fileInfo := range fileInfos {
+			if fileInfo.IsDir() || !commonutil.IsYaml(fileInfo.Name()) {
+				continue
+			}
+			file, err := os.ReadFile(path.Join(fullPath, fileInfo.Name()))
+			if err != nil {
+				return err
+			}
+			files = append(files, string(file))
+		}
+		if len(files) == 0 {
+			return fmt.Errorf("no yaml file is found under directory %s", tmpl.Path)
+		}
+		content = util.CombineManifests(files)
+	} else {
+		file, err := os.ReadFile(fullPath)
+		if err != nil {
+			return err
+		}
+		content = string(file)
+	}
+
+	if err := templateservice.UpdateYamlTemplate(tmpl.ID.Hex(), &template.YamlTemplate{
+		Name:        tmpl.Name,
+		Content:     content,
+		Source:      tmpl.Source,
+		CodehostID:  tmpl.CodeHostID,
+		RepoOwner:   tmpl.RepoOwner,
+		Namespace:   tmpl.Namespace,
+		RepoName:    tmpl.RepoName,
+		Path:        tmpl.Path,
+		BranchName:  tmpl.BranchName,
+		RemoteName:  tmpl.RemoteName,
+		LoadFromDir: tmpl.LoadFromDir,
+		Commit:      tmpl.Commit,
+	}, log); err != nil {
+		return err
+	}
+
+	log.Infof("End of sync yaml template %s from gitee path %s", tmpl.Name, tmpl.Path)
+	return nil
 }
 
 // GetGiteeTestingServiceTemplates Get all service templates maintained in gitee

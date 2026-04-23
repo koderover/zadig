@@ -179,7 +179,7 @@ func (c *PluginJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	if err := getJobOutputFromTerminalMsg(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient); err != nil {
+	if err := getJobOutputFromTerminalMsg(c.jobTaskSpec.Properties.Namespace, c.job, c.workflowCtx, c.kubeclient); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 	}

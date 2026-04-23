@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
@@ -462,6 +463,14 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	// normalize args.Order to avoid SQL injection since it is concatenated into the ORDER BY clause.
+	switch strings.ToUpper(string(args.Order)) {
+	case string(setting.ListUserOrderAsc):
+		args.Order = setting.ListUserOrderAsc
+	default:
+		args.Order = setting.ListUserOrderDesc
+	}
+
 	var count int64
 	var err error
 	if len(args.Roles) == 0 {
@@ -498,12 +507,20 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 			return nil, err
 		}
 	} else {
-		us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
-		if err != nil {
-			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
-			return nil, err
+		if args.OrderBy == setting.ListUserOrderByLoginTime {
+			users, err = orm.ListUsersByNameAndRoleWithLoginTime(args.Page, args.PerPage, args.Name, args.Roles, args.Order, repository.DB)
+			if err != nil {
+				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+				return nil, err
+			}
+		} else {
+			us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
+			if err != nil {
+				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+				return nil, err
+			}
+			users = models.UsersToUserWithLoginTimes(us)
 		}
-		users = models.UsersToUserWithLoginTimes(us)
 	}
 
 	var uids []string

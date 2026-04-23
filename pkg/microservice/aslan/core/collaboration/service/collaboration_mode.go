@@ -27,22 +27,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 )
 
-func validateMemberInfo(collaborationMode *models.CollaborationMode) bool {
-	if len(collaborationMode.Members) != len(collaborationMode.MemberInfo) {
-		return false
-	}
-	memberSet := sets.NewString(collaborationMode.Members...)
-	memberInfoSet := sets.NewString()
-	for _, memberInfo := range collaborationMode.MemberInfo {
-		memberInfoSet.Insert(memberInfo.GetID())
-	}
-	return memberSet.Equal(memberInfoSet)
-}
-
 func CreateCollaborationMode(userName string, collaborationMode *models.CollaborationMode, logger *zap.SugaredLogger) error {
 	if !validateMemberInfo(collaborationMode) {
 		return fmt.Errorf("members and member_info not match")
 	}
+
 	err := mongodb.NewCollaborationModeColl().Create(userName, collaborationMode)
 	if err != nil {
 		logger.Errorf("CreateCollaborationMode error, err msg:%s", err)
@@ -55,6 +44,7 @@ func UpdateCollaborationMode(userName string, collaborationMode *models.Collabor
 	if !validateMemberInfo(collaborationMode) {
 		return fmt.Errorf("members and member_info not match")
 	}
+
 	err := mongodb.NewCollaborationModeColl().Update(userName, collaborationMode)
 	if err != nil {
 		logger.Errorf("UpdateCollaborationMode error, err msg:%s", err)
@@ -88,3 +78,16 @@ func GetCollaborationMode(username, projectName, name string, logger *zap.Sugare
 	}
 	return resp, true, nil
 }
+
+func validateMemberInfo(collaborationMode *models.CollaborationMode) bool {
+	if len(collaborationMode.Members) != len(collaborationMode.MemberInfo) {
+		return false
+	}
+	memberSet := sets.NewString(collaborationMode.Members...)
+	memberInfoSet := sets.NewString()
+	for _, memberInfo := range collaborationMode.MemberInfo {
+		memberInfoSet.Insert(memberInfo.GetID())
+	}
+	return memberSet.Equal(memberInfoSet)
+}
+
