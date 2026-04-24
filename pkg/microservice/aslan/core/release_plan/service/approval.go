@@ -246,6 +246,9 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		"agree":  config.ApprovalStatusApprove,
 		"refuse": config.ApprovalStatusReject,
 	}
+	getApprovalStatus := func(result string) config.ApprovalStatus {
+		return resultMap[strings.ToLower(result)]
+	}
 
 	checkNodeStatus := func(node *models.DingTalkApprovalNode) (config.ApprovalStatus, error) {
 		users := node.ApproveUsers
@@ -278,19 +281,45 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	if err != nil {
 		return errors.Wrap(err, "get approval instance")
 	}
+	log.Infof("updateDingTalkApproval: instanceID=%s status=%s result=%s operationRecords=%d tasks=%d",
+		instanceID, instanceInfo.Status, instanceInfo.Result, len(instanceInfo.OperationRecords), len(instanceInfo.Tasks))
 
 	operationRecordMap := make(map[string]*dingtalk.OperationRecord)
 	for _, record := range instanceInfo.OperationRecords {
 		operationRecordMap[record.UserID] = record
+		log.Infof("updateDingTalkApproval: instanceID=%s operationRecord userID=%s result=%s date=%s remark=%s",
+			instanceID, record.UserID, record.Result, record.Date, record.Remark)
+	}
+	taskMap := make(map[string]*dingtalk.ApprovalInstanceTask)
+	for _, task := range instanceInfo.Tasks {
+		taskMap[task.UserID] = task
+		log.Infof("updateDingTalkApproval: instanceID=%s task userID=%s result=%s activityID=%s",
+			instanceID, task.UserID, task.Result, task.ActivityID)
 	}
 
-	for _, node := range approval.ApprovalNodes {
+	for nodeIndex, node := range approval.ApprovalNodes {
 		if node.RejectOrApprove != "" {
+			log.Infof("updateDingTalkApproval: instanceID=%s skip node index=%d type=%s status=%s",
+				instanceID, nodeIndex, node.Type, node.RejectOrApprove)
 			continue
 		}
 		for _, user := range node.ApproveUsers {
 			if record := operationRecordMap[user.ID]; record != nil && user.RejectOrApprove == "" {
-				user.RejectOrApprove = resultMap[record.Result]
+				user.RejectOrApprove = getApprovalStatus(record.Result)
+				if user.RejectOrApprove == "" {
+					if task := taskMap[user.ID]; task != nil {
+						user.RejectOrApprove = getApprovalStatus(task.Result)
+						log.Infof("updateDingTalkApproval: instanceID=%s userID=%s operation result=%s mapped empty, fallback task result=%s mapped=%s",
+							instanceID, user.ID, record.Result, task.Result, user.RejectOrApprove)
+					}
+				}
+				if user.RejectOrApprove == "" {
+					log.Warnf("updateDingTalkApproval: instanceID=%s userID=%s result not mapped, operation result=%s",
+						instanceID, user.ID, record.Result)
+				} else {
+					log.Infof("updateDingTalkApproval: instanceID=%s userID=%s mapped approval result=%s from operation result=%s",
+						instanceID, user.ID, user.RejectOrApprove, record.Result)
+				}
 				user.Comment = record.Remark
 				if record.Date != "" {
 					operationTime, err := time.Parse("2006-01-02T15:04Z", record.Date)
@@ -299,16 +328,22 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 					}
 					user.OperationTime = operationTime.Unix()
 				}
+			} else if user.RejectOrApprove == "" {
+				log.Infof("updateDingTalkApproval: instanceID=%s node index=%d userID=%s has no operation record",
+					instanceID, nodeIndex, user.ID)
 			}
 		}
 		node.RejectOrApprove, err = checkNodeStatus(node)
 		if err != nil {
 			return errors.Wrap(err, "check node")
 		}
+		log.Infof("updateDingTalkApproval: instanceID=%s node index=%d type=%s checked status=%s",
+			instanceID, nodeIndex, node.Type, node.RejectOrApprove)
 		switch node.RejectOrApprove {
 		case config.ApprovalStatusApprove:
 		case config.ApprovalStatusReject:
 			approvalInfo.Status = config.StatusReject
+			log.Infof("updateDingTalkApproval: instanceID=%s approval rejected at node index=%d", instanceID, nodeIndex)
 			return nil
 		}
 		break
@@ -316,11 +351,15 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.ApprovalStatusApprove {
 		if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
 			approvalInfo.Status = config.StatusPassed
+			log.Infof("updateDingTalkApproval: instanceID=%s approval passed", instanceID)
 			return nil
 		} else {
+			log.Warnf("updateDingTalkApproval: instanceID=%s final node approved but instance status=%s result=%s",
+				instanceID, instanceInfo.Status, instanceInfo.Result)
 			return errors.Errorf("unexpected instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
 		}
 	}
+	log.Infof("updateDingTalkApproval: instanceID=%s approval still pending", instanceID)
 
 	return nil
 }
