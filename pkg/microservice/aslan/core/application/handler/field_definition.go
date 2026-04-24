@@ -39,7 +39,7 @@ func CreateFieldDefinition(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Create {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
