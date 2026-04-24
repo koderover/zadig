@@ -629,11 +629,6 @@ const (
 	TemplateVariableProductDescription = "项目名称"
 	TemplateVariableService            = "$T-Service$"
 	TemplateVariableServiceDescription = "服务名称"
-
-	ServiceVariableProduct   = "$Product$"
-	ServiceVariableService   = "$Service$"
-	ServiceVariableNamespace = "$Namespace$"
-	ServiceVariableEnvName   = "$EnvName$"
 )
 
 const MaxTries = 1
