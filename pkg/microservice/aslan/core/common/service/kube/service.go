@@ -31,6 +31,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -486,10 +487,26 @@ func InitializeExternalCluster(clusterID string) error {
 				Resources: []string{"configmaps"},
 				Verbs:     []string{"*"},
 			},
+			{
+				APIGroups: []string{"coordination.k8s.io"},
+				Resources: []string{"leases"},
+				Verbs:     []string{"get", "create", "update"},
+			},
 		},
 	}
 	if _, err := clientset.RbacV1().Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{}); err != nil {
-		return errors.Errorf("cluster %s create role err: %s", clusterID, err)
+		if !apierrors.IsAlreadyExists(err) {
+			return errors.Errorf("cluster %s create role err: %s", clusterID, err)
+		}
+		existingRole, getErr := clientset.RbacV1().Roles(namespace).Get(context.Background(), role.Name, metav1.GetOptions{})
+		if getErr != nil {
+			return errors.Errorf("cluster %s get role err: %s", clusterID, getErr)
+		}
+		if ensureWorkflowLeaseRule(existingRole) {
+			if _, updateErr := clientset.RbacV1().Roles(namespace).Update(context.Background(), existingRole, metav1.UpdateOptions{}); updateErr != nil {
+				return errors.Errorf("cluster %s update role err: %s", clusterID, updateErr)
+			}
+		}
 	}
 
 	// create service account
@@ -640,6 +657,30 @@ func InitializeExternalCluster(clusterID string) error {
 	}
 
 	return nil
+}
+
+func ensureWorkflowLeaseRule(role *rbacv1.Role) bool {
+	for _, rule := range role.Rules {
+		if containsString(rule.APIGroups, "coordination.k8s.io") && containsString(rule.Resources, "leases") &&
+			containsString(rule.Verbs, "get") && containsString(rule.Verbs, "create") && containsString(rule.Verbs, "update") {
+			return false
+		}
+	}
+	role.Rules = append(role.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{"coordination.k8s.io"},
+		Resources: []string{"leases"},
+		Verbs:     []string{"get", "create", "update"},
+	})
+	return true
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target || value == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func UpdateClusterHandler(message string) {
@@ -914,6 +955,9 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["*"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "create", "update"]
 
 ---
 
@@ -1144,6 +1188,9 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["*"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "create", "update"]
 
 ---
 

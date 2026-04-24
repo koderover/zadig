@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/lease"
 	"gopkg.in/yaml.v2"
 
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	typesstep "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -60,17 +60,6 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		return s.handleErr(fmt.Errorf("create snapshot dir failed: %w", err))
 	}
 
-	lock := cache.NewRedisLockWithExpiry(s.spec.PublishLockKey, 30*time.Minute)
-	if err := lock.Lock(); err != nil {
-		return s.handleErr(fmt.Errorf("acquire shared cache publish lock failed: %w", err))
-	}
-	defer lock.Unlock()
-
-	restoreMeta, _, err := loadSharedCacheRestoreMetadata(s.spec.MetadataFile)
-	if err != nil {
-		return s.handleErr(fmt.Errorf("load restore metadata failed: %w", err))
-	}
-
 	snapshotsDir := filepath.Join(s.spec.StoreDir, "snapshots")
 	tempSnapshotDir := filepath.Join(snapshotsDir, ".tmp-"+s.spec.Version)
 	finalSnapshotDir := filepath.Join(snapshotsDir, s.spec.Version)
@@ -85,6 +74,25 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 	if err := os.Rename(tempSnapshotDir, finalSnapshotDir); err != nil {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(fmt.Errorf("promote temp snapshot dir failed: %w", err))
+	}
+
+	leaseDuration := time.Duration(s.spec.LeaseDurationSeconds) * time.Second
+	lock, err := lease.NewLock(s.spec.LeaseName, leaseDuration)
+	if err != nil {
+		return s.handleErr(fmt.Errorf("create shared cache publish lease lock failed: %w", err))
+	}
+	if err := lock.Acquire(ctx); err != nil {
+		return s.handleErr(fmt.Errorf("acquire shared cache publish lease lock failed: %w", err))
+	}
+	defer func() {
+		if err := lock.Release(context.Background()); err != nil {
+			log.Errorf("release shared cache publish lease lock failed: %v", err)
+		}
+	}()
+
+	restoreMeta, _, err := loadSharedCacheRestoreMetadata(s.spec.MetadataFile)
+	if err != nil {
+		return s.handleErr(fmt.Errorf("load restore metadata failed: %w", err))
 	}
 
 	currentFile := filepath.Join(s.spec.StoreDir, "current.json")

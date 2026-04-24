@@ -17,6 +17,8 @@ limitations under the License.
 package job
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"path"
 	"strings"
@@ -39,8 +41,9 @@ func getSharedCacheVersion(taskID int64, jobName string) string {
 	return fmt.Sprintf("task-%d-%s", taskID, sanitizeSharedCacheSegment(jobName))
 }
 
-func getSharedCachePublishLockKey(cacheKey string) string {
-	return "workflow-shared-cache-publish:" + strings.ReplaceAll(cacheKey, "/", ":")
+func getSharedCachePublishLeaseName(cacheKey string) string {
+	hash := sha1.Sum([]byte(cacheKey))
+	return "workflow-shared-cache-publish-" + hex.EncodeToString(hash[:8])
 }
 
 func sanitizeSharedCacheSegment(value string) string {
@@ -68,15 +71,16 @@ func buildSharedCachePublishStep(stepName, workflowName, jobName, cacheDir, cach
 		JobName:  jobName,
 		StepType: config.StepSharedCachePublish,
 		Spec: &typesstep.StepSharedCachePublishSpec{
-			CacheDir:       cacheDir,
-			StoreDir:       getSharedCacheStoreDir(cacheKey),
-			MetadataFile:   getSharedCacheMetadataFile(jobName),
-			Version:        getSharedCacheVersion(taskID, jobName),
-			PublishLockKey: getSharedCachePublishLockKey(cacheKey),
-			WorkflowName:   workflowName,
-			JobName:        jobName,
-			TaskID:         taskID,
-			IgnoreErr:      true,
+			CacheDir:             cacheDir,
+			StoreDir:             getSharedCacheStoreDir(cacheKey),
+			MetadataFile:         getSharedCacheMetadataFile(jobName),
+			Version:              getSharedCacheVersion(taskID, jobName),
+			LeaseName:            getSharedCachePublishLeaseName(cacheKey),
+			LeaseDurationSeconds: 30,
+			WorkflowName:         workflowName,
+			JobName:              jobName,
+			TaskID:               taskID,
+			IgnoreErr:            true,
 		},
 	}
 }

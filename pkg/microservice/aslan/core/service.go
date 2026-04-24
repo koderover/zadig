@@ -241,11 +241,27 @@ func initResourcesForExternalClusters() {
 					Resources: []string{"configmaps"},
 					Verbs:     []string{"*"},
 				},
+				{
+					APIGroups: []string{"coordination.k8s.io"},
+					Resources: []string{"leases"},
+					Verbs:     []string{"get", "create", "update"},
+				},
 			},
 		}
 		if err := client.Create(context.Background(), role); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				logger.Infof("cluster %s role is already exist", cluster.Name)
+				existingRole := &rbacv1.Role{}
+				if err := client.Get(context.Background(), controllerRuntimeClient.ObjectKey{Name: role.Name, Namespace: namespace}, existingRole); err != nil {
+					logger.Errorf("cluster %s get role err: %s", cluster.Name, err)
+					return
+				}
+				if ensureWorkflowLeaseRule(existingRole) {
+					if err := client.Update(context.Background(), existingRole); err != nil {
+						logger.Errorf("cluster %s update role err: %s", cluster.Name, err)
+						return
+					}
+				}
 			} else {
 				logger.Errorf("cluster %s create role err: %s", cluster.Name, err)
 				return
@@ -304,6 +320,30 @@ func initResourcesForExternalClusters() {
 		}
 		logger.Infof("cluster %s done", cluster.Name)
 	}
+}
+
+func ensureWorkflowLeaseRule(role *rbacv1.Role) bool {
+	for _, rule := range role.Rules {
+		if containsString(rule.APIGroups, "coordination.k8s.io") && containsString(rule.Resources, "leases") &&
+			containsString(rule.Verbs, "get") && containsString(rule.Verbs, "create") && containsString(rule.Verbs, "update") {
+			return false
+		}
+	}
+	role.Rules = append(role.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{"coordination.k8s.io"},
+		Resources: []string{"leases"},
+		Verbs:     []string{"get", "create", "update"},
+	})
+	return true
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target || value == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func initDinD() {

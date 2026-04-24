@@ -17,13 +17,14 @@ limitations under the License.
 package step
 
 type StepSharedCachePublishSpec struct {
-	CacheDir       string `bson:"cache_dir"          json:"cache_dir"          yaml:"cache_dir"`
-	StoreDir       string `bson:"store_dir"          json:"store_dir"          yaml:"store_dir"`
-	MetadataFile   string `bson:"metadata_file"      json:"metadata_file"      yaml:"metadata_file"`
-	Version        string `bson:"version"            json:"version"            yaml:"version"`
-	PublishLockKey string `bson:"publish_lock_key"   json:"publish_lock_key"   yaml:"publish_lock_key"`
-	WorkflowName   string `bson:"workflow_name"      json:"workflow_name"      yaml:"workflow_name"`
-	JobName        string `bson:"job_name"           json:"job_name"           yaml:"job_name"`
-	TaskID         int64  `bson:"task_id"            json:"task_id"            yaml:"task_id"`
-	IgnoreErr      bool   `bson:"ignore_err"         json:"ignore_err"         yaml:"ignore_err"`
+	CacheDir             string `bson:"cache_dir"              json:"cache_dir"              yaml:"cache_dir"`
+	StoreDir             string `bson:"store_dir"              json:"store_dir"              yaml:"store_dir"`
+	MetadataFile         string `bson:"metadata_file"          json:"metadata_file"          yaml:"metadata_file"`
+	Version              string `bson:"version"                json:"version"                yaml:"version"`
+	LeaseName            string `bson:"lease_name"             json:"lease_name"             yaml:"lease_name"`
+	LeaseDurationSeconds int32  `bson:"lease_duration_seconds" json:"lease_duration_seconds" yaml:"lease_duration_seconds"`
+	WorkflowName         string `bson:"workflow_name"          json:"workflow_name"          yaml:"workflow_name"`
+	JobName              string `bson:"job_name"               json:"job_name"               yaml:"job_name"`
+	TaskID               int64  `bson:"task_id"                json:"task_id"                yaml:"task_id"`
+	IgnoreErr            bool   `bson:"ignore_err"             json:"ignore_err"             yaml:"ignore_err"`
 }
