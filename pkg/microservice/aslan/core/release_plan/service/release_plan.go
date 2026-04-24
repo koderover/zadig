@@ -645,6 +645,8 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
+	plan.Status = config.ReleasePlanStatusExecuting
+	plan.SuccessTime = 0
 
 	sendWebhook := false
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()

@@ -97,6 +97,7 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 				continue
 			}
 			spec.Status = task.Status
+			job.Spec = spec
 			if lo.Contains(config.FailedStatus(), task.Status) {
 				job.Status = config.ReleasePlanJobStatusFailed
 				changed = true
