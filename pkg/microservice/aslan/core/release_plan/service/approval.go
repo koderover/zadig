@@ -40,6 +40,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
@@ -249,20 +250,6 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	getApprovalStatus := func(result string) config.ApprovalStatus {
 		return resultMap[strings.ToLower(result)]
 	}
-	parseDingTalkOperationTime := func(date string) (int64, error) {
-		if date == "" {
-			return 0, nil
-		}
-		location, err := time.LoadLocation("Asia/Shanghai")
-		if err != nil {
-			return 0, err
-		}
-		t, err := time.ParseInLocation("2006-01-02T15:04Z", date, location)
-		if err != nil {
-			return 0, err
-		}
-		return t.Unix(), nil
-	}
 
 	checkNodeStatus := func(node *models.DingTalkApprovalNode) (config.ApprovalStatus, error) {
 		users := node.ApproveUsers
@@ -290,42 +277,16 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		}
 	}
 
-	// Directly poll from DingTalk API instead of relying on webhook-populated cache.
-	instanceInfo, err := client.GetApprovalInstance(instanceID)
-	if err != nil {
-		return errors.Wrap(err, "get approval instance")
-	}
-
-	operationRecordMap := make(map[string]*dingtalk.OperationRecord)
-	for _, record := range instanceInfo.OperationRecords {
-		operationRecordMap[record.UserID] = record
-	}
-	taskMap := make(map[string]*dingtalk.ApprovalInstanceTask)
-	for _, task := range instanceInfo.Tasks {
-		taskMap[task.UserID] = task
-	}
-
+	userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
 	for _, node := range approval.ApprovalNodes {
 		if node.RejectOrApprove != "" {
 			continue
 		}
 		for _, user := range node.ApproveUsers {
-			if record := operationRecordMap[user.ID]; record != nil && user.RejectOrApprove == "" {
-				user.RejectOrApprove = getApprovalStatus(record.Result)
-				if user.RejectOrApprove == "" {
-					if task := taskMap[user.ID]; task != nil {
-						user.RejectOrApprove = getApprovalStatus(task.Result)
-					}
-				}
-				if user.RejectOrApprove == "" {
-					log.Warnf("updateDingTalkApproval: instanceID=%s userID=%s result not mapped, operation result=%s",
-						instanceID, user.ID, record.Result)
-				}
-				user.Comment = record.Remark
-				user.OperationTime, err = parseDingTalkOperationTime(record.Date)
-				if err != nil {
-					return errors.Wrapf(err, "parse operation time for user %s", user.ID)
-				}
+			if result := userApprovalResult[user.ID]; result != nil && user.RejectOrApprove == "" {
+				user.RejectOrApprove = getApprovalStatus(result.Result)
+				user.Comment = result.Remark
+				user.OperationTime = result.OperationTime
 			}
 		}
 		node.RejectOrApprove, err = checkNodeStatus(node)
@@ -342,6 +303,10 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		break
 	}
 	if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.ApprovalStatusApprove {
+		instanceInfo, err := client.GetApprovalInstance(instanceID)
+		if err != nil {
+			return errors.Wrap(err, "get instance final info")
+		}
 		if instanceInfo.Status == "COMPLETED" && getApprovalStatus(instanceInfo.Result) == config.ApprovalStatusApprove {
 			approvalInfo.Status = config.StatusPassed
 			log.Infof("updateDingTalkApproval: instanceID=%s approval passed", instanceID)
