@@ -1108,7 +1108,10 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "code-scanning",
 							JobType: config.JobZadigScanning,
-							Spec:    commonmodels.ZadigScanningJobSpec{},
+							Spec: commonmodels.ZadigScanningJobSpec{
+								Source:       config.SourceRuntime,
+								ScanningType: config.NormalScanningType,
+							},
 						},
 					},
 				},
