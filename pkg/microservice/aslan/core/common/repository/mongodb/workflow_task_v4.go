@@ -411,6 +411,55 @@ func (c *WorkflowTaskv4Coll) ListCreator(projectName, name string) ([]string, er
 	return creators, err
 }
 
+func (c *WorkflowTaskv4Coll) ListJobEnvs(projectName, workflowName, jobName string) ([]string, error) {
+	type envRecord struct {
+		Env string `bson:"_id"`
+	}
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"project_name":  projectName,
+			"workflow_name": workflowName,
+			"is_archived":   false,
+			"is_deleted":    false,
+		}}},
+		{{Key: "$unwind", Value: "$workflow_args.stages"}},
+		{{Key: "$unwind", Value: "$workflow_args.stages.jobs"}},
+		{{Key: "$match", Value: bson.M{
+			"workflow_args.stages.jobs.name":    jobName,
+			"workflow_args.stages.jobs.skipped": false,
+			"workflow_args.stages.jobs.spec.env": bson.M{
+				"$exists": true,
+				"$ne":     "",
+			},
+		}}},
+		{{Key: "$group", Value: bson.M{
+			"_id": "$workflow_args.stages.jobs.spec.env",
+		}}},
+		{{Key: "$sort", Value: bson.M{"_id": 1}}},
+	}
+
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*envRecord, 0)
+	if err := cursor.All(context.TODO(), &resp); err != nil {
+		return nil, err
+	}
+
+	envs := make([]string, 0, len(resp))
+	for _, item := range resp {
+		if item == nil || item.Env == "" {
+			continue
+		}
+		envs = append(envs, item.Env)
+	}
+
+	return envs, nil
+}
+
 type WorkFlowTaskFilter struct {
 	WorkflowName string   `json:"workflow_name"`
 	ProjectName  string   `json:"project_name"`

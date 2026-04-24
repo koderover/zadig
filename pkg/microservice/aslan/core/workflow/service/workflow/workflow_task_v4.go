@@ -3171,36 +3171,23 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		}
 		return resp, nil
 	case "envName":
-		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
+		envs, err := commonrepo.NewworkflowTaskv4Coll().ListJobEnvs(project, workflow, jobName)
 		if err != nil {
-			logger.Errorf("failed to find workflow %s: %v", workflow, err)
-			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to find workflow %s: %v", workflow, err)
+			logger.Errorf("failed to list envs for workflow %s job %s: %v", workflow, jobName, err)
+			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to list envs for workflow %s job %s: %v", workflow, jobName, err)
 		}
 
-		resp := make([]*ListWorkflowFilterInfoResponse, 0)
-		for _, stage := range workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
-					deploy := &commonmodels.ZadigDeployJobSpec{}
-					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
-						return nil, err
-					}
-
-					env, _ := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
-					if envMap[env] == nil {
-						envInfo, err := commonutil.GetEnvInfo(project, env, envMap)
-						if err != nil {
-							return nil, err
-						}
-
-						resp = append(resp, &ListWorkflowFilterInfoResponse{
-							Key:  envInfo.EnvName,
-							Name: envInfo.Alias,
-						})
-					}
-					return resp, nil
-				}
+		resp := make([]*ListWorkflowFilterInfoResponse, 0, len(envs))
+		for _, env := range envs {
+			name := env
+			if envInfo := commonutil.GetEnvInfoNoErr(project, env, envMap); envInfo != nil && envInfo.Alias != "" {
+				name = envInfo.Alias
 			}
+
+			resp = append(resp, &ListWorkflowFilterInfoResponse{
+				Key:  env,
+				Name: name,
+			})
 		}
 		return resp, nil
 	case "serviceName":
