@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -384,6 +385,9 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		"refuse":   config.ApprovalStatusReject,
 		"redirect": config.ApprovalStatusRedirect,
 	}
+	getApprovalStatus := func(result string) config.ApprovalStatus {
+		return resultMap[strings.ToLower(result)]
+	}
 
 	checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApprovalStatus, error) {
 		users := node.ApproveUsers
@@ -454,13 +458,14 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 				isRedirected := false
 				for _, user := range node.ApproveUsers {
 					if result := userApprovalResult[user.ID]; result != nil {
-						if user.RejectOrApprove == resultMap[result.Result] &&
+						approvalStatus := getApprovalStatus(result.Result)
+						if user.RejectOrApprove == approvalStatus &&
 							user.Comment == result.Remark &&
 							user.OperationTime == result.OperationTime {
 							continue
 						}
 
-						user.RejectOrApprove = resultMap[result.Result]
+						user.RejectOrApprove = approvalStatus
 						user.Comment = result.Remark
 						user.OperationTime = result.OperationTime
 						userUpdated = true
@@ -527,7 +532,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 							redirectedUser := &commonmodels.DingTalkApprovalUser{
 								ID:              task.UserID,
 								Name:            userInfo.Name,
-								RejectOrApprove: resultMap[task.Result],
+								RejectOrApprove: getApprovalStatus(task.Result),
 								Comment:         record.Remark,
 								OperationTime:   operationTime,
 							}
@@ -565,7 +570,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 					log.Errorf("get instance final info failed: %v", err)
 					return config.StatusFailed, fmt.Errorf("get instance final info error: %s", err)
 				}
-				if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
+				if instanceInfo.Status == "COMPLETED" && getApprovalStatus(instanceInfo.Result) == config.ApprovalStatusApprove {
 					return config.StatusPassed, nil
 				} else {
 					err = fmt.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
