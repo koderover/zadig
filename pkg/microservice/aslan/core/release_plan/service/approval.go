@@ -40,7 +40,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
-	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
@@ -237,7 +236,7 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		return errors.New("updateDingTalkApproval: instance id not found")
 	}
 
-	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
+	data, err := mongodb.NewIMAppColl().GetByID(ctx, approval.ID)
 	if err != nil {
 		return errors.Wrap(err, "get dingtalk im data")
 	}
@@ -274,16 +273,32 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		}
 	}
 
-	userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
+	// Directly poll from DingTalk API instead of relying on webhook-populated cache.
+	instanceInfo, err := client.GetApprovalInstance(instanceID)
+	if err != nil {
+		return errors.Wrap(err, "get approval instance")
+	}
+
+	operationRecordMap := make(map[string]*dingtalk.OperationRecord)
+	for _, record := range instanceInfo.OperationRecords {
+		operationRecordMap[record.UserID] = record
+	}
+
 	for _, node := range approval.ApprovalNodes {
 		if node.RejectOrApprove != "" {
 			continue
 		}
 		for _, user := range node.ApproveUsers {
-			if result := userApprovalResult[user.ID]; result != nil && user.RejectOrApprove == "" {
-				user.RejectOrApprove = resultMap[result.Result]
-				user.Comment = result.Remark
-				user.OperationTime = result.OperationTime
+			if record := operationRecordMap[user.ID]; record != nil && user.RejectOrApprove == "" {
+				user.RejectOrApprove = resultMap[record.Result]
+				user.Comment = record.Remark
+				if record.Date != "" {
+					operationTime, err := time.Parse("2006-01-02T15:04Z", record.Date)
+					if err != nil {
+						return errors.Wrapf(err, "parse operation time for user %s", user.ID)
+					}
+					user.OperationTime = operationTime.Unix()
+				}
 			}
 		}
 		node.RejectOrApprove, err = checkNodeStatus(node)
@@ -299,18 +314,14 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		break
 	}
 	if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.ApprovalStatusApprove {
-		instanceInfo, err := client.GetApprovalInstance(instanceID)
-		if err != nil {
-			return errors.Wrap(err, "get instance final info")
-		}
 		if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
 			approvalInfo.Status = config.StatusPassed
 			return nil
 		} else {
-			log.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
-			return errors.Wrap(err, "get unexpected instance final info")
+			return errors.Errorf("unexpected instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
 		}
 	}
+
 	return nil
 }
 
