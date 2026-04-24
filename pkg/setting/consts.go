@@ -946,9 +946,10 @@ const (
 )
 
 const (
-	UserTypeUser        string = "user"
-	UserTypeGroup       string = "group"
-	UserTypeTaskCreator string = "task_creator"
+	UserTypeUser          string = "user"
+	UserTypeGroup         string = "group"
+	UserTypeTaskCreator   string = "task_creator"
+	UserTypeStageExecutor string = "stage_executor"
 )
 
 type ContainerType string

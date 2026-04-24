@@ -160,6 +160,10 @@ type CreateCustomTaskLarkUserInfo struct {
 	ID string `json:"id"`
 	// 支持 open_id、user_id
 	IDType string `json:"id_type"`
+	// 标记该成员是否为工作流执行人
+	IsExecutor bool `json:"is_executor,omitempty"`
+	// 标记该成员是否为当前阶段执行人
+	IsStageExecutor bool `json:"is_stage_executor,omitempty"`
 }
 
 type CreateCustomTaskLarkGroupNotificationConfig struct {
@@ -191,7 +195,8 @@ type CreateCustomTaskMSTeamsNotificationConfig struct {
 }
 
 type CreateCustomTaskMailNotificationConfig struct {
-	UserIDs []string `json:"user_ids"`
+	UserIDs []string             `json:"user_ids"`
+	Users   []*commonmodels.User `json:"users"`
 }
 
 type CreateCustomTaskParam struct {

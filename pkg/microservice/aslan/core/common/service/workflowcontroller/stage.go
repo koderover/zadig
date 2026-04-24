@@ -95,7 +95,7 @@ func waitForManualExec(ctx context.Context, stage *commonmodels.StageTask, workf
 	}
 
 	stage.Status = config.StatusPause
-	if !stage.ManualExec.NotificationSent && stage.ManualExec.LarkPersonNotificationConfig != nil {
+	if !stage.ManualExec.NotificationSent {
 		if err := instantmessage.NewWeChatClient().SendManualExecStageNotifications(workflowCtx, stage); err != nil {
 			logger.Errorf("failed to send manual execution stage notification for stage %s: %v", stage.Name, err)
 		} else {

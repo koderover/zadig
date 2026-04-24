@@ -23,6 +23,8 @@ type UserInfo struct {
 	Avatar string `json:"avatar,omitempty" yaml:"avatar,omitempty" bson:"avatar,omitempty"`
 	// IsExecutor marks if the user is the executor of the workflow
 	IsExecutor bool `json:"is_executor" yaml:"is_executor" bson:"is_executor"`
+	// IsStageExecutor marks if the user represents the current stage executors
+	IsStageExecutor bool `json:"is_stage_executor,omitempty" yaml:"is_stage_executor,omitempty" bson:"is_stage_executor,omitempty"`
 }
 
 type DepartmentInfo struct {
@@ -86,7 +88,7 @@ type ApprovalInstanceData struct {
 	Timeline []*InstanceTimeline `json:"timeline,omitempty" yaml:"timeline,omitempty" bson:"timeline,omitempty"` // 审批动态
 
 	// 以下是 Zadig 添加的用于展示的字段
-	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`     // 发起人姓名
+	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`       // 发起人姓名
 	UserAvatar *string `json:"user_avatar,omitempty" yaml:"user_avatar,omitempty" bson:"user_avatar,omitempty"` // 发起人头像
 }
 
@@ -112,7 +114,7 @@ type InstanceTask struct {
 	EndTime *string `json:"end_time,omitempty" yaml:"end_time,omitempty" bson:"end_time,omitempty"` // task 完成时间, 未完成为 0
 
 	// 以下是 Zadig 添加的用于展示的字段
-	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`     // 审批人姓名
+	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`       // 审批人姓名
 	UserAvatar *string `json:"user_avatar,omitempty" yaml:"user_avatar,omitempty" bson:"user_avatar,omitempty"` // 审批人头像
 }
 
@@ -166,7 +168,7 @@ type InstanceTimeline struct {
 	Files []*File `json:"files,omitempty" yaml:"files,omitempty" bson:"files,omitempty"` // 审批附件
 
 	// 以下是 Zadig 添加的用于展示的字段
-	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`     // 动态产生用户姓名
+	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`       // 动态产生用户姓名
 	UserAvatar *string `json:"user_avatar,omitempty" yaml:"user_avatar,omitempty" bson:"user_avatar,omitempty"` // 动态产生用户头像
 }
 
@@ -178,6 +180,6 @@ type InstanceCcUser struct {
 	OpenId *string `json:"open_id,omitempty" yaml:"open_id,omitempty" bson:"open_id,omitempty"` // 抄送人 open id
 
 	// 以下是 Zadig 添加的用于展示的字段
-	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`     // 抄送人姓名
+	UserName   *string `json:"user_name,omitempty" yaml:"user_name,omitempty" bson:"user_name,omitempty"`       // 抄送人姓名
 	UserAvatar *string `json:"user_avatar,omitempty" yaml:"user_avatar,omitempty" bson:"user_avatar,omitempty"` // 抄送人头像
 }
