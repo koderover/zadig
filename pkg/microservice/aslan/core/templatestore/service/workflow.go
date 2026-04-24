@@ -972,7 +972,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: " ",
+								TestType: "",
+								Source:   config.SourceRuntime,
 							},
 						},
 					},
@@ -1214,7 +1215,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: " ",
+								TestType: "",
+								Source:   config.SourceRuntime,
 							},
 						},
 					},
@@ -1247,7 +1249,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: " ",
+								TestType: "",
 							},
 						},
 					},
@@ -1725,7 +1727,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: " ",
+								TestType: "",
 							},
 						},
 					},
@@ -1784,7 +1786,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: " ",
+								TestType: "",
 							},
 						},
 					},
