@@ -60,10 +60,14 @@ func GetIngressHostInfo(ing *v1.Ingress) []resource.HostInfo {
 
 		for _, path := range rule.HTTP.Paths {
 			backend := resource.Backend{
-				Path:        path.Path,
-				PathType:    string(*path.PathType),
-				ServiceName: path.Backend.Service.Name,
-				ServicePort: fmt.Sprintf("%d", path.Backend.Service.Port.Number),
+				Path: path.Path,
+			}
+			if path.PathType != nil {
+				backend.PathType = string(*path.PathType)
+			}
+			if path.Backend.Service != nil {
+				backend.ServiceName = path.Backend.Service.Name
+				backend.ServicePort = fmt.Sprintf("%d", path.Backend.Service.Port.Number)
 			}
 			info.Backends = append(info.Backends, backend)
 		}
@@ -86,6 +90,8 @@ func (ing *ingress) HostInfo() []resource.HostInfo {
 			continue
 		}
 
+		// TODO: currently we are only dealing with the paths which are directed to services, if we need to support
+		// resource field in ingress, change the logic below and make sure the upper layer is changed correctly.
 		for _, path := range rule.HTTP.Paths {
 			pathType := string(extensionsv1beta1.PathTypeImplementationSpecific)
 			if path.PathType != nil {
