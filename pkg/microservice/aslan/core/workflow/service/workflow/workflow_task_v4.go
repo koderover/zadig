@@ -3152,8 +3152,6 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("paramerter is empty")
 	}
 
-	envMap := make(map[string]*commonmodels.Product)
-
 	switch typeName {
 	case "creator":
 		creators, err := commonrepo.NewworkflowTaskv4Coll().ListCreator(project, workflow)
@@ -3171,37 +3169,30 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		}
 		return resp, nil
 	case "envName":
-		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: project,
+		})
 		if err != nil {
-			logger.Errorf("failed to find workflow %s: %v", workflow, err)
-			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to find workflow %s: %v", workflow, err)
+			logger.Errorf("failed to list envs from product for project %s: %v", project, err)
+			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to list envs from product for project %s: %v", project, err)
 		}
 
-		resp := make([]*ListWorkflowFilterInfoResponse, 0)
-		for _, stage := range workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
-					deploy := &commonmodels.ZadigDeployJobSpec{}
-					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
-						return nil, err
-					}
-
-					env, _ := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
-					if envMap[env] == nil {
-						envInfo, err := commonutil.GetEnvInfo(project, env, envMap)
-						if err != nil {
-							return nil, err
-						}
-
-						resp = append(resp, &ListWorkflowFilterInfoResponse{
-							Key:  envInfo.EnvName,
-							Name: envInfo.Alias,
-						})
-					}
-					return resp, nil
-				}
+		resp := make([]*ListWorkflowFilterInfoResponse, 0, len(productList))
+		for _, envInfo := range productList {
+			if envInfo == nil {
+				continue
 			}
+			name := envInfo.EnvName
+			if envInfo.Alias != "" {
+				name = envInfo.Alias
+			}
+
+			resp = append(resp, &ListWorkflowFilterInfoResponse{
+				Key:  envInfo.EnvName,
+				Name: name,
+			})
 		}
+
 		return resp, nil
 	case "serviceName":
 		services := make([]string, 0)
