@@ -481,6 +481,9 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 			stageForNotification = matchedStage
 		}
 	}
+	if !shouldSendManualExecStageNotification(taskForNotification) {
+		return nil
+	}
 
 	jobContents, _, err = workflownotifyutil.BuildWorkflowJobContents(&workflownotifyutil.BuildJobContentsArgs{
 		Task:        taskForNotification,
@@ -545,6 +548,35 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 	}
 
 	return respErr.ErrorOrNil()
+}
+
+func shouldSendManualExecStageNotification(task *models.WorkflowTask) bool {
+	if task == nil {
+		return false
+	}
+
+	notifyCtls := []*models.NotifyCtl{}
+	switch {
+	case task.OriginWorkflowArgs != nil:
+		notifyCtls = task.OriginWorkflowArgs.NotifyCtls
+	case task.WorkflowArgs != nil:
+		notifyCtls = task.WorkflowArgs.NotifyCtls
+	}
+
+	for _, notify := range notifyCtls {
+		if notify == nil || !notify.Enabled || notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
+			continue
+		}
+		if err := notify.GenerateNewNotifyConfigWithOldData(); err != nil {
+			log.Errorf("failed to parse feishu person notification config for workflow %s task %d: %v", task.WorkflowName, task.TaskID, err)
+			continue
+		}
+		if sets.NewString(notify.NotifyTypes...).Has(string(config.StatusPause)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func formatManualExecNotifiedUsers(users []*models.User, userInfoMap map[string]*types.UserInfo) string {
