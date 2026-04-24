@@ -693,6 +693,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 	for i, notifyCtl := range notifyCtls {
 		notifyInput, ok := notifyInputsMap[i]
 		if ok && notifyCtl.WebHookType == notifyInput.Type {
+			if notifyInput.Enabled != nil {
+				notifyCtl.Enabled = *notifyInput.Enabled
+			}
+
 			switch notifyCtl.WebHookType {
 			case setting.NotifyWebHookTypeFeishu:
 				if notifyCtl.LarkHookNotificationConfig == nil {

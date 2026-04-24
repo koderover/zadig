@@ -140,6 +140,8 @@ type CreateCustomTaskNotifyInput struct {
 	ID int `json:"id"`
 	// 通知类型，支持：feishu 飞书群组通知（自定义机器人）、feishu_app 飞书群组通知（自建应用）、feishu_person 飞书成员通知、dingding 钉钉，wechat 企业微信、msteams Teams、mail 邮件
 	Type setting.NotifyWebHookType `json:"type"`
+	// 运行时是否启用该通知；为空时保持原有配置
+	Enabled *bool `json:"enabled,omitempty"`
 	// 飞书群组通知（自定义机器人）配置
 	LarkHookNotificationConfig *CreateCustomTaskLarkHookNotificationConfig `json:"lark_hook_notification_config"`
 	// 飞书群通知（自建应用）配置
