@@ -95,7 +95,6 @@ func (e *WorkflowReleaseJobRetryer) Retry(plan *models.ReleasePlan) error {
 		}
 
 		spec.Status = config.StatusPrepare
-		job.Spec = spec
 		job.Status = config.ReleasePlanJobStatusRunning
 		job.ExecutedBy = e.Ctx.UserName
 		job.ExecutedTime = time.Now().Unix()
