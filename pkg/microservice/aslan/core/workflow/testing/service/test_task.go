@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -341,7 +340,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 
 	job := make([]*commonmodels.Job, 0)
 	job = append(job, &commonmodels.Job{
-		Name:    strings.ToLower(testInfo.Name),
+		Name:    util.GenerateTestingModuleJobName(testInfo.Name),
 		JobType: config.JobZadigTesting,
 		Skipped: false,
 		Spec: &commonmodels.ZadigTestingJobSpec{
