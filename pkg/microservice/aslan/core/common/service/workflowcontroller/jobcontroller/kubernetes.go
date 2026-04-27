@@ -356,6 +356,11 @@ func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace s
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
+	if hasSharedCacheLeaseStep(jobTaskSpec) {
+		if err := kube.EnsureWorkflowLeaseRBAC(clusterID, currentNamespace); err != nil {
+			log.Warnf("failed to ensure workflow lease RBAC for namespace %s in cluster %s: %v", currentNamespace, clusterID, err)
+		}
+	}
 	// fetch cluster to get nodeAffinity and tolerations
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
@@ -509,6 +514,21 @@ EOF`,
 
 	ensureVolumeMounts(job)
 	return job, nil
+}
+
+func hasSharedCacheLeaseStep(jobTaskSpec *commonmodels.JobTaskFreestyleSpec) bool {
+	if jobTaskSpec == nil {
+		return false
+	}
+	for _, step := range jobTaskSpec.Steps {
+		if step == nil {
+			continue
+		}
+		if step.StepType == config.StepSharedCacheRestore || step.StepType == config.StepSharedCachePublish {
+			return true
+		}
+	}
+	return false
 }
 
 // generateVolumeNameFromPath generates a safe volume name from mount path

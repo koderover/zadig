@@ -659,6 +659,62 @@ func InitializeExternalCluster(clusterID string) error {
 	return nil
 }
 
+func EnsureWorkflowLeaseRBAC(clusterID, namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes clientset for cluster %s: %w", clusterID, err)
+	}
+
+	role, err := clientset.RbacV1().Roles(namespace).Get(context.Background(), "workflow-cm-manager", metav1.GetOptions{})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get workflow role in namespace %s of cluster %s: %w", namespace, clusterID, err)
+		}
+		role = workflowManagerRole(namespace)
+		if _, err := clientset.RbacV1().Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("failed to create workflow role in namespace %s of cluster %s: %w", namespace, clusterID, err)
+		}
+		return nil
+	}
+
+	if !ensureWorkflowLeaseRule(role) {
+		return nil
+	}
+	if _, err := clientset.RbacV1().Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update workflow role in namespace %s of cluster %s: %w", namespace, clusterID, err)
+	}
+
+	return nil
+}
+
+func workflowManagerRole(namespace string) *rbacv1.Role {
+	return &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "workflow-cm-manager",
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				Verbs:     []string{"*"},
+			},
+			{
+				APIGroups: []string{"coordination.k8s.io"},
+				Resources: []string{"leases"},
+				Verbs:     []string{"get", "create", "update"},
+			},
+		},
+	}
+}
+
 func ensureWorkflowLeaseRule(role *rbacv1.Role) bool {
 	for _, rule := range role.Rules {
 		if containsString(rule.APIGroups, "coordination.k8s.io") && containsString(rule.Resources, "leases") &&
