@@ -473,6 +473,8 @@ func RetryCreateK8SDeliveryVersionV2(deliveryVersion *commonmodels.DeliveryVersi
 		// update status
 		deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
 		updateVersionStatusV2(deliveryVersion.Version, deliveryVersion.ProjectName, deliveryVersion.Status, deliveryVersion.Error)
+
+		go waitK8SImageVersionDoneV2(deliveryVersion)
 	} else {
 		return fmt.Errorf("no workflow task found for version: %s", deliveryVersion.Version)
 	}
@@ -669,6 +671,9 @@ func RetryCreateHelmDeliveryVersionV2(deliveryVersion *commonmodels.DeliveryVers
 	// update status
 	deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
 	updateVersionStatusV2(deliveryVersion.Version, deliveryVersion.ProjectName, deliveryVersion.Status, deliveryVersion.Error)
+
+	// start a new routine to check task results
+	go waitHelmChartVersionDoneV2(deliveryVersion)
 
 	return nil
 }
