@@ -474,7 +474,7 @@ EOF`,
 	setJobStorages(job, workflowCtx, jobTaskSpec.Properties.Storages, targetCluster)
 	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
 
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
+	if jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
 		volumeName := "build-cache"
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
