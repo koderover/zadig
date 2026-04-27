@@ -693,6 +693,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 	for i, notifyCtl := range notifyCtls {
 		notifyInput, ok := notifyInputsMap[i]
 		if ok && notifyCtl.WebHookType == notifyInput.Type {
+			if notifyInput.Enabled != nil {
+				notifyCtl.Enabled = *notifyInput.Enabled
+			}
+
 			switch notifyCtl.WebHookType {
 			case setting.NotifyWebHookTypeFeishu:
 				if notifyCtl.LarkHookNotificationConfig == nil {
@@ -720,8 +724,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				targetUsers := make([]*larktool.UserInfo, 0)
 				for _, user := range notifyInput.LarkPersonNotificationConfig.Users {
 					targetUsers = append(targetUsers, &larktool.UserInfo{
-						ID:     user.ID,
-						IDType: user.IDType,
+						ID:              user.ID,
+						IDType:          user.IDType,
+						IsExecutor:      user.IsExecutor,
+						IsStageExecutor: user.IsStageExecutor,
 					})
 				}
 				config.TargetUsers = targetUsers
@@ -798,10 +804,26 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					TargetUsers: make([]*commonmodels.User, 0),
 				}
 
-				for _, userID := range notifyInput.MailNotificationConfig.UserIDs {
-					config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
-						UserID: userID,
-					})
+				if len(notifyInput.MailNotificationConfig.Users) > 0 {
+					for _, user := range notifyInput.MailNotificationConfig.Users {
+						if user == nil {
+							continue
+						}
+						config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
+							Type:      user.Type,
+							UserID:    user.UserID,
+							UserName:  user.UserName,
+							GroupID:   user.GroupID,
+							GroupName: user.GroupName,
+						})
+					}
+				} else {
+					for _, userID := range notifyInput.MailNotificationConfig.UserIDs {
+						config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
+							Type:   setting.UserTypeUser,
+							UserID: userID,
+						})
+					}
 				}
 
 				notifyCtl.MailNotificationConfig = config

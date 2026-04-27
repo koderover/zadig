@@ -449,24 +449,12 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 	if workflowCtx == nil || stage == nil || stage.ManualExec == nil {
 		return nil
 	}
-	notifyCfg := stage.ManualExec.LarkPersonNotificationConfig
-	if notifyCfg == nil || notifyCfg.AppID == "" || len(stage.ManualExec.ManualExecUsers) == 0 {
-		return nil
-	}
 
 	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
 	if err != nil {
 		return fmt.Errorf("get system language error: %w", err)
 	}
 	language := systemSetting.Language
-
-	client, err := larkservice.GetLarkClientByIMAppID(notifyCfg.AppID)
-	if err != nil {
-		return fmt.Errorf("create feishu client error: %w", err)
-	}
-
-	manualExecUsers, userInfoMap := commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, workflowCtx.WorkflowTaskCreatorUserID)
-	notifiedUsers := formatManualExecNotifiedUsers(manualExecUsers, userInfoMap)
 
 	jobContents := []string{}
 	taskForNotification := &models.WorkflowTask{
@@ -481,70 +469,303 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 			stageForNotification = matchedStage
 		}
 	}
+	notifyCtls := getManualExecStageNotifyCtls(taskForNotification)
+	if len(notifyCtls) == 0 {
+		return nil
+	}
 
-	jobContents, _, err = workflownotifyutil.BuildWorkflowJobContents(&workflownotifyutil.BuildJobContentsArgs{
-		Task:        taskForNotification,
-		Stages:      []*models.StageTask{stageForNotification},
-		WebHookType: setting.NotifyWebHookTypeFeishuPerson,
+	respErr := new(multierror.Error)
+	for _, notify := range notifyCtls {
+		jobContents, err = w.buildManualExecStageJobContents(taskForNotification, stageForNotification, notify.WebHookType, language)
+		if err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("build manual exec stage notification jobs error: %w", err))
+			continue
+		}
+
+		switch notify.WebHookType {
+		case setting.NotifyWebHookTypeFeishuPerson:
+			resolvedTargets, notifiedUsers, err := w.resolveManualExecStageLarkTargets(taskForNotification, stageForNotification, notify)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+			if len(resolvedTargets) == 0 {
+				continue
+			}
+
+			notifyToSend := *notify
+			notifyToSend.LarkPersonNotificationConfig = &models.LarkPersonNotificationConfig{
+				AppID:       notify.LarkPersonNotificationConfig.AppID,
+				TargetUsers: resolvedTargets,
+			}
+
+			card := w.getManualExecStageLarkCard(workflowCtx, stageForNotification, language, notifiedUsers, jobContents)
+			if err := w.sendNotification("", "", &notifyToSend, card, nil, config.StatusPause); err != nil {
+				respErr = multierror.Append(respErr, err)
+			}
+
+		case setting.NotifyWebHookTypeMail:
+			resolvedUsers, notifiedUsers, err := w.resolveManualExecStageMailUsers(taskForNotification, stageForNotification, notify)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+			if len(resolvedUsers) == 0 {
+				continue
+			}
+
+			title, content, err := w.getManualExecStageMailContent(workflowCtx, stageForNotification, language, notifiedUsers, jobContents)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+
+			notifyToSend := *notify
+			notifyToSend.MailNotificationConfig = &models.MailNotificationConfig{TargetUsers: resolvedUsers}
+			if err := w.sendNotification(title, content, &notifyToSend, nil, nil, config.StatusPause); err != nil {
+				respErr = multierror.Append(respErr, err)
+			}
+		}
+	}
+
+	return respErr.ErrorOrNil()
+}
+
+func getManualExecStageNotifyCtls(task *models.WorkflowTask) []*models.NotifyCtl {
+	if task == nil {
+		return nil
+	}
+
+	var notifyCtls []*models.NotifyCtl
+	switch {
+	case task.OriginWorkflowArgs != nil:
+		notifyCtls = task.OriginWorkflowArgs.NotifyCtls
+	case task.WorkflowArgs != nil:
+		notifyCtls = task.WorkflowArgs.NotifyCtls
+	}
+
+	ret := make([]*models.NotifyCtl, 0, len(notifyCtls))
+	for _, notify := range notifyCtls {
+		if notify == nil || !notify.Enabled {
+			continue
+		}
+		if err := notify.GenerateNewNotifyConfigWithOldData(); err != nil {
+			log.Errorf("failed to parse notification config for workflow %s task %d: %v", task.WorkflowName, task.TaskID, err)
+			continue
+		}
+		if !sets.NewString(notify.NotifyTypes...).Has(string(config.StatusPause)) {
+			continue
+		}
+		if notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson && notify.WebHookType != setting.NotifyWebHookTypeMail {
+			continue
+		}
+		ret = append(ret, notify)
+	}
+
+	return ret
+}
+
+func (w *Service) buildManualExecStageJobContents(task *models.WorkflowTask, stage *models.StageTask, webHookType setting.NotifyWebHookType, language string) ([]string, error) {
+	jobContents, _, err := workflownotifyutil.BuildWorkflowJobContents(&workflownotifyutil.BuildJobContentsArgs{
+		Task:        task,
+		Stages:      []*models.StageTask{stage},
+		WebHookType: webHookType,
 		RenderTemplate: func(tpl string, job *models.JobTask) (string, error) {
-			return getJobTaskTplExec(tpl, &jobTaskNotification{Job: job, WebHookType: setting.NotifyWebHookTypeFeishuPerson}, language)
+			return getJobTaskTplExec(tpl, &jobTaskNotification{Job: job, WebHookType: webHookType}, language)
 		},
 		GetTestResult: func(jobName string) (string, error) {
-			return genTestResultText(taskForNotification.WorkflowName, jobName, taskForNotification.TaskID, language)
+			return genTestResultText(task.WorkflowName, jobName, task.TaskID, language)
 		},
 		GetSonarMetrics: func(jobSpec *models.JobTaskFreestyleSpec) (string, string, error) {
 			return genSonartMetricsText(jobSpec, language)
 		},
 	})
-	if err != nil {
-		return fmt.Errorf("build manual exec stage notification jobs error: %w", err)
+	return jobContents, err
+}
+
+func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*lark.UserInfo, string, error) {
+	if notify == nil || notify.LarkPersonNotificationConfig == nil || notify.LarkPersonNotificationConfig.AppID == "" {
+		return nil, "", nil
 	}
 
-	messageContent, err := json.Marshal(w.getManualExecStageLarkCard(workflowCtx, stageForNotification, language, notifiedUsers, jobContents))
+	client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
 	if err != nil {
-		return fmt.Errorf("marshal manual exec stage notification card error: %w", err)
+		return nil, "", fmt.Errorf("create feishu client error: %w", err)
 	}
 
 	respErr := new(multierror.Error)
-	sentTargets := sets.NewString()
-	for _, execUser := range manualExecUsers {
-		if execUser == nil || execUser.UserID == "" {
+	targets := make([]*lark.UserInfo, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
+	targetSet := sets.NewString()
+	nameSet := sets.NewString()
+	notifiedUsers := make([]string, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
+	stageUsers, stageUserInfoMap := resolveManualExecStageUsers(stage, task.TaskCreatorID)
+
+	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+		if target == nil {
 			continue
 		}
-		userInfo, ok := userInfoMap[execUser.UserID]
-		if !ok {
-			var getErr error
-			userInfo, getErr = userclient.New().GetUserByID(execUser.UserID)
-			if getErr != nil {
-				respErr = multierror.Append(respErr, fmt.Errorf("find manual executor %s error: %w", execUser.UserID, getErr))
+
+		if target.IsExecutor {
+			if task.TaskCreatorID == "" {
+				respErr = multierror.Append(respErr, fmt.Errorf("executor id is empty, cannot send message"))
 				continue
 			}
-		}
-		if userInfo.Phone == "" {
-			respErr = multierror.Append(respErr, fmt.Errorf("manual executor %s phone not configured", execUser.UserID))
+			userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
+			if err != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("failed to find user %s, error: %w", task.TaskCreatorID, err))
+				continue
+			}
+			resolvedTarget, displayName, resolveErr := w.resolveManualExecStageLarkTargetFromUser(client, userInfo.Uid, userInfo.Name)
+			if resolveErr != nil {
+				respErr = multierror.Append(respErr, resolveErr)
+				continue
+			}
+			targets, notifiedUsers = appendManualExecStageLarkTarget(targets, targetSet, notifiedUsers, nameSet, resolvedTarget, displayName)
 			continue
 		}
 
-		larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
-		if err != nil {
-			respErr = multierror.Append(respErr, fmt.Errorf("find lark user with phone %s error: %w", userInfo.Phone, err))
+		if target.IsStageExecutor {
+			for _, stageUser := range stageUsers {
+				if stageUser == nil || stageUser.UserID == "" {
+					continue
+				}
+				displayName := stageUser.UserName
+				if info, ok := stageUserInfoMap[stageUser.UserID]; ok && info != nil && info.Name != "" {
+					displayName = info.Name
+				}
+				resolvedTarget, resolvedDisplayName, resolveErr := w.resolveManualExecStageLarkTargetFromUser(client, stageUser.UserID, displayName)
+				if resolveErr != nil {
+					respErr = multierror.Append(respErr, fmt.Errorf("stage executor %s: %w", stageUser.UserID, resolveErr))
+					continue
+				}
+				targets, notifiedUsers = appendManualExecStageLarkTarget(targets, targetSet, notifiedUsers, nameSet, resolvedTarget, resolvedDisplayName)
+			}
 			continue
 		}
-		targetID := util.GetStringFromPointer(larkUser.UserId)
-		if targetID == "" {
-			continue
-		}
-		if sentTargets.Has(targetID) {
-			continue
-		}
-		sentTargets.Insert(targetID)
 
-		if err := w.sendFeishuMessageFromClient(client, setting.LarkUserID, targetID, LarkMessageTypeCard, string(messageContent)); err != nil {
-			respErr = multierror.Append(respErr, err)
+		resolvedTarget := &lark.UserInfo{
+			ID:              target.ID,
+			IDType:          target.IDType,
+			Name:            target.Name,
+			Avatar:          target.Avatar,
+			IsExecutor:      target.IsExecutor,
+			IsStageExecutor: target.IsStageExecutor,
 		}
+		displayName := target.Name
+
+		if resolvedTarget.ID == "" {
+			continue
+		}
+		if resolvedTarget.IDType == "" {
+			resolvedTarget.IDType = setting.LarkUserID
+		}
+		targets, notifiedUsers = appendManualExecStageLarkTarget(targets, targetSet, notifiedUsers, nameSet, resolvedTarget, displayName)
 	}
 
-	return respErr.ErrorOrNil()
+	return targets, strings.Join(notifiedUsers, ", "), respErr.ErrorOrNil()
+}
+
+func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*models.User, string, error) {
+	if notify == nil || notify.MailNotificationConfig == nil {
+		return nil, "", nil
+	}
+
+	usersToExpand := make([]*models.User, 0, len(notify.MailNotificationConfig.TargetUsers))
+	for _, user := range notify.MailNotificationConfig.TargetUsers {
+		if user == nil {
+			continue
+		}
+		if user.Type == setting.UserTypeStageExecutor {
+			if stage == nil || stage.ManualExec == nil {
+				continue
+			}
+			usersToExpand = append(usersToExpand, stage.ManualExec.ManualExecUsers...)
+			continue
+		}
+		usersToExpand = append(usersToExpand, user)
+	}
+
+	var users []*models.User
+	var userInfoMap map[string]*types.UserInfo
+	if task.TaskCreatorID != "" {
+		users, userInfoMap = commonutil.GeneFlatUsersWithCaller(usersToExpand, task.TaskCreatorID)
+	} else {
+		users, userInfoMap = commonutil.GeneFlatUsers(usersToExpand)
+	}
+
+	return users, formatManualExecNotifiedUsers(users, userInfoMap), nil
+}
+
+func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) ([]*models.User, map[string]*types.UserInfo) {
+	if stage == nil || stage.ManualExec == nil || len(stage.ManualExec.ManualExecUsers) == 0 {
+		return nil, map[string]*types.UserInfo{}
+	}
+
+	if taskCreatorID != "" {
+		return commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, taskCreatorID)
+	}
+
+	return commonutil.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
+}
+
+func (w *Service) resolveManualExecStageLarkTargetFromUser(client *lark.Client, userID, userName string) (*lark.UserInfo, string, error) {
+	userInfo, err := userclient.New().GetUserByID(userID)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find user %s, error: %w", userID, err)
+	}
+	if len(userInfo.Phone) == 0 {
+		return nil, "", fmt.Errorf("phone not configured")
+	}
+
+	larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+	if err != nil {
+		return nil, "", fmt.Errorf("find lark user with phone %s error: %w", userInfo.Phone, err)
+	}
+
+	userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
+	if err != nil {
+		return nil, "", fmt.Errorf("find lark user info for userID %s error: %w", util.GetStringFromPointer(larkUser.UserId), err)
+	}
+
+	displayName := userDetailedInfo.Name
+	if displayName == "" {
+		displayName = userName
+	}
+
+	return &lark.UserInfo{
+		ID:     util.GetStringFromPointer(larkUser.UserId),
+		IDType: setting.LarkUserID,
+		Name:   userDetailedInfo.Name,
+		Avatar: userDetailedInfo.Avatar,
+	}, displayName, nil
+}
+
+func appendManualExecStageLarkTarget(targets []*lark.UserInfo, targetSet sets.String, notifiedUsers []string, nameSet sets.String, target *lark.UserInfo, displayName string) ([]*lark.UserInfo, []string) {
+	if target == nil || target.ID == "" {
+		return targets, notifiedUsers
+	}
+	if target.IDType == "" {
+		target.IDType = setting.LarkUserID
+	}
+
+	targetKey := fmt.Sprintf("%s:%s", target.IDType, target.ID)
+	if !targetSet.Has(targetKey) {
+		targetSet.Insert(targetKey)
+		targets = append(targets, target)
+	}
+
+	if displayName == "" {
+		displayName = target.Name
+	}
+	if displayName == "" {
+		displayName = target.ID
+	}
+	if !nameSet.Has(displayName) {
+		nameSet.Insert(displayName)
+		notifiedUsers = append(notifiedUsers, displayName)
+	}
+
+	return targets, notifiedUsers
 }
 
 func formatManualExecNotifiedUsers(users []*models.User, userInfoMap map[string]*types.UserInfo) string {
@@ -619,6 +840,58 @@ func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextRemark", language), workflowCtx.Remark), true)
 	lc.AddI18NElementsZhcnAction(getText("notificationTextClickForMore", language), detailURL)
 	return lc
+}
+
+func (w *Service) getManualExecStageMailContent(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, language, notifiedUsers string, jobContents []string) (string, string, error) {
+	title := fmt.Sprintf("%s %s #%d %s", getText("notificationTextWorkflow", language), workflowCtx.WorkflowDisplayName, workflowCtx.TaskID, getText("notificationTextManualExecPending", language))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+
+	lines := []string{
+		fmt.Sprintf("%s：%s \n", getText("notificationTextProjectName", language), workflowCtx.ProjectDisplayName),
+		fmt.Sprintf("%s：%s \n", getText("notificationTextStageName", language), stage.Name),
+		fmt.Sprintf("%s：%s \n", getText("notificationTextExecutor", language), workflowCtx.WorkflowTaskCreatorUsername),
+	}
+	if notifiedUsers != "" {
+		lines = append(lines, fmt.Sprintf("%s：%s \n", getText("notificationTextNotifiedUsers", language), notifiedUsers))
+	}
+	if len(jobContents) > 0 {
+		lines = append(lines, fmt.Sprintf("%s：\n", getText("notificationTextJobs", language)))
+		lines = append(lines, strings.Join(jobContents, ""))
+	}
+	lines = append(lines,
+		fmt.Sprintf("%s：%s \n", getText("notificationTextStartTime", language), workflowCtx.StartTime.Format(time.DateTime)),
+		fmt.Sprintf("%s：%s \n", getText("notificationTextRemark", language), workflowCtx.Remark),
+	)
+
+	content := strings.TrimSpace(strings.Join(lines, ""))
+	t, err := template.New("workflow_notification").Parse(getMailTemplate(language))
+	if err != nil {
+		return "", "", fmt.Errorf("workflow notification template parse error, error msg:%s", err)
+	}
+
+	var buf bytes.Buffer
+	err = t.Execute(&buf, struct {
+		WorkflowName   string
+		WorkflowTaskID int64
+		Content        string
+		Url            string
+	}{
+		WorkflowName:   workflowCtx.WorkflowDisplayName,
+		WorkflowTaskID: workflowCtx.TaskID,
+		Content:        content,
+		Url:            detailURL,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("workflow notification template execute error, error msg:%s", err)
+	}
+
+	return title, buf.String(), nil
 }
 
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
@@ -1357,6 +1630,9 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 
 		respErr := new(multierror.Error)
 		for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+			if target == nil || target.ID == "" {
+				continue
+			}
 			err = w.sendFeishuMessageFromClient(client, target.IDType, target.ID, LarkMessageTypeCard, string(messageContent))
 			if err != nil {
 				respErr = multierror.Append(respErr, err)

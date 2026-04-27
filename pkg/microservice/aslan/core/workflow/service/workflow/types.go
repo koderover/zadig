@@ -140,6 +140,8 @@ type CreateCustomTaskNotifyInput struct {
 	ID int `json:"id"`
 	// 通知类型，支持：feishu 飞书群组通知（自定义机器人）、feishu_app 飞书群组通知（自建应用）、feishu_person 飞书成员通知、dingding 钉钉，wechat 企业微信、msteams Teams、mail 邮件
 	Type setting.NotifyWebHookType `json:"type"`
+	// 运行时是否启用该通知；为空时保持原有配置
+	Enabled *bool `json:"enabled,omitempty"`
 	// 飞书群组通知（自定义机器人）配置
 	LarkHookNotificationConfig *CreateCustomTaskLarkHookNotificationConfig `json:"lark_hook_notification_config"`
 	// 飞书群通知（自建应用）配置
@@ -160,6 +162,10 @@ type CreateCustomTaskLarkUserInfo struct {
 	ID string `json:"id"`
 	// 支持 open_id、user_id
 	IDType string `json:"id_type"`
+	// 标记该成员是否为工作流执行人
+	IsExecutor bool `json:"is_executor,omitempty"`
+	// 标记该成员是否为当前阶段执行人
+	IsStageExecutor bool `json:"is_stage_executor,omitempty"`
 }
 
 type CreateCustomTaskLarkGroupNotificationConfig struct {
@@ -191,7 +197,8 @@ type CreateCustomTaskMSTeamsNotificationConfig struct {
 }
 
 type CreateCustomTaskMailNotificationConfig struct {
-	UserIDs []string `json:"user_ids"`
+	UserIDs []string             `json:"user_ids"`
+	Users   []*commonmodels.User `json:"users"`
 }
 
 type CreateCustomTaskParam struct {
