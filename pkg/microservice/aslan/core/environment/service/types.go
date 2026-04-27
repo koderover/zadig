@@ -83,6 +83,7 @@ type PreviewServiceArgs struct {
 	UpdateServiceRevision bool                            `json:"update_service_revision"`
 	ServiceModules        []*commonmodels.Container       `json:"service_modules"`
 	VariableKVs           []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	DeployContents        []config.DeployContent          `json:"deploy_contents"`
 }
 
 type RestartScaleArgs struct {

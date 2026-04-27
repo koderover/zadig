@@ -432,7 +432,7 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 	}
 	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, fullRenderedYaml)
 
-	manifests := releaseutil.SplitManifests(fullRenderedYaml)
+	manifests := util.SplitManifestsOrdered(fullRenderedYaml)
 
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(envInfo.ClusterID)
 	if err != nil {

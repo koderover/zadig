@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/helm/pkg/strvals"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -99,4 +101,18 @@ func ReadValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, er
 		return nil, err
 	}
 	return content, nil
+}
+
+func SplitManifestsOrdered(content string) []string {
+	res := make([]string, 0)
+	manifests := releaseutil.SplitManifests(content)
+	manifestKeys := make([]string, 0, len(manifests))
+	for key := range manifests {
+		manifestKeys = append(manifestKeys, key)
+	}
+	sort.Sort(releaseutil.BySplitManifestsOrder(manifestKeys))
+	for _, key := range manifestKeys {
+		res = append(res, manifests[key])
+	}
+	return res
 }

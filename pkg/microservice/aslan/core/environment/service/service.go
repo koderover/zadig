@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
@@ -334,15 +335,38 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 
 	curYaml := ""
 	isImportToDeploy := false
-	if envInfo.ServiceDeployStrategy[args.ServiceName] == setting.ServiceDeployStrategyImport && (args.UpdateServiceRevision || len(args.VariableKVs) > 0) {
-		isImportToDeploy = true
+	if envInfo.ServiceDeployStrategy[args.ServiceName] == setting.ServiceDeployStrategyImport {
+		// is imported service
+		if len(args.DeployContents) > 0 {
+			// is workflow
+			if len(args.DeployContents) == 1 && slices.Contains(args.DeployContents, config.DeployImage) {
+				// only update images
+				envSvc := envInfo.GetServiceMap()[args.ServiceName]
+				if envSvc == nil {
+					return nil, e.ErrPreviewYaml.AddErr(fmt.Errorf("service %s not found in environment", args.ServiceName))
+				}
+				for _, container := range envSvc.Containers {
+					ret.Current.Yaml += container.Image + "\n"
+				}
+				for _, container := range args.ServiceModules {
+					ret.Latest.Yaml += container.Image + "\n"
+				}
+				return ret, nil
+			} else if slices.Contains(args.DeployContents, config.DeployVars) || slices.Contains(args.DeployContents, config.DeployConfig) {
+				// set update variables or configuration
+				isImportToDeploy = true
+			}
+		} else {
+			// is environment
+			isImportToDeploy = true
+		}
 	}
 
 	curYaml, _, err = kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
-		UpdateServiceRevision: args.UpdateServiceRevision,
+		UpdateServiceRevision: false,
 		IsImportToDeploy:      isImportToDeploy,
 	})
 	if err != nil {
@@ -350,17 +374,6 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		ret.Error = fmt.Sprintf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
 			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
 		log.Errorf(ret.Error)
-	}
-
-	// for situations only update images, replace images directly
-	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
-		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(err)
-		}
-		ret.Current.Yaml = curYaml
-		ret.Latest.Yaml = latestYaml
-		return ret, nil
 	}
 
 	candidateOverrides, err := buildPreviewCandidateOverrides(envInfo, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
