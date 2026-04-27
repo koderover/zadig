@@ -18,10 +18,14 @@ package util
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
+
+var workflowJobNameRegx = regexp.MustCompile(setting.JobNameRegx)
 
 func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 	runningTime := int64(0)
@@ -43,4 +47,23 @@ func GenScanningWorkflowName(scanningID string) string {
 
 func GenTestingWorkflowName(testingName string) string {
 	return fmt.Sprintf(setting.TestWorkflowNamingConvention, testingName)
+}
+
+func GenerateTestingModuleJobName(name string) string {
+	return strings.ToLower(name)
+}
+
+func GenerateScanningModuleJobName(name string) string {
+	if len(name) >= 32 {
+		return strings.TrimSuffix(name[:31], "-")
+	}
+	return name
+}
+
+func ValidateGeneratedWorkflowJobName(name string, generator func(string) string) error {
+	jobName := generator(name)
+	if !workflowJobNameRegx.MatchString(jobName) {
+		return fmt.Errorf("name [%s] cannot be used to generate a workflow job name, generated job name [%s] did not match %s", name, jobName, setting.JobNameRegx)
+	}
+	return nil
 }

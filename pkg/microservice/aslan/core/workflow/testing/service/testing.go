@@ -52,6 +52,9 @@ func CreateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	if len(testing.Name) == 0 {
 		return e.ErrCreateTestModule.AddDesc("empty Name")
 	}
+	if err := commonutil.ValidateGeneratedWorkflowJobName(testing.Name, commonutil.GenerateTestingModuleJobName); err != nil {
+		return e.ErrCreateTestModule.AddDesc(err.Error())
+	}
 	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
 		return e.ErrCreateTestModule.AddDesc(err.Error())
 	}
@@ -114,6 +117,9 @@ func HandleCronjob(testing *commonmodels.Testing, log *zap.SugaredLogger) error 
 func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
 	if len(testing.Name) == 0 {
 		return e.ErrUpdateTestModule.AddDesc("empty Name")
+	}
+	if err := commonutil.ValidateGeneratedWorkflowJobName(testing.Name, commonutil.GenerateTestingModuleJobName); err != nil {
+		return e.ErrUpdateTestModule.AddDesc(err.Error())
 	}
 	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
 		return e.ErrUpdateTestModule.AddDesc(err.Error())
