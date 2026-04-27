@@ -496,11 +496,18 @@ func (c *ProductColl) AddProductionService(productName, serviceName string) erro
 // the first group when services is empty. Safe for concurrent callers.
 func (c *ProductColl) AddServiceToFirstGroup(productName, serviceName string) error {
 	// Step 1: initialize the first group when services is empty.
-	_, _ = c.UpdateOne(
+	result, err := c.UpdateOne(
 		context.TODO(),
 		bson.M{"product_name": productName, "services": bson.M{"$size": 0}},
 		bson.M{"$push": bson.M{"services": bson.A{serviceName}}},
 	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount > 0 {
+		// Step 1 already initialized the first group and inserted the service.
+		return nil
+	}
 
 	// Step 2: append to services[0] only when the service is not already present in any group.
 	serviceUniqueFilter := bson.M{
@@ -508,7 +515,7 @@ func (c *ProductColl) AddServiceToFirstGroup(productName, serviceName string) er
 			"$elemMatch": bson.M{"$eq": serviceName},
 		},
 	}
-	_, err := c.UpdateOne(
+	_, err = c.UpdateOne(
 		context.TODO(),
 		bson.M{
 			"product_name": productName,
@@ -523,11 +530,18 @@ func (c *ProductColl) AddServiceToFirstGroup(productName, serviceName string) er
 // initializing the first group when production_services is empty. Safe for concurrent callers.
 func (c *ProductColl) AddProductionServiceToFirstGroup(productName, serviceName string) error {
 	// Step 1: initialize the first group when production_services is empty.
-	_, _ = c.UpdateOne(
+	result, err := c.UpdateOne(
 		context.TODO(),
 		bson.M{"product_name": productName, "production_services": bson.M{"$size": 0}},
 		bson.M{"$push": bson.M{"production_services": bson.A{serviceName}}},
 	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount > 0 {
+		// Step 1 already initialized the first group and inserted the service.
+		return nil
+	}
 
 	// Step 2: append to production_services[0] only when the service is not already present in any group.
 	serviceUniqueFilter := bson.M{
@@ -535,7 +549,7 @@ func (c *ProductColl) AddProductionServiceToFirstGroup(productName, serviceName 
 			"$elemMatch": bson.M{"$eq": serviceName},
 		},
 	}
-	_, err := c.UpdateOne(
+	_, err = c.UpdateOne(
 		context.TODO(),
 		bson.M{
 			"product_name":        productName,
