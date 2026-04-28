@@ -466,6 +466,13 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				}
 			}
 		}
+		ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
+		ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
+		sharedCacheDir := "/workspace"
+		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+			sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
+		}
+		sharedCacheKey := getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule)
 
 		// for other job refer current latest image.
 		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
@@ -488,9 +495,17 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			Spec:     step.StepToolInstallSpec{Installs: tools},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium && !ignoreSharedCacheRestore {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
+				fmt.Sprintf("%s-%s", build.ServiceName, "shared-cache-restore"),
+				jobTask.Name,
+				sharedCacheDir,
+				sharedCacheKey,
+			))
+		}
 
 		// init download object cache step
-		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium && !ignoreObjectCacheRestore {
 			cacheDir := "/workspace"
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -646,6 +661,15 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+		}
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
+				fmt.Sprintf("%s-%s", build.ServiceName, "shared-cache-publish"),
+				jobTask.Name,
+				sharedCacheDir,
+				sharedCacheKey,
+				taskID,
+			))
 		}
 
 		// init archive step

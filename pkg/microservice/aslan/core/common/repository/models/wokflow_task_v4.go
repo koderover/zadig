@@ -41,6 +41,7 @@ type WorkflowTask struct {
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
 	Reverted            bool                          `bson:"reverted"                  json:"reverted"`
+	IgnoreCache         bool                          `bson:"ignore_cache"              json:"ignore_cache"`
 	Remark              string                        `bson:"remark,omitempty"          json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorAccount  string                        `bson:"task_creator_account"      json:"task_creator_account,omitempty"`

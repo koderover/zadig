@@ -314,6 +314,7 @@ const (
 	BuildOSSCacheFileName    = "zadig-build-cache.tar.gz"
 	ScanningOSSCacheFileName = "zadig-scanning-cache.tar.gz"
 	TestingOSSCacheFileName  = "zadig-testing-cache.tar.gz"
+	SharedCacheStoreRoot     = "/zadig/cache-store"
 )
 
 type DeliveryVersionType string
