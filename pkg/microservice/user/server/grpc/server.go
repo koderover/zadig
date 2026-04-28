@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -47,6 +48,8 @@ const (
 	mfaEnrollmentRequiredReason   = "mfa_enrollment_required"
 	mfaVerificationRequiredReason = "mfa_verification_required"
 	mfaReasonHeaderKey            = "x-zadig-auth-reason"
+
+	mfaEnrollmentBypassURLRegExp = `^/api/v1/users/[^/]+/mfa/[A-Za-z0-9_-]+$`
 )
 
 func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckRequest) (*ext_authz_v3.CheckResponse, error) {
@@ -246,6 +249,11 @@ func isMFAGateBypassURL(requestPath, method string) bool {
 		return true
 	}
 	if path == "/api/v1/login/mfa/verify" && method == http.MethodPost {
+		return true
+	}
+
+	match, _ := regexp.MatchString(mfaEnrollmentBypassURLRegExp, path)
+	if match && (method == http.MethodPost || method == http.MethodGet) {
 		return true
 	}
 
