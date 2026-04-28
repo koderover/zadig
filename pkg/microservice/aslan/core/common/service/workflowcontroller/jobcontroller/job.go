@@ -113,6 +113,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewBlueKingJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobApproval):
 		jobCtl = NewApprovalJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobAICheck):
+		jobCtl = NewAICheckJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobNotification):
 		jobCtl = NewNotificationJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobSAEDeploy):

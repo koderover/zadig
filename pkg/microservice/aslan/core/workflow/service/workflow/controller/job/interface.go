@@ -154,6 +154,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateVMDeployJobController(job, workflow)
 	case config.JobWorkflowTrigger:
 		return CreateWorkflowTriggerJobController(job, workflow)
+	case config.JobAICheck:
+		return CreateAICheckJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}
