@@ -44,6 +44,22 @@ var readOnlyAction = []string{
 	VerbGetSprint,
 }
 
+// globalReadOnlySystemAction defines system-level read-only actions granted by global-read-only role.
+// It intentionally excludes system settings and enterprise management actions.
+var globalReadOnlySystemAction = []string{
+	VerbGetTemplate,
+	VerbViewTestCenter,
+	VerbViewReleaseCenter,
+	VerbDeliveryCenterGetVersions,
+	VerbDeliveryCenterGetArtifact,
+	VerbGetDataCenterOverview,
+	VerbGetDataCenterInsight,
+	VerbGetBusinessDirectory,
+	VerbGetReleasePlan,
+	VerbGetRegistryManagement,
+	VerbGetS3StorageManagement,
+}
+
 func InitializeProjectAuthorization(namespace string, isPublic bool, admins []string, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 	// First, create default roles

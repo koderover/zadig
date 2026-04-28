@@ -182,6 +182,10 @@ type ReleasePlanActions struct {
 
 type BusinessDirectoryActions struct {
 	View bool
+	// Edit business directory metadata/configuration.
+	Edit bool
+	Create     bool
+	Delete     bool
 }
 
 type ClusterManagementActions struct {

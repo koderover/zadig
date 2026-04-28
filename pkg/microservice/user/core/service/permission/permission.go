@@ -87,6 +87,11 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	}
 
 	for _, role := range roles {
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, action := range readOnlyAction {
+				projectVerbSet.Insert(action)
+			}
+		}
 		if role.Namespace != projectName {
 			continue
 		}
@@ -128,6 +133,11 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	}
 
 	for _, role := range groupRoleMap {
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, action := range readOnlyAction {
+				projectVerbSet.Insert(action)
+			}
+		}
 		if role.Namespace != projectName {
 			continue
 		}
@@ -266,7 +276,13 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		switch role.Namespace {
 		case GeneralNamespace:
+			if role.GlobalReadOnly {
+				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
+			}
 			for _, action := range actions {
+				if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+					continue
+				}
 				systemVerbs = append(systemVerbs, action)
 			}
 		}
@@ -311,7 +327,13 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		switch role.Namespace {
 		case GeneralNamespace:
+			if role.GlobalReadOnly {
+				systemVerbs = append(systemVerbs, globalReadOnlySystemAction...)
+			}
 			for _, action := range actions {
+				if role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+					continue
+				}
 				systemVerbs = append(systemVerbs, action)
 			}
 		}

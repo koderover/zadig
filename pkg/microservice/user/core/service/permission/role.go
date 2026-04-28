@@ -41,11 +41,11 @@ const (
 	RoleActionKeyFormat = "role_action_%d"
 
 	UIDRoleKeyFormat  = "uid_role_%s"
-	UIDRoleDataFormat = "%d++%s++%s"
+	UIDRoleDataFormat = "%d++%s++%s++%t"
 	UIDRoleLock       = "lock_uid_role_%s"
 
 	GIDRoleKeyFormat  = "gid_role_%s"
-	GIDRoleDataFormat = "%d++%s++%s"
+	GIDRoleDataFormat = "%d++%s++%s++%t"
 	GIDRoleLock       = "lock_gid_role_%s"
 )
 
@@ -55,11 +55,12 @@ const (
 var ActionMap = make(map[string]uint)
 
 type CreateRoleReq struct {
-	Name      string   `json:"name"`
-	Actions   []string `json:"actions"`
-	Namespace string   `json:"namespace"`
-	Desc      string   `json:"desc,omitempty"`
-	Type      string   `json:"type,omitempty"`
+	Name           string   `json:"name"`
+	Actions        []string `json:"actions"`
+	Namespace      string   `json:"namespace"`
+	Desc           string   `json:"desc,omitempty"`
+	Type           string   `json:"type,omitempty"`
+	GlobalReadOnly bool     `json:"global_read_only,omitempty"`
 }
 
 // ListRoleByUID lists all roles by uid with cache.
@@ -78,7 +79,7 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 			// if we got the data from cache, simply return it\
 			for _, roleInfo := range resp {
 				roleInfos := strings.Split(roleInfo, "++")
-				if len(roleInfos) != 3 {
+				if len(roleInfos) != 3 && len(roleInfos) != 4 {
 					// if the data is corrupted, stop using it.
 					useCache = false
 					break
@@ -92,9 +93,10 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 				}
 
 				response = append(response, &types.Role{
-					ID:        uint(roleID),
-					Namespace: roleInfos[1],
-					Name:      roleInfos[2],
+					ID:             uint(roleID),
+					Namespace:      roleInfos[1],
+					Name:           roleInfos[2],
+					GlobalReadOnly: len(roleInfos) == 4 && roleInfos[3] == "true",
 				})
 			}
 		} else {
@@ -119,11 +121,12 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 
 	for _, role := range roles {
 		response = append(response, &types.Role{
-			ID:        role.ID,
-			Namespace: role.Namespace,
-			Name:      role.Name,
+			ID:             role.ID,
+			Namespace:      role.Namespace,
+			Name:           role.Name,
+			GlobalReadOnly: role.GlobalReadOnly,
 		})
-		cacheData = append(cacheData, fmt.Sprintf(UIDRoleDataFormat, role.ID, role.Namespace, role.Name))
+		cacheData = append(cacheData, fmt.Sprintf(UIDRoleDataFormat, role.ID, role.Namespace, role.Name, role.GlobalReadOnly))
 	}
 
 	err = roleCache.Delete(uidRoleKey)
@@ -156,7 +159,7 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 			// if we got the data from cache, simply return it\
 			for _, roleInfo := range resp {
 				roleInfos := strings.Split(roleInfo, "++")
-				if len(roleInfos) != 3 {
+				if len(roleInfos) != 3 && len(roleInfos) != 4 {
 					// if the data is corrupted, stop using it.
 					useCache = false
 					break
@@ -170,9 +173,10 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 				}
 
 				response = append(response, &types.Role{
-					ID:        uint(roleID),
-					Namespace: roleInfos[1],
-					Name:      roleInfos[2],
+					ID:             uint(roleID),
+					Namespace:      roleInfos[1],
+					Name:           roleInfos[2],
+					GlobalReadOnly: len(roleInfos) == 4 && roleInfos[3] == "true",
 				})
 			}
 		} else {
@@ -197,11 +201,12 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 
 	for _, role := range roles {
 		response = append(response, &types.Role{
-			ID:        role.ID,
-			Namespace: role.Namespace,
-			Name:      role.Name,
+			ID:             role.ID,
+			Namespace:      role.Namespace,
+			Name:           role.Name,
+			GlobalReadOnly: role.GlobalReadOnly,
 		})
-		cacheData = append(cacheData, fmt.Sprintf(GIDRoleDataFormat, role.ID, role.Namespace, role.Name))
+		cacheData = append(cacheData, fmt.Sprintf(GIDRoleDataFormat, role.ID, role.Namespace, role.Name, role.GlobalReadOnly))
 	}
 
 	err = roleCache.Delete(gidRoleKey)
@@ -270,9 +275,10 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
 	role := &models.NewRole{
-		Name:        req.Name,
-		Description: req.Desc,
-		Namespace:   ns,
+		Name:           req.Name,
+		Description:    req.Desc,
+		Namespace:      ns,
+		GlobalReadOnly: req.GlobalReadOnly,
 	}
 
 	if req.Type == string(setting.ResourceTypeSystem) {

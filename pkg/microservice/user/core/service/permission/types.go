@@ -154,7 +154,10 @@ const (
 	VerbEditHelmRepoManagement   = "edit_helmrepo_management"
 	VerbDeleteHelmRepoManagement = "delete_helmrepo_management"
 	// business directory
-	VerbGetBusinessDirectory = "get_business_directory"
+	VerbGetBusinessDirectory    = "get_business_directory"
+	VerbCreateBusinessDirectory = "create_business_directory"
+	VerbEditBusinessDirectory   = "edit_business_directory"
+	VerbDeleteBusinessDirectory = "delete_business_directory"
 	// dbinstance management
 	VerbGetDBInstanceManagement    = "get_dbinstance_management"
 	VerbCreateDBInstanceManagement = "create_dbinstance_management"
@@ -351,7 +354,10 @@ type ReleasePlanActions struct {
 }
 
 type BusinessDirectoryActions struct {
-	View bool
+	View       bool
+	Create     bool
+	Edit bool
+	Delete     bool
 }
 
 type ClusterManagementActions struct {

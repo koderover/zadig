@@ -19,6 +19,7 @@ package permission
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -32,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// GetUserAuthInfo get user auth info
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
 	// system calls
 	if uid == "" {
@@ -67,6 +69,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	systemActions := generateDefaultSystemActions()
 	// we generate a map of namespaced(project) permission
 	projectActionMap := make(map[string]*ProjectActions)
+	globalReadVerbSet := sets.New[string]()
 
 	roles, err := ListRoleByUID(uid)
 	if err != nil {
@@ -78,6 +81,14 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		if role.Namespace != GeneralNamespace {
 			if _, ok := projectActionMap[role.Namespace]; !ok {
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, verb := range readOnlyAction {
+				globalReadVerbSet.Insert(verb)
+			}
+			for _, verb := range globalReadOnlySystemAction {
+				modifySystemAction(systemActions, verb)
 			}
 		}
 
@@ -97,7 +108,11 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		for _, action := range actions {
 			switch role.Namespace {
 			case GeneralNamespace:
+				// inject system actions for global read-only role
 				modifySystemAction(systemActions, action)
+				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
+					globalReadVerbSet.Insert(action)
+				}
 			default:
 				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
@@ -124,6 +139,17 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
 			}
 		}
+		// global read-only role has special permission
+		if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+			for _, verb := range readOnlyAction {
+				globalReadVerbSet.Insert(verb)
+			}
+
+			// 开启 SystemAction read权限 for global read-only role
+			for _, verb := range globalReadOnlySystemAction {
+				modifySystemAction(systemActions, verb)
+			}
+		}
 
 		if role.Name == ProjectAdminRole {
 			projectActionMap[role.Namespace].IsProjectAdmin = true
@@ -138,13 +164,25 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		for _, action := range actions {
+			if role.Namespace == GeneralNamespace && role.GlobalReadOnly && !isGlobalReadOnlyRoleActionVerb(action) {
+				continue
+			}
 			switch role.Namespace {
 			case GeneralNamespace:
+				// inject system actions for global read-only role
 				modifySystemAction(systemActions, action)
+				if role.GlobalReadOnly && isReadOnlyActionVerb(action) {
+					globalReadVerbSet.Insert(action)
+				}
 			default:
 				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
 		}
+	}
+
+	//grant global read permission to all projects.
+	if err := grantGlobalReadAuthToAllProjects(projectActionMap, globalReadVerbSet.UnsortedList()); err != nil {
+		return nil, err
 	}
 
 	projectInfo := make(map[string]ProjectActions)
@@ -221,10 +259,14 @@ func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action s
 	return
 }
 
+// ListAuthorizedProject list authorized projects for a user
+// if user is system admin, return all projects
+// if user is not system admin, return projects that user is in
 func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
 	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
-	respSet := sets.NewString()
+	respSet := sets.New[string]()
+	projectCache := &allProjectCache{}
 
 	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
 	if err != nil {
@@ -234,17 +276,13 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	if isSystemAdmin {
-		projectList, err := mongodb.NewProjectColl().List()
-		if err != nil {
+		if err := projectCache.insertAllProjects(respSet); err != nil {
 			tx.Rollback()
 			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 		}
-		for _, project := range projectList {
-			respSet.Insert(project.ProductName)
-		}
 		tx.Commit()
-		return respSet.List(), nil
+		return respSet.UnsortedList(), nil
 	}
 
 	groupIDList := make([]string, 0)
@@ -277,9 +315,17 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	for _, role := range roles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			if role.GlobalReadOnly {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
@@ -290,9 +336,17 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	for _, role := range groupRoles {
-		if role.Namespace != GeneralNamespace {
-			respSet.Insert(role.Namespace)
+		if role.Namespace == GeneralNamespace {
+			if role.GlobalReadOnly {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
+				}
+			}
+			continue
 		}
+		respSet.Insert(role.Namespace)
 	}
 
 	// TODO: add user group support for collaboration mode
@@ -302,7 +356,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		// given by the role.
 		tx.Commit()
 		logger.Warnf("failed to find user collaboration mode, error: %s", err)
-		return respSet.List(), nil
+		return respSet.UnsortedList(), nil
 	}
 
 	// if user have collaboration mode, they must have access to this project.
@@ -311,11 +365,12 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	}
 
 	tx.Commit()
-	return respSet.List(), nil
+	return respSet.UnsortedList(), nil
 }
 
 func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
-	respSet := sets.NewString()
+	respSet := sets.New[string]()
+	projectCache := &allProjectCache{}
 
 	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
@@ -327,17 +382,13 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	if isSystemAdmin {
-		projectList, err := mongodb.NewProjectColl().List()
-		if err != nil {
+		if err := projectCache.insertAllProjects(respSet); err != nil {
 			tx.Rollback()
 			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
 		}
-		for _, project := range projectList {
-			respSet.Insert(project.ProductName)
-		}
 		tx.Commit()
-		return respSet.List(), nil
+		return respSet.UnsortedList(), nil
 	}
 
 	groupIDList := make([]string, 0)
@@ -375,6 +426,28 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		}
 	}
 
+	// if user has global read only role, we must return all projects.
+	if isReadOnlyActionVerb(verb) {
+		systemRoles, err := orm.ListRoleByUID(uid, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+			return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		}
+
+		for _, role := range systemRoles {
+			if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
+				}
+				break
+			}
+		}
+	}
+
+	// if user has project admin role, we must return all projects.
 	adminRoles, err := orm.ListProjectAdminRoleByUID(uid, tx)
 	if err != nil {
 		tx.Rollback()
@@ -395,9 +468,30 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
 	}
 
+	// if user has global read only role, we must return all projects.
 	for _, role := range groupRoles {
 		if role.Namespace != GeneralNamespace {
 			respSet.Insert(role.Namespace)
+		}
+	}
+
+	//
+	if isReadOnlyActionVerb(verb) {
+		systemRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+			return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+		}
+		for _, role := range systemRoles {
+			if role.Namespace == GeneralNamespace && role.GlobalReadOnly {
+				if err := projectCache.insertAllProjects(respSet); err != nil {
+					tx.Rollback()
+					logger.Errorf("failed to list all projects for global read role %s, error: %s", role.Name, err)
+					return nil, err
+				}
+				break
+			}
 		}
 	}
 
@@ -419,7 +513,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	tx.Commit()
-	return respSet.List(), nil
+	return respSet.UnsortedList(), nil
 }
 
 // ListAuthorizedWorkflow lists all workflows authorized by collaboration mode
@@ -574,6 +668,71 @@ func generateAdminRoleResource() *AuthorizedResources {
 		ProjectAuthInfo: nil,
 		SystemActions:   nil,
 	}
+}
+
+// isReadOnlyActionVerb check if the action is a read-only action.
+func isReadOnlyActionVerb(action string) bool {
+	return slices.Contains(readOnlyAction, action)
+}
+
+// isGlobalReadOnlySystemActionVerb check if the action is a global read-only system action.
+func isGlobalReadOnlySystemActionVerb(action string) bool {
+	return slices.Contains(globalReadOnlySystemAction, action)
+}
+
+// project action 和 system action 的交集
+func isGlobalReadOnlyRoleActionVerb(action string) bool {
+	return isReadOnlyActionVerb(action) || isGlobalReadOnlySystemActionVerb(action)
+}
+
+// grantGlobalReadAuthToAllProjects grant global read permission to all projects.
+func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectActions, verbs []string) error {
+	if len(verbs) == 0 {
+		return nil
+	}
+	projectList, err := mongodb.NewProjectColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list projects for global read permission, error: %s", err)
+	}
+
+	// get project list
+	for _, project := range projectList {
+		if _, ok := projectActionMap[project.ProductName]; !ok {
+			projectActionMap[project.ProductName] = generateDefaultProjectActions()
+		}
+		// 对用户所有的project action开启
+		for _, verb := range verbs {
+			modifyUserProjectAuth(projectActionMap[project.ProductName], verb)
+		}
+	}
+	return nil
+}
+
+// allProjectCache caches all project names (lazy-loaded)
+type allProjectCache struct {
+	loaded       bool     // whether data has been loaded from DB
+	projectNames []string // cached project names
+}
+
+// insertAllProjects loads all projects once and inserts them into respSet
+func (c *allProjectCache) insertAllProjects(respSet sets.Set[string]) error {
+	// load from DB only on first call
+	if !c.loaded {
+		projectList, err := mongodb.NewProjectColl().List()
+		if err != nil {
+			return err
+		}
+		for _, project := range projectList {
+			c.projectNames = append(c.projectNames, project.ProductName)
+		}
+		c.loaded = true
+	}
+
+	// reuse cache
+	for _, projectName := range c.projectNames {
+		respSet.Insert(projectName)
+	}
+	return nil
 }
 
 // generateDefaultProjectActions generate an ProjectActions without any authorization info.
@@ -913,6 +1072,12 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.ReleasePlan.EditConfig = true
 	case VerbGetBusinessDirectory:
 		systemActions.BusinessDirectory.View = true
+	case VerbCreateBusinessDirectory:
+		systemActions.BusinessDirectory.Create = true
+	case VerbEditBusinessDirectory:
+		systemActions.BusinessDirectory.Edit = true
+	case VerbDeleteBusinessDirectory:
+		systemActions.BusinessDirectory.Delete = true
 	case VerbGetClusterManagement:
 		systemActions.ClusterManagement.View = true
 	case VerbCreateClusterManagement:

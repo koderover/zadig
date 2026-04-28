@@ -39,6 +39,10 @@ func CreateFieldDefinition(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 	args := new(commonmodels.ApplicationFieldDefinition)
 	data, _ := c.GetRawData()
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
@@ -50,8 +54,17 @@ func CreateFieldDefinition(c *gin.Context) {
 }
 
 func ListFieldDefinitions(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	ctx.Resp, ctx.RespErr = service.ListFieldDefinitions(ctx.Logger)
 }
 
@@ -60,6 +73,10 @@ func UpdateFieldDefinition(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -77,6 +94,10 @@ func DeleteFieldDefinition(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.BusinessDirectory.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
