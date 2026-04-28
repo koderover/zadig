@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -45,6 +44,9 @@ import (
 func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogger) error {
 	if len(args.Name) == 0 {
 		return e.ErrCreateScanningModule.AddDesc("empty Name")
+	}
+	if err := commonutil.ValidateGeneratedWorkflowJobName(args.Name, commonutil.GenerateScanningModuleJobName); err != nil {
+		return e.ErrCreateScanningModule.AddDesc(err.Error())
 	}
 
 	err := util.CheckDefineResourceParam(args.AdvancedSetting.ResReq, args.AdvancedSetting.ResReqSpec)
@@ -73,6 +75,9 @@ func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogge
 func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredLogger) error {
 	if len(args.Name) == 0 {
 		return e.ErrUpdateScanningModule.AddDesc("empty Name")
+	}
+	if err := commonutil.ValidateGeneratedWorkflowJobName(args.Name, commonutil.GenerateScanningModuleJobName); err != nil {
+		return e.ErrUpdateScanningModule.AddDesc(err.Error())
 	}
 
 	scanning, err := commonrepo.NewScanningColl().GetByID(id)
@@ -537,12 +542,8 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	}
 
 	job := make([]*commonmodels.Job, 0)
-	name := scanInfo.Name
-	if len(name) >= 32 {
-		name = strings.TrimSuffix(scanInfo.Name[:31], "-")
-	}
 	job = append(job, &commonmodels.Job{
-		Name:    name,
+		Name:    commonutil.GenerateScanningModuleJobName(scanInfo.Name),
 		JobType: config.JobZadigScanning,
 		Skipped: false,
 		Spec: &commonmodels.ZadigScanningJobSpec{

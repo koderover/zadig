@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	loginsvc "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -73,6 +74,12 @@ func ResetUserMFAByAdmin(c *gin.Context) {
 	}
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.RespErr = e.ErrForbidden
+		return
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
 		return
 	}
 
@@ -136,6 +143,12 @@ func EnableUserMFA(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
 	args := &loginsvc.MFAEnrollArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = err
@@ -177,7 +190,7 @@ func DisableUserMFA(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	ctx.RespErr = loginsvc.DisableUserMFA(uid, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = loginsvc.DisableUserMFA(uid, args, ctx.Logger)
 }
 
 // @Summary 重新生成恢复码

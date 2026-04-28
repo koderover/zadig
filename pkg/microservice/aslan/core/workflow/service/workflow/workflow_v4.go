@@ -58,6 +58,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
+	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
@@ -305,6 +306,20 @@ func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.Wo
 }
 
 func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
+	// Cancel any queued or running tasks before deleting the workflow.
+	taskQueue, err := commonrepo.NewWorkflowQueueColl().List(&commonrepo.ListWorfklowQueueOption{
+		WorkflowName: name,
+	})
+	if err != nil {
+		logger.Errorf("Failed to list queued tasks for workflow %s, the error is: %v", name, err)
+		return e.ErrDeleteWorkflow.AddErr(err)
+	}
+	for _, task := range taskQueue {
+		if err := runtimeWorkflowController.CancelWorkflowTask("system", task.WorkflowName, task.TaskID, logger); err != nil {
+			logger.Warnf("Failed to cancel task %d for workflow %s before deletion, the error is: %v", task.TaskID, name, err)
+		}
+	}
+
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)

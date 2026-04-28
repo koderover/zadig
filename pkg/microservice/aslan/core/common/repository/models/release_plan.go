@@ -60,6 +60,7 @@ type ReleasePlan struct {
 	WaitForExecuteExternalCheckTime        int64  `bson:"wait_for_execute_external_check_time"       yaml:"wait_for_execute_external_check_time"                   json:"wait_for_execute_external_check_time"`
 	WaitForAllDoneExternalCheckTime        int64  `bson:"wait_for_all_done_external_check_time"      yaml:"wait_for_all_done_external_check_time"                   json:"wait_for_all_done_external_check_time"`
 	ExternalCheckFailedReason              string `bson:"external_check_failed_reason"       yaml:"external_check_failed_reason"                   json:"external_check_failed_reason"`
+	CallbackDescription                    string `bson:"callback_description"       yaml:"callback_description"                   json:"callback_description"`
 }
 
 type HookSettings struct {

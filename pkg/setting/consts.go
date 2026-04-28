@@ -946,9 +946,10 @@ const (
 )
 
 const (
-	UserTypeUser        string = "user"
-	UserTypeGroup       string = "group"
-	UserTypeTaskCreator string = "task_creator"
+	UserTypeUser          string = "user"
+	UserTypeGroup         string = "group"
+	UserTypeTaskCreator   string = "task_creator"
+	UserTypeStageExecutor string = "stage_executor"
 )
 
 type ContainerType string
@@ -1016,8 +1017,9 @@ const (
 type ReleasePlanCallBackResultType string
 
 const (
-	ReleasePlanCallBackResultTypeSuccess ReleasePlanCallBackResultType = "success"
-	ReleasePlanCallBackResultTypeFailed  ReleasePlanCallBackResultType = "failed"
+	ReleasePlanCallBackResultTypeSuccess   ReleasePlanCallBackResultType = "success"
+	ReleasePlanCallBackResultTypeExecuting ReleasePlanCallBackResultType = "executing"
+	ReleasePlanCallBackResultTypeFailed    ReleasePlanCallBackResultType = "failed"
 )
 
 type ListWorkflowV4InGlobalSortBy string

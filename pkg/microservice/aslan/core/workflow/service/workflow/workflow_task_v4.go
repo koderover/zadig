@@ -693,6 +693,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 	for i, notifyCtl := range notifyCtls {
 		notifyInput, ok := notifyInputsMap[i]
 		if ok && notifyCtl.WebHookType == notifyInput.Type {
+			if notifyInput.Enabled != nil {
+				notifyCtl.Enabled = *notifyInput.Enabled
+			}
+
 			switch notifyCtl.WebHookType {
 			case setting.NotifyWebHookTypeFeishu:
 				if notifyCtl.LarkHookNotificationConfig == nil {
@@ -720,8 +724,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				targetUsers := make([]*larktool.UserInfo, 0)
 				for _, user := range notifyInput.LarkPersonNotificationConfig.Users {
 					targetUsers = append(targetUsers, &larktool.UserInfo{
-						ID:     user.ID,
-						IDType: user.IDType,
+						ID:              user.ID,
+						IDType:          user.IDType,
+						IsExecutor:      user.IsExecutor,
+						IsStageExecutor: user.IsStageExecutor,
 					})
 				}
 				config.TargetUsers = targetUsers
@@ -798,10 +804,26 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					TargetUsers: make([]*commonmodels.User, 0),
 				}
 
-				for _, userID := range notifyInput.MailNotificationConfig.UserIDs {
-					config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
-						UserID: userID,
-					})
+				if len(notifyInput.MailNotificationConfig.Users) > 0 {
+					for _, user := range notifyInput.MailNotificationConfig.Users {
+						if user == nil {
+							continue
+						}
+						config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
+							Type:      user.Type,
+							UserID:    user.UserID,
+							UserName:  user.UserName,
+							GroupID:   user.GroupID,
+							GroupName: user.GroupName,
+						})
+					}
+				} else {
+					for _, userID := range notifyInput.MailNotificationConfig.UserIDs {
+						config.TargetUsers = append(config.TargetUsers, &commonmodels.User{
+							Type:   setting.UserTypeUser,
+							UserID: userID,
+						})
+					}
 				}
 
 				notifyCtl.MailNotificationConfig = config
@@ -3152,8 +3174,6 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("paramerter is empty")
 	}
 
-	envMap := make(map[string]*commonmodels.Product)
-
 	switch typeName {
 	case "creator":
 		creators, err := commonrepo.NewworkflowTaskv4Coll().ListCreator(project, workflow)
@@ -3171,37 +3191,30 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		}
 		return resp, nil
 	case "envName":
-		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: project,
+		})
 		if err != nil {
-			logger.Errorf("failed to find workflow %s: %v", workflow, err)
-			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to find workflow %s: %v", workflow, err)
+			logger.Errorf("failed to list envs from product for project %s: %v", project, err)
+			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to list envs from product for project %s: %v", project, err)
 		}
 
-		resp := make([]*ListWorkflowFilterInfoResponse, 0)
-		for _, stage := range workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
-					deploy := &commonmodels.ZadigDeployJobSpec{}
-					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
-						return nil, err
-					}
-
-					env, _ := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
-					if envMap[env] == nil {
-						envInfo, err := commonutil.GetEnvInfo(project, env, envMap)
-						if err != nil {
-							return nil, err
-						}
-
-						resp = append(resp, &ListWorkflowFilterInfoResponse{
-							Key:  envInfo.EnvName,
-							Name: envInfo.Alias,
-						})
-					}
-					return resp, nil
-				}
+		resp := make([]*ListWorkflowFilterInfoResponse, 0, len(productList))
+		for _, envInfo := range productList {
+			if envInfo == nil {
+				continue
 			}
+			name := envInfo.EnvName
+			if envInfo.Alias != "" {
+				name = envInfo.Alias
+			}
+
+			resp = append(resp, &ListWorkflowFilterInfoResponse{
+				Key:  envInfo.EnvName,
+				Name: name,
+			})
 		}
+
 		return resp, nil
 	case "serviceName":
 		services := make([]string, 0)
