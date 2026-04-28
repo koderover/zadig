@@ -556,6 +556,15 @@ func (c *workflowCtl) updateWorkflowTask() {
 
 	c.workflowTask.Remark = ""
 
+	// Preserve the soft-delete flags from the DB copy. The in-memory task was
+	// loaded before the workflow could have been deleted, so its IsDeleted /
+	// IsArchived fields may be stale (false). Blindly writing them back via
+	// $set would silently undo a soft-delete performed by DeleteWorkflowV4,
+	// making the task reappear in the UI as "running" even after the workflow
+	// has been removed.
+	c.workflowTask.IsDeleted = taskInColl.IsDeleted
+	c.workflowTask.IsArchived = taskInColl.IsArchived
+
 	c.workflowTaskMutex.Lock()
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
 		c.workflowTaskMutex.Unlock()
