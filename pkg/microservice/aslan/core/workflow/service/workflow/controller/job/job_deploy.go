@@ -151,6 +151,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
 	// we need to not only update its source but also set services to empty slice.
 	if j.jobSpec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		log.Infof("[deploy job]: source changed")
 		j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 	}
 	j.jobSpec.Source = latestSpec.Source
@@ -179,11 +180,13 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		}
 
 		if _, ok := currentEnvMap[j.jobSpec.Env]; !ok {
+			log.Infof("[deploy job]: env %s not in current env any more", j.jobSpec.Env)
 			j.jobSpec.Env = ""
 		}
 
 		// if unselected for some reason, we skip calculating default service
 		if j.jobSpec.Env == "" {
+			log.Infof("[deploy job]: env is empty, clear services")
 			j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 			return nil
 		}
@@ -216,6 +219,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 
 	if j.jobSpec.Env != latestSpec.Env && latestSpec.EnvSource == config.ParamSourceFixed {
 		j.jobSpec.Env = latestSpec.Env
+		log.Infof("[deploy job]: env source is fixed, but env changed, clear services")
 		j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 		return nil
 	}
@@ -227,6 +231,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 			return err
 		} else {
 			// if the source is not fixed, then we don't return error if we can't find env information for deployment, just remove the configured default env.
+			log.Infof("[deploy job]: generateDeployInfoForEnv err %v, clear env and services", err)
 			j.jobSpec.Env = ""
 			j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 			return nil
@@ -340,6 +345,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 				userConfiguredSvc[svc.ServiceName] = svc
 			}
 
+			log.Infof("[deploy job]: len service of env %s in options: %s", env.Env, len(env.Services))
 			for _, svc := range env.Services {
 				if inputSvc, ok := userConfiguredSvc[svc.ServiceName]; ok {
 					// if the user wants to update config/variables do the merge variables logic, otherwise do nothing just add it to the user's selection
@@ -418,6 +424,10 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 
 	productServiceMap := product.GetServiceMap()
+
+	if len(j.jobSpec.Services) == 0 {
+		return nil, fmt.Errorf("deploy service is empty for env %s, source: %s, env source: %s, from job name: %s", j.jobSpec.Env, j.jobSpec.Source, j.jobSpec.EnvSource, j.jobSpec.JobName)
+	}
 
 	// get deploy info from previous build job
 	if j.jobSpec.Source == config.SourceFromJob {
