@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -90,6 +91,34 @@ type TerminalSessionOption struct {
 }
 
 func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header, opt ...*TerminalSessionOption) (*TerminalSession, error) {
+	// #region agent log
+	{
+		headers := map[string]string{}
+		for k, v := range r.Header {
+			if len(v) > 0 {
+				headers[k] = v[0]
+			}
+		}
+		logEntry := fmt.Sprintf(`{"sessionId":"912a30","hypothesisId":"A-B-C","location":"ws_terminal.go:NewTerminalSession","message":"incoming ws request headers","data":{"proto":"%s","connection":"%s","upgrade":"%s","secWsVersion":"%s","secWsKey":"%s","origin":"%s","userAgent":"%s","allHeaders":%s},"timestamp":%d}`+"\n",
+			r.Proto,
+			r.Header.Get("Connection"),
+			r.Header.Get("Upgrade"),
+			r.Header.Get("Sec-Websocket-Version"),
+			r.Header.Get("Sec-Websocket-Key"),
+			r.Header.Get("Origin"),
+			r.Header.Get("User-Agent"),
+			func() string {
+				b, _ := json.Marshal(headers)
+				return string(b)
+			}(),
+			time.Now().UnixMilli(),
+		)
+		if f, ferr := os.OpenFile("/Users/leozhang/x-ray/zadig/.cursor/debug-912a30.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); ferr == nil {
+			_, _ = f.WriteString(logEntry)
+			_ = f.Close()
+		}
+	}
+	// #endregion agent log
 	conn, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return nil, err
