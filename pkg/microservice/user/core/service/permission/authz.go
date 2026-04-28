@@ -77,7 +77,6 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
-	//
 	for _, role := range roles {
 		if role.Namespace != GeneralNamespace {
 			if _, ok := projectActionMap[role.Namespace]; !ok {
@@ -709,7 +708,6 @@ func grantGlobalReadAuthToAllProjects(projectActionMap map[string]*ProjectAction
 	return nil
 }
 
-
 // allProjectCache caches all project names (lazy-loaded)
 type allProjectCache struct {
 	loaded       bool     // whether data has been loaded from DB
@@ -736,6 +734,7 @@ func (c *allProjectCache) insertAllProjects(respSet sets.Set[string]) error {
 	}
 	return nil
 }
+
 // generateDefaultProjectActions generate an ProjectActions without any authorization info.
 func generateDefaultProjectActions() *ProjectActions {
 	return &ProjectActions{

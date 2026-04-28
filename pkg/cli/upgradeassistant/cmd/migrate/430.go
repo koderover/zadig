@@ -127,6 +127,10 @@ func V421ToV430() error {
 	}
 
 	err = migrateGlobalReadOnlyRole(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	err = migrateScalePermissions(migrationInfo)
 	if err != nil {
 		return err
