@@ -497,12 +497,14 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 
-		if jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled && !ignoreSharedCacheRestore {
+		if sharedCacheEnabled {
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
 				fmt.Sprintf("%s-%s", build.ServiceName, "shared-cache-restore"),
+				j.workflow.Name,
 				jobTask.Name,
 				sharedCacheDir,
 				sharedCacheKey,
+				!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 			))
 		}
 

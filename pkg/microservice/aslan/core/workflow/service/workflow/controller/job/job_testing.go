@@ -745,12 +745,14 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
-	if jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled && !ignoreSharedCacheRestore {
+	if sharedCacheEnabled {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
 			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-restore"),
+			j.workflow.Name,
 			jobTask.Name,
 			sharedCacheDir,
 			sharedCacheKey,
+			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 		))
 	}
 	// init download object cache step

@@ -18,9 +18,11 @@ package lease
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -38,13 +40,21 @@ const (
 	defaultDuration   = 30 * time.Second
 )
 
+var errLeaseLost = errors.New("lease is held by another holder")
+
 type Lock struct {
-	client       kubernetes.Interface
-	namespace    string
-	name         string
-	holder       string
-	duration     time.Duration
+	client    kubernetes.Interface
+	namespace string
+	name      string
+	holder    string
+	duration  time.Duration
+
+	mu           sync.Mutex
 	acquiredOnce bool
+	renewCancel  context.CancelFunc
+	renewDone    chan struct{}
+	lostCh       chan struct{}
+	lostErr      error
 }
 
 func NewLock(name string, duration time.Duration) (*Lock, error) {
@@ -79,6 +89,7 @@ func NewLock(name string, duration time.Duration) (*Lock, error) {
 		name:      name,
 		holder:    holder,
 		duration:  duration,
+		lostCh:    make(chan struct{}),
 	}, nil
 }
 
@@ -95,6 +106,7 @@ func (l *Lock) Acquire(ctx context.Context) error {
 			return err
 		}
 		if acquired {
+			l.startRenew()
 			return nil
 		}
 
@@ -107,6 +119,8 @@ func (l *Lock) Acquire(ctx context.Context) error {
 }
 
 func (l *Lock) Release(ctx context.Context) error {
+	l.stopRenew()
+
 	if !l.acquiredOnce {
 		return nil
 	}
@@ -135,6 +149,129 @@ func (l *Lock) Release(ctx context.Context) error {
 		return nil
 	}
 	return err
+}
+
+func (l *Lock) Lost() <-chan struct{} {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.lostCh
+}
+
+func (l *Lock) Err() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.lostErr
+}
+
+func (l *Lock) Check() error {
+	select {
+	case <-l.Lost():
+		if err := l.Err(); err != nil {
+			return err
+		}
+		return errLeaseLost
+	default:
+		return nil
+	}
+}
+
+func (l *Lock) startRenew() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.renewCancel != nil {
+		return
+	}
+
+	renewInterval := l.duration / 3
+	if renewInterval <= 0 {
+		renewInterval = time.Second
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	l.renewCancel = cancel
+	l.renewDone = done
+	l.lostCh = make(chan struct{})
+	l.lostErr = nil
+
+	go func() {
+		defer close(done)
+
+		ticker := time.NewTicker(renewInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := l.renew(ctx); err != nil {
+					log.Errorf("renew lease %s/%s failed: %v", l.namespace, l.name, err)
+					if errors.Is(err, errLeaseLost) {
+						l.markLost(err)
+						return
+					}
+				}
+			}
+		}
+	}()
+}
+
+func (l *Lock) stopRenew() {
+	l.mu.Lock()
+	cancel := l.renewCancel
+	done := l.renewDone
+	l.renewCancel = nil
+	l.renewDone = nil
+	l.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+}
+
+func (l *Lock) renew(ctx context.Context) error {
+	now := metav1.NewMicroTime(time.Now())
+	durationSeconds := int32(l.duration / time.Second)
+
+	current, err := l.client.CoordinationV1().Leases(l.namespace).Get(ctx, l.name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if current.Spec.HolderIdentity == nil || *current.Spec.HolderIdentity != l.holder {
+		return errLeaseLost
+	}
+
+	current = current.DeepCopy()
+	current.Spec.LeaseDurationSeconds = pointerTo(durationSeconds)
+	current.Spec.RenewTime = &now
+	_, err = l.client.CoordinationV1().Leases(l.namespace).Update(ctx, current, metav1.UpdateOptions{})
+	if apierrors.IsConflict(err) {
+		latest, getErr := l.client.CoordinationV1().Leases(l.namespace).Get(ctx, l.name, metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
+		if latest.Spec.HolderIdentity == nil || *latest.Spec.HolderIdentity != l.holder {
+			return errLeaseLost
+		}
+		return nil
+	}
+	return err
+}
+
+func (l *Lock) markLost(err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.lostErr != nil {
+		return
+	}
+	l.lostErr = err
+	close(l.lostCh)
 }
 
 func (l *Lock) tryAcquire(ctx context.Context) (bool, error) {

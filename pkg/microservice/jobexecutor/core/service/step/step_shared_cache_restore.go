@@ -45,7 +45,11 @@ func NewSharedCacheRestoreStep(spec interface{}) (*SharedCacheRestoreStep, error
 }
 
 func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
-	log.Infof("Start restoring shared cache from %s.", s.spec.StoreDir)
+	if s.spec.SkipContent {
+		log.Infof("Start recording shared cache base version from %s without restoring cache content.", s.spec.StoreDir)
+	} else {
+		log.Infof("Start restoring shared cache from %s.", s.spec.StoreDir)
+	}
 	if err := os.MkdirAll(s.spec.StoreDir, os.ModePerm); err != nil {
 		return s.handleErr(fmt.Errorf("create store dir failed: %w", err))
 	}
@@ -56,21 +60,37 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 	}
 	if !found {
 		log.Infof("Shared cache restore skipped because current cache metadata does not exist.")
-		return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, ""))
+		return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
 	}
+
+	markerFile := ""
+	if !s.spec.SkipContent {
+		var err error
+		markerFile, err = createSharedCacheActiveMarker(s.spec.StoreDir, current.Version, "restore")
+		if err != nil {
+			return s.handleErr(fmt.Errorf("create shared cache restore marker failed: %w", err))
+		}
+		defer removeSharedCacheActiveMarker(markerFile)
+	}
+
 	snapshotDir := filepath.Join(s.spec.StoreDir, current.SnapshotDir)
 	if _, err := os.Stat(snapshotDir); err != nil {
 		if os.IsNotExist(err) {
 			log.Infof("Shared cache restore skipped because snapshot dir %s does not exist.", snapshotDir)
-			return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, ""))
+			return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
 		}
 		return s.handleErr(fmt.Errorf("stat snapshot dir failed: %w", err))
 	}
-	if err := copyDirContent(snapshotDir, s.spec.CacheDir); err != nil {
-		return s.handleErr(err)
-	}
-	if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version); err != nil {
+	if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version, true); err != nil {
 		return s.handleErr(fmt.Errorf("write restore metadata failed: %w", err))
+	}
+	if s.spec.SkipContent {
+		log.Infof("Shared cache content restore skipped with base version %s.", current.Version)
+		return nil
+	}
+
+	if err := copyDirContent(ctx, snapshotDir, s.spec.CacheDir); err != nil {
+		return s.handleErr(err)
 	}
 	log.Infof("Shared cache restore finished with version %s.", current.Version)
 	return nil
@@ -81,7 +101,8 @@ func (s *SharedCacheRestoreStep) handleErr(err error) error {
 		return nil
 	}
 	if s.spec.IgnoreErr {
-		log.Errorf("shared cache restore failed: %v", err)
+		log.Errorf("shared cache restore failed, storeDir: %s, cacheDir: %s, metadataFile: %s, skipContent: %v, err: %v",
+			s.spec.StoreDir, s.spec.CacheDir, s.spec.MetadataFile, s.spec.SkipContent, err)
 		return nil
 	}
 	return err

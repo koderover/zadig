@@ -23,6 +23,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -33,25 +34,24 @@ func getSharedCacheStoreDir(cacheKey string) string {
 	return path.Join(setting.SharedCacheStoreRoot, cacheKey)
 }
 
-func getSharedCacheMetadataFile(jobName string) string {
-	return path.Join(setting.SharedCacheMetadataRoot, sanitizeSharedCacheSegment(jobName)+".json")
+func getSharedCacheMetadataFile(workflowName, jobName, cacheKey string) string {
+	return path.Join(setting.SharedCacheMetadataRoot, sharedCacheShortHash(workflowName, jobName, cacheKey)+".json")
 }
 
 func getSharedCacheVersion(taskID int64, jobName string) string {
-	return fmt.Sprintf("task-%d-%s", taskID, sanitizeSharedCacheSegment(jobName))
+	return fmt.Sprintf("task-%d-%s-%s", taskID, uuid.NewString(), sharedCacheShortHash(jobName))
 }
 
 func getSharedCachePublishLeaseName(cacheKey string) string {
-	hash := sha1.Sum([]byte(cacheKey))
-	return "workflow-shared-cache-publish-" + hex.EncodeToString(hash[:8])
+	return "workflow-shared-cache-publish-" + sharedCacheShortHash(cacheKey)
 }
 
-func sanitizeSharedCacheSegment(value string) string {
-	replacer := strings.NewReplacer("/", "-", "\\", "-", " ", "-", ":", "-", ".", "-")
-	return replacer.Replace(value)
+func sharedCacheShortHash(parts ...string) string {
+	hash := sha1.Sum([]byte(strings.Join(parts, "\x00")))
+	return hex.EncodeToString(hash[:8])
 }
 
-func buildSharedCacheRestoreStep(stepName, jobName, cacheDir, cacheKey string) *commonmodels.StepTask {
+func buildSharedCacheRestoreStep(stepName, workflowName, jobName, cacheDir, cacheKey string, skipContent bool) *commonmodels.StepTask {
 	return &commonmodels.StepTask{
 		Name:     stepName,
 		JobName:  jobName,
@@ -59,7 +59,8 @@ func buildSharedCacheRestoreStep(stepName, jobName, cacheDir, cacheKey string) *
 		Spec: &typesstep.StepSharedCacheRestoreSpec{
 			CacheDir:     cacheDir,
 			StoreDir:     getSharedCacheStoreDir(cacheKey),
-			MetadataFile: getSharedCacheMetadataFile(jobName),
+			MetadataFile: getSharedCacheMetadataFile(workflowName, jobName, cacheKey),
+			SkipContent:  skipContent,
 			IgnoreErr:    true,
 		},
 	}
@@ -73,7 +74,7 @@ func buildSharedCachePublishStep(stepName, workflowName, jobName, cacheDir, cach
 		Spec: &typesstep.StepSharedCachePublishSpec{
 			CacheDir:             cacheDir,
 			StoreDir:             getSharedCacheStoreDir(cacheKey),
-			MetadataFile:         getSharedCacheMetadataFile(jobName),
+			MetadataFile:         getSharedCacheMetadataFile(workflowName, jobName, cacheKey),
 			Version:              getSharedCacheVersion(taskID, jobName),
 			LeaseName:            getSharedCachePublishLeaseName(cacheKey),
 			LeaseDurationSeconds: 30,

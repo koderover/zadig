@@ -63,11 +63,28 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 	snapshotsDir := filepath.Join(s.spec.StoreDir, "snapshots")
 	tempSnapshotDir := filepath.Join(snapshotsDir, ".tmp-"+s.spec.Version)
 	finalSnapshotDir := filepath.Join(snapshotsDir, s.spec.Version)
+	snapshotPromoted := false
+	currentUpdated := false
+	defer func() {
+		if !snapshotPromoted || currentUpdated {
+			return
+		}
+		if err := os.RemoveAll(finalSnapshotDir); err != nil {
+			log.Errorf("remove unpublished shared cache snapshot %s failed: %v", finalSnapshotDir, err)
+		}
+	}()
+
+	markerFile, err := createSharedCacheActiveMarker(s.spec.StoreDir, s.spec.Version, "publish")
+	if err != nil {
+		return s.handleErr(fmt.Errorf("create shared cache publish marker failed: %w", err))
+	}
+	defer removeSharedCacheActiveMarker(markerFile)
+
 	_ = os.RemoveAll(tempSnapshotDir)
 	if err := os.MkdirAll(tempSnapshotDir, os.ModePerm); err != nil {
 		return s.handleErr(fmt.Errorf("create temp snapshot dir failed: %w", err))
 	}
-	if err := copyDirContent(s.spec.CacheDir, tempSnapshotDir); err != nil {
+	if err := copyDirContent(ctx, s.spec.CacheDir, tempSnapshotDir); err != nil {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(err)
 	}
@@ -75,6 +92,7 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(fmt.Errorf("promote temp snapshot dir failed: %w", err))
 	}
+	snapshotPromoted = true
 
 	leaseDuration := time.Duration(s.spec.LeaseDurationSeconds) * time.Second
 	lock, err := lease.NewLock(s.spec.LeaseName, leaseDuration)
@@ -84,15 +102,32 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 	if err := lock.Acquire(ctx); err != nil {
 		return s.handleErr(fmt.Errorf("acquire shared cache publish lease lock failed: %w", err))
 	}
+	lockReleased := false
 	defer func() {
+		if lockReleased {
+			return
+		}
 		if err := lock.Release(context.Background()); err != nil {
 			log.Errorf("release shared cache publish lease lock failed: %v", err)
 		}
 	}()
 
-	restoreMeta, _, err := loadSharedCacheRestoreMetadata(s.spec.MetadataFile)
+	restoreMeta, restoreMetaFound, err := loadSharedCacheRestoreMetadata(s.spec.MetadataFile)
 	if err != nil {
 		return s.handleErr(fmt.Errorf("load restore metadata failed: %w", err))
+	}
+	if !restoreMetaFound {
+		log.Infof("Shared cache publish skipped current pointer update because restore metadata does not exist.")
+		if err := lock.Release(context.Background()); err != nil {
+			return s.handleErr(fmt.Errorf("release shared cache publish lease lock failed: %w", err))
+		}
+		lockReleased = true
+		removeSharedCacheActiveMarker(markerFile)
+		markerFile = ""
+		if err := cleanupSharedCacheSnapshots(snapshotsDir, "", setting.SharedCacheSnapshotRetain); err != nil {
+			return s.handleErr(fmt.Errorf("cleanup old shared cache snapshots failed: %w", err))
+		}
+		return nil
 	}
 
 	currentFile := filepath.Join(s.spec.StoreDir, "current.json")
@@ -100,9 +135,22 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 	if err != nil {
 		return s.handleErr(fmt.Errorf("load current cache metadata failed: %w", err))
 	}
-	if found && restoreMeta != nil && restoreMeta.BaseVersion != "" && current.Version != restoreMeta.BaseVersion {
-		log.Infof("Shared cache publish skipped current pointer update because base version %s is stale, latest version is %s.", restoreMeta.BaseVersion, current.Version)
-		if err := cleanupSharedCacheSnapshots(snapshotsDir, current.Version, setting.SharedCacheSnapshotRetain); err != nil {
+	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
+		return s.handleErr(err)
+	}
+	if stale, reason := sharedCacheBaseVersionStale(found, current, restoreMeta); stale {
+		log.Infof("Shared cache publish skipped current pointer update because %s.", reason)
+		protectedVersion := ""
+		if found {
+			protectedVersion = current.Version
+		}
+		if err := lock.Release(context.Background()); err != nil {
+			return s.handleErr(fmt.Errorf("release shared cache publish lease lock failed: %w", err))
+		}
+		lockReleased = true
+		removeSharedCacheActiveMarker(markerFile)
+		markerFile = ""
+		if err := cleanupSharedCacheSnapshots(snapshotsDir, protectedVersion, setting.SharedCacheSnapshotRetain); err != nil {
 			return s.handleErr(fmt.Errorf("cleanup old shared cache snapshots failed: %w", err))
 		}
 		return nil
@@ -116,9 +164,20 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		WorkflowName:    s.spec.WorkflowName,
 		JobName:         s.spec.JobName,
 	}
+	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
+		return s.handleErr(err)
+	}
 	if err := writeSharedCacheCurrent(currentFile, current); err != nil {
 		return s.handleErr(fmt.Errorf("write current cache metadata failed: %w", err))
 	}
+	currentUpdated = true
+	if err := lock.Release(context.Background()); err != nil {
+		return s.handleErr(fmt.Errorf("release shared cache publish lease lock failed: %w", err))
+	}
+	lockReleased = true
+	removeSharedCacheActiveMarker(markerFile)
+	markerFile = ""
+
 	if err := cleanupSharedCacheSnapshots(snapshotsDir, current.Version, setting.SharedCacheSnapshotRetain); err != nil {
 		return s.handleErr(fmt.Errorf("cleanup old shared cache snapshots failed: %w", err))
 	}
@@ -131,8 +190,38 @@ func (s *SharedCachePublishStep) handleErr(err error) error {
 		return nil
 	}
 	if s.spec.IgnoreErr {
-		log.Errorf("shared cache publish failed: %v", err)
+		log.Errorf("shared cache publish failed, storeDir: %s, cacheDir: %s, metadataFile: %s, version: %s, leaseName: %s, err: %v",
+			s.spec.StoreDir, s.spec.CacheDir, s.spec.MetadataFile, s.spec.Version, s.spec.LeaseName, err)
 		return nil
 	}
 	return err
+}
+
+func ensureSharedCachePublishLeaseHeld(lock *lease.Lock) error {
+	if err := lock.Check(); err != nil {
+		return fmt.Errorf("shared cache publish lease lock lost before current pointer update: %w", err)
+	}
+	return nil
+}
+
+func sharedCacheBaseVersionStale(currentFound bool, current *sharedCacheCurrent, restoreMeta *sharedCacheRestoreMetadata) (bool, string) {
+	if restoreMeta == nil {
+		return true, "restore metadata is empty"
+	}
+
+	baseVersionFound := restoreMeta.BaseVersionFound || restoreMeta.BaseVersion != ""
+	if !baseVersionFound {
+		if currentFound && current != nil {
+			return true, fmt.Sprintf("no base version was found when the task started, latest version is %s", current.Version)
+		}
+		return false, ""
+	}
+
+	if !currentFound || current == nil {
+		return false, ""
+	}
+	if current.Version != restoreMeta.BaseVersion {
+		return true, fmt.Sprintf("base version %s is stale, latest version is %s", restoreMeta.BaseVersion, current.Version)
+	}
+	return false, ""
 }

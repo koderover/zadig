@@ -649,12 +649,14 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
-	if jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled && !ignoreSharedCacheRestore {
+	if sharedCacheEnabled {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
 			fmt.Sprintf("%s-%s", scanning.Name, "shared-cache-restore"),
+			j.workflow.Name,
 			jobTask.Name,
 			sharedCacheDir,
 			sharedCacheKey,
+			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 		))
 	}
 

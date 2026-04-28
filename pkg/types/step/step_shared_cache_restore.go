@@ -20,5 +20,6 @@ type StepSharedCacheRestoreSpec struct {
 	CacheDir     string `bson:"cache_dir"     json:"cache_dir"     yaml:"cache_dir"`
 	StoreDir     string `bson:"store_dir"     json:"store_dir"     yaml:"store_dir"`
 	MetadataFile string `bson:"metadata_file" json:"metadata_file" yaml:"metadata_file"`
+	SkipContent  bool   `bson:"skip_content"  json:"skip_content"  yaml:"skip_content"`
 	IgnoreErr    bool   `bson:"ignore_err"    json:"ignore_err"    yaml:"ignore_err"`
 }

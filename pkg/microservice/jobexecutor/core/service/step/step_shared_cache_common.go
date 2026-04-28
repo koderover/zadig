@@ -17,6 +17,9 @@ limitations under the License.
 package step
 
 import (
+	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,6 +27,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
+)
+
+const (
+	sharedCacheMarkerDirName = "markers"
+	sharedCacheMarkerTTL     = 2 * time.Hour
+	sharedCacheTempDirTTL    = 2 * time.Hour
 )
 
 type sharedCacheCurrent struct {
@@ -36,7 +46,15 @@ type sharedCacheCurrent struct {
 }
 
 type sharedCacheRestoreMetadata struct {
-	BaseVersion string `json:"base_version"`
+	BaseVersion      string `json:"base_version"`
+	BaseVersionFound bool   `json:"base_version_found"`
+}
+
+type sharedCacheActiveMarker struct {
+	Version   string `json:"version"`
+	Purpose   string `json:"purpose"`
+	Holder    string `json:"holder"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 func loadSharedCacheCurrent(file string) (*sharedCacheCurrent, bool, error) {
@@ -69,8 +87,11 @@ func loadSharedCacheRestoreMetadata(file string) (*sharedCacheRestoreMetadata, b
 	return meta, true, nil
 }
 
-func writeSharedCacheRestoreMetadata(file, baseVersion string) error {
-	meta := &sharedCacheRestoreMetadata{BaseVersion: baseVersion}
+func writeSharedCacheRestoreMetadata(file, baseVersion string, baseVersionFound bool) error {
+	meta := &sharedCacheRestoreMetadata{
+		BaseVersion:      baseVersion,
+		BaseVersionFound: baseVersionFound,
+	}
 	return writeJSONAtomic(file, meta)
 }
 
@@ -93,12 +114,49 @@ func writeJSONAtomic(file string, obj interface{}) error {
 	return os.Rename(tempFile, file)
 }
 
-func copyDirContent(src, dst string) error {
+func copyDirContent(ctx context.Context, src, dst string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
 		return err
 	}
-	cmd := exec.Command("cp", "-a", filepath.Join(src, "."), dst)
+	cmd := exec.CommandContext(ctx, "cp", "-a", filepath.Join(src, "."), dst)
 	return cmd.Run()
+}
+
+func createSharedCacheActiveMarker(storeDir, version, purpose string) (string, error) {
+	if version == "" {
+		return "", nil
+	}
+	holder, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("get hostname failed: %w", err)
+	}
+	holder = strings.TrimSpace(holder)
+	if holder == "" {
+		holder = "unknown"
+	}
+
+	marker := &sharedCacheActiveMarker{
+		Version:   version,
+		Purpose:   purpose,
+		Holder:    holder,
+		CreatedAt: time.Now().Unix(),
+	}
+	markerName := fmt.Sprintf("%d-%d-%s.json", time.Now().UnixNano(), os.Getpid(), shortHash(holder))
+	markerFile := filepath.Join(storeDir, sharedCacheMarkerDirName, markerName)
+	if err := writeJSONAtomic(markerFile, marker); err != nil {
+		return "", err
+	}
+	return markerFile, nil
+}
+
+func removeSharedCacheActiveMarker(markerFile string) {
+	if markerFile == "" {
+		return
+	}
+	_ = os.Remove(markerFile)
 }
 
 type sharedCacheSnapshot struct {
@@ -118,19 +176,26 @@ func cleanupSharedCacheSnapshots(snapshotsDir, protectedVersion string, retain i
 		return err
 	}
 
+	activeVersions, err := getSharedCacheActiveVersions(filepath.Join(filepath.Dir(snapshotsDir), sharedCacheMarkerDirName))
+	if err != nil {
+		return err
+	}
+
 	snapshots := make([]*sharedCacheSnapshot, 0)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 		name := entry.Name()
-		if strings.HasPrefix(name, ".tmp-") {
-			_ = os.RemoveAll(filepath.Join(snapshotsDir, name))
-			continue
-		}
 		info, err := entry.Info()
 		if err != nil {
 			return fmt.Errorf("get snapshot info %s failed: %w", name, err)
+		}
+		if strings.HasPrefix(name, ".tmp-") {
+			if time.Since(info.ModTime()) > sharedCacheTempDirTTL {
+				_ = os.RemoveAll(filepath.Join(snapshotsDir, name))
+			}
+			continue
 		}
 		snapshots = append(snapshots, &sharedCacheSnapshot{
 			Name:    name,
@@ -148,6 +213,9 @@ func cleanupSharedCacheSnapshots(snapshotsDir, protectedVersion string, retain i
 	keep := make(map[string]struct{}, retain+1)
 	if protectedVersion != "" {
 		keep[protectedVersion] = struct{}{}
+	}
+	for version := range activeVersions {
+		keep[version] = struct{}{}
 	}
 	recentKept := 0
 	for _, snapshot := range snapshots {
@@ -168,4 +236,57 @@ func cleanupSharedCacheSnapshots(snapshotsDir, protectedVersion string, retain i
 	}
 
 	return nil
+}
+
+func getSharedCacheActiveVersions(markersDir string) (map[string]struct{}, error) {
+	activeVersions := make(map[string]struct{})
+	entries, err := os.ReadDir(markersDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return activeVersions, nil
+		}
+		return nil, err
+	}
+
+	now := time.Now()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		markerFile := filepath.Join(markersDir, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("get active marker info %s failed: %w", entry.Name(), err)
+		}
+		if now.Sub(info.ModTime()) > sharedCacheMarkerTTL {
+			_ = os.Remove(markerFile)
+			continue
+		}
+		data, err := os.ReadFile(markerFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("read active marker %s failed: %w", entry.Name(), err)
+		}
+		marker := &sharedCacheActiveMarker{}
+		if err := json.Unmarshal(data, marker); err != nil {
+			_ = os.Remove(markerFile)
+			continue
+		}
+		if marker.Version == "" {
+			_ = os.Remove(markerFile)
+			continue
+		}
+		activeVersions[marker.Version] = struct{}{}
+	}
+	return activeVersions, nil
+}
+
+func shortHash(value string) string {
+	hash := sha1.Sum([]byte(value))
+	return hex.EncodeToString(hash[:8])
 }
