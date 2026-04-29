@@ -314,7 +314,7 @@ const (
 	TestingOSSCacheFileName   = "zadig-testing-cache.tar.gz"
 	SharedCacheStoreRoot      = "/zadig/cache-store"
 	SharedCacheMetadataRoot   = "/tmp/zadig-cache-meta"
-	SharedCacheSnapshotRetain = 5
+	SharedCacheSnapshotRetain = 2
 )
 
 type DeliveryVersionType string
