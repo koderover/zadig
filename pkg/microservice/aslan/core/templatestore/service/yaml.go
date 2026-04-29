@@ -346,12 +346,18 @@ func LoadYamlTemplateFromCodeHost(username string, codehostID int, repoOwner, na
 		return fmt.Errorf("failed to get codehost %d, err: %s", codehostID, err)
 	}
 
+	logger.Infof("start loading yaml template from codehost, username: %s, isSync: %t, codehostID: %d, codehostType: %s, repoOwner: %s, namespace: %s, repoName: %s, repoUUID: %s, branchName: %s, remoteName: %s, paths: %+v",
+		username, isSync, codehostID, ch.Type, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args.Paths)
+
 	if isSync {
 		yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetByName(args.Paths[0].Name)
 		if err != nil {
 			logger.Errorf("failed to query yaml template, err: %s", err)
 			return fmt.Errorf("failed to query yaml template, err: %w", err)
 		}
+
+		logger.Infof("found yaml template for sync, name: %s, id: %s, source: %s, codehostID: %d, repoOwner: %s, namespace: %s, repoName: %s, branchName: %s, remoteName: %s, path: %s, loadFromDir: %t, contentLength: %d, commit: %+v",
+			yamlTemplate.Name, yamlTemplate.ID.Hex(), yamlTemplate.Source, yamlTemplate.CodeHostID, yamlTemplate.RepoOwner, yamlTemplate.Namespace, yamlTemplate.RepoName, yamlTemplate.BranchName, yamlTemplate.RemoteName, yamlTemplate.Path, yamlTemplate.LoadFromDir, len(yamlTemplate.Content), yamlTemplate.Commit)
 
 		if yamlTemplate.Name != args.Paths[0].Name {
 			return fmt.Errorf("yaml template name mismatch")
@@ -372,7 +378,8 @@ func LoadYamlTemplateFromCodeHost(username string, codehostID int, repoOwner, na
 }
 
 func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namespace, repoName, branchName, remoteName string, args *LoadYamlTemplateFromCodeHostReq, isSync bool, logger *zap.SugaredLogger) error {
-	logger.Infof("Loading yaml template from codehost %d with owner %s, namespace %s, repo %s, branch %s and path %v", ch.ID, repoOwner, namespace, repoName, branchName, args.Paths)
+	logger.Infof("loading yaml template from tree getter, isSync: %t, codehostID: %d, owner: %s, namespace: %s, repo: %s, branch: %s, remote: %s, paths: %+v",
+		isSync, ch.ID, repoOwner, namespace, repoName, branchName, remoteName, args.Paths)
 
 	loader, err := commonutil.GetYAMLLoader(ch)
 	if err != nil {
@@ -382,15 +389,20 @@ func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namesp
 
 	contents := make([]*loadedYamlTemplateContent, 0, len(args.Paths))
 	for _, loadPath := range args.Paths {
+		logger.Infof("start loading yaml template path from tree getter, name: %s, path: %s, isDir: %t", loadPath.Name, loadPath.Path, loadPath.IsDir)
+
 		if !loadPath.IsDir {
 			yamls, err := loader.GetYAMLContents(namespace, repoName, loadPath.Path, branchName, false, false)
 			if err != nil {
 				logger.Errorf("failed to get yaml content under path %s, err: %s", loadPath.Path, err)
 				return err
 			}
+			content := util.CombineManifests(yamls)
+			logger.Infof("loaded yaml template file content from tree getter, name: %s, path: %s, yamlFileCount: %d, contentLength: %d",
+				loadPath.Name, loadPath.Path, len(yamls), len(content))
 			contents = append(contents, &loadedYamlTemplateContent{
 				Path:    loadPath,
-				Content: util.CombineManifests(yamls),
+				Content: content,
 			})
 		} else {
 			treeNodes, err := loader.GetTree(namespace, repoName, loadPath.Path, branchName)
@@ -400,6 +412,12 @@ func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namesp
 			}
 
 			_, files := commonutil.GetFoldersAndYAMLFiles(treeNodes)
+			filePaths := make([]string, 0, len(files))
+			for _, file := range files {
+				filePaths = append(filePaths, file.FullPath)
+			}
+			logger.Infof("loaded yaml template directory tree from tree getter, name: %s, path: %s, treeNodeCount: %d, yamlFileCount: %d, yamlFiles: %v",
+				loadPath.Name, loadPath.Path, len(treeNodes), len(files), filePaths)
 
 			if len(files) > 0 {
 				yamls := make([]string, 0)
@@ -411,9 +429,12 @@ func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namesp
 					}
 					yamls = append(yamls, res...)
 				}
+				content := util.CombineManifests(yamls)
+				logger.Infof("loaded yaml template directory content from tree getter, name: %s, path: %s, yamlFileCount: %d, contentLength: %d",
+					loadPath.Name, loadPath.Path, len(yamls), len(content))
 				contents = append(contents, &loadedYamlTemplateContent{
 					Path:    loadPath,
-					Content: util.CombineManifests(yamls),
+					Content: content,
 				})
 			} else {
 				logger.Errorf("no yaml file is found under directory %s", loadPath.Path)
@@ -425,6 +446,8 @@ func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namesp
 	for _, content := range contents {
 
 		if len(content.Content) == 0 {
+			logger.Warnf("skip yaml template because loaded content is empty, isSync: %t, name: %s, path: %s, isDir: %t",
+				isSync, content.Path.Name, content.Path.Path, content.Path.IsDir)
 			continue
 		}
 
@@ -455,9 +478,13 @@ func loadYamlTemplateFromTreeGetter(ch *systemconfig.CodeHost, repoOwner, namesp
 			if err != nil {
 				return fmt.Errorf("failed to find template by name: %s, err: %w", templateObj.Name, err)
 			}
+			logger.Infof("sync yaml template from tree getter, name: %s, id: %s, oldPath: %s, newPath: %s, oldContentLength: %d, newContentLength: %d, oldCommit: %+v, newCommit: %+v",
+				templateObj.Name, origin.ID.Hex(), origin.Path, templateObj.Path, len(origin.Content), len(templateObj.Content), origin.Commit, templateObj.Commit)
 			if err := UpdateYamlTemplate(origin.ID.Hex(), templateObj, logger); err != nil {
 				return err
 			}
+			logger.Infof("synced yaml template from tree getter successfully, name: %s, id: %s, path: %s, commit: %+v",
+				templateObj.Name, origin.ID.Hex(), templateObj.Path, templateObj.Commit)
 			continue
 		} else {
 			if err := CreateYamlTemplate(templateObj, logger); err != nil {
@@ -473,6 +500,9 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 	if remoteName == "" {
 		remoteName = "origin"
 	}
+
+	logger.Infof("loading yaml template from gerrit, isSync: %t, codehostID: %d, owner: %s, namespace: %s, repo: %s, branch: %s, remote: %s, paths: %+v",
+		isSync, ch.ID, repoOwner, namespace, repoName, branchName, remoteName, args.Paths)
 
 	base := path.Join(config.S3StoragePath(), strings.Replace(repoName, "/", "-", -1))
 	_ = os.RemoveAll(base)
@@ -494,6 +524,8 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 	}
 
 	for _, loadPath := range args.Paths {
+		logger.Infof("start loading yaml template path from gerrit, name: %s, path: %s, isDir: %t, base: %s", loadPath.Name, loadPath.Path, loadPath.IsDir, base)
+
 		if !loadPath.IsDir {
 
 			content, err := os.ReadFile(path.Join(base, loadPath.Path))
@@ -501,6 +533,7 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 				logger.Errorf("failed to read yaml file %s, err: %s", loadPath.Path, err)
 				return err
 			}
+			logger.Infof("loaded yaml template file content from gerrit, name: %s, path: %s, contentLength: %d", loadPath.Name, loadPath.Path, len(content))
 			templateObj := &template.YamlTemplate{
 				Source:      ch.Type,
 				CodehostID:  ch.ID,
@@ -521,9 +554,13 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 				if err != nil {
 					return fmt.Errorf("failed to find template by name: %s, err: %w", templateObj.Name, err)
 				}
+				logger.Infof("sync yaml template from gerrit, name: %s, id: %s, oldPath: %s, newPath: %s, oldContentLength: %d, newContentLength: %d, oldCommit: %+v, newCommit: %+v",
+					templateObj.Name, origin.ID.Hex(), origin.Path, templateObj.Path, len(origin.Content), len(templateObj.Content), origin.Commit, templateObj.Commit)
 				if err := UpdateYamlTemplate(origin.ID.Hex(), templateObj, logger); err != nil {
 					return err
 				}
+				logger.Infof("synced yaml template from gerrit successfully, name: %s, id: %s, path: %s, commit: %+v",
+					templateObj.Name, origin.ID.Hex(), templateObj.Path, templateObj.Commit)
 			} else if err := CreateYamlTemplate(templateObj, logger); err != nil {
 				return err
 			}
@@ -535,6 +572,7 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 				logger.Errorf("failed to read yaml directory %s, err: %s", loadPath.Path, err)
 				return err
 			}
+			logger.Infof("loaded yaml template directory from gerrit, name: %s, path: %s, entryCount: %d", loadPath.Name, loadPath.Path, len(fileInfos))
 			if commonutil.IsValidServiceDir(fileInfos) {
 				yamls := make([]string, 0)
 				for _, fileInfo := range fileInfos {
@@ -549,6 +587,9 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 					}
 					yamls = append(yamls, string(content))
 				}
+				combinedContent := util.CombineManifests(yamls)
+				logger.Infof("loaded yaml template directory content from gerrit, name: %s, path: %s, yamlFileCount: %d, contentLength: %d",
+					loadPath.Name, loadPath.Path, len(yamls), len(combinedContent))
 
 				templateObj := &template.YamlTemplate{
 					Source:      ch.Type,
@@ -559,7 +600,7 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 					BranchName:  branchName,
 					RemoteName:  remoteName,
 					Name:        loadPath.Name,
-					Content:     util.CombineManifests(yamls),
+					Content:     combinedContent,
 					Path:        loadPath.Path,
 					LoadFromDir: loadPath.IsDir,
 					Commit:      commitInfo,
@@ -570,9 +611,13 @@ func loadYamlTemplateFromGerrit(ch *systemconfig.CodeHost, repoOwner, namespace,
 					if err != nil {
 						return fmt.Errorf("failed to find template by name: %s, err: %w", templateObj.Name, err)
 					}
+					logger.Infof("sync yaml template from gerrit, name: %s, id: %s, oldPath: %s, newPath: %s, oldContentLength: %d, newContentLength: %d, oldCommit: %+v, newCommit: %+v",
+						templateObj.Name, origin.ID.Hex(), origin.Path, templateObj.Path, len(origin.Content), len(templateObj.Content), origin.Commit, templateObj.Commit)
 					if err := UpdateYamlTemplate(origin.ID.Hex(), templateObj, logger); err != nil {
 						return err
 					}
+					logger.Infof("synced yaml template from gerrit successfully, name: %s, id: %s, path: %s, commit: %+v",
+						templateObj.Name, origin.ID.Hex(), templateObj.Path, templateObj.Commit)
 				} else if err := CreateYamlTemplate(templateObj, logger); err != nil {
 					return err
 				}
@@ -589,6 +634,9 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 	if remoteName == "" {
 		remoteName = "origin"
 	}
+
+	logger.Infof("loading yaml template from gitee, isSync: %t, codehostID: %d, owner: %s, namespace: %s, repo: %s, branch: %s, remote: %s, paths: %+v",
+		isSync, ch.ID, repoOwner, namespace, repoName, branchName, remoteName, args.Paths)
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
@@ -610,12 +658,15 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 	}
 
 	for _, loadPath := range args.Paths {
+		logger.Infof("start loading yaml template path from gitee, name: %s, path: %s, isDir: %t, base: %s", loadPath.Name, loadPath.Path, loadPath.IsDir, base)
+
 		if !loadPath.IsDir {
 			content, err := os.ReadFile(path.Join(base, loadPath.Path))
 			if err != nil {
 				logger.Errorf("failed to read yaml file %s, err: %s", loadPath.Path, err)
 				return err
 			}
+			logger.Infof("loaded yaml template file content from gitee, name: %s, path: %s, contentLength: %d", loadPath.Name, loadPath.Path, len(content))
 			templateObj := &template.YamlTemplate{
 				Source:      ch.Type,
 				CodehostID:  ch.ID,
@@ -636,9 +687,13 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 				if err != nil {
 					return fmt.Errorf("failed to find template by name: %s, err: %w", templateObj.Name, err)
 				}
+				logger.Infof("sync yaml template from gitee, name: %s, id: %s, oldPath: %s, newPath: %s, oldContentLength: %d, newContentLength: %d, oldCommit: %+v, newCommit: %+v",
+					templateObj.Name, origin.ID.Hex(), origin.Path, templateObj.Path, len(origin.Content), len(templateObj.Content), origin.Commit, templateObj.Commit)
 				if err := UpdateYamlTemplate(origin.ID.Hex(), templateObj, logger); err != nil {
 					return err
 				}
+				logger.Infof("synced yaml template from gitee successfully, name: %s, id: %s, path: %s, commit: %+v",
+					templateObj.Name, origin.ID.Hex(), templateObj.Path, templateObj.Commit)
 			} else if err := CreateYamlTemplate(templateObj, logger); err != nil {
 				return err
 			}
@@ -650,6 +705,7 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 				logger.Errorf("failed to read yaml directory %s, err: %s", loadPath.Path, err)
 				return err
 			}
+			logger.Infof("loaded yaml template directory from gitee, name: %s, path: %s, entryCount: %d", loadPath.Name, loadPath.Path, len(fileInfos))
 			if commonutil.IsValidServiceDir(fileInfos) {
 				yamls := make([]string, 0)
 				for _, fileInfo := range fileInfos {
@@ -664,6 +720,9 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 					}
 					yamls = append(yamls, string(content))
 				}
+				combinedContent := util.CombineManifests(yamls)
+				logger.Infof("loaded yaml template directory content from gitee, name: %s, path: %s, yamlFileCount: %d, contentLength: %d",
+					loadPath.Name, loadPath.Path, len(yamls), len(combinedContent))
 
 				templateObj := &template.YamlTemplate{
 					Source:      ch.Type,
@@ -674,7 +733,7 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 					BranchName:  branchName,
 					RemoteName:  remoteName,
 					Name:        loadPath.Name,
-					Content:     util.CombineManifests(yamls),
+					Content:     combinedContent,
 					Path:        loadPath.Path,
 					LoadFromDir: loadPath.IsDir,
 					Commit:      commitInfo,
@@ -685,9 +744,13 @@ func loadYamlTemplateFromGitee(ch *systemconfig.CodeHost, repoOwner, namespace, 
 					if err != nil {
 						return fmt.Errorf("failed to find template by name: %s, err: %w", templateObj.Name, err)
 					}
+					logger.Infof("sync yaml template from gitee, name: %s, id: %s, oldPath: %s, newPath: %s, oldContentLength: %d, newContentLength: %d, oldCommit: %+v, newCommit: %+v",
+						templateObj.Name, origin.ID.Hex(), origin.Path, templateObj.Path, len(origin.Content), len(templateObj.Content), origin.Commit, templateObj.Commit)
 					if err := UpdateYamlTemplate(origin.ID.Hex(), templateObj, logger); err != nil {
 						return err
 					}
+					logger.Infof("synced yaml template from gitee successfully, name: %s, id: %s, path: %s, commit: %+v",
+						templateObj.Name, origin.ID.Hex(), templateObj.Path, templateObj.Commit)
 				} else if err := CreateYamlTemplate(templateObj, logger); err != nil {
 					return err
 				}
@@ -741,6 +804,9 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 }
 
 func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
+	logger.Infof("start updating yaml template, id: %s, name: %s, source: %s, codehostID: %d, repoOwner: %s, namespace: %s, repoName: %s, branchName: %s, remoteName: %s, path: %s, loadFromDir: %t, contentLength: %d, commit: %+v",
+		id, template.Name, template.Source, template.CodehostID, template.RepoOwner, template.Namespace, template.RepoName, template.BranchName, template.RemoteName, template.Path, template.LoadFromDir, len(template.Content), template.Commit)
+
 	extractVariableYmal, err := yamlutil.ExtractVariableYaml(template.Content)
 	if err != nil {
 		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
@@ -755,10 +821,15 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
 	}
 
+	logger.Infof("found origin yaml template before update, id: %s, name: %s, source: %s, codehostID: %d, repoOwner: %s, namespace: %s, repoName: %s, branchName: %s, remoteName: %s, path: %s, loadFromDir: %t, contentLength: %d, variableKVCount: %d, commit: %+v",
+		id, origin.Name, origin.Source, origin.CodeHostID, origin.RepoOwner, origin.Namespace, origin.RepoName, origin.BranchName, origin.RemoteName, origin.Path, origin.LoadFromDir, len(origin.Content), len(origin.ServiceVariableKVs), origin.Commit)
+
 	template.VariableYaml, template.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(origin.ServiceVariableKVs, extractServiceVariableKVs)
 	if err != nil {
 		return fmt.Errorf("failed to merge service variables, err %w", err)
 	}
+	logger.Infof("merged yaml template variables before update, id: %s, name: %s, extractedVariableYamlLength: %d, extractedVariableKVCount: %d, mergedVariableYamlLength: %d, mergedVariableKVCount: %d",
+		id, template.Name, len(extractVariableYmal), len(extractServiceVariableKVs), len(template.VariableYaml), len(template.ServiceVariableKVs))
 
 	updated := &models.YamlTemplate{
 		Name:               template.Name,
@@ -782,6 +853,8 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 		logger.Errorf("update yaml template error: %s", err)
 		return err
 	}
+	logger.Infof("updated yaml template in database, id: %s, name: %s, path: %s, contentLength: %d, variableKVCount: %d, commit: %+v",
+		id, updated.Name, updated.Path, len(updated.Content), len(updated.ServiceVariableKVs), updated.Commit)
 
 	if err := commmonservice.ProcessYamlTemplateWebhook(updated, origin, logger); err != nil {
 		logger.Errorf("failed to process yaml template webhook for update %s, err: %s", updated.Name, err)
