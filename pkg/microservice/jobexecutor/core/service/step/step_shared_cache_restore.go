@@ -81,16 +81,19 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 		}
 		return s.handleErr(fmt.Errorf("stat snapshot dir failed: %w", err))
 	}
-	if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version, true); err != nil {
-		return s.handleErr(fmt.Errorf("write restore metadata failed: %w", err))
-	}
 	if s.spec.SkipContent {
+		if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version, true); err != nil {
+			return s.handleErr(fmt.Errorf("write restore metadata failed: %w", err))
+		}
 		log.Infof("Shared cache content restore skipped with base version %s.", current.Version)
 		return nil
 	}
 
 	if err := copyDirContent(ctx, snapshotDir, s.spec.CacheDir); err != nil {
 		return s.handleErr(err)
+	}
+	if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version, true); err != nil {
+		return s.handleErr(fmt.Errorf("write restore metadata failed: %w", err))
 	}
 	log.Infof("Shared cache restore finished with version %s.", current.Version)
 	return nil

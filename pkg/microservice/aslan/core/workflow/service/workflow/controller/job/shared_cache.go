@@ -26,7 +26,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 	typesstep "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -49,6 +51,14 @@ func getSharedCachePublishLeaseName(cacheKey string) string {
 func sharedCacheShortHash(parts ...string) string {
 	hash := sha1.Sum([]byte(strings.Join(parts, "\x00")))
 	return hex.EncodeToString(hash[:8])
+}
+
+func resolveSharedCacheDir(cacheDirType types.CacheDirType, cacheUserDir string, envs []*commonmodels.KeyVal) string {
+	cacheDir := "/workspace"
+	if cacheDirType == types.UserDefinedCacheDir {
+		cacheDir = commonutil.RenderEnv(cacheUserDir, envs)
+	}
+	return cacheDir
 }
 
 func buildSharedCacheRestoreStep(stepName, workflowName, jobName, cacheDir, cacheKey string, skipContent bool) *commonmodels.StepTask {
