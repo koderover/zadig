@@ -66,6 +66,7 @@ type WorkflowTask struct {
 	Hash                string                        `bson:"hash"                      json:"hash"`
 	ApprovalTicketID    string                        `bson:"approval_ticket_id"        json:"approval_ticket_id"`
 	ApprovalID          string                        `bson:"approval_id"               json:"approval_id"`
+	ReleasePlan         *ReleasePlanRef               `bson:"release_plan,omitempty"    json:"release_plan,omitempty"`
 
 	LarkProjectKey        string `bson:"lark_project_key"          json:"lark_project_key"`
 	LarkProjectSimpleName string `bson:"lark_project_simple_name"  json:"lark_project_simple_name"`
@@ -160,6 +161,13 @@ type WorkflowTaskPreview struct {
 	LarkWorkItemAPIName   string          `bson:"lark_workitem_api_name"    json:"lark_workitem_api_name"`
 	LarkWorkItemID        string          `bson:"lark_workitem_id"          json:"lark_workitem_id"`
 	Hash                  string          `bson:"hash"                      json:"hash"`
+	ReleasePlan           *ReleasePlanRef `bson:"release_plan,omitempty"    json:"release_plan,omitempty"`
+}
+
+type ReleasePlanRef struct {
+	ID    string `bson:"id"    json:"id"`
+	Name  string `bson:"name"  json:"name"`
+	Index int64  `bson:"index" json:"index"`
 }
 
 type StagePreview struct {
