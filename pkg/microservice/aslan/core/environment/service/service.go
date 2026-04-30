@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
@@ -313,6 +314,14 @@ func FetchServiceYaml(productName, envName, serviceName string, _ *zap.SugaredLo
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
+	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return nil, e.ErrPreviewYaml.AddErr(err)
+	}
+
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs, true)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
@@ -324,11 +333,41 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		Latest:      TmplYaml{},
 	}
 
-	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+	curYaml := ""
+	isImportToDeploy := false
+	if envInfo.ServiceDeployStrategy[args.ServiceName] == setting.ServiceDeployStrategyImport {
+		// is imported service
+		if len(args.DeployContents) > 0 {
+			// is workflow
+			if len(args.DeployContents) == 1 && slices.Contains(args.DeployContents, config.DeployImage) {
+				// only update images
+				envSvc := envInfo.GetServiceMap()[args.ServiceName]
+				if envSvc == nil {
+					return nil, e.ErrPreviewYaml.AddErr(fmt.Errorf("service %s not found in environment", args.ServiceName))
+				}
+				for _, container := range envSvc.Containers {
+					ret.Current.Yaml += container.Image + "\n"
+				}
+				for _, container := range args.ServiceModules {
+					ret.Latest.Yaml += container.Image + "\n"
+				}
+				return ret, nil
+			} else if slices.Contains(args.DeployContents, config.DeployVars) || slices.Contains(args.DeployContents, config.DeployConfig) {
+				// set update variables or configuration
+				isImportToDeploy = true
+			}
+		} else {
+			// is environment
+			isImportToDeploy = true
+		}
+	}
+
+	curYaml, _, err = kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 		ProductName:           args.ProductName,
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
-		UpdateServiceRevision: args.UpdateServiceRevision,
+		UpdateServiceRevision: false,
+		IsImportToDeploy:      isImportToDeploy,
 	})
 	if err != nil {
 		curYaml = ""
@@ -337,26 +376,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		log.Errorf(ret.Error)
 	}
 
-	// for situations only update images, replace images directly
-	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
-		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
-		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(err)
-		}
-		ret.Current.Yaml = curYaml
-		ret.Latest.Yaml = latestYaml
-		return ret, nil
-	}
-
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
-	})
-	if err != nil {
-		return nil, e.ErrPreviewYaml.AddErr(err)
-	}
-
-	candidateOverrides, err := buildPreviewCandidateOverrides(product, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
+	candidateOverrides, err := buildPreviewCandidateOverrides(envInfo, args.ServiceName, args.UpdateServiceRevision, args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}

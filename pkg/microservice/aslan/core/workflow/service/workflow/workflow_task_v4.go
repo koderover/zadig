@@ -179,6 +179,7 @@ type ZadigDeployJobPreviewSpec struct {
 	ServiceType        string                 `bson:"service_type"                 json:"service_type"`
 	DeployContents     []config.DeployContent `bson:"deploy_contents"              json:"deploy_contents"`
 	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	IsImportToDeploy   bool                   `bson:"is_import_to_deploy"        json:"is_import_to_deploy"`
 	ServiceAndImages   []*ServiceAndImage     `bson:"service_and_images"           json:"service_and_images"`
 	YamlContent        string                 `bson:"yaml_content"                 json:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
@@ -1386,6 +1387,12 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 						logger.Error(err)
 						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+					}
+
+					if jobTaskSpec.IsImportToDeploy {
+						err = fmt.Errorf("original deploy job is import to deploy, can't revert")
+						log.Error(err)
+						return err
 					}
 
 					job.Reverted = true
@@ -2742,6 +2749,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.OriginRevision = taskJobSpec.OriginRevision
+			spec.IsImportToDeploy = taskJobSpec.IsImportToDeploy
 			// for compatibility
 			if taskJobSpec.ServiceModule != "" {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{

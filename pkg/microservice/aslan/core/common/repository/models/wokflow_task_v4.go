@@ -223,6 +223,7 @@ type JobTaskDeploySpec struct {
 	KeyVals            []*ServiceKeyVal                `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`     // deprecated since 1.18.0
 	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                     json:"variable_kvs"                        yaml:"variable_kvs"` // new since 1.18.0, only used for k8s
 	UpdateConfig       bool                            `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	IsImportToDeploy   bool                            `bson:"is_import_to_deploy"                    json:"is_import_to_deploy"                       yaml:"is_import_to_deploy"`
 	YamlContent        string                          `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	ServiceAndImages   []*DeployServiceModule          `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
 	ServiceType        string                          `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`

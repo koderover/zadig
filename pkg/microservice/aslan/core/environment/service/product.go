@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -243,6 +244,8 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
 	}
 	for _, productSvc := range serviceMap {
+		productSvc.DeployStrategy = commonutil.GetServiceDeployStrategy(productSvc.ServiceName, prod.ServiceDeployStrategy)
+
 		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
 			ServiceName: productSvc.ServiceName,
 			Revision:    productSvc.Revision,

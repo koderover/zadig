@@ -78,9 +78,10 @@ func mergeContainers(currentContainer []*models.Container, newContainers ...[]*m
 }
 
 func variableYamlNil(variableYaml string) bool {
-	if len(variableYaml) == 0 {
+	if len(variableYaml) == 0 || variableYaml == "{}" || variableYaml == "{}\n" {
 		return true
 	}
+
 	kvMap, _ := converter.YamlToFlatMap([]byte(variableYaml))
 	return len(kvMap) == 0
 }

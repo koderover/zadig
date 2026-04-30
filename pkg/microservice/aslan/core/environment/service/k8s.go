@@ -183,6 +183,11 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
+	if prodinfo.ServiceDeployStrategy[args.ServiceName] == setting.ServiceDeployStrategyImport && (args.UpdateServiceTmpl || len(args.ServiceRev.VariableKVs) > 0) {
+		args.OverrideResource = true
+		log.Infof("Update service %s from import to deploy, override resource", args.ServiceName)
+	}
+
 	// resource will not be applied if service yaml is not changed
 	previewArg := &PreviewServiceArgs{
 		ProductName:           prodinfo.ProductName,
