@@ -157,6 +157,11 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			Name:    ctx.UserName,
 			Account: ctx.Account,
 			UserID:  ctx.UserID,
+			ReleasePlan: &models.ReleasePlanRef{
+				ID:    plan.ID.Hex(),
+				Name:  plan.Name,
+				Index: plan.Index,
+			},
 		}, workflowController.WorkflowV4, log.SugaredLogger().With("source", "release plan"))
 		if err != nil {
 			return errors.Wrapf(err, "failed to create workflow task %s", spec.Workflow.Name)

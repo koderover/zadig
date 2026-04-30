@@ -83,25 +83,26 @@ type CreateTaskV4Resp struct {
 }
 
 type WorkflowTaskPreview struct {
-	TaskID              int64                 `bson:"task_id"                   json:"task_id"`
-	WorkflowName        string                `bson:"workflow_name"             json:"workflow_key"`
-	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_name"`
-	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
-	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
-	Reverted            bool                  `bson:"reverted"                  json:"reverted"`
-	Remark              string                `bson:"remark"                    json:"remark"`
-	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
-	TaskRevoker         string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
-	CreateTime          int64                 `bson:"create_time"               json:"create_time,omitempty"`
-	StartTime           int64                 `bson:"start_time"                json:"start_time,omitempty"`
-	EndTime             int64                 `bson:"end_time"                  json:"end_time,omitempty"`
-	Stages              []*StageTaskPreview   `bson:"stages"                    json:"stages"`
-	ProjectName         string                `bson:"project_name"              json:"project_key"`
-	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
-	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
-	Debug               bool                  `bson:"debug"                     json:"debug"`
-	ApprovalTicketID    string                `bson:"approval_ticket_id"        json:"approval_ticket_id"`
-	ApprovalID          string                `bson:"approval_id"               json:"approval_id"`
+	TaskID              int64                        `bson:"task_id"                   json:"task_id"`
+	WorkflowName        string                       `bson:"workflow_name"             json:"workflow_key"`
+	WorkflowDisplayName string                       `bson:"workflow_display_name"     json:"workflow_name"`
+	Params              []*commonmodels.Param        `bson:"params"                    json:"params"`
+	Status              config.Status                `bson:"status"                    json:"status,omitempty"`
+	Reverted            bool                         `bson:"reverted"                  json:"reverted"`
+	Remark              string                       `bson:"remark"                    json:"remark"`
+	TaskCreator         string                       `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskRevoker         string                       `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime          int64                        `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime           int64                        `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime             int64                        `bson:"end_time"                  json:"end_time,omitempty"`
+	Stages              []*StageTaskPreview          `bson:"stages"                    json:"stages"`
+	ProjectName         string                       `bson:"project_name"              json:"project_key"`
+	Error               string                       `bson:"error,omitempty"           json:"error,omitempty"`
+	IsRestart           bool                         `bson:"is_restart"                json:"is_restart"`
+	Debug               bool                         `bson:"debug"                     json:"debug"`
+	ApprovalTicketID    string                       `bson:"approval_ticket_id"        json:"approval_ticket_id"`
+	ApprovalID          string                       `bson:"approval_id"               json:"approval_id"`
+	ReleasePlan         *commonmodels.ReleasePlanRef `bson:"release_plan,omitempty"    json:"release_plan,omitempty"`
 }
 
 type StageTaskPreview struct {
@@ -457,6 +458,7 @@ type CreateWorkflowTaskV4Args struct {
 	LarkWorkItemTypeKey   string
 	LarkWorkItemAPIName   string
 	LarkWorkItemID        string
+	ReleasePlan           *commonmodels.ReleasePlanRef
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -614,6 +616,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.LarkProjectKey = args.LarkProjectKey
 	workflowTask.LarkProjectSimpleName = args.LarkProjectSimpleName
 	workflowTask.LarkWorkItemAPIName = args.LarkWorkItemAPIName
+	workflowTask.ReleasePlan = args.ReleasePlan
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
@@ -2183,6 +2186,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			LarkWorkItemAPIName:   task.LarkWorkItemAPIName,
 			LarkWorkItemID:        task.LarkWorkItemID,
 			Hash:                  task.Hash,
+			ReleasePlan:           task.ReleasePlan,
 		}
 
 		stagePreviews := make([]*commonmodels.StagePreview, 0)
@@ -2382,6 +2386,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		Debug:               task.IsDebug,
 		ApprovalTicketID:    task.ApprovalTicketID,
 		ApprovalID:          task.ApprovalID,
+		ReleasePlan:         task.ReleasePlan,
 	}
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {
