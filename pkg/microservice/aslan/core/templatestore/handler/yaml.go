@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
@@ -467,7 +468,8 @@ func SyncYamlTemplateReference(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板-YAML", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail, detailEn := buildYamlTemplateSyncLogDetail(c.Param("id"), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板-YAML", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -478,6 +480,37 @@ func SyncYamlTemplateReference(c *gin.Context) {
 	}
 
 	ctx.RespErr = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
+}
+
+func buildYamlTemplateSyncLogDetail(templateID string, logger *zap.SugaredLogger) (string, string) {
+	templateDetail, err := templateservice.GetYamlTemplateDetail(templateID, logger)
+	if err != nil {
+		logger.Warnf("failed to get yaml template detail for operation log, templateID: %s, err: %v", templateID, err)
+		return templateID, templateID
+	}
+
+	references, err := templateservice.GetYamlTemplateReference(templateID, logger)
+	if err != nil {
+		logger.Warnf("failed to get yaml template references for operation log, templateID: %s, err: %v", templateID, err)
+		return fmt.Sprintf("模板名称:%s", templateDetail.Name), fmt.Sprintf("Template Name: %s", templateDetail.Name)
+	}
+
+	serviceRefs := make([]string, 0, len(references))
+	serviceRefsEn := make([]string, 0, len(references))
+	for _, reference := range references {
+		if reference == nil {
+			continue
+		}
+		serviceRefs = append(serviceRefs, fmt.Sprintf("%s/%s", reference.ProjectName, reference.ServiceName))
+		serviceRefsEn = append(serviceRefsEn, fmt.Sprintf("%s/%s", reference.ProjectName, reference.ServiceName))
+	}
+
+	if len(serviceRefs) == 0 {
+		return fmt.Sprintf("模板名称:%s", templateDetail.Name), fmt.Sprintf("Template Name: %s", templateDetail.Name)
+	}
+
+	return fmt.Sprintf("模板名称:%s; 影响服务:%s", templateDetail.Name, strings.Join(serviceRefs, ", ")),
+		fmt.Sprintf("Template Name: %s; Affected Services: %s", templateDetail.Name, strings.Join(serviceRefsEn, ", "))
 }
 
 type getYamlTemplateVariablesReq struct {
