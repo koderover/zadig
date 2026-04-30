@@ -501,16 +501,22 @@ func buildYamlTemplateSyncLogDetail(templateID string, logger *zap.SugaredLogger
 		if reference == nil {
 			continue
 		}
-		serviceRefs = append(serviceRefs, fmt.Sprintf("%s/%s", reference.ProjectName, reference.ServiceName))
-		serviceRefsEn = append(serviceRefsEn, fmt.Sprintf("%s/%s", reference.ProjectName, reference.ServiceName))
+		envTypeCN := "测试"
+		envTypeEN := "test"
+		if reference.Production {
+			envTypeCN = "生产"
+			envTypeEN = "production"
+		}
+		serviceRefs = append(serviceRefs, fmt.Sprintf("%s/%s(%s)", reference.ProjectName, reference.ServiceName, envTypeCN))
+		serviceRefsEn = append(serviceRefsEn, fmt.Sprintf("%s/%s(%s)", reference.ProjectName, reference.ServiceName, envTypeEN))
 	}
 
 	if len(serviceRefs) == 0 {
 		return fmt.Sprintf("模板名称:%s", templateDetail.Name), fmt.Sprintf("Template Name: %s", templateDetail.Name)
 	}
 
-	return fmt.Sprintf("模板名称:%s; 影响服务:%s", templateDetail.Name, strings.Join(serviceRefs, ", ")),
-		fmt.Sprintf("Template Name: %s; Affected Services: %s", templateDetail.Name, strings.Join(serviceRefsEn, ", "))
+	return fmt.Sprintf("模板名称:%s\n影响服务:\n%s", templateDetail.Name, strings.Join(serviceRefs, "\n")),
+		fmt.Sprintf("Template Name: %s\nAffected Services:\n%s", templateDetail.Name, strings.Join(serviceRefsEn, "\n"))
 }
 
 type getYamlTemplateVariablesReq struct {
