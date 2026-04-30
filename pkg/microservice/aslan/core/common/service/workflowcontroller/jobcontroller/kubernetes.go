@@ -397,6 +397,11 @@ func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace s
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
+	if hasSharedCacheLeaseStep(jobTaskSpec) {
+		if err := kube.EnsureWorkflowLeaseRBAC(clusterID, currentNamespace); err != nil {
+			log.Warnf("failed to ensure workflow lease RBAC for namespace %s in cluster %s: %v", currentNamespace, clusterID, err)
+		}
+	}
 	// fetch cluster to get nodeAffinity and tolerations
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
@@ -510,7 +515,7 @@ EOF`,
 	setJobStorages(job, workflowCtx, jobTaskSpec.Properties.Storages, targetCluster)
 	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
 
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
+	if jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
 		volumeName := "build-cache"
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
@@ -521,14 +526,9 @@ EOF`,
 			},
 		})
 
-		mountPath := strings.ReplaceAll(jobTaskSpec.Properties.CacheUserDir, "$WORKSPACE", workflowCtx.Workspace)
-		if jobTaskSpec.Properties.CacheDirType == commontypes.WorkspaceCacheDir {
-			mountPath = workflowCtx.Workspace
-		}
-
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
-			MountPath: mountPath,
+			MountPath: setting.SharedCacheStoreRoot,
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
@@ -555,6 +555,21 @@ EOF`,
 
 	ensureVolumeMounts(job)
 	return job, nil
+}
+
+func hasSharedCacheLeaseStep(jobTaskSpec *commonmodels.JobTaskFreestyleSpec) bool {
+	if jobTaskSpec == nil {
+		return false
+	}
+	for _, step := range jobTaskSpec.Steps {
+		if step == nil {
+			continue
+		}
+		if step.StepType == config.StepSharedCacheRestore || step.StepType == config.StepSharedCachePublish {
+			return true
+		}
+	}
+	return false
 }
 
 // generateVolumeNameFromPath generates a safe volume name from mount path

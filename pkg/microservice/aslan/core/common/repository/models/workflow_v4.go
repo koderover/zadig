@@ -61,7 +61,9 @@ type WorkflowV4 struct {
 	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	Remark         string                   `bson:"remark"              yaml:"-"                   json:"remark"`
 	ShareStorages  []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
-	Hash           string                   `bson:"hash"                yaml:"hash"                json:"hash"`
+	// IgnoreCache is a runtime-only execution flag. It should not be persisted as workflow definition.
+	IgnoreCache bool   `bson:"-" yaml:"-" json:"ignore_cache,omitempty"`
+	Hash        string `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
 	// -1 means no limit
 	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
@@ -82,7 +84,7 @@ func (w *WorkflowV4) UpdateHash() {
 
 func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	fieldList := make(map[string]interface{})
-	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls"}
+	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls", "IgnoreCache"}
 	ignoringFields := sets.NewString(ignoringFieldList...)
 
 	val := reflect.ValueOf(*w)

@@ -453,7 +453,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 			}
 
-			if jobTaskSpec.Properties.CacheEnable {
+			if jobTaskSpec.Properties.Cache.MediumType != "" {
 				jobTaskSpec.Properties.CacheUserDir = commonutil.RenderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
 				if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 					jobTaskSpec.Properties.Cache.NFSProperties.Subpath = commonutil.RenderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
@@ -462,10 +462,18 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 					if err != nil {
 						return nil, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
 					}
-
 				}
 			}
 		}
+		objectCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
+		sharedCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
+		ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && objectCacheEnabled
+		ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled
+		sharedCacheDir := "/workspace"
+		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+			sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
+		}
+		sharedCacheKey := getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule)
 
 		// for other job refer current latest image.
 		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
@@ -489,8 +497,19 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 
+		if sharedCacheEnabled {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
+				fmt.Sprintf("%s-%s", build.ServiceName, "shared-cache-restore"),
+				j.workflow.Name,
+				jobTask.Name,
+				sharedCacheDir,
+				sharedCacheKey,
+				!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
+			))
+		}
+
 		// init download object cache step
-		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+		if jobTaskSpec.Properties.CacheEnable && objectCacheEnabled && !ignoreObjectCacheRestore {
 			cacheDir := "/workspace"
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -625,7 +644,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		}
 
 		// init object cache step
-		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+		if objectCacheEnabled {
 			cacheDir := "/workspace"
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -646,6 +665,16 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+		}
+		if sharedCacheEnabled {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
+				fmt.Sprintf("%s-%s", build.ServiceName, "shared-cache-publish"),
+				j.workflow.Name,
+				jobTask.Name,
+				sharedCacheDir,
+				sharedCacheKey,
+				taskID,
+			))
 		}
 
 		// init archive step

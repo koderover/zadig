@@ -676,6 +676,17 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
 	}
 
+	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
+	jobTaskSpec.Properties.Envs = append(envs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
+
+	// Add keyvault envs for credential masking
+	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("get keyvault envs error: %v", err)
+	}
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, keyvaultEnvs...)
+
 	if jobTask.Infrastructure == setting.JobVMInfrastructure {
 		jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
 		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
@@ -696,30 +707,19 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 				}
 			}
 		}
-		if jobTaskSpec.Properties.CacheEnable {
+		if jobTaskSpec.Properties.Cache.MediumType != "" {
 			jobTaskSpec.Properties.CacheUserDir = commonutil.RenderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
 			if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 				jobTaskSpec.Properties.Cache.NFSProperties.Subpath = commonutil.RenderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
-			} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
-				cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
-				if err != nil {
-					return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
-				}
 			}
 		}
 	}
-
-	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
-	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
-
-	jobTaskSpec.Properties.Envs = append(envs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
-
-	// Add keyvault envs for credential masking
-	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
-	if err != nil {
-		return nil, fmt.Errorf("get keyvault envs error: %v", err)
-	}
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, keyvaultEnvs...)
+	objectCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium
+	sharedCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
+	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && objectCacheEnabled
+	ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled
+	sharedCacheDir := resolveSharedCacheDir(jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+	sharedCacheKey := getTestingJobCacheObjectPath(j.workflow.Name, testing.Name)
 
 	// init tools install step
 	tools := []*step.Tool{}
@@ -736,8 +736,18 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+	if sharedCacheEnabled {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
+			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-restore"),
+			j.workflow.Name,
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
+		))
+	}
 	// init download object cache step
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+	if jobTaskSpec.Properties.CacheEnable && objectCacheEnabled && !ignoreObjectCacheRestore {
 		cacheDir := "/workspace"
 		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 			cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -901,7 +911,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 	}
 
 	// init object cache step
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+	if objectCacheEnabled {
 		cacheDir := "/workspace"
 		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 			cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -922,6 +932,16 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+	}
+	if sharedCacheEnabled {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
+			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-publish"),
+			j.workflow.Name,
+			jobTask.Name,
+			sharedCacheDir,
+			sharedCacheKey,
+			taskID,
+		))
 	}
 
 	// init object storage step

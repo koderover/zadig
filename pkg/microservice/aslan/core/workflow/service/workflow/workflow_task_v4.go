@@ -600,6 +600,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.TaskCreatorID = args.UserID
 	workflowTask.TaskRevoker = args.Name
 	workflowTask.TaskRevokerID = args.UserID
+	workflowTask.IgnoreCache = workflow.IgnoreCache
 	workflowTask.CreateTime = time.Now().Unix()
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
@@ -863,6 +864,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
+	workflowCtrl.WorkflowV4.IgnoreCache = task.IgnoreCache
 	return workflowCtrl.WorkflowV4, nil
 }
 
@@ -891,6 +893,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 	}
 
 	task.OriginWorkflowArgs.NotifyCtls = originalWorkflow.NotifyCtls
+	task.OriginWorkflowArgs.IgnoreCache = task.IgnoreCache
 	return task.OriginWorkflowArgs, nil
 }
 
@@ -911,6 +914,10 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	}
 
 	task.RetryNum++
+	if task.WorkflowArgs != nil {
+		task.WorkflowArgs.IgnoreCache = task.IgnoreCache
+	}
+	task.OriginWorkflowArgs.IgnoreCache = task.IgnoreCache
 
 	globalKeyMap := make(map[string]string)
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
@@ -1033,6 +1040,10 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
 		return errors.New("工作流任务数据异常, 无法手动执行")
 	}
+	if task.WorkflowArgs != nil {
+		task.WorkflowArgs.IgnoreCache = task.IgnoreCache
+	}
+	task.OriginWorkflowArgs.IgnoreCache = task.IgnoreCache
 
 	originJobs := []*commonmodels.Job{}
 	if err := commonmodels.IToi(&jobs, &originJobs); err != nil {

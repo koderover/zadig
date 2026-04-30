@@ -95,6 +95,10 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewJunitReportCtl(step, workflowCtx, logger)
 	case config.StepTarArchive:
 		stepCtl, err = NewTarArchiveCtl(step, logger)
+	case config.StepSharedCacheRestore:
+		stepCtl, err = NewSharedCacheRestoreCtl(step, logger)
+	case config.StepSharedCachePublish:
+		stepCtl, err = NewSharedCachePublishCtl(step, logger)
 	case config.StepSonarCheck:
 		stepCtl, err = NewSonarCheckCtl(step, workflowCtx, logger)
 	case config.StepSonarGetMetrics:
