@@ -19,12 +19,10 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -208,19 +206,16 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				}
 			}
 
+			pairs := make([]string, 0, len(globalKeyMap)*2)
+			for k, v := range globalKeyMap {
+				escaped, _ := json.Marshal(v)
+				pairs = append(pairs, "{{."+k+"}}", strings.Trim(string(escaped), `"`))
+			}
+			replacer := strings.NewReplacer(pairs...)
+
 			for _, task := range tasks {
 				taskBytes, _ := json.Marshal(task)
-				taskString := string(taskBytes)
-				for k, v := range globalKeyMap {
-					// Use json.Marshal to properly escape the value as it would appear in JSON
-					escapedValueBytes, _ := json.Marshal(v)
-					escapedValue := string(escapedValueBytes)
-					// Remove the surrounding quotes since we're replacing within a JSON string
-					escapedValue = strings.Trim(escapedValue, `"`)
-
-					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), escapedValue)
-					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-				}
+				taskString := replacer.Replace(string(taskBytes))
 
 				err := json.Unmarshal([]byte(taskString), &task)
 				if err != nil {
@@ -355,40 +350,18 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 }
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
-	resp := []*commonmodels.Param{}
 	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
 	}
-	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "project.id", Value: w.Project, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectInfo.ProjectName, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.Name, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.DisplayName, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.datetime", Value: time.Now().Format(time.DateTime), ParamsType: "string", IsCredential: false})
-	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		configbase.SystemAddress(),
-		w.Project,
-		w.Name,
-		taskID,
-		url.QueryEscape(w.DisplayName),
-	)
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.url", Value: detailURL, ParamsType: "string", IsCredential: false})
-
-	for _, param := range w.Params {
-		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
-		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
-		if param.ParamsType == string(commonmodels.MultiSelectType) {
-			newParam.Value = strings.Join(param.ChoiceValue, ",")
-		} else if param.ParamsType == string(commonmodels.FileType) {
-			continue
-		}
-		resp = append(resp, newParam)
+	resp := make([]*commonmodels.Param, 0)
+	for _, kv := range commonutil.BuildWorkflowSystemVariableKVs(w.WorkflowV4, w.Project, projectInfo.ProjectName, taskID, creator, account, uid, time.Now()) {
+		resp = append(resp, &commonmodels.Param{
+			Name:         kv.Key,
+			Value:        kv.Value,
+			ParamsType:   "string",
+			IsCredential: kv.IsCredential,
+		})
 	}
 	return resp, nil
 }
