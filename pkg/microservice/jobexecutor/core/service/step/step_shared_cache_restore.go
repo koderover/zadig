@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/tool/kube/lease"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	typesstep "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -59,8 +61,28 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 		return s.handleErr(fmt.Errorf("load current cache metadata failed: %w", err))
 	}
 	if !found {
-		log.Infof("Shared cache restore skipped because current cache metadata does not exist.")
-		return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
+		if !s.spec.SkipContent {
+			bootstrapped, version, err := s.bootstrapFromExistingCacheDir(ctx, currentFile)
+			if err != nil {
+				return s.handleErr(fmt.Errorf("bootstrap shared cache from existing cache dir failed: %w", err))
+			}
+			if bootstrapped {
+				current, found, err = loadSharedCacheCurrent(currentFile)
+				if err != nil {
+					return s.handleErr(fmt.Errorf("reload current cache metadata failed: %w", err))
+				}
+				if !found {
+					return s.handleErr(fmt.Errorf("shared cache bootstrap finished with version %s but current metadata is still missing", version))
+				}
+				log.Infof("Shared cache initialized from existing cache dir %s with version %s.", s.spec.CacheDir, version)
+			} else {
+				log.Infof("Shared cache restore skipped because current cache metadata does not exist.")
+				return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
+			}
+		} else {
+			log.Infof("Shared cache restore skipped because current cache metadata does not exist.")
+			return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
+		}
 	}
 
 	markerFile := ""
@@ -97,6 +119,144 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 	}
 	log.Infof("Shared cache restore finished with version %s.", current.Version)
 	return nil
+}
+
+func (s *SharedCacheRestoreStep) bootstrapFromExistingCacheDir(ctx context.Context, currentFile string) (bool, string, error) {
+	if s.spec.LeaseName == "" || s.spec.Version == "" {
+		log.Infof("Shared cache bootstrap skipped because lease name or version is empty.")
+		return false, "", nil
+	}
+	bootstrapDir := s.spec.BootstrapDir
+	if bootstrapDir == "" {
+		bootstrapDir = s.spec.CacheDir
+	}
+	if hasContent, err := dirHasContent(bootstrapDir); err != nil {
+		return false, "", err
+	} else if !hasContent {
+		log.Infof("Shared cache bootstrap skipped because bootstrap dir %s does not exist or is empty.", bootstrapDir)
+		return false, "", nil
+	}
+
+	leaseDuration := time.Duration(s.spec.LeaseDurationSeconds) * time.Second
+	bootstrapDirLock, err := lease.NewLock(sharedCacheBootstrapDirLeaseName(bootstrapDir), leaseDuration)
+	if err != nil {
+		return false, "", fmt.Errorf("create shared cache bootstrap dir lease lock failed: %w", err)
+	}
+	if err := bootstrapDirLock.Acquire(ctx); err != nil {
+		return false, "", fmt.Errorf("acquire shared cache bootstrap dir lease lock failed: %w", err)
+	}
+	bootstrapDirLockReleased := false
+	defer func() {
+		if bootstrapDirLockReleased {
+			return
+		}
+		if err := bootstrapDirLock.Release(context.Background()); err != nil {
+			log.Errorf("release shared cache bootstrap dir lease lock failed: %v", err)
+		}
+	}()
+	if hasContent, err := dirHasContent(bootstrapDir); err != nil {
+		return false, "", err
+	} else if !hasContent {
+		log.Infof("Shared cache bootstrap skipped because bootstrap dir %s does not exist or is empty after acquiring lock.", bootstrapDir)
+		return false, "", nil
+	}
+
+	lock, err := lease.NewLock(s.spec.LeaseName, leaseDuration)
+	if err != nil {
+		return false, "", fmt.Errorf("create shared cache bootstrap lease lock failed: %w", err)
+	}
+	if err := lock.Acquire(ctx); err != nil {
+		return false, "", fmt.Errorf("acquire shared cache bootstrap lease lock failed: %w", err)
+	}
+	lockReleased := false
+	defer func() {
+		if lockReleased {
+			return
+		}
+		if err := lock.Release(context.Background()); err != nil {
+			log.Errorf("release shared cache bootstrap lease lock failed: %v", err)
+		}
+	}()
+
+	current, found, err := loadSharedCacheCurrent(currentFile)
+	if err != nil {
+		return false, "", fmt.Errorf("reload current cache metadata failed: %w", err)
+	}
+	if found && current != nil && current.Version != "" {
+		if err := lock.Release(context.Background()); err != nil {
+			return false, "", fmt.Errorf("release shared cache bootstrap lease lock failed: %w", err)
+		}
+		lockReleased = true
+		if err := bootstrapDirLock.Release(context.Background()); err != nil {
+			return false, "", fmt.Errorf("release shared cache bootstrap dir lease lock failed: %w", err)
+		}
+		bootstrapDirLockReleased = true
+		log.Infof("Shared cache bootstrap skipped because current cache metadata was initialized with version %s.", current.Version)
+		return true, current.Version, nil
+	}
+
+	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
+		return false, "", err
+	}
+	if err := ensureSharedCachePublishLeaseHeld(bootstrapDirLock); err != nil {
+		return false, "", err
+	}
+	snapshotsDir := filepath.Join(s.spec.StoreDir, "snapshots")
+	tempSnapshotDir := filepath.Join(snapshotsDir, ".tmp-"+s.spec.Version)
+	finalSnapshotDir := filepath.Join(snapshotsDir, s.spec.Version)
+	snapshotPromoted := false
+	currentUpdated := false
+	defer func() {
+		if snapshotPromoted && !currentUpdated {
+			if err := os.RemoveAll(finalSnapshotDir); err != nil {
+				log.Errorf("remove unpublished shared cache bootstrap snapshot %s failed: %v", finalSnapshotDir, err)
+			}
+		}
+	}()
+	if err := os.MkdirAll(snapshotsDir, os.ModePerm); err != nil {
+		return false, "", fmt.Errorf("create snapshot dir failed: %w", err)
+	}
+	_ = os.RemoveAll(tempSnapshotDir)
+	if err := os.MkdirAll(tempSnapshotDir, os.ModePerm); err != nil {
+		return false, "", fmt.Errorf("create temp snapshot dir failed: %w", err)
+	}
+	if err := copyDirContentExclude(ctx, bootstrapDir, tempSnapshotDir, sharedCacheInternalDirNames()...); err != nil {
+		_ = os.RemoveAll(tempSnapshotDir)
+		return false, "", err
+	}
+	if err := os.Rename(tempSnapshotDir, finalSnapshotDir); err != nil {
+		_ = os.RemoveAll(tempSnapshotDir)
+		return false, "", fmt.Errorf("promote temp snapshot dir failed: %w", err)
+	}
+	snapshotPromoted = true
+	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
+		return false, "", err
+	}
+	if err := ensureSharedCachePublishLeaseHeld(bootstrapDirLock); err != nil {
+		return false, "", err
+	}
+	current = &sharedCacheCurrent{
+		Version:         s.spec.Version,
+		SnapshotDir:     filepath.Join("snapshots", s.spec.Version),
+		UpdatedAt:       time.Now().Unix(),
+		UpdatedByTaskID: s.spec.TaskID,
+		WorkflowName:    s.spec.WorkflowName,
+		JobName:         s.spec.JobName,
+		BootstrapDir:    bootstrapDir,
+	}
+	if err := writeSharedCacheCurrent(currentFile, current); err != nil {
+		return false, "", fmt.Errorf("write current cache metadata failed: %w", err)
+	}
+	currentUpdated = true
+	if err := lock.Release(context.Background()); err != nil {
+		return false, "", fmt.Errorf("release shared cache bootstrap lease lock failed: %w", err)
+	}
+	lockReleased = true
+	if err := bootstrapDirLock.Release(context.Background()); err != nil {
+		return false, "", fmt.Errorf("release shared cache bootstrap dir lease lock failed: %w", err)
+	}
+	bootstrapDirLockReleased = true
+	return true, s.spec.Version, nil
 }
 
 func (s *SharedCacheRestoreStep) handleErr(err error) error {

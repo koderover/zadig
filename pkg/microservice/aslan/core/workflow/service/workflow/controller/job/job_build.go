@@ -469,10 +469,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		sharedCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
 		ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && objectCacheEnabled
 		ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled
-		sharedCacheDir := "/workspace"
-		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
-			sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
-		}
+		sharedCacheDir := resolveSharedCacheDir(jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir)
 		sharedCacheKey := getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule)
 
 		// for other job refer current latest image.
@@ -504,6 +501,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 				jobTask.Name,
 				sharedCacheDir,
 				sharedCacheKey,
+				taskID,
 				!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 			))
 		}

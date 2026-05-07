@@ -156,6 +156,10 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		return nil
 	}
 
+	bootstrapDir := ""
+	if current != nil {
+		bootstrapDir = current.BootstrapDir
+	}
 	current = &sharedCacheCurrent{
 		Version:         s.spec.Version,
 		SnapshotDir:     filepath.Join("snapshots", s.spec.Version),
@@ -163,6 +167,12 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		UpdatedByTaskID: s.spec.TaskID,
 		WorkflowName:    s.spec.WorkflowName,
 		JobName:         s.spec.JobName,
+	}
+	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
+		return s.handleErr(err)
+	}
+	if err := cleanupBootstrappedSharedCache(bootstrapDir, leaseDuration); err != nil {
+		return s.handleErr(fmt.Errorf("cleanup bootstrapped shared cache failed: %w", err))
 	}
 	if err := ensureSharedCachePublishLeaseHeld(lock); err != nil {
 		return s.handleErr(err)
@@ -224,4 +234,27 @@ func sharedCacheBaseVersionStale(currentFound bool, current *sharedCacheCurrent,
 		return true, fmt.Sprintf("base version %s is stale, latest version is %s", restoreMeta.BaseVersion, current.Version)
 	}
 	return false, ""
+}
+
+func cleanupBootstrappedSharedCache(bootstrapDir string, leaseDuration time.Duration) error {
+	if bootstrapDir == "" {
+		return nil
+	}
+	bootstrapDirLock, err := lease.NewLock(sharedCacheBootstrapDirLeaseName(bootstrapDir), leaseDuration)
+	if err != nil {
+		return fmt.Errorf("create shared cache bootstrap cleanup lease lock failed: %w", err)
+	}
+	if err := bootstrapDirLock.Acquire(context.Background()); err != nil {
+		return fmt.Errorf("acquire shared cache bootstrap cleanup lease lock failed: %w", err)
+	}
+	defer func() {
+		if err := bootstrapDirLock.Release(context.Background()); err != nil {
+			log.Errorf("release shared cache bootstrap cleanup lease lock failed: %v", err)
+		}
+	}()
+	if err := removeDirContentExclude(bootstrapDir, sharedCacheInternalDirNames()...); err != nil {
+		return err
+	}
+	log.Infof("Cleaned up bootstrapped shared cache content from %s.", bootstrapDir)
+	return nil
 }

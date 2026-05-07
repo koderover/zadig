@@ -621,10 +621,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	sharedCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
 	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && objectCacheEnabled
 	ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled
-	sharedCacheDir := "/workspace"
-	if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
-		sharedCacheDir = jobTaskSpec.Properties.CacheUserDir
-	}
+	sharedCacheDir := resolveSharedCacheDir(jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir)
 	sharedCacheKey := getScanningJobCacheObjectPath(j.workflow.Name, scanning.Name)
 
 	if len(scanning.Repos) > 0 {
@@ -656,6 +653,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 			jobTask.Name,
 			sharedCacheDir,
 			sharedCacheKey,
+			taskID,
 			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 		))
 	}

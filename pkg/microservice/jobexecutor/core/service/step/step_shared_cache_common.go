@@ -22,12 +22,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 const (
@@ -43,6 +46,7 @@ type sharedCacheCurrent struct {
 	UpdatedByTaskID int64  `json:"updated_by_task_id"`
 	WorkflowName    string `json:"workflow_name"`
 	JobName         string `json:"job_name"`
+	BootstrapDir    string `json:"bootstrap_dir,omitempty"`
 }
 
 type sharedCacheRestoreMetadata struct {
@@ -123,6 +127,141 @@ func copyDirContent(ctx context.Context, src, dst string) error {
 	}
 	cmd := exec.CommandContext(ctx, "cp", "-a", filepath.Join(src, "."), dst)
 	return cmd.Run()
+}
+
+func copyDirContentExclude(ctx context.Context, src, dst string, excludes ...string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
+		return err
+	}
+	excludeSet := make(map[string]struct{}, len(excludes))
+	for _, exclude := range excludes {
+		excludeSet[exclude] = struct{}{}
+	}
+	return filepath.WalkDir(src, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		if _, ok := excludeSet[strings.Split(rel, string(os.PathSeparator))[0]]; ok {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if err := copyFile(path, target, info.Mode()); err != nil {
+			return err
+		}
+		return os.Chtimes(target, info.ModTime(), info.ModTime())
+	})
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func dirHasContent(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	for _, entry := range entries {
+		if isSharedCacheInternalDir(entry.Name()) {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func removeDirContentExclude(dir string, excludes ...string) error {
+	excludeSet := make(map[string]struct{}, len(excludes))
+	for _, exclude := range excludes {
+		excludeSet[exclude] = struct{}{}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if _, ok := excludeSet[entry.Name()]; ok {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sharedCacheBootstrapDirLeaseName(bootstrapDir string) string {
+	return "workflow-shared-cache-bootstrap-" + shortHash(filepath.Clean(bootstrapDir))
+}
+
+func sharedCacheInternalDirNames() []string {
+	return []string{setting.SharedCacheStoreDataDir}
+}
+
+func isSharedCacheInternalDir(name string) bool {
+	for _, internal := range sharedCacheInternalDirNames() {
+		if name == internal {
+			return true
+		}
+	}
+	return false
 }
 
 func createSharedCacheActiveMarker(storeDir, version, purpose string) (string, error) {

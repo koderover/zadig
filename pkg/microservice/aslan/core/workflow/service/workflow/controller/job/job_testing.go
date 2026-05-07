@@ -718,7 +718,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 	sharedCacheEnabled := jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium
 	ignoreObjectCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && objectCacheEnabled
 	ignoreSharedCacheRestore := j.workflow.IgnoreCache && jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled
-	sharedCacheDir := resolveSharedCacheDir(jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+	sharedCacheDir := resolveSharedCacheDir(jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir)
 	sharedCacheKey := getTestingJobCacheObjectPath(j.workflow.Name, testing.Name)
 
 	// init tools install step
@@ -743,6 +743,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			jobTask.Name,
 			sharedCacheDir,
 			sharedCacheKey,
+			taskID,
 			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
 		))
 	}

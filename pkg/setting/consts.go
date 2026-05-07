@@ -313,6 +313,7 @@ const (
 	ScanningOSSCacheFileName  = "zadig-scanning-cache.tar.gz"
 	TestingOSSCacheFileName   = "zadig-testing-cache.tar.gz"
 	SharedCacheStoreRoot      = "/zadig/cache-store"
+	SharedCacheStoreDataDir   = ".zadig-shared-cache"
 	SharedCacheMetadataRoot   = "/tmp/zadig-cache-meta"
 	SharedCacheSnapshotRetain = 2
 )
