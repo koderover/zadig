@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -140,6 +141,7 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
+	j.logWorkspaceProbe()
 	hasFailed := false
 	var respErr error
 	for _, stepInfo := range j.Ctx.Steps {
@@ -152,6 +154,34 @@ func (j *Job) Run(ctx context.Context) error {
 		}
 	}
 	return respErr
+}
+
+func (j *Job) logWorkspaceProbe() {
+	entries, err := os.ReadDir(j.ActiveWorkspace)
+	if err != nil {
+		log.Errorf("workspace cache probe failed: workspace=%s err=%v", j.ActiveWorkspace, err)
+		return
+	}
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			name += "/"
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	visibleEntries := names
+	truncated := false
+	if len(visibleEntries) > 10 {
+		visibleEntries = visibleEntries[:10]
+		truncated = true
+	}
+
+	log.Infof("workspace cache probe: workspace=%s entry_count=%d entries=%s truncated=%v",
+		j.ActiveWorkspace, len(names), strings.Join(visibleEntries, ","), truncated)
 }
 
 func (j *Job) AfterRun(ctx context.Context) error {
