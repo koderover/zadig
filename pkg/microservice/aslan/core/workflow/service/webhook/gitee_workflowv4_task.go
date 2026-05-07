@@ -79,6 +79,8 @@ func (gpem *giteePushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		RepoOwner:     hookRepo.RepoOwner,
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -125,7 +127,9 @@ func (gmem *giteeMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  gmem.event.PullRequest.Base.Ref,
 		PR:            gmem.event.PullRequest.Number,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -164,7 +168,9 @@ func (gtem *giteeTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodel
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -197,7 +203,7 @@ func createGiteeEventMatcherForWorkflowV4(
 	return nil
 }
 
-func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
 	if err != nil {
 		errMsg := fmt.Sprintf("list workflow v4 error: %v", err)
@@ -271,6 +277,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					EventType:      eventType,
+					RawPayload:     rawPayload,
 				}
 			case *gitee.PushEvent:
 				eventType = EventTypePush
@@ -288,11 +295,13 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					IsPr:       false,
 					CommitID:   commitID,
 					EventType:  eventType,
+					RawPayload: rawPayload,
 				}
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					EventType:  eventType,
+					RawPayload: rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

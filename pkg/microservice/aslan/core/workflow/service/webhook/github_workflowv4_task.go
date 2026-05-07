@@ -79,8 +79,10 @@ func (gpem *githubPushEventMatcheForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		CommitID:      *gpem.event.HeadCommit.ID,
 		CommitMessage: *gpem.event.HeadCommit.Message,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -131,9 +133,11 @@ func (gmem *githubMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  *gmem.event.PullRequest.Base.Ref,
 		PR:            *gmem.event.PullRequest.Number,
 		CommitID:      *gmem.event.PullRequest.Head.SHA,
 		CommitMessage: *gmem.event.PullRequest.Title,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -175,7 +179,9 @@ func (gtem *githubTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -208,7 +214,7 @@ func createGithubEventMatcherForWorkflowV4(
 	return nil
 }
 
-func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deliveryID, requestID string, log *zap.SugaredLogger) error {
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
 	if err != nil {
 		errMsg := fmt.Sprintf("list workflow v4 error: %v", err)
@@ -277,6 +283,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					EventType:      eventType,
+					RawPayload:     rawPayload,
 				}
 			case *github.PushEvent:
 				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
@@ -295,12 +302,14 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 						DeliveryID: deliveryID,
 						CommitID:   commitID,
 						EventType:  eventType,
+						RawPayload: rawPayload,
 					}
 				}
 			case *github.CreateEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					EventType:  eventType,
+					RawPayload: rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

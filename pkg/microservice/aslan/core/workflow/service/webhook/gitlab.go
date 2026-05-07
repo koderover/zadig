@@ -163,7 +163,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerWorkflowV4Start := time.Now()
-			if err = TriggerWorkflowV4ByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGitlabEvent(pushEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent push cost %s", time.Since(triggerWorkflowV4Start))
@@ -196,7 +196,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerWorkflowV4Start := time.Now()
-			if err = TriggerWorkflowV4ByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGitlabEvent(mergeEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent merge cost %s", time.Since(triggerWorkflowV4Start))
@@ -229,7 +229,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerWorkflowV4Start := time.Now()
-			if err = TriggerWorkflowV4ByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGitlabEvent(tagEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerWorkflowV4ByGitlabEvent tag cost %s", time.Since(triggerWorkflowV4Start))
