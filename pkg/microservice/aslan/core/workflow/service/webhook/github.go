@@ -429,19 +429,19 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 		if *et.Action != "opened" && *et.Action != "synchronize" {
 			return nil
 		}
-		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		err = TriggerWorkflowV4ByGithubEvent(et, string(payload), baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Errorf("prEventToPipelineTasks error: %v", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.PushEvent:
-		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		err = TriggerWorkflowV4ByGithubEvent(et, string(payload), baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Infof("pushEventToPipelineTasks error: %v", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.CreateEvent:
-		err = TriggerWorkflowV4ByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		err = TriggerWorkflowV4ByGithubEvent(et, string(payload), baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Errorf("tagEventToPipelineTasks error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)

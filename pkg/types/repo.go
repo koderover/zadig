@@ -49,10 +49,12 @@ type Repository struct {
 	IsPrimary  bool `bson:"is_primary"                     json:"is_primary"               yaml:"is_primary"`
 	CodehostID int  `bson:"codehost_id"                    json:"codehost_id"              yaml:"codehost_id"`
 	// add
-	OauthToken  string `bson:"oauth_token"                  json:"oauth_token"             yaml:"oauth_token"`
-	Address     string `bson:"address"                      json:"address"                 yaml:"address"`
-	AuthorName  string `bson:"author_name,omitempty"        json:"author_name,omitempty"   yaml:"author_name,omitempty"`
-	CheckoutRef string `bson:"checkout_ref,omitempty"       json:"checkout_ref,omitempty"  yaml:"checkout_ref,omitempty"`
+	OauthToken   string `bson:"oauth_token"                  json:"oauth_token"             yaml:"oauth_token"`
+	Address      string `bson:"address"                      json:"address"                 yaml:"address"`
+	AuthorName   string `bson:"author_name,omitempty"        json:"author_name,omitempty"   yaml:"author_name,omitempty"`
+	Committer    string `bson:"committer,omitempty"          json:"committer,omitempty"     yaml:"committer,omitempty"`
+	TargetBranch string `bson:"target_branch,omitempty"     json:"target_branch,omitempty" yaml:"target_branch,omitempty"`
+	CheckoutRef  string `bson:"checkout_ref,omitempty"       json:"checkout_ref,omitempty"  yaml:"checkout_ref,omitempty"`
 	// username/password authorization for git/perforce
 	Username string `bson:"username,omitempty"           json:"username,omitempty"      yaml:"username,omitempty"`
 	Password string `bson:"password,omitempty"           json:"password,omitempty"      yaml:"password,omitempty"`
