@@ -41,6 +41,8 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 	var stepInstance Step
 	var err error
 
+	log.Infof("Prepare step: name=%s type=%s on_failure=%v workspace=%s", step.Name, step.StepType, step.Onfailure, workspace)
+
 	switch step.StepType {
 	case "shell":
 		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs)

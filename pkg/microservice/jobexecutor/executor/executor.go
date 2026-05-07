@@ -101,6 +101,14 @@ func Execute(ctx context.Context) error {
 	}()
 
 	fmt.Printf("====================== %s Start ======================\n", excutor)
+	log.Infof("Job context initialized: workflow=%s task_id=%d job=%s workspace=%s paths=%s",
+		j.Ctx.WorkflowName, j.Ctx.TaskID, j.Ctx.Name, j.ActiveWorkspace, j.Ctx.Paths)
+	if j.Ctx.Cache != nil {
+		log.Infof("Job cache config: enabled=%v dir_type=%s cache_user_dir=%s workspace=%s",
+			j.Ctx.Cache.CacheEnable, j.Ctx.Cache.CacheDirType, j.Ctx.Cache.CacheUserDir, j.ActiveWorkspace)
+	} else {
+		log.Infof("Job cache config: not provided in job context")
+	}
 	var (
 		runErr      error
 		afterRunErr error

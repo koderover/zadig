@@ -73,6 +73,9 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	tarName := filepath.Join(s.spec.DestDir, s.spec.FileName)
 	tarName = util.ReplaceEnvWithValue(tarName, envMap)
 	s.spec.TarDir = util.ReplaceEnvWithValue(s.spec.TarDir, envMap)
+	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
+	log.Infof("Tar archive detail: file=%s tar_dir=%s dest_file=%s object_key=%s bucket=%s change_tar_dir=%v abs_result_dir=%v ignore_err=%v",
+		s.spec.FileName, s.spec.TarDir, tarName, objectKey, s.spec.S3Storage.Bucket, s.spec.ChangeTarDir, s.spec.AbsResultDir, s.spec.IgnoreErr)
 
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
@@ -143,7 +146,6 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		}
 	}
 
-	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
 		if s.spec.IgnoreErr {
 			log.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)

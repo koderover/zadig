@@ -16,6 +16,8 @@ limitations under the License.
 
 package meta
 
+import "github.com/koderover/zadig/v2/pkg/types"
+
 type JobContext struct {
 	Name string `yaml:"name"`
 	// Workspace 容器工作目录 [必填]
@@ -33,8 +35,9 @@ type JobContext struct {
 	// ConfigMapName save the name of the configmap in which the jobContext resides
 	ConfigMapName string `yaml:"config_map_name"`
 
-	Steps   []*Step  `yaml:"steps"`
-	Outputs []string `yaml:"outputs"`
+	Steps   []*Step         `yaml:"steps"`
+	Outputs []string        `yaml:"outputs"`
+	Cache   *JobCacheConfig `yaml:"cache"`
 }
 
 type Step struct {
@@ -45,3 +48,9 @@ type Step struct {
 }
 
 type EnvVar []string
+
+type JobCacheConfig struct {
+	CacheEnable  bool               `yaml:"cache_enable"`
+	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
+	CacheUserDir string             `yaml:"cache_user_dir"`
+}

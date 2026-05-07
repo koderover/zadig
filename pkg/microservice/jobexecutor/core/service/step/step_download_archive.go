@@ -76,6 +76,8 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 
 	destPath := path.Join(s.workspace, s.spec.DestDir, fileName)
 	objectKey := strings.TrimLeft(path.Join(s.spec.ObjectPath, fileName), "/")
+	log.Infof("Download archive detail: bucket=%s object_key=%s dest_dir=%s dest_path=%s untar=%v ignore_err=%v",
+		s.spec.S3.Bucket, objectKey, s.spec.DestDir, destPath, s.spec.UnTar, s.spec.IgnoreErr)
 	if !s.spec.UnTar {
 		err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 		if err != nil {
@@ -102,6 +104,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			}
 
 			destPath = s.spec.DestDir
+			log.Infof("Download archive extract detail: source_tmp=%s extract_dir=%s", sourceFilename, destPath)
 			if err = os.MkdirAll(destPath, os.ModePerm); err != nil {
 				if s.spec.IgnoreErr {
 					log.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
