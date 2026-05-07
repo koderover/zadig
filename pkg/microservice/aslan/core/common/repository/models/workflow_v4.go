@@ -1173,12 +1173,12 @@ type NotificationJobSpec struct {
 
 	LarkGroupNotificationConfig  *LarkGroupNotificationConfig  `bson:"lark_group_notification_config,omitempty"  yaml:"lark_group_notification_config,omitempty"  json:"lark_group_notification_config,omitempty"`
 	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
-	//LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
-	WechatNotificationConfig   *WechatNotificationConfig   `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
-	DingDingNotificationConfig *DingDingNotificationConfig `bson:"dingding_notification_config,omitempty"    yaml:"dingding_notification_config,omitempty"    json:"dingding_notification_config,omitempty"`
-	MSTeamsNotificationConfig  *MSTeamsNotificationConfig  `bson:"msteams_notification_config,omitempty"     yaml:"msteams_notification_config,omitempty"     json:"msteams_notification_config,omitempty"`
-	MailNotificationConfig     *MailNotificationConfig     `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
-	WebhookNotificationConfig  *WebhookNotificationConfig  `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
+	LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
+	WechatNotificationConfig     *WechatNotificationConfig     `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
+	DingDingNotificationConfig   *DingDingNotificationConfig   `bson:"dingding_notification_config,omitempty"    yaml:"dingding_notification_config,omitempty"    json:"dingding_notification_config,omitempty"`
+	MSTeamsNotificationConfig    *MSTeamsNotificationConfig    `bson:"msteams_notification_config,omitempty"     yaml:"msteams_notification_config,omitempty"     json:"msteams_notification_config,omitempty"`
+	MailNotificationConfig       *MailNotificationConfig       `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
+	WebhookNotificationConfig    *WebhookNotificationConfig    `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
 
 	Content string `bson:"content"                       yaml:"content"                       json:"content"`
 	Title   string `bson:"title"                         yaml:"title"                         json:"title"`
@@ -1262,6 +1262,10 @@ func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 		if n.LarkPersonNotificationConfig == nil {
 			return fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
 		}
+	case setting.NotifyWebHookTypeFeishu:
+		if n.LarkHookNotificationConfig == nil {
+			return fmt.Errorf("lark_hook_notification_config cannot be empty for type feishu notification")
+		}
 	default:
 		// TODO: this code is commented because of chagee old data. uncomment it if possible
 		//return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
@@ -1270,44 +1274,56 @@ func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 	return nil
 }
 
+type DynamicRecipient struct {
+	Value        string `bson:"value"         json:"value"          yaml:"value"`
+	IdentityType string `bson:"identity_type" json:"identity_type"  yaml:"identity_type"`
+}
+
 // TODO: why is_at_all? it could be done in backend
 type LarkGroupNotificationConfig struct {
-	AppID   string           `bson:"app_id"    json:"app_id"    yaml:"app_id"`
-	Chat    *LarkChat        `bson:"chat"      json:"chat"      yaml:"chat"`
-	AtUsers []*lark.UserInfo `bson:"at_users"  json:"at_users"  yaml:"at_users"`
-	IsAtAll bool             `bson:"is_at_all" json:"is_at_all" yaml:"is_at_all"`
+	AppID             string              `bson:"app_id"              json:"app_id"              yaml:"app_id"`
+	Chat              *LarkChat           `bson:"chat"                json:"chat"                yaml:"chat"`
+	AtUsers           []*lark.UserInfo    `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type LarkPersonNotificationConfig struct {
-	AppID       string           `bson:"app_id"    json:"app_id"    yaml:"app_id"`
-	TargetUsers []*lark.UserInfo `bson:"target_users"  json:"target_users"  yaml:"target_users"`
+	AppID             string              `bson:"app_id"              json:"app_id"              yaml:"app_id"`
+	TargetUsers       []*lark.UserInfo    `bson:"target_users"        json:"target_users"        yaml:"target_users"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type LarkHookNotificationConfig struct {
-	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
-	AtUsers     []string `bson:"at_users"     json:"at_users"     yaml:"at_users"`
-	IsAtAll     bool     `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
+	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtUsers           []string            `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type WechatNotificationConfig struct {
-	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
-	AtUsers     []string `bson:"at_users"     json:"at_users"     yaml:"at_users"`
-	IsAtAll     bool     `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
+	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtUsers           []string            `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type DingDingNotificationConfig struct {
-	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
-	AtMobiles   []string `bson:"at_mobiles"   json:"at_mobiles"   yaml:"at_mobiles"`
-	IsAtAll     bool     `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
+	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtMobiles         []string            `bson:"at_mobiles"          json:"at_mobiles"          yaml:"at_mobiles"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type MSTeamsNotificationConfig struct {
-	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
-	AtEmails    []string `bson:"at_emails"    json:"at_emails"    yaml:"at_emails"`
+	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtEmails          []string            `bson:"at_emails"          json:"at_emails"           yaml:"at_emails"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients" json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type MailNotificationConfig struct {
-	TargetUsers []*User `bson:"target_users"  json:"target_users"  yaml:"target_users"`
+	TargetUsers       []*User             `bson:"target_users"        json:"target_users"        yaml:"target_users"`
+	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type WebhookNotificationConfig struct {
