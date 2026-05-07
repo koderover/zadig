@@ -526,6 +526,12 @@ EOF`,
 			mountPath = workflowCtx.Workspace
 		}
 
+		log.Infof("workflow job nfs cache mount: workflow=%s task_id=%d job=%s k8s_job=%s volume=%s pvc=%s sub_path=%s cache_dir_type=%s cache_user_dir=%s workspace=%s mount_path=%s cluster_id=%s namespace=%s",
+			workflowCtx.WorkflowName, workflowCtx.TaskID, jobTask.Name, jobName, volumeName,
+			jobTaskSpec.Properties.Cache.NFSProperties.PVC, jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
+			jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir, workflowCtx.Workspace,
+			mountPath, clusterID, currentNamespace)
+
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: mountPath,

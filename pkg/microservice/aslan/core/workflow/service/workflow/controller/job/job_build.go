@@ -495,6 +495,11 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
 			}
+			cacheObjectPath := getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule)
+			log.Infof("build job object cache download step: workflow=%s task_id=%d job=%s service=%s module=%s cache_dir_type=%s cache_user_dir=%s dest_dir=%s object_path=%s file_name=%s",
+				j.workflow.Name, taskID, jobTask.Name, build.ServiceName, build.ServiceModule,
+				jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir, cacheDir,
+				cacheObjectPath, setting.BuildOSSCacheFileName)
 			downloadArchiveStep := &commonmodels.StepTask{
 				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "download-archive"),
 				JobName:  jobTask.Name,
@@ -503,7 +508,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 					UnTar:      true,
 					IgnoreErr:  true,
 					FileName:   setting.BuildOSSCacheFileName,
-					ObjectPath: getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule),
+					ObjectPath: cacheObjectPath,
 					DestDir:    cacheDir,
 					S3:         modelToS3StepSpec(cacheS3),
 				},
@@ -630,6 +635,11 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
 			}
+			cacheObjectPath := getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule)
+			log.Infof("build job object cache upload step: workflow=%s task_id=%d job=%s service=%s module=%s cache_dir_type=%s cache_user_dir=%s tar_dir=%s object_path=%s file_name=%s",
+				j.workflow.Name, taskID, jobTask.Name, build.ServiceName, build.ServiceModule,
+				jobTaskSpec.Properties.CacheDirType, jobTaskSpec.Properties.CacheUserDir, cacheDir,
+				cacheObjectPath, setting.BuildOSSCacheFileName)
 			tarArchiveStep := &commonmodels.StepTask{
 				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "tar-archive"),
 				JobName:  jobTask.Name,
@@ -640,7 +650,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 					AbsResultDir: true,
 					TarDir:       cacheDir,
 					ChangeTarDir: true,
-					S3DestDir:    getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule),
+					S3DestDir:    cacheObjectPath,
 					IgnoreErr:    true,
 					S3Storage:    modelToS3StepSpec(cacheS3),
 				},

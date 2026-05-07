@@ -178,6 +178,11 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
 	}
 
+	c.logger.Infof("workflow job cache config: workflow=%s task_id=%d job=%s k8s_job=%s infrastructure=%s cache_enable=%v cache_medium=%s cache_dir_type=%s cache_user_dir=%s workspace=%s cluster_id=%s namespace=%s",
+		c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, c.job.Name, c.job.K8sJobName, c.job.Infrastructure,
+		c.jobTaskSpec.Properties.CacheEnable, c.jobTaskSpec.Properties.Cache.MediumType, c.jobTaskSpec.Properties.CacheDirType,
+		c.jobTaskSpec.Properties.CacheUserDir, c.workflowCtx.Workspace, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace)
+
 	crClient, _, apiServer, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
