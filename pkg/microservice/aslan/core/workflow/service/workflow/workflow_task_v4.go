@@ -673,6 +673,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("fill serviceModules to jobs error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+	workflowTask.GlobalContext = buildWorkflowTaskRuntimeContext(workflowTask)
 
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
@@ -702,6 +703,20 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 		notifyInputsMap[notifyInput.ID] = notifyInput
 	}
 
+	toDynamicRecipients := func(inputs []CreateCustomTaskDynamicRecipient) []*commonmodels.DynamicRecipient {
+		resp := make([]*commonmodels.DynamicRecipient, 0, len(inputs))
+		for _, input := range inputs {
+			if input.Value == "" {
+				continue
+			}
+			resp = append(resp, &commonmodels.DynamicRecipient{
+				Value:        input.Value,
+				IdentityType: input.IdentityType,
+			})
+		}
+		return resp
+	}
+
 	for i, notifyCtl := range notifyCtls {
 		notifyInput, ok := notifyInputsMap[i]
 		if ok && notifyCtl.WebHookType == notifyInput.Type {
@@ -717,9 +732,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.LarkHookNotificationConfig{
-					HookAddress: notifyCtl.LarkHookNotificationConfig.HookAddress,
-					AtUsers:     notifyInput.LarkHookNotificationConfig.AtUsers,
-					IsAtAll:     notifyInput.LarkHookNotificationConfig.IsAtAll,
+					HookAddress:       notifyCtl.LarkHookNotificationConfig.HookAddress,
+					AtUsers:           notifyInput.LarkHookNotificationConfig.AtUsers,
+					DynamicRecipients: toDynamicRecipients(notifyInput.LarkHookNotificationConfig.DynamicRecipients),
+					IsAtAll:           notifyInput.LarkHookNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.LarkHookNotificationConfig = config
@@ -730,7 +746,8 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.LarkPersonNotificationConfig{
-					AppID: notifyCtl.LarkPersonNotificationConfig.AppID,
+					AppID:             notifyCtl.LarkPersonNotificationConfig.AppID,
+					DynamicRecipients: toDynamicRecipients(notifyInput.LarkPersonNotificationConfig.DynamicRecipients),
 				}
 
 				targetUsers := make([]*larktool.UserInfo, 0)
@@ -752,7 +769,8 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.LarkGroupNotificationConfig{
-					AppID: notifyCtl.LarkGroupNotificationConfig.AppID,
+					AppID:             notifyCtl.LarkGroupNotificationConfig.AppID,
+					DynamicRecipients: toDynamicRecipients(notifyInput.LarkGroupNotificationConfig.DynamicRecipients),
 					Chat: &commonmodels.LarkChat{
 						ChatID: notifyInput.LarkGroupNotificationConfig.ChatID,
 					},
@@ -775,9 +793,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.WechatNotificationConfig{
-					HookAddress: notifyCtl.WechatNotificationConfig.HookAddress,
-					AtUsers:     notifyInput.WechatNotificationConfig.AtUsers,
-					IsAtAll:     notifyInput.WechatNotificationConfig.IsAtAll,
+					HookAddress:       notifyCtl.WechatNotificationConfig.HookAddress,
+					AtUsers:           notifyInput.WechatNotificationConfig.AtUsers,
+					DynamicRecipients: toDynamicRecipients(notifyInput.WechatNotificationConfig.DynamicRecipients),
+					IsAtAll:           notifyInput.WechatNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.WechatNotificationConfig = config
@@ -788,9 +807,10 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.DingDingNotificationConfig{
-					HookAddress: notifyCtl.DingDingNotificationConfig.HookAddress,
-					AtMobiles:   notifyInput.DingDingNotificationConfig.AtMobiles,
-					IsAtAll:     notifyInput.DingDingNotificationConfig.IsAtAll,
+					HookAddress:       notifyCtl.DingDingNotificationConfig.HookAddress,
+					AtMobiles:         notifyInput.DingDingNotificationConfig.AtMobiles,
+					DynamicRecipients: toDynamicRecipients(notifyInput.DingDingNotificationConfig.DynamicRecipients),
+					IsAtAll:           notifyInput.DingDingNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.DingDingNotificationConfig = config
@@ -801,8 +821,9 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.MSTeamsNotificationConfig{
-					HookAddress: notifyCtl.MSTeamsNotificationConfig.HookAddress,
-					AtEmails:    notifyInput.MSTeamsNotificationConfig.AtEmails,
+					HookAddress:       notifyCtl.MSTeamsNotificationConfig.HookAddress,
+					AtEmails:          notifyInput.MSTeamsNotificationConfig.AtEmails,
+					DynamicRecipients: toDynamicRecipients(notifyInput.MSTeamsNotificationConfig.DynamicRecipients),
 				}
 
 				notifyCtl.MSTeamsNotificationConfig = config
@@ -813,7 +834,8 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 				}
 
 				config := &commonmodels.MailNotificationConfig{
-					TargetUsers: make([]*commonmodels.User, 0),
+					TargetUsers:       make([]*commonmodels.User, 0),
+					DynamicRecipients: toDynamicRecipients(notifyInput.MailNotificationConfig.DynamicRecipients),
 				}
 
 				if len(notifyInput.MailNotificationConfig.Users) > 0 {
@@ -845,6 +867,34 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 		}
 	}
 	return notifyCtls
+}
+
+func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {
+	if task == nil || task.WorkflowArgs == nil {
+		return nil
+	}
+
+	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
+
+	resp := make(map[string]string, len(keyMap))
+	for key, value := range keyMap {
+		// Payload variables are resolved at task creation time and stored in RawPayload;
+		// they don't need to be persisted in GlobalContext (which would duplicate them in MongoDB).
+		if strings.HasPrefix(key, "payload.") {
+			continue
+		}
+		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
+	}
+	return resp
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -924,7 +974,16 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 
 	task.RetryNum++
 
-	globalKeyMap := make(map[string]string)
+	globalKeyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
@@ -976,6 +1035,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			globalKeyMap[key] = item.Value
 		}
 	}
+	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
 
 	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
@@ -1057,7 +1117,16 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return e.ErrCreateTask.AddErr(fmt.Errorf("save original jobs error: %v", err))
 	}
 
-	globalKeyMap := make(map[string]string)
+	globalKeyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
 
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
@@ -1130,6 +1199,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			globalKeyMap[key] = item.Value
 		}
 	}
+	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
 
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {

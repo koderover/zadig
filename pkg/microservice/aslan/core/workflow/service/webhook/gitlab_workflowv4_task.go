@@ -108,7 +108,9 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  gmem.event.ObjectAttributes.TargetBranch,
 		PR:            gmem.event.ObjectAttributes.IID,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -231,6 +233,8 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -268,12 +272,14 @@ func (gpem *gitlabTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
 
-func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// TODO: cache workflow
 	// 1. find configured workflow
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
@@ -370,6 +376,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					CommitID:       commitID,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
+					RawPayload:     rawPayload,
 				}
 			case *gitlab.PushEvent:
 				eventType = EventTypePush
@@ -387,11 +394,13 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					CommitID:   commitID,
 					CodehostID: eventRepo.CodehostID,
 					EventType:  eventType,
+					RawPayload: rawPayload,
 				}
 			case *gitlab.TagEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					EventType:  eventType,
+					RawPayload: rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

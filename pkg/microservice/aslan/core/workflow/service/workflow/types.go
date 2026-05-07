@@ -159,6 +159,11 @@ type CreateCustomTaskNotifyInput struct {
 	MailNotificationConfig *CreateCustomTaskMailNotificationConfig `json:"mail_notification_config"`
 }
 
+type CreateCustomTaskDynamicRecipient struct {
+	Value        string `json:"value"`
+	IdentityType string `json:"identity_type"`
+}
+
 type CreateCustomTaskLarkUserInfo struct {
 	ID string `json:"id"`
 	// 支持 open_id、user_id
@@ -170,36 +175,43 @@ type CreateCustomTaskLarkUserInfo struct {
 }
 
 type CreateCustomTaskLarkGroupNotificationConfig struct {
-	ChatID  string                         `json:"chat_id"`
-	AtUsers []CreateCustomTaskLarkUserInfo `json:"at_users"`
+	ChatID            string                             `json:"chat_id"`
+	AtUsers           []CreateCustomTaskLarkUserInfo     `json:"at_users"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
 }
 
 type CreateCustomTaskLarkPersonNotificationConfig struct {
-	Users []CreateCustomTaskLarkUserInfo `json:"users"`
+	Users             []CreateCustomTaskLarkUserInfo     `json:"users"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
 }
 
 type CreateCustomTaskLarkHookNotificationConfig struct {
-	AtUsers []string `json:"at_users"`
-	IsAtAll bool     `json:"is_at_all"`
+	AtUsers           []string                           `json:"at_users"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
+	IsAtAll           bool                               `json:"is_at_all"`
 }
 
 type CreateCustomTaskWechatNotificationConfig struct {
-	AtUsers []string `json:"at_users"`
-	IsAtAll bool     `json:"is_at_all"`
+	AtUsers           []string                           `json:"at_users"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
+	IsAtAll           bool                               `json:"is_at_all"`
 }
 
 type CreateCustomTaskDingDingNotificationConfig struct {
-	AtMobiles []string `json:"at_mobiles"`
-	IsAtAll   bool     `json:"is_at_all"`
+	AtMobiles         []string                           `json:"at_mobiles"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
+	IsAtAll           bool                               `json:"is_at_all"`
 }
 
 type CreateCustomTaskMSTeamsNotificationConfig struct {
-	AtEmails []string `json:"at_emails"`
+	AtEmails          []string                           `json:"at_emails"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
 }
 
 type CreateCustomTaskMailNotificationConfig struct {
-	UserIDs []string             `json:"user_ids"`
-	Users   []*commonmodels.User `json:"users"`
+	UserIDs           []string                           `json:"user_ids"`
+	Users             []*commonmodels.User               `json:"users"`
+	DynamicRecipients []CreateCustomTaskDynamicRecipient `json:"dynamic_recipients"`
 }
 
 type CreateCustomTaskParam struct {
