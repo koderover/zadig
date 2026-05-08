@@ -84,7 +84,12 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 	if err := os.MkdirAll(tempSnapshotDir, os.ModePerm); err != nil {
 		return s.handleErr(fmt.Errorf("create temp snapshot dir failed: %w", err))
 	}
-	if err := copyDirContent(ctx, s.spec.CacheDir, tempSnapshotDir); err != nil {
+	excludeNames, err := sharedCacheSnapshotArtifactNames(s.spec.CacheDir)
+	if err != nil {
+		_ = os.RemoveAll(tempSnapshotDir)
+		return s.handleErr(fmt.Errorf("list shared cache snapshot artifacts failed: %w", err))
+	}
+	if err := copyDirContentExclude(ctx, s.spec.CacheDir, tempSnapshotDir, excludeNames...); err != nil {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(err)
 	}

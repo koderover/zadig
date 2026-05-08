@@ -111,7 +111,14 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 		return nil
 	}
 
-	if err := copyDirContent(ctx, snapshotDir, s.spec.CacheDir); err != nil {
+	restoreDir, legacyWrapped, err := resolveSharedCacheSnapshotContentDir(snapshotDir, s.spec.CacheDir)
+	if err != nil {
+		return s.handleErr(fmt.Errorf("resolve snapshot content dir failed: %w", err))
+	}
+	if legacyWrapped {
+		log.Infof("Shared cache restore detected legacy wrapped snapshot layout, restoring content from %s.", restoreDir)
+	}
+	if err := copyDirContent(ctx, restoreDir, s.spec.CacheDir); err != nil {
 		return s.handleErr(err)
 	}
 	if err := writeSharedCacheRestoreMetadata(s.spec.MetadataFile, current.Version, true); err != nil {

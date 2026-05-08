@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -38,6 +38,8 @@ const (
 	sharedCacheMarkerTTL     = 2 * time.Hour
 	sharedCacheTempDirTTL    = 2 * time.Hour
 )
+
+var sharedCacheVersionNamePattern = regexp.MustCompile(`^task-\d+-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-[0-9a-fA-F]{16}$`)
 
 type sharedCacheCurrent struct {
 	Version         string `json:"version"`
@@ -119,19 +121,17 @@ func writeJSONAtomic(file string, obj interface{}) error {
 }
 
 func copyDirContent(ctx context.Context, src, dst string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
-		return err
-	}
-	cmd := exec.CommandContext(ctx, "cp", "-a", filepath.Join(src, "."), dst)
-	return cmd.Run()
+	return copyDirContentExclude(ctx, src, dst)
 }
 
 func copyDirContentExclude(ctx context.Context, src, dst string, excludes ...string) error {
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if nested, err := pathNested(src, dst); err != nil {
+		return err
+	} else if nested {
+		return fmt.Errorf("copy destination %s must not be inside source %s", dst, src)
 	}
 	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
 		return err
@@ -185,6 +185,22 @@ func copyDirContentExclude(ctx context.Context, src, dst string, excludes ...str
 		}
 		return os.Chtimes(target, info.ModTime(), info.ModTime())
 	})
+}
+
+func pathNested(parent, child string) (bool, error) {
+	parentAbs, err := filepath.Abs(parent)
+	if err != nil {
+		return false, err
+	}
+	childAbs, err := filepath.Abs(child)
+	if err != nil {
+		return false, err
+	}
+	rel, err := filepath.Rel(parentAbs, childAbs)
+	if err != nil {
+		return false, err
+	}
+	return rel != "." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && rel != "..", nil
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {
@@ -262,6 +278,35 @@ func isSharedCacheInternalDir(name string) bool {
 		}
 	}
 	return false
+}
+
+func resolveSharedCacheSnapshotContentDir(snapshotDir, cacheDir string) (string, bool, error) {
+	cacheDirName := filepath.Base(filepath.Clean(cacheDir))
+	if cacheDirName == "" || cacheDirName == "." || cacheDirName == string(os.PathSeparator) {
+		return snapshotDir, false, nil
+	}
+	entries, err := os.ReadDir(snapshotDir)
+	if err != nil {
+		return "", false, err
+	}
+	if len(entries) != 1 || !entries[0].IsDir() || entries[0].Name() != cacheDirName {
+		return snapshotDir, false, nil
+	}
+	return filepath.Join(snapshotDir, cacheDirName), true, nil
+}
+
+func sharedCacheSnapshotArtifactNames(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() && sharedCacheVersionNamePattern.MatchString(entry.Name()) {
+			names = append(names, entry.Name())
+		}
+	}
+	return names, nil
 }
 
 func createSharedCacheActiveMarker(storeDir, version, purpose string) (string, error) {
