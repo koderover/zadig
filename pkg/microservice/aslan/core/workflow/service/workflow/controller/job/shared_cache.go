@@ -31,8 +31,8 @@ import (
 	typesstep "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
-func getSharedCacheStoreDir(cacheKey string) string {
-	return path.Join(setting.SharedCacheStoreRoot, setting.SharedCacheStoreDataDir, cacheKey)
+func getSharedCacheStoreDir(cacheDir, cacheKey string) string {
+	return path.Join(cacheDir, setting.SharedCacheStoreDataDir, cacheKey)
 }
 
 func getSharedCacheMetadataFile(workflowName, jobName, cacheKey string) string {
@@ -74,8 +74,8 @@ func buildSharedCacheRestoreStep(stepName, workflowName, jobName, cacheDir, cach
 		StepType: config.StepSharedCacheRestore,
 		Spec: &typesstep.StepSharedCacheRestoreSpec{
 			CacheDir:             cacheDir,
-			StoreDir:             getSharedCacheStoreDir(cacheKey),
-			BootstrapDir:         setting.SharedCacheStoreRoot,
+			StoreDir:             getSharedCacheStoreDir(cacheDir, cacheKey),
+			BootstrapDir:         cacheDir,
 			MetadataFile:         getSharedCacheMetadataFile(workflowName, jobName, cacheKey),
 			Version:              getSharedCacheVersion(taskID, jobName),
 			LeaseName:            getSharedCachePublishLeaseName(cacheKey),
@@ -96,7 +96,7 @@ func buildSharedCachePublishStep(stepName, workflowName, jobName, cacheDir, cach
 		StepType: config.StepSharedCachePublish,
 		Spec: &typesstep.StepSharedCachePublishSpec{
 			CacheDir:             cacheDir,
-			StoreDir:             getSharedCacheStoreDir(cacheKey),
+			StoreDir:             getSharedCacheStoreDir(cacheDir, cacheKey),
 			MetadataFile:         getSharedCacheMetadataFile(workflowName, jobName, cacheKey),
 			Version:              getSharedCacheVersion(taskID, jobName),
 			LeaseName:            getSharedCachePublishLeaseName(cacheKey),
