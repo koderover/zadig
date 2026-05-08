@@ -48,9 +48,9 @@ func NewSharedCacheRestoreStep(spec interface{}) (*SharedCacheRestoreStep, error
 
 func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 	if s.spec.SkipContent {
-		log.Infof("Start recording shared cache base version from %s without restoring cache content.", s.spec.StoreDir)
+		log.Infof("Start recording shared cache base version from store dir %s for cache dir %s without restoring cache content.", s.spec.StoreDir, s.spec.CacheDir)
 	} else {
-		log.Infof("Start restoring shared cache from %s.", s.spec.StoreDir)
+		log.Infof("Start restoring shared cache from store dir %s to cache dir %s.", s.spec.StoreDir, s.spec.CacheDir)
 	}
 	if err := os.MkdirAll(s.spec.StoreDir, os.ModePerm); err != nil {
 		return s.handleErr(fmt.Errorf("create store dir failed: %w", err))

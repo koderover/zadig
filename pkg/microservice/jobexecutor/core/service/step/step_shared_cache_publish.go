@@ -48,7 +48,7 @@ func NewSharedCachePublishStep(spec interface{}) (*SharedCachePublishStep, error
 }
 
 func (s *SharedCachePublishStep) Run(ctx context.Context) error {
-	log.Infof("Start publishing shared cache to %s.", s.spec.StoreDir)
+	log.Infof("Start publishing shared cache from cache dir %s to store dir %s.", s.spec.CacheDir, s.spec.StoreDir)
 	if _, err := os.Stat(s.spec.CacheDir); err != nil {
 		if os.IsNotExist(err) {
 			log.Infof("Shared cache publish skipped because cache dir %s does not exist.", s.spec.CacheDir)
