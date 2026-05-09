@@ -315,7 +315,7 @@ const (
 	SharedCacheStoreRoot      = "/zadig/cache-store"
 	SharedCacheStoreDataDir   = ".zadig-shared-cache"
 	SharedCacheMetadataRoot   = "/tmp/zadig-cache-meta"
-	SharedCacheSnapshotRetain = 2
+	SharedCacheSnapshotRetain = 1
 )
 
 type DeliveryVersionType string
