@@ -125,13 +125,35 @@ func copyDirContent(ctx context.Context, src, dst string) error {
 }
 
 func copyDirContentExclude(ctx context.Context, src, dst string, excludes ...string) error {
+	return copyDirContentExcludeWithOptions(ctx, src, dst, false, excludes...)
+}
+
+func copyDirContentExcludeAllowNestedInExcludedDirs(ctx context.Context, src, dst string, excludes ...string) error {
+	return copyDirContentExcludeWithOptions(ctx, src, dst, true, excludes...)
+}
+
+func copyDirContentExcludeWithOptions(ctx context.Context, src, dst string, allowNestedUnderExcludes bool, excludes ...string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if nested, err := pathNested(src, dst); err != nil {
 		return err
 	} else if nested {
-		return fmt.Errorf("copy destination %s must not be inside source %s", dst, src)
+		allowed := false
+		if allowNestedUnderExcludes {
+			for _, exclude := range excludes {
+				excludeRoot := filepath.Join(src, exclude)
+				if under, err := pathNested(excludeRoot, dst); err != nil {
+					return err
+				} else if under {
+					allowed = true
+					break
+				}
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("copy destination %s must not be inside source %s", dst, src)
+		}
 	}
 	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
 		return err

@@ -62,19 +62,11 @@ func (s *SharedCacheRestoreStep) Run(ctx context.Context) error {
 	}
 	if !found {
 		if !s.spec.SkipContent {
-			bootstrapped, version, err := s.bootstrapFromExistingCacheDir(ctx, currentFile)
-			if err != nil {
-				return s.handleErr(fmt.Errorf("bootstrap shared cache from existing cache dir failed: %w", err))
-			}
-			if bootstrapped {
-				current, found, err = loadSharedCacheCurrent(currentFile)
-				if err != nil {
-					return s.handleErr(fmt.Errorf("reload current cache metadata failed: %w", err))
-				}
-				if !found {
-					return s.handleErr(fmt.Errorf("shared cache bootstrap finished with version %s but current metadata is still missing", version))
-				}
-				log.Infof("Shared cache initialized from existing cache dir %s with version %s.", s.spec.CacheDir, version)
+			if hasContent, err := dirHasContent(s.spec.CacheDir); err != nil {
+				return s.handleErr(fmt.Errorf("check cache dir content failed: %w", err))
+			} else if hasContent {
+				log.Infof("Shared cache current metadata does not exist, using existing cache dir %s content directly for cold start.", s.spec.CacheDir)
+				return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))
 			} else {
 				log.Infof("Shared cache restore skipped because current cache metadata does not exist.")
 				return s.handleErr(writeSharedCacheRestoreMetadata(s.spec.MetadataFile, "", false))

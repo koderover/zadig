@@ -89,7 +89,8 @@ func (s *SharedCachePublishStep) Run(ctx context.Context) error {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(fmt.Errorf("list shared cache snapshot artifacts failed: %w", err))
 	}
-	if err := copyDirContentExclude(ctx, s.spec.CacheDir, tempSnapshotDir, excludeNames...); err != nil {
+	excludeNames = append(excludeNames, sharedCacheInternalDirNames()...)
+	if err := copyDirContentExcludeAllowNestedInExcludedDirs(ctx, s.spec.CacheDir, tempSnapshotDir, excludeNames...); err != nil {
 		_ = os.RemoveAll(tempSnapshotDir)
 		return s.handleErr(err)
 	}
