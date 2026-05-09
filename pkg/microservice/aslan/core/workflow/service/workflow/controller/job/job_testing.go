@@ -736,7 +736,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
-	if sharedCacheEnabled {
+	if jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCacheRestoreStep(
 			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-restore"),
 			j.workflow.Name,
@@ -744,7 +744,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			sharedCacheDir,
 			sharedCacheKey,
 			taskID,
-			!jobTaskSpec.Properties.CacheEnable || ignoreSharedCacheRestore,
+			ignoreSharedCacheRestore,
 		))
 	}
 	// init download object cache step
@@ -912,7 +912,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 	}
 
 	// init object cache step
-	if objectCacheEnabled {
+	if jobTaskSpec.Properties.CacheEnable && objectCacheEnabled {
 		cacheDir := "/workspace"
 		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 			cacheDir = jobTaskSpec.Properties.CacheUserDir
@@ -934,7 +934,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
 	}
-	if sharedCacheEnabled {
+	if jobTaskSpec.Properties.CacheEnable && sharedCacheEnabled {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, buildSharedCachePublishStep(
 			fmt.Sprintf("%s-%s", testing.Name, "shared-cache-publish"),
 			j.workflow.Name,
