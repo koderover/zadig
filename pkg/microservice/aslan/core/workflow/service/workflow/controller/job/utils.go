@@ -246,6 +246,10 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.FilterRegexp = cv.FilterRegexp
 			item.CommitID = cv.CommitID
 			item.CommitMessage = cv.CommitMessage
+			item.AuthorName = cv.AuthorName
+			item.Committer = cv.Committer
+			item.TargetBranch = cv.TargetBranch
+			item.CheckoutRef = cv.CheckoutRef
 			item.SSHKey = cv.SSHKey
 			item.PrivateAccessToken = cv.PrivateAccessToken
 
