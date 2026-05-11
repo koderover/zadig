@@ -246,19 +246,7 @@ func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
-	keyMap := make(map[string]string)
-
-	insertKVs := func(kvs []*commonmodels.KeyVal) {
-		for _, kv := range kvs {
-			if kv == nil || kv.Key == "" || kv.GetValue() == "" {
-				continue
-			}
-			keyMap[kv.Key] = kv.GetValue()
-		}
-	}
-
-	insertKVs(c.workflowCtx.WorkflowKeyVals)
-	return keyMap
+	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
 }
 
 func renderNotificationStrings(inputs []string, keyMap map[string]string) []string {
@@ -537,6 +525,19 @@ func uniqMailUsers(users []*commonmodels.User) []*commonmodels.User {
 	return resp
 }
 
+func buildLarkAtMessage(idList []string, isAtAll bool) string {
+	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+	atUserList := make([]string, 0, len(idList))
+	for _, userID := range idList {
+		atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+	}
+	atMessage := strings.Join(atUserList, " ")
+	if isAtAll {
+		atMessage += "<at user_id=\"all\"></at>"
+	}
+	return atMessage
+}
+
 func renderNotificationString(input string, keyMap map[string]string) string {
 	if len(keyMap) == 0 || !strings.Contains(input, "{{.") {
 		return input
@@ -581,18 +582,8 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 
 	// then send @ message
 	if len(idList) > 0 || isAtAll {
-		atUserList := []string{}
-		idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range idList {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
-		}
-		atMessage := strings.Join(atUserList, " ")
-		if isAtAll {
-			atMessage += "<at user_id=\"all\"></at>"
-		}
-
 		larkAtMessage := &instantmessage.FeiShuMessage{
-			Text: atMessage,
+			Text: buildLarkAtMessage(idList, isAtAll),
 		}
 
 		atMessageContent, err := json.Marshal(larkAtMessage)
@@ -636,15 +627,7 @@ func sendLarkHookMessage(productName, workflowName, workflowDisplayName string, 
 		return nil
 	}
 
-	atUserList := make([]string, 0, len(idList))
-	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
-	for _, userID := range idList {
-		atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
-	}
-	atMessage := strings.Join(atUserList, " ")
-	if isAtAll {
-		atMessage += "<at user_id=\"all\"></at>"
-	}
+	atMessage := buildLarkAtMessage(idList, isAtAll)
 
 	if strings.Contains(uri, "bot/v2/hook") {
 		_, err := httpclient.New().Post(uri, httpclient.SetBody(&instantmessage.FeiShuMessageV2{
