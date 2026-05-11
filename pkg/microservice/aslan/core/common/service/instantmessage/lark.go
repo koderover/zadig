@@ -197,6 +197,10 @@ func (w *Service) sendFeishuMessage(uri string, lcMsg *LarkCard) error {
 	return err
 }
 
+func (w *Service) SendFeishuHookCard(uri string, lcMsg *LarkCard) error {
+	return w.sendFeishuMessage(uri, lcMsg)
+}
+
 func (w *Service) sendFeishuMessageFromClient(client *lark.Client, receiverType, receiverID, messageType, messageBody string) error {
 	err := client.SendMessage(receiverType, messageType, receiverID, messageBody)
 
@@ -226,6 +230,10 @@ func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) erro
 	}
 	_, err := w.SendMessageRequest(uri, message)
 	return err
+}
+
+func (w *Service) SendFeishuHookText(uri, content string) error {
+	return w.sendFeishuMessageOfSingleType("", uri, content)
 }
 
 func getColorTemplateWithStatus(status config.Status) string {
