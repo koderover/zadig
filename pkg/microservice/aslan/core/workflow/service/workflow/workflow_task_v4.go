@@ -906,8 +906,17 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 }
 
 func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {
-	if task == nil || task.WorkflowArgs == nil {
+	if task == nil {
 		return nil
+	}
+
+	resp := make(map[string]string)
+	for key, value := range task.GlobalContext {
+		resp[key] = value
+	}
+
+	if task.WorkflowArgs == nil {
+		return resp
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
@@ -921,7 +930,6 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 		time.Unix(task.StartTime, 0),
 	))
 
-	resp := make(map[string]string, len(keyMap))
 	for key, value := range keyMap {
 		// Payload variables are resolved at task creation time and stored in RawPayload;
 		// they don't need to be persisted in GlobalContext (which would duplicate them in MongoDB).
