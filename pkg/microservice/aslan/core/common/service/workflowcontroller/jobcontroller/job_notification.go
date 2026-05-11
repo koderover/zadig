@@ -565,7 +565,7 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 		productName,
 		workflowName,
 		taskID,
-		workflowDisplayName,
+		url.QueryEscape(workflowDisplayName),
 	)
 	card.AddI18NElementsZhcnAction("点击查看更多信息", url)
 
@@ -611,15 +611,12 @@ func sendLarkHookMessage(productName, workflowName, workflowDisplayName string, 
 		productName,
 		workflowName,
 		taskID,
-		workflowDisplayName,
+		url.QueryEscape(workflowDisplayName),
 	)
 	card.AddI18NElementsZhcnAction("点击查看更多信息", detailURL)
 
-	messageReq := instantmessage.LarkCardReq{
-		MsgType: "interactive",
-		Card:    card,
-	}
-	if _, err := httpclient.New().Post(uri, httpclient.SetBody(messageReq)); err != nil {
+	imService := instantmessage.NewWeChatClient()
+	if err := imService.SendFeishuHookCard(uri, card); err != nil {
 		return err
 	}
 
@@ -628,20 +625,7 @@ func sendLarkHookMessage(productName, workflowName, workflowDisplayName string, 
 	}
 
 	atMessage := buildLarkAtMessage(idList, isAtAll)
-
-	if strings.Contains(uri, "bot/v2/hook") {
-		_, err := httpclient.New().Post(uri, httpclient.SetBody(&instantmessage.FeiShuMessageV2{
-			MsgType: "text",
-			Content: instantmessage.FeiShuContentV2{Text: atMessage},
-		}))
-		return err
-	}
-
-	_, err := httpclient.New().Post(uri, httpclient.SetBody(&instantmessage.FeiShuMessage{
-		Title: "",
-		Text:  atMessage,
-	}))
-	return err
+	return imService.SendFeishuHookText(uri, atMessage)
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
