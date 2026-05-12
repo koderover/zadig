@@ -174,6 +174,8 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) GetHookRepo(hookRepo *
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		TargetBranch:  hookRepo.Branch,
+		CommitID:      gruem.Event.NewRev,
+		CommitMessage: gruem.Event.Change.CommitMessage,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -227,6 +229,8 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) GetHookRepo(hookRep
 		Branch:        hookRepo.Branch,
 		TargetBranch:  hookRepo.Branch,
 		PR:            gpcem.Event.Change.Number,
+		CommitID:      gpcem.Event.PatchSet.Revision,
+		CommitMessage: gpcem.Event.Change.CommitMessage,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
