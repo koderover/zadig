@@ -19,6 +19,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -97,14 +99,15 @@ func (c *Client) getParams() (*input, error) {
 	}, nil
 }
 
-// watchTokenFile monitors the token file for changes and cancels the context when the token changes.
-// This forces a reconnection with fresh credentials.
+// watchTokenFile monitors the token file for changes and validates the active token
+// against the Kubernetes API server. It only forces a reconnection when the active
+// token is no longer accepted (HTTP 401), avoiding unnecessary disconnects during
+// token rotation grace periods.
 func (c *Client) watchTokenFile(ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	// Read initial token content
-	lastToken, err := ioutil.ReadFile(c.TokenPath)
+	activeToken, err := ioutil.ReadFile(c.TokenPath)
 	if err != nil {
 		c.logger.Warnf("Failed to read initial token for watching: %v", err)
 		return
@@ -121,14 +124,65 @@ func (c *Client) watchTokenFile(ctx context.Context, cancel context.CancelFunc) 
 				continue
 			}
 
-			if !bytes.Equal(lastToken, currentToken) {
-				c.logger.Infof("Token file changed, triggering reconnection to update credentials")
-				lastToken = currentToken
-				cancel() // Cancel the current connection context to force reconnection
-				return
+			if bytes.Equal(activeToken, currentToken) {
+				continue
 			}
+
+			c.logger.Infof("Token file changed, validating whether active token is still accepted by API server")
+
+			if c.isTokenValidForAPIServer(ctx, strings.TrimSpace(string(activeToken))) {
+				c.logger.Infof("Active token is still valid, deferring reconnection")
+				continue
+			}
+
+			c.logger.Infof("Active token is no longer valid, triggering reconnection with fresh credentials")
+			cancel()
+			return
 		}
 	}
+}
+
+// isTokenValidForAPIServer makes a lightweight request to the Kubernetes API server
+// to check whether the given bearer token is still accepted. Returns false on 401/403,
+// true otherwise (including on network/TLS errors, to avoid spurious reconnections).
+func (c *Client) isTokenValidForAPIServer(ctx context.Context, token string) bool {
+	caCert, err := ioutil.ReadFile(c.CaPath)
+	if err != nil {
+		c.logger.Warnf("Failed to read CA cert for token validation: %v", err)
+		return true
+	}
+
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(caCert)
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: pool,
+			},
+		},
+	}
+
+	apiURL := fmt.Sprintf("https://%s:%s/api", c.ServiceHost, c.ServicePort)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		c.logger.Warnf("Failed to create token validation request: %v", err)
+		return true
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.logger.Warnf("Token validation request failed: %v", err)
+		return true
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return false
+	}
+	return true
 }
 
 func Init(ctx context.Context) error {
