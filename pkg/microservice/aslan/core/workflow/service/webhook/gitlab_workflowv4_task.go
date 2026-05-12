@@ -110,6 +110,8 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		Branch:        hookRepo.Branch,
 		TargetBranch:  gmem.event.ObjectAttributes.TargetBranch,
 		PR:            gmem.event.ObjectAttributes.IID,
+		CommitID:      gmem.event.ObjectAttributes.LastCommit.ID,
+		CommitMessage: gmem.event.ObjectAttributes.Title,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -227,6 +229,10 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Ma
 }
 
 func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	commitMessage := ""
+	if len(gpem.event.Commits) > 0 {
+		commitMessage = gpem.event.Commits[len(gpem.event.Commits)-1].Message
+	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
@@ -234,6 +240,8 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		TargetBranch:  hookRepo.Branch,
+		CommitID:      gpem.event.After,
+		CommitMessage: commitMessage,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
