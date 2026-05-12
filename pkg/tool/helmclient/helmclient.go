@@ -1016,6 +1016,13 @@ func (hClient *HelmClient) Clone() (*HelmClient, error) {
 	return ret, nil
 }
 
+func (hClient *HelmClient) GetKubeClient() (client.Client, error) {
+	if hClient.kubeClient == nil {
+		return nil, fmt.Errorf("kubeClient is not initialized")
+	}
+	return hClient.kubeClient, nil
+}
+
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client.
 func mergeInstallOptions(chartSpec *hc.ChartSpec, installOptions *action.Install) {
 	installOptions.CreateNamespace = chartSpec.CreateNamespace
