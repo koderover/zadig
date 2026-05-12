@@ -986,6 +986,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
+		rederedYaml = kube.ParseSysKeys(request.Namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
 
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)
