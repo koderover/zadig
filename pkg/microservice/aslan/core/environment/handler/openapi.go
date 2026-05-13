@@ -1748,7 +1748,7 @@ func openAPIListPodsInfo(c *gin.Context, production bool) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListPodsInfo(projectName, envName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListPodsInfo(projectName, envName, production, ctx.Logger)
 }
 
 // OpenAPIGetPodDetailInfo gets pod details in a non-production environment.
@@ -1819,7 +1819,7 @@ func openAPIGetPodDetailInfo(c *gin.Context, production bool) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetPodDetailInfo(projectName, envName, podName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetPodDetailInfo(projectName, envName, podName, production, ctx.Logger)
 }
 
 // OpenAPIRestartPod restarts a single pod in a non-production environment.

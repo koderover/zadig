@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"maps"
 	"fmt"
 	"strings"
 
@@ -145,6 +146,81 @@ func OpenAPIRestartService(projectName, envName, serviceName string, production 
 		ServiceName: serviceName,
 	}
 	return RestartService(envName, args, production, logger)
+}
+
+func OpenAPIListPodsInfo(projectName, envName string, production bool, logger *zap.SugaredLogger) ([]*OpenAPIListPodInfo, error) {
+	pods, err := ListPodsInfo(projectName, envName, production, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*OpenAPIListPodInfo, 0, len(pods))
+	for _, pod := range pods {
+		resp = append(resp, &OpenAPIListPodInfo{
+			Name:       pod.Name,
+			Ready:      pod.Ready,
+			Status:     pod.Status,
+			Images:     append([]string{}, pod.Images...),
+			CreateTime: pod.CreateTime,
+		})
+	}
+
+	return resp, nil
+}
+
+func OpenAPIGetPodDetailInfo(projectName, envName, podName string, production bool, logger *zap.SugaredLogger) (*OpenAPIPodDetail, error) {
+	podDetail, err := GetPodDetailInfo(projectName, envName, podName, production, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &OpenAPIPodDetail{
+		Kind:                 podDetail.Kind,
+		Name:                 podDetail.Name,
+		Status:               podDetail.Status,
+		Age:                  podDetail.Age,
+		CreateTime:           podDetail.CreateTime,
+		IP:                   podDetail.IP,
+		NodeName:             podDetail.NodeName,
+		HostIP:               podDetail.HostIP,
+		EnableDebugContainer: podDetail.EnableDebugContainer,
+		PodReady:             podDetail.PodReady,
+		ContainersReady:      podDetail.ContainersReady,
+		ContainersMessage:    podDetail.ContainersMessage,
+		Labels:               map[string]string{},
+		Containers:           make([]*OpenAPIPodContainer, 0, len(podDetail.Containers)),
+	}
+
+	maps.Copy(resp.Labels, podDetail.Labels)
+
+	for _, container := range podDetail.Containers {
+		respContainer := &OpenAPIPodContainer{
+			Name:         container.Name,
+			Image:        container.Image,
+			RestartCount: container.RestartCount,
+			Status:       container.Status,
+			Ready:        container.Ready,
+			Message:      container.Message,
+			Reason:       container.Reason,
+			StartedAt:    container.StartedAt,
+			FinishedAt:   container.FinishedAt,
+			Ports:        make([]*OpenAPIPodPort, 0, len(container.Ports)),
+		}
+
+		for _, port := range container.Ports {
+			respContainer.Ports = append(respContainer.Ports, &OpenAPIPodPort{
+				Name:          port.Name,
+				HostPort:      port.HostPort,
+				ContainerPort: port.ContainerPort,
+				Protocol:      string(port.Protocol),
+				HostIP:        port.HostIP,
+			})
+		}
+
+		resp.Containers = append(resp.Containers, respContainer)
+	}
+
+	return resp, nil
 }
 
 func OpenAPIGetGlobalVariables(projectName, envName string, production bool, logger *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, error) {

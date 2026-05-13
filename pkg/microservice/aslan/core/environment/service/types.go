@@ -530,6 +530,52 @@ type OpenAPIEnvDetail struct {
 	Status          string                            `json:"status"`
 }
 
+type OpenAPIListPodInfo struct {
+	Name       string   `json:"name"`
+	Ready      string   `json:"ready"`
+	Status     string   `json:"status"`
+	Images     []string `json:"images"`
+	CreateTime int64    `json:"create_time"`
+}
+
+type OpenAPIPodDetail struct {
+	Kind                 string                `json:"kind"`
+	Name                 string                `json:"name"`
+	Status               string                `json:"status"`
+	Age                  string                `json:"age"`
+	CreateTime           int64                 `json:"createtime"`
+	IP                   string                `json:"ip"`
+	Labels               map[string]string     `json:"labels"`
+	Containers           []*OpenAPIPodContainer `json:"containers"`
+	NodeName             string                `json:"node_name"`
+	HostIP               string                `json:"host_ip"`
+	EnableDebugContainer bool                  `json:"enable_debug_container"`
+	PodReady             bool                  `json:"pod_ready"`
+	ContainersReady      bool                  `json:"containers_ready"`
+	ContainersMessage    string                `json:"containers_message"`
+}
+
+type OpenAPIPodContainer struct {
+	Name         string           `json:"name"`
+	Image        string           `json:"image"`
+	RestartCount int32            `json:"restart_count"`
+	Status       string           `json:"status"`
+	Ready        bool             `json:"ready"`
+	Ports        []*OpenAPIPodPort `json:"ports"`
+	Message      string           `json:"message"`
+	Reason       string           `json:"reason"`
+	StartedAt    int64            `json:"started_at,omitempty"`
+	FinishedAt   int64            `json:"finished_at,omitempty"`
+}
+
+type OpenAPIPodPort struct {
+	Name          string `json:"name,omitempty"`
+	HostPort      int32  `json:"hostPort,omitempty"`
+	ContainerPort int32  `json:"containerPort"`
+	Protocol      string `json:"protocol,omitempty"`
+	HostIP        string `json:"hostIP,omitempty"`
+}
+
 type EnvBasicInfoArgs struct {
 	RegistryID string `json:"registry_id"`
 	Alias      string `json:"env_name"`
