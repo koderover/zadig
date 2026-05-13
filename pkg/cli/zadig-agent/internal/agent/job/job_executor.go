@@ -158,7 +158,9 @@ func (e *JobExecutor) InitWorkDirectory() error {
 	// check the job whether job use cache and init workspace by cache
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
 		cacheDest := filepath.Dir(e.Dirs.Workspace)
+		copyContents := false
 		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+			copyContents = true
 			cacheDest = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
 			cacheDest = strings.ReplaceAll(cacheDest, "${WORKSPACE}", e.Dirs.Workspace)
 			if !filepath.IsAbs(cacheDest) {
@@ -168,7 +170,7 @@ func (e *JobExecutor) InitWorkDirectory() error {
 		if err := os.MkdirAll(cacheDest, os.ModePerm); err != nil {
 			return fmt.Errorf("failed to create cache restore directory %s, error: %v", cacheDest, err)
 		}
-		ReadCache(*e.Job, cacheDest, e.Dirs.CacheDir, log.GetSimpleLogger())
+		ReadCache(*e.Job, cacheDest, e.Dirs.CacheDir, copyContents, log.GetSimpleLogger())
 	}
 
 	// ------------------------------------------- init agent job log tmp dir -------------------------------------------
@@ -330,7 +332,9 @@ func (e *JobExecutor) AfterExecute() error {
 	// -------------------------------------------------- save job cache ------------------------------------------------
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
 		src := e.Dirs.Workspace
+		copyContents := false
 		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+			copyContents = true
 			src = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
 			src = strings.ReplaceAll(src, "${WORKSPACE}", e.Dirs.Workspace)
 			if !filepath.IsAbs(src) {
@@ -349,7 +353,7 @@ func (e *JobExecutor) AfterExecute() error {
 		} else {
 			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName)
 		}
-		WriteCache(*e.Job, src, cachePath, log.GetSimpleLogger())
+		WriteCache(*e.Job, src, cachePath, copyContents, log.GetSimpleLogger())
 	}
 
 	// ------------------------------------------------ report all job log ----------------------------------------------
