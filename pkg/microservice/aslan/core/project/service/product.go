@@ -985,6 +985,7 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 	return ret, nil
 }
 
+// TOdo:fix bug -- image update rules clear all no error
 func UpdateCustomMatchRules(productName, userName, requestID string, matchRules []*ImageParseData) error {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
@@ -995,16 +996,18 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 	if len(matchRules) == 0 {
 		return errors.New("match rules can't be empty")
 	}
-	haveInUse := false
-	for _, rule := range matchRules {
-		if rule.InUse {
-			haveInUse = true
-			break
-		}
-	}
-	if !haveInUse {
-		return errors.New("no rule is selected to be used")
-	}
+
+	// haveInUse := false
+	// for _, rule := range matchRules {
+	// 	if rule.InUse {
+	// 		haveInUse = true
+	// 		break
+	// 	}
+	// }
+	// if !haveInUse {
+	// 	// be triggered by user bug point
+	// 	return errors.New("no rule is selected to be used")
+	// }
 
 	imageRulesToSave := make([]*template.ImageSearchingRule, 0)
 	for _, singleData := range matchRules {
