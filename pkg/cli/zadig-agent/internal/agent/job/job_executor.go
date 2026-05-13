@@ -320,7 +320,8 @@ func (e *JobExecutor) AfterExecute() error {
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
 		src := e.Dirs.Workspace
 		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			src = e.JobCtx.Cache.CacheUserDir
+			src = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
+			src = strings.ReplaceAll(src, "${WORKSPACE}", e.Dirs.Workspace)
 			if !filepath.IsAbs(src) {
 				src = filepath.Join(e.Dirs.Workspace, src)
 			}
