@@ -157,7 +157,18 @@ func (e *JobExecutor) InitWorkDirectory() error {
 
 	// check the job whether job use cache and init workspace by cache
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
-		ReadCache(*e.Job, filepath.Dir(e.Dirs.Workspace), e.Dirs.CacheDir, log.GetSimpleLogger())
+		cacheDest := filepath.Dir(e.Dirs.Workspace)
+		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+			cacheDest = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
+			cacheDest = strings.ReplaceAll(cacheDest, "${WORKSPACE}", e.Dirs.Workspace)
+			if !filepath.IsAbs(cacheDest) {
+				cacheDest = filepath.Join(e.Dirs.Workspace, cacheDest)
+			}
+		}
+		if err := os.MkdirAll(cacheDest, os.ModePerm); err != nil {
+			return fmt.Errorf("failed to create cache restore directory %s, error: %v", cacheDest, err)
+		}
+		ReadCache(*e.Job, cacheDest, e.Dirs.CacheDir, log.GetSimpleLogger())
 	}
 
 	// ------------------------------------------- init agent job log tmp dir -------------------------------------------
