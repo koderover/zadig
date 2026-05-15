@@ -186,6 +186,9 @@ func getTaskDateMap(productName string, startTimestamp int64) (map[string][]inte
 		if err := v4Cursor.Decode(&workflowTask); err != nil {
 			return taskDateMap, fmt.Errorf("decode workflow v4 task err:%v", err)
 		}
+		if workflowTask.IsDebug {
+			continue
+		}
 		time := time.Unix(workflowTask.CreateTime, 0)
 		date := time.Format(config.Date)
 		if _, isExist := taskDateMap[date]; isExist {

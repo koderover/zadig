@@ -32,6 +32,8 @@ type JobInfo struct {
 	StartTime int64  `bson:"start_time" json:"start_time"`
 	EndTime   int64  `bson:"end_time" json:"end_time"`
 	Duration  int64  `bson:"duration" json:"duration"`
+	// IsDebug marks if the job belongs to a debug workflow run.
+	IsDebug bool `bson:"is_debug" json:"is_debug"`
 	// ServiceType, ServiceName and ServiceModule are used exclusively for build & deploy jobs
 	ServiceType   string `bson:"service_type" json:"service_type"`
 	ServiceName   string `bson:"service_name" json:"service_name"`

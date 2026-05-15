@@ -682,7 +682,7 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
 						logContent := fmt.Sprintf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
 						jobLogManager.SaveJobLog(logContent)
-						return fmt.Errorf(logContent)
+						return fmt.Errorf("%s", logContent)
 					}
 				}
 			}
@@ -933,6 +933,7 @@ func (c *DeployJobCtl) SaveInfo(ctx context.Context) error {
 		EndTime:             c.job.EndTime,
 		Duration:            c.job.EndTime - c.job.StartTime,
 		Status:              string(c.job.Status),
+		IsDebug:             c.workflowCtx.IsDebug,
 
 		ServiceType:   c.jobTaskSpec.ServiceType,
 		ServiceName:   c.jobTaskSpec.ServiceName,

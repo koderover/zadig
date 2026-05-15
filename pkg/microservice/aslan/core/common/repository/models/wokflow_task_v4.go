@@ -859,6 +859,7 @@ type WorkflowTaskCtx struct {
 	WorkflowDisplayName         string
 	ProjectName                 string
 	ProjectDisplayName          string
+	IsDebug                     bool
 	TaskID                      int64
 	Remark                      string
 	RetryNum                    int
