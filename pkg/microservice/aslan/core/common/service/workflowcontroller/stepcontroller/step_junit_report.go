@@ -74,6 +74,9 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 	if s.junitReportSpec.TestName == "" {
 		return nil
 	}
+	if s.workflowCtx.IsDebug {
+		return nil
+	}
 	var testTaskStat *commonmodels.TestTaskStat
 	var isNew bool
 	testTaskStat, _ = commonrepo.NewTestTaskStatColl().FindTestTaskStat(&commonrepo.TestTaskStatOption{Name: s.junitReportSpec.TestName})

@@ -327,6 +327,7 @@ func (c *RestartJobCtl) SaveInfo(ctx context.Context) error {
 		EndTime:             c.job.EndTime,
 		Duration:            c.job.EndTime - c.job.StartTime,
 		Status:              string(c.job.Status),
+		IsDebug:             c.workflowCtx.IsDebug,
 
 		ServiceType: c.jobTaskSpec.DeployType,
 		ServiceName: c.jobTaskSpec.ServiceName,

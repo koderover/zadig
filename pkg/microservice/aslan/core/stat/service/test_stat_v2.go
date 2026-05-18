@@ -144,6 +144,9 @@ func GetRecentTestTask(projects []string, number int, logger *zap.SugaredLogger)
 	// Build response
 	recentTasks := make([]*RecentTestTask, 0, len(workflowTasks))
 	for _, task := range workflowTasks {
+		if task.IsDebug {
+			continue
+		}
 		// Extract test name from workflow display name
 		testName := task.WorkflowDisplayName
 		if testName == "" && task.WorkflowArgs != nil {
