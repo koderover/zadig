@@ -29,6 +29,8 @@ import (
 	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"github.com/pkg/errors"
 	istioClient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	metricsV1Beta1 "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	controllerRuntimeCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	controllerRuntimeCluster "sigs.k8s.io/controller-runtime/pkg/cluster"
 
@@ -332,13 +335,16 @@ func (cm *KubeClientManager) GetInformer(clusterID, namespace string) (informers
 		return client.(informers.SharedInformerFactory), nil
 	}
 
-	opts := informers.WithNamespace(namespace)
+	opts := []informers.SharedInformerOption{
+		informers.WithNamespace(namespace),
+		informers.WithTransform(controllerRuntimeCache.TransformStripManagedFields()),
+	}
 	clientset, err := cm.GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, err
 	}
 
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientset, time.Minute, opts)
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientset, time.Minute, opts...)
 	// register the resources to be watched
 	informerFactory.Apps().V1().Deployments().Lister()
 	informerFactory.Apps().V1().StatefulSets().Lister()
@@ -626,6 +632,14 @@ func createControllerRuntimeCluster(restConfig *rest.Config) (controllerRuntimeC
 
 	c, err := controllerRuntimeCluster.New(restConfig, func(clusterOptions *controllerRuntimeCluster.Options) {
 		clusterOptions.Scheme = scheme
+		clusterOptions.Cache.DefaultTransform = controllerRuntimeCache.TransformStripManagedFields()
+		clusterOptions.Client.Cache = &controllerRuntimeClient.CacheOptions{
+			DisableFor: []controllerRuntimeClient.Object{
+				&corev1.Secret{},
+				&corev1.Event{},
+				&appsv1.ReplicaSet{},
+			},
+		}
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to init client")
