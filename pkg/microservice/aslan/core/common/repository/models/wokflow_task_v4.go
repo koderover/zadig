@@ -860,6 +860,7 @@ type WorkflowTaskCtx struct {
 	WorkflowDisplayName         string
 	ProjectName                 string
 	ProjectDisplayName          string
+	ReleasePlan                 *ReleasePlanRef
 	TaskID                      int64
 	Remark                      string
 	RetryNum                    int
