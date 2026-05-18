@@ -37,9 +37,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/distribution/reference"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -323,6 +323,7 @@ func (c *authClient) validateRegistry() (err error) {
 	return nil
 }
 
+// https://docs.docker.com/reference/api/registry/auth/
 func (c *authClient) validateRegistryHttp() error {
 	// 1. 首先检查 registry 是否支持 v2 API
 	baseURL := strings.TrimSuffix(c.endpoint.Addr, "/") + "/v2/"
@@ -425,18 +426,23 @@ func (c *authClient) getAuthToken(authHeader string) (string, error) {
 
 	// 解析 token 响应
 	var tokenResp struct {
-		Token string `json:"token"`
+		Token       string `json:"token"`
+		AccessToken string `json:"access_token"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
 		return "", errors.Wrapf(err, "failed to decode token response")
 	}
 
-	if tokenResp.Token == "" {
-		return "", errors.New("empty token in response")
+	if tokenResp.Token != "" {
+		return tokenResp.Token, nil
 	}
 
-	return tokenResp.Token, nil
+	if tokenResp.AccessToken != "" {
+		return tokenResp.AccessToken, nil
+	}
+
+	return "", errors.New("empty token in response")
 }
 
 // parseAuthHeader 解析认证头（参考测试项目的实现）
