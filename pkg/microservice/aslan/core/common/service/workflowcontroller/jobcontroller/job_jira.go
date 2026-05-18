@@ -117,6 +117,5 @@ func (c *JiraJobCtl) SaveInfo(ctx context.Context) error {
 		EndTime:             c.job.EndTime,
 		Duration:            c.job.EndTime - c.job.StartTime,
 		Status:              string(c.job.Status),
-		IsDebug:             c.workflowCtx.IsDebug,
 	})
 }
