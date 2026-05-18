@@ -352,6 +352,7 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 		if err := cursor.Decode(&workflowTask); err != nil {
 			return nil, fmt.Errorf("decode workflow v4 task err:%v", err)
 		}
+		// 过滤掉debug tag任务
 		if workflowTask.IsDebug {
 			continue
 		}

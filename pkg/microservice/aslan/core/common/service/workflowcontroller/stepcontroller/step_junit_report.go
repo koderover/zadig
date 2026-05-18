@@ -74,6 +74,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 	if s.junitReportSpec.TestName == "" {
 		return nil
 	}
+	// 过滤掉debug tag任务
 	if s.workflowCtx.IsDebug {
 		return nil
 	}
