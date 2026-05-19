@@ -1002,16 +1002,6 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 	if len(matchRules) == 0 {
 		return errors.New("match rules can't be empty")
 	}
-	haveInUse := false
-	for _, rule := range matchRules {
-		if rule.InUse {
-			haveInUse = true
-			break
-		}
-	}
-	if !haveInUse {
-		return errors.New("no rule is selected to be used")
-	}
 
 	imageRulesToSave := make([]*template.ImageSearchingRule, 0)
 	for _, singleData := range matchRules {
