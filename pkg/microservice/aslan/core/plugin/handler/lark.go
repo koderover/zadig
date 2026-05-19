@@ -187,12 +187,12 @@ func UpdateLarkWorkflowConfig(c *gin.Context) {
 		return
 	}
 
-	// err = CheckLarkAuth(c, ctx)
-	// if err != nil {
-	// 	ctx.RespErr = err
-	// 	ctx.UnAuthorized = true
-	// 	return
-	// }
+	err = CheckLarkAuth(c, ctx)
+	if err != nil {
+		ctx.RespErr = err
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := new(service.UpdateLarkWorkflowConfigRequest)
 	if err := c.BindJSON(req); err != nil {
