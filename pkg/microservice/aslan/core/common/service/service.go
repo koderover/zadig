@@ -1422,7 +1422,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			return nil, err
 		}
 		// 渲染系统变量键值
-		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, env.ClusterID, parsedYaml)
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
