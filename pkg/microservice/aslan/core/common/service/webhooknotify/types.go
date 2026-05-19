@@ -62,6 +62,7 @@ type WorkflowNotify struct {
 	ProjectDisplayName  string                        `json:"project_display_name"`
 	WorkflowName        string                        `json:"workflow_name"`
 	WorkflowDisplayName string                        `json:"workflow_display_name"`
+	ReleasePlan         *commonmodels.ReleasePlanRef  `json:"release_plan,omitempty"`
 	Status              config.Status                 `json:"status"`
 	Remark              string                        `json:"remark"`
 	DetailURL           string                        `json:"detail_url"`
