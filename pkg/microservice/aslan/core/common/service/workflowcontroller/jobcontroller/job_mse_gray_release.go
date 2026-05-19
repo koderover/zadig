@@ -101,12 +101,14 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(clusterID, c.namespace)
+	var releaseInformer func()
+	c.informer, releaseInformer, err = clientmanager.NewKubeClientManager().AcquireInformer(clusterID, c.namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
+	defer releaseInformer()
 
 	resources := make([]*unstructured.Unstructured, 0)
 	service := c.jobTaskSpec.GrayService

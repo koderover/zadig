@@ -97,12 +97,14 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(clusterID, c.jobTaskSpec.Namespace)
+	var releaseInformer func()
+	c.informer, releaseInformer, err = clientmanager.NewKubeClientManager().AcquireInformer(clusterID, c.jobTaskSpec.Namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
+	defer releaseInformer()
 	selector := labels.Set{
 		types.ZadigReleaseTypeLabelKey:    types.ZadigReleaseTypeMseGray,
 		types.ZadigReleaseVersionLabelKey: c.jobTaskSpec.GrayTag,
