@@ -933,7 +933,6 @@ func (c *DeployJobCtl) SaveInfo(ctx context.Context) error {
 		EndTime:             c.job.EndTime,
 		Duration:            c.job.EndTime - c.job.StartTime,
 		Status:              string(c.job.Status),
-		IsDebug:             c.workflowCtx.IsDebug,
 
 		ServiceType:   c.jobTaskSpec.ServiceType,
 		ServiceName:   c.jobTaskSpec.ServiceName,

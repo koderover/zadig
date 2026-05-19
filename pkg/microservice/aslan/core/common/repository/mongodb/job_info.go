@@ -69,7 +69,6 @@ func (c *JobInfoColl) Create(ctx context.Context, args *models.JobInfo) error {
 
 func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["production"] = true
 	query["type"] = bson.M{"$in": []string{
@@ -95,7 +94,6 @@ func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectN
 
 func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = config.JobZadigTesting
 
@@ -116,7 +114,6 @@ func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) 
 
 func (c *JobInfoColl) GetTestJobsByWorkflow(workflowName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	query["workflow_name"] = workflowName
 	query["type"] = config.JobZadigTesting
 
@@ -133,7 +130,6 @@ func (c *JobInfoColl) GetTestJobsByWorkflow(workflowName string) ([]*models.JobI
 
 func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = config.JobZadigBuild
 
@@ -154,7 +150,6 @@ func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string)
 
 func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames []string) (*models.ServiceDeployCountWithStatus, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	if startTime > 0 && endTime > 0 {
 		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	}
@@ -221,7 +216,6 @@ func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames [
 
 func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectNames []string, productionType config.ProductionType) ([]*models.JobInfo, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = bson.M{"$in": []string{
 		string(config.JobZadigDeploy),
@@ -260,7 +254,6 @@ func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectNames []str
 
 func (c *JobInfoColl) GetDeployJobsStats(startTime, endTime int64, projectNames []string, productionType config.ProductionType) ([]*models.ServiceDeployCountWithStatus, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	if startTime > 0 && endTime > 0 {
 		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	}
@@ -353,7 +346,6 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 		}},
 		"service_name": bson.M{"$ne": ""},
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 
 	switch productionType {
 	case config.Production:
@@ -466,7 +458,6 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 		}},
 		"service_name": bson.M{"$ne": ""},
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 
 	switch productionType {
 	case config.Production:
@@ -570,7 +561,6 @@ func (c *JobInfoColl) GetJobInfos(startTime, endTime int64, projectName []string
 	query := bson.M{
 		"start_time": bson.M{"$gte": startTime, "$lt": endTime},
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 
 	if projectName != nil && len(projectName) != 0 {
 		query["product_name"] = bson.M{"$in": projectName}
@@ -623,7 +613,6 @@ func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []stri
 		"start_time": bson.M{"$gte": startTime, "$lt": endTime},
 		"type":       config.JobZadigBuild,
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 	if projectName != nil && len(projectName) != 0 {
 		query["product_name"] = bson.M{"$in": projectName}
 	}
@@ -643,7 +632,6 @@ func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []stri
 
 func (c *JobInfoColl) GetAllProjectNameByTypeName(startTime, endTime int64, typeName string) ([]string, error) {
 	query := bson.M{}
-	query["is_debug"] = bson.M{"$ne": true}
 	if startTime != 0 && endTime != 0 {
 		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	}
@@ -674,7 +662,6 @@ func (c *JobInfoColl) GetTestTrend(startTime, endTime int64, projectName []strin
 		"product_name": bson.M{"$in": projectName},
 		"type":         config.JobZadigTesting,
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 
 	resp := make([]*models.JobInfo, 0)
 	opts := options.Find().SetSort(bson.D{{"start_time", -1}})
@@ -695,7 +682,6 @@ func (c *JobInfoColl) GetDeployTrend(startTime, endTime int64, projectName []str
 		"product_name": bson.M{"$in": projectName},
 		"type":         config.JobZadigDeploy,
 	}
-	query["is_debug"] = bson.M{"$ne": true}
 
 	resp := make([]*models.JobInfo, 0)
 	opts := options.Find().SetSort(bson.D{{"start_time", -1}})
