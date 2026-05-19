@@ -538,12 +538,12 @@ func ListLarkWorkitemWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	// err = CheckLarkAuth(c, ctx)
-	// if err != nil {
-	// 	ctx.RespErr = err
-	// 	ctx.UnAuthorized = true
-	// 	return
-	// }
+	err = CheckLarkAuth(c, ctx)
+	if err != nil {
+		ctx.RespErr = err
+		ctx.UnAuthorized = true
+		return
+	}
 
 	workflowTypeKey := c.Param("workitemTypeKey")
 	if workflowTypeKey == "" {
