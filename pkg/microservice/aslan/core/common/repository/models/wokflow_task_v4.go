@@ -165,10 +165,9 @@ type WorkflowTaskPreview struct {
 }
 
 type ReleasePlanRef struct {
-	ID             string `bson:"id"              json:"id"`
-	Name           string `bson:"name"            json:"name"`
-	Index          int64  `bson:"index"           json:"index"`
-	ApprovalPassed bool   `bson:"approval_passed" json:"approval_passed"`
+	ID    string `bson:"id"    json:"id"`
+	Name  string `bson:"name"  json:"name"`
+	Index int64  `bson:"index" json:"index"`
 }
 
 type StagePreview struct {
