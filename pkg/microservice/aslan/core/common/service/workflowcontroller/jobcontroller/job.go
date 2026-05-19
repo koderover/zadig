@@ -184,6 +184,15 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		return
 	}
 
+	if shouldSkipApprovalJobForReleasePlan(job, workflowCtx) {
+		logger.Infof("skipping approval job: %s because workflow task is triggered by an approved release plan", job.Name)
+		job.Status = config.StatusSkipped
+		job.StartTime = time.Now().Unix()
+		job.EndTime = time.Now().Unix()
+		ack()
+		return
+	}
+
 	// Check execute policy before running the job
 	if !shouldExecuteJob(job) {
 		logger.Infof("skipping job: %s due to execute policy", job.Name)
@@ -461,6 +470,13 @@ func setJobFinalStatusContext(job *commonmodels.JobTask, workflowCtx *commonmode
 	statusStr := string(job.Status)
 	contextKey := fmt.Sprintf("{{.job.%s.status}}", job.Key)
 	workflowCtx.GlobalContextSet(contextKey, statusStr)
+}
+
+func shouldSkipApprovalJobForReleasePlan(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) bool {
+	if workflowCtx == nil || workflowCtx.ReleasePlan == nil {
+		return false
+	}
+	return job.JobType == string(config.JobApproval) && workflowCtx.ReleasePlan.ApprovalPassed
 }
 
 // shouldExecuteJob determines whether a job should be executed based on its execute policy
