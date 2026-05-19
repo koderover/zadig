@@ -25,6 +25,7 @@ import (
 type ReleasePlan struct {
 	ID      primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Index   int64              `bson:"index"       yaml:"index"                   json:"index"`
+	Version int64              `bson:"version"       yaml:"version"                   json:"version"`
 	Name    string             `bson:"name"       yaml:"name"                   json:"name"`
 	Manager string             `bson:"manager"       yaml:"manager"                   json:"manager"`
 	// ManagerID is the user id of the manager
@@ -120,19 +121,41 @@ type WorkflowReleaseJobSpec struct {
 }
 
 type ReleasePlanLog struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty"               json:"id"`
-	PlanID     string             `bson:"plan_id"                     json:"plan_id"`
-	Username   string             `bson:"username"                    json:"username"`
-	Account    string             `bson:"account"                     json:"account"`
-	Verb       string             `bson:"verb"                        json:"verb"`
-	TargetName string             `bson:"target_name"                 json:"target_name"`
-	TargetType string             `bson:"target_type"                 json:"target_type"`
-	Before     interface{}        `bson:"before"                      json:"before"`
-	After      interface{}        `bson:"after"                       json:"after"`
-	Detail     string             `bson:"detail"                      json:"detail"`
-	CreatedAt  int64              `bson:"created_at"                  json:"created_at"`
+	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id"`
+	PlanID      string             `bson:"plan_id"                     json:"plan_id"`
+	SessionID   string             `bson:"session_id,omitempty"        json:"session_id,omitempty"`
+	Username    string             `bson:"username"                    json:"username"`
+	Account     string             `bson:"account"                     json:"account"`
+	Verb        string             `bson:"verb"                        json:"verb"`
+	TargetName  string             `bson:"target_name"                 json:"target_name"`
+	TargetType  string             `bson:"target_type"                 json:"target_type"`
+	Before      interface{}        `bson:"before"                      json:"before"`
+	After       interface{}        `bson:"after"                       json:"after"`
+	Detail      string             `bson:"detail"                      json:"detail"`
+	FromVersion int64              `bson:"from_version,omitempty"      json:"from_version,omitempty"`
+	ToVersion   int64              `bson:"to_version,omitempty"        json:"to_version,omitempty"`
+	CreatedAt   int64              `bson:"created_at"                  json:"created_at"`
 }
 
 func (ReleasePlanLog) TableName() string {
 	return "release_plan_log"
+}
+
+type ReleasePlanVersion struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	PlanID       string             `bson:"plan_id" json:"plan_id"`
+	BaseVersion  int64              `bson:"base_version,omitempty" json:"base_version,omitempty"`
+	Version      int64              `bson:"version" json:"version"`
+	Operator     string             `bson:"operator" json:"operator"`
+	Account      string             `bson:"account" json:"account"`
+	SectionKey   string             `bson:"section_key,omitempty" json:"section_key,omitempty"`
+	SectionName  string             `bson:"section_name,omitempty" json:"section_name,omitempty"`
+	Verb         string             `bson:"verb,omitempty" json:"verb,omitempty"`
+	BaseSnapshot interface{}        `bson:"base_snapshot,omitempty" json:"base_snapshot,omitempty"`
+	Snapshot     interface{}        `bson:"snapshot" json:"snapshot"`
+	CreatedAt    int64              `bson:"created_at" json:"created_at"`
+}
+
+func (ReleasePlanVersion) TableName() string {
+	return "release_plan_version"
 }
