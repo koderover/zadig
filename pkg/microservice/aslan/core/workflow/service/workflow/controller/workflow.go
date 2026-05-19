@@ -444,7 +444,7 @@ func (w *Workflow) Validate(isExecution bool) error {
 		}
 		w.RemarkRequired = latestWorkflowSettings.RemarkRequired
 		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {
-			return e.ErrLintWorkflow.AddDesc("工作流备注不能为空")
+			return e.ErrLintWorkflow.AddDesc("workflow remark is required.")
 		}
 	}
 
