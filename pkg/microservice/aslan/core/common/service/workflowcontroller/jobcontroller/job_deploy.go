@@ -158,12 +158,14 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(c.jobTaskSpec.ClusterID, c.namespace)
+	var releaseInformer func()
+	c.informer, releaseInformer, err = clientmanager.NewKubeClientManager().AcquireInformer(c.jobTaskSpec.ClusterID, c.namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+	defer releaseInformer()
 
 	c.istioClient, err = clientmanager.NewKubeClientManager().GetIstioClientSet(c.jobTaskSpec.ClusterID)
 	if err != nil {
