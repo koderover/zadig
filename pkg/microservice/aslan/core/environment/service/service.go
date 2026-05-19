@@ -186,7 +186,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, err
 	}
-	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, parsedYaml)
+	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, env.ClusterID, parsedYaml)
 
 	manifests := releaseutil.SplitManifests(parsedYaml)
 	for _, item := range manifests {

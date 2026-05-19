@@ -412,7 +412,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, productInfo.ClusterID, fullRenderedYaml)
 		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 		if err != nil {
@@ -430,7 +430,7 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 	if err != nil {
 		return "", nil, err
 	}
-	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, fullRenderedYaml)
+	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, envInfo.ClusterID, fullRenderedYaml)
 
 	manifests := util.SplitManifestsOrdered(fullRenderedYaml)
 
@@ -686,7 +686,7 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 	if err != nil {
 		return "", nil, err
 	}
-	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, productInfo.ClusterID, fullRenderedYaml)
 
 	manifests := releaseutil.SplitManifests(fullRenderedYaml)
 
@@ -831,7 +831,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		if renderErr != nil {
 			return "", 0, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
 		}
-		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, currentRenderedYaml)
+		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, productInfo.ClusterID, currentRenderedYaml)
 		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
 		if err != nil {
 			return "", 0, nil, fmt.Errorf("failed to extract workload replicas: %v", err)
@@ -860,7 +860,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to render service yaml: %v", err)
 	}
-	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, productInfo.ClusterID, fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
 	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
@@ -981,7 +981,7 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return "", err
 	}
-	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
+	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, prod.ClusterID, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
 	if err != nil {
 		return "", err
