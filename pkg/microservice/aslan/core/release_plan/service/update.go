@@ -83,6 +83,7 @@ var VerbI18nMap = map[string]string{
 	VerbUpdate:  "Update",
 	VerbDelete:  "Delete",
 	VerbExecute: "Execute",
+	VerbRetry:   "Retry",
 	VerbSkip:    "Skip",
 }
 
@@ -221,12 +222,18 @@ func NewTimeRangeUpdater(args *UpdateReleasePlanArgs) (*TimeRangeUpdater, error)
 	return &updater, nil
 }
 
+func formatReleasePlanDateTime(timestamp int64) string {
+	if timestamp == 0 {
+		return "未设置"
+	}
+	return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
+}
+
 func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	format := "2006-01-02 15:04:05"
-	before = fmt.Sprintf("%s-%s", time.Unix(plan.StartTime, 0).Format(format),
-		time.Unix(plan.EndTime, 0).Format(format))
-	after = fmt.Sprintf("%s-%s", time.Unix(u.StartTime, 0).Format(format),
-		time.Unix(u.EndTime, 0).Format(format))
+	before = fmt.Sprintf("%s-%s", formatReleasePlanDateTime(plan.StartTime),
+		formatReleasePlanDateTime(plan.EndTime))
+	after = fmt.Sprintf("%s-%s", formatReleasePlanDateTime(u.StartTime),
+		formatReleasePlanDateTime(u.EndTime))
 	plan.StartTime = u.StartTime
 	plan.EndTime = u.EndTime
 	return
@@ -420,6 +427,8 @@ func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 	for i, job := range plan.Jobs {
 		if job.ID == u.ID {
 			u.name = job.Name
+			before = job
+			after = nil
 			plan.Jobs = append(plan.Jobs[:i], plan.Jobs[i+1:]...)
 			return
 		}
@@ -655,9 +664,8 @@ func NewScheduleExecuteTimeUpdater(args *UpdateReleasePlanArgs) (*ScheduleExecut
 }
 
 func (u *ScheduleExecuteTimeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	format := "2006-01-02 15:04:05"
-	before = time.Unix(plan.ScheduleExecuteTime, 0).Format(format)
-	after = time.Unix(u.ScheduleExecuteTime, 0).Format(format)
+	before = formatReleasePlanDateTime(plan.ScheduleExecuteTime)
+	after = formatReleasePlanDateTime(u.ScheduleExecuteTime)
 	plan.ScheduleExecuteTime = u.ScheduleExecuteTime
 	return
 }

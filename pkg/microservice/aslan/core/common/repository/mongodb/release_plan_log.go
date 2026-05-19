@@ -48,7 +48,17 @@ func (c *ReleasePlanLogColl) GetCollectionName() string {
 }
 
 func (c *ReleasePlanLogColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{{Key: "plan_id", Value: 1}, {Key: "created_at", Value: -1}},
+		},
+		{
+			Keys: bson.D{{Key: "session_id", Value: 1}},
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
+	return err
 }
 
 func (c *ReleasePlanLogColl) Create(args *models.ReleasePlanLog) error {
@@ -76,7 +86,7 @@ func (c *ReleasePlanLogColl) ListByOptions(opt *ListReleasePlanLogOption) ([]*mo
 	ctx := context.Background()
 	opts := options.Find()
 	if opt.IsSort {
-		opts.SetSort(bson.D{{"create_time", -1}})
+		opts.SetSort(bson.D{{"created_at", -1}})
 	}
 	if opt.PlanID != "" {
 		query["plan_id"] = opt.PlanID
@@ -93,4 +103,43 @@ func (c *ReleasePlanLogColl) ListByOptions(opt *ListReleasePlanLogOption) ([]*mo
 	}
 
 	return resp, nil
+}
+
+func (c *ReleasePlanLogColl) FillVersionsBySessionID(planID, sessionID string, fromVersion, toVersion int64) error {
+	if sessionID == "" {
+		return errors.New("empty session id")
+	}
+
+	query := bson.M{
+		"plan_id":    planID,
+		"session_id": sessionID,
+		"$or": []bson.M{
+			{"to_version": bson.M{"$exists": false}},
+			{"to_version": 0},
+		},
+	}
+	change := bson.M{"$set": bson.M{
+		"from_version": fromVersion,
+		"to_version":   toVersion,
+	}}
+
+	_, err := c.UpdateMany(context.Background(), query, change)
+	return err
+}
+
+func (c *ReleasePlanLogColl) CountPendingBySessionID(planID, sessionID string) (int64, error) {
+	if sessionID == "" {
+		return 0, errors.New("empty session id")
+	}
+
+	query := bson.M{
+		"plan_id":    planID,
+		"session_id": sessionID,
+		"$or": []bson.M{
+			{"to_version": bson.M{"$exists": false}},
+			{"to_version": 0},
+		},
+	}
+
+	return c.CountDocuments(context.Background(), query)
 }

@@ -285,7 +285,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			return
 		}
 
-		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+		if err := createReleasePlanLog(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
 	}()
