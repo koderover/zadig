@@ -451,6 +451,7 @@ type CreateWorkflowTaskV4Args struct {
 	Account               string
 	UserID                string
 	Type                  config.CustomWorkflowTaskType
+	ValidateRemarkRequired bool
 	ApprovalTicketID      string
 	SkipWorkflowUpdate    bool
 	NotifyInput           []*CreateCustomTaskNotifyInput
@@ -511,8 +512,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		if err != nil {
 			return resp, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find workflow %s, error: %v", workflow.Name, err))
 		}
+		workflow.RemarkRequired = originalWorkflow.RemarkRequired
 		if originalWorkflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+		if args.ValidateRemarkRequired && originalWorkflow.RemarkRequired && strings.TrimSpace(workflow.Remark) == "" {
+			return resp, e.ErrCreateTask.AddDesc("工作流备注不能为空")
 		}
 
 		// do approval ticket check

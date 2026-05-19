@@ -97,10 +97,11 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:             ctx.UserName,
-		Account:          ctx.Account,
-		UserID:           ctx.UserID,
-		ApprovalTicketID: ticketID,
+		Name:                   ctx.UserName,
+		Account:                ctx.Account,
+		UserID:                 ctx.UserID,
+		ApprovalTicketID:       ticketID,
+		ValidateRemarkRequired: true,
 	}, args, ctx.Logger)
 }
 

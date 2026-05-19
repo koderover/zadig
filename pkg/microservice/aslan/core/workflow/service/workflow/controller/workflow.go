@@ -442,6 +442,10 @@ func (w *Workflow) Validate(isExecution bool) error {
 		if err != nil {
 			return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 		}
+		w.RemarkRequired = latestWorkflowSettings.RemarkRequired
+		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {
+			return e.ErrLintWorkflow.AddDesc("工作流备注不能为空")
+		}
 	}
 
 	for _, stage := range w.Stages {
