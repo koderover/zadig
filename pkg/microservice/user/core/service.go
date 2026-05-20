@@ -25,16 +25,21 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	permissionservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func Start(_ context.Context) {
@@ -94,6 +99,7 @@ func initDatabase() {
 	}
 
 	initializeSystemActions()
+	initializeSystemRoles()
 }
 
 func Stop(_ context.Context) {
@@ -209,4 +215,109 @@ func initializeSystemActions() {
 		}
 	}
 	fmt.Println("system actions initialized...")
+}
+
+func initializeSystemRoles() {
+	log.Infof("start initializing system roles")
+	// check if the mysql Role exists
+	var roleCount int64
+	err := repository.DB.Table("role").Count(&roleCount).Error
+	if err != nil {
+		// if we failed to count the mysql role table, panic and restart.
+		log.Panicf("Failed to count roles in the mysql role table to do the data initialization, error: %s", err)
+	}
+
+	tx := repository.DB.Begin()
+
+	adminRole := &models.NewRole{
+		Name:        "admin",
+		Description: "拥有系统中任何操作的权限",
+		Type:        int64(setting.RoleTypeSystem),
+		Namespace:   "*",
+	}
+
+	err = orm.CreateRole(adminRole, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Panicf("failed to initialize admin role for system, tearing down user service...")
+	}
+
+	roleIDMap := make(map[string]uint)
+	actionIDMap := make(map[string]uint)
+
+	// initialize user group, for ONCE
+	gid, _ := uuid.NewUUID()
+	err = orm.CreateUserGroup(&models.UserGroup{
+		GroupID:     gid.String(),
+		GroupName:   types.AllUserGroupName,
+		Description: "系统中的所有用户",
+		Type:        int64(setting.RoleTypeSystem),
+	}, tx)
+
+	// create the role below and corresponding action binding for each project:
+	// 1. project-admin
+	// 2. read-only
+	// 3. read-project-only
+	projectList, err := mongodb.NewProjectColl().List()
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("Failed to get project list to create project default role, error: %s", err)
+	}
+
+	log.Infof("projectList count: %v, err: %+v", len(projectList), err)
+
+	for _, project := range projectList {
+		projectAdminRole := &models.NewRole{
+			Name:        "project-admin",
+			Description: "拥有指定项目中任何操作的权限",
+			Type:        int64(setting.RoleTypeSystem),
+			Namespace:   project.ProductName,
+		}
+		readOnlyRole := &models.NewRole{
+			Name:        "read-only",
+			Description: "拥有指定项目中所有资源的读权限",
+			Type:        int64(setting.RoleTypeSystem),
+			Namespace:   project.ProductName,
+		}
+		readProjectOnlyRole := &models.NewRole{
+			Name:        "read-project-only",
+			Description: "拥有指定项目本身的读权限，无权限查看和操作项目内资源",
+			Type:        int64(setting.RoleTypeSystem),
+			Namespace:   project.ProductName,
+		}
+		err = orm.BulkCreateRole([]*models.NewRole{projectAdminRole, readOnlyRole, readProjectOnlyRole}, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Panicf("failed to create system default role for project: %s, error: %s", project.ProductName, err)
+		}
+		roleIDMap[fmt.Sprintf("%s+%s", projectAdminRole.Name, projectAdminRole.Namespace)] = projectAdminRole.ID
+		roleIDMap[fmt.Sprintf("%s+%s", readOnlyRole.Name, readOnlyRole.Namespace)] = readOnlyRole.ID
+		roleIDMap[fmt.Sprintf("%s+%s", readProjectOnlyRole.Name, readProjectOnlyRole.Namespace)] = readProjectOnlyRole.ID
+
+		actionIDList := make([]uint, 0)
+		for _, verb := range readOnlyAction {
+			if _, ok := actionIDMap[verb]; !ok {
+				action, err := orm.GetActionByVerb(verb, repository.DB)
+				if err != nil {
+					tx.Rollback()
+					log.Panicf("unexpected database error getting action, err: %s", err)
+				}
+				// if we found one, save it into the cache
+				actionIDMap[verb] = action.ID
+			}
+
+			// after the cache was done, getting the action id and add it to the list
+			actionIDList = append(actionIDList, actionIDMap[verb])
+		}
+
+		// after all the action counted for, bulk create some role-action bindings
+		err = orm.BulkCreateRoleActionBindings(readOnlyRole.ID, actionIDList, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Panicf("failed to create action binding for role %s in namespace %s, error: %s", readOnlyRole.Name, readOnlyRole.Namespace, err)
+		}
+	}
+
+	tx.Commit()
+	log.Info("System roles initialized successfully!")
 }
