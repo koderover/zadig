@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -92,11 +93,36 @@ func prepareCopiedReleasePlan(source *models.ReleasePlan, name string) (*models.
 
 	resetCopiedReleasePlanApproval(copied.Approval)
 	for _, job := range copied.Jobs {
-		job.ID = ""
-		job.ReleaseJobRuntime = models.ReleaseJobRuntime{}
+		if err := resetCopiedReleaseJob(job); err != nil {
+			return nil, err
+		}
 	}
 
 	return copied, nil
+}
+
+func resetCopiedReleaseJob(job *models.ReleaseJob) error {
+	if job == nil {
+		return nil
+	}
+
+	job.ID = ""
+	job.ReleaseJobRuntime = models.ReleaseJobRuntime{}
+
+	if job.Type != config.JobWorkflow {
+		return nil
+	}
+
+	spec := new(models.WorkflowReleaseJobSpec)
+	if err := models.IToi(job.Spec, spec); err != nil {
+		return errors.Wrap(err, "convert workflow release job spec")
+	}
+
+	spec.TaskID = 0
+	spec.Status = config.StatusPrepare
+	job.Spec = spec
+
+	return nil
 }
 
 func resetCopiedReleasePlanApproval(approval *models.Approval) {
