@@ -134,7 +134,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	go func() {
 		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
 		if err == nil {
-			err = createReleasePlanVersion(planID, 0, 1, nil, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+			err = createReleasePlanVersion(planID, 1, nil, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
 		}
 		if err != nil {
 			log.Errorf("create release plan version error: %v", err)
@@ -146,7 +146,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 			Verb:       VerbCreate,
 			TargetName: args.Name,
 			TargetType: TargetTypeReleasePlan,
-			ToVersion:  1,
+			Version:    1,
 			CreatedAt:  time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
@@ -406,9 +406,8 @@ const (
 )
 
 type UpdateReleasePlanArgs struct {
-	Verb      UpdateReleasePlanVerb `json:"verb"`
-	Spec      interface{}           `json:"spec"`
-	SessionID string                `json:"session_id,omitempty"`
+	Verb UpdateReleasePlanVerb `json:"verb"`
+	Spec interface{}           `json:"spec"`
 }
 
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
@@ -457,14 +456,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
 
-	var fromVersion int64
-	if args.SessionID == "" {
-		fromVersion, err = ensureReleasePlanBaselineVersion(ctx, planID, plan)
-		if err != nil {
-			return errors.Wrap(err, "ensure release plan baseline version")
-		}
-		plan.Version = fromVersion + 1
-	}
+	plan.Version = originalPlan.Version + 1
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -491,7 +483,6 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 
 	logItem := &models.ReleasePlanLog{
 		PlanID:     planID,
-		SessionID:  args.SessionID,
 		Username:   c.UserName,
 		Account:    c.Account,
 		Verb:       updater.Verb(),
@@ -499,14 +490,11 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		After:      after,
 		TargetName: updater.TargetName(),
 		TargetType: updater.TargetType(),
+		Version:    plan.Version,
 		CreatedAt:  time.Now().Unix(),
 	}
-	if args.SessionID == "" {
-		logItem.FromVersion = fromVersion
-		logItem.ToVersion = plan.Version
-		if err := createReleasePlanVersion(planID, fromVersion, plan.Version, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
-			log.Errorf("create release plan version error: %v", err)
-		}
+	if err := createReleasePlanVersion(planID, plan.Version, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
+		log.Errorf("create release plan version error: %v", err)
 	}
 	if err := createReleasePlanLog(logItem); err != nil {
 		log.Errorf("create release plan log error: %v", err)
