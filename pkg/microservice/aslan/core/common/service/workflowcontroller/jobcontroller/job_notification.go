@@ -75,6 +75,14 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
+	if err := c.prepareRuntimeNotificationFields(); err != nil {
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		c.ack()
+		return
+	}
+
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
 
@@ -102,6 +110,15 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeDingDing {
 		err := sendDingDingMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.DingDingNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.DingDingNotificationConfig.AtMobiles, c.jobTaskSpec.DingDingNotificationConfig.IsAtAll)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
+		err := sendLarkHookMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.LarkHookNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.LarkHookNotificationConfig.AtUsers, c.jobTaskSpec.LarkHookNotificationConfig.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -207,6 +224,331 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
+func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
+	keyMap := c.buildRuntimeNotificationKeyMap()
+
+	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
+	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
+
+	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
+		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, keyMap)
+	}
+	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
+		cfg.AtMobiles = renderNotificationStrings(cfg.AtMobiles, keyMap)
+	}
+	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
+		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, keyMap)
+	}
+	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
+		cfg.AtEmails = renderNotificationStrings(cfg.AtEmails, keyMap)
+	}
+	return c.resolveDynamicRecipients(keyMap)
+}
+
+func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
+	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
+}
+
+func renderNotificationStrings(inputs []string, keyMap map[string]string) []string {
+	if len(keyMap) == 0 {
+		return inputs
+	}
+	pairs := make([]string, 0, len(keyMap)*2)
+	for key, value := range keyMap {
+		pairs = append(pairs, "{{."+key+"}}", value)
+	}
+	replacer := strings.NewReplacer(pairs...)
+
+	resp := make([]string, 0, len(inputs))
+	for _, item := range inputs {
+		resp = append(resp, replacer.Replace(item))
+	}
+	return resp
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
+	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
+		users := c.resolveDynamicRecipientsToDirectValues(cfg.DynamicRecipients, keyMap, "open_id", "user_id", "id")
+		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
+	}
+	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
+		users, err := c.resolveDynamicRecipientsToLarkUsers(cfg.DynamicRecipients, cfg.AppID, keyMap)
+		if err != nil {
+			return err
+		}
+		cfg.AtUsers = uniqLarkUsers(append(cfg.AtUsers, users...))
+	}
+	if cfg := c.jobTaskSpec.LarkPersonNotificationConfig; cfg != nil {
+		users, err := c.resolveDynamicRecipientsToLarkUsers(cfg.DynamicRecipients, cfg.AppID, keyMap)
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = uniqLarkUsers(append(cfg.TargetUsers, users...))
+	}
+	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
+		emails, err := c.resolveDynamicRecipientsToEmails(cfg.DynamicRecipients, keyMap)
+		if err != nil {
+			return err
+		}
+		cfg.AtEmails = lo.Uniq(append(cfg.AtEmails, emails...))
+	}
+	if cfg := c.jobTaskSpec.MailNotificationConfig; cfg != nil {
+		emails, err := c.resolveDynamicRecipientsToEmails(cfg.DynamicRecipients, keyMap)
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = uniqMailUsers(append(cfg.TargetUsers, buildMailUsersFromEmails(emails)...))
+	}
+	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
+		mobiles, err := c.resolveDynamicRecipientsToMobiles(cfg.DynamicRecipients, keyMap)
+		if err != nil {
+			return err
+		}
+		cfg.AtMobiles = lo.Uniq(append(cfg.AtMobiles, mobiles...))
+	}
+	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
+		users := c.resolveDynamicRecipientsToDirectValues(cfg.DynamicRecipients, keyMap, "user_id", "userid", "id")
+		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
+	}
+
+	return nil
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipientsToLarkUsers(recipients []*commonmodels.DynamicRecipient, appID string, keyMap map[string]string) ([]*lark.UserInfo, error) {
+	if len(recipients) == 0 {
+		return nil, nil
+	}
+
+	client, err := larkservice.GetLarkClientByIMAppID(appID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*lark.UserInfo, 0)
+	for _, recipient := range recipients {
+		value := renderNotificationString(recipient.Value, keyMap)
+		if value == "" {
+			continue
+		}
+
+		idType, id, err := resolveLarkRecipient(client, recipient.IdentityType, value)
+		if err != nil {
+			return nil, err
+		}
+		if id == "" {
+			continue
+		}
+		resp = append(resp, &lark.UserInfo{ID: id, IDType: idType})
+	}
+
+	return uniqLarkUsers(resp), nil
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipientsToEmails(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string) ([]string, error) {
+	resp := make([]string, 0)
+	for _, recipient := range recipients {
+		value := renderNotificationString(recipient.Value, keyMap)
+		if value == "" {
+			continue
+		}
+
+		switch recipient.IdentityType {
+		case "", "email":
+			resp = append(resp, value)
+		case "account":
+			userInfo, err := searchUserByAccount(value)
+			if err != nil {
+				return nil, err
+			}
+			if userInfo != nil && userInfo.Email != "" {
+				resp = append(resp, userInfo.Email)
+			}
+		}
+	}
+	return lo.Uniq(resp), nil
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipientsToMobiles(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string) ([]string, error) {
+	resp := make([]string, 0)
+	for _, recipient := range recipients {
+		value := renderNotificationString(recipient.Value, keyMap)
+		if value == "" {
+			continue
+		}
+
+		switch recipient.IdentityType {
+		case "mobile":
+			resp = append(resp, value)
+		case "account":
+			userInfo, err := searchUserByAccount(value)
+			if err != nil {
+				return nil, err
+			}
+			if userInfo != nil && userInfo.Phone != "" {
+				resp = append(resp, userInfo.Phone)
+			}
+		}
+	}
+	return lo.Uniq(resp), nil
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipientsToDirectValues(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string, supportedTypes ...string) []string {
+	if len(recipients) == 0 {
+		return nil
+	}
+	supported := make(map[string]struct{}, len(supportedTypes))
+	for _, identityType := range supportedTypes {
+		supported[identityType] = struct{}{}
+	}
+	resp := make([]string, 0)
+	for _, recipient := range recipients {
+		if _, ok := supported[recipient.IdentityType]; !ok {
+			continue
+		}
+		value := renderNotificationString(recipient.Value, keyMap)
+		if value == "" {
+			continue
+		}
+		resp = append(resp, value)
+	}
+	return lo.Uniq(resp)
+}
+
+func resolveLarkRecipient(client *lark.Client, identityType, value string) (string, string, error) {
+	switch identityType {
+	case "", "email":
+		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, value, setting.LarkUserID)
+		if err != nil {
+			return "", "", err
+		}
+		return setting.LarkUserID, util2.GetStringFromPointer(userInfo.UserId), nil
+	case "mobile":
+		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, value, setting.LarkUserID)
+		if err != nil {
+			return "", "", err
+		}
+		return setting.LarkUserID, util2.GetStringFromPointer(userInfo.UserId), nil
+	case "account":
+		userInfo, err := searchUserByAccount(value)
+		if err != nil {
+			return "", "", err
+		}
+		if userInfo == nil {
+			return "", "", nil
+		}
+		if userInfo.Email != "" {
+			larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, userInfo.Email, setting.LarkUserID)
+			if err == nil {
+				return setting.LarkUserID, util2.GetStringFromPointer(larkUser.UserId), nil
+			}
+		}
+		if userInfo.Phone != "" {
+			larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+			if err == nil {
+				return setting.LarkUserID, util2.GetStringFromPointer(larkUser.UserId), nil
+			}
+		}
+		return "", "", nil
+	default:
+		return "", "", fmt.Errorf("unsupported lark dynamic recipient identity type: %s", identityType)
+	}
+}
+
+func searchUserByAccount(account string) (*user.User, error) {
+	resp, err := user.New().SearchUser(&user.SearchUserArgs{
+		Account: account,
+		Page:    1,
+		PerPage: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || len(resp.Users) == 0 {
+		return nil, nil
+	}
+	return resp.Users[0], nil
+}
+
+func uniqLarkUsers(users []*lark.UserInfo) []*lark.UserInfo {
+	seen := make(map[string]struct{})
+	resp := make([]*lark.UserInfo, 0, len(users))
+	for _, user := range users {
+		if user == nil || user.ID == "" {
+			continue
+		}
+		key := user.IDType + ":" + user.ID
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, user)
+	}
+	return resp
+}
+
+func buildMailUsersFromEmails(emails []string) []*commonmodels.User {
+	resp := make([]*commonmodels.User, 0, len(emails))
+	for _, email := range lo.Uniq(emails) {
+		if email == "" {
+			continue
+		}
+		resp = append(resp, &commonmodels.User{
+			Type:     "email",
+			UserName: email,
+		})
+	}
+	return resp
+}
+
+func uniqMailUsers(users []*commonmodels.User) []*commonmodels.User {
+	seen := make(map[string]struct{})
+	resp := make([]*commonmodels.User, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		key := user.Type + ":"
+		switch user.Type {
+		case "email":
+			key += user.UserName
+		case setting.UserTypeGroup:
+			key += user.GroupID
+		default:
+			key += user.UserID
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, user)
+	}
+	return resp
+}
+
+func buildLarkAtMessage(idList []string, isAtAll bool) string {
+	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+	atUserList := make([]string, 0, len(idList))
+	for _, userID := range idList {
+		atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+	}
+	atMessage := strings.Join(atUserList, " ")
+	if isAtAll {
+		atMessage += "<at user_id=\"all\"></at>"
+	}
+	return atMessage
+}
+
+func renderNotificationString(input string, keyMap map[string]string) string {
+	if len(keyMap) == 0 || !strings.Contains(input, "{{.") {
+		return input
+	}
+	pairs := make([]string, 0, len(keyMap)*2)
+	for key, value := range keyMap {
+		pairs = append(pairs, "{{."+key+"}}", value)
+	}
+	return strings.NewReplacer(pairs...).Replace(input)
+}
+
 func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDisplayName string, taskID int64, receiverType, receiverID, title, message string, idList []string, isAtAll bool) error {
 	// first generate lark card
 	card := instantmessage.NewLarkCard()
@@ -223,7 +565,7 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 		productName,
 		workflowName,
 		taskID,
-		workflowDisplayName,
+		url.QueryEscape(workflowDisplayName),
 	)
 	card.AddI18NElementsZhcnAction("点击查看更多信息", url)
 
@@ -240,18 +582,8 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 
 	// then send @ message
 	if len(idList) > 0 || isAtAll {
-		atUserList := []string{}
-		idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range idList {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
-		}
-		atMessage := strings.Join(atUserList, " ")
-		if isAtAll {
-			atMessage += "<at user_id=\"all\"></at>"
-		}
-
 		larkAtMessage := &instantmessage.FeiShuMessage{
-			Text: atMessage,
+			Text: buildLarkAtMessage(idList, isAtAll),
 		}
 
 		atMessageContent, err := json.Marshal(larkAtMessage)
@@ -266,6 +598,34 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 		}
 	}
 	return nil
+}
+
+func sendLarkHookMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
+	card := instantmessage.NewLarkCard()
+	card.SetConfig(true)
+	card.SetHeader("blue", title, "plain_text")
+	card.AddI18NElementsZhcnFeild(message, true)
+
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		productName,
+		workflowName,
+		taskID,
+		url.QueryEscape(workflowDisplayName),
+	)
+	card.AddI18NElementsZhcnAction("点击查看更多信息", detailURL)
+
+	imService := instantmessage.NewWeChatClient()
+	if err := imService.SendFeishuHookCard(uri, card); err != nil {
+		return err
+	}
+
+	if len(idList) == 0 && !isAtAll {
+		return nil
+	}
+
+	atMessage := buildLarkAtMessage(idList, isAtAll)
+	return imService.SendFeishuHookText(uri, atMessage)
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
@@ -438,7 +798,35 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 		return err
 	}
 
-	users, userMap := util.GeneFlatUsersWithCaller(users, callerID)
+	directEmailUsers := make([]*commonmodels.User, 0)
+	lookupUsers := make([]*commonmodels.User, 0)
+	for _, u := range users {
+		if u != nil && u.Type == "email" {
+			directEmailUsers = append(directEmailUsers, u)
+			continue
+		}
+		lookupUsers = append(lookupUsers, u)
+	}
+
+	users, userMap := util.GeneFlatUsersWithCaller(lookupUsers, callerID)
+	for _, u := range directEmailUsers {
+		log.Infof("Sending Mail to email: %s", u.UserName)
+		err = mail.SendEmail(&mail.EmailParams{
+			From:          emailSvc.Address,
+			To:            u.UserName,
+			Subject:       title,
+			Host:          email.Name,
+			UserName:      email.UserName,
+			Password:      email.Password,
+			Port:          email.Port,
+			TlsSkipVerify: email.TlsSkipVerify,
+			Body:          message,
+		})
+		if err != nil {
+			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
+		}
+	}
+
 	for _, u := range users {
 		log.Infof("Sending Mail to user: %s", u.UserName)
 		info, ok := userMap[u.UserID]
