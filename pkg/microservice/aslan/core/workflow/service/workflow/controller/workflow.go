@@ -88,7 +88,7 @@ func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
-func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*commonmodels.StageTask, error) {
+func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.StageTask, error) {
 	resp := make([]*commonmodels.StageTask, 0)
 
 	globalKeyMap := make(map[string]string)
@@ -153,7 +153,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 		}
 	}
 
-	workflowDefaultParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid)
+	workflowDefaultParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	for _, param := range workflowDefaultParams {
 		if param.GetValue() != "" && !strings.HasPrefix(param.GetValue(), "{{.") {
 			globalKeyMap[param.Name] = param.GetValue()
@@ -165,7 +165,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 
 	// then we render the workflow with the built-in & user-defined parameter
 	// TODO: this is probably deprecated due because we already render the workflow default params in the previous loop
-	err = w.RenderWorkflowDefaultParams(taskID, creator, account, uid)
+	err = w.RenderWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return nil, err
 	}
@@ -341,12 +341,12 @@ func (w *Workflow) ClearOptions() error {
 	return nil
 }
 
-func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string) error {
+func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
 	b, err := json.Marshal(w.WorkflowV4)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid)
+	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
@@ -354,7 +354,7 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 	return json.Unmarshal([]byte(replacedString), &w.WorkflowV4)
 }
 
-func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
+func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
 	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
 	if err != nil {
@@ -369,6 +369,7 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.is_release_plan_trigger", Value: fmt.Sprintf("%t", releasePlan != nil), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.datetime", Value: time.Now().Format(time.DateTime), ParamsType: "string", IsCredential: false})
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
@@ -648,6 +649,13 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "workflow.task.creator.userId",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.is_release_plan_trigger",
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
