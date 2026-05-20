@@ -1578,6 +1578,8 @@ type Param struct {
 	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
 	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
 	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
+	Script       string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
+	CallFunction string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
