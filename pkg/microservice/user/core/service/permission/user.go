@@ -73,6 +73,7 @@ type OpenAPIQueryArgs struct {
 	IdentityType string   `json:"identity_type,omitempty" form:"identity_type"`
 	Name         string   `json:"name,omitempty" form:"name"`
 	Roles        []string `json:"roles,omitempty" form:"roles"`
+	Project      string   `json:"projectName,omitempty" form:"projectName"`
 }
 
 type QueryArgs struct {
@@ -83,6 +84,7 @@ type QueryArgs struct {
 	PerPage      int                     `json:"per_page,omitempty" form:"perPage"`
 	Page         int                     `json:"page,omitempty"  form:"page"`
 	Roles        []string                `json:"roles,omitempty" form:"roles"`
+	Project      string                  `json:"projectName,omitempty" form:"projectName"`
 	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
 	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
 }
@@ -479,6 +481,11 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		args.Order = setting.ListUserOrderDesc
 	}
 
+	namespace := args.Project
+	if namespace == "" {
+		namespace = "*"
+	}
+
 	var count int64
 	var err error
 	if len(args.Roles) == 0 {
@@ -488,7 +495,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 			return nil, err
 		}
 	} else {
-		count, err = orm.GetUsersCountByRoles(args.Name, args.Roles)
+		count, err = orm.GetUsersCountByRoles(args.Name, args.Roles, namespace)
 		if err != nil {
 			logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
@@ -516,13 +523,13 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}
 	} else {
 		if args.OrderBy == setting.ListUserOrderByLoginTime {
-			users, err = orm.ListUsersByNameAndRoleWithLoginTime(args.Page, args.PerPage, args.Name, args.Roles, args.Order, repository.DB)
+			users, err = orm.ListUsersByNameAndRoleWithLoginTime(args.Page, args.PerPage, args.Name, args.Roles, namespace, args.Order, repository.DB)
 			if err != nil {
 				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 				return nil, err
 			}
 		} else {
-			us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
+			us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, namespace, repository.DB)
 			if err != nil {
 				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 				return nil, err
