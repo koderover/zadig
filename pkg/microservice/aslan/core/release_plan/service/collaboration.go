@@ -69,7 +69,6 @@ type ReleasePlanEditingSession struct {
 	SectionType      string `json:"section_type"`
 	SectionName      string `json:"section_name"`
 	BaseVersion      int64  `json:"base_version"`
-	BaseSnapshot     string `json:"base_snapshot,omitempty"`
 	EditingStartedAt int64  `json:"editing_started_at"`
 	LastHeartbeatAt  int64  `json:"last_heartbeat_at"`
 }
@@ -291,7 +290,6 @@ func listActiveReleasePlanEditingSessions(planID string) ([]*ReleasePlanEditingS
 		if session.PlanID != planID {
 			continue
 		}
-		session.BaseSnapshot = ""
 		resp = append(resp, session)
 	}
 
@@ -393,17 +391,6 @@ func OpenReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 	return openReleasePlanCollaborationWS(gCtx, ctx, planID)
 }
 
-func releasePlanSnapshotString(plan *models.ReleasePlan, sectionKey string) string {
-	if plan == nil {
-		return ""
-	}
-	sectionSnapshot, err := buildReleasePlanVersionSnapshot(plan, sectionKey)
-	if err != nil {
-		return ""
-	}
-	return encodeReleasePlanVersionSnapshot(sectionSnapshot)
-}
-
 func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, planID string) error {
 	ws, err := upgrader.Upgrade(gCtx.Writer, gCtx.Request, nil)
 	if err != nil {
@@ -462,21 +449,20 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					SectionType:      msg.SectionType,
 					SectionName:      msg.SectionName,
 					BaseVersion:      msg.BaseVersion,
-					BaseSnapshot:     releasePlanSnapshotString(plan, msg.SectionKey),
 					EditingStartedAt: time.Now().Unix(),
 				}
 				if existingSession != nil {
 					session.EditingStartedAt = existingSession.EditingStartedAt
-					if existingSession.BaseSnapshot != "" {
-						session.BaseSnapshot = existingSession.BaseSnapshot
-					}
 					if session.BaseVersion == 0 {
 						session.BaseVersion = existingSession.BaseVersion
 					}
 					if existingSession.SectionKey != "" && existingSession.SectionKey != msg.SectionKey {
 						session.EditingStartedAt = time.Now().Unix()
-						session.BaseSnapshot = releasePlanSnapshotString(plan, msg.SectionKey)
+						session.BaseVersion = 0
 					}
+				}
+				if session.BaseVersion == 0 {
+					session.BaseVersion = plan.Version
 				}
 				if err := persistReleasePlanEditingSession(session); err != nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
