@@ -36,10 +36,10 @@ const (
 )
 
 type ReleasePlanVersionDiffResponse struct {
-	PlanID      string                         `json:"plan_id"`
-	FromVersion int64                          `json:"from_version"`
-	ToVersion   int64                          `json:"to_version"`
-	Groups      []*ReleasePlanVersionDiffGroup `json:"groups"`
+	PlanID          string                         `json:"plan_id"`
+	Version         int64                          `json:"version"`
+	PreviousVersion int64                          `json:"previous_version"`
+	Groups          []*ReleasePlanVersionDiffGroup `json:"groups"`
 }
 
 type ReleasePlanVersionDiffGroup struct {
@@ -119,42 +119,22 @@ var releasePlanFieldLabels = map[string]string{
 	"workwx_approval":            "企业微信审批",
 }
 
-func GetReleasePlanVersionDiff(planID string, fromVersion, toVersion int64) (*ReleasePlanVersionDiffResponse, error) {
-	to, err := mongodb.NewReleasePlanVersionColl().Get(planID, toVersion)
+func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersionDiffResponse, error) {
+	current, err := mongodb.NewReleasePlanVersionColl().Get(planID, version)
 	if err != nil {
-		return nil, errors.Wrap(err, "get to version")
+		return nil, errors.Wrap(err, "get version")
 	}
 
-	var fromData map[string]interface{}
-	var toData map[string]interface{}
-	groupKey, groupName, groupType := releasePlanVersionDiffGroup(to.SectionKey, to.SectionName)
-
-	if to.BaseVersion == fromVersion {
-		fromData, err = toGenericMap(to.BaseSnapshot)
-		if err != nil {
-			return nil, errors.Wrap(err, "convert base snapshot")
-		}
-		toData, err = toGenericMap(to.Snapshot)
-		if err != nil {
-			return nil, errors.Wrap(err, "convert current snapshot")
-		}
-	} else {
-		if fromVersion == 0 {
-			return nil, errors.Errorf("release plan baseline diff v0 -> v%d is not available after subsequent version commits", toVersion)
-		}
-		from, err := mongodb.NewReleasePlanVersionColl().Get(planID, fromVersion)
-		if err != nil {
-			return nil, errors.Wrap(err, "get from version")
-		}
-		fromData, err = toGenericMap(from.Snapshot)
-		if err != nil {
-			return nil, errors.Wrap(err, "convert from snapshot")
-		}
-		toData, err = toGenericMap(to.Snapshot)
-		if err != nil {
-			return nil, errors.Wrap(err, "convert to snapshot")
-		}
+	fromData, err := toGenericMap(current.BaseSnapshot)
+	if err != nil {
+		return nil, errors.Wrap(err, "convert base snapshot")
 	}
+	toData, err := toGenericMap(current.Snapshot)
+	if err != nil {
+		return nil, errors.Wrap(err, "convert current snapshot")
+	}
+
+	groupKey, groupName, groupType := releasePlanVersionDiffGroup(current.SectionKey, current.SectionName)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
 	diffReleasePlanValues("", fromData, toData, &rawEntries)
@@ -206,11 +186,18 @@ func GetReleasePlanVersionDiff(planID string, fromVersion, toVersion int64) (*Re
 	}
 
 	return &ReleasePlanVersionDiffResponse{
-		PlanID:      planID,
-		FromVersion: fromVersion,
-		ToVersion:   toVersion,
-		Groups:      groups,
+		PlanID:          planID,
+		Version:         version,
+		PreviousVersion: previousReleasePlanVersion(version),
+		Groups:          groups,
 	}, nil
+}
+
+func previousReleasePlanVersion(version int64) int64 {
+	if version <= 1 {
+		return 0
+	}
+	return version - 1
 }
 
 func toGenericMap(value interface{}) (map[string]interface{}, error) {
@@ -500,15 +487,6 @@ func classifyReleasePlanDiffTask(path string) (taskName, taskType string) {
 		taskName, taskType = splitReleasePlanBracketKey(jobSegments[len(jobSegments)-1])
 	}
 	return
-}
-
-func firstReleasePlanBracketSegment(path, prefix string) string {
-	for _, segment := range strings.Split(path, ".") {
-		if strings.HasPrefix(segment, prefix+"[") {
-			return segment
-		}
-	}
-	return prefix
 }
 
 func releasePlanBracketSegments(path, prefix string) []string {

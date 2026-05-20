@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 
@@ -9,7 +8,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 const (
@@ -265,39 +263,6 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 	}
 }
 
-func encodeReleasePlanVersionSnapshot(snapshot interface{}) string {
-	if snapshot == nil {
-		return ""
-	}
-	payload, err := json.Marshal(snapshot)
-	if err != nil {
-		return ""
-	}
-	return string(payload)
-}
-
-func decodeReleasePlanVersionSnapshot(snapshot string) (interface{}, error) {
-	if snapshot == "" {
-		return nil, nil
-	}
-	var resp interface{}
-	if err := json.Unmarshal([]byte(snapshot), &resp); err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
 func releasePlanVersionDiffGroup(sectionKey, sectionName string) (string, string, string) {
 	return sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), releasePlanVersionSectionGroupType(sectionKey)
-}
-
-func ensureReleasePlanBaselineVersion(ctx context.Context, planID string, currentPlan *models.ReleasePlan) (int64, error) {
-	if currentPlan.Version != 0 {
-		return currentPlan.Version, nil
-	}
-	currentPlan.Version = 0
-	if err := mongodb.NewReleasePlanColl().UpdateVersionByID(ctx, planID, 0); err != nil {
-		return 0, errors.Wrap(err, "initialize release plan baseline version")
-	}
-	return 0, nil
 }

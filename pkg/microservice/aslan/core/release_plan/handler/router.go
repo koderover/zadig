@@ -31,8 +31,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v1.GET("/:id/collaboration/editors", GetReleasePlanCollaborationEditors)
 		v1.GET("/:id/collaboration/ws", ReleasePlanCollaborationWS)
 		v1.PUT("/:id", UpdateReleasePlan)
-		v1.POST("/:id/versions/commit", CommitReleasePlanVersion)
-		v1.GET("/:id/versions/:fromVersion/:toVersion/diff", GetReleasePlanVersionDiff)
+		v1.GET("/:id/versions/:version/diff", GetReleasePlanVersionDiff)
 		v1.GET("/:id/job/:jobID", GetReleasePlanJobDetail)
 		v1.DELETE("/:id", DeleteReleasePlan)
 
