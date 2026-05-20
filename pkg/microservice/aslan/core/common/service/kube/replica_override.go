@@ -136,12 +136,15 @@ func ExtractWorkloadReplicas(renderedYaml string) (map[string]int32, error) {
 		return ret, nil
 	}
 
+	customKVRegExp := regexp.MustCompile(config.VariableRegEx)
 	for _, manifest := range util.SplitManifests(renderedYaml) {
 		if len(strings.TrimSpace(manifest)) == 0 {
 			continue
 		}
 
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		modifiedManifestStr := customKVRegExp.ReplaceAll([]byte(manifest), []byte("TEMP_PLACEHOLDER_$1"))
+
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(modifiedManifestStr))
 		if err != nil {
 			return nil, err
 		}
