@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -106,6 +107,40 @@ func CreateReleasePlan(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.CreateReleasePlan(ctx, req)
+}
+
+func CopyReleasePlan(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(service.CopyReleasePlanArgs)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name is required")
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.CopyReleasePlan(ctx, c.Param("id"), req)
 }
 
 func UpdateReleasePlan(c *gin.Context) {
