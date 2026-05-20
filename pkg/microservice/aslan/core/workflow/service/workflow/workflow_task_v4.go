@@ -270,7 +270,7 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
-	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid); err != nil {
+	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
 		log.Errorf("failed to render workflow dynamic params for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -288,7 +288,7 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 
 	if jobName == "" {
-		variables, err := workflowCtrl.GetWorkflowParamReferableVariables(0, "", "", "")
+		variables, err := workflowCtrl.GetWorkflowParamReferableVariables(0, "", "", "", nil)
 		if err != nil {
 			err = fmt.Errorf("failed to get workflow param dynamic variables, error: %v", err)
 			ctx.Logger.Error(err)
@@ -329,7 +329,7 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 
 	// When jobName is empty, render dynamic options for workflow-level params instead of job inputs.
 	if jobName == "" {
-		resp, err := workflowCtrl.GetWorkflowParamDynamicValues(0, "", "", "", key)
+		resp, err := workflowCtrl.GetWorkflowParamDynamicValues(0, "", "", "", key, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to render workflow param dynamic variables, error: %v", err)
 			ctx.Logger.Error(err)

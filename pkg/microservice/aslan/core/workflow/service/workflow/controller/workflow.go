@@ -400,8 +400,8 @@ func sanitizeDynamicVariableKey(key string) string {
 	return key
 }
 
-func (w *Workflow) GetWorkflowParamReferableVariables(taskID int64, creator, account, uid string) ([]*commonmodels.KeyVal, error) {
-	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid)
+func (w *Workflow) GetWorkflowParamReferableVariables(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.KeyVal, error) {
+	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow default params error: %v", err)
 	}
@@ -423,8 +423,8 @@ func (w *Workflow) GetWorkflowParamReferableVariables(taskID int64, creator, acc
 	return resp, nil
 }
 
-func (w *Workflow) getWorkflowParamDynamicValueMap(taskID int64, creator, account, uid string) (map[string]string, error) {
-	globalParams, err := w.GetWorkflowParamReferableVariables(taskID, creator, account, uid)
+func (w *Workflow) getWorkflowParamDynamicValueMap(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) (map[string]string, error) {
+	globalParams, err := w.GetWorkflowParamReferableVariables(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return nil, err
 	}
@@ -440,8 +440,8 @@ func (w *Workflow) getWorkflowParamDynamicValueMap(taskID int64, creator, accoun
 	return resp, nil
 }
 
-func (w *Workflow) RenderWorkflowDynamicParams(taskID int64, creator, account, uid string) error {
-	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid)
+func (w *Workflow) RenderWorkflowDynamicParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
+	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return fmt.Errorf("get workflow param dynamic value map error: %v", err)
 	}
@@ -465,8 +465,8 @@ func (w *Workflow) RenderWorkflowDynamicParams(taskID int64, creator, account, u
 	return nil
 }
 
-func (w *Workflow) GetWorkflowParamDynamicValues(taskID int64, creator, account, uid string, key string) ([]string, error) {
-	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid)
+func (w *Workflow) GetWorkflowParamDynamicValues(taskID int64, creator, account, uid string, key string, releasePlan *commonmodels.ReleasePlanRef) ([]string, error) {
+	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow param dynamic value map error: %v", err)
 	}
