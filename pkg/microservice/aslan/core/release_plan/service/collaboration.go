@@ -45,7 +45,7 @@ const (
 	releasePlanCollabSessionKeyPrefix = "release-plan:collab:session:"
 	releasePlanCollabPlanSetPrefix    = "release-plan:collab:plan:"
 	releasePlanCollabBroadcastChannel = "release-plan-collaboration"
-	releasePlanCollabSessionTTL       = 45 * time.Second
+	releasePlanCollabSessionTTL       = 90 * time.Second
 	releasePlanCollabBroadcastTTL     = 5 * time.Minute
 )
 
