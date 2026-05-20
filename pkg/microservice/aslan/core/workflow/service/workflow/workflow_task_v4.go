@@ -635,7 +635,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 
 	workflowCtrl.SetParameterRepoCommitInfo()
-	stageTasks, err := workflowCtrl.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID)
+	stageTasks, err := workflowCtrl.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID, args.ReleasePlan)
 	if err != nil {
 		log.Errorf("failed to generate workflow tasks from input, error: %s", err)
 		return nil, e.ErrCreateTask.AddErr(err)
@@ -1130,7 +1130,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.WorkflowArgs)
-	if err := workflowCtrl.RenderWorkflowDefaultParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
+	if err := workflowCtrl.RenderWorkflowDefaultParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID, task.ReleasePlan); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
