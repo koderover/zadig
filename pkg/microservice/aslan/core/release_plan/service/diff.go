@@ -33,6 +33,7 @@ import (
 const (
 	releasePlanHashPruneMinMapKeys    = 4
 	releasePlanHashPruneMinArrayItems = 4
+	releasePlanDiffChangeTypeOrder    = "order_changed"
 )
 
 type ReleasePlanVersionDiffResponse struct {
@@ -49,22 +50,46 @@ type ReleasePlanVersionDiffGroup struct {
 	Changes   []*ReleasePlanVersionDiffChange `json:"changes"`
 }
 
+type ReleasePlanVersionDiffOrderItem struct {
+	Key  string `json:"key,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
 type ReleasePlanVersionDiffChange struct {
-	TaskName  string      `json:"task_name,omitempty"`
-	TaskType  string      `json:"task_type,omitempty"`
-	Path      string      `json:"path"`
-	Label     string      `json:"label"`
-	Before    interface{} `json:"before,omitempty"`
-	After     interface{} `json:"after,omitempty"`
-	LargeText bool        `json:"large_text,omitempty"`
-	Masked    bool        `json:"masked,omitempty"`
+	TaskName    string                             `json:"task_name,omitempty"`
+	TaskType    string                             `json:"task_type,omitempty"`
+	ChangeType  string                             `json:"change_type,omitempty"`
+	Path        string                             `json:"path"`
+	Label       string                             `json:"label"`
+	Before      interface{}                        `json:"before,omitempty"`
+	After       interface{}                        `json:"after,omitempty"`
+	BeforeOrder []*ReleasePlanVersionDiffOrderItem `json:"before_order,omitempty"`
+	AfterOrder  []*ReleasePlanVersionDiffOrderItem `json:"after_order,omitempty"`
+	LargeText   bool                               `json:"large_text,omitempty"`
+	Masked      bool                               `json:"masked,omitempty"`
 }
 
 type releasePlanRawDiffEntry struct {
-	Path   string
-	Before interface{}
-	After  interface{}
+	Path        string
+	ChangeType  string
+	Before      interface{}
+	After       interface{}
+	BeforeOrder []*ReleasePlanVersionDiffOrderItem
+	AfterOrder  []*ReleasePlanVersionDiffOrderItem
 }
+
+type releasePlanDiffContext struct {
+	GroupType string
+}
+
+type releasePlanArrayDiffStrategy int
+
+const (
+	releasePlanArrayDiffStrategyIndex releasePlanArrayDiffStrategy = iota
+	releasePlanArrayDiffStrategyKeyedUnordered
+	releasePlanArrayDiffStrategyKeyedOrdered
+)
 
 var releasePlanFieldLabels = map[string]string{
 	"name":                       "名称",
@@ -100,6 +125,7 @@ var releasePlanFieldLabels = map[string]string{
 	"key_vals":                   "变量",
 	"key":                        "变量名",
 	"value":                      "变量值",
+	"order":                      "顺序",
 	"params":                     "参数",
 	"stages":                     "阶段",
 	"jobs":                       "任务",
@@ -137,7 +163,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 	groupKey, groupName, groupType := releasePlanVersionDiffGroup(current.SectionKey, current.SectionName)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
-	diffReleasePlanValues("", fromData, toData, &rawEntries)
+	diffReleasePlanValues(releasePlanDiffContext{GroupType: groupType}, "", fromData, toData, &rawEntries)
 
 	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
 	groupOrder := make([]string, 0)
@@ -159,12 +185,16 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		}
 
 		change := &ReleasePlanVersionDiffChange{
-			TaskName: taskName,
-			TaskType: taskType,
-			Path:     entry.Path,
-			Label:    buildReleasePlanDiffLabel(entry.Path),
+			TaskName:   taskName,
+			TaskType:   taskType,
+			ChangeType: entry.ChangeType,
+			Path:       entry.Path,
+			Label:      buildReleasePlanDiffLabel(entry.Path),
 		}
-		if isMaskedReleasePlanDiffValue(entry.Before) || isMaskedReleasePlanDiffValue(entry.After) {
+		if entry.ChangeType == releasePlanDiffChangeTypeOrder {
+			change.BeforeOrder = entry.BeforeOrder
+			change.AfterOrder = entry.AfterOrder
+		} else if isMaskedReleasePlanDiffValue(entry.Before) || isMaskedReleasePlanDiffValue(entry.After) {
 			change.Masked = true
 		} else if isLargeTextReleasePlanDiffPath(entry.Path, entry.Before, entry.After) {
 			change.LargeText = true
@@ -215,7 +245,7 @@ func toGenericValue(value interface{}) (interface{}, error) {
 	return resp, nil
 }
 
-func diffReleasePlanValues(path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
 	if shouldIgnoreReleasePlanDiffPath(path) {
 		return
 	}
@@ -245,7 +275,7 @@ func diffReleasePlanValues(path string, left, right interface{}, entries *[]*rel
 		sort.Strings(keys)
 		for _, key := range keys {
 			nextPath := joinReleasePlanDiffPath(path, key)
-			diffReleasePlanValues(nextPath, leftMap[key], rightMap[key], entries)
+			diffReleasePlanValues(ctx, nextPath, leftMap[key], rightMap[key], entries)
 		}
 		return
 	}
@@ -253,7 +283,7 @@ func diffReleasePlanValues(path string, left, right interface{}, entries *[]*rel
 	leftList, leftIsList := left.([]interface{})
 	rightList, rightIsList := right.([]interface{})
 	if leftIsList || rightIsList {
-		diffReleasePlanArray(path, leftList, rightList, entries)
+		diffReleasePlanArray(ctx, path, leftList, rightList, entries)
 		return
 	}
 
@@ -308,10 +338,16 @@ func hashReleasePlanSubtree(value interface{}) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func diffReleasePlanArray(path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
 	leftMap, leftOrdered, leftMapped := buildReleasePlanArrayMap(left)
 	rightMap, rightOrdered, rightMapped := buildReleasePlanArrayMap(right)
-	if leftMapped && rightMapped {
+	strategy := resolveReleasePlanArrayDiffStrategy(ctx, path, leftMapped, rightMapped)
+	if strategy == releasePlanArrayDiffStrategyKeyedOrdered {
+		if entry := buildReleasePlanArrayOrderChange(path, left, right, leftMap, leftOrdered, rightMap, rightOrdered); entry != nil {
+			*entries = append(*entries, entry)
+		}
+	}
+	if strategy == releasePlanArrayDiffStrategyKeyedOrdered || strategy == releasePlanArrayDiffStrategyKeyedUnordered {
 		keySet := map[string]struct{}{}
 		keys := make([]string, 0)
 		for _, key := range leftOrdered {
@@ -328,7 +364,7 @@ func diffReleasePlanArray(path string, left, right []interface{}, entries *[]*re
 		}
 		for _, key := range keys {
 			nextPath := fmt.Sprintf("%s[%s]", path, key)
-			diffReleasePlanValues(nextPath, leftMap[key], rightMap[key], entries)
+			diffReleasePlanValues(ctx, nextPath, leftMap[key], rightMap[key], entries)
 		}
 		return
 	}
@@ -346,8 +382,124 @@ func diffReleasePlanArray(path string, left, right []interface{}, entries *[]*re
 		if i < len(right) {
 			rightVal = right[i]
 		}
-		diffReleasePlanValues(nextPath, leftVal, rightVal, entries)
+		diffReleasePlanValues(ctx, nextPath, leftVal, rightVal, entries)
 	}
+}
+
+func resolveReleasePlanArrayDiffStrategy(ctx releasePlanDiffContext, path string, leftMapped, rightMapped bool) releasePlanArrayDiffStrategy {
+	if !leftMapped || !rightMapped {
+		return releasePlanArrayDiffStrategyIndex
+	}
+	if shouldTrackReleasePlanArrayOrder(ctx, path) {
+		return releasePlanArrayDiffStrategyKeyedOrdered
+	}
+	return releasePlanArrayDiffStrategyKeyedUnordered
+}
+
+func shouldTrackReleasePlanArrayOrder(ctx releasePlanDiffContext, path string) bool {
+	return ctx.GroupType == releasePlanVersionSectionJobsOrder && path == ""
+}
+
+func buildReleasePlanArrayOrderChange(
+	path string,
+	left, right []interface{},
+	leftMap map[string]interface{},
+	leftOrdered []string,
+	rightMap map[string]interface{},
+	rightOrdered []string,
+) *releasePlanRawDiffEntry {
+	if !hasReleasePlanArrayRelativeOrderChange(leftMap, leftOrdered, rightMap, rightOrdered) {
+		return nil
+	}
+
+	return &releasePlanRawDiffEntry{
+		Path:        joinReleasePlanDiffPath(path, "order"),
+		ChangeType:  releasePlanDiffChangeTypeOrder,
+		BeforeOrder: buildReleasePlanArrayOrderItems(left, leftOrdered),
+		AfterOrder:  buildReleasePlanArrayOrderItems(right, rightOrdered),
+	}
+}
+
+func hasReleasePlanArrayRelativeOrderChange(
+	leftMap map[string]interface{},
+	leftOrdered []string,
+	rightMap map[string]interface{},
+	rightOrdered []string,
+) bool {
+	leftShared := filterReleasePlanArrayOrderedKeys(leftOrdered, rightMap)
+	rightShared := filterReleasePlanArrayOrderedKeys(rightOrdered, leftMap)
+	return !reflect.DeepEqual(leftShared, rightShared)
+}
+
+func filterReleasePlanArrayOrderedKeys(orderedKeys []string, otherMap map[string]interface{}) []string {
+	resp := make([]string, 0, len(orderedKeys))
+	for _, key := range orderedKeys {
+		if _, exists := otherMap[key]; exists {
+			resp = append(resp, key)
+		}
+	}
+	return resp
+}
+
+func buildReleasePlanArrayOrderItems(values []interface{}, orderedKeys []string) []*ReleasePlanVersionDiffOrderItem {
+	resp := make([]*ReleasePlanVersionDiffOrderItem, 0, len(values))
+	for idx, item := range values {
+		key := ""
+		if idx < len(orderedKeys) {
+			key = orderedKeys[idx]
+		}
+		resp = append(resp, buildReleasePlanArrayOrderItem(item, key))
+	}
+	return resp
+}
+
+func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVersionDiffOrderItem {
+	resp := &ReleasePlanVersionDiffOrderItem{Key: key}
+
+	switch value := item.(type) {
+	case map[string]interface{}:
+		if id, ok := getStringField(value, "id"); ok {
+			resp.ID = id
+		}
+		if name, ok := getStringField(value, "name"); ok {
+			resp.Name = name
+			return resp
+		}
+		if itemKey, ok := getStringField(value, "key"); ok {
+			resp.Name = itemKey
+			return resp
+		}
+		if service, ok := getStringField(value, "service_name"); ok {
+			if module, ok := getStringField(value, "service_module"); ok {
+				resp.Name = fmt.Sprintf("%s/%s", service, module)
+			} else {
+				resp.Name = service
+			}
+			return resp
+		}
+		if repo, ok := getStringField(value, "repo_name"); ok {
+			namespace, _ := getStringField(value, "repo_namespace")
+			remote, _ := getStringField(value, "remote_name")
+			resp.Name = strings.Trim(strings.Trim(fmt.Sprintf("%s/%s/%s", namespace, repo, remote), "/"), "/")
+			return resp
+		}
+		if target, ok := getStringField(value, "target"); ok {
+			resp.Name = target
+			return resp
+		}
+		if userID, ok := getStringField(value, "user_id"); ok {
+			resp.Name = userID
+			return resp
+		}
+	}
+
+	if resp.Name == "" && key != "" {
+		resp.Name = key
+	}
+	if resp.Name == "" {
+		resp.Name = fmt.Sprintf("%v", item)
+	}
+	return resp
 }
 
 func buildReleasePlanArrayMap(values []interface{}) (map[string]interface{}, []string, bool) {
@@ -376,6 +528,9 @@ func getReleasePlanArrayItemKey(item interface{}) (string, bool) {
 					return fmt.Sprintf("%s|%s|%s", name, jobType, id), true
 				}
 				return fmt.Sprintf("%s|%s", name, jobType), true
+			}
+			if id, ok := getStringField(value, "id"); ok {
+				return fmt.Sprintf("%s|%s", name, id), true
 			}
 			return name, true
 		}
