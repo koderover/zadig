@@ -125,11 +125,11 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		return nil, errors.Wrap(err, "get version")
 	}
 
-	fromData, err := toGenericMap(current.BaseSnapshot)
+	fromData, err := toGenericValue(current.BaseSnapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert base snapshot")
 	}
-	toData, err := toGenericMap(current.Snapshot)
+	toData, err := toGenericValue(current.Snapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert current snapshot")
 	}
@@ -200,15 +200,15 @@ func previousReleasePlanVersion(version int64) int64 {
 	return version - 1
 }
 
-func toGenericMap(value interface{}) (map[string]interface{}, error) {
+func toGenericValue(value interface{}) (interface{}, error) {
 	if value == nil {
-		return map[string]interface{}{}, nil
+		return nil, nil
 	}
 	payload, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
-	resp := map[string]interface{}{}
+	var resp interface{}
 	if err := json.Unmarshal(payload, &resp); err != nil {
 		return nil, err
 	}

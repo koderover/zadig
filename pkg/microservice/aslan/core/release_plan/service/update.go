@@ -375,7 +375,11 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			if job.Type != u.Type {
 				return nil, nil, fmt.Errorf("job type cannot be changed")
 			}
-			before, after = job, u
+			beforeJob := new(models.ReleaseJob)
+			if err := models.IToi(job, beforeJob); err != nil {
+				return nil, nil, errors.Wrap(err, "clone release job before update")
+			}
+			before, after = beforeJob, u
 			job.Name = u.Name
 			job.Manager = u.Manager
 			job.ManagerID = u.ManagerID

@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -52,9 +54,7 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin:     checkReleasePlanCollaborationOrigin,
 }
 
 type ReleasePlanEditingSession struct {
@@ -139,6 +139,68 @@ func releasePlanCollabSessionKey(sessionID string) string {
 
 func releasePlanCollabPlanSetKey(planID string) string {
 	return fmt.Sprintf("%s%s:sessions", releasePlanCollabPlanSetPrefix, planID)
+}
+
+func checkReleasePlanCollaborationOrigin(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	expectedHost := releasePlanRequestHost(r)
+	if expectedHost == "" {
+		return false
+	}
+
+	originHost, originPort := splitReleasePlanHostPort(originURL.Host)
+	requestHost, requestPort := splitReleasePlanHostPort(expectedHost)
+	if originHost == "" || requestHost == "" {
+		return false
+	}
+	if !strings.EqualFold(originHost, requestHost) {
+		return false
+	}
+	if originPort != "" && requestPort != "" && originPort != requestPort {
+		return false
+	}
+
+	return true
+}
+
+func releasePlanRequestHost(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if forwardedHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); forwardedHost != "" {
+		if idx := strings.Index(forwardedHost, ","); idx >= 0 {
+			forwardedHost = forwardedHost[:idx]
+		}
+		return strings.TrimSpace(forwardedHost)
+	}
+	return strings.TrimSpace(r.Host)
+}
+
+func splitReleasePlanHostPort(rawHost string) (string, string) {
+	rawHost = strings.TrimSpace(rawHost)
+	if rawHost == "" {
+		return "", ""
+	}
+
+	if host, port, err := net.SplitHostPort(rawHost); err == nil {
+		return strings.ToLower(host), port
+	}
+
+	parsed := &url.URL{Host: rawHost}
+	return strings.ToLower(parsed.Hostname()), parsed.Port()
 }
 
 func broadcastReleasePlanCollaboration(planID string) {
@@ -387,6 +449,16 @@ func getReleasePlanEditingSession(planID, sessionID string) (*ReleasePlanEditing
 	return session, nil
 }
 
+func canManageReleasePlanEditingSession(session *ReleasePlanEditingSession, userID string, isSystemAdmin bool) bool {
+	if isSystemAdmin {
+		return true
+	}
+	if session == nil || userID == "" {
+		return false
+	}
+	return session.UserID == userID
+}
+
 func OpenReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, planID string) error {
 	return openReleasePlanCollaborationWS(gCtx, ctx, planID)
 }
@@ -438,6 +510,10 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					continue
 				}
 				existingSession, _ := getReleasePlanEditingSession(planID, msg.SessionID)
+				if existingSession != nil && !canManageReleasePlanEditingSession(existingSession, ctx.UserID, ctx.Resources != nil && ctx.Resources.IsSystemAdmin) {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
+					continue
+				}
 				session := &ReleasePlanEditingSession{
 					PlanID:           planID,
 					SessionID:        msg.SessionID,
@@ -473,6 +549,15 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "snapshot", Snapshot: snapshot})
 				}
 			case "leave":
+				session, err := getReleasePlanEditingSession(planID, msg.SessionID)
+				if err != nil {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
+					continue
+				}
+				if !canManageReleasePlanEditingSession(session, ctx.UserID, ctx.Resources != nil && ctx.Resources.IsSystemAdmin) {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
+					continue
+				}
 				if err := removeReleasePlanEditingSession(planID, msg.SessionID); err != nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
 				}
