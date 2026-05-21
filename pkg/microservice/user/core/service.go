@@ -254,6 +254,19 @@ func initializeSystemRoles() {
 		log.Panicf("failed to begin tx for system role initialization, error: %s", tx.Error)
 	}
 
+	adminRole := &models.NewRole{
+		Name:        "admin",
+		Description: "拥有系统中任何操作的权限",
+		Type:        int64(setting.RoleTypeSystem),
+		Namespace:   "*",
+	}
+
+	err = orm.CreateRole(adminRole, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Panicf("failed to initialize admin role for system, tearing down user service...")
+	}
+
 	globalReadOnlyRole := &models.NewRole{
 		Name:           "global-read-only",
 		Description:    "拥有系统全局只读的权限",
