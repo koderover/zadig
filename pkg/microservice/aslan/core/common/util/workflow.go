@@ -54,10 +54,7 @@ func GenerateTestingModuleJobName(name string) string {
 }
 
 func GenerateScanningModuleJobName(name string) string {
-	if len(name) >= 32 {
-		return strings.TrimSuffix(name[:31], "-")
-	}
-	return name
+	return strings.ToLower(name)
 }
 
 func ValidateGeneratedWorkflowJobName(name string, generator func(string) string) error {
