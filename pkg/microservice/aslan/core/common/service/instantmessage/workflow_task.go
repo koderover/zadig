@@ -746,6 +746,18 @@ func getStageTaskByName(stages []*models.StageTask, stageName string) *models.St
 	return nil
 }
 
+func buildWorkflowNotifyReleasePlan(releasePlan *models.ReleasePlanRef) *webhooknotify.WorkflowNotifyReleasePlan {
+	if releasePlan == nil {
+		return nil
+	}
+
+	return &webhooknotify.WorkflowNotifyReleasePlan{
+		ID:    releasePlan.ID,
+		Name:  releasePlan.Name,
+		Index: releasePlan.Index,
+	}
+}
+
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
 	project, err := templaterepo.NewProductColl().Find(task.ProjectName)
 	if err != nil {
@@ -774,7 +786,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		ProjectDisplayName:  project.ProjectName,
-		ReleasePlan:         task.ReleasePlan,
+		ReleasePlan:         buildWorkflowNotifyReleasePlan(task.ReleasePlan),
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
@@ -974,7 +986,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		ProjectDisplayName:  project.ProjectName,
-		ReleasePlan:         task.ReleasePlan,
+		ReleasePlan:         buildWorkflowNotifyReleasePlan(task.ReleasePlan),
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
