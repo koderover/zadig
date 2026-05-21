@@ -402,6 +402,66 @@ func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 	return newRepo, nil
 }
 
+func OpenAPIFreestyleRepoInputToRepository(originalRepos []*types.Repository, repoInpus []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
+	if len(repoInpus) == 0 {
+		return originalRepos, nil
+	}
+
+	repoInfoMap, err := getCodeHostInfoMap(repoInpus)
+	if err != nil {
+		return nil, err
+	}
+
+	newRepo := make([]*types.Repository, 0)
+	for _, inputRepo := range repoInpus {
+		repoInfo := repoInfoMap[inputRepo.CodeHostName]
+
+		if repoInfo.Type != "perforce" {
+			remoteName := inputRepo.RemoteName
+			if remoteName == "" {
+				remoteName = "origin"
+			}
+			newRepo = append(newRepo, &types.Repository{
+				Source:        repoInfo.Type,
+				RepoOwner:     inputRepo.RepoNamespace,
+				RepoNamespace: inputRepo.RepoNamespace,
+				RepoName:      inputRepo.RepoName,
+				Branch:        inputRepo.Branch,
+				PR:            inputRepo.PR,
+				PRs:           inputRepo.PRs,
+				EnableCommit:  inputRepo.EnableCommit,
+				CommitID:      inputRepo.CommitID,
+				CodehostID:    repoInfo.ID,
+				RemoteName:    remoteName,
+				CheckoutPath:  inputRepo.CheckoutPath,
+				SubModules:    inputRepo.SubModules,
+			})
+		} else {
+			var depotType string
+			if inputRepo.Stream != "" {
+				depotType = "stream"
+			} else {
+				depotType = "local"
+			}
+			newRepo = append(newRepo, &types.Repository{
+				Source:       repoInfo.Type,
+				CodehostID:   repoInfo.ID,
+				Username:     repoInfo.Username,
+				Password:     repoInfo.Password,
+				PerforceHost: repoInfo.P4Host,
+				PerforcePort: repoInfo.P4Port,
+				DepotType:    depotType,
+				Stream:       inputRepo.Stream,
+				ViewMapping:  inputRepo.ViewMapping,
+				ChangeListID: inputRepo.ChangelistID,
+				ShelveID:     inputRepo.ShelveID,
+			})
+		}
+	}
+
+	return newRepo, nil
+}
+
 func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
 	newSpec := new(commonmodels.FreestyleJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
@@ -417,7 +477,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 		} else {
 			services := make([]*commonmodels.FreeStyleServiceInfo, 0)
 			for _, service := range p.Services {
-				newRepos, err := OpenAPIRepoInputToRepository(newSpec.Repos, service.RepoInfo)
+				newRepos, err := OpenAPIFreestyleRepoInputToRepository(newSpec.Repos, service.RepoInfo)
 				if err != nil {
 					return nil, err
 				}
@@ -436,7 +496,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 		newSpec.Envs = OpenAPIKVInputToKeyValList(newSpec.Envs, p.KVs)
 
-		newRepos, err := OpenAPIRepoInputToRepository(newSpec.Repos, p.RepoInfo)
+		newRepos, err := OpenAPIFreestyleRepoInputToRepository(newSpec.Repos, p.RepoInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -482,7 +542,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -514,7 +574,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -546,7 +606,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -578,7 +638,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
