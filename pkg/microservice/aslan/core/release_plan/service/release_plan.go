@@ -1040,6 +1040,8 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		} else {
 			plan.SuccessTime = time.Now().Unix()
 		}
+
+		sendWebhook = true
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
