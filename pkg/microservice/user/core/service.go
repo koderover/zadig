@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	permissionservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -140,6 +141,8 @@ var readOnlyAction = []string{
 	permissionservice.VerbGetSprint,
 }
 
+const initializeSystemRolesLockKey = "initialize-system-roles"
+
 func InitializeUserDBAndTables() {
 	if len(userSchema) == 0 {
 		return
@@ -219,6 +222,21 @@ func initializeSystemActions() {
 
 func initializeSystemRoles() {
 	log.Infof("start initializing system roles")
+
+	initLock := cache.NewRedisLockWithExpiry(initializeSystemRolesLockKey, 30*time.Minute)
+	if err := initLock.TryLock(); err != nil {
+		if strings.Contains(err.Error(), "lock already taken") {
+			log.Infof("system role initialization lock is held by another instance, skip this run")
+			return
+		}
+		log.Panicf("failed to acquire system role initialization lock, error: %s", err)
+	}
+	defer func() {
+		if err := initLock.Unlock(); err != nil {
+			log.Warnf("failed to release system role initialization lock, error: %s", err)
+		}
+	}()
+
 	// check if the mysql Role exists
 	var roleCount int64
 	err := repository.DB.Table("role").Count(&roleCount).Error
@@ -227,22 +245,27 @@ func initializeSystemRoles() {
 		log.Panicf("Failed to count roles in the mysql role table to do the data initialization, error: %s", err)
 	}
 
+	if roleCount > 0 {
+		return
+	}
+
 	tx := repository.DB.Begin()
-
-	adminRole := &models.NewRole{
-		Name:        "admin",
-		Description: "拥有系统中任何操作的权限",
-		Type:        int64(setting.RoleTypeSystem),
-		Namespace:   "*",
+	if tx.Error != nil {
+		log.Panicf("failed to begin tx for system role initialization, error: %s", tx.Error)
 	}
 
-	err = orm.CreateRole(adminRole, tx)
-	if err != nil {
+	globalReadOnlyRole := &models.NewRole{
+		Name:           "global-read-only",
+		Description:    "拥有系统全局只读的权限",
+		Type:           int64(setting.RoleTypeSystem),
+		Namespace:      permissionservice.GeneralNamespace,
+		GlobalReadOnly: true,
+	}
+	if err = orm.CreateRole(globalReadOnlyRole, tx); err != nil {
 		tx.Rollback()
-		log.Panicf("failed to initialize admin role for system, tearing down user service...")
+		log.Panicf("failed to initialize global-read-only role for system, error: %s", err)
 	}
 
-	roleIDMap := make(map[string]uint)
 	actionIDMap := make(map[string]uint)
 
 	// initialize user group, for ONCE
@@ -253,6 +276,10 @@ func initializeSystemRoles() {
 		Description: "系统中的所有用户",
 		Type:        int64(setting.RoleTypeSystem),
 	}, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Panicf("failed to initialize all-user group, error: %s", err)
+	}
 
 	// create the role below and corresponding action binding for each project:
 	// 1. project-admin
@@ -290,27 +317,28 @@ func initializeSystemRoles() {
 			tx.Rollback()
 			log.Panicf("failed to create system default role for project: %s, error: %s", project.ProductName, err)
 		}
-		roleIDMap[fmt.Sprintf("%s+%s", projectAdminRole.Name, projectAdminRole.Namespace)] = projectAdminRole.ID
-		roleIDMap[fmt.Sprintf("%s+%s", readOnlyRole.Name, readOnlyRole.Namespace)] = readOnlyRole.ID
-		roleIDMap[fmt.Sprintf("%s+%s", readProjectOnlyRole.Name, readProjectOnlyRole.Namespace)] = readProjectOnlyRole.ID
 
-		actionIDList := make([]uint, 0)
+		actionIDList := make([]uint, 0, len(readOnlyAction))
 		for _, verb := range readOnlyAction {
 			if _, ok := actionIDMap[verb]; !ok {
-				action, err := orm.GetActionByVerb(verb, repository.DB)
+				// 用同一个 tx 读，确保跟 initializeSystemActions 的写入在一致的快照里。
+				action, err := orm.GetActionByVerb(verb, tx)
 				if err != nil {
 					tx.Rollback()
-					log.Panicf("unexpected database error getting action, err: %s", err)
+					log.Panicf("unexpected database error getting action %s, err: %s", verb, err)
 				}
-				// if we found one, save it into the cache
+				// GetActionByVerb 用的是 Find，找不到不会返回 error，只会返回 ID=0 的空结构体。
+				// 这里必须显式校验，否则会把 action_id=0 写进 role_action_binding，污染权限数据。
+				if action == nil || action.ID == 0 {
+					tx.Rollback()
+					log.Panicf("action %s not found in db, did initializeSystemActions run?", verb)
+				}
 				actionIDMap[verb] = action.ID
 			}
 
-			// after the cache was done, getting the action id and add it to the list
 			actionIDList = append(actionIDList, actionIDMap[verb])
 		}
 
-		// after all the action counted for, bulk create some role-action bindings
 		err = orm.BulkCreateRoleActionBindings(readOnlyRole.ID, actionIDList, tx)
 		if err != nil {
 			tx.Rollback()
@@ -318,6 +346,8 @@ func initializeSystemRoles() {
 		}
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		log.Panicf("failed to commit system role initialization tx, error: %s", err)
+	}
 	log.Info("System roles initialized successfully!")
 }
