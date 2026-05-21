@@ -49,20 +49,23 @@ func GenTestingWorkflowName(testingName string) string {
 	return fmt.Sprintf(setting.TestWorkflowNamingConvention, testingName)
 }
 
-func normalizeWorkflowJobName(name string) string {
-	jobName := []rune(strings.ToLower(name))
-	if len(jobName) > 32 {
-		jobName = jobName[:32]
-	}
-	return strings.TrimSuffix(string(jobName), "-")
-}
-
 func GenerateTestingModuleJobName(name string) string {
-	return normalizeWorkflowJobName(name)
+	return strings.ToLower(name)
 }
 
 func GenerateScanningModuleJobName(name string) string {
-	return normalizeWorkflowJobName(name)
+	return strings.ToLower(name)
+}
+
+func GenerateExecutionModuleJobName(name string) string {
+	jobName := []rune(strings.ToLower(name))
+	if len(jobName) > 32 {
+		jobName = jobName[:32]
+		if len(jobName) > 0 && jobName[len(jobName)-1] == '-' {
+			jobName = jobName[:len(jobName)-1]
+		}
+	}
+	return string(jobName)
 }
 
 func ValidateGeneratedWorkflowJobName(name string, generator func(string) string) error {
