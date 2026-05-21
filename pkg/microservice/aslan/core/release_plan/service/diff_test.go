@@ -29,6 +29,19 @@ func TestGetReleasePlanArrayItemKey(t *testing.T) {
 			t.Fatalf("unexpected key: %s", key)
 		}
 	})
+
+	t.Run("name and id key", func(t *testing.T) {
+		key, ok := getReleasePlanArrayItemKey(map[string]interface{}{
+			"id":   "job-id",
+			"name": "build",
+		})
+		if !ok {
+			t.Fatalf("expected key")
+		}
+		if key != "build|job-id" {
+			t.Fatalf("unexpected key: %s", key)
+		}
+	})
 }
 
 func TestBuildReleasePlanDiffLabel(t *testing.T) {
@@ -36,6 +49,13 @@ func TestBuildReleasePlanDiffLabel(t *testing.T) {
 	expected := "任务 release-job / 阶段 build / 任务 deploy / 命名空间"
 	if label != expected {
 		t.Fatalf("unexpected label: %s", label)
+	}
+}
+
+func TestBuildReleasePlanDiffLabelForOrderChange(t *testing.T) {
+	label := buildReleasePlanDiffLabel("order")
+	if label != "顺序" {
+		t.Fatalf("unexpected order label: %s", label)
 	}
 }
 
@@ -123,5 +143,82 @@ func TestSanitizeReleasePlanValueForDisplay(t *testing.T) {
 	}
 	if item["key"] != "DB_PASSWORD" {
 		t.Fatalf("expected non-sensitive fields to stay visible")
+	}
+}
+
+func TestDiffReleasePlanValuesDetectsOrderedArrayChanges(t *testing.T) {
+	left := []interface{}{
+		map[string]interface{}{"id": "job-1", "name": "build"},
+		map[string]interface{}{"id": "job-2", "name": "deploy"},
+	}
+	right := []interface{}{
+		map[string]interface{}{"id": "job-2", "name": "deploy"},
+		map[string]interface{}{"id": "job-1", "name": "build"},
+	}
+
+	entries := make([]*releasePlanRawDiffEntry, 0)
+	diffReleasePlanValues(releasePlanDiffContext{GroupType: releasePlanVersionSectionJobsOrder}, "", left, right, &entries)
+
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly one order change, got %d", len(entries))
+	}
+	entry := entries[0]
+	if entry.ChangeType != releasePlanDiffChangeTypeOrder {
+		t.Fatalf("unexpected change type: %s", entry.ChangeType)
+	}
+	if entry.Path != "order" {
+		t.Fatalf("unexpected path: %s", entry.Path)
+	}
+	if len(entry.BeforeOrder) != 2 || len(entry.AfterOrder) != 2 {
+		t.Fatalf("unexpected order item counts: before=%d after=%d", len(entry.BeforeOrder), len(entry.AfterOrder))
+	}
+	if entry.BeforeOrder[0].ID != "job-1" || entry.BeforeOrder[0].Name != "build" {
+		t.Fatalf("unexpected first before order item: %#v", entry.BeforeOrder[0])
+	}
+	if entry.AfterOrder[0].ID != "job-2" || entry.AfterOrder[0].Name != "deploy" {
+		t.Fatalf("unexpected first after order item: %#v", entry.AfterOrder[0])
+	}
+}
+
+func TestDiffReleasePlanValuesDetectsOrderedArrayChangesWithDuplicateNames(t *testing.T) {
+	left := []interface{}{
+		map[string]interface{}{"id": "job-1", "name": "build"},
+		map[string]interface{}{"id": "job-2", "name": "build"},
+	}
+	right := []interface{}{
+		map[string]interface{}{"id": "job-2", "name": "build"},
+		map[string]interface{}{"id": "job-1", "name": "build"},
+	}
+
+	entries := make([]*releasePlanRawDiffEntry, 0)
+	diffReleasePlanValues(releasePlanDiffContext{GroupType: releasePlanVersionSectionJobsOrder}, "", left, right, &entries)
+
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly one order change, got %d", len(entries))
+	}
+	entry := entries[0]
+	if entry.ChangeType != releasePlanDiffChangeTypeOrder {
+		t.Fatalf("unexpected change type: %s", entry.ChangeType)
+	}
+	if entry.BeforeOrder[0].ID != "job-1" || entry.AfterOrder[0].ID != "job-2" {
+		t.Fatalf("unexpected duplicate-name order diff: before=%#v after=%#v", entry.BeforeOrder[0], entry.AfterOrder[0])
+	}
+}
+
+func TestDiffReleasePlanValuesKeepsDefaultKeyedArrayBehavior(t *testing.T) {
+	left := []interface{}{
+		map[string]interface{}{"id": "stage-1", "name": "build"},
+		map[string]interface{}{"id": "stage-2", "name": "deploy"},
+	}
+	right := []interface{}{
+		map[string]interface{}{"id": "stage-2", "name": "deploy"},
+		map[string]interface{}{"id": "stage-1", "name": "build"},
+	}
+
+	entries := make([]*releasePlanRawDiffEntry, 0)
+	diffReleasePlanValues(releasePlanDiffContext{GroupType: "job"}, "spec.workflow.stages", left, right, &entries)
+
+	if len(entries) != 0 {
+		t.Fatalf("expected keyed unordered arrays to ignore pure reorder by default, got %d entries", len(entries))
 	}
 }
