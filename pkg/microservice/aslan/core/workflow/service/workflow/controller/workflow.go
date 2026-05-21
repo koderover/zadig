@@ -394,12 +394,14 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	return resp, nil
 }
 
+// sanitizeDynamicVariableKey sanitizes the dynamic variable key by replacing special characters with underscores.
 func sanitizeDynamicVariableKey(key string) string {
 	key = strings.ReplaceAll(key, "-", "_")
 	key = strings.ReplaceAll(key, ".", "_")
 	return key
 }
 
+// GetWorkflowParamReferableVariables returns the workflow param referable variables.
 func (w *Workflow) GetWorkflowParamReferableVariables(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.KeyVal, error) {
 	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	if err != nil {
@@ -440,6 +442,7 @@ func (w *Workflow) getWorkflowParamDynamicValueMap(taskID int64, creator, accoun
 	return resp, nil
 }
 
+// RenderWorkflowDynamicParams renders the workflow dynamic params.
 func (w *Workflow) RenderWorkflowDynamicParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
 	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid, releasePlan)
 	if err != nil {

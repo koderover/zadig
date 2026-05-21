@@ -248,6 +248,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
+// GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -270,6 +271,7 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
+	// Render workflow dynamic params
 	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
 		log.Errorf("failed to render workflow dynamic params for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
