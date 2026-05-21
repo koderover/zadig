@@ -829,12 +829,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		!option.IgnoreCurrentReplicaOverrides {
 		currentRenderedYaml, renderErr := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
 		if renderErr != nil {
-			return "", 0, nil, renderErr
+			return "", 0, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
 		}
 		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, currentRenderedYaml)
 		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
 		if err != nil {
-			return "", 0, nil, err
+			return "", 0, nil, fmt.Errorf("failed to extract workload replicas: %v", err)
 		}
 		hasCurrentBaseReplicaMap = true
 	}
@@ -858,7 +858,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, serviceRender)
 	if err != nil {
-		return "", 0, nil, err
+		return "", 0, nil, fmt.Errorf("failed to render service yaml: %v", err)
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
@@ -869,7 +869,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
-		return "", 0, nil, err
+		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
 	}
 
 	var currentReplicaOverrides []*commonmodels.WorkLoad
@@ -893,7 +893,11 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		}
 	}
 	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
-	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("failed to apply replica overrides: %v", err)
+	}
+
+	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, nil
 }
 
 func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.WorkLoad, ignoreCurrent bool) []*commonmodels.WorkLoad {
