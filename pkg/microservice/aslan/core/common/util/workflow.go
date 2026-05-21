@@ -49,12 +49,20 @@ func GenTestingWorkflowName(testingName string) string {
 	return fmt.Sprintf(setting.TestWorkflowNamingConvention, testingName)
 }
 
+func normalizeWorkflowJobName(name string) string {
+	jobName := []rune(strings.ToLower(name))
+	if len(jobName) > 32 {
+		jobName = jobName[:32]
+	}
+	return strings.TrimSuffix(string(jobName), "-")
+}
+
 func GenerateTestingModuleJobName(name string) string {
-	return strings.ToLower(name)
+	return normalizeWorkflowJobName(name)
 }
 
 func GenerateScanningModuleJobName(name string) string {
-	return strings.ToLower(name)
+	return normalizeWorkflowJobName(name)
 }
 
 func ValidateGeneratedWorkflowJobName(name string, generator func(string) string) error {
