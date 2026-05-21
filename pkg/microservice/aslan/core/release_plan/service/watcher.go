@@ -165,6 +165,7 @@ func WatchApproval() {
 		})
 		if err != nil {
 			log.Errorf("list approval workflow error: %v", err)
+			releasePlanApprovalLock.Unlock()
 			continue
 		}
 		for _, plan := range list {
