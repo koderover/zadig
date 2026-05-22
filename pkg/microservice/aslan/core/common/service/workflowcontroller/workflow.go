@@ -570,6 +570,11 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 			c.logger.Errorf("send workflow task notification failed, error: %v", err)
 		}
+		if c.workflowTask.Finished() {
+			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
+				c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+			}
+		}
 		q := ConvertTaskToQueue(c.workflowTask)
 		if err := Remove(q); err != nil {
 			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
