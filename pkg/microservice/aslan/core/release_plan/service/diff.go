@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
@@ -90,6 +92,148 @@ const (
 	releasePlanArrayDiffStrategyKeyedUnordered
 	releasePlanArrayDiffStrategyKeyedOrdered
 )
+
+type releasePlanArrayDiffRuleMatchType int
+
+const (
+	releasePlanArrayDiffRuleMatchTypeExact releasePlanArrayDiffRuleMatchType = iota
+	releasePlanArrayDiffRuleMatchTypeSafeSuffix
+)
+
+type releasePlanArrayKeyBuilder func(item interface{}) (string, bool)
+
+type releasePlanArrayDiffRule struct {
+	GroupType      string
+	Path           string
+	ParentJobTypes map[string]struct{}
+	MatchType      releasePlanArrayDiffRuleMatchType
+	Strategy       releasePlanArrayDiffStrategy
+	BuildKey       releasePlanArrayKeyBuilder
+}
+
+func newReleasePlanExactArrayRule(groupType, path string, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) releasePlanArrayDiffRule {
+	return releasePlanArrayDiffRule{
+		GroupType: groupType,
+		Path:      path,
+		MatchType: releasePlanArrayDiffRuleMatchTypeExact,
+		Strategy:  strategy,
+		BuildKey:  buildKey,
+	}
+}
+
+func newReleasePlanTypedExactArrayRule(groupType, path string, parentJobTypes []config.JobType, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) releasePlanArrayDiffRule {
+	rule := newReleasePlanExactArrayRule(groupType, path, strategy, buildKey)
+	rule.ParentJobTypes = make(map[string]struct{}, len(parentJobTypes))
+	for _, jobType := range parentJobTypes {
+		rule.ParentJobTypes[string(jobType)] = struct{}{}
+	}
+	return rule
+}
+
+func newReleasePlanSafeSuffixArrayRule(groupType, path string, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) releasePlanArrayDiffRule {
+	return releasePlanArrayDiffRule{
+		GroupType: groupType,
+		Path:      path,
+		MatchType: releasePlanArrayDiffRuleMatchTypeSafeSuffix,
+		Strategy:  strategy,
+		BuildKey:  buildKey,
+	}
+}
+
+var releasePlanArrayExactRules = []releasePlanArrayDiffRule{
+	newReleasePlanExactArrayRule("plan", "jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameTypeID),
+	newReleasePlanExactArrayRule(releasePlanVersionSectionJobsOrder, "", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
+	newReleasePlanExactArrayRule("job", "spec.workflow.share_storages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_tests", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_test_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_image", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.source_service", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByWorkflowTrigger),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByFixedWorkflowTrigger),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_modules", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_module_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services.service_and_image", []config.JobType{config.JobMseGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sBlueGreenDeploy, config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alerts", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alert_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.monitors", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_group_notification_config.at_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_person_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("approval", "native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+	newReleasePlanExactArrayRule("approval", "dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("approval", "lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+	newReleasePlanExactArrayRule("metadata", "jira_sprint_association.sprints", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJiraSprint),
+}
+
+var releasePlanArraySafeSuffixRules = []releasePlanArrayDiffRule{
+	newReleasePlanSafeSuffixArrayRule("job", "repos", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByRepo),
+	newReleasePlanSafeSuffixArrayRule("job", "code_info", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByRepo),
+	newReleasePlanSafeSuffixArrayRule("job", "key_vals", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "envs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "custom_envs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "custom_annotations", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "custom_labels", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "variable_kvs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "kv", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "original_config", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+}
 
 var releasePlanFieldLabels = map[string]string{
 	"name":                       "名称",
@@ -339,9 +483,20 @@ func hashReleasePlanSubtree(value interface{}) (string, error) {
 }
 
 func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
-	leftMap, leftOrdered, leftMapped := buildReleasePlanArrayMap(left)
-	rightMap, rightOrdered, rightMapped := buildReleasePlanArrayMap(right)
-	strategy := resolveReleasePlanArrayDiffStrategy(ctx, path, leftMapped, rightMapped)
+	rule := matchReleasePlanArrayDiffRule(ctx, path)
+	if rule == nil || rule.Strategy == releasePlanArrayDiffStrategyIndex {
+		diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+		return
+	}
+
+	leftMap, leftOrdered, leftMapped := buildReleasePlanArrayMap(left, rule.BuildKey)
+	rightMap, rightOrdered, rightMapped := buildReleasePlanArrayMap(right, rule.BuildKey)
+	if !leftMapped || !rightMapped {
+		diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+		return
+	}
+
+	strategy := rule.Strategy
 	if strategy == releasePlanArrayDiffStrategyKeyedOrdered {
 		if entry := buildReleasePlanArrayOrderChange(path, left, right, leftMap, leftOrdered, rightMap, rightOrdered); entry != nil {
 			*entries = append(*entries, entry)
@@ -369,6 +524,10 @@ func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right [
 		return
 	}
 
+	diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+}
+
+func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
 	maxLen := len(left)
 	if len(right) > maxLen {
 		maxLen = len(right)
@@ -386,18 +545,151 @@ func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right [
 	}
 }
 
-func resolveReleasePlanArrayDiffStrategy(ctx releasePlanDiffContext, path string, leftMapped, rightMapped bool) releasePlanArrayDiffStrategy {
-	if !leftMapped || !rightMapped {
-		return releasePlanArrayDiffStrategyIndex
-	}
-	if shouldTrackReleasePlanArrayOrder(ctx, path) {
-		return releasePlanArrayDiffStrategyKeyedOrdered
-	}
-	return releasePlanArrayDiffStrategyKeyedUnordered
+type releasePlanArrayRuleLookupContext struct {
+	GroupType     string
+	Path          string
+	ParentJobType string
 }
 
-func shouldTrackReleasePlanArrayOrder(ctx releasePlanDiffContext, path string) bool {
-	return ctx.GroupType == releasePlanVersionSectionJobsOrder && path == ""
+func matchReleasePlanArrayDiffRule(ctx releasePlanDiffContext, path string) *releasePlanArrayDiffRule {
+	lookupContexts := buildReleasePlanArrayRuleLookupContexts(ctx, path)
+	for _, lookup := range lookupContexts {
+		for idx := range releasePlanArrayExactRules {
+			rule := &releasePlanArrayExactRules[idx]
+			if rule.GroupType != lookup.GroupType {
+				continue
+			}
+			if !matchesReleasePlanParentJobType(rule, lookup.ParentJobType) {
+				continue
+			}
+			if rule.Path == lookup.Path {
+				return rule
+			}
+		}
+	}
+	for _, lookup := range lookupContexts {
+		for idx := range releasePlanArraySafeSuffixRules {
+			rule := &releasePlanArraySafeSuffixRules[idx]
+			if rule.GroupType != lookup.GroupType {
+				continue
+			}
+			if lookup.Path == rule.Path || strings.HasSuffix(lookup.Path, "."+rule.Path) {
+				return rule
+			}
+		}
+	}
+	return nil
+}
+
+func matchesReleasePlanParentJobType(rule *releasePlanArrayDiffRule, parentJobType string) bool {
+	if len(rule.ParentJobTypes) == 0 {
+		return true
+	}
+	_, ok := rule.ParentJobTypes[parentJobType]
+	return ok
+}
+
+func buildReleasePlanArrayRuleLookupContexts(ctx releasePlanDiffContext, path string) []releasePlanArrayRuleLookupContext {
+	normalizedPath := normalizeReleasePlanDiffPath(path)
+	parentJobType := extractReleasePlanParentJobType(path)
+	resp := []releasePlanArrayRuleLookupContext{{
+		GroupType:     ctx.GroupType,
+		Path:          normalizedPath,
+		ParentJobType: parentJobType,
+	}}
+
+	if ctx.GroupType != "plan" {
+		return resp
+	}
+
+	// Nested arrays under the plan snapshot still belong to job/approval/metadata structures.
+	if strings.HasPrefix(normalizedPath, "jobs.") {
+		resp = append(resp, releasePlanArrayRuleLookupContext{
+			GroupType:     "job",
+			Path:          strings.TrimPrefix(normalizedPath, "jobs."),
+			ParentJobType: parentJobType,
+		})
+	}
+	if strings.HasPrefix(normalizedPath, "approval.") {
+		resp = append(resp, releasePlanArrayRuleLookupContext{
+			GroupType:     "approval",
+			Path:          strings.TrimPrefix(normalizedPath, "approval."),
+			ParentJobType: parentJobType,
+		})
+	}
+	if strings.HasPrefix(normalizedPath, "metadata.") {
+		resp = append(resp, releasePlanArrayRuleLookupContext{
+			GroupType:     "metadata",
+			Path:          strings.TrimPrefix(normalizedPath, "metadata."),
+			ParentJobType: parentJobType,
+		})
+	}
+	return resp
+}
+
+func extractReleasePlanParentJobType(path string) string {
+	parentJobType := ""
+	searchPath := path
+	for {
+		idx := strings.Index(searchPath, "jobs[")
+		if idx < 0 {
+			return parentJobType
+		}
+		searchPath = searchPath[idx+len("jobs["):]
+		endIdx := strings.IndexByte(searchPath, ']')
+		if endIdx < 0 {
+			return parentJobType
+		}
+		key := searchPath[:endIdx]
+		if jobType, ok := extractReleasePlanJobTypeFromArrayKey(key); ok {
+			parentJobType = jobType
+		}
+		searchPath = searchPath[endIdx+1:]
+	}
+}
+
+func extractReleasePlanJobTypeFromArrayKey(key string) (string, bool) {
+	parts := strings.Split(key, "|")
+	if len(parts) < 2 {
+		return "", false
+	}
+	return trimReleasePlanArrayDuplicateSuffix(parts[1]), true
+}
+
+func trimReleasePlanArrayDuplicateSuffix(value string) string {
+	idx := strings.LastIndex(value, "#")
+	if idx < 0 || idx == len(value)-1 {
+		return value
+	}
+	for _, ch := range value[idx+1:] {
+		if ch < '0' || ch > '9' {
+			return value
+		}
+	}
+	return value[:idx]
+}
+
+func normalizeReleasePlanDiffPath(path string) string {
+	if path == "" {
+		return ""
+	}
+
+	builder := strings.Builder{}
+	builder.Grow(len(path))
+	inBracket := false
+	for _, ch := range path {
+		switch ch {
+		case '[':
+			inBracket = true
+		case ']':
+			inBracket = false
+		default:
+			if !inBracket {
+				builder.WriteRune(ch)
+			}
+		}
+	}
+	return builder.String()
 }
 
 func buildReleasePlanArrayOrderChange(
@@ -469,12 +761,36 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 			resp.Name = itemKey
 			return resp
 		}
+		if workflowName, ok := getStringField(value, "workflow_name"); ok {
+			projectName, _ := getStringField(value, "project_name")
+			serviceName, _ := getStringField(value, "service_name")
+			serviceModule, _ := getStringField(value, "service_module")
+			parts := make([]string, 0, 4)
+			if projectName != "" {
+				parts = append(parts, projectName)
+			}
+			if workflowName != "" {
+				parts = append(parts, workflowName)
+			}
+			if serviceName != "" {
+				parts = append(parts, serviceName)
+			}
+			if serviceModule != "" {
+				parts = append(parts, serviceModule)
+			}
+			resp.Name = strings.Join(parts, "/")
+			return resp
+		}
 		if service, ok := getStringField(value, "service_name"); ok {
 			if module, ok := getStringField(value, "service_module"); ok {
 				resp.Name = fmt.Sprintf("%s/%s", service, module)
 			} else {
 				resp.Name = service
 			}
+			return resp
+		}
+		if module, ok := getStringField(value, "service_module"); ok {
+			resp.Name = module
 			return resp
 		}
 		if repo, ok := getStringField(value, "repo_name"); ok {
@@ -491,6 +807,23 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 			resp.Name = userID
 			return resp
 		}
+		if groupName, ok := getStringField(value, "group_name"); ok {
+			resp.Name = groupName
+			return resp
+		}
+		if sprintName, ok := getStringField(value, "sprint_name"); ok {
+			projectKey, _ := getStringField(value, "project_key")
+			if projectKey != "" {
+				resp.Name = fmt.Sprintf("%s/%s", projectKey, sprintName)
+			} else {
+				resp.Name = sprintName
+			}
+			return resp
+		}
+		if variableKey, ok := getStringField(value, "variable_key"); ok {
+			resp.Name = variableKey
+			return resp
+		}
 	}
 
 	if resp.Name == "" && key != "" {
@@ -502,11 +835,15 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 	return resp
 }
 
-func buildReleasePlanArrayMap(values []interface{}) (map[string]interface{}, []string, bool) {
+func buildReleasePlanArrayMap(values []interface{}, buildKey releasePlanArrayKeyBuilder) (map[string]interface{}, []string, bool) {
+	if buildKey == nil {
+		return nil, nil, false
+	}
+
 	result := make(map[string]interface{}, len(values))
 	orderedKeys := make([]string, 0, len(values))
 	for idx, item := range values {
-		key, ok := getReleasePlanArrayItemKey(item)
+		key, ok := buildKey(item)
 		if !ok {
 			return nil, nil, false
 		}
@@ -519,47 +856,326 @@ func buildReleasePlanArrayMap(values []interface{}) (map[string]interface{}, []s
 	return result, orderedKeys, true
 }
 
-func getReleasePlanArrayItemKey(item interface{}) (string, bool) {
-	switch value := item.(type) {
-	case map[string]interface{}:
-		if name, ok := getStringField(value, "name"); ok {
-			if jobType, ok := getStringField(value, "type"); ok {
-				if id, ok := getStringField(value, "id"); ok {
-					return fmt.Sprintf("%s|%s|%s", name, jobType, id), true
-				}
-				return fmt.Sprintf("%s|%s", name, jobType), true
-			}
-			if id, ok := getStringField(value, "id"); ok {
-				return fmt.Sprintf("%s|%s", name, id), true
-			}
-			return name, true
-		}
-		if key, ok := getStringField(value, "key"); ok {
-			return key, true
-		}
-		if service, ok := getStringField(value, "service_name"); ok {
-			if module, ok := getStringField(value, "service_module"); ok {
-				return fmt.Sprintf("%s/%s", service, module), true
-			}
-		}
-		if repo, ok := getStringField(value, "repo_name"); ok {
-			namespace, _ := getStringField(value, "repo_namespace")
-			remote, _ := getStringField(value, "remote_name")
-			return fmt.Sprintf("%s/%s/%s", namespace, repo, remote), true
-		}
-		if target, ok := getStringField(value, "target"); ok {
-			return target, true
-		}
-		if userID, ok := getStringField(value, "user_id"); ok {
-			return userID, true
-		}
-		if id, ok := getStringField(value, "id"); ok {
-			return id, true
-		}
-		return "", false
-	default:
+func buildReleasePlanArrayKeyByNameTypeID(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
 		return "", false
 	}
+	name, ok := getStringField(value, "name")
+	if !ok {
+		return "", false
+	}
+	jobType, ok := getStringField(value, "type")
+	if !ok {
+		return "", false
+	}
+	id, ok := getStringField(value, "id")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s|%s", name, jobType, id), true
+}
+
+func buildReleasePlanArrayKeyByNameType(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	name, ok := getStringField(value, "name")
+	if !ok {
+		return "", false
+	}
+	itemType, ok := getStringField(value, "type")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s", name, itemType), true
+}
+
+func buildReleasePlanArrayKeyByNameID(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	name, ok := getStringField(value, "name")
+	if !ok {
+		return "", false
+	}
+	id, ok := getStringField(value, "id")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s", name, id), true
+}
+
+func buildReleasePlanArrayKeyByName(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "name")
+}
+
+func buildReleasePlanArrayKeyByKey(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "key")
+}
+
+func buildReleasePlanArrayKeyByTarget(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "target")
+}
+
+func buildReleasePlanArrayKeyByServiceModule(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	service, ok := getStringField(value, "service_name")
+	if !ok {
+		return "", false
+	}
+	module, ok := getStringField(value, "service_module")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s/%s", service, module), true
+}
+
+func buildReleasePlanArrayKeyByServiceModuleNameOnly(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	if module, ok := getStringField(value, "service_module"); ok {
+		return module, true
+	}
+	return getStringField(value, "name")
+}
+
+func buildReleasePlanArrayKeyByServiceName(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "service_name")
+}
+
+func buildReleasePlanArrayKeyByVariableConfig(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	variableKey, ok := getStringField(value, "variable_key")
+	if !ok {
+		return "", false
+	}
+	source, _ := getStringField(value, "source")
+	return fmt.Sprintf("%s|%s", variableKey, source), true
+}
+
+func buildReleasePlanArrayKeyByWorkflowTrigger(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	serviceName, ok := getStringField(value, "service_name")
+	if !ok {
+		return "", false
+	}
+	workflowName, ok := getStringField(value, "workflow_name")
+	if !ok {
+		return "", false
+	}
+	projectName, ok := getStringField(value, "project_name")
+	if !ok {
+		return "", false
+	}
+	serviceModule, _ := getStringField(value, "service_module")
+	return fmt.Sprintf("%s|%s|%s|%s", serviceName, serviceModule, workflowName, projectName), true
+}
+
+func buildReleasePlanArrayKeyByFixedWorkflowTrigger(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	workflowName, ok := getStringField(value, "workflow_name")
+	if !ok {
+		return "", false
+	}
+	projectName, ok := getStringField(value, "project_name")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s", workflowName, projectName), true
+}
+
+func buildReleasePlanArrayKeyByJobName(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "job_name")
+}
+
+func buildReleasePlanArrayKeyByRepo(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	repo, ok := getStringField(value, "repo_name")
+	if !ok {
+		return "", false
+	}
+	namespace, _ := getStringField(value, "repo_namespace")
+	remote, _ := getStringField(value, "remote_name")
+	return fmt.Sprintf("%s/%s/%s", namespace, repo, remote), true
+}
+
+func buildReleasePlanArrayKeyByUserID(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	return getStringField(value, "user_id")
+}
+
+func buildReleasePlanArrayKeyByThirdPartyUserID(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	if id, ok := getStringField(value, "id"); ok {
+		return id, true
+	}
+	name, hasName := getStringField(value, "name")
+	userID, hasUserID := getStringField(value, "user_id")
+	if hasName && hasUserID {
+		return fmt.Sprintf("%s|%s", name, userID), true
+	}
+	return "", false
+}
+
+func buildReleasePlanArrayKeyByApprovalGroup(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	if groupID, ok := getStringField(value, "group_id"); ok {
+		return groupID, true
+	}
+	return getStringField(value, "group_name")
+}
+
+func buildReleasePlanArrayKeyByJiraSprint(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	projectKey, _ := getStringField(value, "project_key")
+	if projectKey == "" {
+		projectKey, _ = getStringField(value, "project_name")
+	}
+	if projectKey == "" {
+		return "", false
+	}
+	boardID, ok := getNumberFieldString(value, "board_id")
+	if !ok {
+		return "", false
+	}
+	sprintID, ok := getNumberFieldString(value, "sprint_id")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s|%s", projectKey, boardID, sprintID), true
+}
+
+func buildReleasePlanArrayKeyByK8sTarget(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	serviceName, ok := getStringField(value, "k8s_service_name")
+	if !ok {
+		return "", false
+	}
+	workloadName, ok := getStringField(value, "workload_name")
+	if !ok {
+		return "", false
+	}
+	containerName, ok := getStringField(value, "container_name")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s|%s", serviceName, workloadName, containerName), true
+}
+
+func buildReleasePlanArrayKeyByGrayReleaseTarget(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	workloadType, ok := getStringField(value, "workload_type")
+	if !ok {
+		return "", false
+	}
+	workloadName, ok := getStringField(value, "workload_name")
+	if !ok {
+		return "", false
+	}
+	containerName, ok := getStringField(value, "container_name")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s|%s", workloadType, workloadName, containerName), true
+}
+
+func buildReleasePlanArrayKeyByGrayRollbackTarget(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	workloadType, ok := getStringField(value, "workload_type")
+	if !ok {
+		return "", false
+	}
+	workloadName, ok := getStringField(value, "workload_name")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s", workloadType, workloadName), true
+}
+
+func buildReleasePlanArrayKeyByIstioTarget(item interface{}) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+	virtualServiceName, ok := getStringField(value, "virtual_service_name")
+	if !ok {
+		return "", false
+	}
+	workloadName, ok := getStringField(value, "workload_name")
+	if !ok {
+		return "", false
+	}
+	containerName, ok := getStringField(value, "container_name")
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprintf("%s|%s|%s", virtualServiceName, workloadName, containerName), true
+}
+
+func getMapField(item interface{}) (map[string]interface{}, bool) {
+	value, ok := item.(map[string]interface{})
+	return value, ok
 }
 
 func getStringField(input map[string]interface{}, key string) (string, bool) {
@@ -569,6 +1185,56 @@ func getStringField(input map[string]interface{}, key string) (string, bool) {
 	}
 	str, ok := value.(string)
 	return str, ok && str != ""
+}
+
+func getNumberFieldString(input map[string]interface{}, key string) (string, bool) {
+	value, exists := input[key]
+	if !exists {
+		return "", false
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed, typed != ""
+	case float64:
+		intValue := int64(typed)
+		if float64(intValue) != typed {
+			return "", false
+		}
+		return strconv.FormatInt(intValue, 10), true
+	case float32:
+		intValue := int64(typed)
+		if float32(intValue) != typed {
+			return "", false
+		}
+		return strconv.FormatInt(intValue, 10), true
+	case int:
+		return strconv.Itoa(typed), true
+	case int8:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int16:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int32:
+		return strconv.FormatInt(int64(typed), 10), true
+	case int64:
+		return strconv.FormatInt(typed, 10), true
+	case uint:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint8:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint16:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint32:
+		return strconv.FormatUint(uint64(typed), 10), true
+	case uint64:
+		return strconv.FormatUint(typed, 10), true
+	case json.Number:
+		if intValue, err := typed.Int64(); err == nil {
+			return strconv.FormatInt(intValue, 10), true
+		}
+		return "", false
+	default:
+		return "", false
+	}
 }
 
 func joinReleasePlanDiffPath(path, key string) string {

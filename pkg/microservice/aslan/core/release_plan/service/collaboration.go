@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 
@@ -60,6 +61,7 @@ var upgrader = websocket.Upgrader{
 type ReleasePlanEditingSession struct {
 	PlanID           string `json:"plan_id"`
 	SessionID        string `json:"session_id"`
+	ConnectionID     string `json:"connection_id,omitempty"`
 	UserID           string `json:"user_id"`
 	UserName         string `json:"user_name"`
 	Account          string `json:"account"`
@@ -103,8 +105,12 @@ type releasePlanCollabWSOutbound struct {
 
 type collaborationClient struct {
 	planID string
+	id     string
 	conn   *websocket.Conn
 	send   chan []byte
+
+	sessionMu  sync.Mutex
+	sessionIDs map[string]struct{}
 }
 
 var collaborationHub = struct {
@@ -233,6 +239,75 @@ func unregisterCollaborationClient(planID string, client *collaborationClient) {
 	}
 }
 
+func rememberCollaborationClientSession(client *collaborationClient, sessionID string) {
+	if client == nil || sessionID == "" {
+		return
+	}
+
+	client.sessionMu.Lock()
+	defer client.sessionMu.Unlock()
+
+	if client.sessionIDs == nil {
+		client.sessionIDs = make(map[string]struct{})
+	}
+	client.sessionIDs[sessionID] = struct{}{}
+}
+
+func forgetCollaborationClientSession(client *collaborationClient, sessionID string) {
+	if client == nil || sessionID == "" {
+		return
+	}
+
+	client.sessionMu.Lock()
+	defer client.sessionMu.Unlock()
+
+	delete(client.sessionIDs, sessionID)
+}
+
+func listCollaborationClientSessionIDs(client *collaborationClient) []string {
+	if client == nil {
+		return nil
+	}
+
+	client.sessionMu.Lock()
+	defer client.sessionMu.Unlock()
+
+	resp := make([]string, 0, len(client.sessionIDs))
+	for sessionID := range client.sessionIDs {
+		resp = append(resp, sessionID)
+	}
+	sort.Strings(resp)
+	return resp
+}
+
+func shouldCleanupReleasePlanEditingSession(session *ReleasePlanEditingSession, connectionID string) bool {
+	if session == nil || connectionID == "" {
+		return false
+	}
+	return session.ConnectionID == connectionID
+}
+
+func cleanupReleasePlanEditingSessionsForClient(client *collaborationClient) {
+	if client == nil || client.planID == "" {
+		return
+	}
+
+	for _, sessionID := range listCollaborationClientSessionIDs(client) {
+		session, err := getReleasePlanEditingSession(client.planID, sessionID)
+		if err != nil {
+			continue
+		}
+		if !shouldCleanupReleasePlanEditingSession(session, client.id) {
+			continue
+		}
+		if err := removeReleasePlanEditingSession(client.planID, sessionID); err != nil {
+			log.Errorf("remove release plan editing session on disconnect error: %v", err)
+			continue
+		}
+		forgetCollaborationClientSession(client, sessionID)
+	}
+}
+
 func sendSnapshotToLocalClients(planID string, snapshot *ReleasePlanCollaborationSnapshot) {
 	if snapshot == nil {
 		return
@@ -316,7 +391,9 @@ func GetReleasePlanCollaborationSnapshot(planID string) (*ReleasePlanCollaborati
 			groupMap[key] = group
 			groupOrder = append(groupOrder, key)
 		}
-		group.Editors = append(group.Editors, session)
+		displaySession := *session
+		displaySession.ConnectionID = ""
+		group.Editors = append(group.Editors, &displaySession)
 	}
 
 	sort.Strings(groupOrder)
@@ -473,11 +550,14 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 	ensureReleasePlanCollaborationLoop()
 
 	client := &collaborationClient{
-		planID: planID,
-		conn:   ws,
-		send:   make(chan []byte, 16),
+		planID:     planID,
+		id:         uuid.NewString(),
+		conn:       ws,
+		send:       make(chan []byte, 16),
+		sessionIDs: map[string]struct{}{},
 	}
 	registerCollaborationClient(planID, client)
+	defer cleanupReleasePlanEditingSessionsForClient(client)
 	defer unregisterCollaborationClient(planID, client)
 
 	done := make(chan struct{})
@@ -517,6 +597,7 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 				session := &ReleasePlanEditingSession{
 					PlanID:           planID,
 					SessionID:        msg.SessionID,
+					ConnectionID:     client.id,
 					UserID:           ctx.UserID,
 					UserName:         ctx.UserName,
 					Account:          ctx.Account,
@@ -544,6 +625,7 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
 					continue
 				}
+				rememberCollaborationClientSession(client, msg.SessionID)
 				snapshot, err := GetReleasePlanCollaborationSnapshot(planID)
 				if err == nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "snapshot", Snapshot: snapshot})
@@ -560,7 +642,9 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 				}
 				if err := removeReleasePlanEditingSession(planID, msg.SessionID); err != nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
+					continue
 				}
+				forgetCollaborationClientSession(client, msg.SessionID)
 			}
 		}
 	})
