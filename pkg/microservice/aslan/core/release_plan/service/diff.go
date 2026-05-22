@@ -480,7 +480,7 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 		if repo, ok := getStringField(value, "repo_name"); ok {
 			namespace, _ := getStringField(value, "repo_namespace")
 			remote, _ := getStringField(value, "remote_name")
-			resp.Name = strings.Trim(strings.Trim(fmt.Sprintf("%s/%s/%s", namespace, repo, remote), "/"), "/")
+			resp.Name = strings.Trim(fmt.Sprintf("%s/%s/%s", namespace, repo, remote), "/")
 			return resp
 		}
 		if target, ok := getStringField(value, "target"); ok {
