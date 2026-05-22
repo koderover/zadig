@@ -340,7 +340,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 
 	job := make([]*commonmodels.Job, 0)
 	job = append(job, &commonmodels.Job{
-		Name:    util.GenerateTestingModuleJobName(testInfo.Name),
+		Name:    util.GenerateExecutionModuleJobName(testInfo.Name),
 		JobType: config.JobZadigTesting,
 		Skipped: false,
 		Spec: &commonmodels.ZadigTestingJobSpec{

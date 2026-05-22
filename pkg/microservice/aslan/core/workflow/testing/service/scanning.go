@@ -543,7 +543,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 
 	job := make([]*commonmodels.Job, 0)
 	job = append(job, &commonmodels.Job{
-		Name:    commonutil.GenerateScanningModuleJobName(scanInfo.Name),
+		Name:    commonutil.GenerateExecutionModuleJobName(scanInfo.Name),
 		JobType: config.JobZadigScanning,
 		Skipped: false,
 		Spec: &commonmodels.ZadigScanningJobSpec{
