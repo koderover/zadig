@@ -377,7 +377,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
 	}
 
-	productInfo, err := GetProductWithCache(&commonrepo.ProductFindOptions{
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName: option.EnvName,
 		Name:    option.ProductName,
 	})
@@ -762,7 +762,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
 	}
 
-	productInfo, err := GetProductWithCache(&commonrepo.ProductFindOptions{
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName: option.EnvName,
 		Name:    option.ProductName,
 	})
