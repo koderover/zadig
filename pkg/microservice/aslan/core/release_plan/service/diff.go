@@ -803,6 +803,10 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 			resp.Name = target
 			return resp
 		}
+		if targetName := buildReleasePlanTargetOrderName(value); targetName != "" {
+			resp.Name = targetName
+			return resp
+		}
 		if userID, ok := getStringField(value, "user_id"); ok {
 			resp.Name = userID
 			return resp
@@ -833,6 +837,35 @@ func buildReleasePlanArrayOrderItem(item interface{}, key string) *ReleasePlanVe
 		resp.Name = fmt.Sprintf("%v", item)
 	}
 	return resp
+}
+
+func buildReleasePlanTargetOrderName(value map[string]interface{}) string {
+	if serviceName, ok := getStringField(value, "k8s_service_name"); ok {
+		workloadName, _ := getStringField(value, "workload_name")
+		containerName, _ := getStringField(value, "container_name")
+		return joinReleasePlanOrderNameParts(serviceName, workloadName, containerName)
+	}
+	if virtualServiceName, ok := getStringField(value, "virtual_service_name"); ok {
+		workloadName, _ := getStringField(value, "workload_name")
+		containerName, _ := getStringField(value, "container_name")
+		return joinReleasePlanOrderNameParts(virtualServiceName, workloadName, containerName)
+	}
+	if workloadType, ok := getStringField(value, "workload_type"); ok {
+		workloadName, _ := getStringField(value, "workload_name")
+		containerName, _ := getStringField(value, "container_name")
+		return joinReleasePlanOrderNameParts(workloadType, workloadName, containerName)
+	}
+	return ""
+}
+
+func joinReleasePlanOrderNameParts(parts ...string) string {
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			filtered = append(filtered, part)
+		}
+	}
+	return strings.Join(filtered, " / ")
 }
 
 func buildReleasePlanArrayMap(values []interface{}, buildKey releasePlanArrayKeyBuilder) (map[string]interface{}, []string, bool) {
