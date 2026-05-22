@@ -400,7 +400,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 	}
 	for _, us := range unstructuredList {
 		switch us.GetKind() {
-		case setting.Deployment, setting.StatefulSet:
+		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
 			podLabels, _, err := unstructured.NestedStringMap(us.Object, "spec", "template", "metadata", "labels")
 			if err == nil {
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, podLabels)
@@ -416,7 +416,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product, serviceName string, serviceModule *commonmodels.DeployServiceModule, detail, userName string, jobLogctx *joblog.JobLogContext, logger *zap.SugaredLogger) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
 	var replaced bool
 
-	deployments, statefulSets, cronJobs, betaCronJobs, jobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
+	deployments, daemonSets, statefulSets, cronJobs, betaCronJobs, jobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -480,6 +480,52 @@ L:
 				replaced = true
 				relatedPodLabels = append(relatedPodLabels, deploy.Spec.Template.Labels)
 				break L
+			}
+		}
+	}
+DaemonSetLoop:
+	for _, daemonSet := range daemonSets {
+		for _, container := range daemonSet.Spec.Template.Spec.Containers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateDaemonSetImage(ctx, env.ClusterID, daemonSet.Namespace, daemonSet.Name, serviceModule.ServiceModule, serviceModule.Image)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to update container image in %s/daemonsets/%s/%s: %v", env.Namespace, daemonSet.Name, container.Name, err)
+				}
+
+				logContent := fmt.Sprintf("Update daemonset %s/%s, set container %s image to %s", daemonSet.Namespace, daemonSet.Name, container.Name, serviceModule.Image)
+				logManager.SaveJobLog(logContent)
+
+				replaceResources = append(replaceResources, commonmodels.Resource{
+					Kind:      setting.DaemonSet,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      daemonSet.Name,
+				})
+				replaced = true
+				relatedPodLabels = append(relatedPodLabels, daemonSet.Spec.Template.Labels)
+				break DaemonSetLoop
+			}
+		}
+
+		for _, container := range daemonSet.Spec.Template.Spec.InitContainers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateDaemonSetInitImage(ctx, env.ClusterID, daemonSet.Namespace, daemonSet.Name, serviceModule.ServiceModule, serviceModule.Image)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to update init container image in %s/daemonsets/%s/%s: %v", env.Namespace, daemonSet.Name, container.Name, err)
+				}
+
+				logContent := fmt.Sprintf("Update daemonset %s/%s, set init container %s image to %s", daemonSet.Namespace, daemonSet.Name, container.Name, serviceModule.Image)
+				logManager.SaveJobLog(logContent)
+
+				replaceResources = append(replaceResources, commonmodels.Resource{
+					Kind:      setting.DaemonSet,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      daemonSet.Name,
+				})
+				replaced = true
+				relatedPodLabels = append(relatedPodLabels, daemonSet.Spec.Template.Labels)
+				break DaemonSetLoop
 			}
 		}
 	}
@@ -711,6 +757,12 @@ func getResourcesPodOwnerUIDImpl(kubeClient client.Client, namespace string, ser
 	newResources := []commonmodels.Resource{}
 	for _, resource := range replaceResources {
 		switch resource.Kind {
+		case setting.DaemonSet:
+			daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
+			if err != nil || !found || daemonSet == nil {
+				return newResources, err
+			}
+			resource.PodOwnerUID = string(daemonSet.ObjectMeta.UID)
 		case setting.StatefulSet:
 			sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 			if err != nil || !found || sts == nil {
@@ -880,6 +932,27 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break L
 					} else {
 						jobLogManager.SaveJobLog(fmt.Sprintf("Deployment %s/%s is ready", namespace, resource.Name))
+					}
+				case setting.DaemonSet:
+					daemonSet, found, e := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
+					if e != nil {
+						err = e
+					}
+					if e != nil || !found {
+						newErr := fmt.Errorf("Failed to check daemonSet ready status %s/%s/%s - %v", namespace, resource.Kind, resource.Name, e)
+						jobLogManager.SaveJobLog(newErr.Error())
+						logger.Error(newErr)
+						ready = false
+					} else {
+						ready = wrapper.DaemonSet(daemonSet).Ready()
+					}
+
+					if !ready {
+						jobLogManager.SaveJobLog(fmt.Sprintf("Checking DaemonSet %s/%s status ...", namespace, resource.Name))
+
+						break L
+					} else {
+						jobLogManager.SaveJobLog(fmt.Sprintf("DaemonSet %s/%s is ready", namespace, resource.Name))
 					}
 				case setting.StatefulSet:
 					sts, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)

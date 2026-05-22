@@ -20,50 +20,78 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-// deployment is the wrapper for appsv1.Deployment type.
-type daemonset struct {
+// daemonSet is the wrapper for appsv1.DaemonSet type.
+type daemonSet struct {
 	*appsv1.DaemonSet
 }
 
-func Daemenset(d *appsv1.DaemonSet) *daemonset {
+func DaemonSet(d *appsv1.DaemonSet) *daemonSet {
 	if d == nil {
 		return nil
 	}
 
-	return &daemonset{
+	return &daemonSet{
 		DaemonSet: d,
 	}
 }
 
 // Unwrap returns the appsv1.DaemonSet object.
-func (d *daemonset) Unwrap() *appsv1.DaemonSet {
+func (d *daemonSet) Unwrap() *appsv1.DaemonSet {
 	return d.DaemonSet
 }
 
-func (d *daemonset) ImageInfos() (images []string) {
+func (d *daemonSet) Ready() bool {
+	return d.Status.ObservedGeneration >= d.Generation &&
+		d.Status.DesiredNumberScheduled == d.Status.UpdatedNumberScheduled &&
+		d.Status.DesiredNumberScheduled == d.Status.NumberReady &&
+		d.Status.NumberUnavailable == 0
+}
+
+func (d *daemonSet) ImageInfos() (images []string) {
 	for _, v := range d.Spec.Template.Spec.Containers {
 		images = append(images, v.Image)
 	}
 	return
 }
 
-func (d *daemonset) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
+func (d *daemonSet) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 	wl := &resource.Workload{
 		Name:     d.Name,
-		Type:     "DaemonSet",
+		Type:     setting.DaemonSet,
 		Replicas: d.Status.NumberReady,
 		Pods:     make([]*resource.Pod, 0, len(pods)),
 	}
 
 	for _, c := range d.Spec.Template.Spec.Containers {
-		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image})
+		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 	}
 
 	for _, p := range pods {
 		wl.Pods = append(wl.Pods, Pod(p).Resource())
 	}
 	return wl
+}
+
+func (d *daemonSet) Images() (images []string) {
+	for _, v := range d.Spec.Template.Spec.Containers {
+		images = append(images, v.Name)
+	}
+	return
+}
+
+func (d *daemonSet) GetKind() string {
+	return d.Kind
+}
+
+func (d *daemonSet) GetContainers() []*resource.ContainerImage {
+	containers := make([]*resource.ContainerImage, 0, len(d.Spec.Template.Spec.Containers))
+	for _, c := range d.Spec.Template.Spec.Containers {
+		containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
+	}
+	return containers
 }

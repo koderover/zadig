@@ -1589,6 +1589,20 @@ func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
 	return workload
 }
 
+func ToDaemonSetWorkload(v *appsv1.DaemonSet) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Selector:   v.Spec.Selector,
+		Type:       setting.DaemonSet,
+		Images:     wrapper.DaemonSet(v).ImageInfos(),
+		Containers: wrapper.DaemonSet(v).GetContainers(),
+		Ready:      wrapper.DaemonSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
 func ToCloneSetWorkload(v *v1alpha1.CloneSet) *Workload {
 	workload := &Workload{
 		Name:       v.Name,

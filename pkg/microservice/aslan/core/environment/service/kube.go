@@ -600,6 +600,23 @@ func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*
 			})
 		}
 	}
+	daemonSets, err := getter.ListDaemonSets(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, daemonSet := range daemonSets {
+		for _, container := range daemonSet.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadInfo{
+				WorkloadType:  setting.DaemonSet,
+				WorkloadName:  daemonSet.Name,
+				ContainerName: container.Name,
+			})
+		}
+	}
 	return resp, nil
 }
 
@@ -626,6 +643,19 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 	for _, deployment := range deployments {
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.Deployment, deployment.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
+		}
+	}
+	daemonSets, err := getter.ListDaemonSets(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, daemonSet := range daemonSets {
+		for _, container := range daemonSet.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.DaemonSet, daemonSet.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
 		}
 	}
 	statefulsets, err := getter.ListStatefulSets(namespace, labels.Everything(), kubeClient)
@@ -801,7 +831,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 		return ListDeployments(page, pageSize, namespace, kubeClient, inf)
 	case "statefulsets":
 		return ListStatefulSets(page, pageSize, namespace, kubeClient, inf)
-	case "daemonsets":
+	case "daemonSets":
 		return ListDaemonSets(page, pageSize, namespace, kubeClient)
 	case "jobs":
 		return ListJobs(page, pageSize, namespace, kubeClient)

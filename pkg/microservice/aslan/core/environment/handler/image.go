@@ -208,6 +208,102 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
+func UpdateDaemonSetContainerImage(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.UpdateContainerImageArgs)
+	args.Type = setting.DaemonSet
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateDaemonSetContainerImage c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateDaemonSetContainerImage json.Unmarshal err : %v", err)
+	}
+
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,DaemonSet:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, DaemonSet: %s", args.EnvName, args.ServiceName, args.Name)
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
+		detail,
+		detailEn,
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+
+	production := c.Query("production") == "true"
+	args.Production = production
+
+	permitted := false
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
+		if production {
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
+				permitted = true
+			} else {
+				collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				if err == nil {
+					permitted = collabPermittedConfig
+				}
+				if !permitted {
+					collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionManagePod)
+					if err == nil {
+						permitted = collabPermittedManagePod
+					}
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else {
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
+				permitted = true
+			} else {
+				collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+				if err == nil {
+					permitted = collabPermittedConfig
+				}
+
+				if !permitted {
+					collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+					if err == nil {
+						permitted = collabPermittedManagePod
+					}
+				}
+			}
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
+}
+
 func UpdateCronJobContainerImage(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
