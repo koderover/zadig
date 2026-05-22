@@ -85,7 +85,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 		selector = labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
 	}
 
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	product, err := kube.GetProductWithCache(&commonrepo.ProductFindOptions{
 		Name:       args.ProductName,
 		EnvName:    args.EnvName,
 		Production: &args.Production,
@@ -195,7 +195,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	if cm.Name != args.Name {
 		return e.ErrUpdateConfigMap.AddDesc("configMap Yaml Name is incorrect")
 	}
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	product, err := kube.GetProductWithCache(&commonrepo.ProductFindOptions{
 		Name:       args.ProductName,
 		EnvName:    args.EnvName,
 		Production: &args.Production,
@@ -257,7 +257,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 }
 
 func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	product, err := kube.GetProductWithCache(&commonrepo.ProductFindOptions{
 		Name:       args.ProductName,
 		EnvName:    args.EnvName,
 		Production: &args.Production,
