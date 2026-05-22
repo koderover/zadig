@@ -281,6 +281,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			switch tempWorkload.Type {
 			case setting.Deployment:
 				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
+			case setting.DaemonSet:
+				bs, _, err = getter.GetDaemonSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
 				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.CronJob:
@@ -445,6 +447,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		switch v.Type {
 		case setting.Deployment:
 			bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, v.Name, kubeClient)
+		case setting.DaemonSet:
+			bs, _, err = getter.GetDaemonSetYamlFormat(args.Namespace, v.Name, kubeClient)
 		case setting.StatefulSet:
 			bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, v.Name, kubeClient)
 		case setting.CronJob:

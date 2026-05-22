@@ -136,6 +136,7 @@ const (
 	Service               = "Service"
 	Deployment            = "Deployment"
 	CloneSet              = "CloneSet"
+	DaemonSet             = "DaemonSet"
 	StatefulSet           = "StatefulSet"
 	Pod                   = "Pod"
 	ReplicaSet            = "ReplicaSet"
