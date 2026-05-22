@@ -19,9 +19,6 @@ package kube
 import (
 	"regexp"
 	"strings"
-	"sync"
-
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 const (
@@ -46,27 +43,7 @@ var (
 	envNameRegex   = regexp.MustCompile(envRegexString)
 	serviceRegex   = regexp.MustCompile(serviceRegexString)
 	clusterRegex   = regexp.MustCompile(clusterRegexString)
-
-	clusterNameCache sync.Map
 )
-
-func getClusterName(clusterID string) string {
-	if clusterID == "" {
-		return ""
-	}
-
-	if clusterName, ok := clusterNameCache.Load(clusterID); ok {
-		return clusterName.(string)
-	}
-
-	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
-	if err != nil {
-		return ""
-	}
-
-	clusterNameCache.Store(clusterID, cluster.Name)
-	return cluster.Name
-}
 
 // ParseSysKeys 渲染系统变量键值
 func ParseSysKeys(namespace, envName, productName, serviceName, clusterID, ori string) string {
@@ -74,6 +51,6 @@ func ParseSysKeys(namespace, envName, productName, serviceName, clusterID, ori s
 	ori = namespaceRegex.ReplaceAllLiteralString(ori, strings.ToLower(namespace))
 	ori = productRegex.ReplaceAllLiteralString(ori, strings.ToLower(productName))
 	ori = serviceRegex.ReplaceAllLiteralString(ori, strings.ToLower(serviceName))
-	ori = clusterRegex.ReplaceAllLiteralString(ori, strings.ToLower(getClusterName(clusterID)))
+	ori = clusterRegex.ReplaceAllLiteralString(ori, strings.ToLower(clusterID))
 	return ori
 }
