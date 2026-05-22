@@ -374,6 +374,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 				"production":   "$production",
 				"service_name": "$service_name",
 				"product_name": "$product_name",
+				"env_name":     "$target_env",
 			},
 			"count": bson.M{"$sum": 1},
 			"success": bson.M{"$sum": bson.M{
@@ -400,6 +401,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 			"production":   "$_id.production",
 			"service_name": "$_id.service_name",
 			"product_name": "$_id.product_name",
+			"env_name":     "$_id.env_name",
 			"count":        1,
 			"success":      1,
 			"failed":       1,
@@ -427,6 +429,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 			"production":   1,
 			"service_name": 1,
 			"product_name": 1,
+			"env_name":     1,
 			"count":        1,
 			"success":      1,
 			"failed":       1,
@@ -486,6 +489,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 				"production":   "$production",
 				"service_name": "$service_name",
 				"product_name": "$product_name",
+				"env_name":     "$target_env",
 			},
 			"count": bson.M{"$sum": bson.M{
 				"$cond": bson.D{
@@ -504,6 +508,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 			"production":   "$_id.production",
 			"service_name": "$_id.service_name",
 			"product_name": "$_id.product_name",
+			"env_name":     "$_id.env_name",
 			"count":        1,
 		},
 	})
@@ -528,6 +533,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 			"production":   1,
 			"service_name": 1,
 			"product_name": 1,
+			"env_name":     1,
 			"count":        1,
 			"project_name": bson.M{"$first": "$template_product_info.project_name"},
 		},
