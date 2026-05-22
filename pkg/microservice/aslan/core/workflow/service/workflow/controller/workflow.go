@@ -462,7 +462,7 @@ func (w *Workflow) Validate(isExecution bool) error {
 			return e.ErrLintWorkflow.AddDesc(fmt.Sprintf("duplicated stage name: %s", stage.Name))
 		}
 		for _, job := range stage.Jobs {
-			if match := reg.MatchString(job.Name); !match && !allowBuiltInTestingOrScanningJobName(w.WorkflowV4, job) {
+			if match := reg.MatchString(job.Name); !match {
 				return e.ErrLintWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, setting.JobNameRegx))
 			}
 			if _, ok := jobNameMap[job.Name]; !ok {
@@ -489,22 +489,6 @@ func (w *Workflow) Validate(isExecution bool) error {
 		}
 	}
 	return nil
-}
-
-func allowBuiltInTestingOrScanningJobName(workflow *commonmodels.WorkflowV4, job *commonmodels.Job) bool {
-	if workflow == nil || job == nil {
-		return false
-	}
-
-	if job.JobType == config.JobZadigTesting && strings.HasPrefix(workflow.Name, "zadig-testing-") {
-		return true
-	}
-
-	if job.JobType == config.JobZadigScanning && strings.HasPrefix(workflow.Name, "zadig-scanning-") {
-		return true
-	}
-
-	return false
 }
 
 func (w *Workflow) SetRepo(repo *types.Repository) error {

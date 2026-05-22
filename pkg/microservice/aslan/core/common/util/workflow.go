@@ -58,7 +58,14 @@ func GenerateScanningModuleJobName(name string) string {
 }
 
 func GenerateExecutionModuleJobName(name string) string {
-	return strings.ToLower(name)
+	jobName := []rune(strings.ToLower(name))
+	if len(jobName) > 32 {
+		jobName = jobName[:32]
+		if len(jobName) > 0 && jobName[len(jobName)-1] == '-' {
+			jobName = jobName[:len(jobName)-1]
+		}
+	}
+	return string(jobName)
 }
 
 func ValidateGeneratedWorkflowJobName(name string, generator func(string) string) error {
