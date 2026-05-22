@@ -672,6 +672,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
+	if err := runtimeWorkflowController.SendSystemWorkflowHook(workflowTask, commonmodels.WorkflowHookEventStartExecute); err != nil {
+		log.Errorf("send system workflow start hook failed, workflow: %s, taskID: %d, error: %v", workflowTask.WorkflowName, workflowTask.TaskID, err)
+	}
 
 	if err := runtimeWorkflowController.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)

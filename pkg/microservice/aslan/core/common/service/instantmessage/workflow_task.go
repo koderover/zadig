@@ -931,6 +931,46 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	return w.getNotificationContentWithOptions(notify, task, nil)
 }
 
+func (w *Service) BuildWorkflowWebhookNotify(task *models.WorkflowTask) (*webhooknotify.WorkflowNotify, error) {
+	_, _, _, webhookNotify, err := w.getNotificationContentWithOptions(&models.NotifyCtl{WebHookType: setting.NotifyWebHookTypeWebook}, task, nil)
+	if err != nil {
+		return nil, err
+	}
+	if webhookNotify == nil {
+		return nil, fmt.Errorf("failed to build workflow webhook payload for workflow %s, taskID: %d", task.WorkflowName, task.TaskID)
+	}
+
+	return webhookNotify, nil
+}
+
+func (w *Service) SendSystemWorkflowHook(task *models.WorkflowTask, hookSetting *models.WorkflowHookSettings, hookEvent models.WorkflowHookEvent) error {
+	if task == nil || !isWorkflowHookEventEnabled(hookSetting, hookEvent) {
+		return nil
+	}
+
+	webhookNotify, err := w.BuildWorkflowWebhookNotify(task)
+	if err != nil {
+		return err
+	}
+	webhookNotify.EventName = hookEvent
+
+	return webhooknotify.NewClient(hookSetting.HookAddress, hookSetting.HookSecret).SendWorkflowWebhook(webhookNotify)
+}
+
+func isWorkflowHookEventEnabled(hookSetting *models.WorkflowHookSettings, hookEvent models.WorkflowHookEvent) bool {
+	if hookSetting == nil || !hookSetting.Enable {
+		return false
+	}
+
+	for _, configuredEvent := range hookSetting.HookEvents {
+		if configuredEvent == hookEvent {
+			return true
+		}
+	}
+
+	return false
+}
+
 type workflowNotificationOptions struct {
 	StatusTextKeyOverride string
 	PendingStageName      string
