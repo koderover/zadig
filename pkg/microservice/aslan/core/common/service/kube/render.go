@@ -437,7 +437,11 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+		clusterName, err := getClusterNameByID(productInfo.ClusterID)
+		if err != nil {
+			return "", 0, err
+		}
+		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 		if err != nil {
@@ -455,7 +459,11 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 	if err != nil {
 		return "", nil, err
 	}
-	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, fullRenderedYaml)
+	clusterName, err := getClusterNameByID(envInfo.ClusterID)
+	if err != nil {
+		return "", nil, err
+	}
+	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, clusterName, fullRenderedYaml)
 
 	manifests := util.SplitManifestsOrdered(fullRenderedYaml)
 
@@ -711,7 +719,11 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 	if err != nil {
 		return "", nil, err
 	}
-	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	clusterName, err := getClusterNameByID(productInfo.ClusterID)
+	if err != nil {
+		return "", nil, err
+	}
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 
 	manifests := releaseutil.SplitManifests(fullRenderedYaml)
 
@@ -865,7 +877,11 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		if renderErr != nil {
 			return "", 0, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
 		}
-		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, currentRenderedYaml)
+		clusterName, err := getClusterNameByID(productInfo.ClusterID)
+		if err != nil {
+			return "", 0, nil, err
+		}
+		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, currentRenderedYaml)
 		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
 		if err != nil {
 			return "", 0, nil, fmt.Errorf("failed to extract workload replicas: %v", err)
@@ -894,7 +910,11 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to render service yaml: %v", err)
 	}
-	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	clusterName, err := getClusterNameByID(productInfo.ClusterID)
+	if err != nil {
+		return "", 0, nil, err
+	}
+	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
 	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
@@ -1015,10 +1035,22 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return "", err
 	}
-	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
+	clusterName, err := getClusterNameByID(prod.ClusterID)
+	if err != nil {
+		return "", err
+	}
+	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, clusterName, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
 	if err != nil {
 		return "", err
 	}
 	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
+}
+
+func getClusterNameByID(clusterID string) (string, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to find cluster by id %s", clusterID)
+	}
+	return cluster.Name, nil
 }
