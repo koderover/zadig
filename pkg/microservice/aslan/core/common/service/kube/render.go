@@ -412,7 +412,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		clusterName, err := getClusterNameByID(productInfo.ClusterID)
+		// render cluster name
+			clusterName, err := getClusterNameByID(productInfo.ClusterID)
 		if err != nil {
 			return "", 0, err
 		}
