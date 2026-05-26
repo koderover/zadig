@@ -36,19 +36,19 @@ func NewClient(address, token string) *webhookNotifyclient {
 	}
 }
 
-func (c *webhookNotifyclient) SendWorkflowWebhook(webhookNotify *WorkflowNotify) error {
+func (c *webhookNotifyclient) SendWorkflowWebhook(webhookNotify *WorkflowNotify, event WebHookNotifyEvent) error {
 	notify := &WebHookNotify{
 		ObjectKind: WebHookNotifyObjectKindWorkflow,
-		Event:      WebHookNotifyEventWorkflow,
+		Event:      event,
 		Workflow:   webhookNotify,
 	}
 	return c.sendWebhook(notify)
 }
 
-func (c *webhookNotifyclient) SendReleasePlanWebhook(webhookNotify *ReleasePlanHookBody) error {
+func (c *webhookNotifyclient) SendReleasePlanWebhook(webhookNotify *ReleasePlanHookBody, event WebHookNotifyEvent) error {
 	notify := &WebHookNotify{
 		ObjectKind:  WebHookNotifyObjectKindReleasePlan,
-		Event:       WebHookNotifyEventReleasePlan,
+		Event:       event,
 		ReleasePlan: webhookNotify,
 	}
 	return c.sendWebhook(notify)
