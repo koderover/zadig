@@ -65,6 +65,10 @@ type GeneSvcYamlOption struct {
 	IgnoreCurrentReplicaOverrides bool
 	UnInstall                     bool
 	Containers                    []*models.Container
+	// AllowUnresolvedModuleImages skips the post-render check that errors
+	// when a $<module>-image$ placeholder remains in the YAML. Set this on
+	// initial-deploy code paths where the image hasn't been built yet.
+	AllowUnresolvedModuleImages bool
 }
 
 type WorkloadResource struct {
@@ -448,6 +452,10 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
+		fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
+		if err != nil {
+			return "", 0, err
+		}
 
 		replicaOverrides := resolveReplicaOverrides(curProductSvc.WorkLoads, option.ReplicaOverrides, option.IgnoreCurrentReplicaOverrides)
 		fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
@@ -818,7 +826,15 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 			manifestArr = append(manifestArr, string(workloadBs))
 		}
 	}
-	return ReplaceWorkloadImages(util.JoinYamls(manifestArr), option.Containers)
+	replacedYaml, workloadResource, err := ReplaceWorkloadImages(util.JoinYamls(manifestArr), option.Containers)
+	if err != nil {
+		return "", nil, err
+	}
+	replacedYaml, err = ParseModuleImageKeys(replacedYaml, option.Containers, option.AllowUnresolvedModuleImages)
+	if err != nil {
+		return "", nil, err
+	}
+	return replacedYaml, workloadResource, nil
 }
 
 func variableYamlNil(variableYaml string) bool {
@@ -952,6 +968,13 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
 	}
+	// Second image-substitution pass — text-level $<module>-image$ replacement
+	// for any workload kind not handled by ReplaceWorkloadImages (e.g. DaemonSets,
+	// Argo Rollouts, other CRDs).
+	fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("failed to parse module image keys: %v", err)
+	}
 
 	var currentReplicaOverrides []*commonmodels.WorkLoad
 	if curProductSvc != nil {
@@ -1069,6 +1092,10 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, clusterName, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
+	if err != nil {
+		return "", err
+	}
+	parsedYaml, err = ParseModuleImageKeys(parsedYaml, service.Containers, false)
 	if err != nil {
 		return "", err
 	}
