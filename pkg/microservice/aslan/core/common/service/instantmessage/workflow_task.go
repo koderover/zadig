@@ -746,6 +746,18 @@ func getStageTaskByName(stages []*models.StageTask, stageName string) *models.St
 	return nil
 }
 
+func buildWorkflowNotifyReleasePlan(releasePlan *models.ReleasePlanRef) *webhooknotify.WorkflowNotifyReleasePlan {
+	if releasePlan == nil {
+		return nil
+	}
+
+	return &webhooknotify.WorkflowNotifyReleasePlan{
+		ID:    releasePlan.ID,
+		Name:  releasePlan.Name,
+		Index: releasePlan.Index,
+	}
+}
+
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
 	project, err := templaterepo.NewProductColl().Find(task.ProjectName)
 	if err != nil {
@@ -774,6 +786,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		ProjectDisplayName:  project.ProjectName,
+		ReleasePlan:         buildWorkflowNotifyReleasePlan(task.ReleasePlan),
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
@@ -782,7 +795,6 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		EndTime:             task.EndTime,
 		TaskCreator:         task.TaskCreator,
 		TaskCreatorID:       task.TaskCreatorID,
-		TaskCreatorPhone:    task.TaskCreatorPhone,
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
@@ -931,6 +943,56 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	return w.getNotificationContentWithOptions(notify, task, nil)
 }
 
+func (w *Service) BuildWorkflowWebhookNotify(task *models.WorkflowTask) (*webhooknotify.WorkflowNotify, error) {
+	_, _, _, webhookNotify, err := w.getNotificationContentWithOptions(&models.NotifyCtl{WebHookType: setting.NotifyWebHookTypeWebook}, task, nil)
+	if err != nil {
+		return nil, err
+	}
+	if webhookNotify == nil {
+		return nil, fmt.Errorf("failed to build workflow webhook payload for workflow %s, taskID: %d", task.WorkflowName, task.TaskID)
+	}
+
+	return webhookNotify, nil
+}
+
+func (w *Service) SendSystemWorkflowHook(task *models.WorkflowTask, hookSetting *models.WorkflowHookSettings, hookEvent models.WorkflowHookEvent) error {
+	if task == nil || !isWorkflowHookEventEnabled(hookSetting, hookEvent) {
+		return nil
+	}
+
+	webhookNotify, err := w.BuildWorkflowWebhookNotify(task)
+	if err != nil {
+		return err
+	}
+
+	return webhooknotify.NewClient(hookSetting.HookAddress, hookSetting.HookSecret).SendWorkflowWebhook(webhookNotify, workflowHookEventToWebhookEvent(hookEvent))
+}
+
+func isWorkflowHookEventEnabled(hookSetting *models.WorkflowHookSettings, hookEvent models.WorkflowHookEvent) bool {
+	if hookSetting == nil || !hookSetting.Enable {
+		return false
+	}
+
+	for _, configuredEvent := range hookSetting.HookEvents {
+		if configuredEvent == hookEvent {
+			return true
+		}
+	}
+
+	return false
+}
+
+func workflowHookEventToWebhookEvent(hookEvent models.WorkflowHookEvent) webhooknotify.WebHookNotifyEvent {
+	switch hookEvent {
+	case models.WorkflowHookEventStartExecute:
+		return webhooknotify.WebHookNotifyEventWorkflowStartExecute
+	case models.WorkflowHookEventCompleteExecute:
+		return webhooknotify.WebHookNotifyEventWorkflowCompleteExecute
+	default:
+		return webhooknotify.WebHookNotifyEventWorkflow
+	}
+}
+
 type workflowNotificationOptions struct {
 	StatusTextKeyOverride string
 	PendingStageName      string
@@ -973,6 +1035,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		ProjectDisplayName:  project.ProjectName,
+		ReleasePlan:         buildWorkflowNotifyReleasePlan(task.ReleasePlan),
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
@@ -981,7 +1044,6 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		EndTime:             task.EndTime,
 		TaskCreator:         task.TaskCreator,
 		TaskCreatorID:       task.TaskCreatorID,
-		TaskCreatorPhone:    task.TaskCreatorPhone,
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 		TaskType:            task.Type,
 	}
@@ -1465,7 +1527,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		}
 	case setting.NotifyWebHookTypeWebook:
 		webhookclient := webhooknotify.NewClient(notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token)
-		err := webhookclient.SendWorkflowWebhook(webhookNotify)
+		err := webhookclient.SendWorkflowWebhook(webhookNotify, webhooknotify.WebHookNotifyEventWorkflow)
 		if err != nil {
 			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token, err)
 		}

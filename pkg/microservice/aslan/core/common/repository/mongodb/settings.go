@@ -223,3 +223,36 @@ func (c *SystemSettingColl) GetReleasePlanHookSetting() (*models.ReleasePlanHook
 
 	return resp.ReleasePlanHook, nil
 }
+
+func (c *SystemSettingColl) UpdateWorkflowHookSetting(hookSetting *models.WorkflowHookSettings) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+	change := bson.M{"$set": bson.M{"workflow_hook": hookSetting}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) GetWorkflowHookSetting() (*models.WorkflowHookSettings, error) {
+	query := bson.M{}
+	resp := &models.SystemSetting{}
+
+	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &models.WorkflowHookSettings{
+				Enable: false,
+			}, nil
+		}
+		return nil, err
+	}
+
+	if resp.WorkflowHook == nil {
+		return &models.WorkflowHookSettings{
+			Enable: false,
+		}, nil
+	}
+
+	return resp.WorkflowHook, nil
+}
