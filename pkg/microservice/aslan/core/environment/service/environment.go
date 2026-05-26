@@ -4310,6 +4310,13 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
+	clusterName, err := kube.GetClusterNameByID(prod.ClusterID)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to get cluster name for cluster %s, err: %v", prod.ClusterID, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
 	if prod.Production != isProduction {
 		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
 		log.Error(err)
@@ -4404,7 +4411,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, clusterName)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}

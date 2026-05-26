@@ -1361,6 +1361,12 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	err = nil
 
 	namespace := env.Namespace
+	// get cluster name by id
+	clusterName, err := kube.GetClusterNameByID(env.ClusterID)
+	if err != nil {
+		log.Errorf("", err)
+		return nil, err
+	}
 	switch env.Source {
 	case setting.SourceFromHelm:
 		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
@@ -1421,8 +1427,9 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err
 		}
-		// 渲染系统变量键值
-		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+
+		// render system kv value
+		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, clusterName, parsedYaml)
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
