@@ -38,8 +38,13 @@ const (
 type WebHookNotifyEvent string
 
 const (
-	WebHookNotifyEventWorkflow    WebHookNotifyEvent = "workflow"
-	WebHookNotifyEventReleasePlan WebHookNotifyEvent = "release_plan"
+	WebHookNotifyEventWorkflow                WebHookNotifyEvent = "workflow"
+	WebHookNotifyEventWorkflowStartExecute    WebHookNotifyEvent = "start_execute"
+	WebHookNotifyEventWorkflowCompleteExecute WebHookNotifyEvent = "complete_execute"
+	WebHookNotifyEventReleasePlan             WebHookNotifyEvent = "release_plan"
+	WebHookNotifyEventFinishPlanning          WebHookNotifyEvent = "finish_planning"
+	WebHookNotifyEventReleasePlanStartExecute WebHookNotifyEvent = "start_execute"
+	WebHookNotifyEventAllJobDone              WebHookNotifyEvent = "all_job_done"
 )
 
 type WebHookNotifyObjectKind string
@@ -62,6 +67,7 @@ type WorkflowNotify struct {
 	ProjectDisplayName  string                        `json:"project_display_name"`
 	WorkflowName        string                        `json:"workflow_name"`
 	WorkflowDisplayName string                        `json:"workflow_display_name"`
+	ReleasePlan         *WorkflowNotifyReleasePlan    `json:"release_plan,omitempty"`
 	Status              config.Status                 `json:"status"`
 	Remark              string                        `json:"remark"`
 	DetailURL           string                        `json:"detail_url"`
@@ -72,9 +78,14 @@ type WorkflowNotify struct {
 	Stages              []*WorkflowNotifyStage        `json:"stages"`
 	TaskCreator         string                        `json:"task_creator"`
 	TaskCreatorID       string                        `json:"task_creator_id"`
-	TaskCreatorPhone    string                        `json:"task_creator_phone"`
 	TaskCreatorEmail    string                        `json:"task_creator_email"`
 	TaskType            config.CustomWorkflowTaskType `json:"task_type"`
+}
+
+type WorkflowNotifyReleasePlan struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Index int64  `json:"index"`
 }
 
 type WorkflowNotifyStage struct {

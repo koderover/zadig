@@ -267,6 +267,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		server.PUT("/url", SetSystemServerURL)
 	}
 
+	workflowHook := router.Group("workflowHook")
+	{
+		workflowHook.GET("", GetWorkflowHookSetting)
+		workflowHook.PUT("", UpdateWorkflowHookSetting)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// external system API
 	// ---------------------------------------------------------------------------------------
