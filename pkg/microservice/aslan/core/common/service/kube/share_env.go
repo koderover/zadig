@@ -465,7 +465,12 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return nil
 	}
 
-	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	var templateOptions *helmclient.HelmTemplateOptions
+	if helmClient != nil && helmClient.KubeVersion != nil {
+		templateOptions = &helmclient.HelmTemplateOptions{KubeVersion: helmClient.KubeVersion}
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, templateOptions)
 	if err != nil {
 		return fmt.Errorf("failed template chart %q for release %q in namespace %q: %s", chartSpec.ChartName, chartSpec.ReleaseName, chartSpec.Namespace, err)
 	}
