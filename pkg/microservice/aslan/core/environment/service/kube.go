@@ -964,6 +964,10 @@ func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernete
 
 func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, production bool, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
+	clusterName, err := kube.GetClusterNameByID(clusterID)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to get cluster name by id: %s, err: %s", clusterID, err))
+	}
 
 	svcSet := sets.NewString()
 	for _, svc := range request.Services {
@@ -1013,7 +1017,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
-		rederedYaml = kube.ParseSysKeys(request.Namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
+		rederedYaml = kube.ParseSysKeys(request.Namespace, request.EnvName, productName, svc.ServiceName, clusterName, rederedYaml)
 
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)

@@ -410,6 +410,12 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find product %s", option.ProductName)
 	}
 
+	// get cluster name by cluster id
+	clusterName, err := GetClusterNameByID(productInfo.ClusterID)
+	if err != nil {
+		return "", 0, err
+	}
+
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
 	// service not installed, nothing to return
@@ -437,11 +443,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		// render cluster name
-			clusterName, err := getClusterNameByID(productInfo.ClusterID)
-		if err != nil {
-			return "", 0, err
-		}
 		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
@@ -460,7 +461,8 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 	if err != nil {
 		return "", nil, err
 	}
-	clusterName, err := getClusterNameByID(envInfo.ClusterID)
+	// get cluster name by cluster id
+	clusterName, err := GetClusterNameByID(envInfo.ClusterID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -720,7 +722,8 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 	if err != nil {
 		return "", nil, err
 	}
-	clusterName, err := getClusterNameByID(productInfo.ClusterID)
+	// get cluster name by id
+	clusterName, err := GetClusterNameByID(productInfo.ClusterID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -817,6 +820,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, errors.Wrapf(err, "failed to find product %s", option.ProductName)
 	}
 
+	// get cluster name by id
+	clusterName, err := GetClusterNameByID(productInfo.ClusterID)
+	if err != nil {
+		return "", 0, nil, err
+	}
+
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
 	// nothing to render when trying to uninstall a service which is not deployed
@@ -878,10 +887,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		if renderErr != nil {
 			return "", 0, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
 		}
-		clusterName, err := getClusterNameByID(productInfo.ClusterID)
-		if err != nil {
-			return "", 0, nil, err
-		}
 		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, currentRenderedYaml)
 		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
 		if err != nil {
@@ -910,10 +915,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, serviceRender)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to render service yaml: %v", err)
-	}
-	clusterName, err := getClusterNameByID(productInfo.ClusterID)
-	if err != nil {
-		return "", 0, nil, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 
@@ -1026,18 +1027,19 @@ func RenderEnvService(prod *commonmodels.Product, serviceRender *template.Servic
 		return "", err
 	}
 
-	return RenderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl)
+	// get cluster name by cluster id
+	clusterName, err := GetClusterNameByID(prod.ClusterID)
+	if err != nil {
+		return "", err
+	}
+	return RenderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, clusterName)
 }
 
-func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
+func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service, clusterName string) (yaml string, err error) {
 	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, serviceRender)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
-		return "", err
-	}
-	clusterName, err := getClusterNameByID(prod.ClusterID)
-	if err != nil {
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, clusterName, parsedYaml)
@@ -1048,7 +1050,7 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }
 
-func getClusterNameByID(clusterID string) (string, error) {
+func GetClusterNameByID(clusterID string) (string, error) {
 	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to find cluster by id %s", clusterID)
