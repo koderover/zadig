@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -49,6 +50,11 @@ func GetWorkflowHookSetting(c *gin.Context) {
 		return
 	}
 
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
 	ctx.Resp, ctx.RespErr = service.GetWorkflowHookSetting()
 }
 
@@ -72,6 +78,11 @@ func UpdateWorkflowHookSetting(c *gin.Context) {
 
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
 		return
 	}
 
