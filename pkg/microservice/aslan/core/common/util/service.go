@@ -19,6 +19,7 @@ package util
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -43,6 +44,10 @@ var (
 		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}
+
+	// Duplicated from kube.moduleImageRegex — kept here to avoid an import
+	// cycle (kube imports util). Keep both regexes in sync.
+	moduleImagePlaceholderRegex = regexp.MustCompile(`^\$[A-Za-z0-9_-]+-image\$$`)
 )
 
 func GetServiceDeployStrategy(serviceName string, strategyMap map[string]setting.ServiceDeployStrategy) setting.ServiceDeployStrategy {
@@ -168,6 +173,16 @@ func SetChartServiceDeployStrategyImport(strategyMap map[string]setting.ServiceD
 }
 
 func SetCurrentContainerImages(args *commonmodels.Service) error {
+	// Snapshot prior images so we can preserve resolved URIs when the
+	// rendered YAML contains a $<module>-image$ placeholder (which would
+	// otherwise overwrite the stored image with the literal placeholder).
+	priorByName := make(map[string]*commonmodels.Container, len(args.Containers))
+	for _, c := range args.Containers {
+		if c != nil {
+			priorByName[c.Name] = c
+		}
+	}
+
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
 		yamlDataArray := util.SplitYaml(data)
@@ -211,7 +226,21 @@ func SetCurrentContainerImages(args *commonmodels.Service) error {
 		}
 	}
 
-	args.Containers = uniqueSlice(srvContainers)
+	deduped := uniqueSlice(srvContainers)
+	for _, c := range deduped {
+		if c == nil || !moduleImagePlaceholderRegex.MatchString(c.Image) {
+			continue
+		}
+		// The rendered YAML still carries the placeholder for this module
+		// (e.g. an unknown workload kind where ReplaceWorkloadImages can't
+		// substitute by name+kind). Carry the previously-resolved image
+		// forward so we never persist a placeholder as a stored image URI.
+		if prior, ok := priorByName[c.Name]; ok && prior.Image != "" && !moduleImagePlaceholderRegex.MatchString(prior.Image) {
+			c.Image = prior.Image
+			c.ImageName = prior.ImageName
+		}
+	}
+	args.Containers = deduped
 	return nil
 }
 
