@@ -17,8 +17,11 @@ limitations under the License.
 package kube
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 const (
@@ -30,6 +33,11 @@ const (
 	envRegexString       = `\$EnvName\$`
 	productRegexString   = `\$Product\$`
 	serviceRegexString   = `\$Service\$`
+
+	// $<module>-image$ — per service-module image substitution.
+	// Module names follow the K8s container name spec; we allow the broader
+	// [A-Za-z0-9_-]+ to match what parseContainer already accepts.
+	moduleImageRegexString = `\$([A-Za-z0-9_-]+)-image\$`
 )
 
 var (
@@ -41,6 +49,8 @@ var (
 	productRegex   = regexp.MustCompile(productRegexString)
 	envNameRegex   = regexp.MustCompile(envRegexString)
 	serviceRegex   = regexp.MustCompile(serviceRegexString)
+
+	moduleImageRegex = regexp.MustCompile(moduleImageRegexString)
 )
 
 // ParseSysKeys 渲染系统变量键值
@@ -50,4 +60,52 @@ func ParseSysKeys(namespace, envName, productName, serviceName, ori string) stri
 	ori = productRegex.ReplaceAllLiteralString(ori, strings.ToLower(productName))
 	ori = serviceRegex.ReplaceAllLiteralString(ori, strings.ToLower(serviceName))
 	return ori
+}
+
+// IsModuleImagePlaceholder reports whether s is exactly a $<module>-image$
+// placeholder (no surrounding text). Auto-detection uses this to avoid
+// storing placeholder strings as resolved image URIs.
+func IsModuleImagePlaceholder(s string) bool {
+	loc := moduleImageRegex.FindStringIndex(s)
+	return loc != nil && loc[0] == 0 && loc[1] == len(s)
+}
+
+// ParseModuleImageKeys substitutes $<module>-image$ placeholders in yaml using
+// the provided container list (container.Name -> container.Image). Containers
+// with an empty or placeholder-shaped Image are skipped — they cannot resolve
+// anything.
+//
+// If allowUnresolved is false, any $<module>-image$ placeholder still present
+// after substitution causes an error naming the offending module(s). Callers
+// on the initial-deploy path (no built image yet) should pass true.
+func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, allowUnresolved bool) (string, error) {
+	for _, c := range containers {
+		if c == nil || c.Name == "" || c.Image == "" {
+			continue
+		}
+		if IsModuleImagePlaceholder(c.Image) {
+			continue
+		}
+		pattern := regexp.MustCompile(`\$` + regexp.QuoteMeta(c.Name) + `-image\$`)
+		yaml = pattern.ReplaceAllLiteralString(yaml, c.Image)
+	}
+
+	if allowUnresolved {
+		return yaml, nil
+	}
+
+	matches := moduleImageRegex.FindAllStringSubmatch(yaml, -1)
+	if len(matches) == 0 {
+		return yaml, nil
+	}
+	seen := make(map[string]struct{}, len(matches))
+	unresolved := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if _, ok := seen[m[1]]; ok {
+			continue
+		}
+		seen[m[1]] = struct{}{}
+		unresolved = append(unresolved, m[1])
+	}
+	return yaml, fmt.Errorf("unresolved $<module>-image$ placeholder(s): %s", strings.Join(unresolved, ", "))
 }
