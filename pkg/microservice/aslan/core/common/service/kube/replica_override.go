@@ -97,7 +97,16 @@ func ApplyReplicaOverrides(renderedYaml string, overrides []*commonmodels.WorkLo
 	manifests := util.SplitManifests(renderedYaml)
 	updated := make([]string, 0, len(manifests))
 	for _, manifest := range manifests {
-		if len(strings.TrimSpace(manifest)) == 0 {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(manifest), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
 			continue
 		}
 
@@ -138,7 +147,16 @@ func ExtractWorkloadReplicas(renderedYaml string) (map[string]int32, error) {
 
 	customKVRegExp := regexp.MustCompile(config.VariableRegEx)
 	for _, manifest := range util.SplitManifests(renderedYaml) {
-		if len(strings.TrimSpace(manifest)) == 0 {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(manifest), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
 			continue
 		}
 
