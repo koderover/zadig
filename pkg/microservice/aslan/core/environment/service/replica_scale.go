@@ -88,9 +88,19 @@ func resolveReplicaVariablePath(renderedYaml, rawTemplateYaml, workloadType, wor
 	normalizedType := kube.NormalizeReplicaWorkloadType(workloadType)
 	manifests := util.SplitManifests(renderedYaml)
 	for index, manifest := range manifests {
-		if len(strings.TrimSpace(manifest)) == 0 {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(manifest), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
 			continue
 		}
+
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
 		if err != nil {
 			return "", false, 0, err
