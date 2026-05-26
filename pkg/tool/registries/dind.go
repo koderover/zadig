@@ -18,7 +18,6 @@ package registries
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -248,9 +247,8 @@ func applyDindModifications(dindSts *appsv1.StatefulSet, mountFlag, insecureFlag
 }
 
 func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace, cert string) error {
-	certify := base64.StdEncoding.EncodeToString([]byte(cert))
 	datamap := map[string][]byte{
-		"ca.crt": []byte(certify),
+		"ca.crt": []byte(cert),
 	}
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
