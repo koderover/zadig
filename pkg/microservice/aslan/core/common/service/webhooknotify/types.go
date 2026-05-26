@@ -74,7 +74,6 @@ type WorkflowNotify struct {
 	Stages              []*WorkflowNotifyStage         `json:"stages"`
 	TaskCreator         string                         `json:"task_creator"`
 	TaskCreatorID       string                         `json:"task_creator_id"`
-	TaskCreatorPhone    string                         `json:"task_creator_phone"`
 	TaskCreatorEmail    string                         `json:"task_creator_email"`
 	TaskType            config.CustomWorkflowTaskType  `json:"task_type"`
 }

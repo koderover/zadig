@@ -795,7 +795,6 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		EndTime:             task.EndTime,
 		TaskCreator:         task.TaskCreator,
 		TaskCreatorID:       task.TaskCreatorID,
-		TaskCreatorPhone:    task.TaskCreatorPhone,
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
@@ -1035,7 +1034,6 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		EndTime:             task.EndTime,
 		TaskCreator:         task.TaskCreator,
 		TaskCreatorID:       task.TaskCreatorID,
-		TaskCreatorPhone:    task.TaskCreatorPhone,
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 		TaskType:            task.Type,
 	}
