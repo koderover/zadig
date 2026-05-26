@@ -816,6 +816,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						return
 					}
 
+					updateProd.ServiceDeployStrategy = deployStrategy
 					service.DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, deployStrategy)
 					if curEnv.GetServiceMap()[service.ServiceName] != nil {
 						curEnv.GetServiceMap()[service.ServiceName].DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, curEnv.ServiceDeployStrategy)
