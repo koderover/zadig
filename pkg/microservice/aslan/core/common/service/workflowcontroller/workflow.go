@@ -556,6 +556,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 
 	c.workflowTask.Remark = ""
+	shouldSendCompleteHook := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
 
 	c.workflowTaskMutex.Lock()
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
@@ -570,7 +571,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 			c.logger.Errorf("send workflow task notification failed, error: %v", err)
 		}
-		if c.workflowTask.Finished() {
+		if shouldSendCompleteHook {
 			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
 				c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 			}
