@@ -38,10 +38,8 @@ const (
 type WebHookNotifyEvent string
 
 const (
-	WebHookNotifyEventWorkflow                WebHookNotifyEvent = "workflow"
-	WebHookNotifyEventWorkflowStartExecute    WebHookNotifyEvent = "start_execute"
-	WebHookNotifyEventWorkflowCompleteExecute WebHookNotifyEvent = "complete_execute"
-	WebHookNotifyEventReleasePlan             WebHookNotifyEvent = "release_plan"
+	WebHookNotifyEventWorkflow    WebHookNotifyEvent = "workflow"
+	WebHookNotifyEventReleasePlan WebHookNotifyEvent = "release_plan"
 )
 
 type WebHookNotifyObjectKind string
@@ -59,24 +57,25 @@ type WebHookNotify struct {
 }
 
 type WorkflowNotify struct {
-	TaskID              int64                         `json:"task_id"`
-	ProjectName         string                        `json:"project_name"`
-	ProjectDisplayName  string                        `json:"project_display_name"`
-	WorkflowName        string                        `json:"workflow_name"`
-	WorkflowDisplayName string                        `json:"workflow_display_name"`
-	ReleasePlan         *WorkflowNotifyReleasePlan    `json:"release_plan,omitempty"`
-	Status              config.Status                 `json:"status"`
-	Remark              string                        `json:"remark"`
-	DetailURL           string                        `json:"detail_url"`
-	Error               string                        `json:"error"`
-	CreateTime          int64                         `json:"create_time"`
-	StartTime           int64                         `json:"start_time"`
-	EndTime             int64                         `json:"end_time"`
-	Stages              []*WorkflowNotifyStage        `json:"stages"`
-	TaskCreator         string                        `json:"task_creator"`
-	TaskCreatorID       string                        `json:"task_creator_id"`
-	TaskCreatorEmail    string                        `json:"task_creator_email"`
-	TaskType            config.CustomWorkflowTaskType `json:"task_type"`
+	TaskID              int64                          `json:"task_id"`
+	ProjectName         string                         `json:"project_name"`
+	ProjectDisplayName  string                         `json:"project_display_name"`
+	WorkflowName        string                         `json:"workflow_name"`
+	WorkflowDisplayName string                         `json:"workflow_display_name"`
+	ReleasePlan         *WorkflowNotifyReleasePlan     `json:"release_plan,omitempty"`
+	EventName           commonmodels.WorkflowHookEvent `json:"event_name,omitempty"`
+	Status              config.Status                  `json:"status"`
+	Remark              string                         `json:"remark"`
+	DetailURL           string                         `json:"detail_url"`
+	Error               string                         `json:"error"`
+	CreateTime          int64                          `json:"create_time"`
+	StartTime           int64                          `json:"start_time"`
+	EndTime             int64                          `json:"end_time"`
+	Stages              []*WorkflowNotifyStage         `json:"stages"`
+	TaskCreator         string                         `json:"task_creator"`
+	TaskCreatorID       string                         `json:"task_creator_id"`
+	TaskCreatorEmail    string                         `json:"task_creator_email"`
+	TaskType            config.CustomWorkflowTaskType  `json:"task_type"`
 }
 
 type WorkflowNotifyReleasePlan struct {

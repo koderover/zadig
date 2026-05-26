@@ -36,10 +36,10 @@ func NewClient(address, token string) *webhookNotifyclient {
 	}
 }
 
-func (c *webhookNotifyclient) SendWorkflowWebhook(webhookNotify *WorkflowNotify, event WebHookNotifyEvent) error {
+func (c *webhookNotifyclient) SendWorkflowWebhook(webhookNotify *WorkflowNotify) error {
 	notify := &WebHookNotify{
 		ObjectKind: WebHookNotifyObjectKindWorkflow,
-		Event:      event,
+		Event:      WebHookNotifyEventWorkflow,
 		Workflow:   webhookNotify,
 	}
 	return c.sendWebhook(notify)
