@@ -964,9 +964,8 @@ func (w *Service) SendSystemWorkflowHook(task *models.WorkflowTask, hookSetting 
 	if err != nil {
 		return err
 	}
-	webhookNotify.EventName = hookEvent
 
-	return webhooknotify.NewClient(hookSetting.HookAddress, hookSetting.HookSecret).SendWorkflowWebhook(webhookNotify)
+	return webhooknotify.NewClient(hookSetting.HookAddress, hookSetting.HookSecret).SendWorkflowWebhook(webhookNotify, workflowHookEventToWebhookEvent(hookEvent))
 }
 
 func isWorkflowHookEventEnabled(hookSetting *models.WorkflowHookSettings, hookEvent models.WorkflowHookEvent) bool {
@@ -981,6 +980,17 @@ func isWorkflowHookEventEnabled(hookSetting *models.WorkflowHookSettings, hookEv
 	}
 
 	return false
+}
+
+func workflowHookEventToWebhookEvent(hookEvent models.WorkflowHookEvent) webhooknotify.WebHookNotifyEvent {
+	switch hookEvent {
+	case models.WorkflowHookEventStartExecute:
+		return webhooknotify.WebHookNotifyEventWorkflowStartExecute
+	case models.WorkflowHookEventCompleteExecute:
+		return webhooknotify.WebHookNotifyEventWorkflowCompleteExecute
+	default:
+		return webhooknotify.WebHookNotifyEventWorkflow
+	}
 }
 
 type workflowNotificationOptions struct {
@@ -1517,7 +1527,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		}
 	case setting.NotifyWebHookTypeWebook:
 		webhookclient := webhooknotify.NewClient(notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token)
-		err := webhookclient.SendWorkflowWebhook(webhookNotify)
+		err := webhookclient.SendWorkflowWebhook(webhookNotify, webhooknotify.WebHookNotifyEventWorkflow)
 		if err != nil {
 			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token, err)
 		}
