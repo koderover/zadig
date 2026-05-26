@@ -240,6 +240,11 @@ func (c *SystemSettingColl) GetWorkflowHookSetting() (*models.WorkflowHookSettin
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &models.WorkflowHookSettings{
+				Enable: false,
+			}, nil
+		}
 		return nil, err
 	}
 
