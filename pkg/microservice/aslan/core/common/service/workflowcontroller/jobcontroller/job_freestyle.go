@@ -73,6 +73,7 @@ type FreestyleJobCtl struct {
 	kubeclient  crClient.Client
 	informer    informers.SharedInformerFactory
 	apiServer   crClient.Reader
+	releaseInf  func()
 	paths       *string
 	jobTaskSpec *commonmodels.JobTaskFreestyleSpec
 	ack         func()
@@ -129,6 +130,9 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	} else {
 		if err := c.run(ctx); err != nil {
 			return
+		}
+		if c.releaseInf != nil {
+			defer c.releaseInf()
 		}
 		c.wait(ctx)
 		c.complete(ctx)
@@ -299,11 +303,12 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	}
 
 	// set informer when job and cm have been created
-	informer, err := clientmanager.NewKubeClientManager().GetInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace)
+	informer, releaseInformer, err := clientmanager.NewKubeClientManager().AcquireInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace)
 	if err != nil {
 		return errors.Wrap(err, "get informer")
 	}
 	c.informer = informer
+	c.releaseInf = releaseInformer
 	c.logger.Infof("succeed to create job %s", c.job.K8sJobName)
 	return nil
 }
