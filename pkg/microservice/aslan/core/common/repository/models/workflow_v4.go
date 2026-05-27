@@ -913,6 +913,7 @@ type ZadigBlueGreenDeployEnvInformation struct {
 
 type ZadigVMDeployEnvInformation struct {
 	Env      string                `json:"env"      yaml:"env"`
+	Alias    string                `json:"alias"    yaml:"alias"`
 	Services []*ServiceAndVMDeploy `json:"services" yaml:"services"`
 }
 
