@@ -142,6 +142,10 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		setJobFinalStatusContext(job, workflowCtx)
 		ack()
+		if workflowCtx.IsDebug {
+			logger.Infof("skip updating debug job info into db")
+			return
+		}
 		logger.Infof("updating job info into db...")
 		err := jobCtl.SaveInfo(ctx)
 		if err != nil {
