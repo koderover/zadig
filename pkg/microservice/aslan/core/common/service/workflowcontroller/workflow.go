@@ -232,7 +232,6 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowDisplayName:         c.workflowTask.WorkflowDisplayName,
 		ProjectName:                 c.workflowTask.ProjectName,
 		ProjectDisplayName:          c.workflowTask.ProjectDisplayName,
-		IsDebug:                     c.workflowTask.IsDebug,
 		Remark:                      c.workflowTask.Remark,
 		TaskID:                      c.workflowTask.TaskID,
 		RetryNum:                    c.workflowTask.RetryNum,
@@ -582,7 +581,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, c.workflowTask.TaskID, c.workflowTask.Status, c.logger); err != nil {
 			log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
-		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart, c.workflowTask.IsDebug); err != nil {
+		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart); err != nil {
 			log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
 	}
