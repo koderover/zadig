@@ -60,6 +60,7 @@ type WorkflowV4 struct {
 	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
 	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	Remark         string                   `bson:"remark"              yaml:"-"                   json:"remark"`
+	RemarkRequired bool                     `bson:"remark_required"     yaml:"remark_required"     json:"remark_required"`
 	IgnoreCache    bool                     `bson:"ignore_cache,omitempty" yaml:"ignore_cache,omitempty" json:"ignore_cache,omitempty"`
 	ShareStorages  []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 	Hash           string                   `bson:"hash"                yaml:"hash"                json:"hash"`
@@ -548,13 +549,13 @@ type DeployHelmChart struct {
 }
 
 type DeployBasicInfo struct {
-	ServiceName    string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	ServiceName    string                        `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
 	DeployStrategy setting.ServiceDeployStrategy `bson:"deploy_strategy"                     yaml:"deploy_strategy"                        json:"deploy_strategy"`
-	Modules        []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
-	Deployed       bool                `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
-	AutoSync       bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
-	UpdateConfig   bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable      bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
+	Modules        []*DeployModuleInfo           `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	Deployed       bool                          `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
+	AutoSync       bool                          `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
+	UpdateConfig   bool                          `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable      bool                          `bson:"-"                                yaml:"updatable"                           json:"updatable"`
 }
 
 type DeployOptionInfo struct {

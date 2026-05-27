@@ -447,19 +447,20 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name                  string
-	Account               string
-	UserID                string
-	Type                  config.CustomWorkflowTaskType
-	ApprovalTicketID      string
-	SkipWorkflowUpdate    bool
-	NotifyInput           []*CreateCustomTaskNotifyInput
-	LarkProjectKey        string
-	LarkProjectSimpleName string
-	LarkWorkItemTypeKey   string
-	LarkWorkItemAPIName   string
-	LarkWorkItemID        string
-	ReleasePlan           *commonmodels.ReleasePlanRef
+	Name                   string
+	Account                string
+	UserID                 string
+	Type                   config.CustomWorkflowTaskType
+	ValidateRemarkRequired bool
+	ApprovalTicketID       string
+	SkipWorkflowUpdate     bool
+	NotifyInput            []*CreateCustomTaskNotifyInput
+	LarkProjectKey         string
+	LarkProjectSimpleName  string
+	LarkWorkItemTypeKey    string
+	LarkWorkItemAPIName    string
+	LarkWorkItemID         string
+	ReleasePlan            *commonmodels.ReleasePlanRef
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -511,8 +512,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		if err != nil {
 			return resp, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find workflow %s, error: %v", workflow.Name, err))
 		}
+		workflow.RemarkRequired = originalWorkflow.RemarkRequired
 		if originalWorkflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+		if args.ValidateRemarkRequired && originalWorkflow.RemarkRequired && strings.TrimSpace(workflow.Remark) == "" {
+			return resp, e.ErrCreateTask.AddDesc("workflow task creation denied: remark is required.")
 		}
 
 		// do approval ticket check

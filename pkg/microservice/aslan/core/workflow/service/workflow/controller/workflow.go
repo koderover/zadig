@@ -443,6 +443,10 @@ func (w *Workflow) Validate(isExecution bool) error {
 		if err != nil {
 			return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 		}
+		w.RemarkRequired = latestWorkflowSettings.RemarkRequired
+		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {
+			return e.ErrLintWorkflow.AddDesc("workflow remark is required.")
+		}
 	}
 
 	for _, stage := range w.Stages {
