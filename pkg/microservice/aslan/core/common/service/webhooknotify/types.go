@@ -191,6 +191,10 @@ type ReleasePlanHookJob struct {
 	ID string `json:"id"`
 	// 发布任务名称
 	Name string `json:"name"`
+	// 发布任务负责人
+	Manager string `json:"manager"`
+	// 发布任务负责人 ID
+	ManagerID string `json:"manager_id"`
 	// 发布任务类型
 	Type config.ReleasePlanJobType `json:"type"`
 	// 发布任务规格

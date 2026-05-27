@@ -1785,9 +1785,11 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 	jobs := []*webhooknotify.ReleasePlanHookJob{}
 	for _, job := range plan.Jobs {
 		hookJob := &webhooknotify.ReleasePlanHookJob{
-			ID:   job.ID,
-			Name: job.Name,
-			Type: job.Type,
+			ID:        job.ID,
+			Name:      job.Name,
+			Manager:   job.Manager,
+			ManagerID: job.ManagerID,
+			Type:      job.Type,
 			ReleasePlanHookJobRuntime: webhooknotify.ReleasePlanHookJobRuntime{
 				Status:       job.Status,
 				ExecutedBy:   job.ExecutedBy,
