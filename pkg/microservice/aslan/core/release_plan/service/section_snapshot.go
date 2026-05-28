@@ -161,7 +161,7 @@ func buildReleasePlanVersionSnapshot(plan *models.ReleasePlan, sectionKey string
 	case sectionKey == releasePlanVersionSectionMetadata:
 		return buildReleasePlanMetadataSnapshot(plan), nil
 	case sectionKey == releasePlanVersionSectionApproval:
-		return sanitizeReleasePlanValue(plan.Approval), nil
+		return buildReleasePlanApprovalSnapshot(plan.Approval)
 	case sectionKey == releasePlanVersionSectionJobsOrder:
 		return buildReleasePlanJobsOrderSnapshot(plan), nil
 	case strings.HasPrefix(sectionKey, releasePlanVersionSectionJobPrefix):
@@ -177,10 +177,16 @@ func buildReleasePlanVersionSnapshot(plan *models.ReleasePlan, sectionKey string
 }
 
 func buildReleasePlanInputSnapshot(plan *models.ReleasePlan) (interface{}, error) {
+	approvalSnapshot, err := buildReleasePlanApprovalSnapshot(plan.Approval)
+	if err != nil {
+		return nil, err
+	}
+
 	resp := map[string]interface{}{
-		"metadata": buildReleasePlanMetadataSnapshot(plan),
-		"approval": sanitizeReleasePlanValue(plan.Approval),
-		"jobs":     make([]interface{}, 0, len(plan.Jobs)),
+		"metadata":   buildReleasePlanMetadataSnapshot(plan),
+		"approval":   approvalSnapshot,
+		"jobs":       make([]interface{}, 0, len(plan.Jobs)),
+		"jobs_order": buildReleasePlanJobsOrderSnapshot(plan),
 	}
 	for _, job := range plan.Jobs {
 		snapshot, err := buildReleasePlanJobInputSnapshot(job)
@@ -206,6 +212,57 @@ func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) map[string]inter
 		"description":             plan.Description,
 		"jira_sprint_association": sanitizeReleasePlanValue(plan.JiraSprintAssociation),
 	}
+}
+
+func buildReleasePlanApprovalSnapshot(approval *models.Approval) (interface{}, error) {
+	if approval == nil {
+		return nil, nil
+	}
+
+	genericValue, err := toReleasePlanGenericValue(approval)
+	if err != nil {
+		return nil, err
+	}
+	return sanitizeReleasePlanValue(filterReleasePlanApprovalInputValue(genericValue)), nil
+}
+
+func filterReleasePlanApprovalInputValue(value interface{}) interface{} {
+	switch typedValue := value.(type) {
+	case map[string]interface{}:
+		resp := make(map[string]interface{}, len(typedValue))
+		for key, item := range typedValue {
+			if shouldDropReleasePlanApprovalInputField(key) {
+				continue
+			}
+			resp[key] = filterReleasePlanApprovalInputValue(item)
+		}
+		return resp
+	case []interface{}:
+		resp := make([]interface{}, 0, len(typedValue))
+		for _, item := range typedValue {
+			resp = append(resp, filterReleasePlanApprovalInputValue(item))
+		}
+		return resp
+	default:
+		return value
+	}
+}
+
+func shouldDropReleasePlanApprovalInputField(key string) bool {
+	dropKeys := map[string]struct{}{
+		"status":                {},
+		"instance_code":         {},
+		"instance_id":           {},
+		"approval_instance":     {},
+		"task_list":             {},
+		"timeline":              {},
+		"reject_or_approve":     {},
+		"operation_time":        {},
+		"comment":               {},
+		"approval_node_details": {},
+	}
+	_, exists := dropKeys[key]
+	return exists
 }
 
 func buildReleasePlanJobsOrderSnapshot(plan *models.ReleasePlan) []interface{} {
@@ -255,12 +312,155 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 		if err := models.IToi(spec, inputSpec); err != nil {
 			return nil, err
 		}
-		return sanitizeReleasePlanValue(map[string]interface{}{
-			"workflow": inputSpec.Workflow,
-		}), nil
+		workflowSnapshot, err := buildReleasePlanWorkflowInputSnapshot(inputSpec.Workflow)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{
+			"workflow": workflowSnapshot,
+		}, nil
 	default:
 		return sanitizeReleasePlanValue(spec), nil
 	}
+}
+
+func buildReleasePlanWorkflowInputSnapshot(workflow *models.WorkflowV4) (interface{}, error) {
+	if workflow == nil {
+		return nil, nil
+	}
+
+	resp := map[string]interface{}{
+		"name":         workflow.Name,
+		"display_name": workflow.DisplayName,
+		"project":      workflow.Project,
+		"params":       sanitizeReleasePlanValue(workflow.Params),
+		"jobs":         make([]interface{}, 0),
+	}
+
+	jobs := make([]interface{}, 0)
+	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
+			spec, err := buildReleasePlanWorkflowJobInputSpec(job.Spec)
+			if err != nil {
+				return nil, err
+			}
+			jobs = append(jobs, map[string]interface{}{
+				"name": job.Name,
+				"type": job.JobType,
+				"spec": spec,
+			})
+		}
+	}
+	resp["jobs"] = jobs
+
+	return sanitizeReleasePlanValue(resp), nil
+}
+
+func buildReleasePlanWorkflowJobInputSpec(spec interface{}) (interface{}, error) {
+	genericValue, err := toReleasePlanGenericValue(spec)
+	if err != nil {
+		return nil, err
+	}
+	return filterReleasePlanWorkflowInputValue(genericValue), nil
+}
+
+func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
+	switch typedValue := value.(type) {
+	case map[string]interface{}:
+		resp := make(map[string]interface{}, len(typedValue))
+		for key, item := range typedValue {
+			if key == "plugin" {
+				filteredPlugin := filterReleasePlanPluginTemplateInputValue(item)
+				if filteredPlugin != nil {
+					resp[key] = filteredPlugin
+				}
+				continue
+			}
+			if shouldDropReleasePlanWorkflowInputField(key) {
+				continue
+			}
+			resp[key] = filterReleasePlanWorkflowInputValue(item)
+		}
+		return resp
+	case []interface{}:
+		resp := make([]interface{}, 0, len(typedValue))
+		for _, item := range typedValue {
+			resp = append(resp, filterReleasePlanWorkflowInputValue(item))
+		}
+		return resp
+	default:
+		return value
+	}
+}
+
+func filterReleasePlanPluginTemplateInputValue(value interface{}) interface{} {
+	plugin, ok := value.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	inputs, exists := plugin["inputs"]
+	if !exists {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"inputs": filterReleasePlanWorkflowInputValue(inputs),
+	}
+}
+
+func shouldDropReleasePlanWorkflowInputField(key string) bool {
+	if key == "" {
+		return false
+	}
+
+	dropKeys := map[string]struct{}{
+		"last_status":         {},
+		"updated":             {},
+		"executed_by":         {},
+		"executed_time":       {},
+		"task_id":             {},
+		"hook_payload":        {},
+		"hash":                {},
+		"notification_id":     {},
+		"created_by":          {},
+		"create_time":         {},
+		"updated_by":          {},
+		"update_time":         {},
+		"approval_instance":   {},
+		"operation_time":      {},
+		"reject_or_approve":   {},
+		"manual_exector_id":   {},
+		"manual_exector_name": {},
+		"notification_sent":   {},
+		"advanced_setting":    {},
+		"runtime":             {},
+		"steps":               {},
+		"run_policy":          {},
+		"error_policy":        {},
+		"execute_policy":      {},
+		"skipped":             {},
+	}
+	if _, exists := dropKeys[key]; exists {
+		return true
+	}
+
+	optionSuffixes := []string{
+		"_options",
+		"_option",
+	}
+	for _, suffix := range optionSuffixes {
+		if strings.HasSuffix(key, suffix) {
+			return true
+		}
+	}
+	return strings.HasPrefix(key, "default_")
 }
 
 func releasePlanVersionDiffGroup(sectionKey, sectionName string) (string, string, string) {

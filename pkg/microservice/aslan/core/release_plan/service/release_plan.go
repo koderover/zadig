@@ -134,20 +134,23 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	go func() {
 		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
 		if err == nil {
-			err = createReleasePlanVersion(planID, 1, nil, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+			err = createReleasePlanVersion(planID, 1, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
 		}
 		if err != nil {
 			log.Errorf("create release plan version error: %v", err)
 		}
 		if err := createReleasePlanLog(&models.ReleasePlanLog{
-			PlanID:     planID,
-			Username:   c.UserName,
-			Account:    c.Account,
-			Verb:       VerbCreate,
-			TargetName: args.Name,
-			TargetType: TargetTypeReleasePlan,
-			Version:    1,
-			CreatedAt:  time.Now().Unix(),
+			PlanID:      planID,
+			Username:    c.UserName,
+			Account:     c.Account,
+			Verb:        VerbCreate,
+			TargetName:  args.Name,
+			TargetType:  TargetTypeReleasePlan,
+			Version:     1,
+			SectionKey:  releasePlanVersionSectionPlan,
+			SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name),
+			SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
+			CreatedAt:   time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
@@ -438,7 +441,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
-	before, after, err := updater.Update(plan)
+	_, _, err = updater.Update(plan)
 	if err != nil {
 		return errors.Wrap(err, "update")
 	}
@@ -446,10 +449,6 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	sectionKey, sectionName, err := releasePlanVersionSectionKeyByVerb(originalPlan, plan, args)
 	if err != nil {
 		return errors.Wrap(err, "resolve release plan section")
-	}
-	baseSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
-	if err != nil {
-		return errors.Wrap(err, "build release plan base snapshot")
 	}
 	currentSnapshot, err := buildReleasePlanVersionSnapshot(plan, sectionKey)
 	if err != nil {
@@ -482,18 +481,19 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 
 	logItem := &models.ReleasePlanLog{
-		PlanID:     planID,
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       updater.Verb(),
-		Before:     before,
-		After:      after,
-		TargetName: updater.TargetName(),
-		TargetType: updater.TargetType(),
-		Version:    plan.Version,
-		CreatedAt:  time.Now().Unix(),
+		PlanID:      planID,
+		Username:    c.UserName,
+		Account:     c.Account,
+		Verb:        updater.Verb(),
+		TargetName:  updater.TargetName(),
+		TargetType:  updater.TargetType(),
+		Version:     plan.Version,
+		SectionKey:  sectionKey,
+		SectionName: releasePlanVersionSectionName(sectionKey, sectionName),
+		SectionType: releasePlanVersionSectionGroupType(sectionKey),
+		CreatedAt:   time.Now().Unix(),
 	}
-	if err := createReleasePlanVersion(planID, plan.Version, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
+	if err := createReleasePlanVersion(planID, plan.Version, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
 		log.Errorf("create release plan version error: %v", err)
 	}
 	if err := createReleasePlanLog(logItem); err != nil {
