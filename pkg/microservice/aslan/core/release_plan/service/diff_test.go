@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetReleasePlanArrayItemKey(t *testing.T) {
 	t.Run("job key", func(t *testing.T) {
-		key, ok := getReleasePlanArrayItemKey(map[string]interface{}{
+		key, ok := buildReleasePlanArrayKeyByNameTypeID(map[string]interface{}{
 			"name": "build",
 			"type": "zadig-build",
 			"id":   "job-id",
@@ -18,7 +18,7 @@ func TestGetReleasePlanArrayItemKey(t *testing.T) {
 	})
 
 	t.Run("service key", func(t *testing.T) {
-		key, ok := getReleasePlanArrayItemKey(map[string]interface{}{
+		key, ok := buildReleasePlanArrayKeyByServiceModule(map[string]interface{}{
 			"service_name":   "gateway",
 			"service_module": "gateway",
 		})
@@ -84,13 +84,13 @@ func TestReleasePlanSubtreeHashPruneSkipSmallNodes(t *testing.T) {
 	}
 }
 
-func TestToGenericValueSupportsRootArrays(t *testing.T) {
+func TestToReleasePlanGenericValueSupportsRootArrays(t *testing.T) {
 	value := []map[string]interface{}{
 		{"id": "job-1", "name": "job-a"},
 		{"id": "job-2", "name": "job-b"},
 	}
 
-	generic, err := toGenericValue(value)
+	generic, err := toReleasePlanGenericValue(value)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -410,7 +410,9 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	}); err != nil {
 		log.Errorf("create release plan log error: %v", err)
 	}
-	broadcastReleasePlanCollaboration(plan.ID.Hex())
+	if err := broadcastReleasePlanCollaboration(plan.ID.Hex()); err != nil {
+		log.Errorf("broadcast release plan collaboration error: %v", err)
+	}
 
 	return nil
 }
