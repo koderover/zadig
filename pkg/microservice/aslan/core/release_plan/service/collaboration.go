@@ -49,7 +49,6 @@ const (
 	releasePlanCollabPlanSetPrefix    = "release-plan:collab:plan:"
 	releasePlanCollabBroadcastChannel = "release-plan-collaboration"
 	releasePlanCollabSessionTTL       = 90 * time.Second
-	releasePlanCollabBroadcastTTL     = 5 * time.Minute
 )
 
 var upgrader = websocket.Upgrader{
@@ -209,11 +208,11 @@ func splitReleasePlanHostPort(rawHost string) (string, string) {
 	return strings.ToLower(parsed.Hostname()), parsed.Port()
 }
 
-func broadcastReleasePlanCollaboration(planID string) {
+func broadcastReleasePlanCollaboration(planID string) error {
 	if planID == "" {
-		return
+		return nil
 	}
-	_ = cache.NewRedisCache(configbase.RedisCommonCacheTokenDB()).Publish(releasePlanCollabBroadcastChannel, planID)
+	return cache.NewRedisCache(configbase.RedisCommonCacheTokenDB()).Publish(releasePlanCollabBroadcastChannel, planID)
 }
 
 func registerCollaborationClient(planID string, client *collaborationClient) {
@@ -463,11 +462,10 @@ func persistReleasePlanEditingSession(session *ReleasePlanEditingSession) error 
 	if err := redisCache.Write(releasePlanCollabSessionKey(session.SessionID), string(payload), releasePlanCollabSessionTTL); err != nil {
 		return err
 	}
-	if err := redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabBroadcastTTL); err != nil {
+	if err := redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabSessionTTL); err != nil {
 		return err
 	}
-	broadcastReleasePlanCollaboration(session.PlanID)
-	return nil
+	return broadcastReleasePlanCollaboration(session.PlanID)
 }
 
 func removeReleasePlanEditingSession(planID, sessionID string) error {
@@ -478,8 +476,7 @@ func removeReleasePlanEditingSession(planID, sessionID string) error {
 	if err := redisCache.RemoveElementsFromSet(releasePlanCollabPlanSetKey(planID), []string{sessionID}); err != nil {
 		return err
 	}
-	broadcastReleasePlanCollaboration(planID)
-	return nil
+	return broadcastReleasePlanCollaboration(planID)
 }
 
 func authorizeReleasePlanEditing(ctx *handler.Context, sectionType string) bool {

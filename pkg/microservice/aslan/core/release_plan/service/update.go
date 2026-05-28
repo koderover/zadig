@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -97,8 +96,7 @@ var UserNameI18nMap = map[string]string{
 }
 
 type PlanUpdater interface {
-	// Update returns the old data and the updated data
-	Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error)
+	Update(plan *models.ReleasePlan) error
 	Verb() string
 	TargetName() string
 	TargetType() string
@@ -150,10 +148,9 @@ func NewNameUpdater(args *UpdateReleasePlanArgs) (*NameUpdater, error) {
 	return &updater, nil
 }
 
-func (u *NameUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.Name, u.Name
+func (u *NameUpdater) Update(plan *models.ReleasePlan) error {
 	plan.Name = u.Name
-	return
+	return nil
 }
 
 func (u *NameUpdater) Lint() error {
@@ -187,10 +184,9 @@ func NewDescUpdater(args *UpdateReleasePlanArgs) (*DescUpdater, error) {
 	return &updater, nil
 }
 
-func (u *DescUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.Description, u.Description
+func (u *DescUpdater) Update(plan *models.ReleasePlan) error {
 	plan.Description = u.Description
-	return
+	return nil
 }
 
 func (u *DescUpdater) Lint() error {
@@ -222,21 +218,10 @@ func NewTimeRangeUpdater(args *UpdateReleasePlanArgs) (*TimeRangeUpdater, error)
 	return &updater, nil
 }
 
-func formatReleasePlanDateTime(timestamp int64) string {
-	if timestamp == 0 {
-		return "未设置"
-	}
-	return time.Unix(timestamp, 0).Format("2006-01-02 15:04:05")
-}
-
-func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before = fmt.Sprintf("%s-%s", formatReleasePlanDateTime(plan.StartTime),
-		formatReleasePlanDateTime(plan.EndTime))
-	after = fmt.Sprintf("%s-%s", formatReleasePlanDateTime(u.StartTime),
-		formatReleasePlanDateTime(u.EndTime))
+func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) error {
 	plan.StartTime = u.StartTime
 	plan.EndTime = u.EndTime
-	return
+	return nil
 }
 
 func (u *TimeRangeUpdater) Lint() error {
@@ -268,11 +253,10 @@ func NewManagerUpdater(args *UpdateReleasePlanArgs) (*ManagerUpdater, error) {
 	return &updater, nil
 }
 
-func (u *ManagerUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.Manager, u.Manager
+func (u *ManagerUpdater) Update(plan *models.ReleasePlan) error {
 	plan.ManagerID = u.ManagerID
 	plan.Manager = u.Manager
-	return
+	return nil
 }
 
 func (u *ManagerUpdater) Lint() error {
@@ -317,8 +301,7 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 	return &updater, nil
 }
 
-func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = nil, u
+func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	job := &models.ReleaseJob{
 		ID:        uuid.New().String(),
 		Name:      u.Name,
@@ -328,7 +311,7 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 		Spec:      u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
-	return
+	return nil
 }
 
 func (u *CreateReleaseJobUpdater) Lint() error {
@@ -369,26 +352,21 @@ func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobU
 	return &updater, nil
 }
 
-func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	for _, job := range plan.Jobs {
 		if job.ID == u.ID {
 			if job.Type != u.Type {
-				return nil, nil, fmt.Errorf("job type cannot be changed")
+				return fmt.Errorf("job type cannot be changed")
 			}
-			beforeJob := new(models.ReleaseJob)
-			if err := models.IToi(job, beforeJob); err != nil {
-				return nil, nil, errors.Wrap(err, "clone release job before update")
-			}
-			before, after = beforeJob, u
 			job.Name = u.Name
 			job.Manager = u.Manager
 			job.ManagerID = u.ManagerID
 			job.Spec = u.Spec
 			job.Updated = true
-			return
+			return nil
 		}
 	}
-	return nil, nil, fmt.Errorf("job %s-%s not found", u.Name, u.ID)
+	return fmt.Errorf("job %s-%s not found", u.Name, u.ID)
 }
 
 // note that the real linting process is when we finish planning, not saving the draft.
@@ -427,17 +405,15 @@ func NewDeleteReleaseJobUpdater(args *UpdateReleasePlanArgs) (*DeleteReleaseJobU
 	return &updater, nil
 }
 
-func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	for i, job := range plan.Jobs {
 		if job.ID == u.ID {
 			u.name = job.Name
-			before = job
-			after = nil
 			plan.Jobs = append(plan.Jobs[:i], plan.Jobs[i+1:]...)
-			return
+			return nil
 		}
 	}
-	return nil, nil, fmt.Errorf("job %s not found", u.ID)
+	return fmt.Errorf("job %s not found", u.ID)
 }
 
 func (u *DeleteReleaseJobUpdater) Lint() error {
@@ -471,13 +447,7 @@ func NewReorderReleaseJobUpdater(args *UpdateReleasePlanArgs) (*ReorderReleaseJo
 	return &updater, nil
 }
 
-func (u *ReorderReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	beforeIDs := make([]string, 0, len(plan.Jobs))
-	for _, job := range plan.Jobs {
-		beforeIDs = append(beforeIDs, job.ID)
-	}
-	before = beforeIDs
-
+func (u *ReorderReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	jobMap := make(map[string]*models.ReleaseJob, len(plan.Jobs))
 	for _, job := range plan.Jobs {
 		jobMap[job.ID] = job
@@ -487,13 +457,12 @@ func (u *ReorderReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inte
 	for _, id := range u.JobIDs {
 		job, ok := jobMap[id]
 		if !ok {
-			return nil, nil, fmt.Errorf("job %s not found", id)
+			return fmt.Errorf("job %s not found", id)
 		}
 		newJobs = append(newJobs, job)
 	}
 	plan.Jobs = newJobs
-	after = u.JobIDs
-	return
+	return nil
 }
 
 func (u *ReorderReleaseJobUpdater) Lint() error {
@@ -527,13 +496,12 @@ func NewUpdateApprovalUpdater(args *UpdateReleasePlanArgs) (*UpdateApprovalUpdat
 	return &updater, nil
 }
 
-func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) error {
 	if err := clearApprovalData(u.Approval); err != nil {
-		return nil, nil, errors.Wrap(err, "clear approval data")
+		return errors.Wrap(err, "clear approval data")
 	}
-	before, after = plan.Approval, u.Approval
 	plan.Approval = u.Approval
-	return
+	return nil
 }
 
 func (u *UpdateApprovalUpdater) Lint() error {
@@ -570,10 +538,9 @@ func NewDeleteApprovalUpdater(args *UpdateReleasePlanArgs) (*DeleteApprovalUpdat
 	return &DeleteApprovalUpdater{}, nil
 }
 
-func (u *DeleteApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.Approval, nil
+func (u *DeleteApprovalUpdater) Update(plan *models.ReleasePlan) error {
 	plan.Approval = nil
-	return
+	return nil
 }
 
 func (u *DeleteApprovalUpdater) Lint() error {
@@ -667,11 +634,9 @@ func NewScheduleExecuteTimeUpdater(args *UpdateReleasePlanArgs) (*ScheduleExecut
 	return &updater, nil
 }
 
-func (u *ScheduleExecuteTimeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before = formatReleasePlanDateTime(plan.ScheduleExecuteTime)
-	after = formatReleasePlanDateTime(u.ScheduleExecuteTime)
+func (u *ScheduleExecuteTimeUpdater) Update(plan *models.ReleasePlan) error {
 	plan.ScheduleExecuteTime = u.ScheduleExecuteTime
-	return
+	return nil
 }
 
 func (u *ScheduleExecuteTimeUpdater) Lint() error {
@@ -702,10 +667,9 @@ func NewJiraSprintUpdater(args *UpdateReleasePlanArgs) (*JiraSprintUpdater, erro
 	return &updater, nil
 }
 
-func (u *JiraSprintUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.JiraSprintAssociation, u.JiraSprintAssociation
+func (u *JiraSprintUpdater) Update(plan *models.ReleasePlan) error {
 	plan.JiraSprintAssociation = u.JiraSprintAssociation
-	return
+	return nil
 }
 
 func (u *JiraSprintUpdater) Lint() error {
