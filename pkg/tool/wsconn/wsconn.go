@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -45,14 +46,31 @@ type wsMessage struct {
 }
 
 type wsBufferWriter struct {
-	buffer bytes.Buffer
-	mu     sync.Mutex
+	buffer    bytes.Buffer
+	mu        sync.Mutex
+	recorder  terminalio.Recorder
+	sanitizer terminalio.Sanitizer
 }
 
 func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.buffer.Write(p)
+	output := terminalio.ProcessOutput(string(p), w.recorder, w.sanitizer)
+	return w.buffer.Write([]byte(output))
+}
+
+func (w *wsBufferWriter) RecordInput(data string) {
+	if w == nil || w.recorder == nil {
+		return
+	}
+	w.recorder.RecordInput(data)
+}
+
+func (w *wsBufferWriter) RecordResize(cols, rows uint16) {
+	if w == nil || w.recorder == nil {
+		return
+	}
+	w.recorder.RecordResize(cols, rows)
 }
 
 type SshConn struct {
@@ -61,7 +79,12 @@ type SshConn struct {
 	SshSession *ssh.Session
 }
 
-func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
+type SshConnOption struct {
+	Recorder  terminalio.Recorder
+	Sanitizer terminalio.Sanitizer
+}
+
+func NewSshConn(cols, rows int, sshClient *ssh.Client, opt ...*SshConnOption) (*SshConn, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
@@ -73,6 +96,10 @@ func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
 	}
 
 	wsWriter := new(wsBufferWriter)
+	if len(opt) > 0 {
+		wsWriter.recorder = opt[0].Recorder
+		wsWriter.sanitizer = opt[0].Sanitizer
+	}
 	sshSession.Stdout = wsWriter
 	sshSession.Stderr = wsWriter
 
@@ -111,12 +138,14 @@ func (ssConn *SshConn) ReadWsMessage(wsConn *websocket.Conn, stopCh chan bool) {
 
 			switch wsMsgObj.Operation {
 			case wsMsgResize:
+				ssConn.WsWriter.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
 				if wsMsgObj.Cols > 0 && wsMsgObj.Rows > 0 {
 					if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
 						log.Error("resize windows err:", err)
 					}
 				}
 			case wsMsgStdin:
+				ssConn.WsWriter.RecordInput(wsMsgObj.Data)
 				decodeBytes := []byte(wsMsgObj.Data)
 				if _, err := ssConn.Stdin.Write(decodeBytes); err != nil {
 					log.Error("ws stdin write to ssh.stdin err:", err)

@@ -84,6 +84,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		s3storage.GET("/project", ListS3StorageByProject)
 	}
 
+	terminalAudit := router.Group("terminalAudit")
+	{
+		terminalAudit.GET("/sessions", ListTerminalSessions)
+		terminalAudit.GET("/sessions/:sessionID", GetTerminalSession)
+		terminalAudit.GET("/sessions/:sessionID/cast", GetTerminalCast)
+		terminalAudit.POST("/sessions/:sessionID/terminate", TerminateTerminalSession)
+		terminalAudit.GET("/commands", ListTerminalCommands)
+	}
+
 	//系统清理缓存
 	cleanCache := router.Group("cleanCache")
 	{

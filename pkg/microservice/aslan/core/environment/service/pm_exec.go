@@ -26,6 +26,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
@@ -45,7 +47,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
+func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, productName, serviceName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("ws upgrade err:%s", err)
@@ -95,11 +97,50 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 	}
 	defer sshCli.Close()
 
-	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli)
+	finalStatus := commonmodels.TerminalSessionStatusFinished
+	var audit *terminalaudit.AuditSession
+	meta := &terminalaudit.SessionMeta{
+		SessionType:  commonmodels.TerminalSessionTypeSSH,
+		Protocol:     "ssh",
+		Username:     username,
+		ProjectName:  productName,
+		EnvName:      envName,
+		ServiceName:  serviceName,
+		TargetName:   resolveHostTargetName(resp),
+		RemoteAddr:   resp.IP,
+		LoginAccount: resp.UserName,
+		HostID:       hostId,
+		HostName:     resolveHostName(resp),
+		HostIP:       resp.IP,
+		ClientIP:     c.ClientIP(),
+		UserAgent:    c.Request.UserAgent(),
+		InitialCols:  cols,
+		InitialRows:  rows,
+		UserID:       userID,
+		Account:      account,
+	}
+	audit, err = terminalaudit.NewAuditSession(meta, func() {
+		sshCli.Close()
+		_ = ws.Close()
+	})
+	if err != nil {
+		log.Errorf("create ssh terminal audit recorder failed: %v", err)
+	}
+	defer func() {
+		if err := audit.Close(finalStatus); err != nil {
+			log.Errorf("close ssh terminal audit recorder failed: %v", err)
+		}
+	}()
+
+	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, &wsconn.SshConnOption{
+		Recorder:  audit.Recorder,
+		Sanitizer: audit.Sanitizer,
+	})
 	if err != nil {
 		log.Errorf("NewSshConn err:%s", err)
 		e.ErrLoginPm.AddErr(err)
 		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		finalStatus = commonmodels.TerminalSessionStatusFailed
 		return e.ErrLoginPm
 	}
 	defer sshConn.Close()
@@ -111,6 +152,26 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 
 	<-stopChan
 	return nil
+}
+
+func resolveHostTargetName(resp *commonmodels.PrivateKey) string {
+	if resp == nil {
+		return ""
+	}
+	if resp.Name != "" {
+		return resp.Name
+	}
+	if resp.VMInfo != nil && resp.VMInfo.HostName != "" {
+		return resp.VMInfo.HostName
+	}
+	return resp.IP
+}
+
+func resolveHostName(resp *commonmodels.PrivateKey) string {
+	if resp == nil || resp.VMInfo == nil {
+		return ""
+	}
+	return resp.VMInfo.HostName
 }
 
 type VmServiceCommandType string

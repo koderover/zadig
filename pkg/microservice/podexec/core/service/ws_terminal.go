@@ -17,15 +17,17 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,46 +67,36 @@ type PtyHandler interface {
 	Done() chan struct{}
 }
 
-type TerminalSessionType string
-
-const (
-	// Environment is the debug terminal session type for environment
-	Environment TerminalSessionType = "env"
-	// Workflow is the debug terminal session type for workflow, which need musk secret envs
-	Workflow TerminalSessionType = "workflow"
-)
-
 // TerminalSession implements PtyHandler
 type TerminalSession struct {
-	wsConn   *websocket.Conn
-	sizeChan chan remotecommand.TerminalSize
-	doneChan chan struct{}
-	// SecretEnvs is a list of environment variables that should be hidden from the client.
-	SecretEnvs []string
-	Type       TerminalSessionType
+	wsConn    *websocket.Conn
+	sizeChan  chan remotecommand.TerminalSize
+	doneChan  chan struct{}
+	closeOnce sync.Once
+	Recorder  terminalio.Recorder
+	Sanitizer terminalio.Sanitizer
 }
 
-type TerminalSessionOption struct {
-	SecretEnvs []string
-	Type       TerminalSessionType
-}
-
-func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header, opt ...*TerminalSessionOption) (*TerminalSession, error) {
+func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
 	conn, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return nil, err
 	}
 	session := &TerminalSession{
-		wsConn:   conn,
-		sizeChan: make(chan remotecommand.TerminalSize),
-		doneChan: make(chan struct{}),
-		Type:     Environment,
-	}
-	if len(opt) > 0 {
-		session.SecretEnvs = opt[0].SecretEnvs
-		session.Type = opt[0].Type
+		wsConn:    conn,
+		sizeChan:  make(chan remotecommand.TerminalSize),
+		doneChan:  make(chan struct{}),
+		Sanitizer: terminalaudit.NewSanitizer(nil, nil),
 	}
 	return session, nil
+}
+
+func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
+	if audit == nil {
+		return
+	}
+	t.Sanitizer = audit.Sanitizer
+	t.Recorder = audit.Recorder
 }
 
 // Done done
@@ -136,8 +128,14 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	}
 	switch msg.Operation {
 	case "stdin":
+		if t.Recorder != nil {
+			t.Recorder.RecordInput(msg.Data)
+		}
 		return copy(p, msg.Data), nil
 	case "resize":
+		if t.Recorder != nil {
+			t.Recorder.RecordResize(msg.Cols, msg.Rows)
+		}
 		t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}
 		return 0, nil
 	default:
@@ -148,18 +146,14 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
+	output := terminalio.ProcessOutput(string(p), t.Recorder, t.Sanitizer)
 	msg, err := json.Marshal(TerminalMessage{
 		Operation: "stdout",
-		Data:      string(p),
+		Data:      output,
 	})
 	if err != nil {
 		log.Errorf("write parse message err: %v", err)
 		return 0, err
-	}
-	if t.Type == Workflow {
-		for _, secretEnv := range t.SecretEnvs {
-			msg = bytes.ReplaceAll(msg, []byte(secretEnv), []byte("********"))
-		}
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Errorf("write message err: %v", err)
@@ -170,6 +164,9 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 
 // Close close session
 func (t *TerminalSession) Close() error {
+	t.closeOnce.Do(func() {
+		close(t.doneChan)
+	})
 	return t.wsConn.Close()
 }
 
