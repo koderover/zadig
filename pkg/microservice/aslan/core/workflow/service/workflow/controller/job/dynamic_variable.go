@@ -45,7 +45,8 @@ func getJobVariableKey(currentJobName, serviceName, moduleName, key string, getA
 	return resp
 }
 
-func renderScriptedVariableOptions(serviceName, moduleName, script, callFunction string, userInput map[string]string) ([]string, error) {
+// Render Scripted Variable Options
+func RenderScriptedVariableOptions(serviceName, moduleName, script, callFunction string, userInput map[string]string) ([]string, error) {
 	if script == "" || callFunction == "" {
 		return []string{}, nil
 	}
@@ -60,12 +61,13 @@ func renderScriptedVariableOptions(serviceName, moduleName, script, callFunction
 	}
 	t.Option("missingkey=error")
 
+	renderInput := make(map[string]string, len(userInput))
 	for key, val := range userInput {
-		userInput[key] = "`" + val + "`"
+		renderInput[key] = "`" + val + "`"
 	}
 
 	var realCallFunc bytes.Buffer
-	err = t.Execute(&realCallFunc, userInput)
+	err = t.Execute(&realCallFunc, renderInput)
 	if err != nil {
 		return nil, fmt.Errorf("渲染调用函数失败, 错误: %v", err)
 	}
