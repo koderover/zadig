@@ -441,8 +441,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
-	_, _, err = updater.Update(plan)
-	if err != nil {
+	if err = updater.Update(plan); err != nil {
 		return errors.Wrap(err, "update")
 	}
 
@@ -499,7 +498,9 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err := createReleasePlanLog(logItem); err != nil {
 		log.Errorf("create release plan log error: %v", err)
 	}
-	broadcastReleasePlanCollaboration(planID)
+	if err := broadcastReleasePlanCollaboration(planID); err != nil {
+		log.Errorf("broadcast release plan collaboration error: %v", err)
+	}
 
 	return nil
 }

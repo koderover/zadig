@@ -112,6 +112,11 @@ type releasePlanArrayDiffRule struct {
 	BuildKey       releasePlanArrayKeyBuilder
 }
 
+var releasePlanWorkflowJobArrayRulePrefixes = []string{
+	"spec.workflow.stages.jobs",
+	"spec.workflow.jobs",
+}
+
 func newReleasePlanExactArrayRule(groupType, path string, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) releasePlanArrayDiffRule {
 	return releasePlanArrayDiffRule{
 		GroupType: groupType,
@@ -131,6 +136,27 @@ func newReleasePlanTypedExactArrayRule(groupType, path string, parentJobTypes []
 	return rule
 }
 
+func buildReleasePlanWorkflowJobArrayRulePath(prefix, pathSuffix string) string {
+	if pathSuffix == "" {
+		return prefix
+	}
+	return prefix + "." + pathSuffix
+}
+
+func appendReleasePlanWorkflowJobExactArrayRules(rules []releasePlanArrayDiffRule, pathSuffix string, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) []releasePlanArrayDiffRule {
+	for _, prefix := range releasePlanWorkflowJobArrayRulePrefixes {
+		rules = append(rules, newReleasePlanExactArrayRule("job", buildReleasePlanWorkflowJobArrayRulePath(prefix, pathSuffix), strategy, buildKey))
+	}
+	return rules
+}
+
+func appendReleasePlanWorkflowJobTypedExactArrayRules(rules []releasePlanArrayDiffRule, pathSuffix string, parentJobTypes []config.JobType, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) []releasePlanArrayDiffRule {
+	for _, prefix := range releasePlanWorkflowJobArrayRulePrefixes {
+		rules = append(rules, newReleasePlanTypedExactArrayRule("job", buildReleasePlanWorkflowJobArrayRulePath(prefix, pathSuffix), parentJobTypes, strategy, buildKey))
+	}
+	return rules
+}
+
 func newReleasePlanSafeSuffixArrayRule(groupType, path string, strategy releasePlanArrayDiffStrategy, buildKey releasePlanArrayKeyBuilder) releasePlanArrayDiffRule {
 	return releasePlanArrayDiffRule{
 		GroupType: groupType,
@@ -141,96 +167,90 @@ func newReleasePlanSafeSuffixArrayRule(groupType, path string, strategy releaseP
 	}
 }
 
-var releasePlanArrayExactRules = []releasePlanArrayDiffRule{
-	newReleasePlanExactArrayRule("plan", "jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameTypeID),
-	newReleasePlanExactArrayRule(releasePlanVersionSectionJobsOrder, "", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
-	newReleasePlanExactArrayRule("job", "spec.workflow.jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
-	newReleasePlanExactArrayRule("job", "spec.workflow.share_storages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_tests", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_test_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_image", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.source_service", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByWorkflowTrigger),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByFixedWorkflowTrigger),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_modules", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_module_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services.service_and_image", []config.JobType{config.JobMseGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sBlueGreenDeploy, config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
-	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alerts", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alert_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.monitors", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_group_notification_config.at_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_person_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("approval", "native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
-	newReleasePlanExactArrayRule("approval", "dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("approval", "lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
-	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
-	newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
-	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
-	newReleasePlanExactArrayRule("metadata", "jira_sprint_association.sprints", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJiraSprint),
-}
+var releasePlanArrayExactRules = func() []releasePlanArrayDiffRule {
+	rules := []releasePlanArrayDiffRule{
+		newReleasePlanExactArrayRule("plan", "jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameTypeID),
+		newReleasePlanExactArrayRule(releasePlanVersionSectionJobsOrder, "", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.share_storages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.default_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_builds_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.default_service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_vm_deploys_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_tests", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_test_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_and_image", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.source_service", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByWorkflowTrigger),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByFixedWorkflowTrigger),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_trigger_workflow.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.fixed_workflow_list.params", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameType),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_modules", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.test_module_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services.service_and_image", []config.JobType{config.JobMseGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobCustomDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobZadigDistributeImage}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sBlueGreenDeploy, config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sCanaryDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByK8sTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayReleaseTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobK8sGrayRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByGrayRollbackTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.targets", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.target_options", []config.JobType{config.JobIstioRelease, config.JobIstioRollback}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByIstioTarget),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJobName),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.jobs.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
+		newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.job_options.parameters", []config.JobType{config.JobJenkins}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByName),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alerts", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.alert_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.monitors", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.mail_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_group_notification_config.at_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_person_notification_config.target_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("approval", "native_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByUserID),
+		newReleasePlanExactArrayRule("approval", "dingtalk_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("approval", "lark_approval.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_users", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByThirdPartyUserID),
+		newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+		newReleasePlanExactArrayRule("approval", "lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.approve_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+		newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.lark_approval.approval_nodes.cc_groups", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByApprovalGroup),
+		newReleasePlanExactArrayRule("metadata", "jira_sprint_association.sprints", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByJiraSprint),
+	}
+	rules = appendReleasePlanWorkflowJobExactArrayRules(rules, "", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly)
+	rules = appendReleasePlanWorkflowJobTypedExactArrayRules(rules, "spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig)
+	return rules
+}()
 
 var releasePlanArraySafeSuffixRules = []releasePlanArrayDiffRule{
 	newReleasePlanSafeSuffixArrayRule("job", "params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
@@ -323,7 +343,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 	}
 
 	fromData := comparableReleasePlanVersionSnapshot(previous, current.SectionKey)
-	toData, err := toGenericValue(current.Snapshot)
+	toData, err := toReleasePlanGenericValue(current.Snapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert current snapshot")
 	}
@@ -398,7 +418,7 @@ func comparableReleasePlanVersionSnapshot(version *models.ReleasePlanVersion, se
 
 	switch {
 	case version.SectionKey == sectionKey, sectionKey == releasePlanVersionSectionPlan:
-		value, err := toGenericValue(version.Snapshot)
+		value, err := toReleasePlanGenericValue(version.Snapshot)
 		if err != nil {
 			return version.Snapshot
 		}
@@ -411,7 +431,7 @@ func comparableReleasePlanVersionSnapshot(version *models.ReleasePlanVersion, se
 }
 
 func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) interface{} {
-	genericValue, err := toGenericValue(snapshot)
+	genericValue, err := toReleasePlanGenericValue(snapshot)
 	if err != nil {
 		return nil
 	}
@@ -445,21 +465,6 @@ func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) 
 		}
 	}
 	return nil
-}
-
-func toGenericValue(value interface{}) (interface{}, error) {
-	if value == nil {
-		return nil, nil
-	}
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	var resp interface{}
-	if err := json.Unmarshal(payload, &resp); err != nil {
-		return nil, err
-	}
-	return resp, nil
 }
 
 func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
