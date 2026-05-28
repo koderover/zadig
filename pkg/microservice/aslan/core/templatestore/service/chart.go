@@ -75,8 +75,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, 
 		return nil, err
 	}
 
-	base := filepath.Base(chart.Path)
-	localPath := filepath.Join(localBase, base)
+	localPath := resolveLocalChartPath(localBase, chart.Path)
 	fis, err := fs.GetFileInfos(os.DirFS(localPath))
 	if err != nil {
 		logger.Errorf("Failed to get local chart template %s from path %s, err: %s", name, localPath, err)
@@ -177,8 +176,7 @@ func getFileContent(name, path, filePath, fileName, source string, logger *zap.S
 		return nil, err
 	}
 
-	base := filepath.Base(path)
-	file := filepath.Join(localBase, base, filePath, fileName)
+	file := filepath.Join(resolveLocalChartPath(localBase, path), filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
 		logger.Errorf("Failed to read file %s, err: %s", file, err)
@@ -186,6 +184,18 @@ func getFileContent(name, path, filePath, fileName, source string, logger *zap.S
 	}
 
 	return fileContent, nil
+}
+
+func resolveLocalChartPath(localBase, chartPath string) string {
+	base := filepath.Base(chartPath)
+	if base != "" && base != "." && base != string(filepath.Separator) {
+		candidate := filepath.Join(localBase, base)
+		if ok, err := fsutil.DirExists(candidate); err == nil && ok {
+			return candidate
+		}
+	}
+
+	return localBase
 }
 
 func parseTemplateVariables(name, path, source string, logger *zap.SugaredLogger) ([]string, error) {
