@@ -19,21 +19,45 @@ package service
 import (
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-func createReleasePlanVersion(planID string, version int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
+func createReleasePlanVersion(planID string, version int64, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
+	previousVersion, err := previousComparableReleasePlanVersion(planID, sectionKey, version)
+	if err != nil {
+		return err
+	}
+
 	return mongodb.NewReleasePlanVersionColl().Create(&models.ReleasePlanVersion{
-		PlanID:       planID,
-		Version:      version,
-		Operator:     operator,
-		Account:      account,
-		SectionKey:   sectionKey,
-		SectionName:  sectionName,
-		Verb:         verb,
-		BaseSnapshot: sanitizeReleasePlanValue(baseSnapshot),
-		Snapshot:     sanitizeReleasePlanValue(snapshot),
-		CreatedAt:    time.Now().Unix(),
+		PlanID:          planID,
+		Version:         version,
+		PreviousVersion: previousVersion,
+		Operator:        operator,
+		Account:         account,
+		SectionKey:      sectionKey,
+		SectionName:     sectionName,
+		SectionType:     releasePlanVersionSectionGroupType(sectionKey),
+		Verb:            verb,
+		Snapshot:        sanitizeReleasePlanValue(snapshot),
+		CreatedAt:       time.Now().Unix(),
 	})
+}
+
+func previousComparableReleasePlanVersion(planID, sectionKey string, beforeVersion int64) (int64, error) {
+	sectionKeys := []string{sectionKey}
+	if sectionKey != releasePlanVersionSectionPlan {
+		sectionKeys = append(sectionKeys, releasePlanVersionSectionPlan)
+	}
+
+	previous, err := mongodb.NewReleasePlanVersionColl().GetLatestBySectionsBefore(planID, sectionKeys, beforeVersion)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return previous.Version, nil
 }

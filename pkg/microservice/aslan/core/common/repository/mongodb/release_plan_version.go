@@ -87,3 +87,15 @@ func (c *ReleasePlanVersionColl) GetLatest(planID string) (*models.ReleasePlanVe
 	}, options.FindOne().SetSort(bson.D{{Key: "version", Value: -1}})).Decode(resp)
 	return resp, err
 }
+
+func (c *ReleasePlanVersionColl) GetLatestBySectionsBefore(planID string, sectionKeys []string, beforeVersion int64) (*models.ReleasePlanVersion, error) {
+	resp := new(models.ReleasePlanVersion)
+	err := c.FindOne(context.Background(), bson.M{
+		"plan_id": planID,
+		"version": bson.M{"$lt": beforeVersion},
+		"section_key": bson.M{
+			"$in": sectionKeys,
+		},
+	}, options.FindOne().SetSort(bson.D{{Key: "version", Value: -1}})).Decode(resp)
+	return resp, err
+}

@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
@@ -144,6 +145,7 @@ var releasePlanArrayExactRules = []releasePlanArrayDiffRule{
 	newReleasePlanExactArrayRule("plan", "jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameTypeID),
 	newReleasePlanExactArrayRule(releasePlanVersionSectionJobsOrder, "", releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByNameID),
 	newReleasePlanExactArrayRule("job", "spec.workflow.params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
+	newReleasePlanExactArrayRule("job", "spec.workflow.jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
 	newReleasePlanExactArrayRule("job", "spec.workflow.stages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
 	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
 	newReleasePlanExactArrayRule("job", "spec.workflow.share_storages", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
@@ -172,13 +174,21 @@ var releasePlanArrayExactRules = []releasePlanArrayDiffRule{
 	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
 	newReleasePlanExactArrayRule("job", "spec.workflow.stages.jobs.spec.scanning_options", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services", []config.JobType{config.JobZadigDeploy, config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services", []config.JobType{config.JobFreestyle}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_options", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_config.services", []config.JobType{config.JobSAEDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModule),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.services.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceName),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config.modules", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig),
+	newReleasePlanTypedExactArrayRule("job", "spec.workflow.jobs.spec.service_variable_config.variable_configs", []config.JobType{config.JobZadigDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByVariableConfig),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.services.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.service_options.service_and_image", []config.JobType{config.JobK8sBlueGreenDeploy}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
 	newReleasePlanTypedExactArrayRule("job", "spec.workflow.stages.jobs.spec.gray_services.service_and_image", []config.JobType{config.JobMseGrayRelease}, releasePlanArrayDiffStrategyKeyedOrdered, buildReleasePlanArrayKeyByServiceModuleNameOnly),
@@ -223,6 +233,7 @@ var releasePlanArrayExactRules = []releasePlanArrayDiffRule{
 }
 
 var releasePlanArraySafeSuffixRules = []releasePlanArrayDiffRule{
+	newReleasePlanSafeSuffixArrayRule("job", "params", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByNameType),
 	newReleasePlanSafeSuffixArrayRule("job", "repos", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByRepo),
 	newReleasePlanSafeSuffixArrayRule("job", "code_info", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByRepo),
 	newReleasePlanSafeSuffixArrayRule("job", "key_vals", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
@@ -233,6 +244,14 @@ var releasePlanArraySafeSuffixRules = []releasePlanArrayDiffRule{
 	newReleasePlanSafeSuffixArrayRule("job", "variable_kvs", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
 	newReleasePlanSafeSuffixArrayRule("job", "kv", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
 	newReleasePlanSafeSuffixArrayRule("job", "original_config", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByKey),
+	newReleasePlanSafeSuffixArrayRule("job", "service_and_builds", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "service_and_vm_deploys", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "service_and_tests", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "service_and_scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "target_services", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "service_and_image", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByServiceModule),
+	newReleasePlanSafeSuffixArrayRule("job", "test_modules", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
+	newReleasePlanSafeSuffixArrayRule("job", "scannings", releasePlanArrayDiffStrategyKeyedUnordered, buildReleasePlanArrayKeyByName),
 }
 
 var releasePlanFieldLabels = map[string]string{
@@ -295,10 +314,15 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		return nil, errors.Wrap(err, "get version")
 	}
 
-	fromData, err := toGenericValue(current.BaseSnapshot)
-	if err != nil {
-		return nil, errors.Wrap(err, "convert base snapshot")
+	var previous *models.ReleasePlanVersion
+	if current.PreviousVersion > 0 {
+		previous, err = mongodb.NewReleasePlanVersionColl().Get(planID, current.PreviousVersion)
+		if err != nil {
+			return nil, errors.Wrap(err, "get previous version")
+		}
 	}
+
+	fromData := comparableReleasePlanVersionSnapshot(previous, current.SectionKey)
 	toData, err := toGenericValue(current.Snapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert current snapshot")
@@ -362,16 +386,65 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 	return &ReleasePlanVersionDiffResponse{
 		PlanID:          planID,
 		Version:         version,
-		PreviousVersion: previousReleasePlanVersion(version),
+		PreviousVersion: current.PreviousVersion,
 		Groups:          groups,
 	}, nil
 }
 
-func previousReleasePlanVersion(version int64) int64 {
-	if version <= 1 {
-		return 0
+func comparableReleasePlanVersionSnapshot(version *models.ReleasePlanVersion, sectionKey string) interface{} {
+	if version == nil {
+		return nil
 	}
-	return version - 1
+
+	switch {
+	case version.SectionKey == sectionKey, sectionKey == releasePlanVersionSectionPlan:
+		value, err := toGenericValue(version.Snapshot)
+		if err != nil {
+			return version.Snapshot
+		}
+		return value
+	case version.SectionKey != releasePlanVersionSectionPlan:
+		return nil
+	default:
+		return extractReleasePlanSectionSnapshot(version.Snapshot, sectionKey)
+	}
+}
+
+func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) interface{} {
+	genericValue, err := toGenericValue(snapshot)
+	if err != nil {
+		return nil
+	}
+
+	planSnapshot, ok := genericValue.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	switch {
+	case sectionKey == releasePlanVersionSectionMetadata:
+		return planSnapshot["metadata"]
+	case sectionKey == releasePlanVersionSectionApproval:
+		return planSnapshot["approval"]
+	case sectionKey == releasePlanVersionSectionJobsOrder:
+		return planSnapshot["jobs_order"]
+	case strings.HasPrefix(sectionKey, releasePlanVersionSectionJobPrefix):
+		jobID := strings.TrimPrefix(sectionKey, releasePlanVersionSectionJobPrefix)
+		jobs, ok := planSnapshot["jobs"].([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, item := range jobs {
+			job, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if id, _ := job["id"].(string); id == jobID {
+				return job
+			}
+		}
+	}
+	return nil
 }
 
 func toGenericValue(value interface{}) (interface{}, error) {
@@ -518,6 +591,9 @@ func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right [
 			}
 		}
 		for _, key := range keys {
+			if shouldSkipReleasePlanWorkflowTaskPresenceChange(path, leftMap[key], rightMap[key]) {
+				continue
+			}
 			nextPath := fmt.Sprintf("%s[%s]", path, key)
 			diffReleasePlanValues(ctx, nextPath, leftMap[key], rightMap[key], entries)
 		}
@@ -525,6 +601,14 @@ func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right [
 	}
 
 	diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+}
+
+func shouldSkipReleasePlanWorkflowTaskPresenceChange(path string, left, right interface{}) bool {
+	if left != nil && right != nil {
+		return false
+	}
+	normalizedPath := normalizeReleasePlanDiffPath(path)
+	return normalizedPath == "spec.workflow.jobs" || strings.HasSuffix(normalizedPath, ".spec.workflow.jobs")
 }
 
 func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
@@ -1281,6 +1365,10 @@ func shouldIgnoreReleasePlanDiffPath(path string) bool {
 	if path == "" {
 		return false
 	}
+	if isReleasePlanWorkflowJobStructureDiffPath(path) {
+		return true
+	}
+
 	prefixes := []string{
 		"id",
 		"index",
@@ -1335,9 +1423,19 @@ func shouldIgnoreReleasePlanDiffPath(path string) bool {
 	return false
 }
 
+func isReleasePlanWorkflowJobStructureDiffPath(path string) bool {
+	if !strings.HasPrefix(path, "spec.workflow.jobs[") {
+		return false
+	}
+	if strings.Contains(path, "].spec.") {
+		return false
+	}
+	return true
+}
+
 func classifyReleasePlanDiffTask(path string) (taskName, taskType string) {
 	jobSegments := releasePlanBracketSegments(path, "jobs")
-	if len(jobSegments) >= 2 {
+	if len(jobSegments) >= 1 {
 		taskName, taskType = splitReleasePlanBracketKey(jobSegments[len(jobSegments)-1])
 	}
 	return
