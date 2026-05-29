@@ -75,6 +75,19 @@ func ListNacosConfig(nacosID, namespaceID, groupName string, log *zap.SugaredLog
 		item.NamespaceID = namespaceID
 		item.NamespaceName = namespaceName
 		item.OriginalContent = item.Content
+		if item.Format == "" {
+			detail, err := client.GetConfig(item.DataID, item.Group, namespaceID)
+			if err != nil {
+				err = errors.Wrapf(err, "fail to get nacos config detail for %s/%s", item.Group, item.DataID)
+				log.Error(err)
+				return []*types.NacosConfig{}, err
+			}
+			item.Format = detail.Format
+			if item.Content == "" {
+				item.Content = detail.Content
+				item.OriginalContent = detail.Content
+			}
+		}
 	}
 	return resp, nil
 }
