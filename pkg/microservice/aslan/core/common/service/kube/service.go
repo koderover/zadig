@@ -306,6 +306,11 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 	}
 
 	dindReplicas, dindLimitsCPU, dindLimitsMemory, dindEnablePV, dindSCName, dindStorageSizeInGiB, dindStorageDriver := getDindCfg(cluster)
+	dindTLSCerts, err := EnsureDindTLSCerts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure dind TLS certs: %w", err)
+	}
+	dindTLS := DindTLSSecretTemplate(dindTLSCerts)
 
 	yaml := agentYaml
 	if cluster.AdvancedConfig != nil {
@@ -362,6 +367,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			DindStorageDriver:    dindStorageDriver,
+			DindTLS:              dindTLS,
 			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
@@ -387,15 +393,15 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindEnablePV:         dindEnablePV,
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
-			DindStorageDriver:    dindStorageDriver,
-			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
-			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
-			Toleration:           cluster.AdvancedConfig.AgentToleration,
-			Affinity:             cluster.AdvancedConfig.AgentAffinity,
-			DisableHostNetwork:   cluster.AdvancedConfig.AgentDisableHostNetwork,
-			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
-			ImagePullPolicy:      configbase.ImagePullPolicy(),
-			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
+			DindStorageDriver:    dindStorageDriver, DindTLS: dindTLS,
+			EnableIRSA:         cluster.AdvancedConfig.EnableIRSA,
+			NodeSelector:       cluster.AdvancedConfig.AgentNodeSelector,
+			Toleration:         cluster.AdvancedConfig.AgentToleration,
+			Affinity:           cluster.AdvancedConfig.AgentAffinity,
+			DisableHostNetwork: cluster.AdvancedConfig.AgentDisableHostNetwork,
+			IRSARoleARN:        cluster.AdvancedConfig.IRSARoleARM,
+			ImagePullPolicy:    configbase.ImagePullPolicy(),
+			SecretKey:          base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	}
 
@@ -450,6 +456,13 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 	}
 
 	return
+}
+
+func ResolveDindNamespace(cluster *models.K8SCluster) string {
+	if cluster != nil && cluster.Local {
+		return config.Namespace()
+	}
+	return setting.AttachedClusterNamespace
 }
 
 // InitializeExternalCluster initialized the resources in the cluster for zadig to run correctly.
@@ -516,6 +529,11 @@ func InitializeExternalCluster(clusterID string) error {
 		return errors.Errorf("cluster %s create serviceAccount err: %s", clusterID, err)
 	}
 
+	dindTLSCerts, err := EnsureDindTLSSecret(clientset, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to ensure dind TLS secret in cluster %q: %s", clusterID, err)
+	}
+
 	// create role binding
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -540,10 +558,7 @@ func InitializeExternalCluster(clusterID string) error {
 	}
 	log.Infof("cluster %s create role binding successfully", clusterID)
 
-	dindLabelMap := map[string]string{
-		"app.kubernetes.io/component": "dind",
-		"app.kubernetes.io/name":      "zadig",
-	}
+	dindLabelMap := DindLabels()
 
 	privileged := true
 
@@ -561,6 +576,9 @@ func InitializeExternalCluster(clusterID string) error {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: dindLabelMap,
+					Annotations: map[string]string{
+						types.DindTLSCertHashAnnotation: DindTLSCertHash(dindTLSCerts),
+					},
 				},
 				Spec: corev1.PodSpec{
 					Affinity: &corev1.Affinity{
@@ -579,18 +597,14 @@ func InitializeExternalCluster(clusterID string) error {
 						corev1.Container{
 							Name:  "dind",
 							Image: config.DindImage(),
+							Args:  buildDindTLSArgs(nil),
 							Ports: []corev1.ContainerPort{
 								{
 									Protocol:      "TCP",
-									ContainerPort: 2375,
+									ContainerPort: types.DindTLSPort,
 								},
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "DOCKER_TLS_CERTDIR",
-									Value: "",
-								},
-							},
+							VolumeMounts: ensureDindTLSVolumeMount(nil),
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(2)),
@@ -606,6 +620,7 @@ func InitializeExternalCluster(clusterID string) error {
 							},
 						},
 					},
+					Volumes: ensureDindTLSVolume(nil),
 				},
 			},
 		},
@@ -627,8 +642,8 @@ func InitializeExternalCluster(clusterID string) error {
 				{
 					Name:       "dind",
 					Protocol:   "TCP",
-					Port:       2375,
-					TargetPort: intstr.FromInt(2375),
+					Port:       types.DindTLSPort,
+					TargetPort: intstr.FromInt(types.DindTLSPort),
 				},
 			},
 			ClusterIP: "None",
@@ -691,6 +706,7 @@ type TemplateSchema struct {
 	DindStorageClassName string
 	DindStorageSizeInGiB int
 	DindStorageDriver    string
+	DindTLS              DindTLSSecretTemplateData
 	ScheduleWorkflow     bool
 	EnableIRSA           bool
 	IRSARoleARN          string
@@ -1045,6 +1061,24 @@ spec:
 
 ---
 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dind-tls-certs
+  namespace: {{.Namespace}}
+  labels:
+    app.kubernetes.io/component: dind
+    app.kubernetes.io/name: zadig
+type: Opaque
+data:
+  ca.pem: {{.DindTLS.CAPemBase64}}
+  server-cert.pem: {{.DindTLS.ServerCertPemBase64}}
+  server-key.pem: {{.DindTLS.ServerKeyPemBase64}}
+  cert.pem: {{.DindTLS.ClientCertPemBase64}}
+  key.pem: {{.DindTLS.ClientKeyPemBase64}}
+
+---
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -1065,6 +1099,8 @@ spec:
       labels:
         app.kubernetes.io/component: dind
         app.kubernetes.io/name: zadig
+      annotations:
+        zadig.koderover.com/dind-tls-cert-hash: {{.DindTLS.CertHash}}
     spec:
       affinity:
         podAntiAffinity:
@@ -1072,21 +1108,35 @@ spec:
             - weight: 100
               podAffinityTerm:
                 topologyKey: kubernetes.io/hostname
+      volumes:
+        - name: dind-tls-certs
+          secret:
+            secretName: dind-tls-certs
+            items:
+              - key: ca.pem
+                path: ca.pem
+              - key: server-cert.pem
+                path: server-cert.pem
+              - key: server-key.pem
+                path: server-key.pem
       containers:
         - name: dind
           image: {{.DindImage}}
-          {{- if .DindStorageDriver }}
           args:
+            - --host=unix:///var/run/docker.sock
+            - --host=tcp://0.0.0.0:2376
+            - --tlsverify
+            - --tlscacert=/etc/zadig/dind/tls/ca.pem
+            - --tlscert=/etc/zadig/dind/tls/server-cert.pem
+            - --tlskey=/etc/zadig/dind/tls/server-key.pem
+          {{ if .DindStorageDriver }}
             - --storage-driver={{.DindStorageDriver}}
-          {{- end }}
-          env:
-            - name: DOCKER_TLS_CERTDIR
-              value: ""
+          {{ end }}
           securityContext:
             privileged: true
           ports:
             - protocol: TCP
-              containerPort: 2375
+              containerPort: 2376
           resources:
             limits:
               cpu: "4"
@@ -1094,10 +1144,15 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-{{- if .DindEnablePV }}
           volumeMounts:
+          - name: dind-tls-certs
+            mountPath: /etc/zadig/dind/tls
+            readOnly: true
+{{ if .DindEnablePV }}
           - name: zadig-docker
             mountPath: /var/lib/docker
+{{ end }}
+{{ if .DindEnablePV }}
   volumeClaimTemplates:
   - metadata:
       name: zadig-docker
@@ -1107,7 +1162,7 @@ spec:
       resources:
         requests:
           storage: {{.DindStorageSizeInGiB}}Gi
-{{- end }}
+{{ end }}
 
 ---
 
@@ -1123,8 +1178,8 @@ spec:
   ports:
     - name: dind
       protocol: TCP
-      port: 2375
-      targetPort: 2375
+      port: 2376
+      targetPort: 2376
   clusterIP: None
   selector:
     app.kubernetes.io/component: dind
@@ -1190,6 +1245,24 @@ roleRef:
 
 ---
 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dind-tls-certs
+  namespace: koderover-agent
+  labels:
+    app.kubernetes.io/component: dind
+    app.kubernetes.io/name: zadig
+type: Opaque
+data:
+  ca.pem: {{.DindTLS.CAPemBase64}}
+  server-cert.pem: {{.DindTLS.ServerCertPemBase64}}
+  server-key.pem: {{.DindTLS.ServerKeyPemBase64}}
+  cert.pem: {{.DindTLS.ClientCertPemBase64}}
+  key.pem: {{.DindTLS.ClientKeyPemBase64}}
+
+---
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -1210,6 +1283,8 @@ spec:
       labels:
         app.kubernetes.io/component: dind
         app.kubernetes.io/name: zadig
+      annotations:
+        zadig.koderover.com/dind-tls-cert-hash: {{.DindTLS.CertHash}}
     spec:
       affinity:
         podAntiAffinity:
@@ -1217,21 +1292,35 @@ spec:
             - weight: 100
               podAffinityTerm:
                 topologyKey: kubernetes.io/hostname
+      volumes:
+        - name: dind-tls-certs
+          secret:
+            secretName: dind-tls-certs
+            items:
+              - key: ca.pem
+                path: ca.pem
+              - key: server-cert.pem
+                path: server-cert.pem
+              - key: server-key.pem
+                path: server-key.pem
       containers:
         - name: dind
           image: {{.DindImage}}
-          {{- if .DindStorageDriver }}
           args:
+            - --host=unix:///var/run/docker.sock
+            - --host=tcp://0.0.0.0:2376
+            - --tlsverify
+            - --tlscacert=/etc/zadig/dind/tls/ca.pem
+            - --tlscert=/etc/zadig/dind/tls/server-cert.pem
+            - --tlskey=/etc/zadig/dind/tls/server-key.pem
+          {{ if .DindStorageDriver }}
             - --storage-driver={{.DindStorageDriver}}
-          {{- end }}
-          env:
-            - name: DOCKER_TLS_CERTDIR
-              value: ""
+          {{ end }}
           securityContext:
             privileged: true
           ports:
             - protocol: TCP
-              containerPort: 2375
+              containerPort: 2376
           resources:
             limits:
               cpu: {{.DindLimitsCPU}}
@@ -1239,10 +1328,15 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-{{- if .DindEnablePV }}
           volumeMounts:
+          - name: dind-tls-certs
+            mountPath: /etc/zadig/dind/tls
+            readOnly: true
+{{ if .DindEnablePV }}
           - name: zadig-docker
             mountPath: /var/lib/docker
+{{ end }}
+{{ if .DindEnablePV }}
   volumeClaimTemplates:
   - metadata:
       name: zadig-docker
@@ -1252,7 +1346,7 @@ spec:
       resources:
         requests:
           storage: {{.DindStorageSizeInGiB}}Gi
-{{- end }}
+{{ end }}
 
 ---
 
@@ -1268,8 +1362,8 @@ spec:
   ports:
     - name: dind
       protocol: TCP
-      port: 2375
-      targetPort: 2375
+      port: 2376
+      targetPort: 2376
   clusterIP: None
   selector:
     app.kubernetes.io/component: dind

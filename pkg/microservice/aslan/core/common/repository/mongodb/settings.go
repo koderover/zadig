@@ -196,6 +196,41 @@ func (c *SystemSettingColl) UpdateServerURL(serverURL string) error {
 	return err
 }
 
+func (c *SystemSettingColl) InitDindTLSCertsIfNeeded(certs *models.DindTLSCerts) (bool, error) {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{
+		"_id": id,
+		"$or": []bson.M{
+			{"dind_tls_certs": bson.M{"$exists": false}},
+			{"dind_tls_certs": nil},
+			{"dind_tls_certs.ca_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.ca_pem": ""},
+			{"dind_tls_certs.ca_key_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.ca_key_pem": ""},
+			{"dind_tls_certs.server_cert_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.server_cert_pem": ""},
+			{"dind_tls_certs.server_key_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.server_key_pem": ""},
+			{"dind_tls_certs.client_cert_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.client_cert_pem": ""},
+			{"dind_tls_certs.client_key_pem": bson.M{"$exists": false}},
+			{"dind_tls_certs.client_key_pem": ""},
+		},
+	}
+	change := bson.M{"$set": bson.M{
+		"dind_tls_certs": certs,
+		"update_time":    time.Now().Unix(),
+	}}
+	result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return result.ModifiedCount > 0 || result.UpsertedCount > 0, nil
+}
+
 func (c *SystemSettingColl) UpdateReleasePlanHookSetting(hookSetting *models.ReleasePlanHookSettings) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	query := bson.M{"_id": id}
