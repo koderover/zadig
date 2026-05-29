@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	CommandRiskLevelAccepted = "accepted"
-	defaultCols              = 135
-	defaultRows              = 40
+	defaultCols = 135
+	defaultRows = 40
 )
 
 type SessionMeta struct {
