@@ -166,9 +166,9 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	}
 
 	if len(workflowTask.WorkflowArgs.Stages) != 1 || len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 {
-		errMsg := fmt.Sprintf("invalid test task!")
+		errMsg := "invalid test task!"
 		log.Errorf(errMsg)
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
@@ -266,6 +266,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		Stages:              stages,
 		TestReports:         testResultMap,
 		IsRestart:           workflowTask.IsRestart,
+		Events:              jobSpec.Events,
 	}, nil
 }
 
