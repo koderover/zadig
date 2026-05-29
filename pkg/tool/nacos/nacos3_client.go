@@ -56,6 +56,7 @@ type nacos3Namespace struct {
 type nacos3ConfigItem struct {
 	DataID    string `json:"dataId"`
 	GroupName string `json:"groupName"`
+	Type      string `json:"type"`
 }
 
 type nacos3Config struct {
@@ -244,6 +245,9 @@ func (c *Nacos3Client) ListConfigs(namespaceID, groupName string) ([]*types.Naco
 			},
 			NamespaceID: namespaceID,
 		})
+		if config.Type != "" {
+			configs[len(configs)-1].Format = getFormat(config.Type)
+		}
 	}
 
 	return configs, nil
