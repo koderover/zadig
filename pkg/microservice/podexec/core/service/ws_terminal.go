@@ -48,10 +48,6 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-const (
-	EndOfTransmission = "\u0004"
-)
-
 // TerminalMessage is the messaging protocol between ShellController and TerminalSession.
 type TerminalMessage struct {
 	Operation string `json:"operation"`
@@ -122,12 +118,14 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
 		log.Errorf("read message err: sessionID=%s err=%v", t.SessionID, err)
-		return copy(p, EndOfTransmission), err
+		_ = t.Close()
+		return 0, io.EOF
 	}
 	var msg TerminalMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
 		log.Errorf("read parse message err: sessionID=%s err=%v", t.SessionID, err)
-		return copy(p, EndOfTransmission), err
+		_ = t.Close()
+		return 0, err
 	}
 	switch msg.Operation {
 	case "stdin":
@@ -143,7 +141,8 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 		return 0, nil
 	default:
 		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.SessionID)
-		return copy(p, EndOfTransmission), fmt.Errorf("unknown message type '%s'", msg.Operation)
+		_ = t.Close()
+		return 0, fmt.Errorf("unknown message type '%s'", msg.Operation)
 	}
 }
 
@@ -160,6 +159,7 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
+		_ = t.Close()
 		return 0, err
 	}
 	return len(p), nil
