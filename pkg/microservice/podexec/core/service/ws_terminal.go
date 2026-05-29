@@ -73,6 +73,7 @@ type TerminalSession struct {
 	sizeChan  chan remotecommand.TerminalSize
 	doneChan  chan struct{}
 	closeOnce sync.Once
+	SessionID string
 	Recorder  terminalio.Recorder
 	Sanitizer terminalio.Sanitizer
 }
@@ -95,8 +96,10 @@ func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
 	if audit == nil {
 		return
 	}
+	t.SessionID = audit.SessionID
 	t.Sanitizer = audit.Sanitizer
 	t.Recorder = audit.Recorder
+	log.Infof("terminal session audit attached, sessionID=%s", t.SessionID)
 }
 
 // Done done
@@ -118,12 +121,12 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
-		log.Errorf("read message err: %v", err)
+		log.Errorf("read message err: sessionID=%s err=%v", t.SessionID, err)
 		return copy(p, EndOfTransmission), err
 	}
 	var msg TerminalMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
-		log.Errorf("read parse message err: %v", err)
+		log.Errorf("read parse message err: sessionID=%s err=%v", t.SessionID, err)
 		return copy(p, EndOfTransmission), err
 	}
 	switch msg.Operation {
@@ -139,7 +142,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 		t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}
 		return 0, nil
 	default:
-		log.Errorf("unknown message type '%s'", msg.Operation)
+		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.SessionID)
 		return copy(p, EndOfTransmission), fmt.Errorf("unknown message type '%s'", msg.Operation)
 	}
 }
@@ -156,7 +159,7 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Errorf("write message err: %v", err)
+		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
 		return 0, err
 	}
 	return len(p), nil
@@ -164,10 +167,14 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 
 // Close close session
 func (t *TerminalSession) Close() error {
+	log.Infof("terminal session close start, sessionID=%s", t.SessionID)
 	t.closeOnce.Do(func() {
+		log.Infof("terminal session close doneChan, sessionID=%s", t.SessionID)
 		close(t.doneChan)
 	})
-	return t.wsConn.Close()
+	err := t.wsConn.Close()
+	log.Infof("terminal session close finish, sessionID=%s err=%v", t.SessionID, err)
+	return err
 }
 
 // 验证是否存在
@@ -232,6 +239,7 @@ func ExecPod(clusterID string, cmd []string, ptyHandler PtyHandler, namespace, p
 		TerminalSizeQueue: ptyHandler,
 		Tty:               true,
 	})
+	log.Infof("pod exec stream completed, namespace=%s pod=%s container=%s err=%v", namespace, podName, containerName, err)
 	if err != nil {
 		log.Errorf("Stream err: %v", err)
 		return err
