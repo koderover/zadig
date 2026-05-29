@@ -347,9 +347,9 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	resultAddr := ""
 
 	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
-		errMsg := fmt.Sprintf("invalid test task!")
+		errMsg := "invalid test task!"
 		log.Errorf(errMsg)
-		return nil, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
 	spec := new(commonmodels.ZadigScanningJobSpec)
@@ -434,6 +434,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		Status:        string(workflowTask.Status),
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
+		Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,
