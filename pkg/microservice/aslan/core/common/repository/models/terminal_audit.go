@@ -69,6 +69,7 @@ type TerminalCommand struct {
 	SessionID    string             `bson:"session_id"       json:"session_id"`
 	Seq          int64              `bson:"seq"              json:"seq"`
 	Command      string             `bson:"command"          json:"command"`
+	RiskLevel    string             `bson:"risk_level"       json:"risk_level"`
 	UserID       string             `bson:"user_id"          json:"user_id"`
 	Username     string             `bson:"username"         json:"username"`
 	Account      string             `bson:"account"          json:"account"`
