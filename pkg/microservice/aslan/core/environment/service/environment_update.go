@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -410,6 +411,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 				return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to render service %s, error: %v", service.ServiceName, err))
 			}
 
+			if svcsToBeAdd.Has(service.ServiceName) &&
+				commonutil.ServiceIsDeployed(service.ServiceName, updateProd.ServiceDeployStrategy) &&
+				(overrideResource == nil || !overrideResource[service.ServiceName]) {
+				err = kube.CheckResourceConflicts(serviceYaml, updateProd, service.ServiceName, kubeClient)
+				if err != nil {
+					return e.ErrUpdateEnv.AddErr(err)
+				}
+				continue
+			}
 			err = kube.CheckResourceAppliedByOtherEnv(serviceYaml, updateProd, service.ServiceName)
 			if err != nil {
 				return e.ErrUpdateEnv.AddErr(err)

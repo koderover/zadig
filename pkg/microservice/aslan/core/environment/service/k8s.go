@@ -219,9 +219,16 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	} else {
 		prodinfo.ServiceDeployStrategy[args.ServiceName] = args.ServiceRev.DeployStrategy
 
-		err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
-		if err != nil {
-			return e.ErrUpdateEnv.AddErr(err)
+		if isDraftToDeploy && !args.OverrideResource {
+			err = kube.CheckResourceConflicts(previewResult.Latest.Yaml, prodinfo, args.ServiceName, kubeClient)
+			if err != nil {
+				return e.ErrUpdateEnv.AddErr(err)
+			}
+		} else {
+			err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
+			if err != nil {
+				return e.ErrUpdateEnv.AddErr(err)
+			}
 		}
 		items, err := upsertService(
 			prodinfo,
