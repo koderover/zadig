@@ -181,6 +181,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			Script:            baseKV.Script,
 			FileID:            baseKV.FileID,
 			FilePath:          baseKV.FilePath,
+			Required:          baseKV.Required,
 		}
 		item := &commonmodels.RuntimeKeyVal{
 			KeyVal: newKV,
@@ -396,6 +397,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			Script:            src1KV.Script,
 			FileID:            src1KV.FileID,
 			FilePath:          src1KV.FilePath,
+			Required:          src1KV.Required,
 		}
 		existingKVMap[src1KV.Key] = src1KV
 		resp = append(resp, item)
@@ -419,6 +421,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			Script:            src2KV.Script,
 			FileID:            src2KV.FileID,
 			FilePath:          src2KV.FilePath,
+			Required:          src2KV.Required,
 		}
 		existingKVMap[src2KV.Key] = src2KV
 		resp = append(resp, item)
@@ -502,6 +505,7 @@ func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmod
 			FunctionReference: nil,
 			IsCredential:      param.IsCredential,
 			Description:       param.Description,
+			Required:          param.Required,
 		})
 	}
 
@@ -727,6 +731,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
+					Required:     originParam.Required,
 				}
 				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
@@ -744,4 +749,43 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 	}
 
 	return resp
+}
+
+func validateRuntimeKeyValsDefinition(kvs commonmodels.RuntimeKeyValList, scope string) error {
+	for _, kv := range kvs {
+		if kv == nil || !kv.Required {
+			continue
+		}
+		if kv.Source == config.ParamSourceFixed || kv.Source == config.ParamSourceReference {
+			return fmt.Errorf("%s variable %s with source %s cannot be required", scope, kv.Key, kv.Source)
+		}
+	}
+	return nil
+}
+
+func validateRequiredRuntimeKeyVals(kvs commonmodels.RuntimeKeyValList, scope string) error {
+	for _, kv := range kvs {
+		if kv == nil || !kv.Required {
+			continue
+		}
+		if !runtimeKeyValValueProvided(kv) {
+			return fmt.Errorf("%s variable %s is required", scope, kv.Key)
+		}
+	}
+	return nil
+}
+
+func runtimeKeyValValueProvided(kv *commonmodels.RuntimeKeyVal) bool {
+	if kv == nil {
+		return false
+	}
+
+	switch kv.Type {
+	case commonmodels.MultiSelectType:
+		return len(kv.ChoiceValue) > 0
+	case commonmodels.FileType:
+		return strings.TrimSpace(kv.FileID) != "" || strings.TrimSpace(kv.FilePath) != ""
+	default:
+		return strings.TrimSpace(kv.Value) != ""
+	}
 }
