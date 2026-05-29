@@ -180,6 +180,7 @@ func (r *asciicastRecorder) RecordInput(data string) {
 			SessionID:    r.session.SessionID,
 			Seq:          command.Seq,
 			Command:      command.Command,
+			RiskLevel:    CommandRiskLevelAccepted,
 			UserID:       r.session.UserID,
 			Username:     r.session.Username,
 			Account:      r.session.Account,
