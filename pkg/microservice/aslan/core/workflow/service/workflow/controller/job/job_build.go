@@ -105,6 +105,9 @@ func (j BuildJobController) Validate(isExecution bool) error {
 			return fmt.Errorf("duplicate service module in options field")
 		}
 		optionMap[key] = build
+		if err := validateRuntimeKeyValsDefinition(build.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, build.ServiceName, build.ServiceModule)); err != nil {
+			return err
+		}
 	}
 
 	if isExecution {
@@ -129,6 +132,9 @@ func (j BuildJobController) Validate(isExecution bool) error {
 			key := fmt.Sprintf(buildKeyTemplate, selectedBuild.ServiceName, selectedBuild.ServiceModule)
 			if _, ok := optionMap[key]; !ok {
 				return fmt.Errorf("%s/%s is not in the configured service build list", selectedBuild.ServiceName, selectedBuild.ServiceModule)
+			}
+			if err := validateRequiredRuntimeKeyVals(selectedBuild.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, selectedBuild.ServiceName, selectedBuild.ServiceModule)); err != nil {
+				return err
 			}
 		}
 	}
