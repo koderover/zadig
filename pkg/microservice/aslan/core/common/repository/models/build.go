@@ -227,6 +227,7 @@ type KeyVal struct {
 	FileID            string               `bson:"file_id,omitempty"            json:"file_id,omitempty"            yaml:"file_id,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
+	Required          bool                 `bson:"required,omitempty"           json:"required,omitempty"           yaml:"required,omitempty"`
 }
 
 func (kv *KeyVal) GetValue() string {
