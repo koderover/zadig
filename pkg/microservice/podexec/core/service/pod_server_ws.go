@@ -80,13 +80,16 @@ func ServeWs(c *gin.Context) {
 		return
 	}
 	defer func() {
-		log.Info("close session.")
+		log.Infof("serve ws defer close terminal session, sessionID=%s", pty.SessionID)
 		_ = pty.Close()
 	}()
 	initialCols, initialRows := readTerminalSizeFromQuery(c)
 	finalStatus := commonmodels.TerminalSessionStatusFinished
 	var audit *terminalaudit.AuditSession
 	defer func() {
+		if audit != nil {
+			log.Infof("serve ws defer close audit session, sessionID=%s finalStatus=%s", audit.SessionID, finalStatus)
+		}
 		if err := audit.Close(finalStatus); err != nil {
 			log.Errorf("close terminal audit recorder failed: %v", err)
 		}
@@ -150,10 +153,14 @@ func ServeWs(c *gin.Context) {
 	})
 	if err != nil {
 		log.Errorf("create podexec terminal audit recorder failed: %v", err)
+	} else {
+		log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
 	}
 	pty.SetupAudit(audit)
 
+	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.SessionID, clusterID, namespace, podName, containerName)
 	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
+	log.Infof("finish pod exec stream, sessionID=%s err=%v", pty.SessionID, err)
 	if err == nil || isExpectedTerminalClose(err) {
 		return
 	}

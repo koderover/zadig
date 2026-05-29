@@ -16,6 +16,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -155,6 +156,7 @@ func NewRecorder(meta *SessionMeta) (TerminalRecorder, error) {
 		_ = recorder.Close(models.TerminalSessionStatusFailed)
 		return nil, err
 	}
+	log.Infof("create terminal audit recorder success, sessionID=%s storageID=%s bucket=%s objectKey=%s", session.SessionID, storageID, storage.Bucket, session.ObjectKey)
 	return recorder, nil
 }
 
@@ -227,6 +229,7 @@ func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
 func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 	var closeErr error
 	r.closeOnce.Do(func() {
+		log.Infof("terminal audit recorder close start, sessionID=%s status=%s", r.session.SessionID, status)
 		r.mu.Lock()
 		if r.writer != nil {
 			if err := r.writer.Flush(); err != nil {
@@ -239,7 +242,9 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 			}
 		}
 		r.mu.Unlock()
+		log.Infof("terminal audit recorder close flushed stream, sessionID=%s", r.session.SessionID)
 		r.persistWG.Wait()
+		log.Infof("terminal audit recorder close persist done, sessionID=%s", r.session.SessionID)
 
 		endedAt := time.Now().Unix()
 		durationSeconds := int64(time.Since(r.startedAt).Seconds())
@@ -249,15 +254,18 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 			errorMessages = append(errorMessages, recordErr.Error())
 		}
 		if r.uploadDone != nil {
+			log.Infof("terminal audit recorder close wait upload, sessionID=%s", r.session.SessionID)
 			if err := <-r.uploadDone; err != nil {
 				errorMessages = append(errorMessages, err.Error())
 			}
+			log.Infof("terminal audit recorder close upload done, sessionID=%s fileSize=%d errors=%v", r.session.SessionID, r.fileSize.Load(), errorMessages)
 		}
 
 		finalStatus := status
 		if len(errorMessages) > 0 && finalStatus == models.TerminalSessionStatusFinished {
 			finalStatus = models.TerminalSessionStatusFailed
 		}
+		log.Infof("terminal audit recorder close update session, sessionID=%s finalStatus=%s endedAt=%d duration=%d fileSize=%d", r.session.SessionID, finalStatus, endedAt, durationSeconds, r.fileSize.Load())
 		closeErr = r.sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
 			SessionID:       r.session.SessionID,
 			Status:          finalStatus,
@@ -269,6 +277,7 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 			FileSize:        r.fileSize.Load(),
 			ErrorMessage:    strings.Join(errorMessages, "; "),
 		})
+		log.Infof("terminal audit recorder close finish, sessionID=%s err=%v", r.session.SessionID, closeErr)
 	})
 	return closeErr
 }
