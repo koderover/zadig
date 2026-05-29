@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -232,13 +233,28 @@ func ExecPod(clusterID string, cmd []string, ptyHandler PtyHandler, namespace, p
 		return err
 	}
 
-	err = executor.Stream(remotecommand.StreamOptions{
+	streamCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-ptyHandler.Done():
+			log.Infof("pod exec stream context canceled by terminal close, namespace=%s pod=%s container=%s", namespace, podName, containerName)
+			cancel()
+		case <-streamCtx.Done():
+		}
+	}()
+
+	err = executor.StreamWithContext(streamCtx, remotecommand.StreamOptions{
 		Stdin:             ptyHandler,
 		Stdout:            ptyHandler,
 		Stderr:            ptyHandler,
 		TerminalSizeQueue: ptyHandler,
 		Tty:               true,
 	})
+	if errors.Is(err, context.Canceled) {
+		log.Infof("pod exec stream canceled by terminal close, namespace=%s pod=%s container=%s", namespace, podName, containerName)
+		return nil
+	}
 	log.Infof("pod exec stream completed, namespace=%s pod=%s container=%s err=%v", namespace, podName, containerName, err)
 	if err != nil {
 		log.Errorf("Stream err: %v", err)
