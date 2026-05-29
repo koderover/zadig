@@ -86,6 +86,12 @@ type PreviewServiceArgs struct {
 	DeployContents        []config.DeployContent          `json:"deploy_contents"`
 }
 
+type K8sServiceResource struct {
+	APIVersion string `json:"api_version"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+}
+
 type RestartScaleArgs struct {
 	Type        string `json:"type"`
 	ProductName string `json:"product_name"`
