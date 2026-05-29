@@ -70,6 +70,7 @@ type TerminalSession struct {
 	sizeChan  chan remotecommand.TerminalSize
 	doneChan  chan struct{}
 	closeOnce sync.Once
+	closeErr  error
 	SessionID string
 	Recorder  terminalio.Recorder
 	Sanitizer terminalio.Sanitizer
@@ -168,14 +169,14 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 
 // Close close session
 func (t *TerminalSession) Close() error {
-	log.Infof("terminal session close start, sessionID=%s", t.SessionID)
 	t.closeOnce.Do(func() {
+		log.Infof("terminal session close start, sessionID=%s", t.SessionID)
 		log.Infof("terminal session close doneChan, sessionID=%s", t.SessionID)
 		close(t.doneChan)
+		t.closeErr = t.wsConn.Close()
+		log.Infof("terminal session close finish, sessionID=%s err=%v", t.SessionID, t.closeErr)
 	})
-	err := t.wsConn.Close()
-	log.Infof("terminal session close finish, sessionID=%s err=%v", t.SessionID, err)
-	return err
+	return t.closeErr
 }
 
 // 验证是否存在
