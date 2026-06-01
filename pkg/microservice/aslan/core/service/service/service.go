@@ -181,6 +181,9 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		{
 			Key:   "$EnvName$",
 			Value: ""},
+		{
+			Key:   "$ClusterName$",
+			Value: ""},
 	}
 
 	serviceOption.VariableYaml = args.VariableYaml

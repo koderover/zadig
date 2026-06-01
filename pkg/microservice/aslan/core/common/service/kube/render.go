@@ -410,7 +410,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find product %s", option.ProductName)
 	}
 
-	// get cluster name by cluster id
 	// return structured cluster name
 	cluster, err := GetCluster(productInfo.ClusterID)
 	if err != nil {
