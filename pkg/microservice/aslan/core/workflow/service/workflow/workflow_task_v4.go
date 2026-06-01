@@ -1977,16 +1977,7 @@ func revertNacosJob(jobspec *commonmodels.JobTaskNacosSpec, input []*commonmodel
 	}
 
 	for _, data := range input {
-		format := data.Format
-		if format == "" {
-			current, err := client.GetConfig(data.DataID, data.Group, jobspec.NamespaceID)
-			if err != nil {
-				return err
-			}
-			format = current.Format
-			data.Format = current.Format
-		}
-		if err := client.UpdateConfig(data.DataID, data.Group, jobspec.NamespaceID, data.Content, format); err != nil {
+		if err := client.UpdateConfig(data.DataID, data.Group, jobspec.NamespaceID, data.Content, data.Format); err != nil {
 			return err
 		}
 	}
