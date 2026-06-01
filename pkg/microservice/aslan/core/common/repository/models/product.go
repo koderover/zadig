@@ -116,6 +116,7 @@ type ResourceType string
 const (
 	ResourceTypePod           ResourceType = "Pod"
 	ResourceTypeDeployment    ResourceType = "Deployment"
+	ResourceTypeDaemonSet     ResourceType = "DaemonSet"
 	ResourceTypeReplicaSet    ResourceType = "ReplicaSet"
 	ResourceTypePVC           ResourceType = "PersistentVolumeClaim"
 	ResourceTypeService       ResourceType = "Service"
