@@ -205,7 +205,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	}
 
 	// get clusterName by id
-	clusterName, err := kube.GetClusterNameByID(product.ClusterID)
+	cluster, err := kube.GetCluster(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -217,7 +217,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		//for _, kv := range renderSet.KVs {
 		//	value = strings.Replace(value, kv.Alias, kv.Value, -1)
 		//}
-		value = kube.ParseSysKeys(product.Namespace, product.EnvName, product.ProductName, args.ServiceName, clusterName, value)
+		value = kube.ParseSysKeys(product.Namespace, product.EnvName, product.ProductName, args.ServiceName, cluster.Name, value)
 		cm.Data[key] = value
 	}
 

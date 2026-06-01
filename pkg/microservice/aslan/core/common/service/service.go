@@ -1362,7 +1362,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 	namespace := env.Namespace
 	// get cluster name by id
-	clusterName, err := kube.GetClusterNameByID(env.ClusterID)
+	cluster, err := kube.GetCluster(env.ClusterID)
 	if err != nil {
 		log.Errorf("", err)
 		return nil, err
@@ -1436,7 +1436,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 		}
 
 		// render system kv value
-		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, clusterName, parsedYaml)
+		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, cluster.Name, parsedYaml)
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
