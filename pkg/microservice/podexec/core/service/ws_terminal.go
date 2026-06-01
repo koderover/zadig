@@ -49,11 +49,6 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-const (
-	terminalPingInterval = 10 * time.Second
-	terminalWriteTimeout = 5 * time.Second
-)
-
 // TerminalMessage is the messaging protocol between ShellController and TerminalSession.
 type TerminalMessage struct {
 	Operation string `json:"operation"`
@@ -75,7 +70,6 @@ type TerminalSession struct {
 	sizeChan  chan remotecommand.TerminalSize
 	doneChan  chan struct{}
 	closeOnce sync.Once
-	writeMu   sync.Mutex
 	closeErr  error
 	SessionID string
 	Recorder  terminalio.Recorder
@@ -93,7 +87,6 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		doneChan:  make(chan struct{}),
 		Sanitizer: terminalaudit.NewSanitizer(nil, nil),
 	}
-	go session.keepAlive()
 	return session, nil
 }
 
@@ -166,7 +159,7 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		log.Errorf("write parse message err: %v", err)
 		return 0, err
 	}
-	if err := t.writeMessage(websocket.TextMessage, msg); err != nil {
+	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
 		_ = t.Close()
 		return 0, err
@@ -180,38 +173,10 @@ func (t *TerminalSession) Close() error {
 		log.Infof("terminal session close start, sessionID=%s", t.SessionID)
 		log.Infof("terminal session close doneChan, sessionID=%s", t.SessionID)
 		close(t.doneChan)
-		t.writeMu.Lock()
 		t.closeErr = t.wsConn.Close()
-		t.writeMu.Unlock()
 		log.Infof("terminal session close finish, sessionID=%s err=%v", t.SessionID, t.closeErr)
 	})
 	return t.closeErr
-}
-
-func (t *TerminalSession) keepAlive() {
-	ticker := time.NewTicker(terminalPingInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := t.writeMessage(websocket.PingMessage, nil); err != nil {
-				log.Errorf("terminal session ping err: sessionID=%s err=%v", t.SessionID, err)
-				_ = t.Close()
-				return
-			}
-		case <-t.doneChan:
-			return
-		}
-	}
-}
-
-func (t *TerminalSession) writeMessage(messageType int, data []byte) error {
-	t.writeMu.Lock()
-	defer t.writeMu.Unlock()
-	if err := t.wsConn.SetWriteDeadline(time.Now().Add(terminalWriteTimeout)); err != nil {
-		return err
-	}
-	return t.wsConn.WriteMessage(messageType, data)
 }
 
 // 验证是否存在
