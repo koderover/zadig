@@ -260,8 +260,14 @@ func isInteractiveCommand(command string) bool {
 	if len(fields) == 0 {
 		return false
 	}
+	// 这里只覆盖已知会切换全屏/交互界面的常见命令，用于避免命令列表被编辑器或 TUI 内部输入污染。
+	// 不在名单内的交互程序仍按输入流提取命令，后续如果需要再按真实场景补充。
 	switch fields[0] {
-	case "vi", "vim", "nvim", "less", "more", "top", "htop", "man", "watch":
+	case "vi", "vim", "nvim", "view", "vimdiff",
+		"nano", "pico", "emacs",
+		"less", "more", "most", "pg", "man",
+		"top", "htop", "btop", "atop", "iftop", "iotop", "glances", "nload", "nvtop", "watch",
+		"tig", "lazygit", "k9s", "ranger", "mc", "nnn":
 		return true
 	default:
 		return false
