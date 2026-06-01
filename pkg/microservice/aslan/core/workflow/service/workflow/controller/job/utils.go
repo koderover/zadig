@@ -196,12 +196,13 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			if (item.Source != config.ParamSourceFixed && item.Source != config.ParamSourceReference) || useInputKVSource {
 				if item.Type == commonmodels.MultiSelectType {
 					item.ChoiceValue = inputKV.ChoiceValue
-					// TODO: move this logic to somewhere else
-					if inputKV.Value == "" {
-						item.Value = strings.Join(item.ChoiceValue, ",")
-					} else {
-						item.Value = inputKV.Value
+					// ChoiceValue is the canonical multi-select value. Keep Value as its
+					// comma-separated runtime representation so older consumers remain compatible.
+					if item.ChoiceValue == nil && inputKV.Value != "" {
+						// Older callers may only send Value, so backfill ChoiceValue before normalizing.
+						item.ChoiceValue = strings.Split(inputKV.Value, ",")
 					}
+					item.Value = strings.Join(item.ChoiceValue, ",")
 				} else if item.Type == commonmodels.FileType {
 					item.FileID = inputKV.FileID
 					item.FilePath = inputKV.FilePath

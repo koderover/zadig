@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -325,6 +326,13 @@ func OpenAPIKVInputToKeyValList(originalKvs commonmodels.RuntimeKeyValList, kvIn
 
 		if kvInput, ok := kvMap[kv.Key]; ok {
 			kv.Value = kvInput.Value
+			if kv.Type == commonmodels.MultiSelectType {
+				// OpenAPI only sends Value, so keep ChoiceValue in sync for multi-select consumers.
+				kv.ChoiceValue = nil
+				if kvInput.Value != "" {
+					kv.ChoiceValue = strings.Split(kvInput.Value, ",")
+				}
+			}
 		}
 	}
 
