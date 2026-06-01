@@ -37,6 +37,7 @@ const DindContainerName = "dind"
 const DindMountName = "zadig-docker"
 const DindMountPath = "/var/lib/docker"
 const DindTLSPort = 2376
+const DindTLSServicePortName = "dind-tls"
 const DindTLSSecretName = "dind-tls-certs"
 const DindTLSVolumeName = "dind-tls-certs"
 const DindTLSServerMountPath = "/etc/zadig/dind/tls"
