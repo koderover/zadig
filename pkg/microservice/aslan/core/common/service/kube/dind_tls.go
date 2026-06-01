@@ -240,23 +240,19 @@ func ApplyDindTLSSettings(dindSts *appsv1.StatefulSet, certs *commonmodels.DindT
 }
 
 func EnsureDindServiceTLS(kclient client.Client, namespace string) error {
-	return ensureDindServiceTLS(kclient, namespace, types.DindContainerName)
+	return ensureDindServiceTLS(kclient, namespace)
 }
 
-func EnsureLocalDindServiceTLS(kclient client.Client, namespace string) error {
-	return ensureDindServiceTLS(kclient, namespace, types.DindTLSServicePortName)
-}
-
-func ensureDindServiceTLS(kclient client.Client, namespace, portName string) error {
+func ensureDindServiceTLS(kclient client.Client, namespace string) error {
 	service := &corev1.Service{}
 	if err := kclient.Get(context.TODO(), client.ObjectKey{Name: types.DindStatefulSetName, Namespace: namespace}, service); err != nil {
 		if apierrors.IsNotFound(err) {
-			return kclient.Create(context.TODO(), buildDindService(namespace, portName))
+			return kclient.Create(context.TODO(), BuildDindService(namespace))
 		}
 		return err
 	}
 
-	ports := ensureDindTLSServicePort(service.Spec.Ports, portName)
+	ports := ensureDindTLSServicePort(service.Spec.Ports)
 	if reflect.DeepEqual(service.Spec.Ports, ports) {
 		return nil
 	}
@@ -265,10 +261,6 @@ func ensureDindServiceTLS(kclient client.Client, namespace, portName string) err
 }
 
 func BuildDindService(namespace string) *corev1.Service {
-	return buildDindService(namespace, types.DindContainerName)
-}
-
-func buildDindService(namespace, portName string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      types.DindStatefulSetName,
@@ -276,7 +268,7 @@ func buildDindService(namespace, portName string) *corev1.Service {
 			Labels:    DindLabels(),
 		},
 		Spec: corev1.ServiceSpec{
-			Ports:     ensureDindTLSServicePort(nil, portName),
+			Ports:     ensureDindTLSServicePort(nil),
 			ClusterIP: "None",
 			Selector:  DindLabels(),
 		},
@@ -326,7 +318,7 @@ func ensureDindTLSPort(ports []corev1.ContainerPort) []corev1.ContainerPort {
 	return resp
 }
 
-func ensureDindTLSServicePort(ports []corev1.ServicePort, portName string) []corev1.ServicePort {
+func ensureDindTLSServicePort(ports []corev1.ServicePort) []corev1.ServicePort {
 	resp := make([]corev1.ServicePort, 0, len(ports)+1)
 	for _, port := range ports {
 		if port.Port == 2375 || port.Port == types.DindTLSPort || port.Name == types.DindContainerName || port.Name == types.DindTLSServicePortName {
@@ -335,7 +327,7 @@ func ensureDindTLSServicePort(ports []corev1.ServicePort, portName string) []cor
 		resp = append(resp, port)
 	}
 	resp = append(resp, corev1.ServicePort{
-		Name:       portName,
+		Name:       types.DindTLSServicePortName,
 		Protocol:   corev1.ProtocolTCP,
 		Port:       types.DindTLSPort,
 		TargetPort: intstr.FromInt(types.DindTLSPort),

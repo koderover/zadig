@@ -393,15 +393,16 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindEnablePV:         dindEnablePV,
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
-			DindStorageDriver:    dindStorageDriver, DindTLS: dindTLS,
-			EnableIRSA:         cluster.AdvancedConfig.EnableIRSA,
-			NodeSelector:       cluster.AdvancedConfig.AgentNodeSelector,
-			Toleration:         cluster.AdvancedConfig.AgentToleration,
-			Affinity:           cluster.AdvancedConfig.AgentAffinity,
-			DisableHostNetwork: cluster.AdvancedConfig.AgentDisableHostNetwork,
-			IRSARoleARN:        cluster.AdvancedConfig.IRSARoleARM,
-			ImagePullPolicy:    configbase.ImagePullPolicy(),
-			SecretKey:          base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
+			DindStorageDriver:    dindStorageDriver,
+			DindTLS:              dindTLS,
+			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
+			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
+			Toleration:           cluster.AdvancedConfig.AgentToleration,
+			Affinity:             cluster.AdvancedConfig.AgentAffinity,
+			DisableHostNetwork:   cluster.AdvancedConfig.AgentDisableHostNetwork,
+			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
+			ImagePullPolicy:      configbase.ImagePullPolicy(),
+			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	}
 
@@ -595,7 +596,7 @@ func InitializeExternalCluster(clusterID string) error {
 					},
 					Containers: []corev1.Container{
 						corev1.Container{
-							Name:  "dind",
+							Name:  "dind-tls",
 							Image: config.DindImage(),
 							Args:  buildDindTLSArgs(nil),
 							Ports: []corev1.ContainerPort{
@@ -640,7 +641,7 @@ func InitializeExternalCluster(clusterID string) error {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "dind",
+					Name:       "dind-tls",
 					Protocol:   "TCP",
 					Port:       types.DindTLSPort,
 					TargetPort: intstr.FromInt(types.DindTLSPort),
@@ -1176,7 +1177,7 @@ metadata:
     app.kubernetes.io/name: zadig
 spec:
   ports:
-    - name: dind
+    - name: dind-tls
       protocol: TCP
       port: 2376
       targetPort: 2376
@@ -1360,7 +1361,7 @@ metadata:
     app.kubernetes.io/name: zadig
 spec:
   ports:
-    - name: dind
+    - name: dind-tls
       protocol: TCP
       port: 2376
       targetPort: 2376
