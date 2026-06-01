@@ -1441,6 +1441,14 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 				ret.Scales = append(ret.Scales, GetDeploymentWorkloadResource(d, inf, log))
 				ret.Workloads = append(ret.Workloads, ToDeploymentWorkload(d))
+			case setting.DaemonSet:
+				daemonSet, err := getter.GetDaemonSetByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, GetDaemonSetWorkloadResource(daemonSet, inf, log))
+				ret.Workloads = append(ret.Workloads, ToDaemonSetWorkload(daemonSet))
 			case setting.CloneSet:
 				dc, err := clientmanager.NewKubeClientManager().GetKruiseClient(env.ClusterID)
 				if err != nil {
@@ -1533,6 +1541,15 @@ func GetCloneSetWorkloadResource(d *v1alpha1.CloneSet, informer informers.Shared
 	}
 
 	return wrapper.CloneSet(d).WorkloadResource(pods)
+}
+
+func GetDaemonSetWorkloadResource(daemonSet *appsv1.DaemonSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(daemonSet.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.DaemonSet(daemonSet).WorkloadResource(pods)
 }
 
 func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
