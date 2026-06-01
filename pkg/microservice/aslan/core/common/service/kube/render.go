@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -1017,7 +1018,12 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 }
 
 func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
-	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+	clusterObjectID, err := primitive.ObjectIDFromHex(clusterID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cluster id %s is not hex string", clusterID)
+	}
+
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterObjectID.Hex())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find cluster by id %s", clusterID)
 	}
