@@ -7,8 +7,11 @@ import (
 )
 
 var (
-	bracketedPasteStart = []byte{0x1b, '[', '2', '0', '0', '~'}
-	bracketedPasteEnd   = []byte{0x1b, '[', '2', '0', '1', '~'}
+	bracketedPasteStart    = []byte{0x1b, '[', '2', '0', '0', '~'}
+	bracketedPasteEnd      = []byte{0x1b, '[', '2', '0', '1', '~'}
+	interactiveEnterSeq    = []string{"\x1b[?1049h", "\x1b[?1047h", "\x1b[?47h"}
+	interactiveExitSeq     = []string{"\x1b[?1049l", "\x1b[?1047l", "\x1b[?47l"}
+	interactiveRejectHints = []string{"not found", "command not found", "No such file or directory"}
 )
 
 type ExtractedCommand struct {
@@ -17,13 +20,22 @@ type ExtractedCommand struct {
 	TimeOffsetMS int64
 }
 
+type deferredInputChunk struct {
+	data   string
+	offset time.Duration
+}
+
 type CommandExtractor struct {
-	buffer            []byte
-	seq               int64
-	inEscape          bool
-	escapeBuffer      []byte
-	inBracketedPaste  bool
-	pasteEscapeBuffer []byte
+	buffer             []byte
+	seq                int64
+	inEscape           bool
+	escapeBuffer       []byte
+	inBracketedPaste   bool
+	pasteEscapeBuffer  []byte
+	pendingInteractive bool
+	interactiveMode    bool
+	pendingInputs      []deferredInputChunk
+	outputTail         string
 }
 
 func NewCommandExtractor() *CommandExtractor {
@@ -31,6 +43,15 @@ func NewCommandExtractor() *CommandExtractor {
 }
 
 func (e *CommandExtractor) Consume(data string, offset time.Duration) []ExtractedCommand {
+	if e.interactiveMode {
+		return nil
+	}
+	if e.pendingInteractive {
+		if data != "" {
+			e.pendingInputs = append(e.pendingInputs, deferredInputChunk{data: data, offset: offset})
+		}
+		return nil
+	}
 	commands := make([]ExtractedCommand, 0)
 	for i := 0; i < len(data); i++ {
 		ch := data[i]
@@ -47,6 +68,30 @@ func (e *CommandExtractor) Consume(data string, offset time.Duration) []Extracte
 		commands = e.consumePlainByte(ch, offset, commands)
 	}
 	return commands
+}
+
+func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
+	if data == "" {
+		return nil
+	}
+	e.appendOutputTail(data)
+	if e.pendingInteractive && containsAny(e.outputTail, interactiveEnterSeq) {
+		e.pendingInteractive = false
+		e.pendingInputs = nil
+		e.interactiveMode = true
+		return nil
+	}
+	if e.pendingInteractive && (containsAny(e.outputTail, interactiveRejectHints) || looksLikeShellPrompt(e.outputTail)) {
+		pendingInputs := e.pendingInputs
+		e.pendingInteractive = false
+		e.pendingInputs = nil
+		e.outputTail = ""
+		return e.replayDeferredInputs(pendingInputs)
+	}
+	if e.interactiveMode && containsAny(e.outputTail, interactiveExitSeq) {
+		e.interactiveMode = false
+	}
+	return nil
 }
 
 func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
@@ -147,6 +192,11 @@ func (e *CommandExtractor) flushCommand(offset time.Duration, commands []Extract
 	if command == "" {
 		return commands
 	}
+	e.pendingInteractive = isInteractiveCommand(command)
+	if e.pendingInteractive {
+		e.pendingInputs = nil
+		e.outputTail = ""
+	}
 	e.seq++
 	return append(commands, ExtractedCommand{
 		Seq:          e.seq,
@@ -162,4 +212,58 @@ func (e *CommandExtractor) resetEscape() {
 
 func isEscapeTerminator(ch byte) bool {
 	return ch >= 0x40 && ch <= 0x7e
+}
+
+func containsAny(data string, targets []string) bool {
+	for _, target := range targets {
+		if strings.Contains(data, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func looksLikeShellPrompt(data string) bool {
+	line := data
+	if idx := strings.LastIndex(line, "\n"); idx >= 0 {
+		line = line[idx+1:]
+	}
+	line = strings.TrimSuffix(line, "\x1b[6n")
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+	return strings.HasSuffix(line, "$") ||
+		strings.HasSuffix(line, "#") ||
+		strings.HasSuffix(line, ">") ||
+		strings.HasSuffix(line, "%")
+}
+
+func (e *CommandExtractor) appendOutputTail(data string) {
+	const maxTailLen = 256
+	e.outputTail += data
+	if len(e.outputTail) > maxTailLen {
+		e.outputTail = e.outputTail[len(e.outputTail)-maxTailLen:]
+	}
+}
+
+func (e *CommandExtractor) replayDeferredInputs(chunks []deferredInputChunk) []ExtractedCommand {
+	commands := make([]ExtractedCommand, 0)
+	for _, chunk := range chunks {
+		commands = append(commands, e.Consume(chunk.data, chunk.offset)...)
+	}
+	return commands
+}
+
+func isInteractiveCommand(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	switch fields[0] {
+	case "vi", "vim", "nvim", "less", "more", "top", "htop", "man", "watch":
+		return true
+	default:
+		return false
+	}
 }

@@ -166,16 +166,41 @@ func (r *asciicastRecorder) SessionID() string {
 
 func (r *asciicastRecorder) RecordInput(data string) {
 	sanitized := r.sanitizer.Mask(data)
-	now := time.Now().Unix()
 	r.mu.Lock()
 	if sanitized != "" {
 		r.writeEvent("i", sanitized)
 	}
 	commands := r.extractor.Consume(sanitized, time.Since(r.startedAt))
 	r.mu.Unlock()
+	r.persistCommands(commands)
+}
+
+func (r *asciicastRecorder) RecordOutput(data string) {
+	r.mu.Lock()
+	if data == "" {
+		r.mu.Unlock()
+		return
+	}
+	commands := r.extractor.ObserveOutput(data)
+	r.writeEvent("o", data)
+	r.mu.Unlock()
+	r.persistCommands(commands)
+}
+
+func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
+	if cols == 0 || rows == 0 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.writeEvent("r", fmt.Sprintf("%dx%d", cols, rows))
+}
+
+func (r *asciicastRecorder) persistCommands(commands []ExtractedCommand) {
 	if len(commands) == 0 {
 		return
 	}
+	now := time.Now().Unix()
 	commandModels := make([]*models.TerminalCommand, 0, len(commands))
 	for _, command := range commands {
 		commandModels = append(commandModels, &models.TerminalCommand{
@@ -206,24 +231,6 @@ func (r *asciicastRecorder) RecordInput(data string) {
 			r.setRecordErr(err)
 		}
 	}(commandModels, int64(len(commands)), now)
-}
-
-func (r *asciicastRecorder) RecordOutput(data string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if data == "" {
-		return
-	}
-	r.writeEvent("o", data)
-}
-
-func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
-	if cols == 0 || rows == 0 {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.writeEvent("r", fmt.Sprintf("%dx%d", cols, rows))
 }
 
 func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
