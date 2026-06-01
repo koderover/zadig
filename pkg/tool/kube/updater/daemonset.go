@@ -20,9 +20,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 )
@@ -55,6 +59,101 @@ func UpdateDaemonSetImage(ctx context.Context, clusterID, namespace, daemonSetNa
 
 func UpdateDaemonSetInitImage(ctx context.Context, clusterID, namespace, daemonSetName, containerName, newImage string) error {
 	return patchDaemonSetImage(ctx, clusterID, namespace, daemonSetName, containerName, newImage, "initContainers")
+}
+
+func CreateOrPatchDaemonSet(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if resourceOverride {
+		originalYAML = ""
+	}
+
+	targetJSON, err := yaml.YAMLToJSON([]byte(targetYAML))
+	if err != nil {
+		return fmt.Errorf("failed to convert target YAML to JSON: %w", err)
+	}
+
+	var targetObj appsv1.DaemonSet
+	if err := json.Unmarshal(targetJSON, &targetObj); err != nil {
+		return fmt.Errorf("failed to unmarshal target JSON to DaemonSet: %w", err)
+	}
+
+	name := targetObj.GetName()
+	if name == "" {
+		return fmt.Errorf("daemonset name cannot be empty in target YAML")
+	}
+
+	targetObj.SetNamespace(namespace)
+	targetJSONMutated, err := json.Marshal(targetObj)
+	if err != nil {
+		return fmt.Errorf("failed to re-marshal mutated target object: %w", err)
+	}
+
+	originalJSONMutated := []byte("{}")
+	if originalYAML != "" {
+		originalJSON, err := yaml.YAMLToJSON([]byte(originalYAML))
+		if err != nil {
+			return fmt.Errorf("failed to convert original YAML to JSON: %w", err)
+		}
+
+		var originalObj appsv1.DaemonSet
+		if err := json.Unmarshal(originalJSON, &originalObj); err != nil {
+			return fmt.Errorf("failed to unmarshal original JSON: %w", err)
+		}
+		originalObj.SetNamespace(namespace)
+		originalJSONMutated, err = json.Marshal(originalObj)
+		if err != nil {
+			return fmt.Errorf("failed to re-marshal mutated original object: %w", err)
+		}
+	}
+
+	_, err = c.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, createErr := c.AppsV1().DaemonSets(namespace).Create(ctx, &targetObj, metav1.CreateOptions{})
+		if createErr != nil {
+			return fmt.Errorf("failed to create daemonset: %w", createErr)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to check daemonset existence: %w", err)
+	}
+
+	if resourceOverride {
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			existing, err := c.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to get daemonset for replace: %w", err)
+			}
+			targetObj.ResourceVersion = existing.ResourceVersion
+			_, err = c.AppsV1().DaemonSets(namespace).Update(ctx, &targetObj, metav1.UpdateOptions{})
+			return err
+		})
+	}
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalJSONMutated, targetJSONMutated, &appsv1.DaemonSet{})
+	if err != nil {
+		return fmt.Errorf("failed to calculate 2-way merge patch: %w", err)
+	}
+	if string(patchBytes) == "{}" {
+		return nil
+	}
+
+	_, err = c.AppsV1().DaemonSets(namespace).Patch(
+		ctx,
+		name,
+		types.StrategicMergePatchType,
+		patchBytes,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("daemonset patch failed: %w", err)
+	}
+
+	return nil
 }
 
 func patchDaemonSetImage(ctx context.Context, clusterID, namespace, daemonSetName, containerName, newImage, field string) error {
