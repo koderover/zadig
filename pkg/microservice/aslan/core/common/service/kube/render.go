@@ -1052,12 +1052,19 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 }
 
 func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
-	clusterObjectID, err := primitive.ObjectIDFromHex(clusterID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cluster id %s is not hex string", clusterID)
+	clusterColl := commonrepo.NewK8SClusterColl()
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+	if _, err := primitive.ObjectIDFromHex(clusterID); err != nil {
+		cluster, err := clusterColl.FindByName(clusterID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to find cluster by name %s", clusterID)
+		}
+		return cluster, nil
 	}
 
-	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterObjectID.Hex())
+	cluster, err := clusterColl.FindByID(clusterID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find cluster by id %s", clusterID)
 	}
