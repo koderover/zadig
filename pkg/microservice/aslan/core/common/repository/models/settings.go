@@ -30,7 +30,17 @@ type SystemSetting struct {
 	ServerURL           string                   `bson:"server_url" json:"server_url"`
 	WorkflowHook        *WorkflowHookSettings    `bson:"workflow_hook" json:"workflow_hook"`
 	ReleasePlanHook     *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
+	DindTLSCerts        *DindTLSCerts            `bson:"dind_tls_certs,omitempty" json:"-"`
 	UpdateTime          int64                    `bson:"update_time" json:"update_time"`
+}
+
+type DindTLSCerts struct {
+	CAPem         string `bson:"ca_pem"`
+	CAKeyPem      string `bson:"ca_key_pem"`
+	ServerCertPem string `bson:"server_cert_pem"`
+	ServerKeyPem  string `bson:"server_key_pem"`
+	ClientCertPem string `bson:"client_cert_pem"`
+	ClientKeyPem  string `bson:"client_key_pem"`
 }
 
 type Theme struct {
