@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -79,6 +80,7 @@ type TerminalSession struct {
 	wsConn   *websocket.Conn
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
+	writeBuf []byte
 	// SecretEnvs is a list of environment variables that should be hidden from the client.
 	SecretEnvs []string
 	Type       TerminalSessionType
@@ -148,9 +150,25 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
+	// remotecommand may split container output at arbitrary byte boundaries.
+	// Keep incomplete UTF-8 tails out of JSON responses to avoid corrupting CJK echo.
+	accepted := len(p)
+	if len(t.writeBuf) > 0 {
+		p = append(t.writeBuf, p...)
+		t.writeBuf = nil
+	}
+	complete, pending := splitCompleteUTF8(p)
+	if len(pending) > 0 {
+		t.writeBuf = append(t.writeBuf[:0], pending...)
+	}
+	if len(complete) == 0 {
+		// Report the incoming bytes as consumed even when we only buffered them.
+		return accepted, nil
+	}
+
 	msg, err := json.Marshal(TerminalMessage{
 		Operation: "stdout",
-		Data:      string(p),
+		Data:      string(complete),
 	})
 	if err != nil {
 		log.Errorf("write parse message err: %v", err)
@@ -165,7 +183,19 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		log.Errorf("write message err: %v", err)
 		return 0, err
 	}
-	return len(p), nil
+	return accepted, nil
+}
+
+func splitCompleteUTF8(p []byte) (complete, pending []byte) {
+	for i := 0; i < len(p); {
+		r, size := utf8.DecodeRune(p[i:])
+		if r == utf8.RuneError && size == 1 && !utf8.FullRune(p[i:]) {
+			// Invalid bytes are still forwarded; only a truncated rune at the end is buffered.
+			return p[:i], p[i:]
+		}
+		i += size
+	}
+	return p, nil
 }
 
 // Close close session
