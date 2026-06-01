@@ -831,7 +831,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 		return ListDeployments(page, pageSize, namespace, kubeClient, inf)
 	case "statefulsets":
 		return ListStatefulSets(page, pageSize, namespace, kubeClient, inf)
-	case "daemonSets":
+	case "daemonsets":
 		return ListDaemonSets(page, pageSize, namespace, kubeClient)
 	case "jobs":
 		return ListJobs(page, pageSize, namespace, kubeClient)
