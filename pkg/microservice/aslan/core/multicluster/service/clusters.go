@@ -960,6 +960,10 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return fmt.Errorf("failed to ensure dind TLS secret in local cluster: %s", err)
 		}
 
+		if err := kube.EnsureLocalDindServiceTLS(kubeClient, config.Namespace()); err != nil {
+			return fmt.Errorf("failed to ensure local dind TLS service: %s", err)
+		}
+
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
 	} else {
 		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(id)
@@ -1233,8 +1237,14 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		return err
 	}
 
-	if err := kube.EnsureDindServiceTLS(kclient, ns); err != nil {
-		return err
+	if cluster.Local {
+		if err := kube.EnsureLocalDindServiceTLS(kclient, ns); err != nil {
+			return err
+		}
+	} else {
+		if err := kube.EnsureDindServiceTLS(kclient, ns); err != nil {
+			return err
+		}
 	}
 
 	// Sync registry configuration after successful update
