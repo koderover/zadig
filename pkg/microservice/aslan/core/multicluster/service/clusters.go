@@ -694,7 +694,7 @@ func UpdateClusterDind(ctx *handler.Context, id string, dindCfg *commonmodels.Di
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		if dindCfg.Replicas != 1 {
+		if dindCfg.Replicas != 0 && dindCfg.Replicas != 1 {
 			return nil, e.ErrLicenseInvalid.AddDesc("")
 		}
 		if dindCfg.Resources != nil {
@@ -960,8 +960,8 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return fmt.Errorf("failed to ensure dind TLS secret in local cluster: %s", err)
 		}
 
-		if err := kube.EnsureLocalDindServiceTLS(kubeClient, config.Namespace()); err != nil {
-			return fmt.Errorf("failed to ensure local dind TLS service: %s", err)
+		if err := kube.EnsureDindServiceTLS(kubeClient, config.Namespace()); err != nil {
+			return fmt.Errorf("failed to ensure dind TLS service in local cluster: %s", err)
 		}
 
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
@@ -972,10 +972,9 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		}
 		dindNamespace := kube.ResolveDindNamespace(clusterInfo)
 		if _, err := kube.EnsureDindTLSSecret(clientset, dindNamespace); err != nil {
-			logger.Warnf("failed to ensure dind TLS secret in cluster %s before applying yaml: %s", clusterInfo.Name, err)
-			if _, certErr := kube.EnsureDindTLSCerts(); certErr != nil {
-				return fmt.Errorf("failed to ensure dind TLS certs for cluster %s: %s", clusterInfo.Name, certErr)
-			}
+			err = fmt.Errorf("failed to ensure dind TLS secret in cluster %s before applying yaml: %s", clusterInfo.Name, err)
+			logger.Error(err)
+			return err
 		}
 
 		// Upgrade attached cluster.
@@ -1013,6 +1012,8 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 				} else {
 					err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
 				}
+			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
+				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)
 			} else {
 				err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			}
@@ -1237,14 +1238,8 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		return err
 	}
 
-	if cluster.Local {
-		if err := kube.EnsureLocalDindServiceTLS(kclient, ns); err != nil {
-			return err
-		}
-	} else {
-		if err := kube.EnsureDindServiceTLS(kclient, ns); err != nil {
-			return err
-		}
+	if err := kube.EnsureDindServiceTLS(kclient, ns); err != nil {
+		return err
 	}
 
 	// Sync registry configuration after successful update
