@@ -179,7 +179,10 @@ func GetService(envName, productName, serviceName string, production bool, workL
 func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Product, inf informers.SharedInformerFactory, log *zap.SugaredLogger) ([]*commonservice.Workload, error) {
 	ret := make([]*commonservice.Workload, 0)
 	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
-	clusterName, err := kube.GetClusterNameByID(env.ClusterID)
+	cluster, err := kube.GetCluster(env.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to get cluster for cluster %s: %w", env.ClusterID, err))
+	}
 
 	svcRender := env.GetSvcRender(svcTmpl.ServiceName)
 	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, svcRender)
@@ -187,7 +190,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, err
 	}
-	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, clusterName, parsedYaml)
+	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, cluster.Name, parsedYaml)
 
 	manifests := releaseutil.SplitManifests(parsedYaml)
 	for _, item := range manifests {

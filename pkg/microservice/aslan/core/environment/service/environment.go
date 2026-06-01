@@ -4310,9 +4310,9 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
-	clusterName, err := kube.GetClusterNameByID(prod.ClusterID)
+	cluster, err := kube.GetCluster(prod.ClusterID)
 	if err != nil {
-		wrapErr := fmt.Errorf("failed to get cluster name for cluster %s, err: %v", prod.ClusterID, err)
+		wrapErr := fmt.Errorf("failed to get cluster for cluster %s, err: %v", prod.ClusterID, err)
 		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
@@ -4411,7 +4411,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, clusterName)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, cluster.Name)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}
