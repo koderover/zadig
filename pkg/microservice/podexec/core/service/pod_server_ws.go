@@ -36,6 +36,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
@@ -131,6 +132,7 @@ func ServeWs(c *gin.Context) {
 		Account:     ctx.Account,
 		ProjectName: productName,
 		EnvName:     envName,
+		ServiceName: resolvePodServiceName(pod),
 		TargetName:  fmt.Sprintf("%s/%s", podName, containerName),
 		RemoteAddr: func() string {
 			if pod != nil {
@@ -424,4 +426,11 @@ func findContainerSecretRefs(pod *corev1.Pod, containerName string) ([]corev1.En
 
 func optionalBool(value *bool) bool {
 	return value != nil && *value
+}
+
+func resolvePodServiceName(pod *corev1.Pod) string {
+	if pod == nil || len(pod.Labels) == 0 {
+		return ""
+	}
+	return pod.Labels[setting.ServiceLabel]
 }
