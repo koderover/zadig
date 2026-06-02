@@ -302,6 +302,8 @@ func CreateProduct(c *gin.Context) {
 			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 			return
 		}
+		// debug
+		log.Infof("CreateProduct, createArgs: %v", createArgs)
 
 		if production {
 			err = service.EnsureProductionNamespace(createArgs)
