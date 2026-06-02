@@ -1019,20 +1019,28 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 
 func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
 	clusterColl := commonrepo.NewK8SClusterColl()
+	log.Infof("GetCluster called with clusterID=%q", clusterID)
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
+		log.Infof("GetCluster fallback to local clusterID=%q", clusterID)
 	}
 	if _, err := primitive.ObjectIDFromHex(clusterID); err != nil {
+		log.Infof("GetCluster clusterID=%q is not a valid object id, fallback to FindByName, err=%v", clusterID, err)
 		cluster, err := clusterColl.FindByName(clusterID)
 		if err != nil {
+			log.Errorf("GetCluster failed to find cluster by name, clusterID=%q, err=%v", clusterID, err)
 			return nil, errors.Wrapf(err, "failed to find cluster by name %s", clusterID)
 		}
+		log.Infof("GetCluster found cluster by name, clusterID=%q, clusterName=%q", clusterID, cluster.Name)
 		return cluster, nil
 	}
 
+	log.Infof("GetCluster clusterID=%q is a valid object id, querying by id", clusterID)
 	cluster, err := clusterColl.FindByID(clusterID)
 	if err != nil {
+		log.Errorf("GetCluster failed to find cluster by id, clusterID=%q, err=%v", clusterID, err)
 		return nil, errors.Wrapf(err, "failed to find cluster by id %s", clusterID)
 	}
+	log.Infof("GetCluster found cluster by id, clusterID=%q, clusterName=%q", clusterID, cluster.Name)
 	return cluster, nil
 }
