@@ -25,7 +25,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -1023,16 +1022,6 @@ func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 		log.Infof("GetCluster fallback to local clusterID=%q", clusterID)
-	}
-	if _, err := primitive.ObjectIDFromHex(clusterID); err != nil {
-		log.Infof("GetCluster clusterID=%q is not a valid object id, fallback to FindByName, err=%v", clusterID, err)
-		cluster, err := clusterColl.FindByName(clusterID)
-		if err != nil {
-			log.Errorf("GetCluster failed to find cluster by name, clusterID=%q, err=%v", clusterID, err)
-			return nil, errors.Wrapf(err, "failed to find cluster by name %s", clusterID)
-		}
-		log.Infof("GetCluster found cluster by name, clusterID=%q, clusterName=%q", clusterID, cluster.Name)
-		return cluster, nil
 	}
 
 	log.Infof("GetCluster clusterID=%q is a valid object id, querying by id", clusterID)
