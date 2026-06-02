@@ -23,12 +23,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
 
 func RestartDaemonSet(ctx context.Context, clusterID, namespace, name string) error {
@@ -51,6 +54,57 @@ func RestartDaemonSet(ctx context.Context, clusterID, namespace, name string) er
 		_, err = c.AppsV1().DaemonSets(namespace).Update(ctx, daemonSet, metav1.UpdateOptions{})
 		return err
 	})
+}
+
+func DeleteDaemonSetV2(ctx context.Context, clusterID, namespace string, opts ...DeleteOption) error {
+	config := &deleteConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	if config.name == "" && config.selector == "" {
+		return fmt.Errorf("must specify either a name or a selector for deletion to prevent accidental namespace wipeout")
+	}
+	if config.name != "" && config.selector != "" {
+		return fmt.Errorf("cannot specify both name and selector simultaneously")
+	}
+
+	c, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	if config.name != "" {
+		daemonSet := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      config.name,
+			},
+		}
+
+		propagationPolicy := metav1.DeletePropagationBackground
+		deleteOpts := &client.DeleteOptions{
+			PropagationPolicy: &propagationPolicy,
+		}
+
+		err = c.Delete(ctx, daemonSet, deleteOpts)
+		return kubeutil.IgnoreNotFoundError(err)
+	}
+
+	selector, err := labels.Parse(config.selector)
+	if err != nil {
+		return fmt.Errorf("failed to parse selector %q: %w", config.selector, err)
+	}
+
+	daemonSet := &appsv1.DaemonSet{}
+	propagationPolicy := metav1.DeletePropagationBackground
+	deleteOpts := &client.DeleteAllOfOptions{
+		DeleteOptions: client.DeleteOptions{PropagationPolicy: &propagationPolicy},
+		ListOptions:   client.ListOptions{LabelSelector: selector, Namespace: namespace},
+	}
+
+	err = c.DeleteAllOf(ctx, daemonSet, deleteOpts)
+	return kubeutil.IgnoreNotFoundError(err)
 }
 
 func UpdateDaemonSetImage(ctx context.Context, clusterID, namespace, daemonSetName, containerName, newImage string) error {
