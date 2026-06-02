@@ -1019,10 +1019,6 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
 	clusterColl := commonrepo.NewK8SClusterColl()
 	log.Infof("GetCluster called with clusterID=%q", clusterID)
-	if clusterID == "" {
-		clusterID = setting.LocalClusterID
-		log.Infof("GetCluster fallback to local clusterID=%q", clusterID)
-	}
 
 	log.Infof("GetCluster clusterID=%q is a valid object id, querying by id", clusterID)
 	cluster, err := clusterColl.FindByID(clusterID)
