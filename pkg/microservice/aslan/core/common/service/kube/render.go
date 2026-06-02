@@ -1016,7 +1016,6 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }
 
-// find the nil pointer error
 func GetCluster(clusterID string) (*commonmodels.K8SCluster, error) {
 	clusterColl := commonrepo.NewK8SClusterColl()
 	log.Infof("GetCluster called with clusterID=%q", clusterID)
