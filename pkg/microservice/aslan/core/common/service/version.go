@@ -135,18 +135,18 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 	resp.DeployStrategy = envSvcRevision.DeployStrategy
 	resp.Containers = envSvcRevision.Service.Containers
 
-	// for get clusterID
-	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
-		Name:       envSvcRevision.ProductName,
-		EnvName:    envSvcRevision.EnvName,
-		Production: &envSvcRevision.Production,
-	})
-	if err != nil {
-		return resp, fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", envSvcRevision.ProductName, envSvcRevision.EnvName, envSvcRevision.Production, err)
-	}
-
 	if envSvcRevision.ProductFeature.IsHostProduct() {
 		return resp, nil
+	}
+
+	// for get clusterID
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &isProduction,
+	})
+	if err != nil {
+		return resp, fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", projectName, envName, isProduction, err)
 	}
 
 	if envSvcRevision.Service.Type == setting.K8SDeployType {
