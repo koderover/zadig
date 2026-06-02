@@ -307,13 +307,17 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 	respList := make([]*ScanningTaskResp, 0)
 
 	for _, workflowTask := range workflowTasks {
+		status := workflowTask.Status
+		if len(workflowTask.Stages) == 1 && len(workflowTask.Stages[0].Jobs) == 1 && workflowTask.Stages[0].Jobs[0].Status != "" {
+			status = workflowTask.Stages[0].Jobs[0].Status
+		}
 		taskInfo := &ScanningTaskResp{
 			ScanID:    workflowTask.TaskID,
-			Status:    string(workflowTask.Status),
+			Status:    string(status),
 			Creator:   workflowTask.TaskCreator,
 			CreatedAt: workflowTask.CreateTime,
 		}
-		if workflowTask.Status == config.StatusPassed || workflowTask.Status == config.StatusCancelled || workflowTask.Status == config.StatusFailed {
+		if status == config.StatusPassed || status == config.StatusCancelled || status == config.StatusFailed {
 			taskInfo.RunTime = workflowTask.EndTime - workflowTask.StartTime
 		}
 		respList = append(respList, taskInfo)
@@ -429,12 +433,17 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		repo.Username = ""
 	}
 
+	status := workflowTask.Status
+	if workflowTask.Stages[0].Jobs[0].Status != "" {
+		status = workflowTask.Stages[0].Jobs[0].Status
+	}
+
 	return &ScanningTaskDetail{
 		Creator:       workflowTask.TaskCreator,
-		Status:        string(workflowTask.Status),
+		Status:        string(status),
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
-		Events:        jobTaskSpec.Events,
+	    Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,
