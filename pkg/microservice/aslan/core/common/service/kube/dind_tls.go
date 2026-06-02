@@ -52,7 +52,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-const dindTLSCertValidity = 10 * 365 * 24 * time.Hour
+const dindTLSCertValidity = 100 * 365 * 24 * time.Hour
 
 type DindTLSSecretTemplateData struct {
 	CAPemBase64         string
@@ -65,9 +65,14 @@ type DindTLSSecretTemplateData struct {
 
 func EnsureDindTLSCerts() (*commonmodels.DindTLSCerts, error) {
 	settingColl := commonrepo.NewSystemSettingColl()
-	settings, err := settingColl.Get()
-	if err == nil && dindTLSCertsComplete(settings.DindTLSCerts) {
-		return settings.DindTLSCerts, nil
+	settings, err := settingColl.GetByID()
+	if err == nil {
+		if dindTLSCertsComplete(settings.DindTLSCerts) {
+			return settings.DindTLSCerts, nil
+		}
+		if settings.DindTLSCerts != nil {
+			return nil, fmt.Errorf("dind TLS certs are incomplete")
+		}
 	}
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, err
@@ -77,15 +82,12 @@ func EnsureDindTLSCerts() (*commonmodels.DindTLSCerts, error) {
 	if err != nil {
 		return nil, err
 	}
-	created, err := settingColl.InitDindTLSCertsIfNeeded(certs)
+	_, err = settingColl.InitDindTLSCertsIfNeeded(certs)
 	if err != nil {
 		return nil, err
 	}
-	if created {
-		return certs, nil
-	}
 
-	settings, err = settingColl.Get()
+	settings, err = settingColl.GetByID()
 	if err != nil {
 		return nil, err
 	}
