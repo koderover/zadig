@@ -143,7 +143,7 @@ func (c *MSENacosClient) UpdateConfig(dataID, group, namespaceID, content, forma
 		DataId:      tea.String(dataID),
 		Group:       tea.String(group),
 		Content:     tea.String(content),
-		Type:        tea.String(setFormat(format)),
+		Type:        tea.String(setFormat(format)), // add type for mse aliyun
 	}
 	_, err := c.UpdateNacosConfigWithOptions(updateNacosConfigRequest, runtime)
 	if err != nil {
