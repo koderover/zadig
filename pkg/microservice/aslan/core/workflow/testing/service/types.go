@@ -190,6 +190,7 @@ type ScanningTaskResp struct {
 type ScanningTaskDetail struct {
 	Creator        string               `json:"creator"`
 	Status         string               `json:"status"`
+	Error          string               `json:"error,omitempty"`
 	CreateTime     int64                `json:"create_time"`
 	EndTime        int64                `json:"end_time"`
 	Events         *commonmodels.Events `json:"events,omitempty"`

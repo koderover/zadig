@@ -437,13 +437,21 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	if workflowTask.Stages[0].Jobs[0].Status != "" {
 		status = workflowTask.Stages[0].Jobs[0].Status
 	}
+	errorMsg := workflowTask.Stages[0].Jobs[0].Error
+	if errorMsg == "" {
+		errorMsg = workflowTask.Stages[0].Error
+	}
+	if errorMsg == "" {
+		errorMsg = workflowTask.Error
+	}
 
 	return &ScanningTaskDetail{
 		Creator:       workflowTask.TaskCreator,
 		Status:        string(status),
+		Error:         errorMsg,
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
-	    Events:        jobTaskSpec.Events,
+		Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,
