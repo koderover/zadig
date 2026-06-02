@@ -356,15 +356,20 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
-	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+
+	projectName := ""
+	if w.Project != "" {
+		projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+		}
+		projectName = projectInfo.ProjectName
 	}
 	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "project.id", Value: w.Project, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectInfo.ProjectName, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.Name, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.DisplayName, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectName, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.workflowID(), ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.workflowName(), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
@@ -372,13 +377,16 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.is_release_plan_trigger", Value: fmt.Sprintf("%t", releasePlan != nil), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.datetime", Value: time.Now().Format(time.DateTime), ParamsType: "string", IsCredential: false})
-	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		configbase.SystemAddress(),
-		w.Project,
-		w.Name,
-		taskID,
-		url.QueryEscape(w.DisplayName),
-	)
+	detailURL := ""
+	if w.Project != "" {
+		detailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+			configbase.SystemAddress(),
+			w.Project,
+			w.workflowID(),
+			taskID,
+			url.QueryEscape(w.workflowName()),
+		)
+	}
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.url", Value: detailURL, ParamsType: "string", IsCredential: false})
 
 	for _, param := range w.Params {
@@ -392,6 +400,26 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		resp = append(resp, newParam)
 	}
 	return resp, nil
+}
+
+func (w *Workflow) workflowID() string {
+	if w.Name != "" {
+		return w.Name
+	}
+	if w.TemplateName != "" {
+		return w.TemplateName
+	}
+	return w.DisplayName
+}
+
+func (w *Workflow) workflowName() string {
+	if w.DisplayName != "" {
+		return w.DisplayName
+	}
+	if w.TemplateName != "" {
+		return w.TemplateName
+	}
+	return w.Name
 }
 
 // sanitizeDynamicVariableKey sanitizes the dynamic variable key by replacing special characters with underscores.
@@ -715,14 +743,14 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.id",
-		Value:        w.Name,
+		Value:        w.workflowID(),
 		Type:         "string",
 		IsCredential: false,
 	})
 
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.name",
-		Value:        w.Name,
+		Value:        w.workflowName(),
 		Type:         "string",
 		IsCredential: false,
 	})
@@ -779,7 +807,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "workflow.task.url",
-			Value:        w.Name,
+			Value:        w.workflowID(),
 			Type:         "string",
 			IsCredential: false,
 		})

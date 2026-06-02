@@ -44,6 +44,7 @@ type WorkflowV4 struct {
 	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
 	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	TemplateName   string                   `bson:"-"                   yaml:"template_name,omitempty" json:"template_name,omitempty"`
 	Disabled       bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
 	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
 	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
@@ -548,13 +549,13 @@ type DeployHelmChart struct {
 }
 
 type DeployBasicInfo struct {
-	ServiceName    string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	ServiceName    string                        `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
 	DeployStrategy setting.ServiceDeployStrategy `bson:"deploy_strategy"                     yaml:"deploy_strategy"                        json:"deploy_strategy"`
-	Modules        []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
-	Deployed       bool                `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
-	AutoSync       bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
-	UpdateConfig   bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable      bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
+	Modules        []*DeployModuleInfo           `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	Deployed       bool                          `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
+	AutoSync       bool                          `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
+	UpdateConfig   bool                          `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable      bool                          `bson:"-"                                yaml:"updatable"                           json:"updatable"`
 }
 
 type DeployOptionInfo struct {
