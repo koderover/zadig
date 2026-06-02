@@ -8,9 +8,12 @@ import (
 )
 
 type activeSession struct {
-	mu          sync.Mutex
-	finalStatus models.TerminalSessionStatus
-	terminate   func()
+	mu            sync.Mutex
+	finalStatus   models.TerminalSessionStatus
+	terminate     func()
+	terminateOnce sync.Once
+	done          chan struct{}
+	doneOnce      sync.Once
 }
 
 type activeSessionRegistry struct {
@@ -20,10 +23,25 @@ type activeSessionRegistry struct {
 var registry = &activeSessionRegistry{}
 
 func RegisterActiveSession(sessionID string, terminate func()) {
-	registry.sessions.Store(sessionID, &activeSession{terminate: terminate})
+	session := &activeSession{
+		terminate: terminate,
+		done:      make(chan struct{}),
+	}
+	registry.sessions.Store(sessionID, session)
+
+	go func() {
+		select {
+		case <-ProcessContext().Done():
+			session.terminateWithStatus(models.TerminalSessionStatusAborted)
+		case <-session.done:
+		}
+	}()
 }
 
 func UnregisterActiveSession(sessionID string) {
+	if session, ok := registry.load(sessionID); ok {
+		session.signalDone()
+	}
 	registry.sessions.Delete(sessionID)
 }
 
@@ -45,14 +63,26 @@ func TerminateActiveSession(sessionID string) error {
 	if !ok {
 		return fmt.Errorf("terminal session %s is not active", sessionID)
 	}
-	session.mu.Lock()
-	session.finalStatus = models.TerminalSessionStatusAborted
-	terminate := session.terminate
-	session.mu.Unlock()
-	if terminate != nil {
-		terminate()
-	}
+	session.terminateWithStatus(models.TerminalSessionStatusAborted)
 	return nil
+}
+
+func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus) {
+	s.mu.Lock()
+	s.finalStatus = status
+	terminate := s.terminate
+	s.mu.Unlock()
+	s.terminateOnce.Do(func() {
+		if terminate != nil {
+			terminate()
+		}
+	})
+}
+
+func (s *activeSession) signalDone() {
+	s.doneOnce.Do(func() {
+		close(s.done)
+	})
 }
 
 func (r *activeSessionRegistry) load(sessionID string) (*activeSession, bool) {
