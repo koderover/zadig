@@ -135,6 +135,16 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 	resp.DeployStrategy = envSvcRevision.DeployStrategy
 	resp.Containers = envSvcRevision.Service.Containers
 
+	// for get clusterID
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &isProduction,
+	})
+	if err != nil {
+		return resp, fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", projectName, envName, isProduction, err)
+	}
+
 	if envSvcRevision.ProductFeature.IsHostProduct() {
 		return resp, nil
 	}
@@ -143,6 +153,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		fakeEnv := &commonmodels.Product{
 			ProductName: envSvcRevision.ProductName,
 			EnvName:     envSvcRevision.EnvName,
+			ClusterID:   env.ClusterID,
 			Namespace:   envSvcRevision.Namespace,
 			Production:  envSvcRevision.Production,
 		}
@@ -419,6 +430,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				fakeEnv := &commonmodels.Product{
 					ProductName: envSvcVersion.ProductName,
 					EnvName:     envSvcVersion.EnvName,
+					ClusterID:   env.ClusterID,
 					Namespace:   envSvcVersion.Namespace,
 					Production:  envSvcVersion.Production,
 				}
