@@ -314,6 +314,11 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
+	registries, err := commonservice.ListRegistryNamespaces("", true, log.SugaredLogger())
+	if err != nil {
+		return resp, fmt.Errorf("list registries error: %v", err)
+	}
+
 	var registry *commonmodels.RegistryNamespace
 	if j.jobSpec.DockerRegistryID != "" {
 		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, log.SugaredLogger())
@@ -370,6 +375,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			StrategyID:      deployInfo.PreDeploy.StrategyID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       deployInfo.PreDeploy.ImageFrom,
+			Registries:      registries,
 			ServiceName:     vmDeployInfo.ServiceName,
 		}
 
