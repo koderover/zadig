@@ -29,6 +29,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -754,6 +755,17 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
+	escapedProductName := regexp.QuoteMeta(productName)
+
+	envVersionQuery := bson.M{
+		"_id": bson.M{"$regex": fmt.Sprintf("^project:%s&env:", escapedProductName)},
+	}
+	_, err = commonrepo.NewCounterColl().DeleteMany(context.TODO(), envVersionQuery)
+	if err != nil {
+		log.Errorf("failed to delete env service version counters, error:%s", err)
+		return err
+	}
+
 	//删除交付中心
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
@@ -762,6 +774,14 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		_ = commonrepo.NewDeployColl().Delete(productName, "")
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonrepo.NewProductionServiceColl().DeleteByProject(productName)
+
+		serviceVersionQuery := bson.M{
+			"_id": bson.M{"$regex": fmt.Sprintf("^(service|productionservice):.*&project:%s$", escapedProductName)},
+		}
+		if _, err := commonrepo.NewCounterColl().DeleteMany(context.TODO(), serviceVersionQuery); err != nil {
+			log.Errorf("failed to delete service template counters, error:%s", err)
+		}
+
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, isDelete, log)
 
