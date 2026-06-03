@@ -16,6 +16,8 @@ limitations under the License.
 
 package types
 
+import "strings"
+
 type NacosNamespace struct {
 	NamespaceID    string `json:"namespace_id"`
 	NamespacedName string `json:"namespace_name"`
@@ -55,4 +57,14 @@ type NacosConfigHistory struct {
 	OpType           string `json:"opType"`
 	CreatedTime      string `json:"createdTime"`
 	LastModifiedTime string `json:"lastModifiedTime"`
+}
+
+// normalize the format of nacos config for the \r\n and \n issues.
+func (c *NacosConfig) NormalizeLineEndings() {
+	if c == nil {
+		return
+	}
+
+	c.Content = strings.ReplaceAll(c.Content, "\r\n", "\n")
+	c.OriginalContent = strings.ReplaceAll(c.OriginalContent, "\r\n", "\n")
 }
