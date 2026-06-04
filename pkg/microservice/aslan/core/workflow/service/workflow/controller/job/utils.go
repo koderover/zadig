@@ -751,7 +751,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 	return resp
 }
 
-func validateRequiredRuntimeKeyVals(kvs commonmodels.RuntimeKeyValList, scope string) error {
+func ValidateRequiredRuntimeKeyVals(kvs commonmodels.RuntimeKeyValList, scope string) error {
 	for _, kv := range kvs {
 		if kv == nil || !kv.Required {
 			continue

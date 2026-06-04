@@ -78,7 +78,7 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 	}
 
 	if isExecution {
-		if err := validateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
+		if err := ValidateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
 			return err
 		}
 	}

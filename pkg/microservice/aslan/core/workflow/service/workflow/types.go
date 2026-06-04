@@ -1582,7 +1582,6 @@ type Param struct {
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
-	Required     bool                   `bson:"required,omitempty"        json:"required,omitempty"          yaml:"required,omitempty"`
 }
 
 type OpenAPIStage struct {

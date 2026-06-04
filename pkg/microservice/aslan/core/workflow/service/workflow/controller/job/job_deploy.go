@@ -1082,7 +1082,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 				Revision:    service.Revision,
 			}, production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to query template service %s/%s/%s, error: %s", project, service.ServiceName, service.Revision, err)
+				return nil, fmt.Errorf("failed to query template service %s/%s/%d, error: %s", project, service.ServiceName, service.Revision, err)
 			}
 
 			currentReleaseName = util.GeneReleaseName(envService.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)

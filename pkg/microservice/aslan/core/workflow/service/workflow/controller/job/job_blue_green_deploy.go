@@ -458,7 +458,7 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 
 	latestSvcList, err := repository.ListMaxRevisionsServices(project, production, false)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
+		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s", project, err)
 	}
 
 	serviceInfo, err := commonservice.BuildServiceInfoInEnv(targetEnv, latestSvcList, nil, log.GetSimpleLogger())
