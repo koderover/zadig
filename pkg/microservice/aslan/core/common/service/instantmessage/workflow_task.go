@@ -1181,7 +1181,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 
 	lc := NewLarkCard()
 	lc.SetConfig(true)
-	lc.SetHeader(getColorTemplateWithStatus(task.Status), title, feiShuTagText)
+	lc.SetHeader(getWorkflowNotificationHeaderTemplate(task.Status, workflowNotification), title, feiShuTagText)
 	for idx, feildContent := range tplBaseInfo {
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
@@ -1193,6 +1193,13 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	workflowDetailURLTpl, _ = getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURLTpl)
 	return "", "", lc, nil, nil
+}
+
+func getWorkflowNotificationHeaderTemplate(status config.Status, args *workflowTaskNotification) string {
+	if args != nil && args.StatusTextKeyOverride == "taskStatusWaitingManualExec" {
+		return feishuHeaderTemplateOrange
+	}
+	return getColorTemplateWithStatus(status)
 }
 
 type workflowTaskNotification struct {

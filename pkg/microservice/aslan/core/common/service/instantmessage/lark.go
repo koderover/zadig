@@ -233,8 +233,5 @@ func getColorTemplateWithStatus(status config.Status) string {
 	if status == config.StatusPassed || status == config.StatusCreated {
 		return feishuHeaderTemplateGreen
 	}
-	if status == config.StatusPause {
-		return feishuHeaderTemplateOrange
-	}
 	return feishuHeaderTemplateRed
 }
