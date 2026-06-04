@@ -751,18 +751,6 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 	return resp
 }
 
-func validateRuntimeKeyValsDefinition(kvs commonmodels.RuntimeKeyValList, scope string) error {
-	for _, kv := range kvs {
-		if kv == nil || !kv.Required {
-			continue
-		}
-		if kv.Source == config.ParamSourceFixed || kv.Source == config.ParamSourceReference {
-			return fmt.Errorf("%s variable %s with source %s cannot be required", scope, kv.Key, kv.Source)
-		}
-	}
-	return nil
-}
-
 func validateRequiredRuntimeKeyVals(kvs commonmodels.RuntimeKeyValList, scope string) error {
 	for _, kv := range kvs {
 		if kv == nil || !kv.Required {
