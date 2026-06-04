@@ -819,7 +819,7 @@ func (w *Service) getManualExecStageLarkCard(workflowCtx *models.WorkflowTaskCtx
 
 	lc := NewLarkCard()
 	lc.SetConfig(true)
-	lc.SetHeader(feishuHeaderTemplateTurquoise, title, feiShuTagText)
+	lc.SetHeader(feishuHeaderTemplateOrange, title, feiShuTagText)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextProjectName", language), workflowCtx.ProjectDisplayName), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextStageName", language), stage.Name), true)
 	lc.AddI18NElementsZhcnFeild(fmt.Sprintf("**%s**：%s", getText("notificationTextExecutor", language), workflowCtx.WorkflowTaskCreatorUsername), true)
