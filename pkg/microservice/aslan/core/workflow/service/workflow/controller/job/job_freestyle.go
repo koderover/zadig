@@ -76,10 +76,7 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 			kv.FunctionReference = util2.FindVariableKeyRef(kv.CallFunction)
 		}
 	}
-	if err := validateRuntimeKeyValsDefinition(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
-		return err
-	}
-	
+
 	if isExecution {
 		if err := validateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
 			return err

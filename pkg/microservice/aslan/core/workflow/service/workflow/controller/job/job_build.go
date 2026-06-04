@@ -105,9 +105,6 @@ func (j BuildJobController) Validate(isExecution bool) error {
 			return fmt.Errorf("duplicate service module in options field")
 		}
 		optionMap[key] = build
-		if err := validateRuntimeKeyValsDefinition(build.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, build.ServiceName, build.ServiceModule)); err != nil {
-			return err
-		}
 	}
 
 	if isExecution {

@@ -429,10 +429,6 @@ func (w *Workflow) Validate(isExecution bool) error {
 			return e.ErrLintWorkflow.AddDesc("common workflow only support k8s and helm project")
 		}
 	}
-	// check params definition is enough
-	if err := validateWorkflowParamsDefinition(w.Params); err != nil {
-		return e.ErrLintWorkflow.AddErr(err)
-	}
 	stageNameMap := make(map[string]bool)
 	jobNameMap := make(map[string]string)
 
@@ -497,18 +493,6 @@ func (w *Workflow) Validate(isExecution bool) error {
 			if err := ctrl.Validate(isExecution); err != nil {
 				return e.ErrLintWorkflow.AddErr(err)
 			}
-		}
-	}
-	return nil
-}
-
-func validateWorkflowParamsDefinition(params []*commonmodels.Param) error {
-	for _, param := range params {
-		if !param.Required {
-			continue
-		}
-		if param.Source == config.ParamSourceFixed || param.Source == config.ParamSourceReference {
-			return fmt.Errorf("workflow param %s with source %s cannot be required", param.Name, param.Source)
 		}
 	}
 	return nil
