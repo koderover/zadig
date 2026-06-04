@@ -223,11 +223,11 @@ type ReleaseImage struct {
 }
 
 type TestTaskArgs struct {
-	ProductName     string     `bson:"product_name"            json:"product_name"            binding:"required"`
-	TestName        string     `bson:"test_name"               json:"test_name"               binding:"required"`
-	TestTaskCreator string     `bson:"test_task_creator"       json:"test_task_creator"`
-	NotificationID  string     `bson:"notification_id"         json:"notification_id"`
-	ReqID           string     `bson:"req_id"                  json:"req_id"`
+	ProductName     string `bson:"product_name"            json:"product_name"`
+	TestName        string `bson:"test_name"               json:"test_name"`
+	TestTaskCreator string `bson:"test_task_creator"       json:"test_task_creator"`
+	NotificationID  string `bson:"notification_id"         json:"notification_id"`
+	ReqID           string `bson:"req_id"                  json:"req_id"`
 	// webhook触发测试任务时，触发任务的repo、prID和commitID
 	MergeRequestID string       `bson:"merge_request_id" json:"merge_request_id"`
 	CommitID       string       `bson:"commit_id"        json:"commit_id"`
