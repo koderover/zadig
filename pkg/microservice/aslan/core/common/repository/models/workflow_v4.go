@@ -141,7 +141,6 @@ type ManualExec struct {
 	Excuted                      bool                          `bson:"excuted,omitempty"                yaml:"excuted,omitempty"                json:"excuted,omitempty"`
 	ManualExecUsers              []*User                       `bson:"manual_exec_users"                yaml:"manual_exec_users"                json:"manual_exec_users"`
 	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
-	NotificationSent             bool                          `bson:"notification_sent,omitempty"      yaml:"notification_sent,omitempty"      json:"notification_sent,omitempty"`
 	ManualExectorID              string                        `bson:"manual_exector_id,omitempty"      yaml:"manual_exector_id,omitempty"      json:"manual_exector_id,omitempty"`
 	ManualExectorName            string                        `bson:"manual_exector_name,omitempty"    yaml:"manual_exector_name,omitempty"    json:"manual_exector_name,omitempty"`
 }
