@@ -46,6 +46,19 @@ func GetUser(account string, identityType string, db *gorm.DB) (*models.User, er
 	return &user, nil
 }
 
+func GetUserByAccountAndMFAEnabled(account string, identityType string, mfaEnabled *bool, db *gorm.DB) (*models.User, error) {
+	var user models.User
+	err := applyMFAEnabledFilter(db.Where("account = ? and identity_type = ?", account, identityType), mfaEnabled).
+		First(&user).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &user, nil
+}
+
 // GetUserByUid Get a user based on uid
 func GetUserByUid(uid string, db *gorm.DB) (*models.User, error) {
 	var user models.User
@@ -80,13 +93,14 @@ func ListAllUsers(db *gorm.DB) ([]*models.User, error) {
 }
 
 // ListUsers gets a list of users based on paging constraints
-func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
+func ListUsers(page int, perPage int, name string, mfaEnabled *bool, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
 	)
 
-	err = db.Where("name LIKE ?", "%"+name+"%").Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+	query := applyMFAEnabledFilter(db.Where("name LIKE ?", "%"+name+"%"), mfaEnabled)
+	err = query.Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -95,15 +109,17 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	return users, nil
 }
 
-func ListUsersByLoginTime(page int, perPage int, name string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
+func ListUsersByLoginTime(page int, perPage int, name string, order setting.ListUserOrder, mfaEnabled *bool, db *gorm.DB) ([]models.UserWithLoginTime, error) {
 	var (
 		users []models.UserWithLoginTime
 		err   error
 	)
 
-	err = db.Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) as last_login_time").
+	query := db.Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) as last_login_time").
 		Where("user.name LIKE ?", "%"+name+"%").
-		Joins("LEFT JOIN user_login on user_login.uid = user.uid").
+		Joins("LEFT JOIN user_login on user_login.uid = user.uid")
+	query = applyMFAEnabledFilter(query, mfaEnabled)
+	err = query.
 		Order("IFNULL(user_login.last_login_time, 0) " + string(order)).
 		Offset((page - 1) * perPage).
 		Limit(perPage).
@@ -136,7 +152,7 @@ func listUIDsByRoles(roles []string, namespace string, db *gorm.DB) ([]string, e
 // ordered by last_login_time with pagination. It is implemented in two simple steps:
 //  1. Find the uids of users that have any of the given roles (role_binding + role) within the namespace.
 //  2. Query user + user_login for those uids, filter by name, order by last_login_time and paginate.
-func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, namespace string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
+func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, namespace string, order setting.ListUserOrder, mfaEnabled *bool, db *gorm.DB) ([]models.UserWithLoginTime, error) {
 	uids, err := listUIDsByRoles(roles, namespace, db)
 	if err != nil {
 		return nil, err
@@ -146,10 +162,12 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 	}
 
 	var users []models.UserWithLoginTime
-	err = db.Table("user").
+	query := db.Table("user").
 		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) AS last_login_time").
 		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
-		Where("user.uid IN ? AND user.name LIKE ?", uids, "%"+name+"%").
+		Where("user.uid IN ? AND user.name LIKE ?", uids, "%"+name+"%")
+	query = applyMFAEnabledFilter(query, mfaEnabled)
+	err = query.
 		Order("last_login_time " + string(order)).
 		Offset((page - 1) * perPage).
 		Limit(perPage).
@@ -162,15 +180,17 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 }
 
 // ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, the roles, and namespace
-func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, namespace string, db *gorm.DB) ([]models.User, error) {
+func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, namespace string, mfaEnabled *bool, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
 	)
 
-	err = db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
+	query := db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
-		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page - 1) * perPage).
+		Joins("INNER JOIN role on role_binding.role_id = role.id")
+	query = applyMFAEnabledFilter(query, mfaEnabled)
+	err = query.Order("account ASC").Offset((page - 1) * perPage).
 		Group("user.uid").
 		Limit(perPage).
 		Find(&users).
@@ -251,14 +271,14 @@ func DeleteUserByUid(uid string, db *gorm.DB) error {
 }
 
 // GetUsersCount gets user count
-func GetUsersCount(name string) (int64, error) {
+func GetUsersCount(name string, mfaEnabled *bool) (int64, error) {
 	var (
-		users []models.User
 		err   error
 		count int64
 	)
 
-	err = repository.DB.Where("name LIKE ?", "%"+name+"%").Find(&users).Count(&count).Error
+	query := applyMFAEnabledFilter(repository.DB.Model(&models.User{}).Where("name LIKE ?", "%"+name+"%"), mfaEnabled)
+	err = query.Count(&count).Error
 
 	if err != nil {
 		return 0, err
@@ -268,26 +288,36 @@ func GetUsersCount(name string) (int64, error) {
 }
 
 // GetUsersCountByRoles gets user count filtered by roles and namespace
-func GetUsersCountByRoles(name string, roles []string, namespace string) (int64, error) {
+func GetUsersCountByRoles(name string, roles []string, namespace string, mfaEnabled *bool) (int64, error) {
 	var (
-		users []models.User
 		err   error
 		count int64
 	)
 
-	err = repository.DB.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
+	query := repository.DB.Model(&models.User{}).
+		Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
-		Joins("INNER JOIN role on role_binding.role_id = role.id").
-		Group("user.uid").
-		Find(&users).
-		Count(&count).
-		Error
+		Joins("INNER JOIN role on role_binding.role_id = role.id")
+	query = applyMFAEnabledFilter(query, mfaEnabled)
+	err = query.Distinct("user.uid").Count(&count).Error
 
 	if err != nil {
 		return 0, err
 	}
 
 	return count, nil
+}
+
+func applyMFAEnabledFilter(db *gorm.DB, mfaEnabled *bool) *gorm.DB {
+	if mfaEnabled == nil {
+		return db
+	}
+
+	if *mfaEnabled {
+		return db.Where("EXISTS (SELECT 1 FROM user_mfa WHERE user_mfa.uid = user.uid AND user_mfa.enabled = ?)", true)
+	}
+
+	return db.Where("NOT EXISTS (SELECT 1 FROM user_mfa WHERE user_mfa.uid = user.uid AND user_mfa.enabled = ?)", true)
 }
 
 // UpdateUser update user info
