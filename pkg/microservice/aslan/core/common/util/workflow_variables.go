@@ -10,7 +10,6 @@ import (
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func BuildPayloadVariables(rawPayload string) []*commonmodels.KeyVal {
@@ -49,135 +48,6 @@ func flattenPayloadValue(prefix string, value interface{}, resp *[]*commonmodels
 	default:
 		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: fmt.Sprint(val), IsCredential: false})
 	}
-}
-
-func RepoVariableKVs(repos []*types.Repository) []*commonmodels.KeyVal {
-	ret := make([]*commonmodels.KeyVal, 0)
-	for index, repo := range repos {
-		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: repoNameIndex, Value: repo.RepoName, IsCredential: false})
-
-		repoIndex := fmt.Sprintf("REPO_%d", index)
-		repoName := RepoNameToRepoIndex(repo.RepoName)
-		ret = append(ret, &commonmodels.KeyVal{Key: repoIndex, Value: repoName, IsCredential: false})
-
-		if len(repo.Branch) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
-		}
-
-		if len(repo.Tag) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
-		}
-
-		if repo.PR > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
-		}
-
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PRE_MERGE_BRANCHES", repoName), Value: repo.GetPreMergeBranches(), IsCredential: false})
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
-
-		if len(repo.PRs) > 0 {
-			prStrs := []string{}
-			for _, pr := range repo.PRs {
-				prStrs = append(prStrs, strconv.Itoa(pr))
-			}
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strings.Join(prStrs, ","), IsCredential: false})
-		}
-
-		if len(repo.CommitID) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
-		}
-		if len(repo.AuthorName) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_AUTHOR", repoName), Value: repo.AuthorName, IsCredential: false})
-		}
-		if len(repo.Committer) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMITTER", repoName), Value: repo.Committer, IsCredential: false})
-		}
-		if len(repo.CommitMessage) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_MESSAGE", repoName), Value: repo.CommitMessage, IsCredential: false})
-		}
-		if len(repo.TargetBranch) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TARGET_BRANCH", repoName), Value: repo.TargetBranch, IsCredential: false})
-		}
-	}
-	return ret
-}
-
-func RepoNameToRepoIndex(repoName string) string {
-	words := map[rune]string{
-		'0': "A", '1': "B", '2': "C", '3': "D", '4': "E",
-		'5': "F", '6': "G", '7': "H", '8': "I", '9': "J",
-	}
-	result := ""
-	for i, digit := range repoName {
-		if word, ok := words[digit]; ok {
-			result += word
-		} else {
-			result += repoName[i:]
-			break
-		}
-	}
-
-	result = strings.ReplaceAll(result, "-", "_")
-	result = strings.ReplaceAll(result, ".", "_")
-	return result
-}
-
-func CollectWorkflowRepos(workflow *commonmodels.WorkflowV4) []*types.Repository {
-	if workflow == nil {
-		return nil
-	}
-
-	resp := make([]*types.Repository, 0)
-	repoKeySet := make(map[string]struct{})
-	appendRepo := func(repo *types.Repository) {
-		if repo == nil {
-			return
-		}
-		key := fmt.Sprintf("%d/%s/%s/%s/%s/%d", repo.CodehostID, repo.RepoOwner, repo.RepoNamespace, repo.RepoName, repo.Branch, repo.PR)
-		if _, ok := repoKeySet[key]; ok {
-			return
-		}
-		repoKeySet[key] = struct{}{}
-		resp = append(resp, repo)
-	}
-
-	for _, stage := range workflow.Stages {
-		for _, jobInfo := range stage.Jobs {
-			switch spec := jobInfo.Spec.(type) {
-			case *commonmodels.ZadigBuildJobSpec:
-				for _, build := range spec.ServiceAndBuilds {
-					for _, repo := range build.Repos {
-						appendRepo(repo)
-					}
-				}
-			case *commonmodels.ZadigTestingJobSpec:
-				for _, testModule := range spec.TestModules {
-					for _, repo := range testModule.Repos {
-						appendRepo(repo)
-					}
-				}
-				for _, serviceTest := range spec.ServiceAndTests {
-					for _, repo := range serviceTest.Repos {
-						appendRepo(repo)
-					}
-				}
-			case *commonmodels.ZadigScanningJobSpec:
-				for _, scanning := range spec.Scannings {
-					for _, repo := range scanning.Repos {
-						appendRepo(repo)
-					}
-				}
-				for _, serviceScanning := range spec.ServiceAndScannings {
-					for _, repo := range serviceScanning.Repos {
-						appendRepo(repo)
-					}
-				}
-			}
-		}
-	}
-
-	return resp
 }
 
 func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
@@ -228,13 +98,7 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 }
 
 func BuildWorkflowRuntimeVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
-	resp := BuildWorkflowSystemVariableKVs(workflow, projectName, projectDisplayName, taskID, creator, account, uid, now)
-	if workflow == nil {
-		return resp
-	}
-	resp = append(resp, RepoVariableKVs(CollectWorkflowRepos(workflow))...)
-
-	return resp
+	return BuildWorkflowSystemVariableKVs(workflow, projectName, projectDisplayName, taskID, creator, account, uid, now)
 }
 
 func KeyValsToMap(kvs []*commonmodels.KeyVal) map[string]string {
