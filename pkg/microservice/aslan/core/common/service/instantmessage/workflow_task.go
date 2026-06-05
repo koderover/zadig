@@ -339,6 +339,9 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	if task.TaskID <= 0 {
 		return nil
 	}
+	if shouldSkipGenericPauseNotification(task) {
+		return nil
+	}
 	statusChanged := false
 	preTask, err := w.workflowTaskV4Coll.Find(task.WorkflowName, task.TaskID-1)
 	if err != nil {
@@ -438,6 +441,27 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 	}
 	return nil
+}
+
+func shouldSkipGenericPauseNotification(task *models.WorkflowTask) bool {
+	if task == nil || task.Status != config.StatusPause {
+		return false
+	}
+	if len(getManualExecStageNotifyCtls(task)) == 0 {
+		return false
+	}
+
+	for _, stage := range task.Stages {
+		if stage == nil || stage.Status != config.StatusPause {
+			continue
+		}
+		if stage.ManualExec == nil || !stage.ManualExec.Enabled || stage.ManualExec.Excuted {
+			continue
+		}
+		return true
+	}
+
+	return false
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {
