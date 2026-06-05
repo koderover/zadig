@@ -50,14 +50,19 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
+	testKeyVals := make(commonmodels.RuntimeKeyValList, 0)
 	if testInfo.PreTest != nil {
-		err = jobctrl.ValidateRequiredRuntimeKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), fmt.Sprintf("test %s", args.TestName))
-		if err != nil {
-			return nil, err
-		}
+		testKeyVals = testInfo.PreTest.Envs.ToRuntimeList()
+	}
+	// use args kv to replace default kv
+	if args.KeyVals != nil {
+		testKeyVals = args.KeyVals.ToRuntimeList()
+	}
+	if err = jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
+		return nil, err
 	}
 
-	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
+	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args, testKeyVals)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +312,7 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	return testResults, nil
 }
 
-func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList) (*commonmodels.WorkflowV4, error) {
 	concurrencyLimit := 1
 	if testInfo.PreTest != nil {
 		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
@@ -365,7 +370,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 				{
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
-					KeyVals:     testInfo.PreTest.Envs.ToRuntimeList(),
+					KeyVals:     keyVals,
 					Repos:       testInfo.Repos,
 				},
 			},

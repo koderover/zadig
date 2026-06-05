@@ -240,6 +240,7 @@ type TestTaskArgs struct {
 	Branch         string       `bson:"branch" json:"branch"`
 	EventType      string       `bson:"event_type" json:"event_type"`
 	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
+	KeyVals        *KeyValList   `bson:"key_vals" json:"key_vals"`
 }
 
 type Slack struct {
