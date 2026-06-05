@@ -89,6 +89,7 @@ type QueryArgs struct {
 	Project      string                  `json:"projectName,omitempty" form:"projectName"`
 	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
 	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
+	MFAEnabled   *bool                   `json:"mfa_enabled,omitempty"`
 }
 
 const allIdentityTypes = "*"
@@ -437,7 +438,7 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 		return buildUsersRespFromModels(users, logger)
 	}
 
-	user, err := orm.GetUser(args.Account, args.IdentityType, repository.DB)
+	user, err := orm.GetUserByAccountAndMFAEnabled(args.Account, args.IdentityType, args.MFAEnabled, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
@@ -536,13 +537,13 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	var count int64
 	var err error
 	if len(args.Roles) == 0 {
-		count, err = orm.GetUsersCount(args.Name)
+		count, err = orm.GetUsersCount(args.Name, args.MFAEnabled)
 		if err != nil {
 			logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
 		}
 	} else {
-		count, err = orm.GetUsersCountByRoles(args.Name, args.Roles, namespace)
+		count, err = orm.GetUsersCountByRoles(args.Name, args.Roles, namespace, args.MFAEnabled)
 		if err != nil {
 			logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
@@ -559,9 +560,9 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	var users []models.UserWithLoginTime
 	if len(args.Roles) == 0 {
 		if args.OrderBy == setting.ListUserOrderByLoginTime {
-			users, err = orm.ListUsersByLoginTime(args.Page, args.PerPage, args.Name, args.Order, repository.DB)
+			users, err = orm.ListUsersByLoginTime(args.Page, args.PerPage, args.Name, args.Order, args.MFAEnabled, repository.DB)
 		} else {
-			us, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+			us, err = orm.ListUsers(args.Page, args.PerPage, args.Name, args.MFAEnabled, repository.DB)
 			users = models.UsersToUserWithLoginTimes(us)
 		}
 		if err != nil {
@@ -570,13 +571,13 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}
 	} else {
 		if args.OrderBy == setting.ListUserOrderByLoginTime {
-			users, err = orm.ListUsersByNameAndRoleWithLoginTime(args.Page, args.PerPage, args.Name, args.Roles, namespace, args.Order, repository.DB)
+			users, err = orm.ListUsersByNameAndRoleWithLoginTime(args.Page, args.PerPage, args.Name, args.Roles, namespace, args.Order, args.MFAEnabled, repository.DB)
 			if err != nil {
 				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 				return nil, err
 			}
 		} else {
-			us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, namespace, repository.DB)
+			us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, namespace, args.MFAEnabled, repository.DB)
 			if err != nil {
 				logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 				return nil, err
