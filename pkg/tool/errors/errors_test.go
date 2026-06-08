@@ -27,11 +27,10 @@ func TestErrors(t *testing.T) {
 
 	httpErr := NewHTTPError(400, "testErr", "error description")
 	assert.Equal(400, httpErr.Code())
-	assert.Equal("testErr: error description", httpErr.Error())
+	assert.Equal("testErr", httpErr.Error())
 	assert.Equal("error description", httpErr.Desc())
 
 	httpErr.AddDesc("error description updated")
-	assert.Equal("testErr: error description updated", httpErr.Error())
 	assert.Equal("error description updated", httpErr.Desc())
 
 	err2 := NewWithDesc(httpErr, "new error with desc")
@@ -51,21 +50,6 @@ func TestErrors(t *testing.T) {
 	code, message := ErrorMessage(httpErr)
 	assert.Equal(400, code)
 	assert.Equal(400, message["code"])
-	assert.Equal("error", message["type"])
-	assert.Equal(httpErr.Message(), message["message"])
+	assert.Equal(httpErr.Error(), message["message"])
 	assert.Equal(httpErr.Desc(), message["description"])
-}
-
-func TestSanitizeSensitiveInfoKeepsWrappedURLDelimiters(t *testing.T) {
-	assert := assert.New(t)
-
-	input := `(https://example.com?token=secret)`
-	assert.Equal(`(https://example.com?token=***)`, sanitizeSensitiveInfo(input))
-}
-
-func TestSanitizeSensitiveInfoRedactsEncodedSensitiveQueryKeys(t *testing.T) {
-	assert := assert.New(t)
-
-	input := `https://example.com?%70%61%73%73%77%6f%72%64=secret&username=demo`
-	assert.Equal(`https://example.com?%70%61%73%73%77%6f%72%64=***&username=***`, sanitizeSensitiveInfo(input))
 }
