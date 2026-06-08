@@ -451,6 +451,9 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
+		if unresolved := service.ValidatePlaceholderResolution(args, args.Production); len(unresolved) > 0 {
+			log.Warnf("service %s/%s has unresolved $<name>-image$ placeholder(s): %v", args.ProductName, args.ServiceName, unresolved)
+		}
 
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}

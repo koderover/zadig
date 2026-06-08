@@ -43,6 +43,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
@@ -3302,7 +3303,13 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		services := make([]string, 0)
 		serviceList, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: project})
 		for _, service := range serviceList {
-			for _, container := range service.Containers {
+			// Service.Containers no longer persisted — fetch modules from the
+			// service_module table. Non-production filter list.
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, false, service.Revision)
+			if rerr != nil {
+				continue
+			}
+			for _, container := range resolved {
 				if !utils.Contains(services, container.Name) {
 					services = append(services, container.Name)
 				}

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -29,6 +30,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	envService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -213,7 +215,14 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 			}
 
 			singleService.Containers = make([]*commonmodels.Container, 0)
-			for _, c := range serviceMap[serviceName].Containers {
+			// Service.Containers is no longer persisted — pull modules from
+			// service_module table. This OpenAPI flow is non-production.
+			tmpl := serviceMap[serviceName]
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), tmpl.ProductName, tmpl.ServiceName, false, tmpl.Revision)
+			if rerr != nil {
+				return fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", tmpl.ProductName, tmpl.ServiceName, tmpl.Revision, rerr)
+			}
+			for _, c := range resolved {
 				container := &commonmodels.Container{
 					Name:      c.Name,
 					Image:     c.Image,
@@ -221,8 +230,8 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 				}
 				singleService.Containers = append(singleService.Containers, container)
-				singleService.VariableYaml = serviceMap[serviceName].VariableYaml
-				singleService.VariableKVs = commontypes.ServiceToRenderVariableKVs(serviceMap[serviceName].ServiceVariableKVs)
+				singleService.VariableYaml = tmpl.VariableYaml
+				singleService.VariableKVs = commontypes.ServiceToRenderVariableKVs(tmpl.ServiceVariableKVs)
 			}
 			serviceGroup = append(serviceGroup, singleService)
 		}
