@@ -40,17 +40,6 @@ func GetUserMFA(uid string, db *gorm.DB) (*models.UserMFA, error) {
 	return res, nil
 }
 
-func ListUserMFAsByUIDs(uids []string, db *gorm.DB) ([]*models.UserMFA, error) {
-	if len(uids) == 0 {
-		return []*models.UserMFA{}, nil
-	}
-	res := make([]*models.UserMFA, 0)
-	if err := db.Where("uid IN ?", uids).Find(&res).Error; err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // EnableUserMFA enables MFA for a user without allowing overwrite of an already-enabled MFA config.
 func EnableUserMFA(uid, secretCipher, recoveryCodesJSON string, db *gorm.DB) error {
 	now := time.Now().Unix()
