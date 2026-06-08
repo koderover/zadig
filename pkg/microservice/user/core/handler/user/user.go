@@ -321,6 +321,7 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 		Roles:        args.Roles,
 		Project:      args.Project,
 		IdentityType: args.IdentityType,
+		MFAEnabled:   args.MFAEnabled,
 	}
 
 	var resp *types.UsersResp

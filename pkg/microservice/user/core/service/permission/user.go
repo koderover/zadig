@@ -74,6 +74,7 @@ type OpenAPIQueryArgs struct {
 	Name         string   `json:"name,omitempty" form:"name"`
 	Roles        []string `json:"roles,omitempty" form:"roles"`
 	Project      string   `json:"projectName,omitempty" form:"projectName"`
+	MFAEnabled   *bool    `json:"mfa_enabled,omitempty" form:"mfa_enabled"`
 }
 
 type QueryArgs struct {
@@ -443,27 +444,8 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 	}
 	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
 
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
-	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUserByAccount fillUsersMFAEnabled error, error msg:%s", err.Error())
+	if err := fillUsersSystemRoleBindings(usersInfo, logger); err != nil {
+		logger.Errorf("SearchUserByAccount fillUsersSystemRoleBindings error, error msg:%s", err.Error())
 		return nil, err
 	}
 
@@ -555,6 +537,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 				Email:           user.Email,
 				IdentityType:    user.IdentityType,
 				Account:         user.Account,
+				MFAEnabled:      user.MFAEnabled,
 				APITokenEnabled: user.APITokenEnabled,
 			})
 		}
@@ -567,27 +550,8 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		usersInfo = mergeUserLoginWithLoginTime(users, *userLogins, logger)
 	}
 
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
-	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUsers fillUsersMFAEnabled error, error msg:%s", err.Error())
+	if err := fillUsersSystemRoleBindings(usersInfo, logger); err != nil {
+		logger.Errorf("SearchUsers fillUsersSystemRoleBindings error, error msg:%s", err.Error())
 		return nil, err
 	}
 
@@ -597,39 +561,50 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	}, nil
 }
 
-func fillUsersMFAEnabled(usersInfo []*types.UserInfo) error {
+func fillUsersSystemRoleBindings(usersInfo []*types.UserInfo, logger *zap.SugaredLogger) error {
 	if len(usersInfo) == 0 {
 		return nil
 	}
 
 	uids := make([]string, 0, len(usersInfo))
+	seen := make(map[string]struct{}, len(usersInfo))
 	for _, userInfo := range usersInfo {
 		if userInfo == nil || userInfo.Uid == "" {
 			continue
 		}
+		if _, ok := seen[userInfo.Uid]; ok {
+			continue
+		}
+		seen[userInfo.Uid] = struct{}{}
 		uids = append(uids, userInfo.Uid)
 	}
 	if len(uids) == 0 {
 		return nil
 	}
 
-	userMFAs, err := orm.ListUserMFAsByUIDs(uids, repository.DB)
+	rolesByUID, err := ListRolesByNamespaceAndUserIDs("*", uids, logger)
 	if err != nil {
 		return err
 	}
 
-	enabledMap := make(map[string]bool, len(userMFAs))
-	for _, userMFA := range userMFAs {
-		if userMFA == nil || !userMFA.Enabled {
-			continue
-		}
-		enabledMap[userMFA.UID] = true
-	}
 	for _, userInfo := range usersInfo {
 		if userInfo == nil {
 			continue
 		}
-		userInfo.MFAEnabled = enabledMap[userInfo.Uid]
+
+		roles := rolesByUID[userInfo.Uid]
+		roleBindings := make([]*types.RoleBinding, 0, len(roles))
+		for _, role := range roles {
+			roleBindings = append(roleBindings, &types.RoleBinding{
+				UID:  userInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				userInfo.Admin = true
+				userInfo.APITokenEnabled = true
+			}
+		}
+		userInfo.SystemRoleBindings = roleBindings
 	}
 
 	return nil
@@ -651,6 +626,7 @@ func mergeUserLoginWithLoginTime(users []models.UserWithLoginTime, userLogins []
 				Email:           user.Email,
 				IdentityType:    user.IdentityType,
 				Account:         user.Account,
+				MFAEnabled:      user.MFAEnabled,
 				APITokenEnabled: user.APITokenEnabled,
 			})
 		} else {
@@ -676,6 +652,7 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 				Email:           user.Email,
 				IdentityType:    user.IdentityType,
 				Account:         user.Account,
+				MFAEnabled:      user.MFAEnabled,
 				APIToken:        user.APIToken,
 				APITokenEnabled: user.APITokenEnabled,
 			})
@@ -699,27 +676,8 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
 
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
-	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUsersByUIDs fillUsersMFAEnabled error, error msg:%s", err.Error())
+	if err := fillUsersSystemRoleBindings(usersInfo, logger); err != nil {
+		logger.Errorf("SearchUsersByUIDs fillUsersSystemRoleBindings error, error msg:%s", err.Error())
 		return nil, err
 	}
 

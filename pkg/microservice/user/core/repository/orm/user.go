@@ -25,6 +25,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+const (
+	userMFAJoinClause        = "LEFT JOIN user_mfa ON user_mfa.uid = user.uid"
+	userMFAEnabledSelectExpr = "IFNULL(user_mfa.enabled, 0) AS mfa_enabled"
+)
+
 // CreateUser create a user
 func CreateUser(user *models.User, db *gorm.DB) error {
 	if err := db.Create(&user).Error; err != nil {
@@ -48,7 +53,10 @@ func GetUser(account string, identityType string, db *gorm.DB) (*models.User, er
 
 func GetUserByAccountAndMFAEnabled(account string, identityType string, mfaEnabled *bool, db *gorm.DB) (*models.User, error) {
 	var user models.User
-	err := applyMFAEnabledFilter(db.Where("account = ? and identity_type = ?", account, identityType), mfaEnabled).
+	query := db.Model(&models.User{}).
+		Select("user.*, "+userMFAEnabledSelectExpr).
+		Where("account = ? and identity_type = ?", account, identityType)
+	err := applyMFAEnabledJoinFilter(query, mfaEnabled).
 		First(&user).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -99,7 +107,10 @@ func ListUsers(page int, perPage int, name string, mfaEnabled *bool, db *gorm.DB
 		err   error
 	)
 
-	query := applyMFAEnabledFilter(db.Where("name LIKE ?", "%"+name+"%"), mfaEnabled)
+	query := db.Model(&models.User{}).
+		Select("user.*, "+userMFAEnabledSelectExpr).
+		Where("name LIKE ?", "%"+name+"%")
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -115,10 +126,11 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 		err   error
 	)
 
-	query := db.Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) as last_login_time").
+	query := db.Model(&models.User{}).
+		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) as last_login_time").
 		Where("user.name LIKE ?", "%"+name+"%").
 		Joins("LEFT JOIN user_login on user_login.uid = user.uid")
-	query = applyMFAEnabledFilter(query, mfaEnabled)
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.
 		Order("IFNULL(user_login.last_login_time, 0) " + string(order)).
 		Offset((page - 1) * perPage).
@@ -162,11 +174,11 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 	}
 
 	var users []models.UserWithLoginTime
-	query := db.Table("user").
-		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) AS last_login_time").
+	query := db.Model(&models.User{}).
+		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) AS last_login_time").
 		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
 		Where("user.uid IN ? AND user.name LIKE ?", uids, "%"+name+"%")
-	query = applyMFAEnabledFilter(query, mfaEnabled)
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.
 		Order("last_login_time " + string(order)).
 		Offset((page - 1) * perPage).
@@ -186,10 +198,12 @@ func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, 
 		err   error
 	)
 
-	query := db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
+	query := db.Model(&models.User{}).
+		Select("user.*, "+userMFAEnabledSelectExpr).
+		Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id")
-	query = applyMFAEnabledFilter(query, mfaEnabled)
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Order("account ASC").Offset((page - 1) * perPage).
 		Group("user.uid").
 		Limit(perPage).
@@ -225,7 +239,10 @@ func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
 		err   error
 	)
 
-	err = db.Find(&users, "uid in ?", uids).Error
+	query := db.Model(&models.User{}).
+		Select("user.*, "+userMFAEnabledSelectExpr).
+		Where("user.uid in ?", uids)
+	err = applyMFAEnabledJoinFilter(query, nil).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -318,6 +335,19 @@ func applyMFAEnabledFilter(db *gorm.DB, mfaEnabled *bool) *gorm.DB {
 	}
 
 	return db.Where("NOT EXISTS (SELECT 1 FROM user_mfa WHERE user_mfa.uid = user.uid AND user_mfa.enabled = ?)", true)
+}
+
+func applyMFAEnabledJoinFilter(db *gorm.DB, mfaEnabled *bool) *gorm.DB {
+	db = db.Joins(userMFAJoinClause)
+	if mfaEnabled == nil {
+		return db
+	}
+
+	if *mfaEnabled {
+		return db.Where("user_mfa.enabled = ?", true)
+	}
+
+	return db.Where("user_mfa.enabled IS NULL OR user_mfa.enabled = ?", false)
 }
 
 // UpdateUser update user info
