@@ -105,19 +105,19 @@ func NewNacos3Client(serverAddr, userName, password string) (*Nacos3Client, erro
 		SetResult(nacosResp).
 		Post(loginURL)
 	if err != nil {
-		return nil, humanizeNacosError("Nacos 连接", serverAddr, errors.Wrap(err, "login nacos failed"))
+		return nil, errors.Wrap(err, "login nacos failed")
 	}
 	if !resp.IsSuccess() {
-		return nil, humanizeNacosError("Nacos 连接", serverAddr, fmt.Errorf("login nacos failed: %s", resp.String()))
+		return nil, fmt.Errorf("login nacos failed: %s", resp.String())
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("Nacos 连接", serverAddr, errors.Wrap(err, "login nacos failed"))
+		return nil, errors.Wrap(err, "login nacos failed")
 	}
 
 	result := nacosLoginResp{}
 	if err := resp.UnmarshalJson(&result); err != nil {
-		return nil, humanizeNacosError("Nacos 连接", serverAddr, errors.Wrap(err, "unmarshal nacos login response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos login response failed")
 	}
 
 	c := httpclient.New(
@@ -139,16 +139,16 @@ func (c *Nacos3Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 
 	nacosResp := &nacos3Resp{}
 	if _, err := c.Client.Get(url, httpclient.SetResult(nacosResp)); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 命名空间", c.serverAddr, errors.Wrap(err, "list nacos namespace failed"))
+		return nil, errors.Wrap(err, "list nacos namespace failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 命名空间", c.serverAddr, errors.Wrap(err, "list nacos namespace failed"))
+		return nil, errors.Wrap(err, "list nacos namespace failed")
 	}
 
 	res := []*nacos3Namespace{}
 	if err := IToi(nacosResp.Data, &res); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 命名空间", c.serverAddr, errors.Wrap(err, "unmarshal nacos namespace response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos namespace response failed")
 	}
 
 	resp := []*types.NacosNamespace{}
@@ -174,16 +174,16 @@ func (c *Nacos3Client) ListGroups(namespaceID, keyword string) ([]*types.NacosDa
 	})
 
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置分组", c.serverAddr, errors.Wrap(err, "list nacos config failed"))
+		return nil, errors.Wrap(err, "list nacos config failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置分组", c.serverAddr, errors.Wrap(err, "list nacos config failed"))
+		return nil, errors.Wrap(err, "list nacos config failed")
 	}
 
 	res := []*nacos3ConfigItem{}
 	if err := IToi(nacosResp.Data, &res); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置分组", c.serverAddr, errors.Wrap(err, "unmarshal nacos config response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos config response failed")
 	}
 
 	groupSet := sets.NewString()
@@ -219,16 +219,16 @@ func (c *Nacos3Client) ListConfigs(namespaceID, groupName string) ([]*types.Naco
 		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置", c.serverAddr, errors.Wrap(err, "list nacos config failed"))
+		return nil, errors.Wrap(err, "list nacos config failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置", c.serverAddr, errors.Wrap(err, "list nacos config failed"))
+		return nil, errors.Wrap(err, "list nacos config failed")
 	}
 
 	res := []*nacos3ConfigItem{}
 	if err := IToi(nacosResp.Data, &res); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置", c.serverAddr, errors.Wrap(err, "unmarshal nacos config response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos config response failed")
 	}
 
 	configs := []*types.NacosConfig{}
@@ -261,16 +261,16 @@ func (c *Nacos3Client) GetConfig(dataID, group, namespaceID string) (*types.Naco
 
 	nacosResp := &nacos3Resp{}
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置详情", c.serverAddr, errors.Wrap(err, "get nacos config failed"))
+		return nil, errors.Wrap(err, "get nacos config failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置详情", c.serverAddr, errors.Wrap(err, "get nacos config failed"))
+		return nil, errors.Wrap(err, "get nacos config failed")
 	}
 
 	res := &nacos3Config{}
 	if err := IToi(nacosResp.Data, res); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置详情", c.serverAddr, errors.Wrap(err, "unmarshal nacos config response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos config response failed")
 	}
 
 	nacosID := types.NacosDataID{
@@ -297,16 +297,16 @@ func (c *Nacos3Client) GetConfigHistory(dataID, group, namespaceID string) ([]*t
 
 	nacosResp := &nacos3Resp{}
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置历史", c.serverAddr, errors.Wrap(err, "list nacos config history failed"))
+		return nil, errors.Wrap(err, "list nacos config history failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置历史", c.serverAddr, errors.Wrap(err, "list nacos config history failed"))
+		return nil, errors.Wrap(err, "list nacos config history failed")
 	}
 
 	res := &nacos3ConfigHistoryResp{}
 	if err := IToi(nacosResp.Data, res); err != nil {
-		return nil, humanizeNacosError("获取 Nacos 配置历史", c.serverAddr, errors.Wrap(err, "unmarshal nacos config history response failed"))
+		return nil, errors.Wrap(err, "unmarshal nacos config history response failed")
 	}
 
 	histories := []*types.NacosConfigHistory{}
@@ -334,16 +334,16 @@ func (c *Nacos3Client) GetConfigHistory(dataID, group, namespaceID string) ([]*t
 
 			nacosResp := &nacos3Resp{}
 			if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-				return humanizeNacosError("获取 Nacos 配置历史详情", c.serverAddr, errors.Wrap(err, "get nacos config history failed"))
+				return errors.Wrap(err, "get nacos config history failed")
 			}
 
 			if err := nacosResp.handleError(); err != nil {
-				return humanizeNacosError("获取 Nacos 配置历史详情", c.serverAddr, errors.Wrap(err, "get nacos config history failed"))
+				return errors.Wrap(err, "get nacos config history failed")
 			}
 
 			res := &nacos3ConfigHistory{}
 			if err := IToi(nacosResp.Data, res); err != nil {
-				return humanizeNacosError("获取 Nacos 配置历史详情", c.serverAddr, errors.Wrap(err, "unmarshal nacos config history response failed"))
+				return errors.Wrap(err, "unmarshal nacos config history response failed")
 			}
 
 			mu.Lock()
@@ -387,11 +387,11 @@ func (c *Nacos3Client) UpdateConfig(dataID, group, namespaceID, content, format 
 
 	nacosResp := &nacos3Resp{}
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues), httpclient.SetResult(nacosResp)); err != nil {
-		return humanizeNacosError("更新 Nacos 配置", c.serverAddr, errors.Wrap(err, "update nacos config failed"))
+		return errors.Wrap(err, "update nacos config failed")
 	}
 
 	if err := nacosResp.handleError(); err != nil {
-		return humanizeNacosError("更新 Nacos 配置", c.serverAddr, errors.Wrap(err, "update nacos config failed"))
+		return errors.Wrap(err, "update nacos config failed")
 	}
 
 	return nil

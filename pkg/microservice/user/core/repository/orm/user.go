@@ -149,7 +149,8 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 	err = db.Table("user").
 		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, IFNULL(user_login.last_login_time, 0) AS last_login_time").
 		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
-		Where("user.uid IN ? AND user.name LIKE ?", uids, "%"+name+"%").
+		Where("user.uid IN ?", uids).
+		Where("user.name LIKE ?", "%"+name+"%").
 		Order("last_login_time " + string(order)).
 		Offset((page - 1) * perPage).
 		Limit(perPage).
@@ -168,7 +169,8 @@ func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, 
 		err   error
 	)
 
-	err = db.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
+	err = db.Where("user.name LIKE ?", "%"+name+"%").
+		Where("role.name IN ? AND role.namespace = ?", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page - 1) * perPage).
 		Group("user.uid").
@@ -275,7 +277,8 @@ func GetUsersCountByRoles(name string, roles []string, namespace string) (int64,
 		count int64
 	)
 
-	err = repository.DB.Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
+	err = repository.DB.Where("user.name LIKE ?", "%"+name+"%").
+		Where("role.name IN ? AND role.namespace = ?", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").
 		Group("user.uid").
