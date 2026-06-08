@@ -1045,7 +1045,16 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 
 	resp.Ingress = svcResp.Ingress
 	resp.Workloads = svcResp.Workloads
-	if len(serviceTmpl.Containers) == 0 {
+	// Service.Containers no longer persisted — check the module count via the
+	// merged view. Pure-CRD services with only manual modules still report
+	// PodReady here because they have no native workload readiness signal
+	// (intentional, matching the prior "no parsed containers" branch).
+	resolvedContainers, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTmpl.ProductName, serviceTmpl.ServiceName, productInfo.Production, serviceTmpl.Revision)
+	if rerr != nil {
+		log.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.Revision, rerr)
+		// Fall through: treat as no-modules to avoid blocking status display.
+	}
+	if len(resolvedContainers) == 0 {
 		resp.PodStatus = setting.PodSucceeded
 		resp.Ready = setting.PodReady
 		return resp

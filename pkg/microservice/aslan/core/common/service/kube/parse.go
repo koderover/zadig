@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 )
 
 const (
@@ -62,14 +63,6 @@ func ParseSysKeys(namespace, envName, productName, serviceName, ori string) stri
 	return ori
 }
 
-// IsModuleImagePlaceholder reports whether s is exactly a $<module>-image$
-// placeholder (no surrounding text). Auto-detection uses this to avoid
-// storing placeholder strings as resolved image URIs.
-func IsModuleImagePlaceholder(s string) bool {
-	loc := moduleImageRegex.FindStringIndex(s)
-	return loc != nil && loc[0] == 0 && loc[1] == len(s)
-}
-
 // ParseModuleImageKeys substitutes $<module>-image$ placeholders in yaml using
 // the provided container list (container.Name -> container.Image). Containers
 // with an empty or placeholder-shaped Image are skipped — they cannot resolve
@@ -83,7 +76,19 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 		if c == nil || c.Name == "" || c.Image == "" {
 			continue
 		}
-		if IsModuleImagePlaceholder(c.Image) {
+		if commonutil.IsModuleImagePlaceholder(c.Image) {
+			continue
+		}
+		// Also skip the Zadig workflow-task-create placeholder convention
+		// (e.g. "{{ NOT BE RENDERED }}"). Substituting it into the YAML
+		// produces flow-style garbage that downstream YAML decoders choke
+		// on. For built-in workload kinds, ReplaceWorkloadImages still
+		// writes this placeholder into container.image structurally, so the
+		// preview yaml round-trips. For non-built-in kinds (CRDs, etc.),
+		// the $<name>-image$ placeholder stays as text — paired with
+		// AllowUnresolvedModuleImages on the caller, this is fine.
+		trimmedImage := strings.TrimSpace(c.Image)
+		if strings.HasPrefix(trimmedImage, "{{") && strings.HasSuffix(trimmedImage, "}}") {
 			continue
 		}
 		pattern := regexp.MustCompile(`\$` + regexp.QuoteMeta(c.Name) + `-image\$`)

@@ -45,10 +45,71 @@ var (
 		{setting.PathSearchComponentImage: "image"},
 	}
 
-	// Duplicated from kube.moduleImageRegex — kept here to avoid an import
-	// cycle (kube imports util). Keep both regexes in sync.
 	moduleImagePlaceholderRegex = regexp.MustCompile(`^\$[A-Za-z0-9_-]+-image\$$`)
 )
+
+// IsModuleImagePlaceholder reports whether s is exactly a $<module>-image$
+// placeholder string (no surrounding text). Used to avoid persisting an
+// unresolved placeholder as a stored image URI.
+func IsModuleImagePlaceholder(s string) bool {
+	return moduleImagePlaceholderRegex.MatchString(s)
+}
+
+// FoldManualModulesInto merges user-declared manual modules into an already-
+// populated auto-container slice in place. The intended call site is right
+// after SetCurrentContainerImages on a service template: that call fills the
+// slice with env-resolved auto entries (parsed from rendered YAML), and this
+// helper grafts manual entries on top so the resulting slice represents the
+// complete module set for the render context.
+//
+// Rules:
+//   - For an auto entry whose Image is empty or a $<name>-image$ placeholder,
+//     a same-named manual entry's Image/ImageName replaces the auto values.
+//     (Covers the case where the YAML carries the placeholder literally and
+//     the manual record holds the real default image.)
+//   - Manual entries whose Name does not appear in the auto slice are
+//     appended at the end.
+//   - An auto entry with a real Image always wins over a same-named manual
+//     entry (auto reflects the env-resolved YAML, which is more current).
+//
+// Returns the resulting slice (may be the same backing array as autos, may be
+// a longer one if manuals were appended). Caller should assign back.
+func FoldManualModulesInto(autos []*commonmodels.Container, manuals []*commonmodels.Container) []*commonmodels.Container {
+	if len(manuals) == 0 {
+		return autos
+	}
+	manualByName := make(map[string]*commonmodels.Container, len(manuals))
+	for _, m := range manuals {
+		if m == nil || m.Name == "" {
+			continue
+		}
+		manualByName[m.Name] = m
+	}
+	seen := make(map[string]struct{}, len(autos))
+	for _, c := range autos {
+		if c == nil || c.Name == "" {
+			continue
+		}
+		seen[c.Name] = struct{}{}
+		if c.Image != "" && !IsModuleImagePlaceholder(c.Image) {
+			continue
+		}
+		if m, ok := manualByName[c.Name]; ok {
+			c.Image = m.Image
+			c.ImageName = m.ImageName
+		}
+	}
+	for _, m := range manuals {
+		if m == nil || m.Name == "" {
+			continue
+		}
+		if _, ok := seen[m.Name]; ok {
+			continue
+		}
+		autos = append(autos, m)
+	}
+	return autos
+}
 
 func GetServiceDeployStrategy(serviceName string, strategyMap map[string]setting.ServiceDeployStrategy) setting.ServiceDeployStrategy {
 	if strategyMap == nil {
@@ -228,14 +289,14 @@ func SetCurrentContainerImages(args *commonmodels.Service) error {
 
 	deduped := uniqueSlice(srvContainers)
 	for _, c := range deduped {
-		if c == nil || !moduleImagePlaceholderRegex.MatchString(c.Image) {
+		if c == nil || !IsModuleImagePlaceholder(c.Image) {
 			continue
 		}
 		// The rendered YAML still carries the placeholder for this module
 		// (e.g. an unknown workload kind where ReplaceWorkloadImages can't
 		// substitute by name+kind). Carry the previously-resolved image
 		// forward so we never persist a placeholder as a stored image URI.
-		if prior, ok := priorByName[c.Name]; ok && prior.Image != "" && !moduleImagePlaceholderRegex.MatchString(prior.Image) {
+		if prior, ok := priorByName[c.Name]; ok && prior.Image != "" && !IsModuleImagePlaceholder(prior.Image) {
 			c.Image = prior.Image
 			c.ImageName = prior.ImageName
 		}

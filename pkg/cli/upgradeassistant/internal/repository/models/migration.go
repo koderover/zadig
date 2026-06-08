@@ -44,6 +44,7 @@ type Migration struct {
 	Migration430GlobalReadOnlyRole              bool               `bson:"migration_430_global_read_only_role"`
 	Migration430ScalePermission                 bool               `bson:"migration_430_scale_permission"`
 	Migration430CollaborationScalePermission    bool               `bson:"migration_430_collaboration_scale_permission"`
+	Migration500ServiceModule                   bool               `bson:"migration_500_service_module"`
 	Error                                       string             `bson:"error"`
 }
 

@@ -794,6 +794,18 @@ func GetResourcesPodOwnerUID(kubeClient client.Client, namespace string, service
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	jobLogCtx := &joblog.JobLogContext{WorkflowCtx: c.workflowCtx, JobTask: c.job}
 
+	// No trackable native workloads (CRD-only / ConfigMap-only services
+	// produce an empty ReplaceResources because the kind switch upstream
+	// only tracks Deployment/StatefulSet/CronJob/Job). Native readiness
+	// doesn't apply to these — mark passed and skip the wait/check loops
+	// to avoid spinning forever on "Waiting for workloads to be created".
+	if len(c.jobTaskSpec.ReplaceResources) == 0 {
+		jobLogManager := joblog.NewJobLogManager(jobLogCtx)
+		jobLogManager.SaveJobLog("No native workload (Deployment / StatefulSet / CronJob / Job) in service yaml — skipping readiness check.")
+		c.job.Status = config.StatusPassed
+		return
+	}
+
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
 	resources, err := GetResourcesPodOwnerUID(c.kubeClient, c.namespace, c.jobTaskSpec.ServiceAndImages, c.jobTaskSpec.DeployContents, c.jobTaskSpec.ReplaceResources, jobLogCtx)
 	if err != nil {
