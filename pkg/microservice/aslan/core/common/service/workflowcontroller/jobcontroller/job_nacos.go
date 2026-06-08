@@ -58,13 +58,11 @@ func (c *NacosJobCtl) Run(ctx context.Context) {
 
 	client, err := nacos.NewNacosClient(c.jobTaskSpec.Type, c.jobTaskSpec.NacosAddr, c.jobTaskSpec.AuthConfig)
 	if err != nil {
-		c.logger.Error(err)
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
 	for _, data := range c.jobTaskSpec.NacosDatas {
 		if err := client.UpdateConfig(data.DataID, data.Group, c.jobTaskSpec.NamespaceID, data.Content, data.Format); err != nil {
-			c.logger.Error(err)
 			data.Error = err.Error()
 			logError(c.job, err.Error(), c.logger)
 			return

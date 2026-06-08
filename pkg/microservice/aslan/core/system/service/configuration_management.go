@@ -114,11 +114,11 @@ func ValidateConfigurationManagement(rawData string, log *zap.SugaredLogger) err
 	case setting.SourceFromApollo:
 		return validateApolloAuthConfig(getApolloConfigFromRaw(rawData))
 	case setting.SourceFromNacos:
-		return validateNacosAuthConfig(getNacosConfigFromRaw(rawData), log)
+		return validateNacosAuthConfig(getNacosConfigFromRaw(rawData))
 	case setting.SourceFromNacos3:
-		return validateNacosAuthConfig(getNacos3ConfigFromRaw(rawData), log)
+		return validateNacosAuthConfig(getNacos3ConfigFromRaw(rawData))
 	case setting.SourceFromNacosEEMSE:
-		return validateNacosAuthConfig(getNacosEEMSEAuthConfigFromRaw(rawData), log)
+		return validateNacosAuthConfig(getNacosEEMSEAuthConfigFromRaw(rawData))
 	default:
 		return e.ErrInvalidParam.AddDesc("invalid type")
 	}
@@ -144,7 +144,7 @@ func validateApolloAuthConfig(config *commonmodels.ApolloConfig) error {
 	return nil
 }
 
-func validateNacosAuthConfig(config *nacos.NacosConfig, log *zap.SugaredLogger) error {
+func validateNacosAuthConfig(config *nacos.NacosConfig) error {
 	if config.Type != setting.SourceFromNacos && config.Type != setting.SourceFromNacos3 && config.Type != setting.SourceFromNacosEEMSE {
 		return fmt.Errorf("nacos type is not nacos 1.x or nacos 3.x or nacos ee mse")
 	}
