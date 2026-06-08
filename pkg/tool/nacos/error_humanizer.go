@@ -40,6 +40,11 @@ func humanizeNacosError(operation, serverAddr string, err error) error {
 		strings.Contains(raw, "missing protocol scheme"),
 		strings.Contains(raw, "invalid uri"):
 		message = fmt.Sprintf("%s失败：Nacos 地址格式不正确，请检查地址配置", operation)
+	case strings.Contains(raw, "unmarshal nacos"),
+		strings.Contains(raw, "unmarshal task error"),
+		strings.Contains(raw, "cannot unmarshal"),
+		strings.Contains(raw, "invalid character"):
+		message = fmt.Sprintf("%s失败：Nacos 返回的数据格式异常，请检查服务版本或响应内容", operation)
 	case strings.Contains(raw, "no such host"):
 		message = fmt.Sprintf("%s失败：无法解析 Nacos 地址 %s，请检查地址是否填写正确", operation, addr)
 	case strings.Contains(raw, "certificate signed by unknown authority"):

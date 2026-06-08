@@ -234,7 +234,7 @@ func (c *NacosClient) GetConfig(dataID, group, namespaceID string) (*types.Nacos
 		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-		return nil, errors.Wrap(err, "get nacos config failed")
+		return nil, humanizeNacosError("获取 Nacos 配置详情", c.serverAddr, errors.Wrap(err, "get nacos config failed"))
 	}
 	nacosID := types.NacosDataID{
 		DataID: res.DataID,
@@ -261,7 +261,7 @@ func (c *NacosClient) GetConfigHistory(dataID, group, namespaceID string) ([]*ty
 
 	res := &nacosConfigHistoryResp{}
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-		return nil, errors.Wrap(err, "list nacos config history failed")
+		return nil, humanizeNacosError("获取 Nacos 配置历史", c.serverAddr, errors.Wrap(err, "list nacos config history failed"))
 	}
 
 	return res.PageItems, nil
