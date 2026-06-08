@@ -117,12 +117,12 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 
 		nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, j.jobSpec.GroupName, log.SugaredLogger())
 		if err != nil {
-			return fmt.Errorf("fail to list nacos config: %w", err)
+			return err
 		}
 
 		namespaces, err := commonservice.ListNacosNamespace(j.jobSpec.NacosID, log.SugaredLogger())
 		if err != nil {
-			return fmt.Errorf("failed to list nacos namespace")
+			return err
 		}
 
 		namespaceName := ""
@@ -169,12 +169,12 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 func (j NacosJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, j.jobSpec.GroupName, log.SugaredLogger())
 	if err != nil {
-		return fmt.Errorf("fail to list nacos config: %w", err)
+		return err
 	}
 
 	namespaces, err := commonservice.ListNacosNamespace(j.jobSpec.NacosID, log.SugaredLogger())
 	if err != nil {
-		return fmt.Errorf("failed to list nacos namespace")
+		return err
 	}
 
 	namespaceName := ""
@@ -226,7 +226,7 @@ func (j NacosJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 	}
 	client, err := commonservice.GetNacosClient(j.jobSpec.NacosID)
 	if err != nil {
-		return nil, fmt.Errorf("get nacos client error: %v", err)
+		return nil, err
 	}
 	namespaces, err := client.ListNamespaces()
 	if err != nil {
