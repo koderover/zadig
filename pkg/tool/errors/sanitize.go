@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	urlCandidatePattern        = regexp.MustCompile(`https?://[^\s",]+`)
+	urlCandidatePattern        = regexp.MustCompile(`https?://[^\s",<>()\[\]{}]+`)
 	authorizationHeaderPattern = regexp.MustCompile(`(?i)(authorization[:=]\s*(?:basic|bearer)\s+)[^,\s"]+`)
 	sensitiveQueryKeys         = map[string]struct{}{
 		"username":             {},
@@ -88,7 +88,11 @@ func sanitizeURLQuery(raw string) string {
 	queryParts := strings.Split(raw[queryStart+1:queryEnd], "&")
 	for i, part := range queryParts {
 		key, _, found := strings.Cut(part, "=")
-		if _, ok := sensitiveQueryKeys[strings.ToLower(key)]; !ok {
+		decodedKey, err := url.QueryUnescape(key)
+		if err != nil {
+			decodedKey = key
+		}
+		if _, ok := sensitiveQueryKeys[strings.ToLower(decodedKey)]; !ok {
 			continue
 		}
 		if found {
