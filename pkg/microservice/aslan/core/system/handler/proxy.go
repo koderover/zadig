@@ -68,12 +68,6 @@ func ListProxies(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	ctx.Resp, ctx.RespErr = service.ListProxies(ctx.Logger)
 }
 

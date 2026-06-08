@@ -55,6 +55,10 @@ func ListProxies(log *zap.SugaredLogger) ([]*commonmodels.Proxy, error) {
 		log.Errorf("Proxy.List error: %v", err)
 		return resp, e.ErrListProxies.AddErr(err)
 	}
+	for _, proxy := range resp {
+		proxy.Username = ""
+		proxy.Password = ""
+	}
 	return resp, nil
 }
 
