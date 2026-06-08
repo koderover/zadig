@@ -27,15 +27,29 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+func logNacosError(log *zap.SugaredLogger, err error) {
+	if err == nil {
+		return
+	}
+
+	cause := errors.Cause(err)
+	if cause != nil && cause != err {
+		log.Errorf("%v, raw error: %v", err, cause)
+		return
+	}
+
+	log.Error(err)
+}
+
 func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosNamespace, error) {
 	client, err := GetNacosClient(nacosID)
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosNamespace{}, err
 	}
 	resp, err := client.ListNamespaces()
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosNamespace{}, err
 	}
 	return resp, nil
@@ -44,12 +58,12 @@ func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosN
 func ListNacosConfig(nacosID, namespaceID, groupName string, log *zap.SugaredLogger) ([]*types.NacosConfig, error) {
 	client, err := GetNacosClient(nacosID)
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosConfig{}, err
 	}
 	namespaces, err := client.ListNamespaces()
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return nil, err
 	}
 
@@ -63,7 +77,7 @@ func ListNacosConfig(nacosID, namespaceID, groupName string, log *zap.SugaredLog
 
 	resp, err := client.ListConfigs(namespaceID, groupName)
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosConfig{}, err
 	}
 	for _, item := range resp {
@@ -77,13 +91,13 @@ func ListNacosConfig(nacosID, namespaceID, groupName string, log *zap.SugaredLog
 func ListNacosGroup(nacosID, namespaceID, keyword string, log *zap.SugaredLogger) ([]*types.NacosDataID, error) {
 	client, err := GetNacosClient(nacosID)
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosDataID{}, err
 	}
 
 	resp, err := client.ListGroups(namespaceID, keyword)
 	if err != nil {
-		log.Error(err)
+		logNacosError(log, err)
 		return []*types.NacosDataID{}, err
 	}
 
