@@ -156,11 +156,12 @@ func uidSubQueryByRoles(roles []string, namespace string, db *gorm.DB) *gorm.DB 
 // ordered by last_login_time with pagination.
 func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, roles []string, namespace string, order setting.ListUserOrder, mfaEnabled *bool, db *gorm.DB) ([]models.UserWithLoginTime, error) {
 	var users []models.UserWithLoginTime
-	roleUIDs := uidSubQueryByRoles(roles, namespace, db)
+	roleUIDSubQuery := uidSubQueryByRoles(roles, namespace, db)
 	query := db.Model(&models.User{}).
 		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) AS last_login_time").
 		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
-		Where("user.uid IN (?) AND user.name LIKE ?", roleUIDs, "%"+name+"%")
+		Where("user.uid IN (?)", roleUIDSubQuery).
+		Where("user.name LIKE ?", "%"+name+"%")
 	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err := query.
 		Order("last_login_time " + string(order)).
@@ -181,10 +182,11 @@ func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, 
 		err   error
 	)
 
-	roleUIDs := uidSubQueryByRoles(roles, namespace, db)
+	roleUIDSubQuery := uidSubQueryByRoles(roles, namespace, db)
 	query := db.Model(&models.User{}).
 		Select("user.*, "+userMFAEnabledSelectExpr).
-		Where("user.uid IN (?) AND user.name LIKE ?", roleUIDs, "%"+name+"%")
+		Where("user.uid IN (?)", roleUIDSubQuery).
+		Where("user.name LIKE ?", "%"+name+"%")
 	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Order("account ASC").Offset((page - 1) * perPage).
 		Limit(perPage).
@@ -297,9 +299,10 @@ func GetUsersCountByRoles(name string, roles []string, namespace string, mfaEnab
 		count int64
 	)
 
-	roleUIDs := uidSubQueryByRoles(roles, namespace, repository.DB)
+	roleUIDSubQuery := uidSubQueryByRoles(roles, namespace, repository.DB)
 	query := repository.DB.Model(&models.User{}).
-		Where("user.uid IN (?) AND user.name LIKE ?", roleUIDs, "%"+name+"%")
+		Where("user.uid IN (?)", roleUIDSubQuery).
+		Where("user.name LIKE ?", "%"+name+"%")
 	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Count(&count).Error
 
