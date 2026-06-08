@@ -274,7 +274,7 @@ func ListUsers(c *gin.Context) {
 	}
 
 	if len(args.UIDs) > 0 {
-		ctx.Resp, ctx.RespErr = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.SearchUsersByUIDs(args.UIDs, args.MFAEnabled, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType
@@ -384,7 +384,7 @@ func ListUsersBrief(c *gin.Context) {
 
 	var resp *types.UsersResp
 	if len(args.UIDs) > 0 {
-		resp, err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		resp, err = permission.SearchUsersByUIDs(args.UIDs, args.MFAEnabled, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType

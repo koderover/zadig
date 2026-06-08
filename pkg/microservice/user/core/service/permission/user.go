@@ -663,8 +663,8 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 	return usersInfo
 }
 
-func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersResp, error) {
-	users, err := orm.ListUsersByUIDs(uids, repository.DB)
+func SearchUsersByUIDs(uids []string, mfaEnabled *bool, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	users, err := orm.ListUsersByUIDs(uids, mfaEnabled, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs SeachUsers By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err

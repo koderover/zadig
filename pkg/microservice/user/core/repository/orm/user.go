@@ -217,6 +217,10 @@ func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, 
 	return users, nil
 }
 
+func joinUserMFA(db *gorm.DB) *gorm.DB {
+	return db.Joins(userMFAJoinClause)
+}
+
 func ListUsersByGroup(groupID string, db *gorm.DB) ([]*models.User, error) {
 	resp := make([]*models.User, 0)
 
@@ -233,7 +237,7 @@ func ListUsersByGroup(groupID string, db *gorm.DB) ([]*models.User, error) {
 }
 
 // ListUsersByUIDs gets a list of users based on paging constraints
-func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
+func ListUsersByUIDs(uids []string, mfaEnabled *bool, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
@@ -242,7 +246,7 @@ func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
 	query := db.Model(&models.User{}).
 		Select("user.*, "+userMFAEnabledSelectExpr).
 		Where("user.uid in ?", uids)
-	err = applyMFAEnabledJoinFilter(query, nil).Find(&users).Error
+	err = applyMFAEnabledJoinFilter(query, mfaEnabled).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -294,7 +298,8 @@ func GetUsersCount(name string, mfaEnabled *bool) (int64, error) {
 		count int64
 	)
 
-	query := applyMFAEnabledFilter(repository.DB.Model(&models.User{}).Where("name LIKE ?", "%"+name+"%"), mfaEnabled)
+	query := repository.DB.Model(&models.User{}).Where("name LIKE ?", "%"+name+"%")
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Count(&count).Error
 
 	if err != nil {
@@ -315,7 +320,7 @@ func GetUsersCountByRoles(name string, roles []string, namespace string, mfaEnab
 		Where("user.name LIKE ? AND role.name IN ? AND role.namespace = ?", "%"+name+"%", roles, namespace).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id")
-	query = applyMFAEnabledFilter(query, mfaEnabled)
+	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
 	err = query.Distinct("user.uid").Count(&count).Error
 
 	if err != nil {
@@ -325,20 +330,8 @@ func GetUsersCountByRoles(name string, roles []string, namespace string, mfaEnab
 	return count, nil
 }
 
-func applyMFAEnabledFilter(db *gorm.DB, mfaEnabled *bool) *gorm.DB {
-	if mfaEnabled == nil {
-		return db
-	}
-
-	if *mfaEnabled {
-		return db.Where("EXISTS (SELECT 1 FROM user_mfa WHERE user_mfa.uid = user.uid AND user_mfa.enabled = ?)", true)
-	}
-
-	return db.Where("NOT EXISTS (SELECT 1 FROM user_mfa WHERE user_mfa.uid = user.uid AND user_mfa.enabled = ?)", true)
-}
-
 func applyMFAEnabledJoinFilter(db *gorm.DB, mfaEnabled *bool) *gorm.DB {
-	db = db.Joins(userMFAJoinClause)
+	db = joinUserMFA(db)
 	if mfaEnabled == nil {
 		return db
 	}
