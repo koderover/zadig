@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"path"
@@ -208,10 +209,15 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 			Repos:            applyRepos(buildInfo.Repos, configuredBuild.Repos),
 		}
 
-		for _, container := range service.Containers {
-			if container.Name == configuredBuild.ServiceModule {
-				item.ImageName = container.ImageName
-				break
+		// Service.Containers no longer persisted — pull module's ImageName
+		// from the service_module table.
+		buildContainers, _, rerr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, false, service.Revision)
+		if rerr == nil {
+			for _, container := range buildContainers {
+				if container.Name == configuredBuild.ServiceModule {
+					item.ImageName = container.ImageName
+					break
+				}
 			}
 		}
 
@@ -1164,10 +1170,15 @@ func (j BuildJobController) getReferredJobTargets(jobName string, refRepos bool)
 		if service == nil {
 			return nil, fmt.Errorf("service %s not found", build.ServiceName)
 		}
-		for _, container := range service.Containers {
-			if container.Name == build.ServiceModule {
-				target.ImageName = container.ImageName
-				break
+		// Service.Containers no longer persisted — pull module's ImageName
+		// from the service_module table.
+		targetContainers, _, rerr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, false, service.Revision)
+		if rerr == nil {
+			for _, container := range targetContainers {
+				if container.Name == build.ServiceModule {
+					target.ImageName = container.ImageName
+					break
+				}
 			}
 		}
 
