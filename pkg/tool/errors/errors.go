@@ -137,7 +137,7 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 			"type":        "error",
 			"message":     v.Message(),
 			"code":        v.Code(),
-			"description": v.Desc(),
+			"description": sanitizeSensitiveInfo(v.Desc()),
 			"extra":       v.Extra(),
 		}
 	}
@@ -146,6 +146,6 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 	return internalErr.Code(), map[string]interface{}{
 		"message":     internalErr.Error(),
 		"code":        internalErr.Code(),
-		"description": err.Error(),
+		"description": sanitizeSensitiveInfo(err.Error()),
 	}
 }
