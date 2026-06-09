@@ -454,14 +454,19 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
 	var baseSnapshot interface{}
-	if shouldBuildReleasePlanVersionBaseSnapshot(args.Verb) {
+	nextVersion := originalPlan.Version + 1
+	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(planID, sectionKey, nextVersion, args.Verb)
+	if err != nil {
+		return errors.Wrap(err, "check release plan base snapshot")
+	}
+	if needBaseSnapshot {
 		baseSnapshot, err = buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
 		if err != nil {
 			return errors.Wrap(err, "build release plan base snapshot")
 		}
 	}
 
-	plan.Version = originalPlan.Version + 1
+	plan.Version = nextVersion
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -499,7 +504,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		SectionType: releasePlanVersionSectionGroupType(sectionKey),
 		CreatedAt:   time.Now().Unix(),
 	}
-	if err := createReleasePlanVersionWithBaseSnapshot(planID, plan.Version, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
+	if err := createReleasePlanVersionWithBaseSnapshot(planID, plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
 		log.Errorf("create release plan version error: %v", err)
 	}
 	if err := createReleasePlanLog(logItem); err != nil {
