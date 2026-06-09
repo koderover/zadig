@@ -153,6 +153,7 @@ type ReleasePlanVersion struct {
 	SectionName     string             `bson:"section_name,omitempty" json:"section_name,omitempty"`
 	SectionType     string             `bson:"section_type,omitempty" json:"section_type,omitempty"`
 	Verb            string             `bson:"verb,omitempty" json:"verb,omitempty"`
+	BaseSnapshot    interface{}        `bson:"base_snapshot,omitempty" json:"base_snapshot,omitempty"`
 	Snapshot        interface{}        `bson:"snapshot" json:"snapshot"`
 	CreatedAt       int64              `bson:"created_at" json:"created_at"`
 }

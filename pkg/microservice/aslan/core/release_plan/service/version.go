@@ -26,9 +26,19 @@ import (
 )
 
 func createReleasePlanVersion(planID string, version int64, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	previousVersion, err := previousComparableReleasePlanVersion(planID, sectionKey, version)
-	if err != nil {
-		return err
+	return createReleasePlanVersionWithBaseSnapshot(planID, version, nil, snapshot, operator, account, sectionKey, sectionName, verb)
+}
+
+func createReleasePlanVersionWithBaseSnapshot(planID string, version int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
+	var previousVersion int64
+	if baseSnapshot != nil {
+		previousVersion = version - 1
+	} else {
+		var err error
+		previousVersion, err = previousComparableReleasePlanVersion(planID, sectionKey, version)
+		if err != nil {
+			return err
+		}
 	}
 
 	return mongodb.NewReleasePlanVersionColl().Create(&models.ReleasePlanVersion{
@@ -41,9 +51,19 @@ func createReleasePlanVersion(planID string, version int64, snapshot interface{}
 		SectionName:     sectionName,
 		SectionType:     releasePlanVersionSectionGroupType(sectionKey),
 		Verb:            verb,
+		BaseSnapshot:    sanitizeReleasePlanValue(baseSnapshot),
 		Snapshot:        sanitizeReleasePlanValue(snapshot),
 		CreatedAt:       time.Now().Unix(),
 	})
+}
+
+func shouldBuildReleasePlanVersionBaseSnapshot(verb UpdateReleasePlanVerb) bool {
+	switch verb {
+	case VerbDeleteReleaseJob, VerbDeleteApproval, VerbReorderReleaseJob:
+		return true
+	default:
+		return false
+	}
 }
 
 func previousComparableReleasePlanVersion(planID, sectionKey string, beforeVersion int64) (int64, error) {

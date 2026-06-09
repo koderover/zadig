@@ -334,15 +334,20 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		return nil, errors.Wrap(err, "get version")
 	}
 
+	fromData, hasBaseSnapshot, err := releasePlanVersionBaseSnapshotAsGenericValue(current)
+	if err != nil {
+		return nil, errors.Wrap(err, "convert base snapshot")
+	}
+
 	var previous *models.ReleasePlanVersion
-	if current.PreviousVersion > 0 {
+	if !hasBaseSnapshot && current.PreviousVersion > 0 {
 		previous, err = mongodb.NewReleasePlanVersionColl().Get(planID, current.PreviousVersion)
 		if err != nil {
 			return nil, errors.Wrap(err, "get previous version")
 		}
+		fromData = comparableReleasePlanVersionSnapshot(previous, current.SectionKey)
 	}
 
-	fromData := comparableReleasePlanVersionSnapshot(previous, current.SectionKey)
 	toData, err := toReleasePlanGenericValue(current.Snapshot)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert current snapshot")
@@ -409,6 +414,18 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		PreviousVersion: current.PreviousVersion,
 		Groups:          groups,
 	}, nil
+}
+
+func releasePlanVersionBaseSnapshotAsGenericValue(version *models.ReleasePlanVersion) (interface{}, bool, error) {
+	if version == nil || version.BaseSnapshot == nil {
+		return nil, false, nil
+	}
+
+	value, err := toReleasePlanGenericValue(version.BaseSnapshot)
+	if err != nil {
+		return nil, true, err
+	}
+	return value, true, nil
 }
 
 func comparableReleasePlanVersionSnapshot(version *models.ReleasePlanVersion, sectionKey string) interface{} {

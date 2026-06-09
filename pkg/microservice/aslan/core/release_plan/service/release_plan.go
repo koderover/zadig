@@ -453,6 +453,13 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
+	var baseSnapshot interface{}
+	if shouldBuildReleasePlanVersionBaseSnapshot(args.Verb) {
+		baseSnapshot, err = buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+		if err != nil {
+			return errors.Wrap(err, "build release plan base snapshot")
+		}
+	}
 
 	plan.Version = originalPlan.Version + 1
 
@@ -492,7 +499,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		SectionType: releasePlanVersionSectionGroupType(sectionKey),
 		CreatedAt:   time.Now().Unix(),
 	}
-	if err := createReleasePlanVersion(planID, plan.Version, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
+	if err := createReleasePlanVersionWithBaseSnapshot(planID, plan.Version, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
 		log.Errorf("create release plan version error: %v", err)
 	}
 	if err := createReleasePlanLog(logItem); err != nil {

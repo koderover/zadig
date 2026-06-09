@@ -49,6 +49,11 @@ const (
 	releasePlanCollabPlanSetPrefix    = "release-plan:collab:plan:"
 	releasePlanCollabBroadcastChannel = "release-plan-collaboration"
 	releasePlanCollabSessionTTL       = 90 * time.Second
+	releasePlanCollabWSWriteWait      = 10 * time.Second
+	releasePlanCollabWSPongWait       = 60 * time.Second
+	releasePlanCollabWSPingPeriod     = releasePlanCollabWSPongWait * 9 / 10
+	releasePlanCollabWSReadLimit      = 16 * 1024
+	releasePlanCollabRedisRetryWait   = 3 * time.Second
 )
 
 var upgrader = websocket.Upgrader{
@@ -123,19 +128,29 @@ var collaborationLoopOnce sync.Once
 
 func ensureReleasePlanCollaborationLoop() {
 	collaborationLoopOnce.Do(func() {
-		util.Go(func() {
-			ch, closeFn := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB()).Subscribe(releasePlanCollabBroadcastChannel)
-			defer closeFn()
-
-			for msg := range ch {
-				planID := strings.TrimSpace(msg.Payload)
-				if planID == "" {
-					continue
-				}
-				broadcastReleasePlanCollaborationSnapshot(planID)
-			}
-		})
+		util.Go(watchReleasePlanCollaborationBroadcasts)
 	})
+}
+
+func watchReleasePlanCollaborationBroadcasts() {
+	for {
+		ch, closeFn := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB()).Subscribe(releasePlanCollabBroadcastChannel)
+		for msg := range ch {
+			if msg == nil {
+				continue
+			}
+			planID := strings.TrimSpace(msg.Payload)
+			if planID == "" {
+				continue
+			}
+			broadcastReleasePlanCollaborationSnapshot(planID)
+		}
+		if err := closeFn(); err != nil {
+			log.Warnf("close release plan collaboration redis subscription error: %v", err)
+		}
+		log.Warnf("release plan collaboration redis subscription closed, retrying in %s", releasePlanCollabRedisRetryWait)
+		time.Sleep(releasePlanCollabRedisRetryWait)
+	}
 }
 
 func releasePlanCollabSessionKey(sessionID string) string {
@@ -349,6 +364,21 @@ func queueCollaborationClientMessage(client *collaborationClient, outbound *rele
 	}
 }
 
+func setupReleasePlanCollaborationWSDeadline(ws *websocket.Conn) {
+	ws.SetReadLimit(releasePlanCollabWSReadLimit)
+	_ = ws.SetReadDeadline(time.Now().Add(releasePlanCollabWSPongWait))
+	ws.SetPongHandler(func(string) error {
+		return ws.SetReadDeadline(time.Now().Add(releasePlanCollabWSPongWait))
+	})
+}
+
+func writeReleasePlanCollaborationWSMessage(ws *websocket.Conn, messageType int, payload []byte) error {
+	if err := ws.SetWriteDeadline(time.Now().Add(releasePlanCollabWSWriteWait)); err != nil {
+		return err
+	}
+	return ws.WriteMessage(messageType, payload)
+}
+
 func broadcastReleasePlanCollaborationSnapshot(planID string) {
 	snapshot, err := GetReleasePlanCollaborationSnapshot(planID)
 	if err != nil {
@@ -542,7 +572,12 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 	if err != nil {
 		return e.ErrInvalidParam.AddErr(err)
 	}
-	defer ws.Close()
+	var closeWSOnce sync.Once
+	closeWS := func() {
+		_ = ws.Close()
+	}
+	defer closeWSOnce.Do(closeWS)
+	setupReleasePlanCollaborationWSDeadline(ws)
 
 	ensureReleasePlanCollaborationLoop()
 
@@ -647,10 +682,17 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 	})
 
 	util.Go(func() {
+		ticker := time.NewTicker(releasePlanCollabWSPingPeriod)
+		defer ticker.Stop()
+		defer closeWSOnce.Do(closeWS)
 		for {
 			select {
 			case payload := <-client.send:
-				if err := ws.WriteMessage(websocket.TextMessage, payload); err != nil {
+				if err := writeReleasePlanCollaborationWSMessage(ws, websocket.TextMessage, payload); err != nil {
+					return
+				}
+			case <-ticker.C:
+				if err := writeReleasePlanCollaborationWSMessage(ws, websocket.PingMessage, nil); err != nil {
 					return
 				}
 			case <-done:
