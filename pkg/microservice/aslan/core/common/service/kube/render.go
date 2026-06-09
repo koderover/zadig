@@ -385,17 +385,16 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find product %s", option.ProductName)
 	}
 
-	// return structured cluster name
-	cluster, err := GetCluster(productInfo.ClusterID)
-	if err != nil {
-		return "", 0, errors.Wrapf(err, "failed to get cluster name by cluster id %s", productInfo.ClusterID)
-	}
-
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
 	// service not installed, nothing to return
 	if curProductSvc == nil {
 		return "", 0, nil
+	}
+
+	clusterName, err := resolveCurrentAppliedClusterName(productInfo, option.ServiceName)
+	if err != nil {
+		return "", 0, err
 	}
 
 	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -408,7 +407,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	if option.IsImportToDeploy {
-		importedAllManifests, _, err := FetchImportedAllManifests(productInfo, prodSvcTemplate, curProductSvc.GetServiceRender())
+		importedAllManifests, _, err := FetchImportedAllManifests(productInfo, prodSvcTemplate, curProductSvc.GetServiceRender(), clusterName)
 		if err != nil {
 			return "", 0, err
 		}
@@ -418,7 +417,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		if err != nil {
 			return "", 0, err
 		}
-		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, cluster.Name, fullRenderedYaml)
+		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, clusterName, fullRenderedYaml)
 		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 		if err != nil {
@@ -431,17 +430,42 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 }
 
-func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
+func resolveCurrentAppliedClusterName(productInfo *models.Product, serviceName string) (string, error) {
+	
+	cluster, err := GetCluster(productInfo.ClusterID)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get cluster name by cluster id %s", productInfo.ClusterID)
+	}
+
+	// Use the latest stored service version as the source of truth for "current" preview yaml.
+	latestRevision, err := commonrepo.NewEnvServiceVersionColl().GetLatestRevision(
+		productInfo.ProductName, productInfo.EnvName, serviceName, false, productInfo.Production)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to find latest env service version for %s/%s/%s", productInfo.ProductName, productInfo.EnvName, serviceName)
+	}
+	if latestRevision == 0 {
+		return cluster.Name, nil
+	}
+
+	envSvcVersion, err := commonrepo.NewEnvServiceVersionColl().Find(
+		productInfo.ProductName, productInfo.EnvName, serviceName, false, productInfo.Production, latestRevision)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to find env service version %s/%s/%s revision %d", productInfo.ProductName, productInfo.EnvName, serviceName, latestRevision)
+	}
+	// Older records may not have cluster_name populated, so keep a safe fallback.
+	if envSvcVersion.ClusterName != "" {
+		return envSvcVersion.ClusterName, nil
+	}
+
+	return cluster.Name, nil
+}
+
+func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender, clusterName string) (string, []*WorkloadResource, error) {
 	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, envInfo.ProductName, serviceTmp.ServiceName, svcRender)
 	if err != nil {
 		return "", nil, err
 	}
-	// get cluster name by cluster id
-	cluster, err := GetCluster(envInfo.ClusterID)
-	if err != nil {
-		return "", nil, err
-	}
-	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, cluster.Name, fullRenderedYaml)
+	fullRenderedYaml = ParseSysKeys(envInfo.Namespace, envInfo.EnvName, envInfo.ProductName, serviceTmp.ServiceName, clusterName, fullRenderedYaml)
 
 	manifests := util.SplitManifestsOrdered(fullRenderedYaml)
 
