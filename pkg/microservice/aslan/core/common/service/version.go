@@ -549,7 +549,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 
 				env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-				err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail)
+				err = helmservice.UpdateServiceInEnvWithClusterName(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail, envSvcVersion.ClusterName)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 				}
