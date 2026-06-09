@@ -3040,8 +3040,20 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
 	log *zap.SugaredLogger) (string, error) {
+	// Use the current applied yaml as the update baseline so resource patching stays
+	// consistent with preview/export behavior after cluster name changes.
+	parsedYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName:      env.ProductName,
+		EnvName:          env.EnvName,
+		ServiceName:      oldService.ServiceName,
+		IsImportToDeploy: env.ServiceDeployStrategy[oldService.ServiceName] == setting.ServiceDeployStrategyImport,
+	})
+	if err == nil {
+		return parsedYaml, nil
+	}
+	log.Warnf("failed to fetch current applied yaml for %s/%s/%s, fallback to rendered service yaml, err: %v", env.ProductName, env.EnvName, oldService.ServiceName, err)
 
-	parsedYaml, err := kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
+	parsedYaml, err = kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return "", err
