@@ -8,6 +8,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 )
 
 const (
@@ -316,7 +317,7 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 		if !ok {
 			return nil, nil
 		}
-		workflowSnapshot, err := buildReleasePlanWorkflowInputSnapshot(specMap["workflow"])
+		workflowSnapshot, err := buildReleasePlanWorkflowVersionSnapshot(spec, specMap["workflow"])
 		if err != nil {
 			return nil, err
 		}
@@ -326,6 +327,34 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 	default:
 		return sanitizeReleasePlanValue(spec), nil
 	}
+}
+
+func buildReleasePlanWorkflowVersionSnapshot(spec, rawWorkflow interface{}) (interface{}, error) {
+	if workflow, ok := enrichReleasePlanWorkflowWithLatest(spec); ok {
+		return buildReleasePlanWorkflowInputSnapshot(workflow)
+	}
+
+	return buildReleasePlanWorkflowInputSnapshot(rawWorkflow)
+}
+
+func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+
+	workflowSpec := new(models.WorkflowReleaseJobSpec)
+	if err := models.IToi(spec, workflowSpec); err != nil || workflowSpec.Workflow == nil {
+		return nil, false
+	}
+
+	workflowController := controller.CreateWorkflowController(workflowSpec.Workflow)
+	if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil || workflowController.WorkflowV4 == nil {
+		return nil, false
+	}
+
+	return workflowController.WorkflowV4, true
 }
 
 func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, error) {
@@ -390,8 +419,10 @@ func buildReleasePlanWorkflowStagesInputSnapshot(value interface{}) interface{} 
 			continue
 		}
 		stageResp := make(map[string]interface{})
-		if name, exists := stageMap["name"]; exists {
-			stageResp["name"] = name
+		for _, key := range []string{"name", "parallel", "approval", "manual_exec"} {
+			if value, exists := stageMap[key]; exists {
+				stageResp[key] = filterReleasePlanWorkflowInputValue(value)
+			}
 		}
 		if jobs, exists := stageMap["jobs"]; exists {
 			stageResp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(jobs)
@@ -416,9 +447,9 @@ func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
 			continue
 		}
 		jobResp := make(map[string]interface{})
-		for _, key := range []string{"name", "type"} {
+		for _, key := range []string{"name", "type", "run_policy", "error_policy", "execute_policy"} {
 			if item, exists := jobMap[key]; exists {
-				jobResp[key] = item
+				jobResp[key] = filterReleasePlanWorkflowInputValue(item)
 			}
 		}
 		if serviceModules, exists := jobMap["service_modules"]; exists {
