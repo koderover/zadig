@@ -316,6 +316,19 @@ func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowT
 	}
 }
 
+func CleanPendingBlueGreenReleaseJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != string(config.JobK8sBlueGreenRelease) || job.Status != "" {
+				continue
+			}
+
+			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+			jobCtl.Clean(ctx)
+		}
+	}
+}
+
 // Pool is a worker group that runs a number of tasks at a
 // configured concurrency.
 type Pool struct {
