@@ -48,12 +48,12 @@ const (
 	VerbUpdateApproval = "update_approval"
 	VerbDeleteApproval = "delete_approval"
 
-	TargetTypeReleasePlan       = "发布计划"
-	TargetTypeReleasePlanStatus = "发布计划状态"
-	TargetTypeMetadata          = "元数据"
-	TargetTypeReleaseJob        = "发布内容"
-	TargetTypeApproval          = "审批"
-	TargetTypeDescription       = "需求关联"
+	TargetTypeReleasePlan       = "release_plan"
+	TargetTypeReleasePlanStatus = "release_plan_status"
+	TargetTypeMetadata          = "metadata"
+	TargetTypeReleaseJob        = "release_job"
+	TargetTypeApproval          = "approval"
+	TargetTypeDescription       = "description"
 
 	VerbCreate  = "新建"
 	VerbUpdate  = "更新"
@@ -69,12 +69,36 @@ const (
 )
 
 var TargetTypeI18nMap = map[string]string{
-	TargetTypeReleasePlan:       "Release Plan",
-	TargetTypeReleasePlanStatus: "Release Plan Status",
-	TargetTypeMetadata:          "Metadata",
-	TargetTypeReleaseJob:        "Release Job",
-	TargetTypeApproval:          "Approval",
-	TargetTypeDescription:       "Description",
+	TargetTypeReleasePlan:       "发布计划",
+	TargetTypeReleasePlanStatus: "发布计划状态",
+	TargetTypeMetadata:          "元数据",
+	TargetTypeReleaseJob:        "发布内容",
+	TargetTypeApproval:          "审批",
+	TargetTypeDescription:       "需求关联",
+}
+
+var legacyReleasePlanTargetTypeMap = map[string]string{
+	"发布计划":   TargetTypeReleasePlan,
+	"发布计划状态": TargetTypeReleasePlanStatus,
+	"元数据":    TargetTypeMetadata,
+	"发布内容":   TargetTypeReleaseJob,
+	"审批":     TargetTypeApproval,
+	"需求关联":   TargetTypeDescription,
+}
+
+func normalizeReleasePlanTargetType(targetType string) string {
+	if normalized, ok := legacyReleasePlanTargetTypeMap[targetType]; ok {
+		return normalized
+	}
+	return targetType
+}
+
+func releasePlanTargetTypeDisplayName(targetType string) string {
+	targetType = normalizeReleasePlanTargetType(targetType)
+	if displayName, ok := TargetTypeI18nMap[targetType]; ok {
+		return displayName
+	}
+	return targetType
 }
 
 var VerbI18nMap = map[string]string{
