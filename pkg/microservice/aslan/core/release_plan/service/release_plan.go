@@ -349,6 +349,7 @@ func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
 			continue
 		}
 		cloned := *item
+		cloned.TargetType = normalizeReleasePlanTargetType(item.TargetType)
 		cloned.Before = sanitizeReleasePlanValueForDisplay(item.Before)
 		cloned.After = sanitizeReleasePlanValueForDisplay(item.After)
 		sanitizedLogs = append(sanitizedLogs, &cloned)
@@ -1289,7 +1290,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     detail,
 			Before:     oldStatus,
@@ -1372,7 +1373,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			Username:   UserNameSystem,
 			Account:    "",
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     DetailApprovalPass,
 			Before:     beforeStatus,
@@ -1404,7 +1405,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			Username:   UserNameSystem,
 			Account:    "",
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     DetailApprovalReject,
 			Before:     beforeStatus,

@@ -1095,8 +1095,12 @@ func isMaskedReleasePlanDiffValue(value interface{}) bool {
 }
 
 func isLargeTextReleasePlanDiffPath(path string, before, after interface{}) bool {
+	if shouldPreserveFullReleasePlanDiffValue(path) {
+		return false
+	}
+
 	lowerPath := strings.ToLower(path)
-	keywords := []string{"script", "sql", "content", "yaml", "json"}
+	keywords := []string{"script", "sql", "yaml", "json"}
 	for _, keyword := range keywords {
 		if strings.Contains(lowerPath, keyword) {
 			return true
@@ -1110,6 +1114,20 @@ func isLargeTextReleasePlanDiffPath(path string, before, after interface{}) bool
 		return true
 	}
 	return false
+}
+
+func shouldPreserveFullReleasePlanDiffValue(path string) bool {
+	lowerPath := strings.ToLower(path)
+	switch {
+	case lowerPath == "description":
+		return true
+	case strings.HasSuffix(lowerPath, ".description"):
+		return true
+	case lowerPath == "spec.content":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeReleasePlanDiffValue(value interface{}) interface{} {
