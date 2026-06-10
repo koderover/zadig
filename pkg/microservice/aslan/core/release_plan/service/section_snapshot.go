@@ -9,6 +9,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (
@@ -339,7 +340,8 @@ func buildReleasePlanWorkflowVersionSnapshot(spec, rawWorkflow interface{}) (int
 
 func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bool) {
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			warnReleasePlanWorkflowRecover(r)
 			ok = false
 		}
 	}()
@@ -355,6 +357,13 @@ func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bo
 	}
 
 	return workflowController.WorkflowV4, true
+}
+
+func warnReleasePlanWorkflowRecover(recovered interface{}) {
+	defer func() {
+		_ = recover()
+	}()
+	log.Warnf("enrich release plan workflow panic: %v", recovered)
 }
 
 func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, error) {
