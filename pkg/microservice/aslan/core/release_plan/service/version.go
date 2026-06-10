@@ -88,21 +88,52 @@ func shouldBuildReleasePlanWorkflowDisplayBaseSnapshot(planID, sectionKey string
 		return false, err
 	}
 	previousSnapshot := comparableReleasePlanVersionSnapshot(previous, sectionKey)
-	return isLegacyReleasePlanWorkflowJobSnapshot(previousSnapshot), nil
+	return isIncompleteReleasePlanWorkflowDisplaySnapshot(previousSnapshot, currentSnapshot), nil
 }
 
-func isLegacyReleasePlanWorkflowJobSnapshot(snapshot interface{}) bool {
-	spec, ok := getMapField(releasePlanVersionDiffJobSpec(snapshot))
+func isIncompleteReleasePlanWorkflowDisplaySnapshot(previousSnapshot, currentSnapshot interface{}) bool {
+	previousSpec, ok := getMapField(releasePlanVersionDiffJobSpec(previousSnapshot))
 	if !ok {
 		return false
 	}
-	workflow, ok := getMapField(spec["workflow"])
+	currentSpec, ok := getMapField(releasePlanVersionDiffJobSpec(currentSnapshot))
 	if !ok {
 		return false
 	}
-	if _, hasStages := workflow["stages"]; hasStages {
-		return false
+
+	return hasMissingReleasePlanWorkflowDisplayFields(currentSpec, previousSpec)
+}
+
+func hasMissingReleasePlanWorkflowDisplayFields(reference, candidate interface{}) bool {
+	switch typedReference := reference.(type) {
+	case map[string]interface{}:
+		typedCandidate, ok := candidate.(map[string]interface{})
+		if !ok {
+			return true
+		}
+		for key, referenceValue := range typedReference {
+			candidateValue, exists := typedCandidate[key]
+			if !exists {
+				return true
+			}
+			if hasMissingReleasePlanWorkflowDisplayFields(referenceValue, candidateValue) {
+				return true
+			}
+		}
+	case []interface{}:
+		typedCandidate, ok := candidate.([]interface{})
+		if !ok {
+			return true
+		}
+		limit := len(typedReference)
+		if len(typedCandidate) < limit {
+			limit = len(typedCandidate)
+		}
+		for idx := 0; idx < limit; idx++ {
+			if hasMissingReleasePlanWorkflowDisplayFields(typedReference[idx], typedCandidate[idx]) {
+				return true
+			}
+		}
 	}
-	_, hasLegacyJobs := workflow["jobs"]
-	return hasLegacyJobs
+	return false
 }
