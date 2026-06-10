@@ -77,3 +77,32 @@ func previousComparableReleasePlanVersion(planID, sectionKey string, beforeVersi
 	}
 	return previous.Version, nil
 }
+
+func shouldBuildReleasePlanWorkflowDisplayBaseSnapshot(planID, sectionKey string, previousVersion int64, currentSnapshot interface{}) (bool, error) {
+	if previousVersion == 0 || releasePlanVersionSectionGroupType(sectionKey) != "job" || !isReleasePlanWorkflowJobSnapshot(currentSnapshot) {
+		return false, nil
+	}
+
+	previous, err := mongodb.NewReleasePlanVersionColl().Get(planID, previousVersion)
+	if err != nil {
+		return false, err
+	}
+	previousSnapshot := comparableReleasePlanVersionSnapshot(previous, sectionKey)
+	return isLegacyReleasePlanWorkflowJobSnapshot(previousSnapshot), nil
+}
+
+func isLegacyReleasePlanWorkflowJobSnapshot(snapshot interface{}) bool {
+	spec, ok := getMapField(releasePlanVersionDiffJobSpec(snapshot))
+	if !ok {
+		return false
+	}
+	workflow, ok := getMapField(spec["workflow"])
+	if !ok {
+		return false
+	}
+	if _, hasStages := workflow["stages"]; hasStages {
+		return false
+	}
+	_, hasLegacyJobs := workflow["jobs"]
+	return hasLegacyJobs
+}

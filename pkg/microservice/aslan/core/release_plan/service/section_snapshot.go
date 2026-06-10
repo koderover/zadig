@@ -308,11 +308,15 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 		}
 		return sanitizeReleasePlanValue(inputSpec), nil
 	case config.JobWorkflow:
-		inputSpec := new(models.WorkflowReleaseJobSpec)
-		if err := models.IToi(spec, inputSpec); err != nil {
+		genericValue, err := toReleasePlanGenericValue(spec)
+		if err != nil {
 			return nil, err
 		}
-		workflowSnapshot, err := buildReleasePlanWorkflowInputSnapshot(inputSpec.Workflow)
+		specMap, ok := getMapField(genericValue)
+		if !ok {
+			return nil, nil
+		}
+		workflowSnapshot, err := buildReleasePlanWorkflowInputSnapshot(specMap["workflow"])
 		if err != nil {
 			return nil, err
 		}
@@ -324,50 +328,110 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 	}
 }
 
-func buildReleasePlanWorkflowInputSnapshot(workflow *models.WorkflowV4) (interface{}, error) {
+func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, error) {
 	if workflow == nil {
 		return nil, nil
 	}
 
-	resp := map[string]interface{}{
-		"name":         workflow.Name,
-		"display_name": workflow.DisplayName,
-		"project":      workflow.Project,
-		"params":       sanitizeReleasePlanValue(workflow.Params),
-		"jobs":         make([]interface{}, 0),
-	}
-
-	jobs := make([]interface{}, 0)
-	for _, stage := range workflow.Stages {
-		if stage == nil {
-			continue
-		}
-		for _, job := range stage.Jobs {
-			if job == nil {
-				continue
-			}
-			spec, err := buildReleasePlanWorkflowJobInputSpec(job.Spec)
-			if err != nil {
-				return nil, err
-			}
-			jobs = append(jobs, map[string]interface{}{
-				"name": job.Name,
-				"type": job.JobType,
-				"spec": spec,
-			})
-		}
-	}
-	resp["jobs"] = jobs
-
-	return sanitizeReleasePlanValue(resp), nil
-}
-
-func buildReleasePlanWorkflowJobInputSpec(spec interface{}) (interface{}, error) {
-	genericValue, err := toReleasePlanGenericValue(spec)
+	genericValue, err := toReleasePlanGenericValue(workflow)
 	if err != nil {
 		return nil, err
 	}
-	return filterReleasePlanWorkflowInputValue(genericValue), nil
+	workflowMap, ok := getMapField(genericValue)
+	if !ok {
+		return nil, nil
+	}
+
+	resp := make(map[string]interface{})
+	for _, key := range []string{
+		"id",
+		"name",
+		"display_name",
+		"disabled",
+		"category",
+		"project",
+		"remark",
+		"remark_required",
+		"ignore_cache",
+		"share_storages",
+		"concurrency_limit",
+	} {
+		if value, exists := workflowMap[key]; exists {
+			resp[key] = value
+		}
+	}
+	if params, exists := workflowMap["params"]; exists {
+		resp["params"] = filterReleasePlanWorkflowInputValue(params)
+	}
+	if customField, exists := workflowMap["custom_field"]; exists {
+		if filtered := filterReleasePlanWorkflowInputValue(customField); filtered != nil {
+			resp["custom_field"] = filtered
+		}
+	}
+	if stages, exists := workflowMap["stages"]; exists {
+		resp["stages"] = buildReleasePlanWorkflowStagesInputSnapshot(stages)
+	}
+	if jobs, exists := workflowMap["jobs"]; exists {
+		resp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(jobs)
+	}
+	return sanitizeReleasePlanValue(resp), nil
+}
+
+func buildReleasePlanWorkflowStagesInputSnapshot(value interface{}) interface{} {
+	stages, ok := value.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	resp := make([]interface{}, 0, len(stages))
+	for _, stage := range stages {
+		stageMap, ok := getMapField(stage)
+		if !ok {
+			continue
+		}
+		stageResp := make(map[string]interface{})
+		if name, exists := stageMap["name"]; exists {
+			stageResp["name"] = name
+		}
+		if jobs, exists := stageMap["jobs"]; exists {
+			stageResp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(jobs)
+		}
+		if len(stageResp) > 0 {
+			resp = append(resp, stageResp)
+		}
+	}
+	return resp
+}
+
+func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
+	jobs, ok := value.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	resp := make([]interface{}, 0, len(jobs))
+	for _, job := range jobs {
+		jobMap, ok := getMapField(job)
+		if !ok {
+			continue
+		}
+		jobResp := make(map[string]interface{})
+		for _, key := range []string{"name", "type"} {
+			if item, exists := jobMap[key]; exists {
+				jobResp[key] = item
+			}
+		}
+		if serviceModules, exists := jobMap["service_modules"]; exists {
+			jobResp["service_modules"] = filterReleasePlanWorkflowInputValue(serviceModules)
+		}
+		if spec, exists := jobMap["spec"]; exists {
+			jobResp["spec"] = filterReleasePlanWorkflowInputValue(spec)
+		}
+		if len(jobResp) > 0 {
+			resp = append(resp, jobResp)
+		}
+	}
+	return resp
 }
 
 func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
@@ -425,7 +489,6 @@ func shouldDropReleasePlanWorkflowInputField(key string) bool {
 		"updated":             {},
 		"executed_by":         {},
 		"executed_time":       {},
-		"task_id":             {},
 		"hook_payload":        {},
 		"hash":                {},
 		"notification_id":     {},
@@ -442,25 +505,14 @@ func shouldDropReleasePlanWorkflowInputField(key string) bool {
 		"advanced_setting":    {},
 		"runtime":             {},
 		"steps":               {},
-		"run_policy":          {},
-		"error_policy":        {},
-		"execute_policy":      {},
-		"skipped":             {},
+		"properties":          {},
+		"outputs":             {},
 	}
 	if _, exists := dropKeys[key]; exists {
 		return true
 	}
 
-	optionSuffixes := []string{
-		"_options",
-		"_option",
-	}
-	for _, suffix := range optionSuffixes {
-		if strings.HasSuffix(key, suffix) {
-			return true
-		}
-	}
-	return strings.HasPrefix(key, "default_")
+	return false
 }
 
 func releasePlanVersionDiffGroup(sectionKey, sectionName string) (string, string, string) {
