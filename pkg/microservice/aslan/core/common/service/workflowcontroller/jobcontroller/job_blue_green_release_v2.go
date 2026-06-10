@@ -67,16 +67,6 @@ func NewBlueGreenReleaseV2JobCtl(job *commonmodels.JobTask, workflowCtx *commonm
 }
 
 func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
-	if c.job.Status == "" {
-		task, err := mongodb.NewworkflowTaskv4Coll().Find(c.workflowCtx.WorkflowName, c.workflowCtx.TaskID)
-		if err == nil && task.Status == config.StatusPause {
-			return
-		}
-		if err != nil {
-			c.logger.Warnf("find workflow task error: %v", err)
-		}
-	}
-
 	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.Env,
