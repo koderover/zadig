@@ -456,7 +456,7 @@ func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
 			continue
 		}
 		jobResp := make(map[string]interface{})
-		for _, key := range []string{"name", "type", "run_policy", "error_policy", "execute_policy"} {
+		for _, key := range []string{"name", "type", "skipped", "run_policy", "error_policy", "execute_policy"} {
 			if item, exists := jobMap[key]; exists {
 				jobResp[key] = filterReleasePlanWorkflowInputValue(item)
 			}
