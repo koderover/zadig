@@ -459,6 +459,12 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "check release plan base snapshot")
 	}
+	if !needBaseSnapshot {
+		needBaseSnapshot, err = shouldBuildReleasePlanWorkflowDisplayBaseSnapshot(planID, sectionKey, previousVersion, currentSnapshot)
+		if err != nil {
+			return errors.Wrap(err, "check release plan workflow base snapshot")
+		}
+	}
 	if needBaseSnapshot {
 		baseSnapshot, err = buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
 		if err != nil {
