@@ -2942,7 +2942,7 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
 		case setting.StatefulSet:
-			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+			err = updater.RestartStatefulSetV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}

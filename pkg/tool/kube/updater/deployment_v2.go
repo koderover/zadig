@@ -22,7 +22,6 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,19 +48,15 @@ func RestartDeploymentV2(ctx context.Context, clusterID, namespace, name string)
 		return fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
 	}
 
-	selector, err := metav1.LabelSelectorAsSelector(deploy.Spec.Selector)
-	if err != nil {
-		return fmt.Errorf("failed to parse deployment selector: %w", err)
+	now := time.Now().Format(time.RFC3339Nano)
+	patch := client.MergeFrom(deploy.DeepCopy())
+	if deploy.Spec.Template.Annotations == nil {
+		deploy.Spec.Template.Annotations = map[string]string{}
 	}
+	deploy.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = now
 
-	deleteOpts := []client.DeleteAllOfOption{
-		client.InNamespace(namespace),
-		client.MatchingLabelsSelector{Selector: selector},
-	}
-
-	pod := &corev1.Pod{}
-	if err := c.DeleteAllOf(ctx, pod, deleteOpts...); err != nil {
-		return fmt.Errorf("failed to delete pods for deployment %s/%s: %w", namespace, name, err)
+	if err := c.Patch(ctx, deploy, patch); err != nil {
+		return fmt.Errorf("failed to restart %s/deploy/%s: %w", namespace, name, err)
 	}
 
 	return nil
@@ -79,7 +74,7 @@ func DeleteDeploymentV2(ctx context.Context, clusterID, namespace string, opts .
 	if config.name != "" && config.selector != "" {
 		return fmt.Errorf("cannot specify both name and selector simultaneously")
 	}
-	
+
 	c, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %w", err)
@@ -92,12 +87,12 @@ func DeleteDeploymentV2(ctx context.Context, clusterID, namespace string, opts .
 				Name:      config.name,
 			},
 		}
-	
+
 		propagationPolicy := metav1.DeletePropagationBackground
 		deleteOpts := &client.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 		}
-	
+
 		err = c.Delete(ctx, deploy, deleteOpts)
 		return util.IgnoreNotFoundError(err)
 	}
@@ -200,7 +195,7 @@ func DeleteDeploymentAndWaitV2(ctx context.Context, clusterID, namespace string,
 	return nil
 }
 
-// CreateOrPatchDeploymentV2 is used when the YAML is fully controlled by this system, it implements a 3-way merge patch for the deployment. 
+// CreateOrPatchDeploymentV2 is used when the YAML is fully controlled by this system, it implements a 3-way merge patch for the deployment.
 // If we are simply editing the deployment, use UpdateDeploymentV2 instead.
 func CreateOrPatchDeploymentV2(ctx context.Context, clusterID, namespace, originalYAML, targetYAML string, resourceOverride bool) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
