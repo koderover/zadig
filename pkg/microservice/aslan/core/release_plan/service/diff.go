@@ -37,6 +37,7 @@ const (
 	releasePlanHashPruneMinMapKeys     = 4
 	releasePlanHashPruneMinArrayItems  = 4
 	releasePlanDiffChangeTypeOrder     = "order_changed"
+	releasePlanDiffDisplayApprovalSpec = "approval_spec"
 	releasePlanDiffDisplayWorkflowSpec = "workflow_spec"
 )
 
@@ -180,7 +181,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(groupType, fromData, toData)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
-	if displayMode == "" {
+	if shouldBuildReleasePlanPathDiff(displayMode) {
 		// Workflow release jobs are rendered from full preset specs on the frontend.
 		// Keep path-level diff for simple sections only.
 		diffReleasePlanValues(releasePlanDiffContext{GroupType: groupType}, "", fromData, toData, &rawEntries)
@@ -254,13 +255,24 @@ func ensureReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDi
 }
 
 func releasePlanVersionDiffDisplaySpec(groupType string, fromData, toData interface{}) (string, interface{}, interface{}) {
-	if groupType != "job" {
+	switch groupType {
+	case "approval":
+		if fromData == nil && toData == nil {
+			return "", nil, nil
+		}
+		return releasePlanDiffDisplayApprovalSpec, fromData, toData
+	case "job":
+		if !isReleasePlanWorkflowJobSnapshot(fromData) && !isReleasePlanWorkflowJobSnapshot(toData) {
+			return "", nil, nil
+		}
+		return releasePlanDiffDisplayWorkflowSpec, releasePlanVersionDiffJobSpec(fromData), releasePlanVersionDiffJobSpec(toData)
+	default:
 		return "", nil, nil
 	}
-	if !isReleasePlanWorkflowJobSnapshot(fromData) && !isReleasePlanWorkflowJobSnapshot(toData) {
-		return "", nil, nil
-	}
-	return releasePlanDiffDisplayWorkflowSpec, releasePlanVersionDiffJobSpec(fromData), releasePlanVersionDiffJobSpec(toData)
+}
+
+func shouldBuildReleasePlanPathDiff(displayMode string) bool {
+	return displayMode == "" || displayMode == releasePlanDiffDisplayApprovalSpec
 }
 
 func isReleasePlanWorkflowJobSnapshot(value interface{}) bool {
