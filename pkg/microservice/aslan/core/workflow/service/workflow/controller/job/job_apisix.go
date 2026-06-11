@@ -80,6 +80,10 @@ func (j ApisixJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("given apisix job spec (id: %s) does not match current apisix job (id: %s)", j.jobSpec.ApisixID, currJobSpec.ApisixID)
 	}
 
+	if err := validateApisixTaskConfigNames(j.jobSpec.Tasks); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -107,13 +111,17 @@ func (j ApisixJobController) ClearSelection() {
 }
 
 func (j ApisixJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+	if err := validateApisixTaskConfigNames(j.jobSpec.Tasks); err != nil {
+		return nil, err
+	}
+
 	resp := make([]*commonmodels.JobTask, 0)
 
 	itemList := make([]*commonmodels.ApisixItemUpdateSpec, 0)
 	for _, updateItem := range j.jobSpec.Tasks {
 		itemList = append(itemList, &commonmodels.ApisixItemUpdateSpec{
-			Action: updateItem.Action,
-			Type: updateItem.Type,
+			Action:   updateItem.Action,
+			Type:     updateItem.Type,
 			UserSpec: updateItem.Spec,
 			Status:   string(config.StatusCreated),
 		})
@@ -151,6 +159,19 @@ func (j ApisixJobController) SetRepoCommitInfo() error {
 func (j ApisixJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 	if getRuntimeVariables {
+		for _, task := range j.jobSpec.Tasks {
+			configName := task.GetConfigName()
+			if configName == "" {
+				continue
+			}
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, configName, "output", "item_id"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
 			Value:        "",
@@ -171,4 +192,19 @@ func (j ApisixJobController) RenderDynamicVariableOptions(key string, option *Re
 
 func (j ApisixJobController) IsServiceTypeJob() bool {
 	return false
+}
+
+func validateApisixTaskConfigNames(tasks []*commonmodels.ApisixItemSpec) error {
+	configNames := make(map[string]struct{}, len(tasks))
+	for _, task := range tasks {
+		configName := task.GetConfigName()
+		if configName == "" {
+			return fmt.Errorf("apisix config name is required")
+		}
+		if _, exists := configNames[configName]; exists {
+			return fmt.Errorf("duplicate apisix config name: %s", configName)
+		}
+		configNames[configName] = struct{}{}
+	}
+	return nil
 }

@@ -1464,6 +1464,31 @@ type ApisixItemSpec struct {
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
+func (s *ApisixItemSpec) GetConfigName() string {
+	if s == nil {
+		return ""
+	}
+	return getApisixConfigName(s.Spec)
+}
+
+func getApisixConfigName(spec interface{}) string {
+	if spec == nil {
+		return ""
+	}
+
+	nameHolder := struct {
+		Name string `json:"name"`
+	}{}
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return ""
+	}
+	if err := json.Unmarshal(data, &nameHolder); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(nameHolder.Name)
+}
+
 type PingCodeJobSpec struct {
 	PingCodeID       string                 `bson:"pingcode_id"         json:"pingcode_id"         yaml:"pingcode_id"`
 	Source           config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
