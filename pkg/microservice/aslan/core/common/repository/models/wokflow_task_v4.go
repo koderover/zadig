@@ -562,6 +562,13 @@ type ApisixItemUpdateSpec struct {
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
 }
 
+func (s *ApisixItemUpdateSpec) GetConfigName() string {
+	if s == nil {
+		return ""
+	}
+	return getApisixConfigName(s.UserSpec)
+}
+
 type NacosData struct {
 	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
