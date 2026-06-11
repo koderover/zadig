@@ -36,6 +36,7 @@ import (
 const (
 	releasePlanHashPruneMinMapKeys     = 4
 	releasePlanHashPruneMinArrayItems  = 4
+	releasePlanDiffMaxDepth            = 50
 	releasePlanDiffChangeTypeOrder     = "order_changed"
 	releasePlanDiffDisplayApprovalSpec = "approval_spec"
 	releasePlanDiffDisplayWorkflowSpec = "workflow_spec"
@@ -368,6 +369,10 @@ func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) 
 }
 
 func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
+	diffReleasePlanValuesWithDepth(ctx, path, 0, left, right, entries)
+}
+
+func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, depth int, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
 	if shouldIgnoreReleasePlanDiffPath(path) {
 		return
 	}
@@ -377,6 +382,15 @@ func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right 
 			return
 		}
 	} else if reflect.DeepEqual(left, right) {
+		return
+	}
+
+	if depth >= releasePlanDiffMaxDepth {
+		*entries = append(*entries, &releasePlanRawDiffEntry{
+			Path:   path,
+			Before: left,
+			After:  right,
+		})
 		return
 	}
 
@@ -397,7 +411,7 @@ func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right 
 		sort.Strings(keys)
 		for _, key := range keys {
 			nextPath := joinReleasePlanDiffPath(path, key)
-			diffReleasePlanValues(ctx, nextPath, leftMap[key], rightMap[key], entries)
+			diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftMap[key], rightMap[key], entries)
 		}
 		return
 	}
@@ -405,7 +419,7 @@ func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right 
 	leftList, leftIsList := left.([]interface{})
 	rightList, rightIsList := right.([]interface{})
 	if leftIsList || rightIsList {
-		diffReleasePlanArray(ctx, path, leftList, rightList, entries)
+		diffReleasePlanArray(ctx, path, depth, leftList, rightList, entries)
 		return
 	}
 
@@ -460,17 +474,17 @@ func hashReleasePlanSubtree(value interface{}) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanArray(ctx releasePlanDiffContext, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
 	rule := matchReleasePlanArrayDiffRule(ctx, path)
 	if rule == nil || rule.Strategy == releasePlanArrayDiffStrategyIndex {
-		diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+		diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
 		return
 	}
 
 	leftMap, leftOrdered, leftMapped := buildReleasePlanArrayMap(left, rule.BuildKey)
 	rightMap, rightOrdered, rightMapped := buildReleasePlanArrayMap(right, rule.BuildKey)
 	if !leftMapped || !rightMapped {
-		diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+		diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
 		return
 	}
 
@@ -500,12 +514,12 @@ func diffReleasePlanArray(ctx releasePlanDiffContext, path string, left, right [
 				continue
 			}
 			nextPath := fmt.Sprintf("%s[%s]", path, key)
-			diffReleasePlanValues(ctx, nextPath, leftMap[key], rightMap[key], entries)
+			diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftMap[key], rightMap[key], entries)
 		}
 		return
 	}
 
-	diffReleasePlanArrayByIndex(ctx, path, left, right, entries)
+	diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
 }
 
 func shouldSkipReleasePlanWorkflowTaskPresenceChange(path string, left, right interface{}) bool {
@@ -516,7 +530,7 @@ func shouldSkipReleasePlanWorkflowTaskPresenceChange(path string, left, right in
 	return normalizedPath == "spec.workflow.jobs" || strings.HasSuffix(normalizedPath, ".spec.workflow.jobs")
 }
 
-func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
 	maxLen := len(left)
 	if len(right) > maxLen {
 		maxLen = len(right)
@@ -530,7 +544,7 @@ func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, left, 
 		if i < len(right) {
 			rightVal = right[i]
 		}
-		diffReleasePlanValues(ctx, nextPath, leftVal, rightVal, entries)
+		diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftVal, rightVal, entries)
 	}
 }
 
