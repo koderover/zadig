@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -366,6 +367,17 @@ func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
 	}, nil
 }
 
+func resolveReleasePlanLogBaseSnapshot(baseSnapshot interface{}, originalPlan *models.ReleasePlan, sectionKey string) (interface{}, error) {
+	if baseSnapshot != nil {
+		return baseSnapshot, nil
+	}
+	return buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+}
+
+func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bool {
+	return !reflect.DeepEqual(beforeSnapshot, afterSnapshot)
+}
+
 func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	info, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
@@ -472,6 +484,11 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 			return errors.Wrap(err, "build release plan base snapshot")
 		}
 	}
+	logBaseSnapshot, err := resolveReleasePlanLogBaseSnapshot(baseSnapshot, originalPlan, sectionKey)
+	if err != nil {
+		return errors.Wrap(err, "build release plan log base snapshot")
+	}
+	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
 
 	plan.Version = nextVersion
 
@@ -513,9 +530,10 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 	if err := createReleasePlanVersionWithBaseSnapshot(planID, plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
 		log.Errorf("create release plan version error: %v", err)
-	}
-	if err := createReleasePlanLog(logItem); err != nil {
-		log.Errorf("create release plan log error: %v", err)
+	} else if shouldCreateLog {
+		if err := createReleasePlanLog(logItem); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
 	}
 	if err := broadcastReleasePlanCollaboration(planID); err != nil {
 		log.Errorf("broadcast release plan collaboration error: %v", err)
