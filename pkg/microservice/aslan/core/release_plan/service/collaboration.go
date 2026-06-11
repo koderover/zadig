@@ -444,22 +444,21 @@ func listActiveReleasePlanEditingSessions(planID string) ([]*ReleasePlanEditingS
 	if err != nil {
 		return nil, err
 	}
-
-	resp := make([]*ReleasePlanEditingSession, 0, len(sessionIDs))
-	for _, sessionID := range sessionIDs {
-		value, err := redisCache.GetString(releasePlanCollabSessionKey(sessionID))
-		if err != nil {
-			continue
-		}
-		session := new(ReleasePlanEditingSession)
-		if err := json.Unmarshal([]byte(value), session); err != nil {
-			continue
-		}
-		if session.PlanID != planID {
-			continue
-		}
-		resp = append(resp, session)
+	if len(sessionIDs) == 0 {
+		return []*ReleasePlanEditingSession{}, nil
 	}
+
+	keys := make([]string, 0, len(sessionIDs))
+	for _, sessionID := range sessionIDs {
+		keys = append(keys, releasePlanCollabSessionKey(sessionID))
+	}
+
+	values, err := redisCache.MGet(keys)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := decodeReleasePlanEditingSessions(planID, values)
 
 	sort.Slice(resp, func(i, j int) bool {
 		if resp[i].SectionKey == resp[j].SectionKey {
@@ -469,6 +468,25 @@ func listActiveReleasePlanEditingSessions(planID string) ([]*ReleasePlanEditingS
 	})
 
 	return resp, nil
+}
+
+func decodeReleasePlanEditingSessions(planID string, values []interface{}) []*ReleasePlanEditingSession {
+	resp := make([]*ReleasePlanEditingSession, 0, len(values))
+	for _, value := range values {
+		raw, ok := value.(string)
+		if !ok || raw == "" {
+			continue
+		}
+		session := new(ReleasePlanEditingSession)
+		if err := json.Unmarshal([]byte(raw), session); err != nil {
+			continue
+		}
+		if session.PlanID != planID {
+			continue
+		}
+		resp = append(resp, session)
+	}
+	return resp
 }
 
 func persistReleasePlanEditingSession(session *ReleasePlanEditingSession) error {
