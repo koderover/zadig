@@ -20,11 +20,18 @@ const (
 	releasePlanVersionSectionJobPrefix = "job:"
 )
 
+func isReleasePlanVersionMetadataSection(sectionKey string) bool {
+	return sectionKey == releasePlanVersionSectionMetadata || strings.HasPrefix(sectionKey, releasePlanVersionSectionMetadata+":")
+}
+
 func releasePlanVersionSectionName(sectionKey, fallbackName string) string {
 	switch {
 	case sectionKey == releasePlanVersionSectionPlan:
 		return "发布计划"
-	case sectionKey == releasePlanVersionSectionMetadata:
+	case isReleasePlanVersionMetadataSection(sectionKey):
+		if name, exists := releasePlanCollabMetadataSectionNames[sectionKey]; exists {
+			return name
+		}
 		return "基础信息"
 	case sectionKey == releasePlanVersionSectionApproval:
 		return "审批配置"
@@ -42,7 +49,7 @@ func releasePlanVersionSectionName(sectionKey, fallbackName string) string {
 
 func releasePlanVersionSectionGroupType(sectionKey string) string {
 	switch {
-	case sectionKey == releasePlanVersionSectionMetadata:
+	case isReleasePlanVersionMetadataSection(sectionKey):
 		return "metadata"
 	case sectionKey == releasePlanVersionSectionApproval:
 		return "approval"
@@ -78,8 +85,18 @@ func releasePlanVersionSectionKeyByVerb(planBefore, planAfter *models.ReleasePla
 	}
 
 	switch args.Verb {
-	case VerbUpdateName, VerbUpdateDesc, VerbUpdateTimeRange, VerbUpdateScheduleExecuteTime, VerbUpdateManager, VerbUpdateJiraSprint:
-		return releasePlanVersionSectionMetadata, "基础信息", nil
+	case VerbUpdateName:
+		return releasePlanCollabSectionMetadataName, releasePlanVersionSectionName(releasePlanCollabSectionMetadataName, ""), nil
+	case VerbUpdateDesc:
+		return releasePlanCollabSectionMetadataDescription, releasePlanVersionSectionName(releasePlanCollabSectionMetadataDescription, ""), nil
+	case VerbUpdateTimeRange:
+		return releasePlanCollabSectionMetadataTimeRange, releasePlanVersionSectionName(releasePlanCollabSectionMetadataTimeRange, ""), nil
+	case VerbUpdateScheduleExecuteTime:
+		return releasePlanCollabSectionMetadataScheduleExecute, releasePlanVersionSectionName(releasePlanCollabSectionMetadataScheduleExecute, ""), nil
+	case VerbUpdateManager:
+		return releasePlanCollabSectionMetadataManager, releasePlanVersionSectionName(releasePlanCollabSectionMetadataManager, ""), nil
+	case VerbUpdateJiraSprint:
+		return releasePlanCollabSectionMetadataJiraSprint, releasePlanVersionSectionName(releasePlanCollabSectionMetadataJiraSprint, ""), nil
 	case VerbUpdateApproval, VerbDeleteApproval:
 		return releasePlanVersionSectionApproval, "审批配置", nil
 	case VerbReorderReleaseJob:
@@ -160,8 +177,8 @@ func buildReleasePlanVersionSnapshot(plan *models.ReleasePlan, sectionKey string
 	switch {
 	case sectionKey == releasePlanVersionSectionPlan:
 		return buildReleasePlanInputSnapshot(plan)
-	case sectionKey == releasePlanVersionSectionMetadata:
-		return buildReleasePlanMetadataSnapshot(plan), nil
+	case isReleasePlanVersionMetadataSection(sectionKey):
+		return buildReleasePlanMetadataSectionSnapshot(plan, sectionKey), nil
 	case sectionKey == releasePlanVersionSectionApproval:
 		return buildReleasePlanApprovalSnapshot(plan.Approval)
 	case sectionKey == releasePlanVersionSectionJobsOrder:
@@ -213,6 +230,46 @@ func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) map[string]inter
 		"schedule_execute_time":   plan.ScheduleExecuteTime,
 		"description":             plan.Description,
 		"jira_sprint_association": sanitizeReleasePlanValue(plan.JiraSprintAssociation),
+	}
+}
+
+func buildReleasePlanMetadataSectionSnapshot(plan *models.ReleasePlan, sectionKey string) map[string]interface{} {
+	metadata := buildReleasePlanMetadataSnapshot(plan)
+	if metadata == nil {
+		return nil
+	}
+
+	switch sectionKey {
+	case releasePlanVersionSectionMetadata:
+		return metadata
+	case releasePlanCollabSectionMetadataName:
+		return map[string]interface{}{
+			"name": metadata["name"],
+		}
+	case releasePlanCollabSectionMetadataManager:
+		return map[string]interface{}{
+			"manager":    metadata["manager"],
+			"manager_id": metadata["manager_id"],
+		}
+	case releasePlanCollabSectionMetadataTimeRange:
+		return map[string]interface{}{
+			"start_time": metadata["start_time"],
+			"end_time":   metadata["end_time"],
+		}
+	case releasePlanCollabSectionMetadataScheduleExecute:
+		return map[string]interface{}{
+			"schedule_execute_time": metadata["schedule_execute_time"],
+		}
+	case releasePlanCollabSectionMetadataDescription:
+		return map[string]interface{}{
+			"description": metadata["description"],
+		}
+	case releasePlanCollabSectionMetadataJiraSprint:
+		return map[string]interface{}{
+			"jira_sprint_association": metadata["jira_sprint_association"],
+		}
+	default:
+		return metadata
 	}
 }
 
