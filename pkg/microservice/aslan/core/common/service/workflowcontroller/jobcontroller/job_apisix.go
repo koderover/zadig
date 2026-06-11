@@ -89,8 +89,8 @@ func (c *ApisixJobCtl) writeTaskOutput(task *commonmodels.ApisixItemUpdateSpec) 
 		return
 	}
 
-	configName := task.GetConfigName()
-	if configName == "" || task.ItemID == "" {
+	configName, err := task.GetConfigName()
+	if err != nil || configName == "" || task.ItemID == "" {
 		return
 	}
 

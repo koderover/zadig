@@ -80,10 +80,6 @@ func (j ApisixJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("given apisix job spec (id: %s) does not match current apisix job (id: %s)", j.jobSpec.ApisixID, currJobSpec.ApisixID)
 	}
 
-	if err := validateApisixTaskConfigNames(j.jobSpec.Tasks); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -111,9 +107,6 @@ func (j ApisixJobController) ClearSelection() {
 }
 
 func (j ApisixJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
-	if err := validateApisixTaskConfigNames(j.jobSpec.Tasks); err != nil {
-		return nil, err
-	}
 
 	resp := make([]*commonmodels.JobTask, 0)
 
@@ -160,9 +153,9 @@ func (j ApisixJobController) GetVariableList(jobName string, getAggregatedVariab
 	resp := make([]*commonmodels.KeyVal, 0)
 	if getRuntimeVariables {
 		for _, task := range j.jobSpec.Tasks {
-			configName := task.GetConfigName()
-			if configName == "" {
-				continue
+			configName, err := task.GetConfigName()
+			if err != nil {
+				return nil, err
 			}
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          strings.Join([]string{"job", j.name, configName, "output", "item_id"}, "."),
@@ -192,19 +185,4 @@ func (j ApisixJobController) RenderDynamicVariableOptions(key string, option *Re
 
 func (j ApisixJobController) IsServiceTypeJob() bool {
 	return false
-}
-
-func validateApisixTaskConfigNames(tasks []*commonmodels.ApisixItemSpec) error {
-	configNames := make(map[string]struct{}, len(tasks))
-	for _, task := range tasks {
-		configName := task.GetConfigName()
-		if configName == "" {
-			return fmt.Errorf("apisix config name is required")
-		}
-		if _, exists := configNames[configName]; exists {
-			return fmt.Errorf("duplicate apisix config name: %s", configName)
-		}
-		configNames[configName] = struct{}{}
-	}
-	return nil
 }

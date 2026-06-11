@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -562,9 +563,9 @@ type ApisixItemUpdateSpec struct {
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
 }
 
-func (s *ApisixItemUpdateSpec) GetConfigName() string {
+func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
 	if s == nil {
-		return ""
+		return "", errors.New("ApisixItemUpdateSpec is nil") 
 	}
 	return getApisixConfigName(s.UserSpec)
 }

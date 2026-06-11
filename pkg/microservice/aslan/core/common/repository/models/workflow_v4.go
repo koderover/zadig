@@ -19,6 +19,7 @@ package models
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -1466,29 +1467,22 @@ type ApisixItemSpec struct {
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
-func (s *ApisixItemSpec) GetConfigName() string {
+func (s *ApisixItemSpec) GetConfigName() (string, error) {
 	if s == nil {
-		return ""
+		return "", errors.New("ApisixItemSpec is nil")
 	}
 	return getApisixConfigName(s.Spec)
 }
 
-func getApisixConfigName(spec interface{}) string {
+func getApisixConfigName(spec interface{}) (string, error) {
 	if spec == nil {
-		return ""
+		return "", errors.New("spec is nil")
 	}
-
-	nameHolder := struct {
-		Name string `json:"name"`
-	}{}
-	data, err := json.Marshal(spec)
-	if err != nil {
-		return ""
+	if specMap, ok := spec.(map[string]interface{}); ok {
+		name, _ := specMap["name"].(string)
+		return strings.TrimSpace(name), nil
 	}
-	if err := json.Unmarshal(data, &nameHolder); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(nameHolder.Name)
+	return "", errors.New("config name is empty from spec")
 }
 
 type PingCodeJobSpec struct {
