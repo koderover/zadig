@@ -56,6 +56,27 @@ const (
 	releasePlanCollabRedisRetryWait   = 3 * time.Second
 )
 
+const (
+	releasePlanCollabSectionMetadata                = "metadata"
+	releasePlanCollabSectionMetadataName            = "metadata:name"
+	releasePlanCollabSectionMetadataManager         = "metadata:manager"
+	releasePlanCollabSectionMetadataTimeRange       = "metadata:time_range"
+	releasePlanCollabSectionMetadataScheduleExecute = "metadata:schedule_execute_time"
+	releasePlanCollabSectionMetadataDescription     = "metadata:description"
+	releasePlanCollabSectionMetadataJiraSprint      = "metadata:jira_sprint_association"
+	releasePlanCollabSectionApproval                = "approval"
+)
+
+var releasePlanCollabMetadataSectionNames = map[string]string{
+	releasePlanCollabSectionMetadata:                "基础信息",
+	releasePlanCollabSectionMetadataName:            "名称",
+	releasePlanCollabSectionMetadataManager:         "发布负责人",
+	releasePlanCollabSectionMetadataTimeRange:       "发布窗口日期",
+	releasePlanCollabSectionMetadataScheduleExecute: "定时执行",
+	releasePlanCollabSectionMetadataDescription:     "需求关联",
+	releasePlanCollabSectionMetadataJiraSprint:      "关联冲刺",
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -194,6 +215,67 @@ func checkReleasePlanCollaborationOrigin(r *http.Request) bool {
 	}
 
 	return true
+}
+
+func normalizeReleasePlanCollaborationSection(sectionKey, sectionType, sectionName string) (string, string, string) {
+	sectionKey = strings.TrimSpace(sectionKey)
+	sectionType = strings.TrimSpace(sectionType)
+	sectionName = strings.TrimSpace(sectionName)
+
+	switch {
+	case sectionType == "metadata" || sectionKey == releasePlanCollabSectionMetadata || strings.HasPrefix(sectionKey, releasePlanCollabSectionMetadata+":"):
+		normalizedKey, normalizedName := normalizeReleasePlanMetadataCollaborationSection(sectionKey, sectionName)
+		return normalizedKey, "metadata", normalizedName
+	case sectionType == "approval" || sectionKey == releasePlanCollabSectionApproval:
+		if sectionKey == "" {
+			sectionKey = releasePlanCollabSectionApproval
+		}
+		if sectionName == "" {
+			sectionName = "审批配置"
+		}
+		return sectionKey, "approval", sectionName
+	case sectionType == "job":
+		if sectionName == "" {
+			sectionName = "发布内容"
+		}
+		return sectionKey, "job", sectionName
+	default:
+		return sectionKey, sectionType, sectionName
+	}
+}
+
+func normalizeReleasePlanMetadataCollaborationSection(sectionKey, sectionName string) (string, string) {
+	if sectionKey != releasePlanCollabSectionMetadata {
+		if normalizedName, exists := releasePlanCollabMetadataSectionNames[sectionKey]; exists {
+			return sectionKey, normalizedName
+		}
+	}
+
+	switch strings.TrimSpace(sectionName) {
+	case "", "基础信息":
+		return releasePlanCollabSectionMetadata, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadata]
+	case "名称", "发布计划名称":
+		return releasePlanCollabSectionMetadataName, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataName]
+	case "负责人", "发布负责人":
+		return releasePlanCollabSectionMetadataManager, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataManager]
+	case "发布窗口日期", "发布窗口", "发布时间窗口":
+		return releasePlanCollabSectionMetadataTimeRange, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataTimeRange]
+	case "定时执行":
+		return releasePlanCollabSectionMetadataScheduleExecute, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataScheduleExecute]
+	case "需求关联":
+		return releasePlanCollabSectionMetadataDescription, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataDescription]
+	case "关联冲刺", "Jira Sprint", "Jira Sprint 关联":
+		return releasePlanCollabSectionMetadataJiraSprint, releasePlanCollabMetadataSectionNames[releasePlanCollabSectionMetadataJiraSprint]
+	}
+
+	if normalizedName, exists := releasePlanCollabMetadataSectionNames[sectionKey]; exists {
+		return sectionKey, normalizedName
+	}
+
+	if sectionKey == "" {
+		sectionKey = releasePlanCollabSectionMetadata
+	}
+	return sectionKey, sectionName
 }
 
 func releasePlanRequestHost(r *http.Request) string {
@@ -484,6 +566,7 @@ func decodeReleasePlanEditingSessions(planID string, values []interface{}) []*Re
 		if session.PlanID != planID {
 			continue
 		}
+		session.SectionKey, session.SectionType, session.SectionName = normalizeReleasePlanCollaborationSection(session.SectionKey, session.SectionType, session.SectionName)
 		resp = append(resp, session)
 	}
 	return resp
@@ -568,6 +651,7 @@ func getReleasePlanEditingSession(planID, sessionID string) (*ReleasePlanEditing
 	if session.PlanID != planID {
 		return nil, errors.New("session does not belong to current plan")
 	}
+	session.SectionKey, session.SectionType, session.SectionName = normalizeReleasePlanCollaborationSection(session.SectionKey, session.SectionType, session.SectionName)
 	return session, nil
 }
 
@@ -626,7 +710,8 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 
 			switch msg.Type {
 			case "join", "focus_section", "heartbeat":
-				if !authorizeReleasePlanEditing(ctx, msg.SectionType) {
+				sectionKey, sectionType, sectionName := normalizeReleasePlanCollaborationSection(msg.SectionKey, msg.SectionType, msg.SectionName)
+				if !authorizeReleasePlanEditing(ctx, sectionType) {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
 					continue
 				}
@@ -652,9 +737,9 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					UserName:         ctx.UserName,
 					Account:          ctx.Account,
 					IdentityType:     ctx.IdentityType,
-					SectionKey:       msg.SectionKey,
-					SectionType:      msg.SectionType,
-					SectionName:      msg.SectionName,
+					SectionKey:       sectionKey,
+					SectionType:      sectionType,
+					SectionName:      sectionName,
 					BaseVersion:      msg.BaseVersion,
 					EditingStartedAt: time.Now().Unix(),
 				}
@@ -663,7 +748,7 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					if session.BaseVersion == 0 {
 						session.BaseVersion = existingSession.BaseVersion
 					}
-					if existingSession.SectionKey != "" && existingSession.SectionKey != msg.SectionKey {
+					if existingSession.SectionKey != "" && existingSession.SectionKey != sectionKey {
 						session.EditingStartedAt = time.Now().Unix()
 						session.BaseVersion = 0
 					}

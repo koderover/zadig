@@ -343,8 +343,43 @@ func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) 
 	}
 
 	switch {
-	case sectionKey == releasePlanVersionSectionMetadata:
-		return planSnapshot["metadata"]
+	case isReleasePlanVersionMetadataSection(sectionKey):
+		metadata, ok := planSnapshot["metadata"].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		switch sectionKey {
+		case releasePlanVersionSectionMetadata:
+			return metadata
+		case releasePlanCollabSectionMetadataName:
+			return map[string]interface{}{
+				"name": metadata["name"],
+			}
+		case releasePlanCollabSectionMetadataManager:
+			return map[string]interface{}{
+				"manager":    metadata["manager"],
+				"manager_id": metadata["manager_id"],
+			}
+		case releasePlanCollabSectionMetadataTimeRange:
+			return map[string]interface{}{
+				"start_time": metadata["start_time"],
+				"end_time":   metadata["end_time"],
+			}
+		case releasePlanCollabSectionMetadataScheduleExecute:
+			return map[string]interface{}{
+				"schedule_execute_time": metadata["schedule_execute_time"],
+			}
+		case releasePlanCollabSectionMetadataDescription:
+			return map[string]interface{}{
+				"description": metadata["description"],
+			}
+		case releasePlanCollabSectionMetadataJiraSprint:
+			return map[string]interface{}{
+				"jira_sprint_association": metadata["jira_sprint_association"],
+			}
+		default:
+			return metadata
+		}
 	case sectionKey == releasePlanVersionSectionApproval:
 		return planSnapshot["approval"]
 	case sectionKey == releasePlanVersionSectionJobsOrder:
