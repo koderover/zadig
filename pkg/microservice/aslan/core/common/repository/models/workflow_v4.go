@@ -1477,10 +1477,13 @@ func getApisixConfigName(spec interface{}) (string, error) {
 		return "", errors.New("spec is nil")
 	}
 	if specMap, ok := spec.(map[string]interface{}); ok {
-		name, _ := specMap["name"].(string)
-		return strings.TrimSpace(name), nil
+		name, ok := specMap["name"].(string)
+		if ok {
+			return strings.TrimSpace(name), nil
+		}
+		return "", errors.New("config name is empty from spec")
 	}
-	return "", errors.New("config name is empty from spec")
+	return "", errors.New("spec is not a map type")
 }
 
 type PingCodeJobSpec struct {
