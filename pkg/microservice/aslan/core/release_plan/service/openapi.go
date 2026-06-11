@@ -398,6 +398,11 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 			return errors.Wrap(err, "build release plan base snapshot")
 		}
 	}
+	logBaseSnapshot, err := resolveReleasePlanLogBaseSnapshot(baseSnapshot, originalPlan, releasePlanVersionSectionPlan)
+	if err != nil {
+		return errors.Wrap(err, "build release plan log base snapshot")
+	}
+	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
 
 	err = mongodb.NewReleasePlanColl().UpdateByID(c, id, plan)
 	if err != nil {
@@ -406,21 +411,22 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 
 	if err := createReleasePlanVersionWithBaseSnapshot(plan.ID.Hex(), plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name), VerbUpdate); err != nil {
 		log.Errorf("create release plan version error: %v", err)
-	}
-	if err := createReleasePlanLog(&models.ReleasePlanLog{
-		PlanID:      plan.ID.Hex(),
-		Username:    c.UserName,
-		Account:     c.Account,
-		Verb:        VerbUpdate,
-		TargetName:  plan.Name,
-		TargetType:  TargetTypeReleasePlan,
-		Version:     plan.Version,
-		SectionKey:  releasePlanVersionSectionPlan,
-		SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name),
-		SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
-		CreatedAt:   time.Now().Unix(),
-	}); err != nil {
-		log.Errorf("create release plan log error: %v", err)
+	} else if shouldCreateLog {
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
+			PlanID:      plan.ID.Hex(),
+			Username:    c.UserName,
+			Account:     c.Account,
+			Verb:        VerbUpdate,
+			TargetName:  plan.Name,
+			TargetType:  TargetTypeReleasePlan,
+			Version:     plan.Version,
+			SectionKey:  releasePlanVersionSectionPlan,
+			SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name),
+			SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
+			CreatedAt:   time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
 	}
 	if err := broadcastReleasePlanCollaboration(plan.ID.Hex()); err != nil {
 		log.Errorf("broadcast release plan collaboration error: %v", err)
