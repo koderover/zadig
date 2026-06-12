@@ -566,6 +566,10 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 	c.workflowTaskMutex.Unlock()
 
+	if shouldUpdateJiraFields {
+		updateJiraFieldsForWorkflowTask(c.workflowTask, c.logger)
+	}
+
 	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {

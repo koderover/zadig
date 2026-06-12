@@ -50,7 +50,7 @@ func updateJiraFieldsForWorkflowTask(task *commonmodels.WorkflowTask, logger *za
 				logger.Errorf("failed to convert jira job spec for job %s: %v", job.Name, err)
 				continue
 			}
-			if len(jobTaskSpec.Issues) == 0 || len(jobTaskSpec.FieldMappings) == 0 {
+			if len(jobTaskSpec.FieldMappings) == 0 || len(jobTaskSpec.Issues) == 0 {
 				continue
 			}
 
