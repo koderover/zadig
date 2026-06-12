@@ -51,7 +51,7 @@ func updateJiraFieldsForWorkflowTask(task *commonmodels.WorkflowTask, logger *za
 				logger.Errorf("failed to convert jira job spec for job %s: %v", job.Name, err)
 				continue
 			}
-			if len(jobTaskSpec.FieldMappings) == 0 || len(jobTaskSpec.Issues) == 0 {
+			if len(jobTaskSpec.Issues) == 0 || len(jobTaskSpec.FieldMappings) == 0 {
 				continue
 			}
 
@@ -73,6 +73,46 @@ func updateJiraFieldsForWorkflowTask(task *commonmodels.WorkflowTask, logger *za
 				}
 				if err := client.Issue.UpdateFields(issue.Key, fields); err != nil {
 					logger.Errorf("failed to update jira issue %s fields for workflow %s task %d: %v", issue.Key, task.WorkflowName, task.TaskID, err)
+				}
+			}
+		}
+	}
+}
+
+func addJiraCommentForWorkflowTask(task *commonmodels.WorkflowTask, logger *zap.SugaredLogger) {
+	if task == nil {
+		return
+	}
+
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != string(config.JobJira) {
+				continue
+			}
+
+			jobTaskSpec := &commonmodels.JobTaskJiraSpec{}
+			if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+				logger.Errorf("failed to convert jira job spec for job %s: %v", job.Name, err)
+				continue
+			}
+			if len(jobTaskSpec.Issues) == 0 {
+				continue
+			}
+
+			spec, err := commonrepo.NewProjectManagementColl().GetJiraSpec(jobTaskSpec.JiraID)
+			if err != nil {
+				logger.Errorf("failed to get jira spec for job %s: %v", job.Name, err)
+				continue
+			}
+			client := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType)
+
+			for _, issue := range jobTaskSpec.Issues {
+				if issue == nil || strings.TrimSpace(issue.Key) == "" {
+					continue
+				}
+				fillJiraIssueCurrentStatus(issue, client, logger)
+				if err := client.Issue.AddCommentV2(issue.Key, buildJiraWorkflowTaskComment(task, issue)); err != nil {
+					logger.Errorf("failed to add jira issue %s workflow task comment for workflow %s task %d: %v", issue.Key, task.WorkflowName, task.TaskID, err)
 				}
 			}
 		}
@@ -145,4 +185,51 @@ func workflowURL(task *commonmodels.WorkflowTask) string {
 		task.WorkflowName,
 		url.QueryEscape(workflowDisplayName(task)),
 	)
+}
+
+func workflowTaskURL(task *commonmodels.WorkflowTask) string {
+	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		task.ProjectName,
+		task.WorkflowName,
+		task.TaskID,
+		url.QueryEscape(workflowDisplayName(task)),
+	)
+}
+
+func buildJiraWorkflowTaskComment(task *commonmodels.WorkflowTask, issue *commonmodels.IssueID) string {
+	return fmt.Sprintf("在 Jira 状态「%s」下执行 Zadig 工作流「%s」，执行结果：%s。任务链接：%s",
+		jiraIssueStatusForComment(issue),
+		workflowDisplayName(task),
+		workflowTaskStatusText(task.Status),
+		workflowTaskURL(task),
+	)
+}
+
+func jiraIssueStatusForComment(issue *commonmodels.IssueID) string {
+	if issue == nil {
+		return ""
+	}
+	if issue.CurrentStatus != "" {
+		return issue.CurrentStatus
+	}
+	if issue.TargetStatus != "" {
+		return issue.TargetStatus
+	}
+	return ""
+}
+
+func fillJiraIssueCurrentStatus(issue *commonmodels.IssueID, client *jira.Client, logger *zap.SugaredLogger) {
+	if issue == nil || client == nil || strings.TrimSpace(issue.CurrentStatus) != "" {
+		return
+	}
+
+	jiraIssue, err := client.Issue.GetByKeyOrID(issue.Key, "status")
+	if err != nil {
+		logger.Errorf("failed to get jira issue %s current status for workflow task comment: %v", issue.Key, err)
+		return
+	}
+	if jiraIssue != nil && jiraIssue.Fields != nil && jiraIssue.Fields.Status != nil {
+		issue.CurrentStatus = jiraIssue.Fields.Status.Name
+	}
 }
