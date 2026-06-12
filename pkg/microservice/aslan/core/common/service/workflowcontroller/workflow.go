@@ -131,6 +131,8 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		return err
 	}
 
+	updateJiraFieldsForWorkflowTask(t, logger)
+
 	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(t, logger); err != nil {
 		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
