@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -42,6 +41,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 )
 
 type RestartJobCtl struct {
@@ -221,7 +221,7 @@ func (c *RestartJobCtl) restartHelmService(ctx context.Context, env *commonmodel
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
-		case setting.Deployment, setting.StatefulSet:
+		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
 			resources = append(resources, &kube.WorkloadResource{
 				Type: u.GetKind(),
 				Name: u.GetName(),
@@ -300,6 +300,15 @@ func restartWorkloadResources(ctx context.Context, clusterID string, resources [
 		relatedPodLabels = append(relatedPodLabels, sts.Spec.Template.Labels)
 	}
 
+	for _, resource := range resources {
+		switch resource.Type {
+		case setting.DaemonSet:
+			if err := updater.RestartDaemonSet(ctx, clusterID, env.Namespace, resource.Name); err != nil {
+				return nil, nil, fmt.Errorf("failed to restart daemonset %s/%s: %v", env.Namespace, resource.Name, err)
+			}
+			replaceResources = append(replaceResources, commonmodels.Resource{Kind: setting.DaemonSet, Name: resource.Name})
+		}
+	}
 	return replaceResources, relatedPodLabels, nil
 }
 
