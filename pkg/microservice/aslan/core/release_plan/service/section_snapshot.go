@@ -2,10 +2,15 @@ package service
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsoncodec"
+	"go.mongodb.org/mongo-driver/bson/bsonoptions"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -20,6 +25,12 @@ const (
 	releasePlanVersionSectionJobsOrder = "jobs_order"
 	releasePlanVersionSectionJobPrefix = "job:"
 )
+
+var releasePlanWorkflowControllerBSONRegistry = func() *bsoncodec.Registry {
+	nilSliceCodec := bsoncodec.NewSliceCodec(bsonoptions.SliceCodec().SetEncodeNilAsEmpty(true))
+	tM := reflect.TypeOf(bson.M{})
+	return bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).RegisterDefaultEncoder(reflect.Slice, nilSliceCodec).Build()
+}()
 
 func isReleasePlanVersionMetadataSection(sectionKey string) bool {
 	return sectionKey == releasePlanVersionSectionMetadata || strings.HasPrefix(sectionKey, releasePlanVersionSectionMetadata+":")
@@ -413,6 +424,11 @@ func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bo
 	if workflowSpec.Workflow == nil || workflowSpec.Workflow.Name == "" {
 		return nil, false
 	}
+	normalizedWorkflow, err := normalizeReleasePlanWorkflowForController(workflowSpec.Workflow)
+	if err != nil {
+		return nil, false
+	}
+	workflowSpec.Workflow = normalizedWorkflow
 
 	workflowController := controller.CreateWorkflowController(workflowSpec.Workflow)
 	if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil || workflowController.WorkflowV4 == nil {
@@ -455,6 +471,28 @@ func firstReleasePlanWorkflowLookupString(input map[string]interface{}, keys ...
 		}
 	}
 	return ""
+}
+
+func normalizeReleasePlanWorkflowForController(workflow *models.WorkflowV4) (*models.WorkflowV4, error) {
+	if workflow == nil {
+		return nil, nil
+	}
+
+	raw, err := bson.Marshal(workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	generic := bson.M{}
+	if err := bson.UnmarshalWithRegistry(releasePlanWorkflowControllerBSONRegistry, raw, &generic); err != nil {
+		return nil, err
+	}
+
+	resp := new(models.WorkflowV4)
+	if err := models.IToi(generic, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func warnReleasePlanWorkflowRecover(recovered interface{}) {

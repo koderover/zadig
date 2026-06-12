@@ -720,6 +720,10 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 				if spec.Workflow == nil {
 					return nil, fmt.Errorf("workflow is nil")
 				}
+				spec.Workflow, err = normalizeReleasePlanWorkflowForController(spec.Workflow)
+				if err != nil {
+					return nil, fmt.Errorf("invalid workflow for job: %s. normalize error: %s", releasePlanJob.Name, err)
+				}
 
 				workflowController := controller.CreateWorkflowController(spec.Workflow)
 				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
