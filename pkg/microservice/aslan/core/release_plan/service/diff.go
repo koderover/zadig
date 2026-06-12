@@ -40,6 +40,7 @@ const (
 	releasePlanDiffChangeTypeOrder     = "order_changed"
 	releasePlanDiffDisplayApprovalSpec = "approval_spec"
 	releasePlanDiffDisplayWorkflowSpec = "workflow_spec"
+	releasePlanDiffDisplayMetadataSpec = "metadata_spec"
 )
 
 type ReleasePlanVersionDiffResponse struct {
@@ -77,6 +78,13 @@ type ReleasePlanVersionDiffChange struct {
 	Masked      bool                               `json:"masked,omitempty"`
 }
 
+type ReleasePlanVersionMetadataDiffItem struct {
+	Key       string      `json:"key"`
+	Label     string      `json:"label"`
+	Value     interface{} `json:"value"`
+	ValueType string      `json:"value_type"`
+}
+
 type releasePlanRawDiffEntry struct {
 	Path        string
 	ChangeType  string
@@ -88,6 +96,12 @@ type releasePlanRawDiffEntry struct {
 
 type releasePlanDiffContext struct {
 	GroupType string
+}
+
+type releasePlanMetadataDiffField struct {
+	Key       string
+	Label     string
+	ValueType string
 }
 
 type releasePlanArrayDiffStrategy int
@@ -153,6 +167,16 @@ var releasePlanFieldLabels = map[string]string{
 	"workwx_approval":       "企业微信审批",
 }
 
+var releasePlanMetadataDiffFields = []releasePlanMetadataDiffField{
+	{Key: "name", Label: "名称", ValueType: "text"},
+	{Key: "manager", Label: "负责人", ValueType: "text"},
+	{Key: "start_time", Label: "开始时间", ValueType: "time"},
+	{Key: "end_time", Label: "结束时间", ValueType: "time"},
+	{Key: "schedule_execute_time", Label: "定时执行时间", ValueType: "time"},
+	{Key: "description", Label: "需求关联", ValueType: "rich_text"},
+	{Key: "jira_sprint_association", Label: "关联冲刺", ValueType: "jira_sprint_association"},
+}
+
 func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersionDiffResponse, error) {
 	current, err := mongodb.NewReleasePlanVersionColl().Get(planID, version)
 	if err != nil {
@@ -179,7 +203,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 	}
 
 	groupKey, groupName, groupType := releasePlanVersionDiffGroup(current.SectionKey, current.SectionName)
-	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(groupType, fromData, toData)
+	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(current.SectionKey, groupType, current.Verb, fromData, toData)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
 	if shouldBuildReleasePlanPathDiff(displayMode) {
@@ -190,7 +214,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 
 	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
 	groupOrder := make([]string, 0)
-	if displayMode != "" && !reflect.DeepEqual(beforeSpec, afterSpec) {
+	if shouldAddReleasePlanVersionDiffDisplaySpec(displayMode, beforeSpec, afterSpec) {
 		group := ensureReleasePlanVersionDiffGroup(groupMap, &groupOrder, groupKey, groupName, groupType)
 		group.DisplayMode = displayMode
 		group.BeforeSpec = sanitizeReleasePlanValueForDisplay(beforeSpec)
@@ -255,19 +279,38 @@ func ensureReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDi
 	return group
 }
 
-func releasePlanVersionDiffDisplaySpec(groupType string, fromData, toData interface{}) (string, interface{}, interface{}) {
+func shouldAddReleasePlanVersionDiffDisplaySpec(displayMode string, beforeSpec, afterSpec interface{}) bool {
+	if displayMode == "" {
+		return false
+	}
+	if displayMode == releasePlanDiffDisplayMetadataSpec {
+		beforeItems, _ := beforeSpec.([]*ReleasePlanVersionMetadataDiffItem)
+		afterItems, _ := afterSpec.([]*ReleasePlanVersionMetadataDiffItem)
+		return len(beforeItems) > 0 || len(afterItems) > 0
+	}
+	return !reflect.DeepEqual(beforeSpec, afterSpec)
+}
+
+func releasePlanVersionDiffDisplaySpec(sectionKey, groupType, verb string, fromData, toData interface{}) (string, interface{}, interface{}) {
 	switch groupType {
 	case "approval":
 		if fromData == nil && toData == nil {
 			return "", nil, nil
 		}
 		return releasePlanDiffDisplayApprovalSpec, fromData, toData
+	case "metadata":
+		beforeSpec, afterSpec := releasePlanVersionDiffMetadataSpec(fromData, toData)
+		return releasePlanDiffDisplayMetadataSpec, beforeSpec, afterSpec
 	case "job":
 		if !isReleasePlanWorkflowJobSnapshot(fromData) && !isReleasePlanWorkflowJobSnapshot(toData) {
 			return "", nil, nil
 		}
 		return releasePlanDiffDisplayWorkflowSpec, releasePlanVersionDiffJobSpec(fromData), releasePlanVersionDiffJobSpec(toData)
 	default:
+		if sectionKey == releasePlanVersionSectionPlan && verb == VerbCreate {
+			beforeSpec, afterSpec := releasePlanVersionDiffMetadataSpec(fromData, toData)
+			return releasePlanDiffDisplayMetadataSpec, beforeSpec, afterSpec
+		}
 		return "", nil, nil
 	}
 }
@@ -298,6 +341,152 @@ func releasePlanVersionDiffJobSpec(value interface{}) interface{} {
 		return nil
 	}
 	return job["spec"]
+}
+
+func releasePlanVersionDiffMetadataSpec(fromData, toData interface{}) ([]*ReleasePlanVersionMetadataDiffItem, []*ReleasePlanVersionMetadataDiffItem) {
+	fromMetadata := releasePlanVersionDiffMetadataSnapshot(fromData)
+	toMetadata := releasePlanVersionDiffMetadataSnapshot(toData)
+
+	beforeSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
+	afterSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
+	for _, field := range releasePlanMetadataDiffFields {
+		beforeValue := normalizeReleasePlanMetadataDiffValue(field.Key, fromMetadata[field.Key])
+		afterValue := normalizeReleasePlanMetadataDiffValue(field.Key, toMetadata[field.Key])
+		if reflect.DeepEqual(beforeValue, afterValue) {
+			continue
+		}
+		beforeSpec = append(beforeSpec, newReleasePlanVersionMetadataDiffItem(field, beforeValue))
+		afterSpec = append(afterSpec, newReleasePlanVersionMetadataDiffItem(field, afterValue))
+	}
+	return beforeSpec, afterSpec
+}
+
+func releasePlanVersionDiffMetadataSnapshot(value interface{}) map[string]interface{} {
+	snapshot, ok := getMapField(value)
+	if !ok {
+		return map[string]interface{}{}
+	}
+	if metadata, ok := getMapField(snapshot["metadata"]); ok {
+		return metadata
+	}
+	return snapshot
+}
+
+func newReleasePlanVersionMetadataDiffItem(field releasePlanMetadataDiffField, value interface{}) *ReleasePlanVersionMetadataDiffItem {
+	return &ReleasePlanVersionMetadataDiffItem{
+		Key:       field.Key,
+		Label:     field.Label,
+		Value:     value,
+		ValueType: field.ValueType,
+	}
+}
+
+func normalizeReleasePlanMetadataDiffValue(key string, value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	switch key {
+	case "description":
+		return normalizeReleasePlanMetadataRichTextValue(value)
+	case "start_time", "end_time", "schedule_execute_time":
+		return normalizeReleasePlanMetadataTimeValue(value)
+	case "jira_sprint_association":
+		return normalizeReleasePlanMetadataJiraSprintAssociationValue(value)
+	}
+
+	if str, ok := value.(string); ok && strings.TrimSpace(str) == "" {
+		return nil
+	}
+	return value
+}
+
+func normalizeReleasePlanMetadataRichTextValue(value interface{}) interface{} {
+	str, ok := value.(string)
+	if !ok {
+		return value
+	}
+	if isEmptyReleasePlanRichText(str) {
+		return nil
+	}
+	return str
+}
+
+func isEmptyReleasePlanRichText(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return true
+	}
+
+	// Compact is only used for empty-rich-text detection; returned content stays unchanged.
+	compact := strings.ToLower(strings.Join(strings.Fields(trimmed), ""))
+	compact = strings.ReplaceAll(compact, "&nbsp;", "")
+	compact = strings.ReplaceAll(compact, "\u00a0", "")
+	switch compact {
+	case "", "<p></p>", "<p><br></p>", "<p><br/></p>", "<br>", "<br/>":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeReleasePlanMetadataJiraSprintAssociationValue(value interface{}) interface{} {
+	association, ok := getMapField(value)
+	if !ok {
+		return value
+	}
+	if isEmptyReleasePlanJiraSprintAssociation(association) {
+		return nil
+	}
+	return value
+}
+
+func isEmptyReleasePlanJiraSprintAssociation(value map[string]interface{}) bool {
+	if value == nil {
+		return true
+	}
+	if jiraID, ok := value["jira_id"].(string); ok && strings.TrimSpace(jiraID) != "" {
+		return false
+	}
+	if sprints, ok := value["sprints"].([]interface{}); ok && len(sprints) > 0 {
+		return false
+	}
+	return true
+}
+
+func normalizeReleasePlanMetadataTimeValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case float64:
+		if typed == 0 {
+			return nil
+		}
+		intValue := int64(typed)
+		if float64(intValue) == typed {
+			return intValue
+		}
+		return typed
+	case int:
+		if typed == 0 {
+			return nil
+		}
+		return int64(typed)
+	case int64:
+		if typed == 0 {
+			return nil
+		}
+		return typed
+	case json.Number:
+		intValue, err := typed.Int64()
+		if err == nil {
+			if intValue == 0 {
+				return nil
+			}
+			return intValue
+		}
+		return value
+	default:
+		return value
+	}
 }
 
 func releasePlanVersionBaseSnapshotAsGenericValue(version *models.ReleasePlanVersion) (interface{}, bool, error) {
@@ -1110,7 +1299,7 @@ func buildReleasePlanDiffLabel(path string) string {
 	segments := strings.Split(path, ".")
 	labels := make([]string, 0, len(segments))
 	for _, segment := range segments {
-		if segment == "spec" || segment == "workflow" {
+		if segment == "metadata" || segment == "spec" || segment == "workflow" {
 			continue
 		}
 		label := segment
