@@ -519,11 +519,12 @@ type IssueID struct {
 }
 
 type JobTaskJiraSpec struct {
-	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
-	JiraID       string     `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
-	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	ProjectID     string              `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	JiraID        string              `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
+	IssueType     string              `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID          `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus  string              `bson:"target_status" json:"target_status" yaml:"target_status"`
+	FieldMappings []*JiraFieldMapping `bson:"field_mappings" json:"field_mappings" yaml:"field_mappings"`
 }
 
 type JobTaskCommonRevertSpec struct {
