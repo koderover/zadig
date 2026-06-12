@@ -83,6 +83,8 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	switch args.Type {
 	case setting.Deployment:
 		err = updater.RestartDeploymentV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
+	case setting.DaemonSet:
+		err = updater.RestartDaemonSet(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	case setting.StatefulSet:
 		err = updater.RestartStatefulSetV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	}
@@ -209,6 +211,25 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Spec:       wd.Spec.Template,
 				Selector:   wd.Spec.Selector,
 				Type:       setting.Deployment,
+				Images:     wd.ImageInfos(),
+				Containers: wd.GetContainers(),
+				Ready:      wd.Ready(),
+				Annotation: wd.Annotations,
+			})
+
+		case setting.DaemonSet:
+			daemonSet, err := getter.GetDaemonSetByNameWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get daemonset %s, err: %s", u.GetName(), err)
+				continue
+			}
+			wd := wrapper.DaemonSet(daemonSet)
+			ret = append(ret, &commonservice.Workload{
+				Name:       wd.Name,
+				Spec:       wd.Spec.Template,
+				Selector:   wd.Spec.Selector,
+				Type:       setting.DaemonSet,
+				Replicas:   wd.Status.DesiredNumberScheduled,
 				Images:     wd.ImageInfos(),
 				Containers: wd.GetContainers(),
 				Ready:      wd.Ready(),
@@ -445,6 +466,14 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		}
 		if found {
 			return updater.RestartDeploymentV2(context.Background(), productObj.ClusterID, productObj.Namespace, deploy.Name)
+		}
+
+		daemonSet, found, err := getter.GetDaemonSet(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.DaemonSet, err.Error())
+		}
+		if found {
+			return updater.RestartDaemonSet(context.Background(), productObj.ClusterID, productObj.Namespace, daemonSet.Name)
 		}
 
 		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)

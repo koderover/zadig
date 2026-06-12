@@ -19,6 +19,7 @@ package models
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -914,6 +915,7 @@ type ZadigBlueGreenDeployEnvInformation struct {
 
 type ZadigVMDeployEnvInformation struct {
 	Env      string                `json:"env"      yaml:"env"`
+	Alias    string                `json:"alias"    yaml:"alias"`
 	Services []*ServiceAndVMDeploy `json:"services" yaml:"services"`
 }
 
@@ -1463,6 +1465,27 @@ type ApisixItemSpec struct {
 	Action config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
 	Type   config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
+}
+
+func (s *ApisixItemSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemSpec is nil")
+	}
+	return getApisixConfigName(s.Spec)
+}
+
+func getApisixConfigName(spec interface{}) (string, error) {
+	if spec == nil {
+		return "", errors.New("spec is nil")
+	}
+	if specMap, ok := spec.(map[string]interface{}); ok {
+		name, ok := specMap["name"].(string)
+		if ok {
+			return strings.TrimSpace(name), nil
+		}
+		return "", errors.New("config name is empty from spec")
+	}
+	return "", errors.New("spec is not a map type")
 }
 
 type PingCodeJobSpec struct {

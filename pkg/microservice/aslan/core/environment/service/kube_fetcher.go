@@ -296,7 +296,7 @@ func ListStatefulSets(page, pageSize int, namespace string, kc client.Client, in
 }
 
 func ListDaemonSets(page, pageSize int, namespace string, kc client.Client) (*K8sResourceResp, error) {
-	dss, err := getter.ListDaemonsets(namespace, nil, kc)
+	dss, err := getter.ListDaemonSets(namespace, nil, kc)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func ListDaemonSets(page, pageSize int, namespace string, kc client.Client) (*K8
 	}
 
 	for _, ds := range dss {
-		wrappedRes := wrapper.Daemenset(ds)
+		wrappedRes := wrapper.DaemonSet(ds)
 		resp.Workloads = append(resp.Workloads, &WorkloadDaemonSet{
 			ResourceCommon: getWorkloadCommonInfo(wrappedRes, "DaemonSet", ds.CreationTimestamp.Time),
 			Desired:        int(ds.Status.DesiredNumberScheduled),
@@ -806,7 +806,7 @@ func getDaemonSetWorkloadResource(d *appsv1.DaemonSet, matchLabels map[string]st
 	}
 	services := getRelatedServices(d.Namespace, kubeClient, d.Spec.Template.GetLabels(), log)
 	ingresses := getRelatedIngress(d.Namespace, services, kubeClient, cs, log)
-	return wrapper.Daemenset(d).WorkloadResource(pods), services, ingresses
+	return wrapper.DaemonSet(d).WorkloadResource(pods), services, ingresses
 }
 
 func getJobWorkloadResource(d *batchv1.Job, matchLabels map[string]string, kubeClient client.Client, cs *kubernetes.Clientset, log *zap.SugaredLogger) (*resource.Workload, []*resource.Service, []*resource.Ingress) {
