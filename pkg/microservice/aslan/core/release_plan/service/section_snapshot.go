@@ -406,7 +406,11 @@ func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bo
 	}()
 
 	workflowSpec := new(models.WorkflowReleaseJobSpec)
-	if err := models.IToi(spec, workflowSpec); err != nil || workflowSpec.Workflow == nil {
+	if err := models.IToi(spec, workflowSpec); err != nil {
+		return nil, false
+	}
+	applyReleasePlanWorkflowLatestLookupCompat(spec, workflowSpec)
+	if workflowSpec.Workflow == nil || workflowSpec.Workflow.Name == "" {
 		return nil, false
 	}
 
@@ -416,6 +420,41 @@ func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bo
 	}
 
 	return workflowController.WorkflowV4, true
+}
+
+func applyReleasePlanWorkflowLatestLookupCompat(spec interface{}, workflowSpec *models.WorkflowReleaseJobSpec) {
+	if workflowSpec == nil {
+		return
+	}
+
+	specMap, ok := getMapField(spec)
+	if !ok {
+		return
+	}
+
+	workflowName := firstReleasePlanWorkflowLookupString(specMap, "workflowName", "workflow_name")
+	projectName := firstReleasePlanWorkflowLookupString(specMap, "projectName", "project_name")
+	if workflowSpec.Workflow == nil {
+		if workflowName == "" && projectName == "" {
+			return
+		}
+		workflowSpec.Workflow = &models.WorkflowV4{}
+	}
+	if workflowSpec.Workflow.Name == "" {
+		workflowSpec.Workflow.Name = workflowName
+	}
+	if workflowSpec.Workflow.Project == "" {
+		workflowSpec.Workflow.Project = projectName
+	}
+}
+
+func firstReleasePlanWorkflowLookupString(input map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := getStringField(input, key); ok {
+			return value
+		}
+	}
+	return ""
 }
 
 func warnReleasePlanWorkflowRecover(recovered interface{}) {
