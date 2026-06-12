@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	jiraFieldValueSourceTaskStatus  = "task_status"
 	jiraFieldValueSourceWorkflowURL = "workflow_url"
 )
 
@@ -144,6 +145,8 @@ func buildJiraIssueFields(task *commonmodels.WorkflowTask, mappings []*commonmod
 
 func jiraFieldValue(task *commonmodels.WorkflowTask, valueSource string) (string, bool) {
 	switch valueSource {
+	case jiraFieldValueSourceTaskStatus:
+		return workflowTaskStatusText(task.Status), true
 	case jiraFieldValueSourceWorkflowURL:
 		return workflowURL(task), true
 	default:
@@ -174,12 +177,11 @@ func workflowURL(task *commonmodels.WorkflowTask) string {
 	)
 }
 
-func workflowTaskURL(task *commonmodels.WorkflowTask) string {
-	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+func workflowURL(task *commonmodels.WorkflowTask) string {
+	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s",
 		configbase.SystemAddress(),
 		task.ProjectName,
 		task.WorkflowName,
-		task.TaskID,
 		url.QueryEscape(workflowDisplayName(task)),
 	)
 }
