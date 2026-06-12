@@ -31,9 +31,8 @@ import (
 )
 
 const (
-	jiraFieldValueSourceWorkflowName = "workflow_name"
-	jiraFieldValueSourceTaskStatus   = "task_status"
-	jiraFieldValueSourceTaskURL      = "task_url"
+	jiraFieldValueSourceTaskStatus  = "task_status"
+	jiraFieldValueSourceWorkflowURL = "workflow_url"
 )
 
 func updateJiraFieldsForWorkflowTask(task *commonmodels.WorkflowTask, logger *zap.SugaredLogger) {
@@ -106,18 +105,16 @@ func buildJiraIssueFields(task *commonmodels.WorkflowTask, mappings []*commonmod
 
 func jiraFieldValue(task *commonmodels.WorkflowTask, valueSource string) (string, bool) {
 	switch valueSource {
-	case jiraFieldValueSourceWorkflowName:
-		return workflowTaskDisplayName(task), true
 	case jiraFieldValueSourceTaskStatus:
 		return workflowTaskStatusText(task.Status), true
-	case jiraFieldValueSourceTaskURL:
-		return workflowTaskURL(task), true
+	case jiraFieldValueSourceWorkflowURL:
+		return workflowURL(task), true
 	default:
 		return "", false
 	}
 }
 
-func workflowTaskDisplayName(task *commonmodels.WorkflowTask) string {
+func workflowDisplayName(task *commonmodels.WorkflowTask) string {
 	if task.WorkflowDisplayName != "" {
 		return task.WorkflowDisplayName
 	}
@@ -141,12 +138,11 @@ func workflowTaskStatusText(status config.Status) string {
 	}
 }
 
-func workflowTaskURL(task *commonmodels.WorkflowTask) string {
-	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+func workflowURL(task *commonmodels.WorkflowTask) string {
+	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s",
 		configbase.SystemAddress(),
 		task.ProjectName,
 		task.WorkflowName,
-		task.TaskID,
-		url.QueryEscape(workflowTaskDisplayName(task)),
+		url.QueryEscape(workflowDisplayName(task)),
 	)
 }
