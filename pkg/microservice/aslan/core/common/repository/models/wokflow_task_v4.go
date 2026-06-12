@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -560,6 +561,13 @@ type ApisixItemUpdateSpec struct {
 	ItemID       string                  `bson:"item_id"       json:"item_id"       yaml:"item_id"`
 	Status       string                  `bson:"status"        json:"status"        yaml:"status"`
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
+}
+
+func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemUpdateSpec is nil") 
+	}
+	return getApisixConfigName(s.UserSpec)
 }
 
 type NacosData struct {
