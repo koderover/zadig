@@ -563,9 +563,10 @@ type ApisixItemUpdateSpec struct {
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
 }
 
+// get config name from user spec
 func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
 	if s == nil {
-		return "", errors.New("ApisixItemUpdateSpec is nil") 
+		return "", errors.New("ApisixItemUpdateSpec is nil")
 	}
 	return getApisixConfigName(s.UserSpec)
 }
