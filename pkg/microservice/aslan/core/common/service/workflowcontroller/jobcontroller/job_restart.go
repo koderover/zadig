@@ -242,7 +242,7 @@ func (c *RestartJobCtl) restartHelmService(ctx context.Context, env *commonmodel
 }
 
 func restartWorkloadResources(ctx context.Context, clusterID string, resources []*kube.WorkloadResource, env *commonmodels.Product, kubeClient crClient.Client, clientSet *kubernetes.Clientset) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
-	deployments, statefulSets, _, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
+	deployments, _, statefulSets, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
 	if err != nil {
 		return nil, nil, err
 	}
