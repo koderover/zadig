@@ -305,7 +305,7 @@ func releasePlanVersionDiffDisplaySpec(sectionKey, groupType, verb string, fromD
 		if !isReleasePlanWorkflowJobSnapshot(fromData) && !isReleasePlanWorkflowJobSnapshot(toData) {
 			return "", nil, nil
 		}
-		return releasePlanDiffDisplayWorkflowSpec, releasePlanVersionDiffJobSpec(fromData), releasePlanVersionDiffJobSpec(toData)
+		return releasePlanDiffDisplayWorkflowSpec, releasePlanVersionDiffWorkflowSpec(fromData), releasePlanVersionDiffWorkflowSpec(toData)
 	default:
 		if sectionKey == releasePlanVersionSectionPlan && verb == VerbCreate {
 			beforeSpec, afterSpec := releasePlanVersionDiffMetadataSpec(fromData, toData)
@@ -341,6 +341,31 @@ func releasePlanVersionDiffJobSpec(value interface{}) interface{} {
 		return nil
 	}
 	return job["spec"]
+}
+
+func releasePlanVersionDiffWorkflowSpec(value interface{}) interface{} {
+	job, ok := getMapField(value)
+	if !ok {
+		return nil
+	}
+
+	resp := make(map[string]interface{}, 3)
+	for _, key := range []string{"name", "manager"} {
+		if item, exists := job[key]; exists {
+			resp[key] = item
+		}
+	}
+	if spec := releasePlanVersionDiffJobSpec(value); spec != nil {
+		if workflowSpec, ok := getMapField(spec); ok {
+			for key, item := range workflowSpec {
+				resp[key] = item
+			}
+		}
+	}
+	if len(resp) == 0 {
+		return nil
+	}
+	return resp
 }
 
 func releasePlanVersionDiffMetadataSpec(fromData, toData interface{}) ([]*ReleasePlanVersionMetadataDiffItem, []*ReleasePlanVersionMetadataDiffItem) {

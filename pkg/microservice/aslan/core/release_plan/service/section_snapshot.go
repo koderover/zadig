@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -457,23 +458,23 @@ func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, e
 		}
 	}
 	if params, exists := workflowMap["params"]; exists {
-		resp["params"] = filterReleasePlanWorkflowInputValue(params)
+		resp["params"] = filterReleasePlanWorkflowInputValueAtPath("params", params)
 	}
 	if customField, exists := workflowMap["custom_field"]; exists {
-		if filtered := filterReleasePlanWorkflowInputValue(customField); filtered != nil {
+		if filtered := filterReleasePlanWorkflowInputValueAtPath("custom_field", customField); filtered != nil {
 			resp["custom_field"] = filtered
 		}
 	}
 	if stages, exists := workflowMap["stages"]; exists {
-		resp["stages"] = buildReleasePlanWorkflowStagesInputSnapshot(stages)
+		resp["stages"] = buildReleasePlanWorkflowStagesInputSnapshot("stages", stages)
 	}
 	if jobs, exists := workflowMap["jobs"]; exists {
-		resp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(jobs)
+		resp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot("jobs", jobs)
 	}
 	return sanitizeReleasePlanValue(resp), nil
 }
 
-func buildReleasePlanWorkflowStagesInputSnapshot(value interface{}) interface{} {
+func buildReleasePlanWorkflowStagesInputSnapshot(path string, value interface{}) interface{} {
 	stages, ok := value.([]interface{})
 	if !ok {
 		return nil
@@ -488,11 +489,11 @@ func buildReleasePlanWorkflowStagesInputSnapshot(value interface{}) interface{} 
 		stageResp := make(map[string]interface{})
 		for _, key := range []string{"name", "parallel", "approval", "manual_exec"} {
 			if value, exists := stageMap[key]; exists {
-				stageResp[key] = filterReleasePlanWorkflowInputValue(value)
+				stageResp[key] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), value)
 			}
 		}
 		if jobs, exists := stageMap["jobs"]; exists {
-			stageResp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(jobs)
+			stageResp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot(joinReleasePlanWorkflowInputPath(path, "jobs"), jobs)
 		}
 		if len(stageResp) > 0 {
 			resp = append(resp, stageResp)
@@ -501,7 +502,7 @@ func buildReleasePlanWorkflowStagesInputSnapshot(value interface{}) interface{} 
 	return resp
 }
 
-func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
+func buildReleasePlanWorkflowJobsInputSnapshot(path string, value interface{}) interface{} {
 	jobs, ok := value.([]interface{})
 	if !ok {
 		return nil
@@ -516,14 +517,14 @@ func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
 		jobResp := make(map[string]interface{})
 		for _, key := range []string{"name", "type", "skipped", "run_policy", "error_policy", "execute_policy"} {
 			if item, exists := jobMap[key]; exists {
-				jobResp[key] = filterReleasePlanWorkflowInputValue(item)
+				jobResp[key] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), item)
 			}
 		}
 		if serviceModules, exists := jobMap["service_modules"]; exists {
-			jobResp["service_modules"] = filterReleasePlanWorkflowInputValue(serviceModules)
+			jobResp["service_modules"] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "service_modules"), serviceModules)
 		}
 		if spec, exists := jobMap["spec"]; exists {
-			jobResp["spec"] = filterReleasePlanWorkflowInputValue(spec)
+			jobResp["spec"] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "spec"), spec)
 		}
 		if len(jobResp) > 0 {
 			resp = append(resp, jobResp)
@@ -533,12 +534,16 @@ func buildReleasePlanWorkflowJobsInputSnapshot(value interface{}) interface{} {
 }
 
 func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
+	return filterReleasePlanWorkflowInputValueAtPath("", value)
+}
+
+func filterReleasePlanWorkflowInputValueAtPath(path string, value interface{}) interface{} {
 	switch typedValue := value.(type) {
 	case map[string]interface{}:
 		resp := make(map[string]interface{}, len(typedValue))
 		for key, item := range typedValue {
 			if key == "plugin" {
-				filteredPlugin := filterReleasePlanPluginTemplateInputValue(item)
+				filteredPlugin := filterReleasePlanPluginTemplateInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), item)
 				if filteredPlugin != nil {
 					resp[key] = filteredPlugin
 				}
@@ -547,14 +552,18 @@ func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
 			if shouldDropReleasePlanWorkflowInputField(key) {
 				continue
 			}
-			resp[key] = filterReleasePlanWorkflowInputValue(item)
+			if key == "variable_yaml" && hasReleasePlanWorkflowStructuredVariables(typedValue) {
+				continue
+			}
+			resp[key] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), item)
 		}
 		return resp
 	case []interface{}:
 		resp := make([]interface{}, 0, len(typedValue))
 		for _, item := range typedValue {
-			resp = append(resp, filterReleasePlanWorkflowInputValue(item))
+			resp = append(resp, filterReleasePlanWorkflowInputValueAtPath(path, item))
 		}
+		stabilizeReleasePlanWorkflowInputArray(path, resp)
 		return resp
 	default:
 		return value
@@ -562,6 +571,10 @@ func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
 }
 
 func filterReleasePlanPluginTemplateInputValue(value interface{}) interface{} {
+	return filterReleasePlanPluginTemplateInputValueAtPath("plugin", value)
+}
+
+func filterReleasePlanPluginTemplateInputValueAtPath(path string, value interface{}) interface{} {
 	plugin, ok := value.(map[string]interface{})
 	if !ok {
 		return nil
@@ -573,8 +586,159 @@ func filterReleasePlanPluginTemplateInputValue(value interface{}) interface{} {
 	}
 
 	return map[string]interface{}{
-		"inputs": filterReleasePlanWorkflowInputValue(inputs),
+		"inputs": filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "inputs"), inputs),
 	}
+}
+
+func hasReleasePlanWorkflowStructuredVariables(value map[string]interface{}) bool {
+	if value == nil {
+		return false
+	}
+	variableKVs, ok := value["variable_kvs"].([]interface{})
+	return ok && len(variableKVs) > 0
+}
+
+func stabilizeReleasePlanWorkflowInputArray(path string, items []interface{}) {
+	if len(items) < 2 {
+		return
+	}
+
+	// Only normalize collection-like arrays here. Execution-order arrays such as
+	// workflow stages/jobs are intentionally left untouched for display fidelity.
+	switch {
+	case path == "env_options" || strings.HasSuffix(path, ".env_options"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByEnv)
+	case path == "services" || strings.HasSuffix(path, ".services"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByService)
+	case path == "service_modules" || strings.HasSuffix(path, ".service_modules"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByServiceModule)
+	case path == "modules" || strings.HasSuffix(path, ".modules"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByModule)
+	case path == "variable_kvs" || strings.HasSuffix(path, ".variable_kvs"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByVariable)
+	case path == "target_services" || strings.HasSuffix(path, ".target_services"):
+		sortReleasePlanWorkflowInputStringArray(items)
+	case path == "service_and_builds" || strings.HasSuffix(path, ".service_and_builds"),
+		path == "default_service_and_builds" || strings.HasSuffix(path, ".default_service_and_builds"),
+		path == "service_and_builds_options" || strings.HasSuffix(path, ".service_and_builds_options"),
+		path == "service_and_images" || strings.HasSuffix(path, ".service_and_images"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByServiceBuild)
+	case path == "service_and_scannings" || strings.HasSuffix(path, ".service_and_scannings"),
+		path == "service_scanning_options" || strings.HasSuffix(path, ".service_scanning_options"),
+		path == "scannings" || strings.HasSuffix(path, ".scannings"),
+		path == "scanning_options" || strings.HasSuffix(path, ".scanning_options"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByScanning)
+	case path == "nacos_filtered_data" || strings.HasSuffix(path, ".nacos_filtered_data"):
+		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByNacosData)
+	}
+}
+
+func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interface{}) (string, bool)) {
+	type sortableItem struct {
+		item interface{}
+		key  string
+	}
+
+	sortableItems := make([]sortableItem, 0, len(items))
+	for _, item := range items {
+		primaryKey, ok := buildKey(item)
+		if !ok {
+			return
+		}
+		sortKey := primaryKey
+		if hash, err := hashReleasePlanSubtree(item); err == nil {
+			sortKey = primaryKey + "|" + hash
+		}
+		sortableItems = append(sortableItems, sortableItem{item: item, key: sortKey})
+	}
+
+	sort.SliceStable(sortableItems, func(i, j int) bool {
+		return sortableItems[i].key < sortableItems[j].key
+	})
+	for i := range sortableItems {
+		items[i] = sortableItems[i].item
+	}
+}
+
+func sortReleasePlanWorkflowInputStringArray(items []interface{}) {
+	for _, item := range items {
+		if _, ok := item.(string); !ok {
+			return
+		}
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		return items[i].(string) < items[j].(string)
+	})
+}
+
+func releasePlanWorkflowInputArrayKeyByEnv(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "env", "env_name", "env_alias")
+}
+
+func releasePlanWorkflowInputArrayKeyByService(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "image_name")
+}
+
+func releasePlanWorkflowInputArrayKeyByServiceModule(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module")
+}
+
+func releasePlanWorkflowInputArrayKeyByModule(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "service_module", "image_name", "image")
+}
+
+func releasePlanWorkflowInputArrayKeyByVariable(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "key")
+}
+
+func releasePlanWorkflowInputArrayKeyByServiceBuild(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "image_name", "build_name", "name")
+}
+
+func releasePlanWorkflowInputArrayKeyByScanning(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "name", "project_name")
+}
+
+func releasePlanWorkflowInputArrayKeyByNacosData(item interface{}) (string, bool) {
+	return releasePlanWorkflowInputArrayKeyByFields(item, "namespace_id", "group", "data_id")
+}
+
+func releasePlanWorkflowInputArrayKeyByFields(item interface{}, keys ...string) (string, bool) {
+	value, ok := getMapField(item)
+	if !ok {
+		return "", false
+	}
+
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		part, exists := getStringField(value, key)
+		if exists {
+			parts = append(parts, part)
+			continue
+		}
+		if number, exists := getNumberFieldString(value, key); exists {
+			parts = append(parts, number)
+			continue
+		}
+		parts = append(parts, "")
+	}
+
+	// Keep empty placeholders so keys from heterogeneous-but-compatible items
+	// still compare in a consistent field order.
+	if strings.TrimSpace(strings.Join(parts, "")) == "" {
+		return "", false
+	}
+	return strings.Join(parts, "|"), true
+}
+
+func joinReleasePlanWorkflowInputPath(base, key string) string {
+	if key == "" {
+		return base
+	}
+	if base == "" {
+		return key
+	}
+	return base + "." + key
 }
 
 func shouldDropReleasePlanWorkflowInputField(key string) bool {
