@@ -319,6 +319,7 @@ func shouldDropReleasePlanApprovalInputField(key string) bool {
 		"operation_time":        {},
 		"comment":               {},
 		"approval_node_details": {},
+		"flat_approve_users":    {},
 	}
 	_, exists := dropKeys[key]
 	return exists
