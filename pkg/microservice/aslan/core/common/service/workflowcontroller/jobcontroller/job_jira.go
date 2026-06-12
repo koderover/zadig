@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -76,6 +77,36 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 
 	client := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType)
 	for _, issue := range c.jobTaskSpec.Issues {
+		if issue == nil || strings.TrimSpace(issue.Key) == "" {
+			continue
+		}
+		targetStatus := strings.TrimSpace(issue.TargetStatus)
+		if targetStatus == "" {
+			targetStatus = strings.TrimSpace(c.jobTaskSpec.TargetStatus)
+		}
+		if targetStatus == "" {
+			issue.Status = string(config.StatusPassed)
+			continue
+		}
+
+		currentStatus := strings.TrimSpace(issue.CurrentStatus)
+		if currentStatus == "" {
+			jiraIssue, err := client.Issue.GetByKeyOrID(issue.Key, "status")
+			if err != nil {
+				logError(c.job, fmt.Sprintf("Get issue %s status error: %v", issue.Key, err), c.logger)
+				issue.Status = string(config.StatusFailed)
+				return
+			}
+			if jiraIssue != nil && jiraIssue.Fields != nil && jiraIssue.Fields.Status != nil {
+				currentStatus = jiraIssue.Fields.Status.Name
+				issue.CurrentStatus = currentStatus
+			}
+		}
+		if currentStatus == targetStatus {
+			issue.Status = string(config.StatusPassed)
+			continue
+		}
+
 		list, err := client.Issue.GetTransitions(issue.Key)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("GetTransitions issue %s error: %v", issue.Key, err), c.logger)
@@ -84,13 +115,13 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		}
 		var id string
 		for _, transition := range list {
-			if transition.To.Name == c.jobTaskSpec.TargetStatus {
+			if transition.To.Name == targetStatus {
 				id = transition.ID
 				break
 			}
 		}
 		if id == "" {
-			logError(c.job, fmt.Sprintf("Issue %s failed to find status %s transition id", issue.Key, c.jobTaskSpec.TargetStatus), c.logger)
+			logError(c.job, fmt.Sprintf("Issue %s failed to find status %s transition id", issue.Key, targetStatus), c.logger)
 			issue.Status = string(config.StatusFailed)
 			return
 		}

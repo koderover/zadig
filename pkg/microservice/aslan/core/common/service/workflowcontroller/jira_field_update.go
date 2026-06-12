@@ -51,7 +51,7 @@ func updateJiraFieldsForWorkflowTask(task *commonmodels.WorkflowTask, logger *za
 				logger.Errorf("failed to convert jira job spec for job %s: %v", job.Name, err)
 				continue
 			}
-			if len(jobTaskSpec.FieldMappings) == 0 || len(jobTaskSpec.Issues) == 0 {
+			if len(jobTaskSpec.Issues) == 0 || len(jobTaskSpec.FieldMappings) == 0 {
 				continue
 			}
 
@@ -177,11 +177,12 @@ func workflowURL(task *commonmodels.WorkflowTask) string {
 	)
 }
 
-func workflowURL(task *commonmodels.WorkflowTask) string {
-	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s",
+func workflowTaskURL(task *commonmodels.WorkflowTask) string {
+	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		task.ProjectName,
 		task.WorkflowName,
+		task.TaskID,
 		url.QueryEscape(workflowDisplayName(task)),
 	)
 }
