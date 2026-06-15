@@ -446,10 +446,7 @@ func GetJiraIssueStatus(id, issueKey string) (*JiraIssueStatusResp, error) {
 }
 
 type JiraIssueTransitionResp struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	TargetStatusID   string `json:"target_status_id"`
-	TargetStatusName string `json:"target_status_name"`
+	Name string `json:"name"`
 }
 
 func ListJiraIssueTransitions(id, issueKey string) ([]*JiraIssueTransitionResp, error) {
@@ -469,10 +466,7 @@ func ListJiraIssueTransitions(id, issueKey string) ([]*JiraIssueTransitionResp, 
 			continue
 		}
 		resp = append(resp, &JiraIssueTransitionResp{
-			ID:               transition.ID,
-			Name:             transition.Name,
-			TargetStatusID:   transition.To.ID,
-			TargetStatusName: transition.To.Name,
+			Name: transition.To.Name,
 		})
 	}
 	return resp, nil
