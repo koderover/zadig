@@ -374,7 +374,9 @@ func resolveReleasePlanLogBaseSnapshot(baseSnapshot interface{}, originalPlan *m
 }
 
 func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bool {
-	return !releasePlanSnapshotValuesEqual(beforeSnapshot, afterSnapshot)
+	beforeComparable := normalizeReleasePlanSnapshotComparableValue("", beforeSnapshot)
+	afterComparable := normalizeReleasePlanSnapshotComparableValue("", afterSnapshot)
+	return !releasePlanSnapshotValuesEqual(beforeComparable, afterComparable)
 }
 
 func releasePlanSnapshotValuesEqual(left, right interface{}) bool {
