@@ -31,7 +31,6 @@ import (
 )
 
 const (
-	jiraFieldValueSourceTaskStatus  = "task_status"
 	jiraFieldValueSourceWorkflowURL = "workflow_url"
 )
 
@@ -145,8 +144,6 @@ func buildJiraIssueFields(task *commonmodels.WorkflowTask, mappings []*commonmod
 
 func jiraFieldValue(task *commonmodels.WorkflowTask, valueSource string) (string, bool) {
 	switch valueSource {
-	case jiraFieldValueSourceTaskStatus:
-		return workflowTaskStatusText(task.Status), true
 	case jiraFieldValueSourceWorkflowURL:
 		return workflowURL(task), true
 	default:
@@ -198,10 +195,10 @@ func workflowTaskURL(task *commonmodels.WorkflowTask) string {
 }
 
 func buildJiraWorkflowTaskComment(task *commonmodels.WorkflowTask, issue *commonmodels.IssueID) string {
-	return fmt.Sprintf("在 Jira 状态「%s」下执行 Zadig 工作流「%s」，执行结果：%s。任务链接：%s",
+	return fmt.Sprintf("JIRA 状态：%s\n[%s]工作流：%s\n任务链接：%s",
 		jiraIssueStatusForComment(issue),
-		workflowDisplayName(task),
 		workflowTaskStatusText(task.Status),
+		workflowDisplayName(task),
 		workflowTaskURL(task),
 	)
 }
@@ -210,13 +207,7 @@ func jiraIssueStatusForComment(issue *commonmodels.IssueID) string {
 	if issue == nil {
 		return ""
 	}
-	if issue.CurrentStatus != "" {
-		return issue.CurrentStatus
-	}
-	if issue.TargetStatus != "" {
-		return issue.TargetStatus
-	}
-	return ""
+	return issue.CurrentStatus
 }
 
 func fillJiraIssueCurrentStatus(issue *commonmodels.IssueID, client *jira.Client, logger *zap.SugaredLogger) {

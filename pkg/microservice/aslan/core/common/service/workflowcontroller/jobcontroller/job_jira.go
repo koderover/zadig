@@ -88,18 +88,17 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 			continue
 		}
 
-		currentStatus := issue.CurrentStatus
-		if currentStatus == "" {
-			jiraIssue, err := client.Issue.GetByKeyOrID(issue.Key, "status")
-			if err != nil {
-				logError(c.job, fmt.Sprintf("Get issue %s status error: %v", issue.Key, err), c.logger)
-				issue.Status = string(config.StatusFailed)
-				return
-			}
-			if jiraIssue != nil && jiraIssue.Fields != nil && jiraIssue.Fields.Status != nil {
-				currentStatus = jiraIssue.Fields.Status.Name
-				issue.CurrentStatus = currentStatus
-			}
+		jiraIssue, err := client.Issue.GetByKeyOrID(issue.Key, "status")
+		if err != nil {
+			logError(c.job, fmt.Sprintf("Get issue %s status error: %v", issue.Key, err), c.logger)
+			issue.Status = string(config.StatusFailed)
+			return
+		}
+
+		currentStatus := ""
+		if jiraIssue != nil && jiraIssue.Fields != nil && jiraIssue.Fields.Status != nil {
+			currentStatus = jiraIssue.Fields.Status.Name
+			issue.CurrentStatus = currentStatus
 		}
 		if currentStatus == targetStatus {
 			issue.Status = string(config.StatusPassed)
