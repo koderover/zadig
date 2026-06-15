@@ -157,7 +157,12 @@ func (gtem giteeTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		hookRepo.Tag = getTagFromRef(ev.Ref)
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookRepo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		hookRepo.Committer = ev.Sender.Name
 
 		return true, nil
