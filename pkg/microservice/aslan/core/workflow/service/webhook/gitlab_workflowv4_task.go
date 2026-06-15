@@ -255,8 +255,13 @@ func (gtem gitlabTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 		return false, nil
 	}
 
+	tag := getTagFromRef(ev.Ref)
+	if !MatchTag(hookRepo, tag) {
+		return false, nil
+	}
+
 	hookRepo.Committer = ev.UserName
-	hookRepo.Tag = getTagFromRef(ev.Ref)
+	hookRepo.Tag = tag
 
 	return true, nil
 }

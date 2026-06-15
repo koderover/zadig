@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -33,6 +32,7 @@ import (
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -167,7 +167,12 @@ func (gtem githubTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 		return false, nil
 	}
 
-	hookRepo.Tag = getTagFromRef(*ev.Ref)
+	tag := getTagFromRef(*ev.Ref)
+	if !MatchTag(hookRepo, tag) {
+		return false, nil
+	}
+
+	hookRepo.Tag = tag
 	if ev.Sender.Name != nil {
 		hookRepo.Committer = *ev.Sender.Name
 	}

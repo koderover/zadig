@@ -95,6 +95,7 @@ type MainHookRepo struct {
 	Label         string                 `bson:"label"                     json:"label"`
 	Revision      string                 `bson:"revision"                  json:"revision"`
 	IsRegular     bool                   `bson:"is_regular"                json:"is_regular"`
+	TagIsRegular  bool                   `bson:"tag_is_regular"            json:"tag_is_regular"`
 }
 
 func (m *MainHookRepo) GetRepoNamespace() string {

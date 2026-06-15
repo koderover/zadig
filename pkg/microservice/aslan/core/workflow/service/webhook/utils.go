@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -501,6 +502,19 @@ func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 		}
 	}
 	return false
+}
+
+func MatchTag(m *commonmodels.MainHookRepo, tag string) bool {
+	if m.Tag == "" {
+		return true
+	}
+
+	if !m.TagIsRegular {
+		return m.Tag == tag
+	}
+
+	matched, err := regexp.MatchString(m.Tag, tag)
+	return err == nil && matched
 }
 
 func ConvertScanningHookToMainHookRepo(hook *commonmodels.ScanningHook) *commonmodels.MainHookRepo {
