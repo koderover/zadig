@@ -5,12 +5,15 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
+	cache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonoptions"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -24,6 +27,12 @@ const (
 	releasePlanVersionSectionApproval  = "approval"
 	releasePlanVersionSectionJobsOrder = "jobs_order"
 	releasePlanVersionSectionJobPrefix = "job:"
+
+	// Keep this cache window short: it only exists to collapse bursty lookups for the same workflow
+	// while avoiding stale data lingering after a real workflow change.
+	releasePlanWorkflowLatestSnapshotCacheTTL = 3 * time.Second
+	// Use a non-printable separator so cache keys stay unambiguous even if names contain common delimiters.
+	releasePlanWorkflowLatestSnapshotCacheKeySeparator = "\x00"
 )
 
 var releasePlanWorkflowControllerBSONRegistry = func() *bsoncodec.Registry {
@@ -31,6 +40,40 @@ var releasePlanWorkflowControllerBSONRegistry = func() *bsoncodec.Registry {
 	tM := reflect.TypeOf(bson.M{})
 	return bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).RegisterDefaultEncoder(reflect.Slice, nilSliceCodec).Build()
 }()
+
+var (
+	releasePlanWorkflowLatestSnapshotGroup         singleflight.Group
+	releasePlanWorkflowLatestSnapshotCacheTTLValue = releasePlanWorkflowLatestSnapshotCacheTTL
+	releasePlanWorkflowLatestSnapshotCache         = cache.New(releasePlanWorkflowLatestSnapshotCacheTTLValue, releasePlanWorkflowLatestSnapshotCacheTTLValue)
+	releasePlanWorkflowLatestSnapshotLoader        = lookupReleasePlanWorkflowLatestSnapshot
+
+	errReleasePlanWorkflowLatestSnapshotUnavailable = errors.New("release plan workflow latest snapshot unavailable")
+
+	releasePlanWorkflowSnapshotTopLevelFields = []string{
+		"id",
+		"name",
+		"display_name",
+		"disabled",
+		"category",
+		"project",
+		"remark",
+		"remark_required",
+		"ignore_cache",
+		"share_storages",
+		"concurrency_limit",
+	}
+	releasePlanWorkflowSnapshotStageDisplayFields  = []string{"name", "parallel", "approval", "manual_exec"}
+	releasePlanWorkflowSnapshotStageRequiredFields = []string{"parallel", "approval", "manual_exec"}
+	releasePlanWorkflowSnapshotJobDisplayFields    = []string{"name", "type", "skipped", "run_policy", "error_policy", "execute_policy"}
+	releasePlanWorkflowSnapshotJobRequiredFields   = []string{"run_policy", "error_policy", "execute_policy"}
+	// Keep this list minimal. It only gates whether we must pay the cost of loading the latest
+	// workflow snapshot, so we require fields that materially affect display completeness.
+	// `project` is intentionally optional here for historical compatibility and to avoid
+	// unnecessary latest-workflow lookups on older snapshots.
+	releasePlanWorkflowSnapshotTopLevelRequiredFields = []string{"name"}
+	releasePlanWorkflowLegacyNameKeys                 = []string{"workflowName", "workflow_name"}
+	releasePlanWorkflowLegacyProjectKeys              = []string{"projectName", "project_name"}
+)
 
 func isReleasePlanVersionMetadataSection(sectionKey string) bool {
 	return sectionKey == releasePlanVersionSectionMetadata || strings.HasPrefix(sectionKey, releasePlanVersionSectionMetadata+":")
@@ -401,11 +444,127 @@ func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interf
 }
 
 func buildReleasePlanWorkflowVersionSnapshot(spec, rawWorkflow interface{}) (interface{}, error) {
-	if workflow, ok := enrichReleasePlanWorkflowWithLatest(spec); ok {
-		return buildReleasePlanWorkflowInputSnapshot(workflow)
+	rawSnapshot, err := buildReleasePlanWorkflowInputSnapshot(rawWorkflow)
+	if err != nil {
+		return nil, err
 	}
 
-	return buildReleasePlanWorkflowInputSnapshot(rawWorkflow)
+	if isCompleteReleasePlanWorkflowSnapshot(rawSnapshot) {
+		return rawSnapshot, nil
+	}
+
+	if latestSnapshot, ok := loadReleasePlanWorkflowLatestSnapshotWithCache(spec); ok {
+		return latestSnapshot, nil
+	}
+
+	return rawSnapshot, nil
+}
+
+func loadReleasePlanWorkflowLatestSnapshotWithCache(spec interface{}) (_ interface{}, ok bool) {
+	cacheKey, cacheable := releasePlanWorkflowLatestSnapshotCacheKey(spec)
+	if !cacheable {
+		return releasePlanWorkflowLatestSnapshotLoader(spec)
+	}
+
+	if snapshot, exists := getReleasePlanWorkflowLatestSnapshotCache(cacheKey); exists {
+		return snapshot, true
+	}
+
+	// Convert the loader's (snapshot, ok) contract into singleflight's (value, error) contract
+	// so all concurrent callers can derive the final bool from the shared error result.
+	value, err, _ := releasePlanWorkflowLatestSnapshotGroup.Do(cacheKey, func() (interface{}, error) {
+		if snapshot, exists := getReleasePlanWorkflowLatestSnapshotCache(cacheKey); exists {
+			return snapshot, nil
+		}
+
+		snapshot, ok := releasePlanWorkflowLatestSnapshotLoader(spec)
+		if !ok {
+			return nil, errReleasePlanWorkflowLatestSnapshotUnavailable
+		}
+
+		setReleasePlanWorkflowLatestSnapshotCache(cacheKey, snapshot)
+		return snapshot, nil
+	})
+	if err != nil {
+		return nil, false
+	}
+	return value, true
+}
+
+func lookupReleasePlanWorkflowLatestSnapshot(spec interface{}) (_ interface{}, ok bool) {
+	workflow, ok := enrichReleasePlanWorkflowWithLatest(spec)
+	if !ok {
+		return nil, false
+	}
+
+	snapshot, err := buildReleasePlanWorkflowInputSnapshot(workflow)
+	if err != nil {
+		return nil, false
+	}
+	return snapshot, true
+}
+
+func releasePlanWorkflowLatestSnapshotCacheKey(spec interface{}) (string, bool) {
+	projectName, workflowName, ok := releasePlanWorkflowLatestSnapshotIdentity(spec)
+	if !ok {
+		return "", false
+	}
+
+	return joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName), true
+}
+
+func releasePlanWorkflowLatestSnapshotIdentity(spec interface{}) (projectName, workflowName string, ok bool) {
+	specMap, ok := getMapField(spec)
+	if !ok {
+		return "", "", false
+	}
+
+	workflowMap := releasePlanWorkflowLatestSnapshotLookupMap(specMap)
+	workflowName = firstReleasePlanWorkflowLookupString(workflowMap, "name")
+	if workflowName == "" {
+		workflowName = firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyNameKeys...)
+	}
+	if workflowName == "" {
+		return "", "", false
+	}
+
+	projectName = firstReleasePlanWorkflowLookupString(workflowMap, "project")
+	if projectName == "" {
+		projectName = firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyProjectKeys...)
+	}
+	return projectName, workflowName, true
+}
+
+func releasePlanWorkflowLatestSnapshotLookupMap(specMap map[string]interface{}) map[string]interface{} {
+	workflowMap, _ := getMapField(specMap["workflow"])
+	return workflowMap
+}
+
+func joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName string) string {
+	return projectName + releasePlanWorkflowLatestSnapshotCacheKeySeparator + workflowName
+}
+
+func getReleasePlanWorkflowLatestSnapshotCache(cacheKey string) (_ interface{}, ok bool) {
+	if cacheKey == "" {
+		return nil, false
+	}
+
+	value, exists := releasePlanWorkflowLatestSnapshotCache.Get(cacheKey)
+	if !exists {
+		return nil, false
+	}
+	return value, true
+}
+
+func setReleasePlanWorkflowLatestSnapshotCache(cacheKey string, snapshot interface{}) {
+	if cacheKey == "" || snapshot == nil {
+		return
+	}
+	releasePlanWorkflowLatestSnapshotCache.Set(cacheKey, snapshot, releasePlanWorkflowLatestSnapshotCacheTTLValue)
+}
+
+func resetReleasePlanWorkflowLatestSnapshotCache() {
+	releasePlanWorkflowLatestSnapshotCache.Flush()
 }
 
 func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bool) {
@@ -438,6 +597,138 @@ func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bo
 	return workflowController.WorkflowV4, true
 }
 
+func isCompleteReleasePlanWorkflowSnapshot(snapshot interface{}) bool {
+	workflowMap, ok := getMapField(snapshot)
+	if !ok {
+		return false
+	}
+
+	workflowID, _ := getStringField(workflowMap, "id")
+	if workflowID == "" || workflowID == "000000000000000000000000" {
+		return false
+	}
+	if !hasReleasePlanWorkflowSnapshotStringFields(workflowMap, releasePlanWorkflowSnapshotTopLevelRequiredFields...) {
+		return false
+	}
+
+	if !hasReleasePlanWorkflowSnapshotStageFields(workflowMap["stages"]) {
+		return false
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotStageFields(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+
+	stages, ok := value.([]interface{})
+	if !ok {
+		return false
+	}
+	for _, stage := range stages {
+		stageMap, ok := getMapField(stage)
+		if !ok {
+			return false
+		}
+		if !hasReleasePlanWorkflowSnapshotFields(stageMap, releasePlanWorkflowSnapshotStageRequiredFields...) {
+			return false
+		}
+		if !hasReleasePlanWorkflowSnapshotJobFields(stageMap["jobs"]) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotJobFields(value interface{}) bool {
+	jobs, ok := value.([]interface{})
+	if !ok {
+		return false
+	}
+	for _, job := range jobs {
+		jobMap, ok := getMapField(job)
+		if !ok {
+			return false
+		}
+		if !hasReleasePlanWorkflowSnapshotFields(jobMap, releasePlanWorkflowSnapshotJobRequiredFields...) {
+			return false
+		}
+		if !hasReleasePlanWorkflowSnapshotJobSpecFields(jobMap) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotJobSpecFields(job map[string]interface{}) bool {
+	if job == nil {
+		return false
+	}
+
+	jobType, _ := getStringField(job, "type")
+	spec, _ := getMapField(job["spec"])
+	switch config.JobType(jobType) {
+	case config.JobZadigBuild:
+		if hasReleasePlanWorkflowSnapshotKey(spec, "service_and_builds") {
+			return hasReleasePlanWorkflowSnapshotKey(spec, "default_service_and_builds") &&
+				hasReleasePlanWorkflowSnapshotKey(spec, "service_and_builds_options")
+		}
+	case config.JobZadigScanning:
+		if hasReleasePlanWorkflowSnapshotKey(spec, "scannings") {
+			return hasReleasePlanWorkflowSnapshotKey(spec, "scanning_options")
+		}
+	case config.JobZadigDeploy:
+		if env, ok := getStringField(spec, "env"); ok && env != "" {
+			return hasReleasePlanWorkflowSnapshotKey(spec, "env_options")
+		}
+		if hasReleasePlanWorkflowSnapshotKey(spec, "services") {
+			return true
+		}
+	case config.JobNacos:
+		if hasReleasePlanWorkflowSnapshotKey(spec, "configSource") {
+			return hasReleasePlanWorkflowSnapshotKey(spec, "nacos_filtered_data")
+		}
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotKey(spec map[string]interface{}, key string) bool {
+	if spec == nil {
+		return false
+	}
+	value, exists := spec[key]
+	if !exists {
+		return false
+	}
+	if value == nil {
+		return false
+	}
+	if items, ok := value.([]interface{}); ok {
+		return len(items) > 0
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotFields(value map[string]interface{}, keys ...string) bool {
+	for _, key := range keys {
+		if _, exists := value[key]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+func hasReleasePlanWorkflowSnapshotStringFields(value map[string]interface{}, keys ...string) bool {
+	for _, key := range keys {
+		fieldValue, ok := getStringField(value, key)
+		if !ok || fieldValue == "" {
+			return false
+		}
+	}
+	return true
+}
+
 func applyReleasePlanWorkflowLatestLookupCompat(spec interface{}, workflowSpec *models.WorkflowReleaseJobSpec) {
 	if workflowSpec == nil {
 		return
@@ -448,8 +739,8 @@ func applyReleasePlanWorkflowLatestLookupCompat(spec interface{}, workflowSpec *
 		return
 	}
 
-	workflowName := firstReleasePlanWorkflowLookupString(specMap, "workflowName", "workflow_name")
-	projectName := firstReleasePlanWorkflowLookupString(specMap, "projectName", "project_name")
+	workflowName := firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyNameKeys...)
+	projectName := firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyProjectKeys...)
 	if workflowSpec.Workflow == nil {
 		if workflowName == "" && projectName == "" {
 			return
@@ -517,19 +808,7 @@ func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, e
 	}
 
 	resp := make(map[string]interface{})
-	for _, key := range []string{
-		"id",
-		"name",
-		"display_name",
-		"disabled",
-		"category",
-		"project",
-		"remark",
-		"remark_required",
-		"ignore_cache",
-		"share_storages",
-		"concurrency_limit",
-	} {
+	for _, key := range releasePlanWorkflowSnapshotTopLevelFields {
 		if value, exists := workflowMap[key]; exists {
 			resp[key] = value
 		}
@@ -548,7 +827,7 @@ func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, e
 	if jobs, exists := workflowMap["jobs"]; exists {
 		resp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot("jobs", jobs)
 	}
-	return sanitizeReleasePlanValue(resp), nil
+	return sanitizeReleasePlanGenericValue("", resp), nil
 }
 
 func buildReleasePlanWorkflowStagesInputSnapshot(path string, value interface{}) interface{} {
@@ -564,7 +843,7 @@ func buildReleasePlanWorkflowStagesInputSnapshot(path string, value interface{})
 			continue
 		}
 		stageResp := make(map[string]interface{})
-		for _, key := range []string{"name", "parallel", "approval", "manual_exec"} {
+		for _, key := range releasePlanWorkflowSnapshotStageDisplayFields {
 			if value, exists := stageMap[key]; exists {
 				stageResp[key] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), value)
 			}
@@ -592,7 +871,7 @@ func buildReleasePlanWorkflowJobsInputSnapshot(path string, value interface{}) i
 			continue
 		}
 		jobResp := make(map[string]interface{})
-		for _, key := range []string{"name", "type", "skipped", "run_policy", "error_policy", "execute_policy"} {
+		for _, key := range releasePlanWorkflowSnapshotJobDisplayFields {
 			if item, exists := jobMap[key]; exists {
 				jobResp[key] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, key), item)
 			}
@@ -712,8 +991,9 @@ func stabilizeReleasePlanWorkflowInputArray(path string, items []interface{}) {
 
 func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interface{}) (string, bool)) {
 	type sortableItem struct {
-		item interface{}
-		key  string
+		item       interface{}
+		primaryKey string
+		tieBreak   string
 	}
 
 	sortableItems := make([]sortableItem, 0, len(items))
@@ -722,16 +1002,33 @@ func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interf
 		if !ok {
 			return
 		}
-		sortKey := primaryKey
-		if hash, err := hashReleasePlanSubtree(item); err == nil {
-			sortKey = primaryKey + "|" + hash
-		}
-		sortableItems = append(sortableItems, sortableItem{item: item, key: sortKey})
+		sortableItems = append(sortableItems, sortableItem{item: item, primaryKey: primaryKey})
 	}
 
 	sort.SliceStable(sortableItems, func(i, j int) bool {
-		return sortableItems[i].key < sortableItems[j].key
+		return sortableItems[i].primaryKey < sortableItems[j].primaryKey
 	})
+	for start := 0; start < len(sortableItems); {
+		end := start + 1
+		for end < len(sortableItems) && sortableItems[end].primaryKey == sortableItems[start].primaryKey {
+			end++
+		}
+		if end-start > 1 {
+			for i := start; i < end; i++ {
+				hash, err := hashReleasePlanSubtree(sortableItems[i].item)
+				if err != nil {
+					// Keep the caller's original order intact if we cannot build a stable tie-break key.
+					// We return before copying sortableItems back into items, so no partial normalized state leaks out.
+					return
+				}
+				sortableItems[i].tieBreak = hash
+			}
+			sort.SliceStable(sortableItems[start:end], func(i, j int) bool {
+				return sortableItems[start+i].tieBreak < sortableItems[start+j].tieBreak
+			})
+		}
+		start = end
+	}
 	for i := range sortableItems {
 		items[i] = sortableItems[i].item
 	}
