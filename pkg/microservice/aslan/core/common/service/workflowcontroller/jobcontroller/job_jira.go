@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -77,19 +76,19 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 
 	client := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType)
 	for _, issue := range c.jobTaskSpec.Issues {
-		if issue == nil || strings.TrimSpace(issue.Key) == "" {
+		if issue == nil || issue.Key == "" {
 			continue
 		}
-		targetStatus := strings.TrimSpace(issue.TargetStatus)
+		targetStatus := issue.TargetStatus
 		if targetStatus == "" {
-			targetStatus = strings.TrimSpace(c.jobTaskSpec.TargetStatus)
+			targetStatus = c.jobTaskSpec.TargetStatus
 		}
 		if targetStatus == "" {
 			issue.Status = string(config.StatusPassed)
 			continue
 		}
 
-		currentStatus := strings.TrimSpace(issue.CurrentStatus)
+		currentStatus := issue.CurrentStatus
 		if currentStatus == "" {
 			jiraIssue, err := client.Issue.GetByKeyOrID(issue.Key, "status")
 			if err != nil {
