@@ -19,7 +19,7 @@ RUN --mount=type=cache,id=gobuild,target=/gocache \
 RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /jobexecutor ./cmd/jobexecutor/main.go
 
-FROM alpine:3.18.0
+FROM alpine:3.20
 
 WORKDIR /app
 

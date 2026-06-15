@@ -17,7 +17,7 @@ RUN go mod download
 RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /user ./cmd/user/main.go
 
-FROM alpine/git:v2.36.3
+FROM alpine/git:v2.54.0
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
