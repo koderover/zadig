@@ -1293,6 +1293,9 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	task.Status = config.StatusCreated
 	task.EndTime = 0
 	task.Error = ""
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
 
 	if err := runtimeWorkflowController.UpdateTask(task); err != nil {
 		log.Errorf("manual execute workflow task error: %v", err)
