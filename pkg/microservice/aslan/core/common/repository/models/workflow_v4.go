@@ -1264,56 +1264,51 @@ func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 	return nil
 }
 
-type DynamicRecipient struct {
-	Value        string `bson:"value"         json:"value"          yaml:"value"`
-	IdentityType string `bson:"identity_type" json:"identity_type"  yaml:"identity_type"`
-}
-
 // TODO: why is_at_all? it could be done in backend
 type LarkGroupNotificationConfig struct {
-	AppID             string              `bson:"app_id"              json:"app_id"              yaml:"app_id"`
-	Chat              *LarkChat           `bson:"chat"                json:"chat"                yaml:"chat"`
-	AtUsers           []*lark.UserInfo    `bson:"at_users"            json:"at_users"            yaml:"at_users"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
-	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
+	AppID             string            `bson:"app_id"              json:"app_id"              yaml:"app_id"`
+	Chat              *LarkChat         `bson:"chat"                json:"chat"                yaml:"chat"`
+	AtUsers           []*lark.UserInfo  `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool              `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type LarkPersonNotificationConfig struct {
-	AppID             string              `bson:"app_id"              json:"app_id"              yaml:"app_id"`
-	TargetUsers       []*lark.UserInfo    `bson:"target_users"        json:"target_users"        yaml:"target_users"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	AppID             string            `bson:"app_id"              json:"app_id"              yaml:"app_id"`
+	TargetUsers       []*lark.UserInfo  `bson:"target_users"        json:"target_users"        yaml:"target_users"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type LarkHookNotificationConfig struct {
-	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
-	AtUsers           []string            `bson:"at_users"            json:"at_users"            yaml:"at_users"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
-	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
+	HookAddress       string            `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtUsers           []string          `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool              `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type WechatNotificationConfig struct {
-	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
-	AtUsers           []string            `bson:"at_users"            json:"at_users"            yaml:"at_users"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
-	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
+	HookAddress       string            `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtUsers           []string          `bson:"at_users"            json:"at_users"            yaml:"at_users"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool              `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type DingDingNotificationConfig struct {
-	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
-	AtMobiles         []string            `bson:"at_mobiles"          json:"at_mobiles"          yaml:"at_mobiles"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
-	IsAtAll           bool                `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
+	HookAddress       string            `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtMobiles         []string          `bson:"at_mobiles"          json:"at_mobiles"          yaml:"at_mobiles"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	IsAtAll           bool              `bson:"is_at_all"           json:"is_at_all"           yaml:"is_at_all"`
 }
 
 type MSTeamsNotificationConfig struct {
-	HookAddress       string              `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
-	AtEmails          []string            `bson:"at_emails"          json:"at_emails"           yaml:"at_emails"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients" json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	HookAddress       string            `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
+	AtEmails          []string          `bson:"at_emails"          json:"at_emails"           yaml:"at_emails"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients" json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type MailNotificationConfig struct {
-	TargetUsers       []*User             `bson:"target_users"        json:"target_users"        yaml:"target_users"`
-	DynamicRecipients []*DynamicRecipient `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
+	TargetUsers       []*User           `bson:"target_users"        json:"target_users"        yaml:"target_users"`
+	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
 }
 
 type WebhookNotificationConfig struct {
