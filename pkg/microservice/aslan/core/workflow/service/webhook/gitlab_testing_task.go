@@ -122,6 +122,7 @@ func (gmem *gitlabTagEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 		Source:        hookRepo.Source,
 	}
 }
@@ -147,6 +148,13 @@ func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHoo
 		}
 	}
 	hookRepo.Branch = ev.Project.DefaultBranch
+
+	tag := getTagFromRef(ev.Ref)
+	if !MatchTag(hookRepo, tag) {
+		return false, nil
+	}
+
+	hookRepo.Tag = tag
 	return true, nil
 }
 

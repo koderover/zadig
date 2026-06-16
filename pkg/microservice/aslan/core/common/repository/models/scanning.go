@@ -87,9 +87,11 @@ type ScanningHook struct {
 	RepoOwner    string                 `bson:"repo_owner"    json:"repo_owner"`
 	RepoName     string                 `bson:"repo_name"     json:"repo_name"`
 	Branch       string                 `bson:"branch"        json:"branch"`
+	Tag          string                 `bson:"tag"           json:"tag"`
 	Events       []config.HookEventType `bson:"events"        json:"events"`
 	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
 	IsRegular    bool                   `bson:"is_regular"    json:"is_regular"`
+	TagIsRegular bool                   `bson:"tag_is_regular" json:"tag_is_regular"`
 	IsManual     bool                   `bson:"is_manual"     json:"is_manual"`
 	AutoCancel   bool                   `bson:"auto_cancel"   json:"auto_cancel"`
 }

@@ -148,6 +148,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 							RepoOwner:  scanningRepo.RepoOwner,
 							RepoName:   scanningRepo.RepoName,
 							Branch:     scanningRepo.Branch,
+							Tag:        scanningRepo.Tag,
 						})
 					}
 
@@ -157,6 +158,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						RepoOwner:  item.RepoOwner,
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
+						Tag:        item.Tag,
 					}
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
@@ -341,6 +343,7 @@ func (gmem *gitlabTagEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 		Source:        hookRepo.Source,
 	}
 }
@@ -354,6 +357,13 @@ func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *commonmodels.Scann
 		}
 
 		hookRepo.Branch = ev.Project.DefaultBranch
+
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookInfo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		return true, nil
 	}
 

@@ -250,6 +250,12 @@ func (gtem githubTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHoo
 	}
 	hookRepo.Branch = *ev.Repo.DefaultBranch
 
+	tag := getTagFromRef(*ev.Ref)
+	if !MatchTag(hookRepo, tag) {
+		return false, nil
+	}
+
+	hookRepo.Tag = tag
 	return true, nil
 }
 
