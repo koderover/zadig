@@ -376,6 +376,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
 					CommitMessage:  ev.ObjectAttributes.Title,
 					Committer:      ev.User.Username,
 					CodehostID:     eventRepo.CodehostID,
@@ -397,6 +398,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					Ref:           ref,
 					IsPr:          false,
 					CommitID:      commitID,
+					CommitSHA:     commitID,
 					CommitMessage: eventRepo.CommitMessage,
 					Committer:     eventRepo.Committer,
 					CodehostID:    eventRepo.CodehostID,
@@ -406,11 +408,11 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 			case *gitlab.TagEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					Branch:        eventRepo.Branch,
-					TargetBranch:  eventRepo.TargetBranch,
-					Committer:     eventRepo.Committer,
-					EventType:     eventType,
-					RawPayload:    rawPayload,
+					Branch:       eventRepo.Branch,
+					TargetBranch: eventRepo.TargetBranch,
+					Committer:    eventRepo.Committer,
+					EventType:    eventType,
+					RawPayload:   rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {
