@@ -103,7 +103,7 @@ func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*c
 		return nil
 	}
 
-	resp := make([]*commonmodels.KeyVal, 0, 7)
+	resp := make([]*commonmodels.KeyVal, 0, 8)
 	appendIfNotEmpty := func(key, value string) {
 		if value == "" {
 			return
@@ -115,6 +115,7 @@ func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*c
 	appendIfNotEmpty("workflow.trigger.target_branch", hookPayload.TargetBranch)
 	appendIfNotEmpty("workflow.trigger.pr", hookPayload.MergeRequestID)
 	appendIfNotEmpty("workflow.trigger.commit_id", hookPayload.CommitID)
+	appendIfNotEmpty("workflow.trigger.commit_sha", hookPayload.CommitSHA)
 	appendIfNotEmpty("workflow.trigger.commit_message", hookPayload.CommitMessage)
 	appendIfNotEmpty("workflow.trigger.committer", hookPayload.Committer)
 	appendIfNotEmpty("workflow.trigger.event", hookPayload.EventType)
