@@ -21,8 +21,8 @@ type User struct {
 	UID             string `gorm:"primary" json:"uid"`
 	Name            string `json:"name"`
 	IdentityType    string `gorm:"default:'unknown'" json:"identity_type"`
-	Email           string `json:"email"`
-	Phone           string `json:"phone"`
+	Email           string `gorm:"index:idx_email" json:"email"`
+	Phone           string `gorm:"index:idx_phone" json:"phone"`
 	Account         string `json:"account"`
 	APIToken        string `gorm:"api_token" json:"api_token"`
 	APITokenEnabled bool   `gorm:"column:api_token_enabled;default:0" json:"api_token_enabled"`
