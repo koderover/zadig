@@ -281,9 +281,12 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					Repo:           eventRepo.RepoName,
 					CodehostID:     item.MainRepo.CodehostID,
 					Branch:         eventRepo.Branch,
+					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitMessage:  ev.PullRequest.Title,
+					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
 					RawPayload:     rawPayload,
 				}
@@ -295,21 +298,27 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 				autoCancelOpt.CommitID = commitID
 				autoCancelOpt.Ref = ref
 				hookPayload = &commonmodels.HookPayload{
-					Owner:      eventRepo.RepoOwner,
-					Repo:       eventRepo.RepoName,
-					CodehostID: item.MainRepo.CodehostID,
-					Branch:     eventRepo.Branch,
-					Ref:        ref,
-					IsPr:       false,
-					CommitID:   commitID,
-					EventType:  eventType,
-					RawPayload: rawPayload,
+					Owner:         eventRepo.RepoOwner,
+					Repo:          eventRepo.RepoName,
+					CodehostID:    item.MainRepo.CodehostID,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Ref:           ref,
+					IsPr:          false,
+					CommitID:      commitID,
+					CommitMessage: eventRepo.CommitMessage,
+					Committer:     eventRepo.Committer,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType:  eventType,
-					RawPayload: rawPayload,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Committer:     eventRepo.Committer,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

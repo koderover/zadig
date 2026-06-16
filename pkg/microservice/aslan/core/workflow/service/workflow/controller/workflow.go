@@ -403,6 +403,14 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		resp = append(resp, newParam)
 	}
 	if w.HookPayload != nil {
+		for _, kv := range commonutil.BuildWorkflowTriggerVariableKVs(w.HookPayload) {
+			resp = append(resp, &commonmodels.Param{
+				Name:         kv.Key,
+				Value:        kv.Value,
+				ParamsType:   "string",
+				IsCredential: kv.IsCredential,
+			})
+		}
 		for _, kv := range commonutil.BuildPayloadVariables(w.HookPayload.RawPayload) {
 			resp = append(resp, &commonmodels.Param{
 				Name:         kv.Key,
@@ -528,6 +536,66 @@ func (w *Workflow) GetWorkflowParamDynamicValues(taskID int64, creator, account,
 	}
 
 	return nil, fmt.Errorf("workflow param %s not found", key)
+}
+
+func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*commonmodels.KeyVal {
+	resp := make([]*commonmodels.KeyVal, 0)
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator.id",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator.userId",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.is_release_plan_trigger",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.timestamp",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.datetime",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.id",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.url",
+		Value:        workflow.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.branch", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.target_branch", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.pr", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_id", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_message", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.committer", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.event", Type: "string", IsCredential: false})
+	return resp
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
@@ -815,61 +883,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 	})
 
 	if option.GetRuntimeVariables {
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator.id",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator.userId",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.is_release_plan_trigger",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.timestamp",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.datetime",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.id",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.url",
-			Value:        w.workflowID(),
-			Type:         "string",
-			IsCredential: false,
-		})
+		resp = append(resp, buildRuntimeReferableVariables(w.WorkflowV4)...)
 	}
 
 	for _, param := range w.Params {
