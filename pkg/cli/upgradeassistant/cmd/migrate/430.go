@@ -117,11 +117,17 @@ func V421ToV430() error {
 		updateMigrationError(migrationInfo.ID, err)
 	}()
 
-	// 这次迁移分三段：
+	// 这次迁移分四段：
 	// 1. MySQL: user 表新增 api_token_enabled
-	// 2. MySQL: permission action + role/template 绑定
-	// 3. Mongo: collaboration mode / instance verbs
+	// 2. MySQL: user 表新增 email/phone 索引
+	// 3. MySQL: permission action + role/template 绑定
+	// 4. Mongo: collaboration mode / instance verbs
 	err = migrateUserAPITokenEnabledColumn(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateUserContactIndexes(migrationInfo)
 	if err != nil {
 		return err
 	}
@@ -140,6 +146,29 @@ func V421ToV430() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// migrateUserContactIndexes adds indexes for dynamic notification recipient lookups.
+func migrateUserContactIndexes(migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration430UserContactIndexes {
+		if !repository.DB.Migrator().HasIndex(&usermodels.User{}, "idx_email") {
+			if err := repository.DB.Migrator().CreateIndex(&usermodels.User{}, "idx_email"); err != nil {
+				return fmt.Errorf("failed to add idx_email index for user table, err: %s", err)
+			}
+		}
+
+		if !repository.DB.Migrator().HasIndex(&usermodels.User{}, "idx_phone") {
+			if err := repository.DB.Migrator().CreateIndex(&usermodels.User{}, "idx_phone"); err != nil {
+				return fmt.Errorf("failed to add idx_phone index for user table, err: %s", err)
+			}
+		}
+	}
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration430UserContactIndexes): true,
+	})
 
 	return nil
 }
