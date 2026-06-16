@@ -127,6 +127,13 @@ func (gtem giteeTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHook
 			}
 		}
 		hookRepo.Branch = ev.Project.DefaultBranch
+
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookRepo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		return true, nil
 	}
 

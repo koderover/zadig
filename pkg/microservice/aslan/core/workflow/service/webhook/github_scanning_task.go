@@ -144,6 +144,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							RepoOwner:  scanningRepo.RepoOwner,
 							RepoName:   scanningRepo.RepoName,
 							Branch:     scanningRepo.Branch,
+							Tag:        scanningRepo.Tag,
 						})
 					}
 
@@ -153,6 +154,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						RepoOwner:  item.RepoOwner,
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
+						Tag:        item.Tag,
 						PR:         prID,
 					}
 
@@ -316,6 +318,12 @@ func (gtem githubTagEventMatcherForScanning) Match(hookRepo *commonmodels.Scanni
 
 		hookRepo.Branch = *ev.Repo.DefaultBranch
 
+		tag := getTagFromRef(*ev.Ref)
+		if !MatchTag(hookInfo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		return true, nil
 	}
 
