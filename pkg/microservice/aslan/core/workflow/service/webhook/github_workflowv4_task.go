@@ -283,12 +283,15 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					Owner:          *ev.Repo.Owner.Login,
 					Repo:           *ev.Repo.Name,
 					Branch:         *ev.PullRequest.Base.Ref,
+					TargetBranch:   *ev.PullRequest.Base.Ref,
 					Ref:            *ev.PullRequest.Head.SHA,
 					IsPr:           true,
 					CodehostID:     item.MainRepo.CodehostID,
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitMessage:  *ev.PullRequest.Title,
+					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
 					RawPayload:     rawPayload,
 				}
@@ -303,11 +306,15 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					hookPayload = &commonmodels.HookPayload{
 						Owner:      *ev.Repo.Owner.Login,
 						Repo:       *ev.Repo.Name,
+						Branch:     getBranchFromRef(ref),
+						TargetBranch: getBranchFromRef(ref),
 						Ref:        ref,
 						IsPr:       false,
 						CodehostID: item.MainRepo.CodehostID,
 						DeliveryID: deliveryID,
 						CommitID:   commitID,
+						CommitMessage: ev.GetHeadCommit().GetMessage(),
+						Committer:  ev.GetPusher().GetName(),
 						EventType:  eventType,
 						RawPayload: rawPayload,
 					}
@@ -315,8 +322,11 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 			case *github.CreateEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType:  eventType,
-					RawPayload: rawPayload,
+					Branch:        item.MainRepo.Branch,
+					TargetBranch:  item.MainRepo.Branch,
+					Committer:     item.MainRepo.Committer,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {
