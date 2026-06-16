@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -1502,7 +1503,7 @@ func GetJenkinsJobParams(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), c.Param("jobName"))
+	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), strings.TrimPrefix(c.Param("jobName"), "/"))
 	if err != nil {
 		ctx.RespErr = err
 		return
