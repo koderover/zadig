@@ -37,12 +37,6 @@ func ListDBInstance(c *gin.Context) {
 		return
 	}
 
-	encryptedKey := c.Query("encryptedKey")
-	if len(encryptedKey) == 0 {
-		ctx.RespErr = e.ErrInvalidParam
-		return
-	}
-
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.DBInstanceManagement.View {
@@ -51,7 +45,7 @@ func ListDBInstance(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = commonservice.ListDBInstances(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListDBInstances(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func ListDBInstanceInfo(c *gin.Context) {
@@ -161,7 +155,7 @@ func GetDBInstance(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = commonservice.FindDBInstance(id, "")
+	ctx.Resp, ctx.RespErr = commonservice.GetEncryptedDBInstance(id, c.Query("encryptedKey"), ctx.Logger)
 }
 
 func UpdateDBInstance(c *gin.Context) {

@@ -66,12 +66,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 func ListSystemCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	encryptedKey := c.Query("encryptedKey")
-	if len(encryptedKey) == 0 {
-		ctx.RespErr = e.ErrInvalidParam
-		return
-	}
-	ctx.Resp, ctx.RespErr = service.SystemList(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.SystemList(c.Query("encryptedKey"), c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func ListCodeHostInternal(c *gin.Context) {
@@ -123,7 +118,7 @@ func GetSystemCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEncryptedCodeHost(id, ignoreDelete, c.Query("encryptedKey"), ctx.Logger)
 }
 
 func AuthCodeHost(c *gin.Context) {

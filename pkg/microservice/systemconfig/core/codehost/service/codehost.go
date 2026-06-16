@@ -76,46 +76,151 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 }
 
 func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	if encryptedKey == "" {
+		for _, codeHost := range codeHosts {
+			maskCodeHostSecrets(codeHost)
+		}
+		return codeHosts, nil
+	}
+
 	aesKey, err := aslan.New(zadigconfig.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
 		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
 		return nil, err
 	}
+
+	type encryptedCodeHostSecrets struct {
+		password           string
+		clientSecret       string
+		sshKey             string
+		privateAccessToken string
+	}
+
+	encryptedSecrets := make([]encryptedCodeHostSecrets, len(codeHosts))
+	for i, codeHost := range codeHosts {
+		if codeHost == nil {
+			continue
+		}
+
+		encryptedSecrets[i] = encryptedCodeHostSecrets{
+			password:           codeHost.Password,
+			clientSecret:       codeHost.ClientSecret,
+			sshKey:             codeHost.SSHKey,
+			privateAccessToken: codeHost.PrivateAccessToken,
+		}
+
+		if len(encryptedSecrets[i].password) > 0 {
+			encryptedSecrets[i].password, err = crypto.AesEncryptByKey(encryptedSecrets[i].password, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+		if len(encryptedSecrets[i].clientSecret) > 0 {
+			encryptedSecrets[i].clientSecret, err = crypto.AesEncryptByKey(encryptedSecrets[i].clientSecret, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+		if len(encryptedSecrets[i].sshKey) > 0 {
+			encryptedSecrets[i].sshKey, err = crypto.AesEncryptByKey(encryptedSecrets[i].sshKey, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+		if len(encryptedSecrets[i].privateAccessToken) > 0 {
+			encryptedSecrets[i].privateAccessToken, err = crypto.AesEncryptByKey(encryptedSecrets[i].privateAccessToken, aesKey.PlainText)
+			if err != nil {
+				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
+				return nil, err
+			}
+		}
+	}
+
 	var result []*models.CodeHost
-	for _, codeHost := range codeHosts {
-		if len(codeHost.Password) > 0 {
-			codeHost.Password, err = crypto.AesEncryptByKey(codeHost.Password, aesKey.PlainText)
-			if err != nil {
-				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
-				return nil, err
-			}
-		}
-		if len(codeHost.ClientSecret) > 0 {
-			codeHost.ClientSecret, err = crypto.AesEncryptByKey(codeHost.ClientSecret, aesKey.PlainText)
-			if err != nil {
-				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
-				return nil, err
-			}
-		}
-		if len(codeHost.SSHKey) > 0 {
-			codeHost.SSHKey, err = crypto.AesEncryptByKey(codeHost.SSHKey, aesKey.PlainText)
-			if err != nil {
-				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
-				return nil, err
-			}
+	for i, codeHost := range codeHosts {
+		if codeHost == nil {
+			result = append(result, nil)
+			continue
 		}
 
-		if len(codeHost.PrivateAccessToken) > 0 {
-			codeHost.PrivateAccessToken, err = crypto.AesEncryptByKey(codeHost.PrivateAccessToken, aesKey.PlainText)
-			if err != nil {
-				log.Errorf("ListCodeHost AesEncryptByKey error:%s", err)
-				return nil, err
-			}
-		}
-
+		codeHost.Password = encryptedSecrets[i].password
+		codeHost.ClientSecret = encryptedSecrets[i].clientSecret
+		codeHost.SSHKey = encryptedSecrets[i].sshKey
+		codeHost.PrivateAccessToken = encryptedSecrets[i].privateAccessToken
+		maskCodeHostOpaqueSecrets(codeHost)
 		result = append(result, codeHost)
 	}
 	return result, nil
+}
+
+func maskCodeHostSecrets(codeHost *models.CodeHost) {
+	if codeHost == nil {
+		return
+	}
+	if len(codeHost.Password) > 0 {
+		codeHost.Password = setting.MaskValue
+	}
+	if len(codeHost.ClientSecret) > 0 {
+		codeHost.ClientSecret = setting.MaskValue
+	}
+	if len(codeHost.SSHKey) > 0 {
+		codeHost.SSHKey = setting.MaskValue
+	}
+	if len(codeHost.PrivateAccessToken) > 0 {
+		codeHost.PrivateAccessToken = setting.MaskValue
+	}
+	maskCodeHostOpaqueSecrets(codeHost)
+}
+
+func maskCodeHostOpaqueSecrets(codeHost *models.CodeHost) {
+	if codeHost == nil {
+		return
+	}
+	if len(codeHost.AccessToken) > 0 {
+		codeHost.AccessToken = setting.MaskValue
+	}
+	if len(codeHost.RefreshToken) > 0 {
+		codeHost.RefreshToken = setting.MaskValue
+	}
+}
+
+func hasMaskedCodeHostSecret(codeHost *models.CodeHost) bool {
+	if codeHost == nil {
+		return false
+	}
+	return codeHost.Password == setting.MaskValue ||
+		codeHost.ClientSecret == setting.MaskValue ||
+		codeHost.SSHKey == setting.MaskValue ||
+		codeHost.PrivateAccessToken == setting.MaskValue ||
+		codeHost.AccessToken == setting.MaskValue ||
+		codeHost.RefreshToken == setting.MaskValue
+}
+
+func restoreMaskedCodeHostSecrets(codeHost, oldCodeHost *models.CodeHost) {
+	if codeHost == nil || oldCodeHost == nil {
+		return
+	}
+	if codeHost.Password == setting.MaskValue {
+		codeHost.Password = oldCodeHost.Password
+	}
+	if codeHost.ClientSecret == setting.MaskValue {
+		codeHost.ClientSecret = oldCodeHost.ClientSecret
+	}
+	if codeHost.SSHKey == setting.MaskValue {
+		codeHost.SSHKey = oldCodeHost.SSHKey
+	}
+	if codeHost.PrivateAccessToken == setting.MaskValue {
+		codeHost.PrivateAccessToken = oldCodeHost.PrivateAccessToken
+	}
+	if codeHost.AccessToken == setting.MaskValue {
+		codeHost.AccessToken = oldCodeHost.AccessToken
+	}
+	if codeHost.RefreshToken == setting.MaskValue {
+		codeHost.RefreshToken = oldCodeHost.RefreshToken
+	}
 }
 
 func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
@@ -145,15 +250,19 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 }
 
 func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
+	if err != nil {
+		return nil, err
+	}
+	if hasMaskedCodeHostSecret(host) {
+		restoreMaskedCodeHostSecrets(host, oldCodeHost)
+	}
+
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
 
-	var oldAlias string
-	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
-	if err == nil {
-		oldAlias = oldCodeHost.Alias
-	}
+	oldAlias := oldCodeHost.Alias
 	if host.Alias != "" && host.Alias != oldAlias {
 		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
@@ -169,6 +278,21 @@ func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.C
 
 func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete)
+}
+
+func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
+	codeHost, err := GetCodeHost(id, ignoreDelete, log)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := EncypteCodeHost(encryptedKey, []*models.CodeHost{codeHost}, log)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, nil
+	}
+	return resp[0], nil
 }
 
 func GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
@@ -290,6 +414,17 @@ func handle(url *url.URL, err error) (string, error) {
 }
 
 func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) error {
+	if hasMaskedCodeHostSecret(codeHost) {
+		if codeHost.ID <= 0 {
+			return fmt.Errorf("codehost id is required when secret fields are masked")
+		}
+		oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(codeHost.ID, false)
+		if err != nil {
+			return err
+		}
+		restoreMaskedCodeHostSecrets(codeHost, oldCodeHost)
+	}
+
 	if codeHost.AuthType == types.SSHAuthType {
 		// 解析主机地址
 		user, host := getUserAndHost(codeHost.Address)
