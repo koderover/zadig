@@ -108,7 +108,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jenkins.GET("/exist", CheckJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
 		jenkins.GET("/jobNames/:id", ListJobNames)
-		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
+		jenkins.GET("/buildArgs/:id/*jobName", ListJobBuildArgs)
 	}
 
 	cicd := router.Group("cicdTools")
