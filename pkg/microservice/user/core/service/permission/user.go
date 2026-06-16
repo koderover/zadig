@@ -79,6 +79,8 @@ type OpenAPIQueryArgs struct {
 type QueryArgs struct {
 	Name         string                  `json:"name,omitempty"`
 	Account      string                  `json:"account,omitempty" form:"account"`
+	Email        string                  `json:"email,omitempty"`
+	Phone        string                  `json:"phone,omitempty"`
 	IdentityType string                  `json:"identity_type,omitempty"`
 	UIDs         []string                `json:"uids,omitempty"`
 	PerPage      int                     `json:"per_page,omitempty" form:"perPage"`
@@ -88,6 +90,8 @@ type QueryArgs struct {
 	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
 	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
 }
+
+const allIdentityTypes = "*"
 
 type Password struct {
 	Uid         string `json:"uid"`
@@ -424,6 +428,15 @@ func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, 
 }
 
 func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	if args.IdentityType == allIdentityTypes {
+		users, err := orm.ListUsersByAccount(args.Account, repository.DB)
+		if err != nil {
+			logger.Errorf("SearchUserByAccount ListUsersByAccount account:%s error, error msg:%s", args.Account, err.Error())
+			return nil, err
+		}
+		return buildUsersRespFromModels(users, logger)
+	}
+
 	user, err := orm.GetUser(args.Account, args.IdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
@@ -435,34 +448,49 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 			TotalCount: 0,
 		}, nil
 	}
-	userLogins, err := orm.ListUserLogins([]string{user.UID}, repository.DB)
+
+	return buildUsersRespFromModels([]models.User{*user}, logger)
+}
+
+func SearchUsersByEmail(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	users, err := orm.ListUsersByEmail(args.Email, repository.DB)
 	if err != nil {
-		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
+		logger.Errorf("SearchUsersByEmail ListUsersByEmail email:%s error, error msg:%s", args.Email, err.Error())
 		return nil, err
 	}
-	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+	return buildUsersRespFromModels(users, logger)
+}
 
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
+func SearchUsersByPhone(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	users, err := orm.ListUsersByPhone(args.Phone, repository.DB)
+	if err != nil {
+		logger.Errorf("SearchUsersByPhone ListUsersByPhone phone:%s error, error msg:%s", args.Phone, err.Error())
+		return nil, err
 	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUserByAccount fillUsersMFAEnabled error, error msg:%s", err.Error())
+	return buildUsersRespFromModels(users, logger)
+}
+
+func buildUsersRespFromModels(users []models.User, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	if len(users) == 0 {
+		return &types.UsersResp{
+			Users:      nil,
+			TotalCount: 0,
+		}, nil
+	}
+
+	uids := make([]string, 0, len(users))
+	for _, user := range users {
+		uids = append(uids, user.UID)
+	}
+
+	userLogins, err := orm.ListUserLogins(uids, repository.DB)
+	if err != nil {
+		logger.Errorf("buildUsersRespFromModels ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
+		return nil, err
+	}
+
+	usersInfo := mergeUserLogin(users, *userLogins, logger)
+	if err := enrichUsersInfo(usersInfo, logger); err != nil {
 		return nil, err
 	}
 
@@ -566,27 +594,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		usersInfo = mergeUserLoginWithLoginTime(users, *userLogins, logger)
 	}
 
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
-	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUsers fillUsersMFAEnabled error, error msg:%s", err.Error())
+	if err := enrichUsersInfo(usersInfo, logger); err != nil {
 		return nil, err
 	}
 
@@ -631,6 +639,33 @@ func fillUsersMFAEnabled(usersInfo []*types.UserInfo) error {
 		userInfo.MFAEnabled = enabledMap[userInfo.Uid]
 	}
 
+	return nil
+}
+
+func enrichUsersInfo(usersInfo []*types.UserInfo, logger *zap.SugaredLogger) error {
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+				uInfo.APITokenEnabled = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+	if err := fillUsersMFAEnabled(usersInfo); err != nil {
+		logger.Errorf("enrichUsersInfo fillUsersMFAEnabled error, error msg:%s", err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -691,41 +726,7 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 		logger.Errorf("SearchUsersByUIDs SeachUsers By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	userLogins, err := orm.ListUserLogins(uids, repository.DB)
-	if err != nil {
-		logger.Errorf("SearchUsersByUIDs ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
-		return nil, err
-	}
-	usersInfo := mergeUserLogin(users, *userLogins, logger)
-
-	for _, uInfo := range usersInfo {
-		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
-		if err != nil {
-			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				uInfo.Admin = true
-				uInfo.APITokenEnabled = true
-			}
-		}
-		uInfo.SystemRoleBindings = rolebindings
-	}
-	if err := fillUsersMFAEnabled(usersInfo); err != nil {
-		logger.Errorf("SearchUsersByUIDs fillUsersMFAEnabled error, error msg:%s", err.Error())
-		return nil, err
-	}
-
-	return &types.UsersResp{
-		Users:      usersInfo,
-		TotalCount: int64(len(usersInfo)),
-	}, nil
+	return buildUsersRespFromModels(users, logger)
 }
 
 func getLoginId(user *models.User, loginType config.LoginType) string {

@@ -563,7 +563,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			// use the latest workflow's notification settings
 			workflow.NotifyCtls = originalWorkflow.NotifyCtls
 		} else {
-			workflow.NotifyCtls = updateNotifyCtls(workflow.NotifyCtls, args.NotifyInput)
+			workflow.NotifyCtls, err = updateNotifyCtls(workflow.NotifyCtls, args.NotifyInput)
+			if err != nil {
+				return resp, e.ErrCreateTask.AddDesc(err.Error())
+			}
 		}
 		workflowTask.Hash = originalWorkflow.Hash
 	} else {
@@ -697,24 +700,25 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	return resp, nil
 }
 
-func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*CreateCustomTaskNotifyInput) []*commonmodels.NotifyCtl {
+func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*CreateCustomTaskNotifyInput) ([]*commonmodels.NotifyCtl, error) {
 	notifyInputsMap := make(map[int]*CreateCustomTaskNotifyInput)
 	for _, notifyInput := range notifyInputs {
 		notifyInputsMap[notifyInput.ID] = notifyInput
 	}
 
-	toDynamicRecipients := func(inputs []CreateCustomTaskDynamicRecipient) []*commonmodels.DynamicRecipient {
-		resp := make([]*commonmodels.DynamicRecipient, 0, len(inputs))
+	toDynamicRecipients := func(notifyType setting.NotifyWebHookType, inputs []string) ([]string, error) {
+		resp := make([]string, 0, len(inputs))
 		for _, input := range inputs {
-			if input.Value == "" {
+			input = strings.TrimSpace(input)
+			if input == "" {
 				continue
 			}
-			resp = append(resp, &commonmodels.DynamicRecipient{
-				Value:        input.Value,
-				IdentityType: input.IdentityType,
-			})
+			resp = append(resp, input)
 		}
-		return resp
+		if err := runtimeJobController.ValidateDynamicRecipientsForNotifyType(notifyType, resp); err != nil {
+			return nil, err
+		}
+		return resp, nil
 	}
 
 	for i, notifyCtl := range notifyCtls {
@@ -730,11 +734,15 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark hook notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkHookNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkHookNotificationConfig{
 					HookAddress:       notifyCtl.LarkHookNotificationConfig.HookAddress,
 					AtUsers:           notifyInput.LarkHookNotificationConfig.AtUsers,
-					DynamicRecipients: toDynamicRecipients(notifyInput.LarkHookNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 					IsAtAll:           notifyInput.LarkHookNotificationConfig.IsAtAll,
 				}
 
@@ -744,10 +752,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark person notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkPersonNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkPersonNotificationConfig{
 					AppID:             notifyCtl.LarkPersonNotificationConfig.AppID,
-					DynamicRecipients: toDynamicRecipients(notifyInput.LarkPersonNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				targetUsers := make([]*larktool.UserInfo, 0)
@@ -767,10 +779,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark group notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkGroupNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkGroupNotificationConfig{
 					AppID:             notifyCtl.LarkGroupNotificationConfig.AppID,
-					DynamicRecipients: toDynamicRecipients(notifyInput.LarkGroupNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 					Chat: &commonmodels.LarkChat{
 						ChatID: notifyInput.LarkGroupNotificationConfig.ChatID,
 					},
@@ -791,11 +807,15 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("wechat notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.WechatNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.WechatNotificationConfig{
 					HookAddress:       notifyCtl.WechatNotificationConfig.HookAddress,
 					AtUsers:           notifyInput.WechatNotificationConfig.AtUsers,
-					DynamicRecipients: toDynamicRecipients(notifyInput.WechatNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 					IsAtAll:           notifyInput.WechatNotificationConfig.IsAtAll,
 				}
 
@@ -805,11 +825,15 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("dingding notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.DingDingNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.DingDingNotificationConfig{
 					HookAddress:       notifyCtl.DingDingNotificationConfig.HookAddress,
 					AtMobiles:         notifyInput.DingDingNotificationConfig.AtMobiles,
-					DynamicRecipients: toDynamicRecipients(notifyInput.DingDingNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 					IsAtAll:           notifyInput.DingDingNotificationConfig.IsAtAll,
 				}
 
@@ -819,11 +843,15 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("msteams notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.MSTeamsNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.MSTeamsNotificationConfig{
 					HookAddress:       notifyCtl.MSTeamsNotificationConfig.HookAddress,
 					AtEmails:          notifyInput.MSTeamsNotificationConfig.AtEmails,
-					DynamicRecipients: toDynamicRecipients(notifyInput.MSTeamsNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				notifyCtl.MSTeamsNotificationConfig = config
@@ -832,10 +860,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("mail notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.MailNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.MailNotificationConfig{
 					TargetUsers:       make([]*commonmodels.User, 0),
-					DynamicRecipients: toDynamicRecipients(notifyInput.MailNotificationConfig.DynamicRecipients),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				if len(notifyInput.MailNotificationConfig.Users) > 0 {
@@ -866,7 +898,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 			}
 		}
 	}
-	return notifyCtls
+	return notifyCtls, nil
 }
 
 func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {

@@ -267,206 +267,59 @@ func renderNotificationStrings(inputs []string, keyMap map[string]string) []stri
 }
 
 func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
+	resolver := newDynamicRecipientResolver(keyMap)
+
 	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		users := c.resolveDynamicRecipientsToDirectValues(cfg.DynamicRecipients, keyMap, "open_id", "user_id", "id")
+		users, err := resolver.resolveDirectValues([]string(cfg.DynamicRecipients), dynamicRecipientKindUserID)
+		if err != nil {
+			return err
+		}
 		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
-		users, err := c.resolveDynamicRecipientsToLarkUsers(cfg.DynamicRecipients, cfg.AppID, keyMap)
+		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
 		if err != nil {
 			return err
 		}
 		cfg.AtUsers = uniqLarkUsers(append(cfg.AtUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.LarkPersonNotificationConfig; cfg != nil {
-		users, err := c.resolveDynamicRecipientsToLarkUsers(cfg.DynamicRecipients, cfg.AppID, keyMap)
+		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
 		if err != nil {
 			return err
 		}
 		cfg.TargetUsers = uniqLarkUsers(append(cfg.TargetUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
-		emails, err := c.resolveDynamicRecipientsToEmails(cfg.DynamicRecipients, keyMap)
+		emails, err := resolver.resolveEmails([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
 		cfg.AtEmails = lo.Uniq(append(cfg.AtEmails, emails...))
 	}
 	if cfg := c.jobTaskSpec.MailNotificationConfig; cfg != nil {
-		emails, err := c.resolveDynamicRecipientsToEmails(cfg.DynamicRecipients, keyMap)
+		emails, err := resolver.resolveEmails([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
 		cfg.TargetUsers = uniqMailUsers(append(cfg.TargetUsers, buildMailUsersFromEmails(emails)...))
 	}
 	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
-		mobiles, err := c.resolveDynamicRecipientsToMobiles(cfg.DynamicRecipients, keyMap)
+		mobiles, err := resolver.resolveMobiles([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
 		cfg.AtMobiles = lo.Uniq(append(cfg.AtMobiles, mobiles...))
 	}
 	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
-		users := c.resolveDynamicRecipientsToDirectValues(cfg.DynamicRecipients, keyMap, "user_id", "userid", "id")
+		users, err := resolver.resolveDirectValues([]string(cfg.DynamicRecipients), dynamicRecipientKindUserID)
+		if err != nil {
+			return err
+		}
 		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
 	}
 
 	return nil
-}
-
-func (c *NotificationJobCtl) resolveDynamicRecipientsToLarkUsers(recipients []*commonmodels.DynamicRecipient, appID string, keyMap map[string]string) ([]*lark.UserInfo, error) {
-	if len(recipients) == 0 {
-		return nil, nil
-	}
-
-	client, err := larkservice.GetLarkClientByIMAppID(appID)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := make([]*lark.UserInfo, 0)
-	for _, recipient := range recipients {
-		value := renderNotificationString(recipient.Value, keyMap)
-		if value == "" {
-			continue
-		}
-
-		idType, id, err := resolveLarkRecipient(client, recipient.IdentityType, value)
-		if err != nil {
-			return nil, err
-		}
-		if id == "" {
-			continue
-		}
-		resp = append(resp, &lark.UserInfo{ID: id, IDType: idType})
-	}
-
-	return uniqLarkUsers(resp), nil
-}
-
-func (c *NotificationJobCtl) resolveDynamicRecipientsToEmails(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string) ([]string, error) {
-	resp := make([]string, 0)
-	for _, recipient := range recipients {
-		value := renderNotificationString(recipient.Value, keyMap)
-		if value == "" {
-			continue
-		}
-
-		switch recipient.IdentityType {
-		case "", "email":
-			resp = append(resp, value)
-		case "account":
-			userInfo, err := searchUserByAccount(value)
-			if err != nil {
-				return nil, err
-			}
-			if userInfo != nil && userInfo.Email != "" {
-				resp = append(resp, userInfo.Email)
-			}
-		}
-	}
-	return lo.Uniq(resp), nil
-}
-
-func (c *NotificationJobCtl) resolveDynamicRecipientsToMobiles(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string) ([]string, error) {
-	resp := make([]string, 0)
-	for _, recipient := range recipients {
-		value := renderNotificationString(recipient.Value, keyMap)
-		if value == "" {
-			continue
-		}
-
-		switch recipient.IdentityType {
-		case "mobile":
-			resp = append(resp, value)
-		case "account":
-			userInfo, err := searchUserByAccount(value)
-			if err != nil {
-				return nil, err
-			}
-			if userInfo != nil && userInfo.Phone != "" {
-				resp = append(resp, userInfo.Phone)
-			}
-		}
-	}
-	return lo.Uniq(resp), nil
-}
-
-func (c *NotificationJobCtl) resolveDynamicRecipientsToDirectValues(recipients []*commonmodels.DynamicRecipient, keyMap map[string]string, supportedTypes ...string) []string {
-	if len(recipients) == 0 {
-		return nil
-	}
-	supported := make(map[string]struct{}, len(supportedTypes))
-	for _, identityType := range supportedTypes {
-		supported[identityType] = struct{}{}
-	}
-	resp := make([]string, 0)
-	for _, recipient := range recipients {
-		if _, ok := supported[recipient.IdentityType]; !ok {
-			continue
-		}
-		value := renderNotificationString(recipient.Value, keyMap)
-		if value == "" {
-			continue
-		}
-		resp = append(resp, value)
-	}
-	return lo.Uniq(resp)
-}
-
-func resolveLarkRecipient(client *lark.Client, identityType, value string) (string, string, error) {
-	switch identityType {
-	case "", "email":
-		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, value, setting.LarkUserID)
-		if err != nil {
-			return "", "", err
-		}
-		return setting.LarkUserID, util2.GetStringFromPointer(userInfo.UserId), nil
-	case "mobile":
-		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, value, setting.LarkUserID)
-		if err != nil {
-			return "", "", err
-		}
-		return setting.LarkUserID, util2.GetStringFromPointer(userInfo.UserId), nil
-	case "account":
-		userInfo, err := searchUserByAccount(value)
-		if err != nil {
-			return "", "", err
-		}
-		if userInfo == nil {
-			return "", "", nil
-		}
-		if userInfo.Email != "" {
-			larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, userInfo.Email, setting.LarkUserID)
-			if err == nil {
-				return setting.LarkUserID, util2.GetStringFromPointer(larkUser.UserId), nil
-			}
-		}
-		if userInfo.Phone != "" {
-			larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
-			if err == nil {
-				return setting.LarkUserID, util2.GetStringFromPointer(larkUser.UserId), nil
-			}
-		}
-		return "", "", nil
-	default:
-		return "", "", fmt.Errorf("unsupported lark dynamic recipient identity type: %s", identityType)
-	}
-}
-
-func searchUserByAccount(account string) (*user.User, error) {
-	resp, err := user.New().SearchUser(&user.SearchUserArgs{
-		Account: account,
-		Page:    1,
-		PerPage: 1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil || len(resp.Users) == 0 {
-		return nil, nil
-	}
-	return resp.Users[0], nil
 }
 
 func uniqLarkUsers(users []*lark.UserInfo) []*lark.UserInfo {

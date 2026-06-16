@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS `user`(
     `created_at` int(11) unsigned NOT NULL COMMENT '创建时间',
     `updated_at` int(11) unsigned NOT NULL COMMENT '修改时间',
     UNIQUE KEY `account` (`account`,`identity_type`),
+    KEY `idx_email` (`email`) USING BTREE,
+    KEY `idx_phone` (`phone`) USING BTREE,
     PRIMARY KEY (`uid`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户信息表' ROW_FORMAT = Compact;
 
