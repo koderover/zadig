@@ -592,6 +592,7 @@ func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*common
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.target_branch", Type: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.pr", Type: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_id", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_sha", Type: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_message", Type: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.committer", Type: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.event", Type: "string", IsCredential: false})

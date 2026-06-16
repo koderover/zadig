@@ -491,6 +491,7 @@ type HookPayload struct {
 	CheckRunID     int64  `bson:"check_run_id"     json:"check_run_id,omitempty"`
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id,omitempty"`
 	CommitID       string `bson:"commit_id"        json:"commit_id,omitempty"`
+	CommitSHA      string `bson:"commit_sha"       json:"commit_sha,omitempty"`
 	CommitMessage  string `bson:"commit_message"   json:"commit_message,omitempty"`
 	Committer      string `bson:"committer"        json:"committer,omitempty"`
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`

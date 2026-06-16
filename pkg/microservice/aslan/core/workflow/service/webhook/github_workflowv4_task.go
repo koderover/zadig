@@ -283,6 +283,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
 					CommitMessage:  *ev.PullRequest.Title,
 					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
@@ -297,29 +298,30 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					autoCancelOpt.Ref = ref
 					autoCancelOpt.CommitID = commitID
 					hookPayload = &commonmodels.HookPayload{
-						Owner:      *ev.Repo.Owner.Login,
-						Repo:       *ev.Repo.Name,
-						Branch:     getBranchFromRef(ref),
-						TargetBranch: getBranchFromRef(ref),
-						Ref:        ref,
-						IsPr:       false,
-						CodehostID: item.MainRepo.CodehostID,
-						DeliveryID: deliveryID,
-						CommitID:   commitID,
+						Owner:         *ev.Repo.Owner.Login,
+						Repo:          *ev.Repo.Name,
+						Branch:        getBranchFromRef(ref),
+						TargetBranch:  getBranchFromRef(ref),
+						Ref:           ref,
+						IsPr:          false,
+						CodehostID:    item.MainRepo.CodehostID,
+						DeliveryID:    deliveryID,
+						CommitID:      commitID,
+						CommitSHA:     commitID,
 						CommitMessage: ev.GetHeadCommit().GetMessage(),
-						Committer:  ev.GetPusher().GetName(),
-						EventType:  eventType,
-						RawPayload: rawPayload,
+						Committer:     ev.GetPusher().GetName(),
+						EventType:     eventType,
+						RawPayload:    rawPayload,
 					}
 				}
 			case *github.CreateEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					Branch:        item.MainRepo.Branch,
-					TargetBranch:  item.MainRepo.Branch,
-					Committer:     item.MainRepo.Committer,
-					EventType:     eventType,
-					RawPayload:    rawPayload,
+					Branch:       item.MainRepo.Branch,
+					TargetBranch: item.MainRepo.Branch,
+					Committer:    item.MainRepo.Committer,
+					EventType:    eventType,
+					RawPayload:   rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

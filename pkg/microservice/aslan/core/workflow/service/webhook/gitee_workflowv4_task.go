@@ -285,6 +285,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
 					CommitMessage:  ev.PullRequest.Title,
 					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
@@ -306,6 +307,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					Ref:           ref,
 					IsPr:          false,
 					CommitID:      commitID,
+					CommitSHA:     commitID,
 					CommitMessage: eventRepo.CommitMessage,
 					Committer:     eventRepo.Committer,
 					EventType:     eventType,
@@ -314,11 +316,11 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					Branch:        eventRepo.Branch,
-					TargetBranch:  eventRepo.TargetBranch,
-					Committer:     eventRepo.Committer,
-					EventType:     eventType,
-					RawPayload:    rawPayload,
+					Branch:       eventRepo.Branch,
+					TargetBranch: eventRepo.TargetBranch,
+					Committer:    eventRepo.Committer,
+					EventType:    eventType,
+					RawPayload:   rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {
