@@ -174,6 +174,7 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) GetHookRepo(hookRepo *
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
 		TargetBranch:  hookRepo.Branch,
+		PR:            gruem.Event.Change.Number,
 		CommitID:      gruem.Event.NewRev,
 		CommitMessage: gruem.Event.Change.CommitMessage,
 		Committer:     hookRepo.Committer,
@@ -275,7 +276,6 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 		return fmt.Errorf(errMsg)
 	}
 	var errorList = &multierror.Error{}
-	var hookPayload *commonmodels.HookPayload
 	var notification *commonmodels.Notification
 	for _, workflow := range workflows {
 		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
@@ -298,6 +298,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			continue
 		}
 		for _, item := range gitHooks {
+			var hookPayload *commonmodels.HookPayload
 			if !item.Enabled {
 				continue
 			}
@@ -329,7 +330,8 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 
 			var mergeRequestID, commitID string
-			if m, ok := matcher.(*gerritPatchsetCreatedEventMatcherForWorkflowV4); ok {
+			switch m := matcher.(type) {
+			case *gerritPatchsetCreatedEventMatcherForWorkflowV4:
 				if item.CheckPatchSetChange {
 					// for different patch sets under the same pr, if the updated contents of the two patch sets are exactly the same, and the task triggered by the previous patch set is executed successfully, the new patch set will no longer trigger the task.
 					// TODO THE OLD IMPLEMENTATION DOES NOT WORK FOR A LONG TIME, SO I DELETED THEM. REWITE IT WHEN NECESSARY.
@@ -360,17 +362,23 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 						mainRepo, m.Event.Change.Number, baseURI, false, false, false, true, log,
 					)
 				}
-
-				hookPayload = &commonmodels.HookPayload{
-					Owner:          eventRepo.RepoOwner,
-					Repo:           eventRepo.RepoName,
-					Branch:         eventRepo.Branch,
-					IsPr:           true,
-					CodehostID:     item.MainRepo.CodehostID,
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					RawPayload:     string(body),
-				}
+			case *gerritChangeMergedEventMatcherForWorkflowV4:
+				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
+				commitID = eventRepo.CommitID
+			}
+			hookPayload = &commonmodels.HookPayload{
+				Owner:          eventRepo.RepoOwner,
+				Repo:           eventRepo.RepoName,
+				Branch:         eventRepo.Branch,
+				TargetBranch:   eventRepo.TargetBranch,
+				IsPr:           true,
+				CodehostID:     item.MainRepo.CodehostID,
+				MergeRequestID: mergeRequestID,
+				CommitID:       commitID,
+				CommitMessage:  eventRepo.CommitMessage,
+				Committer:      eventRepo.Committer,
+				EventType:      event.Type,
+				RawPayload:     string(body),
 			}
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
 			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
