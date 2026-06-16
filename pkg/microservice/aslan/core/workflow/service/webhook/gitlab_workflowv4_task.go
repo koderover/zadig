@@ -372,9 +372,12 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
 					Branch:         eventRepo.Branch,
+					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitMessage:  ev.ObjectAttributes.Title,
+					Committer:      ev.User.Username,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
 					RawPayload:     rawPayload,
@@ -387,21 +390,27 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 				autoCancelOpt.Ref = ref
 				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
-					Owner:      eventRepo.RepoOwner,
-					Repo:       eventRepo.RepoName,
-					Branch:     eventRepo.Branch,
-					Ref:        ref,
-					IsPr:       false,
-					CommitID:   commitID,
-					CodehostID: eventRepo.CodehostID,
-					EventType:  eventType,
-					RawPayload: rawPayload,
+					Owner:         eventRepo.RepoOwner,
+					Repo:          eventRepo.RepoName,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Ref:           ref,
+					IsPr:          false,
+					CommitID:      commitID,
+					CommitMessage: eventRepo.CommitMessage,
+					Committer:     eventRepo.Committer,
+					CodehostID:    eventRepo.CodehostID,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			case *gitlab.TagEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType:  eventType,
-					RawPayload: rawPayload,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Committer:     eventRepo.Committer,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {

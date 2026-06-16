@@ -485,11 +485,14 @@ type HookPayload struct {
 	Owner          string `bson:"owner"            json:"owner,omitempty"`
 	Repo           string `bson:"repo"             json:"repo,omitempty"`
 	Branch         string `bson:"branch"           json:"branch,omitempty"`
+	TargetBranch   string `bson:"target_branch"    json:"target_branch,omitempty"`
 	Ref            string `bson:"ref"              json:"ref,omitempty"`
 	IsPr           bool   `bson:"is_pr"            json:"is_pr,omitempty"`
 	CheckRunID     int64  `bson:"check_run_id"     json:"check_run_id,omitempty"`
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id,omitempty"`
 	CommitID       string `bson:"commit_id"        json:"commit_id,omitempty"`
+	CommitMessage  string `bson:"commit_message"   json:"commit_message,omitempty"`
+	Committer      string `bson:"committer"        json:"committer,omitempty"`
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	EventType      string `bson:"event_type"       json:"event_type"`

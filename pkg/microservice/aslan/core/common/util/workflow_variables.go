@@ -91,8 +91,33 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 		})
 	}
 	if workflow.HookPayload != nil {
+		resp = append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
 		resp = append(resp, BuildPayloadVariables(workflow.HookPayload.RawPayload)...)
 	}
+
+	return resp
+}
+
+func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*commonmodels.KeyVal {
+	if hookPayload == nil {
+		return nil
+	}
+
+	resp := make([]*commonmodels.KeyVal, 0, 7)
+	appendIfNotEmpty := func(key, value string) {
+		if value == "" {
+			return
+		}
+		resp = append(resp, &commonmodels.KeyVal{Key: key, Value: value, IsCredential: false})
+	}
+
+	appendIfNotEmpty("workflow.trigger.branch", hookPayload.Branch)
+	appendIfNotEmpty("workflow.trigger.target_branch", hookPayload.TargetBranch)
+	appendIfNotEmpty("workflow.trigger.pr", hookPayload.MergeRequestID)
+	appendIfNotEmpty("workflow.trigger.commit_id", hookPayload.CommitID)
+	appendIfNotEmpty("workflow.trigger.commit_message", hookPayload.CommitMessage)
+	appendIfNotEmpty("workflow.trigger.committer", hookPayload.Committer)
+	appendIfNotEmpty("workflow.trigger.event", hookPayload.EventType)
 
 	return resp
 }
