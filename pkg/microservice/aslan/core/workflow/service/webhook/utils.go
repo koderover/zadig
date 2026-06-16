@@ -503,12 +503,8 @@ func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 }
 
 func MatchTag(m *commonmodels.MainHookRepo, tag string) bool {
-	if m.Tag == "" {
+	if !m.TagIsRegular || m.Tag == "" {
 		return true
-	}
-
-	if !m.TagIsRegular {
-		return m.Tag == tag
 	}
 
 	matched, err := regexp.MatchString(m.Tag, tag)
