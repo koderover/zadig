@@ -167,6 +167,8 @@ const (
 	VerbCreateLabelSetting = "create_label_setting"
 	VerbEditLabelSetting   = "edit_label_setting"
 	VerbDeleteLabelSetting = "delete_label_setting"
+	// log operation
+	VerbGetLogOperation = "get_log_operation"
 )
 
 type AuthorizedResources struct {
@@ -207,6 +209,7 @@ type SystemActions struct {
 	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
 	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
 	LabelManagement      *LabelManagementActions      `json:"label_management"`
+	LogOperation         *LogOperationActions         `json:"log_operation"`
 }
 
 type WorkflowActions struct {
@@ -354,10 +357,10 @@ type ReleasePlanActions struct {
 }
 
 type BusinessDirectoryActions struct {
-	View       bool
-	Create     bool
-	Edit bool
-	Delete     bool
+	View   bool
+	Create bool
+	Edit   bool
+	Delete bool
 }
 
 type ClusterManagementActions struct {
@@ -406,4 +409,8 @@ type LabelManagementActions struct {
 	Create bool
 	Edit   bool
 	Delete bool
+}
+
+type LogOperationActions struct {
+	View bool
 }

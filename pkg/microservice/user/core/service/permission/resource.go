@@ -52,6 +52,7 @@ var systemResourceActionAliasMap = map[string]string{
 	"HelmRepoManagement":   "Chart 仓库",
 	"DBInstanceManagement": "数据库",
 	"LabelManagement":      "标签管理",
+	"LogOperation":         "日志操作",
 }
 
 var systemResourceSequence = []string{
@@ -69,6 +70,7 @@ var systemResourceSequence = []string{
 	"HelmRepoManagement",
 	"DBInstanceManagement",
 	"LabelManagement",
+	"LogOperation",
 }
 
 var projectResourceAliasMap = map[string]string{
