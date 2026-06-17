@@ -4,51 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
+	"regexp"
 	"strings"
 	"time"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
-
-func BuildPayloadVariables(rawPayload string) []*commonmodels.KeyVal {
-	if rawPayload == "" {
-		return nil
-	}
-
-	var payload interface{}
-	if err := json.Unmarshal([]byte(rawPayload), &payload); err != nil {
-		return nil
-	}
-
-	resp := make([]*commonmodels.KeyVal, 0)
-	flattenPayloadValue("payload", payload, &resp)
-	return resp
-}
-
-func flattenPayloadValue(prefix string, value interface{}, resp *[]*commonmodels.KeyVal) {
-	switch val := value.(type) {
-	case map[string]interface{}:
-		for key, item := range val {
-			flattenPayloadValue(prefix+"."+key, item, resp)
-		}
-	case []interface{}:
-		for index, item := range val {
-			flattenPayloadValue(fmt.Sprintf("%s.%d", prefix, index), item, resp)
-		}
-	case string:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: val, IsCredential: false})
-	case float64:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatFloat(val, 'f', -1, 64), IsCredential: false})
-	case bool:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatBool(val), IsCredential: false})
-	case nil:
-		return
-	default:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: fmt.Sprint(val), IsCredential: false})
-	}
-}
 
 func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
 	if workflow == nil {
@@ -92,7 +54,6 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 	}
 	if workflow.HookPayload != nil {
 		resp = append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
-		resp = append(resp, BuildPayloadVariables(workflow.HookPayload.RawPayload)...)
 	}
 
 	return resp
@@ -115,12 +76,50 @@ func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*c
 	appendIfNotEmpty("workflow.trigger.target_branch", hookPayload.TargetBranch)
 	appendIfNotEmpty("workflow.trigger.pr", hookPayload.MergeRequestID)
 	appendIfNotEmpty("workflow.trigger.commit_id", hookPayload.CommitID)
-	appendIfNotEmpty("workflow.trigger.commit_sha", hookPayload.CommitSHA)
+	appendIfNotEmpty("workflow.trigger.commit_sha", inferWorkflowTriggerCommitSHA(hookPayload))
 	appendIfNotEmpty("workflow.trigger.commit_message", hookPayload.CommitMessage)
 	appendIfNotEmpty("workflow.trigger.committer", hookPayload.Committer)
 	appendIfNotEmpty("workflow.trigger.event", hookPayload.EventType)
 
 	return resp
+}
+
+var commitSHARegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
+func inferWorkflowTriggerCommitSHA(hookPayload *commonmodels.HookPayload) string {
+	if hookPayload == nil {
+		return ""
+	}
+	if hookPayload.CommitSHA != "" {
+		return hookPayload.CommitSHA
+	}
+	if commitSHARegex.MatchString(hookPayload.CommitID) {
+		return hookPayload.CommitID
+	}
+
+	type patchSetPayload struct {
+		Revision string `json:"revision"`
+	}
+	type gerritPayload struct {
+		NewRev   string          `json:"newRev"`
+		PatchSet patchSetPayload `json:"patchSet"`
+	}
+
+	if hookPayload.RawPayload == "" {
+		return ""
+	}
+
+	payload := new(gerritPayload)
+	if err := json.Unmarshal([]byte(hookPayload.RawPayload), payload); err != nil {
+		return ""
+	}
+	if commitSHARegex.MatchString(payload.NewRev) {
+		return payload.NewRev
+	}
+	if commitSHARegex.MatchString(payload.PatchSet.Revision) {
+		return payload.PatchSet.Revision
+	}
+	return ""
 }
 
 func BuildWorkflowRuntimeVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {

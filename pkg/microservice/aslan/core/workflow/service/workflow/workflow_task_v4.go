@@ -742,7 +742,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 		notifyInputsMap[notifyInput.ID] = notifyInput
 	}
 
-	toDynamicRecipients := func(notifyType setting.NotifyWebHookType, inputs []string) ([]string, error) {
+	toDynamicRecipients := func(notifyType setting.NotifyWebHookType, appID string, inputs []string) ([]string, error) {
 		resp := make([]string, 0, len(inputs))
 		for _, input := range inputs {
 			input = strings.TrimSpace(input)
@@ -751,7 +751,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 			}
 			resp = append(resp, input)
 		}
-		if err := runtimeJobController.ValidateDynamicRecipientsForNotifyType(notifyType, resp); err != nil {
+		if err := runtimeJobController.ValidateDynamicRecipientsForNotifyConfig(notifyType, appID, resp); err != nil {
 			return nil, err
 		}
 		return resp, nil
@@ -770,12 +770,13 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark hook notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkHookNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkHookNotificationConfig.AppID, notifyInput.LarkHookNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
 
 				config := &commonmodels.LarkHookNotificationConfig{
+					AppID:             notifyCtl.LarkHookNotificationConfig.AppID,
 					HookAddress:       notifyCtl.LarkHookNotificationConfig.HookAddress,
 					AtUsers:           notifyInput.LarkHookNotificationConfig.AtUsers,
 					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
@@ -788,7 +789,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark person notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkPersonNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkPersonNotificationConfig.AppID, notifyInput.LarkPersonNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -815,7 +816,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark group notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.LarkGroupNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkGroupNotificationConfig.AppID, notifyInput.LarkGroupNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -843,7 +844,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("wechat notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.WechatNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.WechatNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -861,7 +862,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("dingding notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.DingDingNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.DingDingNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -879,7 +880,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("msteams notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.MSTeamsNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.MSTeamsNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -896,7 +897,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("mail notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyInput.MailNotificationConfig.DynamicRecipients)
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.MailNotificationConfig.DynamicRecipients)
 				if err != nil {
 					return nil, err
 				}
@@ -963,11 +964,6 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	))
 
 	for key, value := range keyMap {
-		// Payload variables are resolved at task creation time and stored in RawPayload;
-		// they don't need to be persisted in GlobalContext (which would duplicate them in MongoDB).
-		if strings.HasPrefix(key, "payload.") {
-			continue
-		}
 		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
 	}
 	return resp
