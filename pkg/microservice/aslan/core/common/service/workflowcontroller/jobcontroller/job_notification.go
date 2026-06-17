@@ -282,11 +282,17 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 	resolver := newDynamicRecipientResolver(keyMap)
 
 	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.resolveDirectValues([]string(cfg.DynamicRecipients), dynamicRecipientKindUserID)
+		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
 		if err != nil {
 			return err
 		}
-		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
+		for _, user := range users {
+			if user == nil || user.ID == "" {
+				continue
+			}
+			cfg.AtUsers = append(cfg.AtUsers, user.ID)
+		}
+		cfg.AtUsers = lo.Uniq(cfg.AtUsers)
 	}
 	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
 		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
