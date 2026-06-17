@@ -158,21 +158,11 @@ func workflowDisplayName(task *commonmodels.WorkflowTask) string {
 	return task.WorkflowName
 }
 
-func workflowTaskStatusText(status config.Status) string {
-	switch status {
-	case config.StatusPassed:
-		return "成功"
-	case config.StatusFailed:
-		return "失败"
-	case config.StatusTimeout:
-		return "超时"
-	case config.StatusCancelled:
-		return "取消"
-	case config.StatusReject:
-		return "拒绝"
-	default:
-		return string(status)
+func workflowTaskStatusIcon(status config.Status) string {
+	if status == config.StatusPassed {
+		return "✅"
 	}
+	return "❌"
 }
 
 func workflowURL(task *commonmodels.WorkflowTask) string {
@@ -195,9 +185,9 @@ func workflowTaskURL(task *commonmodels.WorkflowTask) string {
 }
 
 func buildJiraWorkflowTaskComment(task *commonmodels.WorkflowTask, issue *commonmodels.IssueID) string {
-	return fmt.Sprintf("JIRA 状态：%s\n[%s]工作流：%s\n任务链接：%s",
+	return fmt.Sprintf("JIRA 状态：%s\n%s 工作流：%s\n任务链接：%s",
 		jiraIssueStatusForComment(issue),
-		workflowTaskStatusText(task.Status),
+		workflowTaskStatusIcon(task.Status),
 		workflowDisplayName(task),
 		workflowTaskURL(task),
 	)
