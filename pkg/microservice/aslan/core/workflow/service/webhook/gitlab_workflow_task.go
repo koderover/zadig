@@ -74,14 +74,8 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			return false, nil
 		}
 	} else {
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+		if !MatchBranch(hookRepo, config.HookEventPr, ev.ObjectAttributes.TargetBranch) {
 			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-				return false, nil
-			}
 		}
 	}
 	hookRepo.Branch = ev.ObjectAttributes.TargetBranch
@@ -200,14 +194,8 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, nil
 		}
 	} else {
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		if !MatchBranch(hookRepo, config.HookEventPush, getBranchFromRef(ev.Ref)) {
 			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-				return false, nil
-			}
 		}
 	}
 
@@ -306,8 +294,13 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		return false, nil
 	}
 
+	tag := getTagFromRef(ev.Ref)
+	if !MatchTag(hookRepo, tag) {
+		return false, nil
+	}
+
 	hookRepo.Committer = ev.UserName
-	hookRepo.Tag = getTagFromRef(ev.Ref)
+	hookRepo.Tag = tag
 
 	return true, nil
 }

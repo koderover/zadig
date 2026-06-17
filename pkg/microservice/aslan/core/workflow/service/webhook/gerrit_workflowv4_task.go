@@ -19,7 +19,6 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -142,16 +141,8 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) Match(hookRepo *common
 
 	if event.Project.Name == gruem.Item.MainRepo.RepoName {
 		refName := getBranchFromRef(event.RefName)
-		isRegular := gruem.Item.MainRepo.IsRegular
-		if !isRegular && hookRepo.Branch != refName {
+		if !MatchBranch(gruem.Item.MainRepo, config.HookEventPr, refName) {
 			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(gruem.Item.MainRepo.Branch, refName)
-			if err != nil || !matched {
-				return false, nil
-			}
 		}
 		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)
@@ -192,16 +183,8 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) Match(hookRepo *com
 
 	if event.Project.Name == gpcem.Item.MainRepo.RepoName {
 		refName := getBranchFromRef(event.RefName)
-		isRegular := gpcem.Item.MainRepo.IsRegular
-		if !isRegular && hookRepo.Branch != refName {
+		if !MatchBranch(gpcem.Item.MainRepo, config.HookEventPr, refName) {
 			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(gpcem.Item.MainRepo.Branch, refName)
-			if err != nil || !matched {
-				return false, nil
-			}
 		}
 		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)

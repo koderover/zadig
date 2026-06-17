@@ -82,18 +82,22 @@ type ScanningHookCtl struct {
 }
 
 type ScanningHook struct {
-	CodehostID   int                    `bson:"codehost_id"   json:"codehost_id"`
-	Source       string                 `bson:"source"        json:"source"`
-	RepoOwner    string                 `bson:"repo_owner"    json:"repo_owner"`
-	RepoName     string                 `bson:"repo_name"     json:"repo_name"`
-	Branch       string                 `bson:"branch"        json:"branch"`
-	Tag          string                 `bson:"tag"           json:"tag"`
-	Events       []config.HookEventType `bson:"events"        json:"events"`
-	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
-	IsRegular    bool                   `bson:"is_regular"    json:"is_regular"`
-	TagIsRegular bool                   `bson:"tag_is_regular" json:"tag_is_regular"`
-	IsManual     bool                   `bson:"is_manual"     json:"is_manual"`
-	AutoCancel   bool                   `bson:"auto_cancel"   json:"auto_cancel"`
+	CodehostID    int                    `bson:"codehost_id"   json:"codehost_id"`
+	Source        string                 `bson:"source"        json:"source"`
+	RepoOwner     string                 `bson:"repo_owner"    json:"repo_owner"`
+	RepoName      string                 `bson:"repo_name"     json:"repo_name"`
+	Branch        string                 `bson:"branch"        json:"branch"`
+	PushBranch    string                 `bson:"push_branch"   json:"push_branch"`
+	PrBranch      string                 `bson:"pr_branch"     json:"pr_branch"`
+	Tag           string                 `bson:"tag"           json:"tag"`
+	Events        []config.HookEventType `bson:"events"        json:"events"`
+	MatchFolders  []string               `bson:"match_folders" json:"match_folders"`
+	IsRegular     bool                   `bson:"is_regular"    json:"is_regular"`
+	PushIsRegular bool                   `bson:"push_is_regular" json:"push_is_regular"`
+	PrIsRegular   bool                   `bson:"pr_is_regular" json:"pr_is_regular"`
+	TagIsRegular  bool                   `bson:"tag_is_regular" json:"tag_is_regular"`
+	IsManual      bool                   `bson:"is_manual"     json:"is_manual"`
+	AutoCancel    bool                   `bson:"auto_cancel"   json:"auto_cancel"`
 }
 
 type SonarInfo struct {

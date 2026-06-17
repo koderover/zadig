@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/hashicorp/go-multierror"
@@ -56,18 +55,11 @@ func (gpem *giteePushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHo
 		if !EventConfigured(hookRepo, config.HookEventPush) {
 			return false, nil
 		}
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		branch := getBranchFromRef(ev.Ref)
+		if !MatchBranch(hookRepo, config.HookEventPush, branch) {
 			return false, nil
 		}
-
-		if isRegular {
-			matched, err := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref))
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = branch
 		var changedFiles []string
 		for _, commit := range ev.Commits {
 			changedFiles = append(changedFiles, commit.Added...)
@@ -114,17 +106,6 @@ func (gtem giteeTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHook
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if !EventConfigured(hookRepo, config.HookEventTag) {
 			return false, nil
-		}
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-			return false, nil
-		}
-
-		if isRegular {
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch)
-			if err != nil || !matched {
-				return false, nil
-			}
 		}
 		hookRepo.Branch = ev.Project.DefaultBranch
 
@@ -177,18 +158,11 @@ func (gmem *giteeMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.PullRequest.Base.Ref {
+		branch := ev.PullRequest.Base.Ref
+		if !MatchBranch(hookRepo, config.HookEventPr, branch) {
 			return false, nil
 		}
-
-		if isRegular {
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.PullRequest.Base.Ref)
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = ev.PullRequest.Base.Ref
+		hookRepo.Branch = branch
 		if ev.PullRequest.State == "open" {
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
