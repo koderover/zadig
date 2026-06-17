@@ -40,7 +40,10 @@ var supportedDynamicRecipientKinds = map[setting.NotifyWebHookType]map[dynamicRe
 		dynamicRecipientKindOpenID:  {},
 	},
 	setting.NotifyWebHookTypeFeishu: {
-		dynamicRecipientKindUserID: {},
+		dynamicRecipientKindEmail:   {},
+		dynamicRecipientKindMobile:  {},
+		dynamicRecipientKindAccount: {},
+		dynamicRecipientKindUserID:  {},
 	},
 	setting.NotifyWebHookTypeWechatWork: {
 		dynamicRecipientKindUserID: {},
@@ -101,6 +104,27 @@ func ValidateDynamicRecipientsForNotifyType(notifyType setting.NotifyWebHookType
 		}
 		if _, ok := supportedKinds[spec.kind]; !ok {
 			return fmt.Errorf("dynamic recipient %s is not supported for notification type %s", recipient, notifyType)
+		}
+	}
+
+	return nil
+}
+
+func ValidateDynamicRecipientsForNotifyConfig(notifyType setting.NotifyWebHookType, appID string, recipients []string) error {
+	if err := ValidateDynamicRecipientsForNotifyType(notifyType, recipients); err != nil {
+		return err
+	}
+	if notifyType != setting.NotifyWebHookTypeFeishu || strings.TrimSpace(appID) != "" {
+		return nil
+	}
+
+	for _, recipient := range recipients {
+		spec, err := parseDynamicRecipient(recipient)
+		if err != nil {
+			return err
+		}
+		if spec.kind != dynamicRecipientKindUserID {
+			return fmt.Errorf("dynamic recipient %s requires app_id for notification type %s", recipient, notifyType)
 		}
 	}
 
@@ -238,12 +262,23 @@ func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID s
 		return nil, nil
 	}
 
-	client, err := r.getLarkClient(appID)
-	if err != nil {
-		return nil, err
+	resp := make([]*larktool.UserInfo, 0)
+	var client *larktool.Client
+	getClient := func() (*larktool.Client, error) {
+		if client != nil {
+			return client, nil
+		}
+		if strings.TrimSpace(appID) == "" {
+			return nil, fmt.Errorf("app_id is required to resolve lark dynamic recipients by email/mobile/account")
+		}
+		var err error
+		client, err = r.getLarkClient(appID)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
 	}
 
-	resp := make([]*larktool.UserInfo, 0)
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
 		if err != nil {
@@ -262,6 +297,10 @@ func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID s
 			}
 			resp = append(resp, &larktool.UserInfo{ID: value, IDType: setting.LarkUserOpenID})
 		case dynamicRecipientKindEmail:
+			client, err := getClient()
+			if err != nil {
+				return nil, err
+			}
 			ids, err := r.resolveLarkUserIDsByEmail(client, appID, value)
 			if err != nil {
 				return nil, err
@@ -270,6 +309,10 @@ func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID s
 				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
 			}
 		case dynamicRecipientKindMobile:
+			client, err := getClient()
+			if err != nil {
+				return nil, err
+			}
 			ids, err := r.resolveLarkUserIDsByPhone(client, appID, value)
 			if err != nil {
 				return nil, err
@@ -278,6 +321,10 @@ func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID s
 				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
 			}
 		case dynamicRecipientKindAccount:
+			client, err := getClient()
+			if err != nil {
+				return nil, err
+			}
 			ids, err := r.resolveLarkUserIDsByAccount(client, appID, value)
 			if err != nil {
 				return nil, err

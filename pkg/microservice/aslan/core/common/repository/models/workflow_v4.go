@@ -1282,6 +1282,7 @@ type LarkPersonNotificationConfig struct {
 }
 
 type LarkHookNotificationConfig struct {
+	AppID             string            `bson:"app_id"              json:"app_id"              yaml:"app_id"`
 	HookAddress       string            `bson:"hook_address"        json:"hook_address"        yaml:"hook_address"`
 	AtUsers           []string          `bson:"at_users"            json:"at_users"            yaml:"at_users"`
 	DynamicRecipients DynamicRecipients `bson:"dynamic_recipients"  json:"dynamic_recipients"  yaml:"dynamic_recipients"`
