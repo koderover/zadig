@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/xanzy/go-gitlab"
@@ -245,17 +244,12 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *commonmodels.Scan
 			return false, nil
 		}
 
-		if !matchRepo.IsRegular {
-			if getBranchFromRef(ev.Ref) != hookRepo.Branch {
-				return false, nil
-			}
-		} else {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-				return false, nil
-			}
+		branch := getBranchFromRef(ev.Ref)
+		if !MatchBranch(matchRepo, config.HookEventPush, branch) {
+			return false, nil
 		}
 
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = branch
 		var changedFiles []string
 		for _, commit := range ev.Commits {
 			changedFiles = append(changedFiles, commit.Added...)
@@ -300,19 +294,12 @@ func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *commonmodels.Sca
 			return false, nil
 		}
 
-		isRegExp := matchRepo.IsRegular
-
-		if !isRegExp {
-			if ev.ObjectAttributes.TargetBranch != hookRepo.Branch {
-				return false, nil
-			}
-		} else {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-				return false, nil
-			}
+		branch := ev.ObjectAttributes.TargetBranch
+		if !MatchBranch(matchRepo, config.HookEventPr, branch) {
+			return false, nil
 		}
 
-		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+		hookRepo.Branch = branch
 
 		if ev.ObjectAttributes.State == "opened" {
 			var changedFiles []string
