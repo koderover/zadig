@@ -928,6 +928,11 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	))
 
 	for key, value := range keyMap {
+		// Payload variables are resolved from HookPayload.RawPayload on demand;
+		// they don't need to be duplicated into GlobalContext.
+		if strings.HasPrefix(key, "payload.") {
+			continue
+		}
 		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
 	}
 	return resp
