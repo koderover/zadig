@@ -226,23 +226,24 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 
 func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
 	keyMap := c.buildRuntimeNotificationKeyMap()
+	recipientKeyMap := c.buildRuntimeNotificationRecipientKeyMap()
 
 	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
 	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
 
 	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, keyMap)
+		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, recipientKeyMap)
 	}
 	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
-		cfg.AtMobiles = renderNotificationStrings(cfg.AtMobiles, keyMap)
+		cfg.AtMobiles = renderNotificationStrings(cfg.AtMobiles, recipientKeyMap)
 	}
 	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
-		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, keyMap)
+		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, recipientKeyMap)
 	}
 	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
-		cfg.AtEmails = renderNotificationStrings(cfg.AtEmails, keyMap)
+		cfg.AtEmails = renderNotificationStrings(cfg.AtEmails, recipientKeyMap)
 	}
-	return c.resolveDynamicRecipients(keyMap)
+	return c.resolveDynamicRecipients(recipientKeyMap)
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
@@ -253,6 +254,10 @@ func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string 
 		}
 	}
 	return keyMap
+}
+
+func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
+	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
 }
 
 func renderNotificationStrings(inputs []string, keyMap map[string]string) []string {
