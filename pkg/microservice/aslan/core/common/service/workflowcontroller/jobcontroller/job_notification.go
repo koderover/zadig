@@ -246,18 +246,12 @@ func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
-	keyMap := make(map[string]string)
-
-	insertKVs := func(kvs []*commonmodels.KeyVal) {
-		for _, kv := range kvs {
-			if kv == nil || kv.Key == "" || kv.GetValue() == "" {
-				continue
-			}
-			keyMap[kv.Key] = kv.GetValue()
+	keyMap := util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
+	for key := range keyMap {
+		if strings.HasPrefix(key, "payload.") {
+			delete(keyMap, key)
 		}
 	}
-
-	insertKVs(c.workflowCtx.WorkflowKeyVals)
 	return keyMap
 }
 

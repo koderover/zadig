@@ -400,6 +400,14 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 				IsCredential: kv.IsCredential,
 			})
 		}
+		for _, kv := range commonutil.BuildPayloadVariables(w.HookPayload.RawPayload) {
+			resp = append(resp, &commonmodels.Param{
+				Name:         kv.Key,
+				Value:        kv.Value,
+				ParamsType:   "string",
+				IsCredential: kv.IsCredential,
+			})
+		}
 	}
 	return resp, nil
 }
