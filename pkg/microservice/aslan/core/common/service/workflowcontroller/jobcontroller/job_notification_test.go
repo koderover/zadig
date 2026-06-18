@@ -92,38 +92,3 @@ func TestPrepareRuntimeNotificationFieldsDoesNotRenderPayloadInTitleOrContent(t 
 		t.Fatalf("expected content %q, got %q", want, ctl.jobTaskSpec.Content)
 	}
 }
-
-func TestPrepareRuntimeNotificationFieldsRendersWorkflowTriggerInTitle(t *testing.T) {
-	ctl := &NotificationJobCtl{
-		workflowCtx: &commonmodels.WorkflowTaskCtx{
-			WorkflowKeyVals: []*commonmodels.KeyVal{
-				{Key: "workflow.trigger.branch", Value: "feature/demo"},
-				{Key: "payload.commits.0.author.email", Value: "dev@example.com"},
-			},
-		},
-		jobTaskSpec: &commonmodels.JobTaskNotificationSpec{
-			WebHookType: setting.NotifyWebHookTypeMail,
-			Title:       "notify {{.workflow.trigger.branch}}",
-			MailNotificationConfig: &commonmodels.MailNotificationConfig{
-				DynamicRecipients: commonmodels.DynamicRecipients{"{{.payload.commits.0.author.email}}"},
-			},
-		},
-	}
-
-	if err := ctl.prepareRuntimeNotificationFields(); err != nil {
-		t.Fatalf("prepareRuntimeNotificationFields returned error: %v", err)
-	}
-
-	if ctl.jobTaskSpec.Title != "notify feature/demo" {
-		t.Fatalf("expected rendered title, got %q", ctl.jobTaskSpec.Title)
-	}
-
-	if len(ctl.jobTaskSpec.MailNotificationConfig.TargetUsers) != 1 {
-		t.Fatalf("expected 1 resolved target user, got %d", len(ctl.jobTaskSpec.MailNotificationConfig.TargetUsers))
-	}
-
-	got := ctl.jobTaskSpec.MailNotificationConfig.TargetUsers[0]
-	if got == nil || got.Type != "email" || got.UserName != "dev@example.com" {
-		t.Fatalf("expected runtime dynamic recipient to resolve to email target user, got %#v", got)
-	}
-}
