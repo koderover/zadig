@@ -51,6 +51,140 @@ var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
+type notificationRuntimeRenderFields struct {
+	Title   string
+	Content string
+
+	LarkHookAtUsers   []string
+	WechatAtUsers     []string
+	DingDingMobiles   []string
+	MSTeamsAtEmails   []string
+	LarkHookDynamic   commonmodels.DynamicRecipients
+	LarkGroupDynamic  commonmodels.DynamicRecipients
+	LarkPersonDynamic commonmodels.DynamicRecipients
+	WechatDynamic     commonmodels.DynamicRecipients
+	DingDingDynamic   commonmodels.DynamicRecipients
+	MSTeamsDynamic    commonmodels.DynamicRecipients
+	MailDynamic       commonmodels.DynamicRecipients
+}
+
+func cloneNotificationStrings(items []string) []string {
+	if items == nil {
+		return nil
+	}
+	resp := make([]string, len(items))
+	copy(resp, items)
+	return resp
+}
+
+func cloneNotificationDynamicRecipients(items commonmodels.DynamicRecipients) commonmodels.DynamicRecipients {
+	if items == nil {
+		return nil
+	}
+	resp := make(commonmodels.DynamicRecipients, len(items))
+	copy(resp, items)
+	return resp
+}
+
+func backupNotificationRuntimeRenderFields(job *commonmodels.JobTask) (*notificationRuntimeRenderFields, error) {
+	if job == nil || job.JobType != string(config.JobNotification) {
+		return nil, nil
+	}
+
+	spec, err := decodeNotificationJobTaskSpec(job.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &notificationRuntimeRenderFields{
+		Title:   spec.Title,
+		Content: spec.Content,
+	}
+
+	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
+		resp.LarkHookAtUsers = cloneNotificationStrings(cfg.AtUsers)
+		resp.LarkHookDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
+		resp.LarkGroupDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
+		resp.LarkPersonDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.WechatNotificationConfig; cfg != nil {
+		resp.WechatAtUsers = cloneNotificationStrings(cfg.AtUsers)
+		resp.WechatDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.DingDingNotificationConfig; cfg != nil {
+		resp.DingDingMobiles = cloneNotificationStrings(cfg.AtMobiles)
+		resp.DingDingDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
+		resp.MSTeamsAtEmails = cloneNotificationStrings(cfg.AtEmails)
+		resp.MSTeamsDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+	if cfg := spec.MailNotificationConfig; cfg != nil {
+		resp.MailDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+	}
+
+	return resp, nil
+}
+
+func restoreNotificationRuntimeRenderFields(job *commonmodels.JobTask, fields *notificationRuntimeRenderFields) (*commonmodels.JobTaskNotificationSpec, error) {
+	if job == nil || fields == nil || job.JobType != string(config.JobNotification) {
+		return nil, nil
+	}
+
+	spec, err := decodeNotificationJobTaskSpec(job.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	spec.Title = fields.Title
+	spec.Content = fields.Content
+
+	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
+		cfg.AtUsers = cloneNotificationStrings(fields.LarkHookAtUsers)
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkHookDynamic)
+	}
+	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkGroupDynamic)
+	}
+	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkPersonDynamic)
+	}
+	if cfg := spec.WechatNotificationConfig; cfg != nil {
+		cfg.AtUsers = cloneNotificationStrings(fields.WechatAtUsers)
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.WechatDynamic)
+	}
+	if cfg := spec.DingDingNotificationConfig; cfg != nil {
+		cfg.AtMobiles = cloneNotificationStrings(fields.DingDingMobiles)
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.DingDingDynamic)
+	}
+	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
+		cfg.AtEmails = cloneNotificationStrings(fields.MSTeamsAtEmails)
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.MSTeamsDynamic)
+	}
+	if cfg := spec.MailNotificationConfig; cfg != nil {
+		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.MailDynamic)
+	}
+
+	job.Spec = spec
+	return spec, nil
+}
+
+func decodeNotificationJobTaskSpec(raw interface{}) (*commonmodels.JobTaskNotificationSpec, error) {
+	if spec, ok := raw.(*commonmodels.JobTaskNotificationSpec); ok && spec != nil {
+		return spec, nil
+	}
+
+	spec := &commonmodels.JobTaskNotificationSpec{}
+	if err := commonmodels.IToi(raw, spec); err != nil {
+		return nil, err
+	}
+	return spec, nil
+}
+
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
 	var jobCtl JobCtl
 	switch job.JobType {
@@ -183,6 +317,14 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		return true
 	})
 
+	notificationFields, err := backupNotificationRuntimeRenderFields(job)
+	if err != nil {
+		logger.Errorf("backup notification runtime fields error: %v", err)
+		job.Status = config.StatusFailed
+		job.Error = err.Error()
+		return
+	}
+
 	// remove all the unrendered variable, replacing then with empty string
 	b, _ := json.Marshal(job)
 	variableRegexp := regexp.MustCompile(config.VariableRegEx)
@@ -192,6 +334,17 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		job.Status = config.StatusFailed
 		job.Error = err.Error()
 		return
+	}
+	if restoredSpec, err := restoreNotificationRuntimeRenderFields(job, notificationFields); err != nil {
+		logger.Errorf("restore notification runtime fields error: %v", err)
+		job.Status = config.StatusFailed
+		job.Error = err.Error()
+		return
+	} else if restoredSpec != nil {
+		if ctl, ok := jobCtl.(*NotificationJobCtl); ok {
+			ctl.jobTaskSpec = restoredSpec
+			ctl.job.Spec = restoredSpec
+		}
 	}
 
 	// Check execute policy before running the job
