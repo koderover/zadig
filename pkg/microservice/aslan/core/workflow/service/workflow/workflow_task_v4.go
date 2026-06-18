@@ -135,7 +135,7 @@ type JobTaskPreview struct {
 	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
-	Events               *commonmodels.Events         `bson:"events"         json:"events"`
+	Events               *commonmodels.Events         `bson:" - "         json:"events"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -2480,6 +2480,7 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	return nil
 }
 
+// extractRuntimeJobEvents extracts the runtime job events from the job task spec.
 func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
 	switch job.JobType {
 	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
@@ -2493,7 +2494,6 @@ func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
 			return taskJobSpec.Events
 		}
 	}
-
 	return nil
 }
 
