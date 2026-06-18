@@ -558,7 +558,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 
 	c.workflowTask.Remark = ""
 	isFirstComplete := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
-	shouldSendCompleteHook := isFirstComplete
+	// shouldSendCompleteHook := isFirstComplete
 	shouldUpdateJiraIssue := isFirstComplete || (c.workflowTask.Status == config.StatusReject && taskInColl.Status != config.StatusReject)
 
 	c.workflowTaskMutex.Lock()
@@ -574,11 +574,11 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 			c.logger.Errorf("send workflow task notification failed, error: %v", err)
 		}
-		if shouldSendCompleteHook {
-			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
-				c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
-			}
-		}
+		// if shouldSendCompleteHook {
+		// 	if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
+		// 		c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+		// 	}
+		// }
 		if shouldUpdateJiraIssue {
 			updateJiraFieldsForWorkflowTask(c.workflowTask, c.logger)
 			addJiraCommentForWorkflowTask(c.workflowTask, c.logger)
