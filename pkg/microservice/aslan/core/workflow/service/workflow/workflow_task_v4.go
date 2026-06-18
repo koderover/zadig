@@ -1131,15 +1131,8 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.EndTime = 0
 			jobTask.Error = ""
 			if t, ok := jobTaskMap[jobTask.Name]; ok {
-				taskBytes, _ := json.Marshal(t)
-				taskString := string(taskBytes)
-				for k, v := range globalKeyMap {
-					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-				}
-				err := json.Unmarshal([]byte(taskString), &t)
-				if err != nil {
-					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
+				if err := workflowController.RenderJobTaskWithGlobalVariables(t, globalKeyMap); err != nil {
+					return err
 				}
 				jobTask.Spec = t.Spec
 			} else {
@@ -1333,15 +1326,8 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 				job.Spec = ctrl.GetSpec()
 				for _, task := range jobTasks {
-					taskBytes, _ := json.Marshal(task)
-					taskString := string(taskBytes)
-					for k, v := range globalKeyMap {
-						taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-						log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-					}
-					err := json.Unmarshal([]byte(taskString), &task)
-					if err != nil {
-						return fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
+					if err := workflowController.RenderJobTaskWithGlobalVariables(task, globalKeyMap); err != nil {
+						return err
 					}
 				}
 
