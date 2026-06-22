@@ -531,15 +531,12 @@ type OpenAPIEnvDetail struct {
 }
 
 type OpenAPIServicePodInfo struct {
-	PodName         string   `json:"pod_name"`
-	Status          string   `json:"status"`
-	PodReady        bool     `json:"pod_ready"`
-	ContainersReady bool     `json:"containers_ready"`
-	CreateTime      int64    `json:"create_time"`
-	IP              string   `json:"ip"`
-	Images          []string `json:"images"`
-	WorkloadName    string   `json:"workload_name"`
-	WorkloadType    string   `json:"workload_type"`
+	*internalresource.Pod
+	PodName      string   `json:"pod_name"`
+	CreateTime   int64    `json:"create_time"`
+	Images       []string `json:"images"`
+	WorkloadName string   `json:"workload_name"`
+	WorkloadType string   `json:"workload_type"`
 }
 
 type OpenAPIListServicePodsResponse struct {

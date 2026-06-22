@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -178,15 +179,12 @@ func OpenAPIListServicePods(projectName, envName, serviceName string, production
 			}
 
 			resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
-				PodName:         pod.Name,
-				Status:          pod.Status,
-				PodReady:        pod.PodReady,
-				ContainersReady: pod.ContainersReady,
-				CreateTime:      pod.CreateTime,
-				IP:              pod.IP,
-				Images:          images,
-				WorkloadName:    scale.Name,
-				WorkloadType:    scale.Type,
+				Pod:          pod,
+				PodName:      pod.Name,
+				CreateTime:   pod.CreateTime,
+				Images:       images,
+				WorkloadName: scale.Name,
+				WorkloadType: scale.Type,
 			})
 		}
 	}
@@ -195,13 +193,17 @@ func OpenAPIListServicePods(projectName, envName, serviceName string, production
 }
 
 func OpenAPIRestartServicePod(projectName, envName, serviceName, podName string, production bool, logger *zap.SugaredLogger) (*OpenAPIRestartServicePodResponse, error) {
-	// Verify the target pod belongs to the specified service before restarting it.
-	podMatched, err := isServiceContainsPod(projectName, envName, serviceName, podName, production, logger)
+	serviceResp, err := GetService(envName, projectName, serviceName, production, "", logger)
 	if err != nil {
 		return nil, err
 	}
-	if !podMatched {
+
+	scale, pod := findServicePod(serviceResp.Scales, podName)
+	if pod == nil {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("pod %s does not belong to service %s", podName, serviceName))
+	}
+	if scale.Type == setting.Job {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("restart pod is not supported for Job workload %s", scale.Name))
 	}
 
 	// Query the pod again to ensure it still exists before performing the restart.
@@ -219,24 +221,19 @@ func OpenAPIRestartServicePod(projectName, envName, serviceName, podName string,
 	}, nil
 }
 
-func isServiceContainsPod(projectName, envName, serviceName, podName string, production bool, logger *zap.SugaredLogger) (bool, error) {
-	serviceResp, err := GetService(envName, projectName, serviceName, production, "", logger)
-	if err != nil {
-		return false, err
-	}
-
-	for _, scale := range serviceResp.Scales {
+func findServicePod(scales []*internalresource.Workload, podName string) (*internalresource.Workload, *internalresource.Pod) {
+	for _, scale := range scales {
 		if scale == nil {
 			continue
 		}
 		for _, pod := range scale.Pods {
 			if pod != nil && pod.Name == podName {
-				return true, nil
+				return scale, pod
 			}
 		}
 	}
 
-	return false, nil
+	return nil, nil
 }
 
 func OpenAPIGetGlobalVariables(projectName, envName string, production bool, logger *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, error) {
