@@ -19,7 +19,6 @@ package webhook
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/go-github/v35/github"
@@ -60,17 +59,11 @@ func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+	branch := getBranchFromRef(*ev.Ref)
+	if !MatchBranch(hookRepo, config.HookEventPush, branch) {
 		return false, nil
 	}
-	if isRegular {
-		// Do not use regexp.MustCompile to avoid panic
-		if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
-			return false, nil
-		}
-	}
-	hookRepo.Branch = getBranchFromRef(*ev.Ref)
+	hookRepo.Branch = branch
 	hookRepo.Committer = *ev.Pusher.Name
 	var changedFiles []string
 	for _, commit := range ev.Commits {
@@ -135,16 +128,11 @@ func (gmem *githubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != *ev.PullRequest.Base.Ref {
+	branch := *ev.PullRequest.Base.Ref
+	if !MatchBranch(hookRepo, config.HookEventPr, branch) {
 		return false, nil
 	}
-	if isRegular {
-		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
-			return false, nil
-		}
-	}
-	hookRepo.Branch = *ev.PullRequest.Base.Ref
+	hookRepo.Branch = branch
 	hookRepo.Committer = *ev.PullRequest.User.Login
 	if *ev.PullRequest.State == "open" {
 		var changedFiles []string

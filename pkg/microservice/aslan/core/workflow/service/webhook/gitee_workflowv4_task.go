@@ -18,7 +18,6 @@ package webhook
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
@@ -55,18 +54,11 @@ func (gpem *giteePushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Mai
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		branch := getBranchFromRef(ev.Ref)
+		if !MatchBranch(hookRepo, config.HookEventPush, branch) {
 			return false, nil
 		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref))
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = branch
 		hookRepo.Committer = ev.Pusher.Name
 		var changedFiles []string
 		for _, commit := range ev.Commits {
@@ -105,17 +97,11 @@ func (gmem *giteeMergeEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Ma
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.PullRequest.Base.Ref {
+		branch := ev.PullRequest.Base.Ref
+		if !MatchBranch(hookRepo, config.HookEventPr, branch) {
 			return false, nil
 		}
-		if isRegular {
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.PullRequest.Base.Ref)
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = ev.PullRequest.Base.Ref
+		hookRepo.Branch = branch
 		hookRepo.Committer = ev.PullRequest.User.Login
 		if ev.PullRequest.State == "open" {
 			var changedFiles []string
@@ -157,7 +143,12 @@ func (gtem giteeTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		hookRepo.Tag = getTagFromRef(ev.Ref)
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookRepo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		hookRepo.Committer = ev.Sender.Name
 
 		return true, nil
