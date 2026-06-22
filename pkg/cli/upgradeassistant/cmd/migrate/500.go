@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KodeRover Authors.
+Copyright 2026 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ type permissionActionSeed500 struct {
 }
 
 // 5.0.0 新增系统操作日志查看权限。
-// 历史实例升级时，除保证 action 数据存在外，还会给 global_read_only 角色补齐该只读权限。
+// 历史实例升级时，只保证 action 数据存在，不自动给现有自定义角色放权。
 var permissionActionSeeds500 = []permissionActionSeed500{
 	{Name: "查看", Action: permissionservice.VerbGetLogOperation, Resource: "LogOperation", Scope: pkgtypes.DBSystemScope},
 }
@@ -76,24 +76,18 @@ func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) e
 		return fmt.Errorf("failed to begin migration 5.0.0 transaction, err: %s", tx.Error)
 	}
 
-	actionIDMap, err := ensurePermissionActions500(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// 回填global readonly role 的 操作日志权限
-	roleCount, err := backfillGlobalReadOnlyRolePermissions500(tx, actionIDMap)
-	if err != nil {
-		tx.Rollback()
-		return err
+	for _, seed := range permissionActionSeeds500 {
+		if _, err := ensureAction500(tx, seed); err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		return fmt.Errorf("failed to commit migration 5.0.0 permissions, err: %s", err)
 	}
 
-	log.Infof("migration 5.0.0 ensured log operation permission actions and backfilled %d global_read_only roles", roleCount)
+	log.Infof("migration 5.0.0 ensured log operation permission actions")
 
 	if alreadyMigrated {
 		return nil
@@ -102,19 +96,6 @@ func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) e
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500LogOperationPermission): true,
 	})
-}
-
-func ensurePermissionActions500(tx *gorm.DB) (map[string]uint, error) {
-	actionIDs := make(map[string]uint, len(permissionActionSeeds500))
-	for _, seed := range permissionActionSeeds500 {
-		actionID, err := ensureAction500(tx, seed)
-		if err != nil {
-			return nil, err
-		}
-		actionIDs[seed.Action] = actionID
-	}
-
-	return actionIDs, nil
 }
 
 // ensureAction500 guarantees the target action exists and supports repeated execution.
@@ -145,51 +126,6 @@ func ensureAction500(tx *gorm.DB, seed permissionActionSeed500) (uint, error) {
 	}
 
 	return action.ID, nil
-}
-
-func backfillGlobalReadOnlyRolePermissions500(tx *gorm.DB, actionIDMap map[string]uint) (int, error) {
-	logActionID, ok := actionIDMap[permissionservice.VerbGetLogOperation]
-	if !ok || logActionID == 0 {
-		return 0, fmt.Errorf("action id for %s is missing", permissionservice.VerbGetLogOperation)
-	}
-
-	roles, err := userorm.ListRoleByNamespace(permissionservice.GeneralNamespace, tx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to list system roles for log operation permission backfill, err: %s", err)
-	}
-
-	updatedCount := 0
-	for _, role := range roles {
-		if role == nil || role.ID == 0 {
-			continue
-		}
-		if !role.GlobalReadOnly {
-			continue
-		}
-
-		actions, err := userorm.ListActionByRole(role.ID, tx)
-		if err != nil {
-			return updatedCount, fmt.Errorf("failed to list actions for role %d, err: %s", role.ID, err)
-		}
-
-		hasLogOperationPermission := false
-		for _, action := range actions {
-			if action != nil && action.ID == logActionID {
-				hasLogOperationPermission = true
-				break
-			}
-		}
-		if hasLogOperationPermission {
-			continue
-		}
-
-		if err := userorm.BulkCreateRoleActionBindings(role.ID, []uint{logActionID}, tx); err != nil {
-			return updatedCount, fmt.Errorf("failed to add %s permission for role %d, err: %s", permissionservice.VerbGetLogOperation, role.ID, err)
-		}
-		updatedCount++
-	}
-
-	return updatedCount, nil
 }
 
 func V500ToV430() error {
