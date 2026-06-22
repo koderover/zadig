@@ -59,6 +59,19 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	return resp, err
 }
 
+func (c *SystemSettingColl) GetByID() (*models.SystemSetting, error) {
+	objectID, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": objectID}
+	resp := &models.SystemSetting{}
+
+	err = c.FindOne(context.TODO(), query).Decode(resp)
+	return resp, err
+}
+
 func (c *SystemSettingColl) UpdateDefaultLoginSetting(defaultLogin string) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	change := bson.M{"$set": bson.M{
@@ -194,6 +207,26 @@ func (c *SystemSettingColl) UpdateServerURL(serverURL string) error {
 	query := bson.M{"_id": id}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
+}
+
+func (c *SystemSettingColl) InitDindTLSCertsIfNeeded(certs *models.DindTLSCerts) (bool, error) {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{
+		"_id": id,
+		"$or": []bson.M{
+			{"dind_tls_certs": bson.M{"$exists": false}},
+			{"dind_tls_certs": nil},
+		},
+	}
+	change := bson.M{"$set": bson.M{
+		"dind_tls_certs": certs,
+		"update_time":    time.Now().Unix(),
+	}}
+	result, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount > 0, nil
 }
 
 func (c *SystemSettingColl) UpdateReleasePlanHookSetting(hookSetting *models.ReleasePlanHookSettings) error {

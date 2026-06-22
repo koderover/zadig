@@ -87,6 +87,8 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 		yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
 		deploys := getDeploymentYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, deploys...)
+		daemonSets := getDaemonSetYaml(kubeClient, namespace, selector, log)
+		yamls = append(yamls, daemonSets...)
 		stss := getStatefulSetYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, stss...)
 		jobs := getJobYaml(kubeClient, namespace, selector, log)
@@ -95,7 +97,7 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 		yamls = append(yamls, cronJobs...)
 		cloneSets := getKruiseYaml(kruise, namespace, selector, log)
 		yamls = append(yamls, cloneSets...)
-		if len(deploys) == 0 && len(stss) == 0 && len(jobs) == 0 && len(cronJobs) == 0 && len(cloneSets) == 0 {
+		if len(deploys) == 0 && len(daemonSets) == 0 && len(stss) == 0 && len(jobs) == 0 && len(cronJobs) == 0 && len(cloneSets) == 0 {
 			if source == "wd" {
 				needFetchByRenderedManifest = true
 			}
@@ -126,7 +128,7 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 				continue
 			}
 			switch u.GetKind() {
-			case setting.Deployment, setting.StatefulSet, setting.Job, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob, setting.CloneSet:
+			case setting.Deployment, setting.DaemonSet, setting.StatefulSet, setting.Job, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob, setting.CloneSet:
 				resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
 				if err != nil {
 					log.Errorf("failed to get resource yaml, err: %s", err)
@@ -202,6 +204,16 @@ func getJobYaml(kubeClient client.Client, namespace string, selector labels.Sele
 			continue
 		}
 		resources = append(resources, resource)
+	}
+
+	return resources
+}
+
+func getDaemonSetYaml(kubeClient client.Client, namespace string, selector labels.Selector, log *zap.SugaredLogger) [][]byte {
+	resources, err := getter.ListDaemonSetsYaml(namespace, selector, kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets error: %v", err)
+		return nil
 	}
 	return resources
 }

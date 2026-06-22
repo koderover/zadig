@@ -2941,8 +2941,13 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 		case setting.Deployment:
 			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
+		case setting.DaemonSet:
+			err = updater.RestartDaemonSet(context.Background(), clusterID, env.Namespace, u.GetName())
+			return errors.Wrapf(err, "failed to restart daemonset %s", u.GetName())
 		case setting.StatefulSet:
+			err = updater.RestartStatefulSetV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}

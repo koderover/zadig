@@ -178,6 +178,31 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err != nil {
 				return "", nil, err
 			}
+		case setting.DaemonSet:
+			daemonSet := &appsv1.DaemonSet{}
+			if err := decoder.Decode(daemonSet); err != nil {
+				return "", nil, fmt.Errorf("unmarshal DaemonSet error: %v", err)
+			}
+			workloadRes = append(workloadRes, &WorkloadResource{
+				Name: resKind.Metadata.Name,
+				Type: resKind.Kind,
+			})
+			for i, container := range daemonSet.Spec.Template.Spec.Containers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					daemonSet.Spec.Template.Spec.Containers[i].Image = image.Image
+				}
+			}
+			for i, container := range daemonSet.Spec.Template.Spec.InitContainers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					daemonSet.Spec.Template.Spec.InitContainers[i].Image = image.Image
+				}
+			}
+			yamlStr, err = resourceToYaml(daemonSet)
+			if err != nil {
+				return "", nil, err
+			}
 		case setting.StatefulSet:
 			statefulSet := &appsv1.StatefulSet{}
 			if err := decoder.Decode(statefulSet); err != nil {

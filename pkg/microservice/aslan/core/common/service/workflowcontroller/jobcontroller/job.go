@@ -306,6 +306,23 @@ func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *com
 func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range workflowTask.Stages {
 		for _, job := range stage.Jobs {
+			if workflowTask.Status == config.StatusPause && job.JobType == string(config.JobK8sBlueGreenRelease) && job.Status == "" {
+				continue
+			}
+
+			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+			jobCtl.Clean(ctx)
+		}
+	}
+}
+
+func CleanPendingBlueGreenReleaseJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != string(config.JobK8sBlueGreenRelease) || job.Status != "" {
+				continue
+			}
+
 			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 			jobCtl.Clean(ctx)
 		}

@@ -151,6 +151,10 @@ func Untar(src, dst string) (err error) {
 		}
 	}()
 
+	if err = os.MkdirAll(dst, 0775); err != nil {
+		return err
+	}
+
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err = tr.Next()
@@ -172,7 +176,10 @@ func Untar(src, dst string) (err error) {
 				return err
 			}
 		case tar.TypeReg:
-			file, err = os.OpenFile(dirOrFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
+			if err = os.MkdirAll(filepath.Dir(dirOrFile), 0775); err != nil {
+				return err
+			}
+			file, err = os.OpenFile(dirOrFile, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.FileMode(hdr.Mode))
 			if err != nil {
 				return err
 			}

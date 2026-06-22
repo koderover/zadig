@@ -364,6 +364,10 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 
 		statusSets := sets.NewString(notify.NotifyTypes...)
 		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
+			if shouldSkipFeishuPersonPauseNotification(task, notify) {
+				continue
+			}
+
 			title, content, larkCard, webhookNotify, err := w.getNotificationContent(notify, task)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
@@ -438,6 +442,27 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 	}
 	return nil
+}
+
+func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *models.NotifyCtl) bool {
+	if task == nil || notify == nil || task.Status != config.StatusPause {
+		return false
+	}
+	if notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
+		return false
+	}
+
+	for _, stage := range task.Stages {
+		if stage == nil || stage.Status != config.StatusPause {
+			continue
+		}
+		if stage.ManualExec == nil || !stage.ManualExec.Enabled || stage.ManualExec.Excuted {
+			continue
+		}
+		return true
+	}
+
+	return false
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {
@@ -1019,6 +1044,9 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		WebHookType:        notify.WebHookType,
 		TotalTime:          time.Now().Unix() - task.StartTime,
 	}
+	if task.Status == config.StatusPause && isFeishuNotificationType(notify.WebHookType) {
+		workflowNotification.StatusTextKeyOverride = "taskStatusWaitingManualExec"
+	}
 	if opts != nil {
 		workflowNotification.StatusTextKeyOverride = opts.StatusTextKeyOverride
 		workflowNotification.PendingStageName = opts.PendingStageName
@@ -1205,6 +1233,10 @@ type workflowTaskNotification struct {
 	ScanningID            string                    `json:"scanning_id"`
 	StatusTextKeyOverride string                    `json:"status_text_key_override"`
 	PendingStageName      string                    `json:"pending_stage_name"`
+}
+
+func isFeishuNotificationType(notifyType setting.NotifyWebHookType) bool {
+	return notifyType == setting.NotifyWebHookTypeFeishu || notifyType == setting.NotifyWebhookTypeFeishuApp || notifyType == setting.NotifyWebHookTypeFeishuPerson
 }
 
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
