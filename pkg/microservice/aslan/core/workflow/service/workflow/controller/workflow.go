@@ -991,8 +991,6 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					ChoiceValue:  originParam.ChoiceValue,
 					Script:       originParam.Script,
 					CallFunction: originParam.CallFunction,
-					FileID:       originParam.FileID,
-					FilePath:     originParam.FilePath,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,

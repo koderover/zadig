@@ -667,6 +667,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 	}
+	// validate workflow task args
 	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
 		err = workflowCtrl.Validate(true)
 		if err != nil {
