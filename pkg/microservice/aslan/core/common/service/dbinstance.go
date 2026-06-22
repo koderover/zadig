@@ -29,17 +29,25 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 func ListDBInstances(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListDBInstances GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
 	resp, err := commonrepo.NewDBInstanceColl().List()
 	if err != nil {
 		return []*commonmodels.DBInstance{}, nil
 	}
-	if err := protectDBInstancePasswords(resp, encryptedKey, log); err != nil {
-		return nil, err
+	for _, db := range resp {
+		db.Password, err = crypto.AesEncryptByKey(db.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListDBInstances AesEncryptByKey err:%v", err)
+			return nil, err
+		}
 	}
 	return resp, nil
 }
@@ -83,81 +91,27 @@ func FindDBInstance(id, name string) (*commonmodels.DBInstance, error) {
 }
 
 func GetEncryptedDBInstance(id, encryptedKey string, log *zap.SugaredLogger) (*commonmodels.DBInstance, error) {
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("GetEncryptedDBInstance GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
+
 	resp, err := FindDBInstance(id, "")
 	if err != nil {
 		return nil, err
 	}
-	if err := protectDBInstancePasswords([]*commonmodels.DBInstance{resp}, encryptedKey, log); err != nil {
-		return nil, err
+	if resp.Password != "" {
+		resp.Password, err = crypto.AesEncryptByKey(resp.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("GetEncryptedDBInstance AesEncryptByKey err:%v", err)
+			return nil, err
+		}
 	}
 	return resp, nil
 }
 
-func protectDBInstancePasswords(instances []*commonmodels.DBInstance, encryptedKey string, log *zap.SugaredLogger) error {
-	targets := make([]*commonmodels.DBInstance, 0)
-	for _, instance := range instances {
-		if instance == nil || instance.Password == "" {
-			continue
-		}
-		targets = append(targets, instance)
-	}
-
-	if len(targets) == 0 {
-		return nil
-	}
-
-	if encryptedKey == "" {
-		for _, instance := range targets {
-			instance.Password = setting.MaskValue
-		}
-		return nil
-	}
-
-	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
-	if err != nil {
-		log.Errorf("DBInstance.GetAesKeyFromEncryptedKey err:%v", err)
-		return err
-	}
-
-	encryptedPasswords := make([]string, len(targets))
-	for i, instance := range targets {
-		encryptedPasswords[i], err = crypto.AesEncryptByKey(instance.Password, aesKey.PlainText)
-		if err != nil {
-			log.Errorf("DBInstance.AesEncryptByKey err:%v", err)
-			return err
-		}
-	}
-
-	for i, instance := range targets {
-		instance.Password = encryptedPasswords[i]
-	}
-
-	return nil
-}
-
-func restoreMaskedDBInstancePassword(id string, args *commonmodels.DBInstance) error {
-	if args == nil || args.Password != setting.MaskValue {
-		return nil
-	}
-
-	lookupID := id
-	if lookupID == "" && !args.ID.IsZero() {
-		lookupID = args.ID.Hex()
-	}
-
-	oldDB, err := FindDBInstance(lookupID, args.Name)
-	if err != nil {
-		return err
-	}
-	args.Password = oldDB.Password
-	return nil
-}
-
 func UpdateDBInstance(id string, args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
-	if err := restoreMaskedDBInstancePassword(id, args); err != nil {
-		log.Errorf("UpdateDBInstance restore masked password error:%v", err)
-		return err
-	}
 	return commonrepo.NewDBInstanceColl().Update(id, args)
 }
 
@@ -168,9 +122,6 @@ func DeleteDBInstance(id string) error {
 func ValidateDBInstance(args *commonmodels.DBInstance) error {
 	if args == nil {
 		return errors.New("nil DBInstance")
-	}
-	if err := restoreMaskedDBInstancePassword("", args); err != nil {
-		return err
 	}
 	switch args.Type {
 	case config.DBInstanceTypeMySQL, config.DBInstanceTypeMariaDB:
