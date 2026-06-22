@@ -647,11 +647,11 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				if pSvc.GetServiceRender().OverrideYaml.AutoSync {
 					autoSyncFlag = true
 				}
-			}
 
-			if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) &&
-				commonutil.GetChartDeployed(pSvc.GetServiceRender(), product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
-				return nil, fmt.Errorf("service %s is in draft, cannot deploy image only", svc.ServiceName)
+				if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) &&
+					commonutil.GetChartDeployed(pSvc.GetServiceRender(), product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
+					return nil, fmt.Errorf("service %s is in draft, cannot deploy image only", svc.ServiceName)
+				}
 			}
 
 			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{

@@ -572,7 +572,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			envSvcVersion.Service.DeployStrategy = envSvcVersion.DeployStrategy
 			envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
-			if envSvcVersion.DeployStrategy == setting.ServiceDeployStrategyDraft {
+			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
 				go func(done chan bool) {
 					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
 					if err != nil {

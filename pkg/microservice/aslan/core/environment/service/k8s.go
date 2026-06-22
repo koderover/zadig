@@ -574,6 +574,13 @@ func fetchWorkloadImages(productService *commonmodels.ProductService, product *c
 				continue
 			}
 			containers = append(containers, wrapper.Deployment(deployment).GetContainers()...)
+		} else if u.GetKind() == setting.DaemonSet {
+			daemonSet, exist, err := getter.GetDaemonSet(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find daemonset with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.DaemonSet(daemonSet).GetContainers()...)
 		} else if u.GetKind() == setting.StatefulSet {
 			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
 			if err != nil || !exist {
@@ -627,6 +634,12 @@ func waitResourceRunning(
 				j, found, err = getter.GetJob(namespace, r.GetName(), kubeClient)
 				if err == nil && found {
 					ready = wrapper.Job(j).Complete()
+				}
+			case setting.DaemonSet:
+				var d *appsv1.DaemonSet
+				d, found, err = getter.GetDaemonSet(namespace, r.GetName(), kubeClient)
+				if err == nil && found {
+					ready = wrapper.DaemonSet(d).Ready()
 				}
 			default:
 				ready = true

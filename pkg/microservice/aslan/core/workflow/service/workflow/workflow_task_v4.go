@@ -248,6 +248,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
+// GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -270,6 +271,12 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
+	// Render workflow dynamic params
+	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
+		log.Errorf("failed to render workflow dynamic params for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
@@ -281,6 +288,22 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	if jobName == "" {
+		variables, err := workflowCtrl.GetWorkflowParamReferableVariables(0, "", "", "", nil)
+		if err != nil {
+			err = fmt.Errorf("failed to get workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+
+		for _, kv := range variables {
+			resp = append(resp, fmt.Sprintf("{{.%s}}", kv.Key))
+		}
+
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,
@@ -305,6 +328,18 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	// When jobName is empty, render dynamic options for workflow-level params instead of job inputs.
+	if jobName == "" {
+		resp, err := workflowCtrl.GetWorkflowParamDynamicValues(0, "", "", "", key, nil)
+		if err != nil {
+			err = fmt.Errorf("failed to render workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,

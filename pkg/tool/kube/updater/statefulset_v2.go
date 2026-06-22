@@ -22,7 +22,6 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,19 +48,15 @@ func RestartStatefulSetV2(ctx context.Context, clusterID, namespace, name string
 		return fmt.Errorf("failed to get statefulset %s/%s: %w", namespace, name, err)
 	}
 
-	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
-	if err != nil {
-		return fmt.Errorf("failed to parse statefulset selector: %w", err)
+	now := time.Now().Format(time.RFC3339Nano)
+	patch := client.MergeFrom(sts.DeepCopy())
+	if sts.Spec.Template.Annotations == nil {
+		sts.Spec.Template.Annotations = map[string]string{}
 	}
+	sts.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = now
 
-	deleteOpts := []client.DeleteAllOfOption{
-		client.InNamespace(namespace),
-		client.MatchingLabelsSelector{Selector: selector},
-	}
-
-	pod := &corev1.Pod{}
-	if err := c.DeleteAllOf(ctx, pod, deleteOpts...); err != nil {
-		return fmt.Errorf("failed to delete pods for statefulset %s/%s: %w", namespace, name, err)
+	if err := c.Patch(ctx, sts, patch); err != nil {
+		return fmt.Errorf("failed to restart %s/statefulset/%s: %w", namespace, name, err)
 	}
 
 	return nil

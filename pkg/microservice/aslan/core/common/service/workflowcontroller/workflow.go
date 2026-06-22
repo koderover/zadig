@@ -121,6 +121,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		return fmt.Errorf("task: %s:%d is passed, cannot cancel", workflowName, taskID)
 	}
 
+	wasPaused := t.Status == config.StatusPause
 	t.Status = config.StatusCancelled
 	t.TaskRevoker = userName
 
@@ -137,6 +138,26 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	}
 	if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(t.WorkflowArgs, t.TaskID, t.Status, logger); err != nil {
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
+	}
+
+	if wasPaused {
+		logger.Infof("clean cancelled paused workflow task resources: %s:%d", t.WorkflowName, t.TaskID)
+		workflowCtx := &commonmodels.WorkflowTaskCtx{
+			WorkflowName:        t.WorkflowName,
+			WorkflowDisplayName: t.WorkflowDisplayName,
+			ProjectName:         t.ProjectName,
+			ProjectDisplayName:  t.ProjectDisplayName,
+			IsDebug:             t.IsDebug,
+			Remark:              t.Remark,
+			TaskID:              t.TaskID,
+			RetryNum:            t.RetryNum,
+			Workspace:           "/workspace",
+			DistDir:             fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), t.WorkflowName, t.TaskID),
+			DockerMountDir:      fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+			ConfigMapMountDir:   fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
+			StartTime:           time.Now(),
+		}
+		jobcontroller.CleanPendingBlueGreenReleaseJobs(context.Background(), t, workflowCtx, logger, func() {})
 	}
 
 	err = cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(fmt.Sprintf("workflowctl-cancel-%s-%d", workflowName, taskID), "cancel")
