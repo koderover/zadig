@@ -36,6 +36,18 @@ const DindStatefulSetName = "dind"
 const DindContainerName = "dind"
 const DindMountName = "zadig-docker"
 const DindMountPath = "/var/lib/docker"
+const DindTLSPort = 2376
+const DindTLSServicePortName = "dind-tls"
+const DindTLSSecretName = "dind-tls-certs"
+const DindTLSVolumeName = "dind-tls-certs"
+const DindTLSServerMountPath = "/etc/zadig/dind/tls"
+const DindTLSClientMountPath = "/etc/zadig/dind/client"
+const DindTLSCertHashAnnotation = "zadig.koderover.com/dind-tls-cert-hash"
+const DindTLSCACertKey = "ca.pem"
+const DindTLSServerCertKey = "server-cert.pem"
+const DindTLSServerKeyKey = "server-key.pem"
+const DindTLSClientCertKey = "cert.pem"
+const DindTLSClientKeyKey = "key.pem"
 
 type KubeResourceKind struct {
 	APIVersion string `yaml:"apiVersion"`

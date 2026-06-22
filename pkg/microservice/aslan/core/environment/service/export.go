@@ -87,13 +87,15 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 		yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
 		deploys := getDeploymentYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, deploys...)
+		daemonSets := getDaemonSetYaml(kubeClient, namespace, selector, log)
+		yamls = append(yamls, daemonSets...)
 		stss := getStatefulSetYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, stss...)
 		cronJobs := getCronJobYaml(kubeClient, namespace, selector, VersionLessThan121(clusterVersion), log)
 		yamls = append(yamls, cronJobs...)
 		cloneSets := getKruiseYaml(kruise, namespace, selector, log)
 		yamls = append(yamls, cloneSets...)
-		if len(deploys) == 0 && len(stss) == 0 && len(cronJobs) == 0 {
+		if len(deploys) == 0 && len(daemonSets) == 0 && len(stss) == 0 && len(cronJobs) == 0 {
 			if source == "wd" {
 				needFetchByRenderedManifest = true
 			}
@@ -124,7 +126,7 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 				continue
 			}
 			switch u.GetKind() {
-			case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob:
+			case setting.Deployment, setting.DaemonSet, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob:
 				resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
 				if err != nil {
 					log.Errorf("failed to get resource yaml, err: %s", err)
@@ -177,6 +179,15 @@ func getDeploymentYaml(kubeClient client.Client, namespace string, selector labe
 	resources, err := getter.ListDeploymentsYaml(namespace, selector, kubeClient)
 	if err != nil {
 		log.Errorf("ListDeployments error: %v", err)
+		return nil
+	}
+	return resources
+}
+
+func getDaemonSetYaml(kubeClient client.Client, namespace string, selector labels.Selector, log *zap.SugaredLogger) [][]byte {
+	resources, err := getter.ListDaemonSetsYaml(namespace, selector, kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets error: %v", err)
 		return nil
 	}
 	return resources

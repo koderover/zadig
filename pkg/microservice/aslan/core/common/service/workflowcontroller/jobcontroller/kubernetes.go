@@ -750,6 +750,14 @@ func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyl
 			Name:  setting.DockerHost,
 			Value: jobTaskSpec.Properties.DockerHost,
 		})
+		ret = append(ret, corev1.EnvVar{
+			Name:  setting.DockerTLSVerify,
+			Value: "1",
+		})
+		ret = append(ret, corev1.EnvVar{
+			Name:  setting.DockerCertPath,
+			Value: types.DindTLSClientMountPath,
+		})
 	}
 	ret = append(ret, corev1.EnvVar{
 		Name:  setting.ENVLogLevel,
@@ -782,6 +790,12 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 		resp = append(resp, corev1.VolumeMount{
 			Name:      "docker-sock",
 			MountPath: setting.DefaultDockSock,
+		})
+	} else {
+		resp = append(resp, corev1.VolumeMount{
+			Name:      types.DindTLSVolumeName,
+			MountPath: types.DindTLSClientMountPath,
+			ReadOnly:  true,
 		})
 	}
 	return resp
@@ -825,6 +839,29 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: setting.DefaultDockSock,
 					Type: nil,
+				},
+			},
+		})
+	} else {
+		resp = append(resp, corev1.Volume{
+			Name: types.DindTLSVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: types.DindTLSSecretName,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  types.DindTLSCACertKey,
+							Path: types.DindTLSCACertKey,
+						},
+						{
+							Key:  types.DindTLSClientCertKey,
+							Path: types.DindTLSClientCertKey,
+						},
+						{
+							Key:  types.DindTLSClientKeyKey,
+							Path: types.DindTLSClientKeyKey,
+						},
+					},
 				},
 			},
 		})

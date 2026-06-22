@@ -86,6 +86,11 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteStatefulSets error: %v", err))
 	}
 
+	if err := updater.DeleteDaemonSetV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
+		log.Error(err)
+		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteDaemonSets error: %v", err))
+	}
+
 	if err := updater.DeleteJobsV2(context.Background(), clusterID, namespace, updater.WithSelector(selector.String())); err != nil {
 		log.Error(err)
 		errors = multierror.Append(errors, fmt.Errorf("kubeCli.DeleteJobs error: %v", err))

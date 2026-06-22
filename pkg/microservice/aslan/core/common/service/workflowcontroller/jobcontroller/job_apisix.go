@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/apisix"
+	jobtypes "github.com/koderover/zadig/v2/pkg/types/job"
 )
 
 type ApisixJobCtl struct {
@@ -75,11 +76,26 @@ func (c *ApisixJobCtl) Run(ctx context.Context) {
 			return
 		}
 
+		c.writeTaskOutput(task)
 		task.Status = string(config.StatusPassed)
 		c.ack()
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+func (c *ApisixJobCtl) writeTaskOutput(task *commonmodels.ApisixItemUpdateSpec) {
+	if c.workflowCtx == nil || c.workflowCtx.GlobalContextSet == nil {
+		return
+	}
+
+	configName, err := task.GetConfigName()
+	if err != nil || configName == "" || task.ItemID == "" {
+		return
+	}
+
+	outputKey := jobtypes.GetJobOutputKey(c.job.Key+"."+configName, "item_id")
+	c.workflowCtx.GlobalContextSet(outputKey, task.ItemID)
 }
 
 func (c *ApisixJobCtl) getApisixClient() (*apisix.Client, error) {

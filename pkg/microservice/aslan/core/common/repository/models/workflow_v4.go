@@ -19,6 +19,7 @@ package models
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,6 +45,7 @@ type WorkflowV4 struct {
 	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
 	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	TemplateName   string                   `bson:"-"                   yaml:"template_name,omitempty" json:"template_name,omitempty"`
 	Disabled       bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
 	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
 	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
@@ -1464,6 +1466,27 @@ type ApisixItemSpec struct {
 	Action config.ApisixActionType `bson:"action"        json:"action"        yaml:"action"`
 	Type   config.ApisixItemType   `bson:"type"          json:"type"          yaml:"type"`
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
+}
+
+func (s *ApisixItemSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemSpec is nil")
+	}
+	return getApisixConfigName(s.Spec)
+}
+
+func getApisixConfigName(spec interface{}) (string, error) {
+	if spec == nil {
+		return "", errors.New("spec is nil")
+	}
+	if specMap, ok := spec.(map[string]interface{}); ok {
+		name, ok := specMap["name"].(string)
+		if ok {
+			return strings.TrimSpace(name), nil
+		}
+		return "", errors.New("config name is empty from spec")
+	}
+	return "", errors.New("spec is not a map type")
 }
 
 type PingCodeJobSpec struct {
