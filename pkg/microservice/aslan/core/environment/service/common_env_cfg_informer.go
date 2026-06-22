@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -79,6 +80,22 @@ func NewClusterInformerFactory(clusterID string, cls *kubernetes.Clientset) (inf
 			go onStatefulSetAddAndUpdate(newObj)
 		},
 		DeleteFunc: onStatefulSetDelete,
+	})
+
+	informerFactory.Batch().V1().Jobs().Lister()
+	informerFactory.Batch().V1().Jobs().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			go onJobAddAndUpdate(obj)
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			newJob := newObj.(*batchv1.Job)
+			oldJob := oldObj.(*batchv1.Job)
+			if newJob.ResourceVersion == oldJob.ResourceVersion {
+				return
+			}
+			go onJobAddAndUpdate(newObj)
+		},
+		DeleteFunc: onJobDelete,
 	})
 
 	stopchan := make(chan struct{})
@@ -151,34 +168,7 @@ func onDeploymentDelete(obj interface{}) {
 }
 
 func VisitDeployment(deployment *appsv1.Deployment) (sets.String, sets.String, sets.String) {
-	cfgSets := sets.NewString()
-	secretSets := sets.NewString()
-	pvcSets := sets.NewString()
-	for _, initCon := range deployment.Spec.Template.Spec.InitContainers {
-		cfg, sec := visitContainerConfigmapAndSecretNames(initCon)
-		cfgSets = cfgSets.Union(cfg)
-		secretSets = secretSets.Union(sec)
-	}
-	for _, con := range deployment.Spec.Template.Spec.Containers {
-		cfg, sec := visitContainerConfigmapAndSecretNames(con)
-		cfgSets = cfgSets.Union(cfg)
-		secretSets = secretSets.Union(sec)
-	}
-	for _, ephemeralCon := range deployment.Spec.Template.Spec.EphemeralContainers {
-		cfg, sec := visitContainerConfigmapAndSecretNames(corev1.Container(ephemeralCon.DeepCopy().EphemeralContainerCommon))
-		cfgSets = cfgSets.Union(cfg)
-		secretSets = secretSets.Union(sec)
-	}
-	for _, volume := range deployment.Spec.Template.Spec.Volumes {
-		cfg, sec, pvc := visitVolumeConfigmapAndSecretAndPvcNames(volume)
-		cfgSets = cfgSets.Union(cfg)
-		secretSets = secretSets.Union(sec)
-		pvcSets = pvcSets.Union(pvc)
-	}
-	for _, sec := range deployment.Spec.Template.Spec.ImagePullSecrets {
-		secretSets.Insert(sec.Name)
-	}
-	return cfgSets, secretSets, pvcSets
+	return visitPodTemplateSpec(deployment.Spec.Template.Spec)
 }
 
 func onStatefulSetAddAndUpdate(obj interface{}) {
@@ -228,34 +218,87 @@ func onStatefulSetDelete(obj interface{}) {
 }
 
 func VisitStatefulSet(sts *appsv1.StatefulSet) (sets.String, sets.String, sets.String) {
+	return visitPodTemplateSpec(sts.Spec.Template.Spec)
+}
+
+func VisitJob(job *batchv1.Job) (sets.String, sets.String, sets.String) {
+	return visitPodTemplateSpec(job.Spec.Template.Spec)
+}
+
+func visitPodTemplateSpec(spec corev1.PodSpec) (sets.String, sets.String, sets.String) {
 	cfgSets := sets.NewString()
 	secretSets := sets.NewString()
 	pvcSets := sets.NewString()
-	for _, initCon := range sts.Spec.Template.Spec.InitContainers {
+	for _, initCon := range spec.InitContainers {
 		cfg, sec := visitContainerConfigmapAndSecretNames(initCon)
 		cfgSets = cfgSets.Union(cfg)
 		secretSets = secretSets.Union(sec)
 	}
-	for _, con := range sts.Spec.Template.Spec.Containers {
+	for _, con := range spec.Containers {
 		cfg, sec := visitContainerConfigmapAndSecretNames(con)
 		cfgSets = cfgSets.Union(cfg)
 		secretSets = secretSets.Union(sec)
 	}
-	for _, ephemeralCon := range sts.Spec.Template.Spec.EphemeralContainers {
+	for _, ephemeralCon := range spec.EphemeralContainers {
 		cfg, sec := visitContainerConfigmapAndSecretNames(corev1.Container(ephemeralCon.DeepCopy().EphemeralContainerCommon))
 		cfgSets = cfgSets.Union(cfg)
 		secretSets = secretSets.Union(sec)
 	}
-	for _, volume := range sts.Spec.Template.Spec.Volumes {
+	for _, volume := range spec.Volumes {
 		cfg, sec, pvc := visitVolumeConfigmapAndSecretAndPvcNames(volume)
 		cfgSets = cfgSets.Union(cfg)
 		secretSets = secretSets.Union(sec)
 		pvcSets = pvcSets.Union(pvc)
 	}
-	for _, sec := range sts.Spec.Template.Spec.ImagePullSecrets {
+	for _, sec := range spec.ImagePullSecrets {
 		secretSets.Insert(sec.Name)
 	}
 	return cfgSets, secretSets, pvcSets
+}
+
+func onJobAddAndUpdate(obj interface{}) {
+	job := obj.(*batchv1.Job)
+	labels := job.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(job.Namespace, job.Name, serviceName)
+	if !continueFlag {
+		return
+	}
+
+	configMaps, secrets, pvcs := VisitJob(job)
+	envSvcDepend := &models.EnvSvcDepend{
+		ProductName:   product.ProductName,
+		EnvName:       product.EnvName,
+		Namespace:     job.Namespace,
+		ServiceName:   serviceName,
+		ServiceModule: job.Name,
+		WorkloadType:  setting.Job,
+		ConfigMaps:    configMaps.List(),
+		Pvcs:          pvcs.List(),
+		Secrets:       secrets.List(),
+	}
+	if err := commonrepo.NewEnvSvcDependColl().CreateOrUpdate(envSvcDepend); err != nil {
+		log.Error("onJobAdd EnvSvcDepend CreateOrUpdate error:", err)
+	}
+}
+
+func onJobDelete(obj interface{}) {
+	job := obj.(*batchv1.Job)
+	labels := job.GetLabels()
+	serviceName := labels[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(job.Namespace, job.Name, serviceName)
+	if !continueFlag {
+		return
+	}
+	opts := &commonrepo.DeleteEnvSvcDependOption{
+		ProductName:   product.ProductName,
+		EnvName:       product.EnvName,
+		ServiceName:   serviceName,
+		ServiceModule: job.Name,
+	}
+	if err := commonrepo.NewEnvSvcDependColl().Delete(opts); err != nil {
+		log.Error("onJobDelete EnvSvcDepend Delete error:", err)
+	}
 }
 
 func GetProductAndFilterNs(namespace, workloadName, svcName string) (*models.Product, bool) {
