@@ -54,10 +54,7 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 	if testInfo.PreTest != nil {
 		testKeyVals = testInfo.PreTest.Envs.ToRuntimeList()
 	}
-	// use args kv to replace default kv
-	if args.KeyVals != nil {
-		testKeyVals = args.KeyVals.ToRuntimeList()
-	}
+	// validate required key vals
 	if err = jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
 		return nil, err
 	}

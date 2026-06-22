@@ -222,6 +222,7 @@ type ReleaseImage struct {
 	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
+// Deprecated
 type TestTaskArgs struct {
 	ProductName     string `bson:"product_name"            json:"product_name"`
 	TestName        string `bson:"test_name"               json:"test_name"`
@@ -240,7 +241,6 @@ type TestTaskArgs struct {
 	Branch         string       `bson:"branch" json:"branch"`
 	EventType      string       `bson:"event_type" json:"event_type"`
 	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
-	KeyVals        *KeyValList   `bson:"key_vals" json:"key_vals"`
 }
 
 type Slack struct {
