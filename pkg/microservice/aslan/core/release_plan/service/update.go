@@ -312,7 +312,7 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 }
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = nil, u
+	before = nil
 	job := &models.ReleaseJob{
 		ID:        uuid.New().String(),
 		Name:      u.Name,
@@ -322,6 +322,12 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 		Spec:      u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
+	// 深拷贝修改后的值，after 必须和 job 同类型（*models.ReleaseJob），否则 diff 显示会异常
+	var newJob models.ReleaseJob
+	if err = util.DeepCopy(&newJob, job); err != nil {
+		return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
+	}
+	after = &newJob
 	return
 }
 
