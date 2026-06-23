@@ -1,4 +1,4 @@
-package jobcontroller
+package dynamicrecipient
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/samber/lo"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
@@ -71,7 +72,7 @@ type dynamicRecipientSpec struct {
 	kind dynamicRecipientKind
 }
 
-type dynamicRecipientResolver struct {
+type Resolver struct {
 	keyMap map[string]string
 
 	lookupUsersByAccount func(account string) ([]*userclient.User, error)
@@ -131,8 +132,8 @@ func ValidateDynamicRecipientsForNotifyConfig(notifyType setting.NotifyWebHookTy
 	return nil
 }
 
-func newDynamicRecipientResolver(keyMap map[string]string) *dynamicRecipientResolver {
-	return &dynamicRecipientResolver{
+func NewResolver(keyMap map[string]string) *Resolver {
+	return &Resolver{
 		keyMap: keyMap,
 		lookupUsersByAccount: func(account string) ([]*userclient.User, error) {
 			return searchUsersByAccount(account)
@@ -152,7 +153,7 @@ func newDynamicRecipientResolver(keyMap map[string]string) *dynamicRecipientReso
 	}
 }
 
-func (r *dynamicRecipientResolver) resolveEmails(recipients []string) ([]string, error) {
+func (r *Resolver) ResolveEmails(recipients []string) ([]string, error) {
 	resp := make([]string, 0)
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
@@ -190,10 +191,10 @@ func (r *dynamicRecipientResolver) resolveEmails(recipients []string) ([]string,
 			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to email", recipient)
 		}
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveMobiles(recipients []string) ([]string, error) {
+func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
 	resp := make([]string, 0)
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
@@ -231,10 +232,10 @@ func (r *dynamicRecipientResolver) resolveMobiles(recipients []string) ([]string
 			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to mobile", recipient)
 		}
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveDirectValues(recipients []string, supportedKinds ...dynamicRecipientKind) ([]string, error) {
+func (r *Resolver) ResolveDirectValues(recipients []string, supportedKinds ...dynamicRecipientKind) ([]string, error) {
 	supported := make(map[dynamicRecipientKind]struct{}, len(supportedKinds))
 	for _, kind := range supportedKinds {
 		supported[kind] = struct{}{}
@@ -254,10 +255,14 @@ func (r *dynamicRecipientResolver) resolveDirectValues(recipients []string, supp
 		}
 		resp = append(resp, value)
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID string, allowOpenID bool) ([]*larktool.UserInfo, error) {
+func (r *Resolver) ResolveUserIDs(recipients []string) ([]string, error) {
+	return r.ResolveDirectValues(recipients, dynamicRecipientKindUserID)
+}
+
+func (r *Resolver) ResolveLarkUsers(recipients []string, appID string, allowOpenID bool) ([]*larktool.UserInfo, error) {
 	if len(recipients) == 0 {
 		return nil, nil
 	}
@@ -337,10 +342,10 @@ func (r *dynamicRecipientResolver) resolveLarkUsers(recipients []string, appID s
 		}
 	}
 
-	return uniqLarkUsers(resp), nil
+	return UniqLarkUsers(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveLarkUserIDsByEmail(client *larktool.Client, appID, email string) ([]string, error) {
+func (r *Resolver) resolveLarkUserIDsByEmail(client *larktool.Client, appID, email string) ([]string, error) {
 	if id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeEmail, email); err != nil {
 		return nil, err
 	} else if found {
@@ -365,10 +370,10 @@ func (r *dynamicRecipientResolver) resolveLarkUserIDsByEmail(client *larktool.Cl
 			resp = append(resp, id)
 		}
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveLarkUserIDsByPhone(client *larktool.Client, appID, phone string) ([]string, error) {
+func (r *Resolver) resolveLarkUserIDsByPhone(client *larktool.Client, appID, phone string) ([]string, error) {
 	if id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeMobile, phone); err != nil {
 		return nil, err
 	} else if found {
@@ -393,10 +398,10 @@ func (r *dynamicRecipientResolver) resolveLarkUserIDsByPhone(client *larktool.Cl
 			resp = append(resp, id)
 		}
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) resolveLarkUserIDsByAccount(client *larktool.Client, appID, account string) ([]string, error) {
+func (r *Resolver) resolveLarkUserIDsByAccount(client *larktool.Client, appID, account string) ([]string, error) {
 	users, err := r.getUsersByAccount(account)
 	if err != nil {
 		return nil, err
@@ -427,10 +432,10 @@ func (r *dynamicRecipientResolver) resolveLarkUserIDsByAccount(client *larktool.
 			}
 		}
 	}
-	return uniqStrings(resp), nil
+	return UniqStrings(resp), nil
 }
 
-func (r *dynamicRecipientResolver) lookupLarkUserID(client *larktool.Client, appID, queryType, value string) (string, bool, error) {
+func (r *Resolver) lookupLarkUserID(client *larktool.Client, appID, queryType, value string) (string, bool, error) {
 	cacheKey := strings.Join([]string{appID, queryType, value}, ":")
 	if cached, ok := r.larkUserIDCache[cacheKey]; ok {
 		return cached, true, nil
@@ -458,7 +463,7 @@ func (r *dynamicRecipientResolver) lookupLarkUserID(client *larktool.Client, app
 	return userID, true, nil
 }
 
-func (r *dynamicRecipientResolver) getUsersByAccount(account string) ([]*userclient.User, error) {
+func (r *Resolver) getUsersByAccount(account string) ([]*userclient.User, error) {
 	if users, ok := r.accountUsersCache[account]; ok {
 		return users, nil
 	}
@@ -470,7 +475,7 @@ func (r *dynamicRecipientResolver) getUsersByAccount(account string) ([]*usercli
 	return users, nil
 }
 
-func (r *dynamicRecipientResolver) getUsersByEmail(email string) ([]*userclient.User, error) {
+func (r *Resolver) getUsersByEmail(email string) ([]*userclient.User, error) {
 	if users, ok := r.emailUsersCache[email]; ok {
 		return users, nil
 	}
@@ -482,7 +487,7 @@ func (r *dynamicRecipientResolver) getUsersByEmail(email string) ([]*userclient.
 	return users, nil
 }
 
-func (r *dynamicRecipientResolver) getUsersByPhone(phone string) ([]*userclient.User, error) {
+func (r *Resolver) getUsersByPhone(phone string) ([]*userclient.User, error) {
 	if users, ok := r.phoneUsersCache[phone]; ok {
 		return users, nil
 	}
@@ -494,7 +499,7 @@ func (r *dynamicRecipientResolver) getUsersByPhone(phone string) ([]*userclient.
 	return users, nil
 }
 
-func (r *dynamicRecipientResolver) getLarkClient(appID string) (*larktool.Client, error) {
+func (r *Resolver) getLarkClient(appID string) (*larktool.Client, error) {
 	if client, ok := r.larkClientCache[appID]; ok {
 		return client, nil
 	}
@@ -508,7 +513,7 @@ func (r *dynamicRecipientResolver) getLarkClient(appID string) (*larktool.Client
 	return client, nil
 }
 
-func (r *dynamicRecipientResolver) resolveRecipient(raw string) (*dynamicRecipientSpec, string, bool, error) {
+func (r *Resolver) resolveRecipient(raw string) (*dynamicRecipientSpec, string, bool, error) {
 	spec, err := parseDynamicRecipient(raw)
 	if err != nil {
 		return nil, "", false, err
@@ -520,6 +525,73 @@ func (r *dynamicRecipientResolver) resolveRecipient(raw string) (*dynamicRecipie
 	}
 
 	return spec, value, true, nil
+}
+
+func BuildMailUsersFromEmails(emails []string) []*commonmodels.User {
+	resp := make([]*commonmodels.User, 0, len(emails))
+	for _, email := range lo.Uniq(emails) {
+		if email == "" {
+			continue
+		}
+		resp = append(resp, &commonmodels.User{
+			Type:     "email",
+			UserName: email,
+		})
+	}
+	return resp
+}
+
+func UniqMailUsers(users []*commonmodels.User) []*commonmodels.User {
+	seen := make(map[string]struct{})
+	resp := make([]*commonmodels.User, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		key := user.Type + ":"
+		switch user.Type {
+		case "email":
+			key += user.UserName
+		case setting.UserTypeGroup:
+			key += user.GroupID
+		default:
+			key += user.UserID
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, user)
+	}
+	return resp
+}
+
+func UniqLarkUsers(users []*larktool.UserInfo) []*larktool.UserInfo {
+	seen := make(map[string]struct{})
+	resp := make([]*larktool.UserInfo, 0, len(users))
+	for _, user := range users {
+		if user == nil || user.ID == "" {
+			continue
+		}
+		key := user.IDType + ":" + user.ID
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, user)
+	}
+	return resp
+}
+
+func renderNotificationString(input string, keyMap map[string]string) string {
+	if len(keyMap) == 0 || !strings.Contains(input, "{{.") {
+		return input
+	}
+	pairs := make([]string, 0, len(keyMap)*2)
+	for key, value := range keyMap {
+		pairs = append(pairs, "{{."+key+"}}", value)
+	}
+	return strings.NewReplacer(pairs...).Replace(input)
 }
 
 func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
@@ -599,7 +671,7 @@ func searchUsersByPhone(phone string) ([]*userclient.User, error) {
 	return resp.Users, nil
 }
 
-func uniqStrings(items []string) []string {
+func UniqStrings(items []string) []string {
 	items = lo.Filter(items, func(item string, _ int) bool {
 		return item != ""
 	})

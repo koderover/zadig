@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -278,10 +279,10 @@ func renderNotificationStrings(inputs []string, keyMap map[string]string) []stri
 }
 
 func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
-	resolver := newDynamicRecipientResolver(keyMap)
+	resolver := dynamicrecipient.NewResolver(keyMap)
 
 	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
 		if err != nil {
 			return err
 		}
@@ -294,42 +295,42 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 		cfg.AtUsers = lo.Uniq(cfg.AtUsers)
 	}
 	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
-		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
 		if err != nil {
 			return err
 		}
-		cfg.AtUsers = uniqLarkUsers(append(cfg.AtUsers, users...))
+		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.LarkPersonNotificationConfig; cfg != nil {
-		users, err := resolver.resolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
 		if err != nil {
 			return err
 		}
-		cfg.TargetUsers = uniqLarkUsers(append(cfg.TargetUsers, users...))
+		cfg.TargetUsers = dynamicrecipient.UniqLarkUsers(append(cfg.TargetUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
-		emails, err := resolver.resolveEmails([]string(cfg.DynamicRecipients))
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
 		cfg.AtEmails = lo.Uniq(append(cfg.AtEmails, emails...))
 	}
 	if cfg := c.jobTaskSpec.MailNotificationConfig; cfg != nil {
-		emails, err := resolver.resolveEmails([]string(cfg.DynamicRecipients))
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
-		cfg.TargetUsers = uniqMailUsers(append(cfg.TargetUsers, buildMailUsersFromEmails(emails)...))
+		cfg.TargetUsers = dynamicrecipient.UniqMailUsers(append(cfg.TargetUsers, dynamicrecipient.BuildMailUsersFromEmails(emails)...))
 	}
 	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
-		mobiles, err := resolver.resolveMobiles([]string(cfg.DynamicRecipients))
+		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
 		cfg.AtMobiles = lo.Uniq(append(cfg.AtMobiles, mobiles...))
 	}
 	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
-		users, err := resolver.resolveDirectValues([]string(cfg.DynamicRecipients), dynamicRecipientKindUserID)
+		users, err := resolver.ResolveUserIDs([]string(cfg.DynamicRecipients))
 		if err != nil {
 			return err
 		}
@@ -337,62 +338,6 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 	}
 
 	return nil
-}
-
-func uniqLarkUsers(users []*lark.UserInfo) []*lark.UserInfo {
-	seen := make(map[string]struct{})
-	resp := make([]*lark.UserInfo, 0, len(users))
-	for _, user := range users {
-		if user == nil || user.ID == "" {
-			continue
-		}
-		key := user.IDType + ":" + user.ID
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		resp = append(resp, user)
-	}
-	return resp
-}
-
-func buildMailUsersFromEmails(emails []string) []*commonmodels.User {
-	resp := make([]*commonmodels.User, 0, len(emails))
-	for _, email := range lo.Uniq(emails) {
-		if email == "" {
-			continue
-		}
-		resp = append(resp, &commonmodels.User{
-			Type:     "email",
-			UserName: email,
-		})
-	}
-	return resp
-}
-
-func uniqMailUsers(users []*commonmodels.User) []*commonmodels.User {
-	seen := make(map[string]struct{})
-	resp := make([]*commonmodels.User, 0, len(users))
-	for _, user := range users {
-		if user == nil {
-			continue
-		}
-		key := user.Type + ":"
-		switch user.Type {
-		case "email":
-			key += user.UserName
-		case setting.UserTypeGroup:
-			key += user.GroupID
-		default:
-			key += user.UserID
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		resp = append(resp, user)
-	}
-	return resp
 }
 
 func buildLarkAtMessage(idList []string, isAtAll bool) string {
