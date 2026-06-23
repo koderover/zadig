@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const (
@@ -368,7 +369,12 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			if job.Type != u.Type {
 				return nil, nil, fmt.Errorf("job type cannot be changed")
 			}
-			before, after = job, u
+			// 深拷贝旧值，避免后续对 job 的修改污染 before，导致 diff 显示前后一致
+			var oldJob models.ReleaseJob
+			if err := util.DeepCopy(&oldJob, job); err != nil {
+				return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
+			}
+			before, after = &oldJob, u
 			job.Name = u.Name
 			job.Manager = u.Manager
 			job.ManagerID = u.ManagerID
