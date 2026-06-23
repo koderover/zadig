@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -29,6 +30,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 )
 
 type CreateTaskResp struct {
@@ -48,7 +50,23 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
-	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
+	testKeyVals := make(commonmodels.RuntimeKeyValList, 0)
+	if testInfo.PreTest != nil {
+		testKeyVals = testInfo.PreTest.Envs.ToRuntimeList()
+	}
+	// use args kv to replace default kv
+	if args.KeyVals != nil {
+		testKeyVals = args.KeyVals.ToRuntimeList()
+	}
+	// validate required key vals
+	if err = jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
+		return nil, err
+	}
+
+	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args, testKeyVals)
+	if err != nil {
+		return nil, err
+	}
 
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name:    username,
@@ -166,9 +184,9 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	}
 
 	if len(workflowTask.WorkflowArgs.Stages) != 1 || len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 {
-		errMsg := fmt.Sprintf("invalid test task!")
+		errMsg := "invalid test task!"
 		log.Errorf(errMsg)
-		return nil, fmt.Errorf(errMsg)
+		return nil, errors.New(errMsg)
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
@@ -295,7 +313,7 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	return testResults, nil
 }
 
-func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList) (*commonmodels.WorkflowV4, error) {
 	concurrencyLimit := 1
 	if testInfo.PreTest != nil {
 		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
@@ -353,7 +371,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 				{
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
-					KeyVals:     testInfo.PreTest.Envs.ToRuntimeList(),
+					KeyVals:     keyVals,
 					Repos:       testInfo.Repos,
 				},
 			},

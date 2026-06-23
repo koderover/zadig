@@ -570,6 +570,9 @@ func (w *Workflow) Validate(isExecution bool) error {
 		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {
 			return e.ErrLintWorkflow.AddDesc("workflow remark is required.")
 		}
+		if err := validateRequiredWorkflowParams(w.Params); err != nil {
+			return e.ErrLintWorkflow.AddErr(err)
+		}
 	}
 
 	for _, stage := range w.Stages {
@@ -616,6 +619,45 @@ func (w *Workflow) Validate(isExecution bool) error {
 		}
 	}
 	return nil
+}
+
+func validateRequiredWorkflowParams(params []*commonmodels.Param) error {
+	for _, param := range params {
+		if !param.Required {
+			continue
+		}
+		if !workflowParamValueProvided(param) {
+			return fmt.Errorf("workflow param %s is required", param.Name)
+		}
+	}
+	return nil
+}
+
+func workflowParamValueProvided(param *commonmodels.Param) bool {
+	if param == nil {
+		return false
+	}
+
+	switch param.ParamsType {
+	case string(commonmodels.MultiSelectType):
+		return len(param.ChoiceValue) > 0
+	case "repo":
+		return repositoryValueProvided(param.Repo)
+	case string(commonmodels.FileType):
+		return strings.TrimSpace(param.FileID) != "" || strings.TrimSpace(param.FilePath) != ""
+	default:
+		return strings.TrimSpace(param.Value) != ""
+	}
+}
+
+func repositoryValueProvided(repo *types.Repository) bool {
+	if repo == nil {
+		return false
+	}
+	if strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.GetRepoNamespace()) == "" {
+		return false
+	}
+	return strings.TrimSpace(repo.Ref()) != ""
 }
 
 func (w *Workflow) SetRepo(repo *types.Repository) error {
@@ -952,8 +994,9 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
+					Required:     originParam.Required,
 				}
-				if originParam.Source != config.ParamSourceFixed {
+				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
 					newParam.Repo = inputParam.Repo
 					newParam.ChoiceValue = inputParam.ChoiceValue
