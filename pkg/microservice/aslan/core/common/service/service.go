@@ -1107,11 +1107,13 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		templateSvcMap[svc.ServiceName] = svc
 
 		svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
-		for _, container := range svc.Containers {
-			// templateSvcs is default
-			if _, ok := svcModulesMap[svc.ServiceName]; !ok {
-				svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
-			}
+		// Service.Containers is no longer persisted — read modules from the
+		// service_module collection.
+		resolved, _, rerr := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, productInfo.Production, svc.Revision)
+		if rerr != nil {
+			return nil, e.ErrGetService.AddErr(errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", svc.ProductName, svc.ServiceName, svc.Revision))
+		}
+		for _, container := range resolved {
 			svcModulesMap[svc.ServiceName][container.Name] = container
 		}
 	}

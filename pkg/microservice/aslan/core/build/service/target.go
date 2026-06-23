@@ -17,12 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -39,7 +41,14 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 	for _, svc := range services {
 		switch svc.Type {
 		case setting.K8SDeployType, setting.HelmDeployType:
-			for _, container := range svc.Containers {
+			// Service.Containers no longer persisted — pull merged modules
+			// from service_module table.
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, false, svc.Revision)
+			if rerr != nil {
+				log.Errorf("failed to resolve modules for %s/%s rev %d: %s", svc.ProductName, svc.ServiceName, svc.Revision, rerr)
+				continue
+			}
+			for _, container := range resolved {
 				serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
 					ProductName: svc.ProductName,
 					ServiceWithModule: commonmodels.ServiceWithModule{
@@ -85,7 +94,14 @@ func ListContainers(productName string, log *zap.SugaredLogger) ([]*commonmodels
 				log.Errorf("ServiceTmpl.Find error: %v", err)
 				continue
 			}
-			for _, container := range serviceDetail.Containers {
+			// Service.Containers no longer persisted — read modules from
+			// the service_module table.
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), serviceDetail.ProductName, serviceDetail.ServiceName, false, serviceDetail.Revision)
+			if rerr != nil {
+				log.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceDetail.ProductName, serviceDetail.ServiceName, serviceDetail.Revision, rerr)
+				continue
+			}
+			for _, container := range resolved {
 				containerList = append(containerList, &commonmodels.ServiceModuleTarget{
 					ProductName: service.ProductName,
 					ServiceWithModule: commonmodels.ServiceWithModule{
