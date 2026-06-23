@@ -374,12 +374,18 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			if err := util.DeepCopy(&oldJob, job); err != nil {
 				return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
 			}
-			before, after = &oldJob, u
+			before = &oldJob
 			job.Name = u.Name
 			job.Manager = u.Manager
 			job.ManagerID = u.ManagerID
 			job.Spec = u.Spec
 			job.Updated = true
+			// 深拷贝修改后的值，after 必须和 before 同类型（*models.ReleaseJob），否则 diff 显示会异常
+			var newJob models.ReleaseJob
+			if err := util.DeepCopy(&newJob, job); err != nil {
+				return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
+			}
+			after = &newJob
 			return
 		}
 	}
