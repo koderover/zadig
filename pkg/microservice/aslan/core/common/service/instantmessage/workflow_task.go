@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -261,6 +262,11 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			return errors.New(errMsg)
 		}
 
+		if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+			log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
+			continue
+		}
+
 		if notify.WebHookType == setting.NotifyWebHookTypeMail {
 			if task.TaskCreatorID != "" {
 				for _, user := range notify.MailUsers {
@@ -371,6 +377,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				return errors.New(errMsg)
 			}
 
+			if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+				log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
+				continue
+			}
+
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
 				if task.TaskCreatorID != "" {
 					for _, user := range notify.MailNotificationConfig.TargetUsers {
@@ -437,6 +448,90 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			}
 		}
 	}
+	return nil
+}
+
+func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl) error {
+	if task == nil || notify == nil {
+		return nil
+	}
+
+	workflowArgs := task.WorkflowArgs
+	if workflowArgs == nil {
+		workflowArgs = task.OriginWorkflowArgs
+	}
+	if workflowArgs == nil {
+		return nil
+	}
+
+	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		workflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
+	resolver := dynamicrecipient.NewResolver(keyMap)
+
+	if cfg := notify.LarkHookNotificationConfig; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		if err != nil {
+			return err
+		}
+		for _, user := range users {
+			if user == nil || user.ID == "" {
+				continue
+			}
+			cfg.AtUsers = append(cfg.AtUsers, user.ID)
+		}
+		cfg.AtUsers = dynamicrecipient.UniqStrings(cfg.AtUsers)
+	}
+	if cfg := notify.LarkGroupNotificationConfig; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		if err != nil {
+			return err
+		}
+		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
+	}
+	if cfg := notify.LarkPersonNotificationConfig; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = dynamicrecipient.UniqLarkUsers(append(cfg.TargetUsers, users...))
+	}
+	if cfg := notify.MSTeamsNotificationConfig; cfg != nil {
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.AtEmails = dynamicrecipient.UniqStrings(append(cfg.AtEmails, emails...))
+	}
+	if cfg := notify.MailNotificationConfig; cfg != nil {
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = dynamicrecipient.UniqMailUsers(append(cfg.TargetUsers, dynamicrecipient.BuildMailUsersFromEmails(emails)...))
+	}
+	if cfg := notify.DingDingNotificationConfig; cfg != nil {
+		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.AtMobiles = dynamicrecipient.UniqStrings(append(cfg.AtMobiles, mobiles...))
+	}
+	if cfg := notify.WechatNotificationConfig; cfg != nil {
+		users, err := resolver.ResolveUserIDs([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.AtUsers = dynamicrecipient.UniqStrings(append(cfg.AtUsers, users...))
+	}
+
 	return nil
 }
 
