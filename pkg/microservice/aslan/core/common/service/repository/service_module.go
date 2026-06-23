@@ -103,6 +103,16 @@ func ListManualServiceModules(ctx context.Context, projectName, serviceName stri
 	return out, nil
 }
 
+// ListAutoServiceModules returns the auto-discovered records for one service
+// revision in their raw ServiceModule shape so callers can access record ids
+// for follow-up operations like delete-by-id.
+func ListAutoServiceModules(ctx context.Context, projectName, serviceName string, production bool, revision int64) ([]*models.ServiceModule, error) {
+	if projectName == "" || serviceName == "" || revision == 0 {
+		return nil, nil
+	}
+	return pickServiceModuleColl(production).ListAutoByRevision(ctx, projectName, serviceName, revision)
+}
+
 // DeleteAutoServiceModulesForRevision drops every auto record for one
 // (service, revision). Used by Delete in this package when a specific
 // revision is reaped. Manual records are untouched.

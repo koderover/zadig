@@ -225,9 +225,8 @@ func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*S
 		}
 		seen[key] = struct{}{}
 		systemVariables = append(systemVariables, &Variable{
-			Key:         key,
-			Value:       module.Image,
-			Description: fmt.Sprintf("服务模块 %s 镜像", module.Name),
+			Key:   key,
+			Value: module.Image,
 		})
 	}
 

@@ -58,6 +58,38 @@ func ListManualServiceModules(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = svcservice.ListManualServiceModules(projectName, serviceName, production, ctx.Logger)
 }
 
+// ListAutoServiceModules lists the auto-discovered module declarations for the
+// current service revision.
+// Query: ?projectName=...&production=true|false (default false)
+// Path:  /services/:name/auto-modules — :name is the service name.
+func ListAutoServiceModules(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
+	serviceName := c.Param("name")
+
+	if !canViewService(ctx, projectName, production) {
+		ctx.UnAuthorized = true
+		return
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = svcservice.ListAutoServiceModules(projectName, serviceName, production, ctx.Logger)
+}
+
 // CreateManualServiceModule declares a new manual module for a service.
 func CreateManualServiceModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

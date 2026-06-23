@@ -74,6 +74,39 @@ func ListManualServiceModules(projectName, serviceName string, production bool, 
 	return records, nil
 }
 
+// ListAutoServiceModules returns the auto-discovered modules for the current
+// service revision so callers can access the record ids needed by the delete
+// API.
+func ListAutoServiceModules(projectName, serviceName string, production bool, log *zap.SugaredLogger) ([]*commonmodels.ServiceModule, error) {
+	if projectName == "" || serviceName == "" {
+		return nil, fmt.Errorf("projectName and serviceName are required")
+	}
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName:   projectName,
+		ServiceName:   serviceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if production {
+		svc, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+			ProductName:   projectName,
+			ServiceName:   serviceName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		})
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find service %s/%s: %s", projectName, serviceName, err)
+	}
+	records, err := repository.ListAutoServiceModules(context.Background(), projectName, serviceName, production, svc.Revision)
+	if err != nil {
+		log.Errorf("failed to list auto modules for %s/%s rev %d: %s", projectName, serviceName, svc.Revision, err)
+		return nil, fmt.Errorf("failed to list auto modules: %s", err)
+	}
+	if records == nil {
+		records = []*commonmodels.ServiceModule{}
+	}
+	return records, nil
+}
+
 // CreateManualServiceModule declares a new manual module. Rejects:
 //   - empty name or image (service-layer guard mirroring the UI required flag)
 //   - service template that does not exist
