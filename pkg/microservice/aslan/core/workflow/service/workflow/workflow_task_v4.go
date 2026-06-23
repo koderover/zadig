@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
@@ -750,7 +751,7 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 			}
 			resp = append(resp, input)
 		}
-		if err := runtimeJobController.ValidateDynamicRecipientsForNotifyConfig(notifyType, appID, resp); err != nil {
+		if err := dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(notifyType, appID, resp); err != nil {
 			return nil, err
 		}
 		return resp, nil

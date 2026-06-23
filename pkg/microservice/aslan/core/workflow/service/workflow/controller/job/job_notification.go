@@ -22,7 +22,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -68,7 +68,7 @@ func (j NotificationJobController) Validate(isExecution bool) error {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if j.jobSpec.WebHookType == setting.NotifyWebHookTypeFeishu && j.jobSpec.LarkHookNotificationConfig != nil {
-		if err := runtimeJobController.ValidateDynamicRecipientsForNotifyConfig(
+		if err := dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(
 			j.jobSpec.WebHookType,
 			j.jobSpec.LarkHookNotificationConfig.AppID,
 			[]string(j.jobSpec.LarkHookNotificationConfig.DynamicRecipients),
