@@ -509,8 +509,12 @@ func releasePlanWorkflowLatestSnapshotCacheKey(spec interface{}) (string, bool) 
 	if !ok {
 		return "", false
 	}
+	specHash, err := hashReleasePlanSubtree(spec)
+	if err != nil {
+		return "", false
+	}
 
-	return joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName), true
+	return joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName, specHash), true
 }
 
 func releasePlanWorkflowLatestSnapshotIdentity(spec interface{}) (projectName, workflowName string, ok bool) {
@@ -540,8 +544,8 @@ func releasePlanWorkflowLatestSnapshotLookupMap(specMap map[string]interface{}) 
 	return workflowMap
 }
 
-func joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName string) string {
-	return projectName + releasePlanWorkflowLatestSnapshotCacheKeySeparator + workflowName
+func joinReleasePlanWorkflowLatestSnapshotCacheKey(parts ...string) string {
+	return strings.Join(parts, releasePlanWorkflowLatestSnapshotCacheKeySeparator)
 }
 
 func getReleasePlanWorkflowLatestSnapshotCache(cacheKey string) (_ interface{}, ok bool) {
