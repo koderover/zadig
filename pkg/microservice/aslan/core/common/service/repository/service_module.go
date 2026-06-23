@@ -19,6 +19,8 @@ package repository
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
@@ -119,6 +121,13 @@ func DeleteAllServiceModulesForService(ctx context.Context, projectName, service
 		return nil
 	}
 	return pickServiceModuleColl(production).DeleteByService(ctx, projectName, serviceName)
+}
+
+// DeleteAutoServiceModuleByID removes one auto-discovered module by ObjectID.
+// Manual modules are intentionally protected by the storage-layer is_manual
+// filter.
+func DeleteAutoServiceModuleByID(ctx context.Context, production bool, id primitive.ObjectID) error {
+	return pickServiceModuleColl(production).DeleteAutoByID(ctx, id)
 }
 
 func pickServiceModuleColl(production bool) *mongodb.ServiceModuleColl {
