@@ -259,6 +259,16 @@ func (c *ServiceModuleColl) DeleteAutoByRevision(ctx context.Context, projectNam
 	return err
 }
 
+// DeleteAutoByID removes one auto-discovered module by ObjectID. Manual
+// records with the same ID are intentionally untouched by the is_manual guard.
+func (c *ServiceModuleColl) DeleteAutoByID(ctx context.Context, id primitive.ObjectID) error {
+	_, err := c.Collection.DeleteOne(mongotool.SessionContext(ctx, c.Session), bson.M{
+		"_id":       id,
+		"is_manual": false,
+	})
+	return err
+}
+
 // DeleteByService cascades: removes every record (manual and auto, all
 // revisions) for one service. Called when a service template is deleted.
 func (c *ServiceModuleColl) DeleteByService(ctx context.Context, projectName, serviceName string) error {

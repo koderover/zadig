@@ -177,20 +177,7 @@ func GetServiceOption(args *commonmodels.Service, production bool, log *zap.Suga
 		}
 	}
 	serviceOption.ServiceModules = serviceModules
-	serviceOption.SystemVariable = []*Variable{
-		{
-			Key:   "$Product$",
-			Value: args.ProductName},
-		{
-			Key:   "$Service$",
-			Value: args.ServiceName},
-		{
-			Key:   "$Namespace$",
-			Value: ""},
-		{
-			Key:   "$EnvName$",
-			Value: ""},
-	}
+	serviceOption.SystemVariable = buildServiceSystemVariables(args, serviceModules)
 
 	serviceOption.VariableYaml = args.VariableYaml
 	serviceOption.ServiceVariableKVs = args.ServiceVariableKVs
@@ -201,6 +188,50 @@ func GetServiceOption(args *commonmodels.Service, production bool, log *zap.Suga
 	}
 
 	return serviceOption, nil
+}
+
+func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*ServiceModule) []*Variable {
+	systemVariables := []*Variable{
+		{
+			Key:   "$Product$",
+			Value: args.ProductName,
+		},
+		{
+			Key:   "$Service$",
+			Value: args.ServiceName,
+		},
+		{
+			Key:   "$Namespace$",
+			Value: "",
+		},
+		{
+			Key:   "$EnvName$",
+			Value: "",
+		},
+	}
+
+	seen := make(map[string]struct{}, len(systemVariables)+len(serviceModules))
+	for _, variable := range systemVariables {
+		seen[variable.Key] = struct{}{}
+	}
+
+	for _, module := range serviceModules {
+		if module == nil || module.Container == nil || module.Name == "" {
+			continue
+		}
+		key := fmt.Sprintf("$%s-image$", module.Name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		systemVariables = append(systemVariables, &Variable{
+			Key:         key,
+			Value:       module.Image,
+			Description: fmt.Sprintf("服务模块 %s 镜像", module.Name),
+		})
+	}
+
+	return systemVariables
 }
 
 type K8sWorkloadsArgs struct {

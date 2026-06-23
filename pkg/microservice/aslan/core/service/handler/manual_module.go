@@ -176,6 +176,42 @@ func DeleteManualServiceModule(c *gin.Context) {
 	ctx.RespErr = svcservice.DeleteManualServiceModule(id, production, ctx.Logger)
 }
 
+// DeleteAutoServiceModule removes one auto-discovered module by id.
+// Query: ?projectName=...&production=true|false
+func DeleteAutoServiceModule(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
+
+	if !canEditService(ctx, projectName, production) {
+		ctx.UnAuthorized = true
+		return
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	id := c.Param("id")
+	function := "项目管理-服务"
+	if production {
+		function = "项目管理-生产服务"
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", function+"/自动识别模块", id, "", "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	ctx.RespErr = svcservice.DeleteAutoServiceModule(id, production, ctx.Logger)
+}
+
 // canViewService mirrors the authorization scaffolding used by the existing
 // service-template handlers — system admin / project admin / service view
 // permission, branching on production.

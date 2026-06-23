@@ -67,6 +67,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.POST("/manual-modules", CreateManualServiceModule)
 		k8s.PUT("/manual-modules/:id", UpdateManualServiceModule)
 		k8s.DELETE("/manual-modules/:id", DeleteManualServiceModule)
+		k8s.DELETE("/auto-modules/:id", DeleteAutoServiceModule)
 	}
 
 	labels := router.Group("labels")

@@ -170,6 +170,20 @@ func DeleteManualServiceModule(id string, production bool, log *zap.SugaredLogge
 	return nil
 }
 
+// DeleteAutoServiceModule removes one auto-discovered module by id. Manual
+// modules are not affected.
+func DeleteAutoServiceModule(id string, production bool, log *zap.SugaredLogger) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("invalid module id: %s", err)
+	}
+	if err := repository.DeleteAutoServiceModuleByID(context.Background(), production, objectID); err != nil {
+		log.Errorf("failed to delete auto module %s: %s", id, err)
+		return fmt.Errorf("failed to delete auto module: %s", err)
+	}
+	return nil
+}
+
 // ResolveServiceModules is a convenience wrapper around the merge function
 // that handler endpoints can call when they need the unified module list
 // (auto + manual) plus the conflict report.
