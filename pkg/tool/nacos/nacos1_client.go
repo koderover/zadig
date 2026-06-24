@@ -88,10 +88,10 @@ func NewNacos1Client(serverAddr, userName, password string) (*NacosClient, error
 		SetResult(&result).
 		Post(loginURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "login nacos failed")
+		return nil, wrapNacosError(err, "login nacos failed")
 	}
 	if !resp.IsSuccess() {
-		return nil, fmt.Errorf("login nacos failed: %s", resp.String())
+		return nil, newSanitizedNacosError(fmt.Sprintf("login nacos failed: %s", resp.String()))
 	}
 
 	c := httpclient.New(
@@ -126,7 +126,7 @@ func (c *NacosClient) ListNamespaces() ([]*types.NacosNamespace, error) {
 	url := "/v1/console/namespaces"
 	res := &nacosNamespaceResp{}
 	if _, err := c.Client.Get(url, httpclient.SetResult(res)); err != nil {
-		return nil, errors.Wrap(err, "list nacos namespace failed")
+		return nil, wrapNacosError(err, "list nacos namespace failed")
 	}
 	resp := []*types.NacosNamespace{}
 	for _, namespace := range res.Data {
@@ -161,7 +161,7 @@ func (c *NacosClient) ListGroups(namespaceID, keyword string) ([]*types.NacosDat
 			"accessToken": c.token,
 		})
 		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-			return nil, errors.Wrap(err, "list nacos config failed")
+			return nil, wrapNacosError(err, "list nacos config failed")
 		}
 		for _, conf := range res.PageItems {
 			if groupSet.Has(conf.Group) {
@@ -203,7 +203,7 @@ func (c *NacosClient) ListConfigs(namespaceID, groupName string) ([]*types.Nacos
 			"accessToken": c.token,
 		})
 		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-			return nil, errors.Wrap(err, "list nacos config failed")
+			return nil, wrapNacosError(err, "list nacos config failed")
 		}
 		for _, conf := range res.PageItems {
 			nacosID := types.NacosDataID{
@@ -234,7 +234,7 @@ func (c *NacosClient) GetConfig(dataID, group, namespaceID string) (*types.Nacos
 		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-		return nil, errors.Wrap(err, "get nacos config failed")
+		return nil, wrapNacosError(err, "get nacos config failed")
 	}
 	nacosID := types.NacosDataID{
 		DataID: res.DataID,
@@ -261,7 +261,7 @@ func (c *NacosClient) GetConfigHistory(dataID, group, namespaceID string) ([]*ty
 
 	res := &nacosConfigHistoryResp{}
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-		return nil, errors.Wrap(err, "list nacos config history failed")
+		return nil, wrapNacosError(err, "list nacos config history failed")
 	}
 
 	return res.PageItems, nil
@@ -279,7 +279,7 @@ func (c *NacosClient) UpdateConfig(dataID, group, namespaceID, content, format s
 		"accessToken": c.token,
 	}
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
-		return errors.Wrap(err, "update nacos config failed")
+		return wrapNacosError(err, "update nacos config failed")
 	}
 	return nil
 }

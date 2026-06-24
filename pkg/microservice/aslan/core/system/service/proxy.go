@@ -26,6 +26,9 @@ import (
 	conf "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -49,22 +52,83 @@ func SetProxyConfig() {
 	}
 }
 
-func ListProxies(log *zap.SugaredLogger) ([]*commonmodels.Proxy, error) {
+func ListProxies(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.Proxy, error) {
 	resp, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
 	if err != nil {
 		log.Errorf("Proxy.List error: %v", err)
 		return resp, e.ErrListProxies.AddErr(err)
 	}
+	if err := protectProxyPasswords(resp, encryptedKey, log); err != nil {
+		return nil, err
+	}
 	return resp, nil
 }
 
-func GetProxy(id string, log *zap.SugaredLogger) (*commonmodels.Proxy, error) {
+func GetProxy(id, encryptedKey string, log *zap.SugaredLogger) (*commonmodels.Proxy, error) {
 	resp, err := commonrepo.NewProxyColl().Find(id)
 	if err != nil {
 		log.Errorf("Proxy.Find %s error: %v", id, err)
 		return resp, e.ErrGetProxy.AddErr(err)
 	}
+	if err := protectProxyPasswords([]*commonmodels.Proxy{resp}, encryptedKey, log); err != nil {
+		return nil, err
+	}
 	return resp, nil
+}
+
+func protectProxyPasswords(proxies []*commonmodels.Proxy, encryptedKey string, log *zap.SugaredLogger) error {
+	targets := make([]*commonmodels.Proxy, 0)
+	for _, proxy := range proxies {
+		if proxy == nil || proxy.Password == "" {
+			continue
+		}
+		targets = append(targets, proxy)
+	}
+
+	if len(targets) == 0 {
+		return nil
+	}
+
+	if encryptedKey == "" {
+		for _, proxy := range targets {
+			proxy.Password = setting.MaskValue
+		}
+		return nil
+	}
+
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("Proxy.GetAesKeyFromEncryptedKey err:%v", err)
+		return err
+	}
+
+	encryptedPasswords := make([]string, len(targets))
+	for i, proxy := range targets {
+		encryptedPasswords[i], err = crypto.AesEncryptByKey(proxy.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("Proxy.AesEncryptByKey err:%v", err)
+			return err
+		}
+	}
+
+	for i, proxy := range targets {
+		proxy.Password = encryptedPasswords[i]
+	}
+
+	return nil
+}
+
+func restoreMaskedProxyPassword(id string, args *commonmodels.Proxy) error {
+	if args == nil || args.Password != setting.MaskValue {
+		return nil
+	}
+
+	oldProxy, err := commonrepo.NewProxyColl().Find(id)
+	if err != nil {
+		return err
+	}
+	args.Password = oldProxy.Password
+	return nil
 }
 
 func CreateProxy(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
@@ -81,6 +145,11 @@ func CreateProxy(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 }
 
 func UpdateProxy(id string, args *commonmodels.Proxy, log *zap.SugaredLogger) error {
+	if err := restoreMaskedProxyPassword(id, args); err != nil {
+		log.Errorf("Proxy.Update %s restore masked password error: %v", id, err)
+		return e.ErrUpdateProxy.AddErr(err)
+	}
+
 	err := commonrepo.NewProxyColl().Update(id, args)
 	if err != nil {
 		log.Errorf("Proxy.Update %s error: %v", id, err)
@@ -110,6 +179,15 @@ func TestConnection(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 	if args == nil {
 		log.Error("invalid args")
 		return e.ErrTestConnection.AddDesc("invalid args")
+	}
+	if args.Password == setting.MaskValue {
+		if args.ID.IsZero() {
+			return e.ErrInvalidParam.AddDesc("proxy id is required when password is masked")
+		}
+		if err := restoreMaskedProxyPassword(args.ID.Hex(), args); err != nil {
+			log.Errorf("Proxy.TestConnection restore masked password error: %v", err)
+			return e.ErrTestConnection.AddErr(err)
+		}
 	}
 
 	request, err := http.NewRequest("GET", "https://www.baidu.com", nil)

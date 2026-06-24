@@ -75,7 +75,7 @@ func ListProxies(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.RespErr = service.ListProxies(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProxies(c.Query("encryptedKey"), ctx.Logger)
 }
 
 func GetProxy(c *gin.Context) {
@@ -95,7 +95,7 @@ func GetProxy(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetProxy(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProxy(c.Param("id"), c.Query("encryptedKey"), ctx.Logger)
 }
 
 func CreateProxy(c *gin.Context) {

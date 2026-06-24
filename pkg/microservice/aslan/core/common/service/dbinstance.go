@@ -90,6 +90,27 @@ func FindDBInstance(id, name string) (*commonmodels.DBInstance, error) {
 	return commonrepo.NewDBInstanceColl().Find(&commonrepo.DBInstanceCollFindOption{Id: id, Name: name})
 }
 
+func GetEncryptedDBInstance(id, encryptedKey string, log *zap.SugaredLogger) (*commonmodels.DBInstance, error) {
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("GetEncryptedDBInstance GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
+
+	resp, err := FindDBInstance(id, "")
+	if err != nil {
+		return nil, err
+	}
+	if resp.Password != "" {
+		resp.Password, err = crypto.AesEncryptByKey(resp.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("GetEncryptedDBInstance AesEncryptByKey err:%v", err)
+			return nil, err
+		}
+	}
+	return resp, nil
+}
+
 func UpdateDBInstance(id string, args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
 	return commonrepo.NewDBInstanceColl().Update(id, args)
 }

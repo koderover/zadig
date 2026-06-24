@@ -160,8 +160,13 @@ func GetDBInstance(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid db instance id")
 		return
 	}
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.RespErr = e.ErrInvalidParam
+		return
+	}
 
-	ctx.Resp, ctx.RespErr = commonservice.FindDBInstance(id, "")
+	ctx.Resp, ctx.RespErr = commonservice.GetEncryptedDBInstance(id, encryptedKey, ctx.Logger)
 }
 
 func UpdateDBInstance(c *gin.Context) {

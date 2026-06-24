@@ -48,7 +48,7 @@ func ListConfigurationManagement(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.RespErr = service.ListConfigurationManagement(c.Query("type"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListConfigurationManagement(c.Query("encryptedKey"), c.Query("type"), ctx.Logger)
 }
 
 func CreateConfigurationManagement(c *gin.Context) {
@@ -94,7 +94,7 @@ func GetConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetConfigurationManagement(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetConfigurationManagement(c.Param("id"), c.Query("encryptedKey"), ctx.Logger)
 }
 
 func UpdateConfigurationManagement(c *gin.Context) {
