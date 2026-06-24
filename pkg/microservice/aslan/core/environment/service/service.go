@@ -253,6 +253,24 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Ready:      ws.Ready(),
 				Annotation: ws.Annotations,
 			})
+		case setting.Job:
+			job, err := getter.GetJobByNameWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get job %s, err: %s", u.GetName(), err)
+				continue
+			}
+			wj := wrapper.Job(job)
+			_, ready, _ := kube.GetSelectedPodsInfo(labels.SelectorFromSet(job.Spec.Selector.MatchLabels), inf, wj.ImageInfos(), log)
+			ret = append(ret, &commonservice.Workload{
+				Name:       wj.Name,
+				Spec:       wj.Spec.Template,
+				Selector:   wj.Spec.Selector,
+				Type:       setting.Job,
+				Images:     wj.ImageInfos(),
+				Containers: wj.GetContainers(),
+				Ready:      ready == setting.PodReady || ready == setting.JobReady,
+				Annotation: wj.Annotations,
+			})
 		}
 	}
 

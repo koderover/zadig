@@ -1406,6 +1406,13 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 				return ret, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for cronjob, err: %s", serviceName, err.Error()))
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
+		case setting.Job:
+			job, err := getter.GetJobByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for job, err: %s", serviceName, err.Error()))
+			}
+			ret.Scales = append(ret.Scales, getJobWorkloadResource(job, inf, log))
+			ret.Workloads = append(ret.Workloads, toJobWorkload(job))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
@@ -1468,6 +1475,14 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
 				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
+			case setting.Job:
+				job, err := getter.GetJobByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, getJobWorkloadResource(job, inf, log))
+				ret.Workloads = append(ret.Workloads, toJobWorkload(job))
 			case setting.CronJob:
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
@@ -1561,6 +1576,15 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
 }
 
+func getJobWorkloadResource(job *batchv1.Job, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(job.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.Job(job).WorkloadResource(pods)
+}
+
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
 	cronJobName := wrapper.CronJob(cornJob, cronJobBeta).Name
 	jobs, err := informer.Batch().V1().Jobs().Lister().List(labels.NewSelector())
@@ -1643,6 +1667,20 @@ func toStsWorkload(v *appsv1.StatefulSet) *Workload {
 		Images:     wrapper.StatefulSet(v).ImageInfos(),
 		Containers: wrapper.StatefulSet(v).GetContainers(),
 		Ready:      wrapper.StatefulSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
+func toJobWorkload(v *batchv1.Job) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Selector:   v.Spec.Selector,
+		Type:       setting.Job,
+		Images:     wrapper.Job(v).ImageInfos(),
+		Containers: wrapper.Job(v).GetContainers(),
+		Ready:      wrapper.Job(v).Complete(),
 		Annotation: v.Annotations,
 	}
 	return workload

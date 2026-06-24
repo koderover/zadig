@@ -20,6 +20,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,6 +45,13 @@ func ListJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1
 	return res, err
 }
 
+func ListJobsWithCache(selector labels.Selector, lister informers.SharedInformerFactory) ([]*batchv1.Job, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
+	}
+	return lister.Batch().V1().Jobs().Lister().List(selector)
+}
+
 func GetJob(ns, name string, cl client.Client) (*batchv1.Job, bool, error) {
 	g := &batchv1.Job{}
 	found, err := GetResourceInCache(ns, name, g, cl)
@@ -53,6 +61,10 @@ func GetJob(ns, name string, cl client.Client) (*batchv1.Job, bool, error) {
 	setJobGVK(g)
 
 	return g, found, err
+}
+
+func GetJobByNameWithCache(name, namespace string, lister informers.SharedInformerFactory) (*batchv1.Job, error) {
+	return lister.Batch().V1().Jobs().Lister().Jobs(namespace).Get(name)
 }
 
 func setJobGVK(job *batchv1.Job) {

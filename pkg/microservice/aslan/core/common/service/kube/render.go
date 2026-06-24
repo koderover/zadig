@@ -757,6 +757,15 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 				return "", nil, errors.Errorf("statefulset %s not found", u.GetName())
 			}
 			manifestArr = append(manifestArr, string(workloadBs))
+		case setting.Job:
+			workloadBs, exist, err := getter.GetJobYaml(productInfo.Namespace, u.GetName(), kubeClient)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to get job %s", u.GetName())
+			}
+			if !exist {
+				return "", nil, errors.Errorf("job %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
 		case setting.CronJob:
 			workloadBs, exist, err := getter.GetCronJobYamlFormat(productInfo.Namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(versionInfo))
 			if err != nil {
