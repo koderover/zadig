@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const (
@@ -312,7 +311,7 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 }
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before = nil
+	before, after = nil, u
 	job := &models.ReleaseJob{
 		ID:        uuid.New().String(),
 		Name:      u.Name,
@@ -322,12 +321,6 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 		Spec:      u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
-	// 深拷贝修改后的值，after 必须和 job 同类型（*models.ReleaseJob），否则 diff 显示会异常
-	var newJob models.ReleaseJob
-	if err = util.DeepCopy(&newJob, job); err != nil {
-		return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
-	}
-	after = &newJob
 	return
 }
 
@@ -375,23 +368,12 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			if job.Type != u.Type {
 				return nil, nil, fmt.Errorf("job type cannot be changed")
 			}
-			// 深拷贝旧值，避免后续对 job 的修改污染 before，导致 diff 显示前后一致
-			var oldJob models.ReleaseJob
-			if err := util.DeepCopy(&oldJob, job); err != nil {
-				return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
-			}
-			before = &oldJob
+			before, after = job, u
 			job.Name = u.Name
 			job.Manager = u.Manager
 			job.ManagerID = u.ManagerID
 			job.Spec = u.Spec
 			job.Updated = true
-			// 深拷贝修改后的值，after 必须和 before 同类型（*models.ReleaseJob），否则 diff 显示会异常
-			var newJob models.ReleaseJob
-			if err := util.DeepCopy(&newJob, job); err != nil {
-				return nil, nil, fmt.Errorf("deep copy job failed: %v", err)
-			}
-			after = &newJob
 			return
 		}
 	}
