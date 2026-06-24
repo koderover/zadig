@@ -179,8 +179,14 @@ func (c *ServiceModuleColl) CreateManual(ctx context.Context, m *models.ServiceM
 		m.CreateTime = now
 	}
 	m.UpdateTime = now
-	_, err := c.Collection.InsertOne(mongotool.SessionContext(ctx, c.Session), m)
-	return err
+	result, err := c.Collection.InsertOne(mongotool.SessionContext(ctx, c.Session), m)
+	if err != nil {
+		return err
+	}
+	if id, ok := result.InsertedID.(primitive.ObjectID); ok {
+		m.ID = id
+	}
+	return nil
 }
 
 // UpdateManual replaces a manual record's mutable fields by ID.
