@@ -86,7 +86,7 @@ func GetConfigurationManagement(id, encryptedKey string, log *zap.SugaredLogger)
 }
 
 func protectConfigurationManagementSecrets(managements []*commonmodels.ConfigurationManagement, encryptedKey string, log *zap.SugaredLogger) error {
-	targets := make([]*nacos.NacosAuthConfig, 0)
+	targets := make([]*string, 0)
 	for _, management := range managements {
 		if management == nil {
 			continue
@@ -97,9 +97,14 @@ func protectConfigurationManagementSecrets(managements []*commonmodels.Configura
 
 		switch authConfig := management.AuthConfig.(type) {
 		case *commonmodels.ApolloAuthConfig:
-			if authConfig.Token != "" {
-				authConfig.Token = setting.MaskValue
+			if authConfig.Token == "" {
+				continue
 			}
+			if encryptedKey == "" {
+				authConfig.Token = setting.MaskValue
+				continue
+			}
+			targets = append(targets, &authConfig.Token)
 		case *nacos.NacosAuthConfig:
 			if authConfig.Password == "" {
 				continue
@@ -108,11 +113,16 @@ func protectConfigurationManagementSecrets(managements []*commonmodels.Configura
 				authConfig.Password = setting.MaskValue
 				continue
 			}
-			targets = append(targets, authConfig)
+			targets = append(targets, &authConfig.Password)
 		case *nacos.NacosEEMSEAuthConfig:
-			if authConfig.AccessKeySecret != "" {
-				authConfig.AccessKeySecret = setting.MaskValue
+			if authConfig.AccessKeySecret == "" {
+				continue
 			}
+			if encryptedKey == "" {
+				authConfig.AccessKeySecret = setting.MaskValue
+				continue
+			}
+			targets = append(targets, &authConfig.AccessKeySecret)
 		}
 	}
 
@@ -125,16 +135,16 @@ func protectConfigurationManagementSecrets(managements []*commonmodels.Configura
 		return err
 	}
 
-	encryptedPasswords := make([]string, len(targets))
-	for i, authConfig := range targets {
-		encryptedPasswords[i], err = crypto.AesEncryptByKey(authConfig.Password, aesKeyResp.PlainText)
+	encryptedSecrets := make([]string, len(targets))
+	for i, target := range targets {
+		encryptedSecrets[i], err = crypto.AesEncryptByKey(*target, aesKeyResp.PlainText)
 		if err != nil {
 			return err
 		}
 	}
 
-	for i, authConfig := range targets {
-		authConfig.Password = encryptedPasswords[i]
+	for i, target := range targets {
+		*target = encryptedSecrets[i]
 	}
 
 	return nil
