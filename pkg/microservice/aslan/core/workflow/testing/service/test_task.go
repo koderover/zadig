@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
@@ -341,9 +342,13 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		NotificationID:   args.NotificationID,
 	}
 
+	// set pr and branch
 	pr, _ := strconv.Atoi(args.MergeRequestID)
 	for i, build := range testInfo.Repos {
-		if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
+		sameRepo := build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName
+		sameSource := build.Source == args.Source
+		log.Infof("build: %v, args: %v, sameRepo: %v, sameSource: %v", build, args, sameRepo, sameSource)
+		if sameSource || sameRepo {
 			testInfo.Repos[i].PR = pr
 			if pr != 0 {
 				testInfo.Repos[i].PRs = []int{pr}
