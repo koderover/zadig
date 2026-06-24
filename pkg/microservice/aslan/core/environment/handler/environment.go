@@ -1911,7 +1911,7 @@ func ListWorkloads(c *gin.Context) {
 		for _, env := range sharedNSEnvs {
 			for _, svc := range env.GetSvcList() {
 				for _, res := range svc.Resources {
-					if res.Kind == setting.Deployment || res.Kind == setting.StatefulSet || res.Kind == setting.CronJob {
+					if res.Kind == setting.Deployment || res.Kind == setting.DaemonSet || res.Kind == setting.StatefulSet || res.Kind == setting.CronJob {
 						workloadM[res.Name] = commonmodels.Workload{
 							EnvName:     env.EnvName,
 							ProductName: env.ProductName,

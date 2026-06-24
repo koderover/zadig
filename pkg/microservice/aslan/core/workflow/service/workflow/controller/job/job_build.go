@@ -130,6 +130,9 @@ func (j BuildJobController) Validate(isExecution bool) error {
 			if _, ok := optionMap[key]; !ok {
 				return fmt.Errorf("%s/%s is not in the configured service build list", selectedBuild.ServiceName, selectedBuild.ServiceModule)
 			}
+			if err := ValidateRequiredRuntimeKeyVals(selectedBuild.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, selectedBuild.ServiceName, selectedBuild.ServiceModule)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1076,7 +1079,7 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 	// Find the KeyVal with the given key
 	for _, kv := range targetBuild.KeyVals {
 		if kv.Key == key {
-			resp, err := renderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
+			resp, err := RenderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
 			if err != nil {
 				err = fmt.Errorf("Failed to render kv for key: %s, error: %s", key, err)
 				return nil, err

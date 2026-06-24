@@ -87,6 +87,8 @@ type MainHookRepo struct {
 	RepoNamespace string                 `bson:"repo_namespace"            json:"repo_namespace"`
 	RepoName      string                 `bson:"repo_name"                 json:"repo_name"`
 	Branch        string                 `bson:"branch"                    json:"branch"`
+	PushBranch    string                 `bson:"push_branch"               json:"push_branch"`
+	PrBranch      string                 `bson:"pr_branch"                 json:"pr_branch"`
 	Tag           string                 `bson:"tag"                       json:"tag"`
 	Committer     string                 `bson:"committer"                 json:"committer"`
 	MatchFolders  []string               `bson:"match_folders"             json:"match_folders,omitempty"`
@@ -95,6 +97,9 @@ type MainHookRepo struct {
 	Label         string                 `bson:"label"                     json:"label"`
 	Revision      string                 `bson:"revision"                  json:"revision"`
 	IsRegular     bool                   `bson:"is_regular"                json:"is_regular"`
+	PushIsRegular bool                   `bson:"push_is_regular"           json:"push_is_regular"`
+	PrIsRegular   bool                   `bson:"pr_is_regular"             json:"pr_is_regular"`
+	TagIsRegular  bool                   `bson:"tag_is_regular"            json:"tag_is_regular"`
 }
 
 func (m *MainHookRepo) GetRepoNamespace() string {
@@ -222,6 +227,7 @@ type ReleaseImage struct {
 	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
+// only standalone test use it
 type TestTaskArgs struct {
 	ProductName     string `bson:"product_name"            json:"product_name"`
 	TestName        string `bson:"test_name"               json:"test_name"`
@@ -240,6 +246,7 @@ type TestTaskArgs struct {
 	Branch         string       `bson:"branch" json:"branch"`
 	EventType      string       `bson:"event_type" json:"event_type"`
 	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
+	KeyVals        *KeyValList  `bson:"key_vals" json:"key_vals"`
 }
 
 type Slack struct {

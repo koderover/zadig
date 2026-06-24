@@ -192,6 +192,7 @@ func SetCurrentContainerImages(args *commonmodels.Service) error {
 			}
 
 			if resKind.Kind == setting.Deployment ||
+				resKind.Kind == setting.DaemonSet ||
 				resKind.Kind == setting.StatefulSet ||
 				resKind.Kind == setting.Job ||
 				resKind.Kind == setting.CloneSet {

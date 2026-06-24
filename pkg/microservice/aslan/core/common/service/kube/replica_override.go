@@ -2,8 +2,10 @@ package kube
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -89,16 +91,30 @@ func ApplyReplicaOverrides(renderedYaml string, overrides []*commonmodels.WorkLo
 		overrideMap[ReplicaOverrideKey(normalizedType, workloadName)] = item.Replicas
 	}
 
+	customKVRegExp := regexp.MustCompile(config.VariableRegEx)
+	restoreRegExp := regexp.MustCompile(config.ReplacedTempVariableRegEx)
+
 	manifests := util.SplitManifests(renderedYaml)
 	updated := make([]string, 0, len(manifests))
 	for _, manifest := range manifests {
-		if len(strings.TrimSpace(manifest)) == 0 {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(manifest), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
 			continue
 		}
 
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		modifiedManifestStr := customKVRegExp.ReplaceAll([]byte(manifest), []byte("TEMP_PLACEHOLDER_$1"))
+
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(modifiedManifestStr))
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to convert yaml to unstructured: %w", err)
 		}
 
 		switch NormalizeReplicaWorkloadType(u.GetKind()) {
@@ -114,7 +130,9 @@ func ApplyReplicaOverrides(renderedYaml string, overrides []*commonmodels.WorkLo
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal %s/%s: %w", u.GetKind(), u.GetName(), err)
 		}
-		updated = append(updated, string(yamlBytes))
+
+		finalYaml := restoreRegExp.ReplaceAll(yamlBytes, []byte("{{.$1}}"))
+		updated = append(updated, string(finalYaml))
 	}
 
 	return util.JoinYamls(updated), nil
@@ -127,12 +145,24 @@ func ExtractWorkloadReplicas(renderedYaml string) (map[string]int32, error) {
 		return ret, nil
 	}
 
+	customKVRegExp := regexp.MustCompile(config.VariableRegEx)
 	for _, manifest := range util.SplitManifests(renderedYaml) {
-		if len(strings.TrimSpace(manifest)) == 0 {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(manifest), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
 			continue
 		}
 
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		modifiedManifestStr := customKVRegExp.ReplaceAll([]byte(manifest), []byte("TEMP_PLACEHOLDER_$1"))
+
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(modifiedManifestStr))
 		if err != nil {
 			return nil, err
 		}

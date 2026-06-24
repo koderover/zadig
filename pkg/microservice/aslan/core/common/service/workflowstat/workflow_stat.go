@@ -25,8 +25,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func UpdateWorkflowStat(workflowName, workflowType, status, projectName string, duration int64, isRestart bool) error {
-	if isRestart {
+func UpdateWorkflowStat(workflowName, workflowType, status, projectName string, duration int64, isRestart, isDebug bool) error {
+	if isRestart || isDebug {
 		return nil
 	}
 	if status != string(config.StatusPassed) && status != string(config.StatusFailed) && status != string(config.StatusTimeout) {

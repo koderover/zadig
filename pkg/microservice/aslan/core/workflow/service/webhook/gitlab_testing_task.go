@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/hashicorp/go-multierror"
@@ -79,17 +78,11 @@ func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainH
 	if !EventConfigured(hookRepo, config.HookEventPush) {
 		return false, nil
 	}
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+	branch := getBranchFromRef(ev.Ref)
+	if !MatchBranch(hookRepo, config.HookEventPush, branch) {
 		return false, nil
 	}
-
-	if isRegular {
-		if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-			return false, nil
-		}
-	}
-	hookRepo.Branch = getBranchFromRef(ev.Ref)
+	hookRepo.Branch = branch
 	var changedFiles []string
 	for _, commit := range ev.Commits {
 		changedFiles = append(changedFiles, commit.Added...)
@@ -122,6 +115,7 @@ func (gmem *gitlabTagEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 		Source:        hookRepo.Source,
 	}
 }
@@ -136,17 +130,14 @@ func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHoo
 	if !EventConfigured(hookRepo, config.HookEventTag) {
 		return false, nil
 	}
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
+	hookRepo.Branch = ev.Project.DefaultBranch
+
+	tag := getTagFromRef(ev.Ref)
+	if !MatchTag(hookRepo, tag) {
 		return false, nil
 	}
 
-	if isRegular {
-		if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-			return false, nil
-		}
-	}
-	hookRepo.Branch = ev.Project.DefaultBranch
+	hookRepo.Tag = tag
 	return true, nil
 }
 
@@ -358,17 +349,11 @@ func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.Main
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+	branch := ev.ObjectAttributes.TargetBranch
+	if !MatchBranch(hookRepo, config.HookEventPr, branch) {
 		return false, nil
 	}
-
-	if isRegular {
-		if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-			return false, nil
-		}
-	}
-	hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+	hookRepo.Branch = branch
 
 	if ev.ObjectAttributes.State == "opened" {
 		var changedFiles []string

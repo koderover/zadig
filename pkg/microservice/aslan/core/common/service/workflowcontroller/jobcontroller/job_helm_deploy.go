@@ -375,7 +375,12 @@ func genHelmResourceMap(helmDeploySvc *helmservice.HelmDeployService, env *commo
 		ValuesYaml:  valuesYaml,
 	}
 
-	manifestBytes, err := helmClient.TemplateChart(chartSpec, nil)
+	var templateOptions *helmclient.HelmTemplateOptions
+	if helmClient != nil && helmClient.KubeVersion != nil {
+		templateOptions = &helmclient.HelmTemplateOptions{KubeVersion: helmClient.KubeVersion}
+	}
+
+	manifestBytes, err := helmClient.TemplateChart(chartSpec, templateOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", tmplSvc.ServiceName, envSvc.GetServiceRender().ChartVersion, chartPath, err)
 	}

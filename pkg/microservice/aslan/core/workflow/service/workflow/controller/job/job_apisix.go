@@ -107,13 +107,14 @@ func (j ApisixJobController) ClearSelection() {
 }
 
 func (j ApisixJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+
 	resp := make([]*commonmodels.JobTask, 0)
 
 	itemList := make([]*commonmodels.ApisixItemUpdateSpec, 0)
 	for _, updateItem := range j.jobSpec.Tasks {
 		itemList = append(itemList, &commonmodels.ApisixItemUpdateSpec{
-			Action: updateItem.Action,
-			Type: updateItem.Type,
+			Action:   updateItem.Action,
+			Type:     updateItem.Type,
 			UserSpec: updateItem.Spec,
 			Status:   string(config.StatusCreated),
 		})
@@ -151,6 +152,19 @@ func (j ApisixJobController) SetRepoCommitInfo() error {
 func (j ApisixJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 	if getRuntimeVariables {
+		for _, task := range j.jobSpec.Tasks {
+			configName, err := task.GetConfigName()
+			if err != nil {
+				return nil, err
+			}
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, configName, "output", "item_id"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
 			Value:        "",

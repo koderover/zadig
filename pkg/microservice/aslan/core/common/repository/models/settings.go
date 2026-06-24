@@ -28,8 +28,19 @@ type SystemSetting struct {
 	Privacy             *PrivacySettings         `bson:"privacy"  json:"privacy"`
 	Language            string                   `bson:"language" json:"language"`
 	ServerURL           string                   `bson:"server_url" json:"server_url"`
+	WorkflowHook        *WorkflowHookSettings    `bson:"workflow_hook" json:"workflow_hook"`
 	ReleasePlanHook     *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
+	DindTLSCerts        *DindTLSCerts            `bson:"dind_tls_certs,omitempty" json:"-"`
 	UpdateTime          int64                    `bson:"update_time" json:"update_time"`
+}
+
+type DindTLSCerts struct {
+	CAPem         string `bson:"ca_pem"`
+	CAKeyPem      string `bson:"ca_key_pem"`
+	ServerCertPem string `bson:"server_cert_pem"`
+	ServerKeyPem  string `bson:"server_key_pem"`
+	ClientCertPem string `bson:"client_cert_pem"`
+	ClientKeyPem  string `bson:"client_key_pem"`
 }
 
 type Theme struct {
@@ -81,6 +92,13 @@ type ReleasePlanHookSettings struct {
 	HookEvents     []ReleasePlanHookEvent `json:"hook_events" bson:"hook_events"`
 }
 
+type WorkflowHookSettings struct {
+	Enable      bool                `json:"enable" bson:"enable"`
+	HookAddress string              `json:"hook_address" bson:"hook_address"`
+	HookSecret  string              `json:"hook_secret" bson:"hook_secret"`
+	HookEvents  []WorkflowHookEvent `json:"hook_events" bson:"hook_events"`
+}
+
 func (r *ReleasePlanHookSettings) ToHookSettings() *HookSettings {
 	return &HookSettings{
 		Enable:         r.Enable,
@@ -96,6 +114,13 @@ const (
 	// ReleasePlanHookEventSubmitApproval ReleasePlanHookEvent = "submit_approval"
 	ReleasePlanHookEventStartExecute ReleasePlanHookEvent = "start_execute"
 	ReleasePlanHookEventAllJobDone   ReleasePlanHookEvent = "all_job_done"
+)
+
+type WorkflowHookEvent string
+
+const (
+	WorkflowHookEventStartExecute    WorkflowHookEvent = "start_execute"
+	WorkflowHookEventCompleteExecute WorkflowHookEvent = "complete_execute"
 )
 
 func (SystemSetting) TableName() string {

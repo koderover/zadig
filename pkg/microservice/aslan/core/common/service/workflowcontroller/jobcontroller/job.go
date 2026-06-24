@@ -142,6 +142,10 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		setJobFinalStatusContext(job, workflowCtx)
 		ack()
+		if workflowCtx.IsDebug {
+			logger.Infof("skip updating debug job info into db")
+			return
+		}
 		logger.Infof("updating job info into db...")
 		err := jobCtl.SaveInfo(ctx)
 		if err != nil {
@@ -302,6 +306,23 @@ func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *com
 func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range workflowTask.Stages {
 		for _, job := range stage.Jobs {
+			if workflowTask.Status == config.StatusPause && job.JobType == string(config.JobK8sBlueGreenRelease) && job.Status == "" {
+				continue
+			}
+
+			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+			jobCtl.Clean(ctx)
+		}
+	}
+}
+
+func CleanPendingBlueGreenReleaseJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != string(config.JobK8sBlueGreenRelease) || job.Status != "" {
+				continue
+			}
+
 			jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 			jobCtl.Clean(ctx)
 		}

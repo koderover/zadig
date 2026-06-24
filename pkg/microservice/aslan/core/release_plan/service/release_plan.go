@@ -1734,7 +1734,7 @@ func sendReleasePlanHook(plan *models.ReleasePlan, systemHookSetting *commonmode
 			return err
 		}
 
-		err = webhooknotify.NewClient(systemHookSetting.HookAddress, systemHookSetting.HookSecret).SendReleasePlanWebhook(hookBody)
+		err = webhooknotify.NewClient(systemHookSetting.HookAddress, systemHookSetting.HookSecret).SendReleasePlanWebhook(hookBody, releasePlanHookEventToWebhookEvent(hookBody.EventName))
 		if err != nil {
 			err = errors.Wrap(err, "send release plan hook")
 			log.Error(err)
@@ -1743,6 +1743,19 @@ func sendReleasePlanHook(plan *models.ReleasePlan, systemHookSetting *commonmode
 	}
 
 	return nil
+}
+
+func releasePlanHookEventToWebhookEvent(hookEvent commonmodels.ReleasePlanHookEvent) webhooknotify.WebHookNotifyEvent {
+	switch hookEvent {
+	case commonmodels.ReleasePlanHookEventFinishPlanning:
+		return webhooknotify.WebHookNotifyEventFinishPlanning
+	case commonmodels.ReleasePlanHookEventStartExecute:
+		return webhooknotify.WebHookNotifyEventReleasePlanStartExecute
+	case commonmodels.ReleasePlanHookEventAllJobDone:
+		return webhooknotify.WebHookNotifyEventAllJobDone
+	default:
+		return webhooknotify.WebHookNotifyEventReleasePlan
+	}
 }
 
 func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmodels.ReleasePlanHookEvent) (*webhooknotify.ReleasePlanHookBody, error) {
@@ -1772,9 +1785,11 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 	jobs := []*webhooknotify.ReleasePlanHookJob{}
 	for _, job := range plan.Jobs {
 		hookJob := &webhooknotify.ReleasePlanHookJob{
-			ID:   job.ID,
-			Name: job.Name,
-			Type: job.Type,
+			ID:        job.ID,
+			Name:      job.Name,
+			Manager:   job.Manager,
+			ManagerID: job.ManagerID,
+			Type:      job.Type,
 			ReleasePlanHookJobRuntime: webhooknotify.ReleasePlanHookJobRuntime{
 				Status:       job.Status,
 				ExecutedBy:   job.ExecutedBy,

@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -32,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -257,6 +259,7 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 
 // CreateScanningTaskV2 uses notificationID if the task is triggered by webhook, otherwise it should be empty
 func CreateScanningTaskV2(id, username, account, userID string, req *CreateScanningTaskReq, notificationID string, log *zap.SugaredLogger) (int64, error) {
+
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
@@ -353,7 +356,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
 		errMsg := "invalid test task!"
 		log.Errorf(errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		return nil, errors.New(errMsg)
 	}
 
 	spec := new(commonmodels.ZadigScanningJobSpec)
@@ -558,10 +561,15 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 		Repos:       repos,
 		KeyVals:     renderKeyVals(args.KeyVals, kvs).ToRuntimeList(),
 	}
+	
+	// validate kv in the standalone scanning
+	if err:= jobctrl.ValidateRequiredRuntimeKeyVals(scan.KeyVals,fmt.Sprintf("scan %s", scanInfo.Name));err!= nil{
+			return nil, err
+	}
 
 	job := make([]*commonmodels.Job, 0)
 	job = append(job, &commonmodels.Job{
-		Name:    commonutil.GenerateScanningModuleJobName(scanInfo.Name),
+		Name:    commonutil.GenerateExecutionModuleJobName(scanInfo.Name),
 		JobType: config.JobZadigScanning,
 		Skipped: false,
 		Spec: &commonmodels.ZadigScanningJobSpec{

@@ -121,6 +121,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		return fmt.Errorf("task: %s:%d is passed, cannot cancel", workflowName, taskID)
 	}
 
+	wasPaused := t.Status == config.StatusPause
 	t.Status = config.StatusCancelled
 	t.TaskRevoker = userName
 
@@ -137,6 +138,26 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	}
 	if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(t.WorkflowArgs, t.TaskID, t.Status, logger); err != nil {
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
+	}
+
+	if wasPaused {
+		logger.Infof("clean cancelled paused workflow task resources: %s:%d", t.WorkflowName, t.TaskID)
+		workflowCtx := &commonmodels.WorkflowTaskCtx{
+			WorkflowName:        t.WorkflowName,
+			WorkflowDisplayName: t.WorkflowDisplayName,
+			ProjectName:         t.ProjectName,
+			ProjectDisplayName:  t.ProjectDisplayName,
+			IsDebug:             t.IsDebug,
+			Remark:              t.Remark,
+			TaskID:              t.TaskID,
+			RetryNum:            t.RetryNum,
+			Workspace:           "/workspace",
+			DistDir:             fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), t.WorkflowName, t.TaskID),
+			DockerMountDir:      fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+			ConfigMapMountDir:   fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
+			StartTime:           time.Now(),
+		}
+		jobcontroller.CleanPendingBlueGreenReleaseJobs(context.Background(), t, workflowCtx, logger, func() {})
 	}
 
 	err = cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(fmt.Sprintf("workflowctl-cancel-%s-%d", workflowName, taskID), "cancel")
@@ -232,6 +253,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowDisplayName:         c.workflowTask.WorkflowDisplayName,
 		ProjectName:                 c.workflowTask.ProjectName,
 		ProjectDisplayName:          c.workflowTask.ProjectDisplayName,
+		IsDebug:                     c.workflowTask.IsDebug,
 		Remark:                      c.workflowTask.Remark,
 		TaskID:                      c.workflowTask.TaskID,
 		RetryNum:                    c.workflowTask.RetryNum,
@@ -556,6 +578,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 
 	c.workflowTask.Remark = ""
+	shouldSendCompleteHook := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
 
 	c.workflowTaskMutex.Lock()
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
@@ -570,6 +593,11 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 			c.logger.Errorf("send workflow task notification failed, error: %v", err)
 		}
+		if shouldSendCompleteHook {
+			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
+				c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
+			}
+		}
 		q := ConvertTaskToQueue(c.workflowTask)
 		if err := Remove(q); err != nil {
 			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
@@ -581,7 +609,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, c.workflowTask.TaskID, c.workflowTask.Status, c.logger); err != nil {
 			log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
-		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart); err != nil {
+		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart, c.workflowTask.IsDebug); err != nil {
 			log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
 	}
