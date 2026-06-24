@@ -227,7 +227,6 @@ type ReleaseImage struct {
 	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
-// only standalone test use it
 type TestTaskArgs struct {
 	ProductName     string `bson:"product_name"            json:"product_name"`
 	TestName        string `bson:"test_name"               json:"test_name"`
@@ -247,6 +246,21 @@ type TestTaskArgs struct {
 	EventType      string       `bson:"event_type" json:"event_type"`
 	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
 	KeyVals        *KeyValList  `bson:"key_vals" json:"key_vals"`
+}
+
+// only standalone test use it
+type TestTaskArgsV2 struct {
+	ProductName     string              `bson:"product_name" json:"product_name"`
+	TestName        string              `bson:"test_name" json:"test_name"`
+	TestTaskCreator string              `bson:"test_task_creator" json:"test_task_creator"`
+	NotificationID  string              `bson:"notification_id" json:"notification_id"`
+	ReqID           string              `bson:"req_id" json:"req_id"`
+	MergeRequestID  string              `bson:"merge_request_id" json:"merge_request_id"`
+	CommitID        string              `bson:"commit_id" json:"commit_id"`
+	EventType       string              `bson:"event_type" json:"event_type"`
+	HookPayload     *HookPayload        `bson:"hook_payload" json:"hook_payload"`
+	Repos           []*types.Repository `bson:"repos" json:"repos"`
+	KeyVals         *KeyValList         `bson:"key_vals" json:"key_vals"`
 }
 
 type Slack struct {

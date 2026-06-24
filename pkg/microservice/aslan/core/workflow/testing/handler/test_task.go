@@ -55,7 +55,7 @@ func CreateTestTask(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.TestTaskArgs)
+	args := new(commonmodels.TestTaskArgsV2)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateTestTask c.GetRawData() err : %v", err)
@@ -63,7 +63,7 @@ func CreateTestTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
-	log.Infof("CreateTestTask data: %v", data)
+	log.Infof("CreateTestTask data: %v", string(data))
 	log.Infof("CreateTestTask args: %v", args)
 	projectKey := args.ProductName
 
