@@ -19,6 +19,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -343,6 +344,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 
 	// set pr and branch
 	pr, _ := strconv.Atoi(args.MergeRequestID)
+	log.Printf("pr: %d", pr)
 	for i, build := range testInfo.Repos {
 		// check same repo and source
 		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {
@@ -352,6 +354,9 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 			}
 			if args.Repos[i].Branch != "" {
 				testInfo.Repos[i].Branch = args.Repos[i].Branch
+			}
+			if args.Repos[i].Tag != "" {
+				testInfo.Repos[i].Tag = args.Repos[i].Tag
 			}
 		}
 	}
