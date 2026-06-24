@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -343,14 +342,15 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 	}
 
 	// set pr and branch
-	pr, _ := strconv.Atoi(args.MergeRequestID)
-	log.Printf("pr: %d", pr)
+	// pr, _ := strconv.Atoi(args.Repos[0].MergeRequestID)
+	// log.Printf("pr: %d", pr)
 	for i, build := range testInfo.Repos {
 		// check same repo and source
 		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {
-			testInfo.Repos[i].PR = pr
-			if pr != 0 {
-				testInfo.Repos[i].PRs = []int{pr}
+			pr := args.Repos[i].PRs
+			log.Printf("pr: %v", pr)
+			if len(pr) != 0 {
+				testInfo.Repos[i].PRs = pr
 			}
 			if args.Repos[i].Branch != "" {
 				testInfo.Repos[i].Branch = args.Repos[i].Branch
