@@ -135,7 +135,7 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 }
 
 func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
-	task := &commonmodels.TestTaskArgsV2{
+	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,

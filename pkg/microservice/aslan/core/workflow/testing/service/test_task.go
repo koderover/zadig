@@ -39,7 +39,7 @@ type CreateTaskResp struct {
 }
 
 // CreateTestTaskV2 creates a test task, but with the new custom workflow engine
-func CreateTestTaskV2(args *commonmodels.TestTaskArgsV2, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if args == nil {
 		return nil, fmt.Errorf("args should not be nil")
 	}
@@ -313,7 +313,7 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	return testResults, nil
 }
 
-func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgsV2, keyVals commonmodels.RuntimeKeyValList) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList) (*commonmodels.WorkflowV4, error) {
 	concurrencyLimit := 1
 	if testInfo.PreTest != nil {
 		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit

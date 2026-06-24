@@ -234,33 +234,19 @@ type TestTaskArgs struct {
 	NotificationID  string `bson:"notification_id"         json:"notification_id"`
 	ReqID           string `bson:"req_id"                  json:"req_id"`
 	// webhook触发测试任务时，触发任务的repo、prID和commitID
-	MergeRequestID string       `bson:"merge_request_id" json:"merge_request_id"`
-	CommitID       string       `bson:"commit_id"        json:"commit_id"`
-	Source         string       `bson:"source"           json:"source"`
-	CodehostID     int          `bson:"codehost_id"      json:"codehost_id"`
-	RepoOwner      string       `bson:"repo_owner"       json:"repo_owner"`
-	RepoNamespace  string       `bson:"repo_namespace"   json:"repo_namespace"`
-	RepoName       string       `bson:"repo_name"        json:"repo_name"`
-	Ref            string       `bson:"ref" json:"ref"`
-	Branch         string       `bson:"branch" json:"branch"`
-	EventType      string       `bson:"event_type" json:"event_type"`
-	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
-	KeyVals        *KeyValList  `bson:"key_vals" json:"key_vals"`
-}
-
-// only standalone test use it
-type TestTaskArgsV2 struct {
-	ProductName     string              `bson:"product_name" json:"product_name"`
-	TestName        string              `bson:"test_name" json:"test_name"`
-	TestTaskCreator string              `bson:"test_task_creator" json:"test_task_creator"`
-	NotificationID  string              `bson:"notification_id" json:"notification_id"`
-	ReqID           string              `bson:"req_id" json:"req_id"`
-	MergeRequestID  string              `bson:"merge_request_id" json:"merge_request_id"`
-	CommitID        string              `bson:"commit_id" json:"commit_id"`
-	EventType       string              `bson:"event_type" json:"event_type"`
-	HookPayload     *HookPayload        `bson:"hook_payload" json:"hook_payload"`
-	Repos           []*types.Repository `bson:"repos" json:"repos"`
-	KeyVals         *KeyValList         `bson:"key_vals" json:"key_vals"`
+	MergeRequestID string              `bson:"merge_request_id" json:"merge_request_id"`
+	CommitID       string              `bson:"commit_id"        json:"commit_id"`
+	Source         string              `bson:"source"           json:"source"`
+	CodehostID     int                 `bson:"codehost_id"      json:"codehost_id"`
+	RepoOwner      string              `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string              `bson:"repo_namespace"   json:"repo_namespace"`
+	RepoName       string              `bson:"repo_name"        json:"repo_name"`
+	Ref            string              `bson:"ref" json:"ref"`
+	Branch         string              `bson:"branch" json:"branch"`
+	EventType      string              `bson:"event_type" json:"event_type"`
+	HookPayload    *HookPayload        `bson:"hook_payload" json:"hook_payload"`
+	KeyVals        *KeyValList         `bson:"key_vals" json:"key_vals"`
+	Repos          []*types.Repository `bson:"repos" json:"repos"`
 }
 
 type Slack struct {

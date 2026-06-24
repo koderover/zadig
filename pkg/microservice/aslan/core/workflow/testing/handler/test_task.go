@@ -55,7 +55,7 @@ func CreateTestTask(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.TestTaskArgsV2)
+	args := new(commonmodels.TestTaskArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateTestTask c.GetRawData() err : %v", err)
