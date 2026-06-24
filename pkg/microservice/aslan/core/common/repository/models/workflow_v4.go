@@ -974,9 +974,15 @@ type JiraJobSpec struct {
 	// JQL: when query type is advanced, use this
 	JQL string `bson:"jql" json:"jql" yaml:"jql"`
 
-	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	IssueType     string              `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID          `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus  string              `bson:"target_status" json:"target_status" yaml:"target_status"`
+	FieldMappings []*JiraFieldMapping `bson:"field_mappings" json:"field_mappings" yaml:"field_mappings"`
+}
+
+type JiraFieldMapping struct {
+	JiraFieldID string `bson:"jira_field_id" json:"jira_field_id" yaml:"jira_field_id"`
+	ValueSource string `bson:"value_source" json:"value_source" yaml:"value_source"`
 }
 
 type IstioJobSpec struct {

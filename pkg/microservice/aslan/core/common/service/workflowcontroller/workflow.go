@@ -578,7 +578,9 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 
 	c.workflowTask.Remark = ""
-	shouldSendCompleteHook := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
+	isFirstComplete := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
+	shouldSendCompleteHook := isFirstComplete
+	shouldUpdateJiraIssue := isFirstComplete || (c.workflowTask.Status == config.StatusReject && taskInColl.Status != config.StatusReject)
 
 	c.workflowTaskMutex.Lock()
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
@@ -597,6 +599,10 @@ func (c *workflowCtl) updateWorkflowTask() {
 			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
 				c.logger.Errorf("send system workflow complete hook failed, workflow: %s, taskID: %d, error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 			}
+		}
+		if shouldUpdateJiraIssue {
+			updateJiraFieldsForWorkflowTask(c.workflowTask, c.logger)
+			addJiraCommentForWorkflowTask(c.workflowTask, c.logger)
 		}
 		q := ConvertTaskToQueue(c.workflowTask)
 		if err := Remove(q); err != nil {

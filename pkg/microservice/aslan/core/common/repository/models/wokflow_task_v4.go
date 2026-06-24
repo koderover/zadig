@@ -512,18 +512,21 @@ type JobTasK8sPatchSpec struct {
 }
 
 type IssueID struct {
-	Key    string `bson:"key" json:"key" yaml:"key"`
-	Name   string `bson:"name" json:"name" yaml:"name"`
-	Status string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Link   string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
+	Key           string `bson:"key" json:"key" yaml:"key"`
+	Name          string `bson:"name" json:"name" yaml:"name"`
+	CurrentStatus string `bson:"current_status,omitempty" json:"current_status,omitempty" yaml:"current_status,omitempty"`
+	TargetStatus  string `bson:"target_status,omitempty" json:"target_status,omitempty" yaml:"target_status,omitempty"`
+	Status        string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Link          string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
 }
 
 type JobTaskJiraSpec struct {
-	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
-	JiraID       string     `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
-	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	ProjectID     string              `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	JiraID        string              `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
+	IssueType     string              `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID          `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus  string              `bson:"target_status" json:"target_status" yaml:"target_status"`
+	FieldMappings []*JiraFieldMapping `bson:"field_mappings" json:"field_mappings" yaml:"field_mappings"`
 }
 
 type JobTaskCommonRevertSpec struct {
@@ -565,7 +568,7 @@ type ApisixItemUpdateSpec struct {
 
 func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
 	if s == nil {
-		return "", errors.New("ApisixItemUpdateSpec is nil") 
+		return "", errors.New("ApisixItemUpdateSpec is nil")
 	}
 	return getApisixConfigName(s.UserSpec)
 }
