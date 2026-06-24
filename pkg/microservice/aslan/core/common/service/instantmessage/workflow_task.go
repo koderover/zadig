@@ -1004,7 +1004,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
-		tplcontent = tplcontent + getNotifyAtContent(notify)
+		tplcontent = appendInlineNotifyAtContent(tplcontent, notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		if notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
 			tplcontent = fmt.Sprintf("%s%s", tplcontent, moreInformation)
@@ -1261,7 +1261,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
-		tplcontent = tplcontent + getNotifyAtContent(notify)
+		tplcontent = appendInlineNotifyAtContent(tplcontent, notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		if notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
 			tplcontent = fmt.Sprintf("%s%s", tplcontent, moreInformation)
@@ -1582,6 +1582,13 @@ func genSonartMetricsText(jobSpec *models.JobTaskFreestyleSpec, language string)
 	}
 
 	return result, mailResult, nil
+}
+
+func appendInlineNotifyAtContent(content string, notify *models.NotifyCtl) string {
+	if notify == nil || notify.WebHookType == setting.NotifyWebHookTypeDingDing {
+		return content
+	}
+	return content + getNotifyAtContent(notify)
 }
 
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify, taskStatus config.Status) error {

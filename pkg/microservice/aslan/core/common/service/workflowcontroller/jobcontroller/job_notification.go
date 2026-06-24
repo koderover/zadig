@@ -488,31 +488,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 		url.PathEscape(workflowDisplayName),
 	)
 
-	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
-	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=false",
-		url.QueryEscape(actionURL),
-	)
-
-	messageReq := instantmessage.DingDingMessage{
-		MsgType: instantmessage.DingDingMsgType,
-		ActionCard: &instantmessage.DingDingActionCard{
-			HideAvatar:        "0",
-			ButtonOrientation: "0",
-			Text:              processedMessage,
-			Title:             title,
-			Buttons: []*instantmessage.DingDingButton{
-				{
-					Title:     "点击查看更多信息",
-					ActionURL: dingtalkRedirectURL,
-				},
-			},
-		},
-	}
-
-	messageReq.At = &instantmessage.DingDingAt{
-		AtMobiles: idList,
-		IsAtAll:   isAtAll,
-	}
+	messageReq := instantmessage.BuildDingDingMessage(title, processedMessage, actionURL, idList, isAtAll)
 
 	// TODO: if required, add proxy to it
 	c := httpclient.New()

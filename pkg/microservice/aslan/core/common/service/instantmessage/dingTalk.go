@@ -19,6 +19,7 @@ package instantmessage
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 type DingDingMessage struct {
@@ -55,16 +56,38 @@ type DingDingAt struct {
 }
 
 const (
-	DingDingMsgType = "actionCard"
+	DingDingMsgType         = "actionCard"
+	DingDingMarkdownMsgType = "markdown"
+	dingDingAtContentPrefix = "##### **相关人员**:"
 )
 
 func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
+	message := BuildDingDingMessage(title, content, actionURL, atMobiles, isAtAll)
+	_, err := w.SendMessageRequest(uri, message)
+	return err
+}
+
+func BuildDingDingMessage(title, content, actionURL string, atMobiles []string, isAtAll bool) *DingDingMessage {
+	if len(atMobiles) > 0 || isAtAll {
+		return &DingDingMessage{
+			MsgType: DingDingMarkdownMsgType,
+			MarkDown: &DingDingMarkDown{
+				Title: title,
+				Text:  buildDingDingMarkdownText(content, actionURL, atMobiles, isAtAll),
+			},
+			At: &DingDingAt{
+				AtMobiles: atMobiles,
+				IsAtAll:   isAtAll,
+			},
+		}
+	}
+
 	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
 	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=false",
 		url.QueryEscape(actionURL),
 	)
 
-	message := &DingDingMessage{
+	return &DingDingMessage{
 		MsgType: DingDingMsgType,
 		ActionCard: &DingDingActionCard{
 			HideAvatar:        "0",
@@ -78,12 +101,27 @@ func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atM
 				},
 			},
 		},
+		At: &DingDingAt{
+			AtMobiles: atMobiles,
+			IsAtAll:   isAtAll,
+		},
 	}
-	message.At = &DingDingAt{
-		AtMobiles: atMobiles,
-		IsAtAll:   isAtAll,
+}
+
+func buildDingDingMarkdownText(content, actionURL string, atMobiles []string, isAtAll bool) string {
+	text := strings.TrimSpace(content)
+	if actionURL != "" {
+		text = strings.TrimSpace(fmt.Sprintf("%s\n\n[点击查看更多信息](%s)", text, actionURL))
+	}
+	if strings.Contains(text, dingDingAtContentPrefix) {
+		return text
 	}
 
-	_, err := w.SendMessageRequest(uri, message)
-	return err
+	if len(atMobiles) > 0 {
+		return strings.TrimSpace(fmt.Sprintf("%s\n%s @%s", text, dingDingAtContentPrefix, strings.Join(atMobiles, "@")))
+	}
+	if isAtAll {
+		return strings.TrimSpace(fmt.Sprintf("%s\n%s @所有人", text, dingDingAtContentPrefix))
+	}
+	return text
 }
