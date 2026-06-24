@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -564,6 +565,13 @@ type ApisixItemUpdateSpec struct {
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
 }
 
+func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemUpdateSpec is nil") 
+	}
+	return getApisixConfigName(s.UserSpec)
+}
+
 type NacosData struct {
 	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
@@ -861,6 +869,7 @@ type WorkflowTaskCtx struct {
 	WorkflowDisplayName         string
 	ProjectName                 string
 	ProjectDisplayName          string
+	IsDebug                     bool
 	TaskID                      int64
 	Remark                      string
 	RetryNum                    int

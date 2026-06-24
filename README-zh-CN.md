@@ -35,7 +35,7 @@
 
 ## Zadig 介绍
 
-Zadig 是由 KodeRover 公司基于 Kubernetes 研发的自助式云原生 DevOps 平台。Zadig 提供灵活可扩展的工作流支持、多种发布策略编排以及一键安全审核等特性，并通过 AI 环境巡检、AI 效能诊断和 AI Pilot 等智能能力持续优化研发流程。该平台还支持定制的企业级 XOps 敏捷效能看板，深度集成多种企业级平台，并通过项目模板化批量快速接入，实现数千个服务的一键纳管治理。其主要目标是帮助企业实现产研的数字化转型，使工程师成为创新引擎，并为数字经济的无限价值链接提供支持。
+Zadig 是由 KodeRover 公司基于 Kubernetes 研发的自助式云原生 DevOps 平台。Zadig 提供灵活可扩展的工作流支持、多种发布策略编排以及一键安全审核等特性，并通过 AI 环境巡检、AI 效能诊断等智能模块持续优化研发流程。该平台还支持定制的企业级 XOps 敏捷效能看板，深度集成多种企业级平台，并通过项目模板化批量快速接入，实现数千个服务的一键纳管治理。其主要目标是帮助企业实现产研的数字化转型，使工程师成为创新引擎，并为数字经济的无限价值链接提供支持。
 
 我们的愿景：`工程师 + Zadig = 商业上的成功`
 
@@ -83,8 +83,8 @@ Zadig 是由 KodeRover 公司基于 Kubernetes 研发的自助式云原生 DevOp
   </details>
 
 <details>
-  <summary><b>AI 驱动的效能诊断·环境巡检·Pilot 助手</b></summary>
-  深度集成 AI 能力，推出「AI 效能分析」、「AI 环境巡检」、「Zadig Pilot」两大核心功能。通过智能分析流水线、构建、测试等环节的数据，精准定位效能瓶颈，提供可操作的改进建议。定期对 Kubernetes 环境进行全方位巡检，识别并预警潜在问题，确保环境稳定性。提供企业级全天候技术支持实施响应，从技术咨询到故障排查，成为研发团队不可或缺的 AI 助手。
+  <summary><b>AI 驱动的效能诊断·环境巡检</b></summary>
+  深度集成 AI 能力，推出「AI 效能分析」、「AI 环境巡检」两大核心功能。通过智能分析流水线、构建、测试等环节的数据，精准定位效能瓶颈，提供可操作的改进建议。定期对 Kubernetes 环境进行全方位巡检，识别并预警潜在问题，确保环境稳定性。
   </details>
 
 ## 快速上手
@@ -108,7 +108,6 @@ Zadig [训练营](https://github.com/koderover/zadig-bootcamp)主要是为开发
 - 更详细的使用说明，见 [文档站](https://docs.koderover.com?type=zadig)
 - 如果发现了bug或者功能需求，[欢迎提交issue](CONTRIBUTING-zh-CN.md#贡献方式-1---提交issue)
 - 邮箱：contact@koderover.com
-- 欢迎加入 [slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
 
 ## 代码许可
 

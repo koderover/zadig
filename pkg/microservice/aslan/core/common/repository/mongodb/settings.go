@@ -59,6 +59,19 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	return resp, err
 }
 
+func (c *SystemSettingColl) GetByID() (*models.SystemSetting, error) {
+	objectID, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": objectID}
+	resp := &models.SystemSetting{}
+
+	err = c.FindOne(context.TODO(), query).Decode(resp)
+	return resp, err
+}
+
 func (c *SystemSettingColl) UpdateDefaultLoginSetting(defaultLogin string) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	change := bson.M{"$set": bson.M{
@@ -196,6 +209,26 @@ func (c *SystemSettingColl) UpdateServerURL(serverURL string) error {
 	return err
 }
 
+func (c *SystemSettingColl) InitDindTLSCertsIfNeeded(certs *models.DindTLSCerts) (bool, error) {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{
+		"_id": id,
+		"$or": []bson.M{
+			{"dind_tls_certs": bson.M{"$exists": false}},
+			{"dind_tls_certs": nil},
+		},
+	}
+	change := bson.M{"$set": bson.M{
+		"dind_tls_certs": certs,
+		"update_time":    time.Now().Unix(),
+	}}
+	result, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount > 0, nil
+}
+
 func (c *SystemSettingColl) UpdateReleasePlanHookSetting(hookSetting *models.ReleasePlanHookSettings) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	query := bson.M{"_id": id}
@@ -222,4 +255,37 @@ func (c *SystemSettingColl) GetReleasePlanHookSetting() (*models.ReleasePlanHook
 	}
 
 	return resp.ReleasePlanHook, nil
+}
+
+func (c *SystemSettingColl) UpdateWorkflowHookSetting(hookSetting *models.WorkflowHookSettings) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+	change := bson.M{"$set": bson.M{"workflow_hook": hookSetting}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) GetWorkflowHookSetting() (*models.WorkflowHookSettings, error) {
+	query := bson.M{}
+	resp := &models.SystemSetting{}
+
+	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &models.WorkflowHookSettings{
+				Enable: false,
+			}, nil
+		}
+		return nil, err
+	}
+
+	if resp.WorkflowHook == nil {
+		return &models.WorkflowHookSettings{
+			Enable: false,
+		}, nil
+	}
+
+	return resp.WorkflowHook, nil
 }

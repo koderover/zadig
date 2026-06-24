@@ -58,12 +58,12 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
-	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
+	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
@@ -428,6 +428,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			Description:          workflowModel.Description,
 			BaseRefs:             baseRefs,
 			BaseName:             workflowModel.BaseName,
+			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
@@ -582,6 +583,7 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 			WorkflowType:         setting.CustomWorkflowType,
 			Description:          workflowModel.Description,
 			BaseName:             workflowModel.BaseName,
+			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
 		}
 

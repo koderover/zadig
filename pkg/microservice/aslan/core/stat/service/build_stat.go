@@ -186,6 +186,9 @@ func getTaskDateMap(productName string, startTimestamp int64) (map[string][]inte
 		if err := v4Cursor.Decode(&workflowTask); err != nil {
 			return taskDateMap, fmt.Errorf("decode workflow v4 task err:%v", err)
 		}
+		if workflowTask.IsDebug {
+			continue
+		}
 		time := time.Unix(workflowTask.CreateTime, 0)
 		date := time.Format(config.Date)
 		if _, isExist := taskDateMap[date]; isExist {
@@ -348,6 +351,10 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 		var workflowTask commonmodels.WorkflowTask
 		if err := cursor.Decode(&workflowTask); err != nil {
 			return nil, fmt.Errorf("decode workflow v4 task err:%v", err)
+		}
+		// 过滤掉debug tag任务
+		if workflowTask.IsDebug {
+			continue
 		}
 		containBuild := false
 		for _, stage := range workflowTask.Stages {

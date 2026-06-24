@@ -89,6 +89,7 @@ type ProductResp struct {
 	Status      string                           `json:"status"`
 	Error       string                           `json:"error"`
 	EnvName     string                           `json:"env_name"`
+	Alias       string                           `json:"alias"`
 	UpdateBy    string                           `json:"update_by"`
 	UpdateTime  int64                            `json:"update_time"`
 	Services    [][]*commonmodels.ProductService `json:"services"`

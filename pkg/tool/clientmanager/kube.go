@@ -341,6 +341,7 @@ func (cm *KubeClientManager) GetInformer(clusterID, namespace string) (informers
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientset, time.Minute, opts)
 	// register the resources to be watched
 	informerFactory.Apps().V1().Deployments().Lister()
+	informerFactory.Apps().V1().DaemonSets().Lister()
 	informerFactory.Apps().V1().StatefulSets().Lister()
 	informerFactory.Core().V1().Services().Lister()
 	informerFactory.Core().V1().Pods().Lister()

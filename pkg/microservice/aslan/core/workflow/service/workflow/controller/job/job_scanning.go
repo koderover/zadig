@@ -84,6 +84,9 @@ func (j ScanningJobController) Validate(isExecution bool) error {
 			if svcScanning.Name == "" {
 				return fmt.Errorf("scan name cannot be empty in service scanning")
 			}
+			if err := ValidateRequiredRuntimeKeyVals(svcScanning.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, svcScanning.ServiceName, svcScanning.ServiceModule)); err != nil {
+				return err
+			}
 		}
 	}
 

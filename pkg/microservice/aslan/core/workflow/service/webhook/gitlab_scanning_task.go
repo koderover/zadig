@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/xanzy/go-gitlab"
@@ -148,6 +147,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 							RepoOwner:  scanningRepo.RepoOwner,
 							RepoName:   scanningRepo.RepoName,
 							Branch:     scanningRepo.Branch,
+							Tag:        scanningRepo.Tag,
 						})
 					}
 
@@ -157,6 +157,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						RepoOwner:  item.RepoOwner,
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
+						Tag:        item.Tag,
 					}
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
@@ -243,17 +244,12 @@ func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *commonmodels.Scan
 			return false, nil
 		}
 
-		if !matchRepo.IsRegular {
-			if getBranchFromRef(ev.Ref) != hookRepo.Branch {
-				return false, nil
-			}
-		} else {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-				return false, nil
-			}
+		branch := getBranchFromRef(ev.Ref)
+		if !MatchBranch(matchRepo, config.HookEventPush, branch) {
+			return false, nil
 		}
 
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = branch
 		var changedFiles []string
 		for _, commit := range ev.Commits {
 			changedFiles = append(changedFiles, commit.Added...)
@@ -298,19 +294,12 @@ func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *commonmodels.Sca
 			return false, nil
 		}
 
-		isRegExp := matchRepo.IsRegular
-
-		if !isRegExp {
-			if ev.ObjectAttributes.TargetBranch != hookRepo.Branch {
-				return false, nil
-			}
-		} else {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-				return false, nil
-			}
+		branch := ev.ObjectAttributes.TargetBranch
+		if !MatchBranch(matchRepo, config.HookEventPr, branch) {
+			return false, nil
 		}
 
-		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+		hookRepo.Branch = branch
 
 		if ev.ObjectAttributes.State == "opened" {
 			var changedFiles []string
@@ -341,6 +330,7 @@ func (gmem *gitlabTagEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 		Source:        hookRepo.Source,
 	}
 }
@@ -354,6 +344,13 @@ func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *commonmodels.Scann
 		}
 
 		hookRepo.Branch = ev.Project.DefaultBranch
+
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookInfo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		return true, nil
 	}
 

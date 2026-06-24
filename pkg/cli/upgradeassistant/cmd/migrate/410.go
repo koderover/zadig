@@ -69,7 +69,7 @@ func migrateProjectReleaseMaxHistory(ctx *internalhandler.Context, migrationInfo
 	}
 
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
-		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400ProjectManagement): true,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400ProjectReleaseMaxHistory): true,
 	})
 
 	return nil

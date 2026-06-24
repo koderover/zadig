@@ -29,9 +29,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client, clientSet *kubernetes.Clientset) ([]*appsv1.Deployment, []*appsv1.StatefulSet,
+func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client, clientSet *kubernetes.Clientset) ([]*appsv1.Deployment, []*appsv1.DaemonSet, []*appsv1.StatefulSet,
 	[]*batchv1.CronJob, []*batchv1beta1.CronJob, []*batchv1.Job, error) {
 	var deployments []*appsv1.Deployment
+	var daemonSets []*appsv1.DaemonSet
 	var statefulSets []*appsv1.StatefulSet
 	var cronJobs []*batchv1.CronJob
 	var betaCronJobs []*batchv1beta1.CronJob
@@ -39,7 +40,7 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 
 	k8sServerVersion, err := clientSet.Discovery().ServerVersion()
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	for _, item := range Resource {
@@ -51,6 +52,14 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 			}
 			if err != nil {
 				log.Errorf("failed to fetch deployment %s, error: %v", item.Name, err)
+			}
+		case setting.DaemonSet:
+			daemonSet, daemonSetExists, err := getter.GetDaemonSet(namespace, item.Name, kubeclient)
+			if daemonSetExists && err == nil {
+				daemonSets = append(daemonSets, daemonSet)
+			}
+			if err != nil {
+				log.Errorf("failed to fetch daemonset %s, error: %v", item.Name, err)
 			}
 		case setting.StatefulSet:
 			sts, stsExists, err := getter.GetStatefulSet(namespace, item.Name, kubeclient)
@@ -81,5 +90,5 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 			}
 		}
 	}
-	return deployments, statefulSets, cronJobs, betaCronJobs, jobs, nil
+	return deployments, daemonSets, statefulSets, cronJobs, betaCronJobs, jobs, nil
 }

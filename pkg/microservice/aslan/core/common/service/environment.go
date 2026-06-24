@@ -736,6 +736,23 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Annotation: v.Annotations,
 		})
 	}
+	daemonSets, err := getter.ListDaemonSetsWithCache(nil, informer)
+	if err != nil {
+		return 0, workLoads, e.ErrListGroups.AddDesc(err.Error())
+	}
+	for _, v := range daemonSets {
+		workLoads = append(workLoads, &Workload{
+			Name:       v.Name,
+			Spec:       v.Spec.Template,
+			Selector:   v.Spec.Selector,
+			Type:       setting.DaemonSet,
+			Replicas:   v.Status.DesiredNumberScheduled,
+			Images:     wrapper.DaemonSet(v).ImageInfos(),
+			Containers: wrapper.DaemonSet(v).GetContainers(),
+			Ready:      wrapper.DaemonSet(v).Ready(),
+			Annotation: v.Annotations,
+		})
+	}
 	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
 		return 0, workLoads, e.ErrListGroups.AddDesc(err.Error())

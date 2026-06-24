@@ -19,6 +19,7 @@ package models
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,6 +45,7 @@ type WorkflowV4 struct {
 	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
 	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	TemplateName   string                   `bson:"-"                   yaml:"template_name,omitempty" json:"template_name,omitempty"`
 	Disabled       bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
 	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
 	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
@@ -60,6 +62,7 @@ type WorkflowV4 struct {
 	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
 	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	Remark         string                   `bson:"remark"              yaml:"-"                   json:"remark"`
+	RemarkRequired bool                     `bson:"remark_required"     yaml:"remark_required"     json:"remark_required"`
 	IgnoreCache    bool                     `bson:"ignore_cache,omitempty" yaml:"ignore_cache,omitempty" json:"ignore_cache,omitempty"`
 	ShareStorages  []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 	Hash           string                   `bson:"hash"                yaml:"hash"                json:"hash"`
@@ -548,13 +551,13 @@ type DeployHelmChart struct {
 }
 
 type DeployBasicInfo struct {
-	ServiceName    string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	ServiceName    string                        `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
 	DeployStrategy setting.ServiceDeployStrategy `bson:"deploy_strategy"                     yaml:"deploy_strategy"                        json:"deploy_strategy"`
-	Modules        []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
-	Deployed       bool                `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
-	AutoSync       bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
-	UpdateConfig   bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable      bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
+	Modules        []*DeployModuleInfo           `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	Deployed       bool                          `bson:"deployed"                         yaml:"deployed"                            json:"deployed"`
+	AutoSync       bool                          `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
+	UpdateConfig   bool                          `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable      bool                          `bson:"-"                                yaml:"updatable"                           json:"updatable"`
 }
 
 type DeployOptionInfo struct {
@@ -913,6 +916,7 @@ type ZadigBlueGreenDeployEnvInformation struct {
 
 type ZadigVMDeployEnvInformation struct {
 	Env      string                `json:"env"      yaml:"env"`
+	Alias    string                `json:"alias"    yaml:"alias"`
 	Services []*ServiceAndVMDeploy `json:"services" yaml:"services"`
 }
 
@@ -1464,6 +1468,27 @@ type ApisixItemSpec struct {
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
+func (s *ApisixItemSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemSpec is nil")
+	}
+	return getApisixConfigName(s.Spec)
+}
+
+func getApisixConfigName(spec interface{}) (string, error) {
+	if spec == nil {
+		return "", errors.New("spec is nil")
+	}
+	if specMap, ok := spec.(map[string]interface{}); ok {
+		name, ok := specMap["name"].(string)
+		if ok {
+			return strings.TrimSpace(name), nil
+		}
+		return "", errors.New("config name is empty from spec")
+	}
+	return "", errors.New("spec is not a map type")
+}
+
 type PingCodeJobSpec struct {
 	PingCodeID       string                 `bson:"pingcode_id"         json:"pingcode_id"         yaml:"pingcode_id"`
 	Source           config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
@@ -1675,6 +1700,7 @@ type Param struct {
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
+	Required     bool                   `bson:"required,omitempty"        json:"required,omitempty"          yaml:"required,omitempty"`
 }
 
 func (p *Param) GetValue() string {

@@ -110,6 +110,16 @@ func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*Get
 		deployNames = append(deployNames, deployment.Name)
 	}
 	workloadsMap["deployment"] = deployNames
+	daemonSets, err := getter.ListDaemonSets(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListDaemonSets error, error msg:%s", err)
+		return nil, err
+	}
+	var daemonsetNames []string
+	for _, daemonSet := range daemonSets {
+		daemonsetNames = append(daemonsetNames, daemonSet.Name)
+	}
+	workloadsMap["daemonset"] = daemonsetNames
 	configMaps, err := getter.ListConfigMaps(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("GetKubeWorkloads ListConfigMaps error, error msg:%s", err)
@@ -236,6 +246,16 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 					if len(bs) == 0 || err != nil {
 						log.Errorf("not found yaml %v", err)
 						return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/deployment failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
+			case "daemonset":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetDaemonSetYamlFormat(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get daemonset failed err:%s", err))
 					}
 
 					yamls = append(yamls, string(bs))

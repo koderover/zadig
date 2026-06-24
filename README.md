@@ -36,7 +36,7 @@
 
 ## What is Zadig
 
-Zadig is a self-service cloud-native DevOps platform developed by KodeRover based on Kubernetes. Zadig provides flexible and scalable workflow support, multiple release strategy orchestrations, and one-click security audits, and continuously optimizes the R&D process through intelligent capabilities such as AI environment inspections, AI performance diagnosis, and AI Pilot. The platform also supports customized enterprise-level XOps agile performance dashboards, deeply integrates multiple enterprise-level platforms, and quickly accesses thousands of services in batches through project templates, achieving one-click management and governance of thousands of services.
+Zadig is a self-service cloud-native DevOps platform developed by KodeRover based on Kubernetes. Zadig provides flexible and scalable workflow support, multiple release strategy orchestrations, and one-click security audits, and continuously optimizes the R&D process through intelligent capabilities such as AI environment inspections, AI performance diagnosis. The platform also supports customized enterprise-level XOps agile performance dashboards, deeply integrates multiple enterprise-level platforms, and quickly accesses thousands of services in batches through project templates, achieving one-click management and governance of thousands of services.
 
 Its main goal is to help enterprises realize the digital transformation of production and research, enable engineers to become innovation engines, and provide support for the unlimited value links of the digital economy.
 
@@ -92,8 +92,8 @@ The Highlighted Features:
   </details>
 
 <details>
-  <summary><b>AI-Driven Efficiency Diagnosis · Environment Inspection · Pilot Assistant</b></summary>
-  Deeply integrated with AI capabilities, it delivers three core functions: AI Efficiency Analysis, AI Environment Inspection, and Zadig Pilot. By intelligently analyzing data from pipelines, builds, tests and other workflow stages, it precisely identifies efficiency bottlenecks and provides actionable improvement suggestions. The system performs regular comprehensive inspections of Kubernetes environments to detect and warn about potential issues, ensuring environmental stability.
+  <summary><b>AI-Driven Efficiency Diagnosis · Environment Inspection</b></summary>
+  Deeply integrated with AI capabilities, it delivers three core functions: AI Efficiency Analysis, AI Environment Inspection. By intelligently analyzing data from pipelines, builds, tests and other workflow stages, it precisely identifies efficiency bottlenecks and provides actionable improvement suggestions. The system performs regular comprehensive inspections of Kubernetes environments to detect and warn about potential issues, ensuring environmental stability.
 
   With enterprise-level round-the-clock technical support for instant response - spanning technical consultation to fault resolution - it serves as an essential AI assistant for development teams.
   </details>
@@ -120,7 +120,6 @@ Please check out [our contributing guideline](CONTRIBUTING.md).
 - More about Zadig, see [here](https://docs.koderover.com?type=zadig)
 - Submit bugs or feature requests following [contributing instructions](CONTRIBUTING.md#contribution-option-1---reporting-an-issue)
 - Email：contact@koderover.com
-- [Slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
 
 
 ## License

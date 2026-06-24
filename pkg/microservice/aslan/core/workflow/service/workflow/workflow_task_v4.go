@@ -249,6 +249,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
+// GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -271,6 +272,12 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
+	// Render workflow dynamic params
+	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
+		log.Errorf("failed to render workflow dynamic params for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
@@ -282,6 +289,22 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	if jobName == "" {
+		variables, err := workflowCtrl.GetWorkflowParamReferableVariables(0, "", "", "", nil)
+		if err != nil {
+			err = fmt.Errorf("failed to get workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+
+		for _, kv := range variables {
+			resp = append(resp, fmt.Sprintf("{{.%s}}", kv.Key))
+		}
+
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,
@@ -306,6 +329,18 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	// When jobName is empty, render dynamic options for workflow-level params instead of job inputs.
+	if jobName == "" {
+		resp, err := workflowCtrl.GetWorkflowParamDynamicValues(0, "", "", "", key, nil)
+		if err != nil {
+			err = fmt.Errorf("failed to render workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,
@@ -448,19 +483,20 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name                  string
-	Account               string
-	UserID                string
-	Type                  config.CustomWorkflowTaskType
-	ApprovalTicketID      string
-	SkipWorkflowUpdate    bool
-	NotifyInput           []*CreateCustomTaskNotifyInput
-	LarkProjectKey        string
-	LarkProjectSimpleName string
-	LarkWorkItemTypeKey   string
-	LarkWorkItemAPIName   string
-	LarkWorkItemID        string
-	ReleasePlan           *commonmodels.ReleasePlanRef
+	Name                   string
+	Account                string
+	UserID                 string
+	Type                   config.CustomWorkflowTaskType
+	ValidateRemarkRequired bool
+	ApprovalTicketID       string
+	SkipWorkflowUpdate     bool
+	NotifyInput            []*CreateCustomTaskNotifyInput
+	LarkProjectKey         string
+	LarkProjectSimpleName  string
+	LarkWorkItemTypeKey    string
+	LarkWorkItemAPIName    string
+	LarkWorkItemID         string
+	ReleasePlan            *commonmodels.ReleasePlanRef
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -512,8 +548,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		if err != nil {
 			return resp, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find workflow %s, error: %v", workflow.Name, err))
 		}
+		workflow.RemarkRequired = originalWorkflow.RemarkRequired
 		if originalWorkflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+		if args.ValidateRemarkRequired && originalWorkflow.RemarkRequired && strings.TrimSpace(workflow.Remark) == "" {
+			return resp, e.ErrCreateTask.AddDesc("workflow task creation denied: remark is required.")
 		}
 
 		// do approval ticket check
@@ -672,6 +712,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
+	if err := runtimeWorkflowController.SendSystemWorkflowHook(workflowTask, commonmodels.WorkflowHookEventStartExecute); err != nil {
+		log.Errorf("send system workflow start hook failed, workflow: %s, taskID: %d, error: %v", workflowTask.WorkflowName, workflowTask.TaskID, err)
 	}
 
 	if err := runtimeWorkflowController.CreateTask(workflowTask); err != nil {
@@ -1007,8 +1050,13 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 
 	task.Status = config.StatusCreated
 	task.StartTime = time.Now().Unix()
+	task.EndTime = 0
+	task.Error = ""
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
+	if err := runtimeWorkflowController.SendSystemWorkflowHook(task, commonmodels.WorkflowHookEventStartExecute); err != nil {
+		log.Errorf("send system workflow start hook failed on retry, workflow: %s, taskID: %d, error: %v", task.WorkflowName, task.TaskID, err)
 	}
 
 	if err := runtimeWorkflowController.UpdateTask(task); err != nil {
@@ -1279,6 +1327,8 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 
 	task.Status = config.StatusCreated
+	task.EndTime = 0
+	task.Error = ""
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}

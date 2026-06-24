@@ -492,29 +492,29 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			targetReplica := int32(c.jobTaskSpec.Replicas)
 			deployment.Spec.Replicas = &targetReplica
 
-		c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
-		c.ack()
+			c.Infof("updating the original workload %s with the new image: %s", deployment.Name, c.jobTaskSpec.Targets.Image)
+			c.ack()
 
-		if err := updater.UpdateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, deployment.Name, func(d *appsv1.Deployment) error {
-			var oldImg string
-			for i, container := range d.Spec.Template.Spec.Containers {
-				if container.Name == c.jobTaskSpec.Targets.ContainerName {
-					oldImg = container.Image
-					d.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Targets.Image
+			if err := updater.UpdateDeploymentV2(ctx, c.jobTaskSpec.ClusterID, c.jobTaskSpec.Namespace, deployment.Name, func(d *appsv1.Deployment) error {
+				var oldImg string
+				for i, container := range d.Spec.Template.Spec.Containers {
+					if container.Name == c.jobTaskSpec.Targets.ContainerName {
+						oldImg = container.Image
+						d.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Targets.Image
+					}
 				}
+				if d.Annotations == nil {
+					d.Annotations = make(map[string]string)
+				}
+				d.Annotations[config.ZadigLastAppliedReplicas] = strconv.Itoa(int(*d.Spec.Replicas))
+				d.Annotations[config.ZadigLastAppliedImage] = oldImg
+				targetReplica := int32(c.jobTaskSpec.Replicas)
+				d.Spec.Replicas = &targetReplica
+				return nil
+			}); err != nil {
+				c.Errorf("update origin deployment: %s failed: %v", deployment.Name, err)
+				return
 			}
-			if d.Annotations == nil {
-				d.Annotations = make(map[string]string)
-			}
-			d.Annotations[config.ZadigLastAppliedReplicas] = strconv.Itoa(int(*d.Spec.Replicas))
-			d.Annotations[config.ZadigLastAppliedImage] = oldImg
-			targetReplica := int32(c.jobTaskSpec.Replicas)
-			d.Spec.Replicas = &targetReplica
-			return nil
-		}); err != nil {
-			c.Errorf("update origin deployment: %s failed: %v", deployment.Name, err)
-			return
-		}
 
 			// waiting for original deployment to run
 			c.Infof("Waiting for deployment: %s to start", c.jobTaskSpec.Targets.WorkloadName)

@@ -18,7 +18,6 @@ package webhook
 
 import (
 	"fmt"
-	"regexp"
 
 	"go.uber.org/zap"
 
@@ -46,18 +45,11 @@ func (gpem *giteePushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (b
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		branch := getBranchFromRef(ev.Ref)
+		if !MatchBranch(hookRepo, config.HookEventPush, branch) {
 			return false, nil
 		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref))
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = branch
 		hookRepo.Committer = ev.Pusher.Name
 		var changedFiles []string
 		for _, commit := range ev.Commits {
@@ -103,17 +95,11 @@ func (gmem *giteeMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.PullRequest.Base.Ref {
+		branch := ev.PullRequest.Base.Ref
+		if !MatchBranch(hookRepo, config.HookEventPr, branch) {
 			return false, nil
 		}
-		if isRegular {
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.PullRequest.Base.Ref)
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = ev.PullRequest.Base.Ref
+		hookRepo.Branch = branch
 		hookRepo.Committer = ev.PullRequest.User.Login
 		if ev.PullRequest.State == "open" {
 			var changedFiles []string
@@ -162,7 +148,12 @@ func (gtem giteeTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (boo
 			return false, nil
 		}
 
-		hookRepo.Tag = getTagFromRef(ev.Ref)
+		tag := getTagFromRef(ev.Ref)
+		if !MatchTag(hookRepo, tag) {
+			return false, nil
+		}
+
+		hookRepo.Tag = tag
 		hookRepo.Committer = ev.Sender.Name
 
 		return true, nil
