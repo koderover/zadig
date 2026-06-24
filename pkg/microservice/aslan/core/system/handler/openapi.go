@@ -65,7 +65,7 @@ func OpenAPICreateRegistry(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
+	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -119,7 +119,7 @@ func OpenAPIGetRegistry(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
+	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -476,7 +476,7 @@ func OpenAPIGetOperationLogs(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
 		ctx.UnAuthorized = true
 		return
 	}
