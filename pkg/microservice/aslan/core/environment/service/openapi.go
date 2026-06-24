@@ -179,12 +179,15 @@ func OpenAPIListServicePods(projectName, envName, serviceName string, production
 			}
 
 			resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
-				Pod:          pod,
-				PodName:      pod.Name,
-				CreateTime:   pod.CreateTime,
-				Images:       images,
-				WorkloadName: scale.Name,
-				WorkloadType: scale.Type,
+				PodName:         pod.Name,
+				Status:          pod.Status,
+				PodReady:        pod.PodReady,
+				ContainersReady: pod.ContainersReady,
+				CreateTime:      pod.CreateTime,
+				IP:              pod.IP,
+				Images:          images,
+				WorkloadName:    scale.Name,
+				WorkloadType:    scale.Type,
 			})
 		}
 	}
