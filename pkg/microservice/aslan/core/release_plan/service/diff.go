@@ -308,7 +308,28 @@ func releasePlanVersionDiffJobContentSnapshot(job map[string]interface{}) interf
 	if job == nil {
 		return nil
 	}
-	return job["spec"]
+	spec := job["spec"]
+	if jobType, ok := getStringField(job, "type"); ok && jobType == string(config.JobText) {
+		return releasePlanVersionDiffTextJobContentSnapshot(spec)
+	}
+	return spec
+}
+
+func releasePlanVersionDiffTextJobContentSnapshot(spec interface{}) interface{} {
+	specMap, ok := getMapField(spec)
+	if !ok {
+		return spec
+	}
+
+	resp := make(map[string]interface{}, len(specMap))
+	for key, value := range specMap {
+		if key == "content" {
+			resp[key] = normalizeReleasePlanRichTextComparableValue(value)
+			continue
+		}
+		resp[key] = value
+	}
+	return resp
 }
 
 func releasePlanVersionDiffPlanSnapshot(value interface{}) map[string]interface{} {
