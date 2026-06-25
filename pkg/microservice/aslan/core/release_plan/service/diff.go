@@ -230,7 +230,9 @@ func buildReleasePlanCreateVersionDiffGroups(current *models.ReleasePlanVersion,
 	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
 	groupOrder := make([]string, 0)
 	appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, current.SectionName), releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan), releasePlanVersionSectionPlan, current.Verb, fromPlan, toPlan)
-	appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, releasePlanVersionSectionApproval, releasePlanVersionSectionName(releasePlanVersionSectionApproval, ""), releasePlanVersionSectionGroupType(releasePlanVersionSectionApproval), releasePlanVersionSectionApproval, current.Verb, fromPlan["approval"], toPlan["approval"])
+	if hasReleasePlanSnapshotChanges(fromPlan["approval"], toPlan["approval"]) {
+		appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, releasePlanVersionSectionApproval, releasePlanVersionSectionName(releasePlanVersionSectionApproval, ""), releasePlanVersionSectionGroupType(releasePlanVersionSectionApproval), releasePlanVersionSectionApproval, current.Verb, fromPlan["approval"], toPlan["approval"])
+	}
 	appendReleasePlanCreateJobVersionDiffGroups(groupMap, &groupOrder, current.Verb, fromPlan["jobs"], toPlan["jobs"])
 
 	return releasePlanVersionDiffGroupsFromMap(groupMap, groupOrder)
@@ -289,10 +291,24 @@ func appendReleasePlanCreateJobVersionDiffGroups(groupMap map[string]*ReleasePla
 	fromJobs, fromOrder := releasePlanVersionDiffJobsByID(fromData)
 	toJobs, toOrder := releasePlanVersionDiffJobsByID(toData)
 	for _, jobID := range mergeReleasePlanVersionDiffJobOrder(toOrder, fromOrder) {
+		if !shouldAddReleasePlanCreateJobVersionDiffGroup(fromJobs[jobID], toJobs[jobID]) {
+			continue
+		}
 		sectionKey := releasePlanVersionSectionJobPrefix + jobID
 		groupName := releasePlanVersionDiffJobName(toJobs[jobID], fromJobs[jobID])
 		appendReleasePlanVersionDiffGroup(groupMap, groupOrder, sectionKey, releasePlanVersionSectionName(sectionKey, groupName), releasePlanVersionSectionGroupType(sectionKey), sectionKey, verb, fromJobs[jobID], toJobs[jobID])
 	}
+}
+
+func shouldAddReleasePlanCreateJobVersionDiffGroup(fromJob, toJob map[string]interface{}) bool {
+	return hasReleasePlanSnapshotChanges(releasePlanVersionDiffJobContentSnapshot(fromJob), releasePlanVersionDiffJobContentSnapshot(toJob))
+}
+
+func releasePlanVersionDiffJobContentSnapshot(job map[string]interface{}) interface{} {
+	if job == nil {
+		return nil
+	}
+	return job["spec"]
 }
 
 func releasePlanVersionDiffPlanSnapshot(value interface{}) map[string]interface{} {
