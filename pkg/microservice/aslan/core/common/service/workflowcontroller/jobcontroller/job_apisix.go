@@ -289,6 +289,7 @@ func (c *ApisixJobCtl) executeServiceTask(client *apisix.Client, task *commonmod
 }
 
 func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodels.ApisixItemUpdateSpec) error {
+	log.Printf("execute proto task: %v", task.UserSpec)
 	proto, err := convertToProto(task.UserSpec)
 
 	if err != nil {
@@ -402,9 +403,18 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 	if err := json.Unmarshal(data, proto); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal to proto: %v", err)
 	}
+
+	log.Printf("userSpec convertToProto: %v", proto)
+
+	//bug point dont touch it
+	if proto.Name == "" {
+		proto.Desc = proto.ID
+		log.Printf("proto for name is empty: %v", proto)
+		return proto, nil
+	}
+
 	proto.Desc = proto.Name
 	proto.ID = proto.Name
-	log.Printf("convertToProto: %v", proto)
 
 	return proto, nil
 }
