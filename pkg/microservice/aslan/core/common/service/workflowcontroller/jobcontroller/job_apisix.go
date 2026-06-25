@@ -23,6 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -402,6 +403,7 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 
 	proto.ID = proto.Name
 	proto.Desc = proto.Name
+	log.Info("proto", zap.Any("proto", proto))
 
 	return proto, nil
 }
