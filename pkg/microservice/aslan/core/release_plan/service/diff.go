@@ -291,31 +291,35 @@ func appendReleasePlanCreateJobVersionDiffGroups(groupMap map[string]*ReleasePla
 	fromJobs, fromOrder := releasePlanVersionDiffJobsByID(fromData)
 	toJobs, toOrder := releasePlanVersionDiffJobsByID(toData)
 	for _, jobID := range mergeReleasePlanVersionDiffJobOrder(toOrder, fromOrder) {
-		if !shouldAddReleasePlanCreateJobVersionDiffGroup(fromJobs[jobID], toJobs[jobID]) {
-			continue
-		}
 		sectionKey := releasePlanVersionSectionJobPrefix + jobID
 		groupName := releasePlanVersionDiffJobName(toJobs[jobID], fromJobs[jobID])
-		appendReleasePlanVersionDiffGroup(groupMap, groupOrder, sectionKey, releasePlanVersionSectionName(sectionKey, groupName), releasePlanVersionSectionGroupType(sectionKey), sectionKey, verb, fromJobs[jobID], toJobs[jobID])
+		appendReleasePlanVersionDiffGroup(groupMap, groupOrder, sectionKey, releasePlanVersionSectionName(sectionKey, groupName), releasePlanVersionSectionGroupType(sectionKey), sectionKey, verb, releasePlanVersionDiffCreateJobSnapshot(fromJobs[jobID]), releasePlanVersionDiffCreateJobSnapshot(toJobs[jobID]))
 	}
 }
 
-func shouldAddReleasePlanCreateJobVersionDiffGroup(fromJob, toJob map[string]interface{}) bool {
-	return hasReleasePlanSnapshotChanges(releasePlanVersionDiffJobContentSnapshot(fromJob), releasePlanVersionDiffJobContentSnapshot(toJob))
-}
-
-func releasePlanVersionDiffJobContentSnapshot(job map[string]interface{}) interface{} {
+func releasePlanVersionDiffCreateJobSnapshot(job map[string]interface{}) interface{} {
 	if job == nil {
 		return nil
 	}
-	spec := job["spec"]
 	if jobType, ok := getStringField(job, "type"); ok && jobType == string(config.JobText) {
-		return releasePlanVersionDiffTextJobContentSnapshot(spec)
+		return releasePlanVersionDiffTextJobSnapshot(job)
 	}
-	return spec
+	return job
 }
 
-func releasePlanVersionDiffTextJobContentSnapshot(spec interface{}) interface{} {
+func releasePlanVersionDiffTextJobSnapshot(job map[string]interface{}) map[string]interface{} {
+	resp := make(map[string]interface{}, len(job))
+	for key, value := range job {
+		if key == "spec" {
+			resp[key] = releasePlanVersionDiffTextJobSpecSnapshot(value)
+			continue
+		}
+		resp[key] = value
+	}
+	return resp
+}
+
+func releasePlanVersionDiffTextJobSpecSnapshot(spec interface{}) interface{} {
 	specMap, ok := getMapField(spec)
 	if !ok {
 		return spec
