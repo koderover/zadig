@@ -158,6 +158,7 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
+	args.Version = 1
 	args.Status = config.ReleasePlanStatusPlanning
 
 	planID, err := mongodb.NewReleasePlanColl().Create(args)
@@ -166,14 +167,25 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-			PlanID:     planID,
-			Username:   c.UserName,
-			Account:    c.Account,
-			Verb:       VerbCreate,
-			TargetName: args.Name,
-			TargetType: TargetTypeReleasePlan,
-			CreatedAt:  time.Now().Unix(),
+		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
+		if err == nil {
+			err = createReleasePlanVersion(planID, 1, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+		}
+		if err != nil {
+			log.Errorf("create release plan version error: %v", err)
+		}
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
+			PlanID:      planID,
+			Username:    c.UserName,
+			Account:     c.Account,
+			Verb:        VerbCreate,
+			TargetName:  args.Name,
+			TargetType:  TargetTypeReleasePlan,
+			Version:     1,
+			SectionKey:  releasePlanVersionSectionPlan,
+			SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name),
+			SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
+			CreatedAt:   time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
@@ -216,9 +228,17 @@ type OpenAPIWorkflowReleaseJobSpec struct {
 }
 
 func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *OpenAPIUpdateReleasePlanWithJobsArgs) error {
+	approveLock := getLock(id)
+	approveLock.Lock()
+	defer approveLock.Unlock()
+
 	plan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
 		return errors.Wrap(err, "get release plan error")
+	}
+	originalPlan, err := cloneReleasePlan(plan)
+	if err != nil {
+		return errors.Wrap(err, "clone release plan")
 	}
 
 	if rawArgs.Name == "" || rawArgs.Manager == "" {
@@ -361,25 +381,56 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	}
 
 	plan.Jobs = newJobs
+	plan.Version = originalPlan.Version + 1
+
+	currentSnapshot, err := buildReleasePlanInputSnapshot(plan)
+	if err != nil {
+		return errors.Wrap(err, "build release plan current snapshot")
+	}
+	var baseSnapshot interface{}
+	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(plan.ID.Hex(), releasePlanVersionSectionPlan, plan.Version, VerbUpdate)
+	if err != nil {
+		return errors.Wrap(err, "check release plan base snapshot")
+	}
+	if needBaseSnapshot {
+		baseSnapshot, err = buildReleasePlanInputSnapshot(originalPlan)
+		if err != nil {
+			return errors.Wrap(err, "build release plan base snapshot")
+		}
+	}
+	logBaseSnapshot, err := resolveReleasePlanLogBaseSnapshot(baseSnapshot, originalPlan, releasePlanVersionSectionPlan)
+	if err != nil {
+		return errors.Wrap(err, "build release plan log base snapshot")
+	}
+	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
 
 	err = mongodb.NewReleasePlanColl().UpdateByID(c, id, plan)
 	if err != nil {
 		return errors.Wrap(err, "update release plan error")
 	}
 
-	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-			PlanID:     plan.ID.Hex(),
-			Username:   c.UserName,
-			Account:    c.Account,
-			Verb:       VerbUpdate,
-			TargetName: plan.Name,
-			TargetType: TargetTypeReleasePlan,
-			CreatedAt:  time.Now().Unix(),
+	if err := createReleasePlanVersionWithBaseSnapshot(plan.ID.Hex(), plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name), VerbUpdate); err != nil {
+		log.Errorf("create release plan version error: %v", err)
+	} else if shouldCreateLog {
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
+			PlanID:      plan.ID.Hex(),
+			Username:    c.UserName,
+			Account:     c.Account,
+			Verb:        VerbUpdate,
+			TargetName:  plan.Name,
+			TargetType:  TargetTypeReleasePlan,
+			Version:     plan.Version,
+			SectionKey:  releasePlanVersionSectionPlan,
+			SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name),
+			SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
+			CreatedAt:   time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
-	}()
+	}
+	if err := broadcastReleasePlanCollaboration(plan.ID.Hex()); err != nil {
+		log.Errorf("broadcast release plan collaboration error: %v", err)
+	}
 
 	return nil
 }
