@@ -83,6 +83,17 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     checkReleasePlanCollaborationOrigin,
 }
 
+var (
+	storeReleasePlanEditingSession = func(session *ReleasePlanEditingSession, payload string) error {
+		redisCache := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB())
+		if err := redisCache.Write(releasePlanCollabSessionKey(session.SessionID), payload, releasePlanCollabSessionTTL); err != nil {
+			return err
+		}
+		return redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabSessionTTL)
+	}
+	publishReleasePlanCollaboration = broadcastReleasePlanCollaboration
+)
+
 type ReleasePlanEditingSession struct {
 	PlanID           string `json:"plan_id"`
 	SessionID        string `json:"session_id"`
@@ -573,6 +584,14 @@ func decodeReleasePlanEditingSessions(planID string, values []interface{}) []*Re
 }
 
 func persistReleasePlanEditingSession(session *ReleasePlanEditingSession) error {
+	return saveReleasePlanEditingSession(session, true)
+}
+
+func refreshReleasePlanEditingSession(session *ReleasePlanEditingSession) error {
+	return saveReleasePlanEditingSession(session, false)
+}
+
+func saveReleasePlanEditingSession(session *ReleasePlanEditingSession, broadcast bool) error {
 	if session == nil {
 		return errors.New("nil editing session")
 	}
@@ -589,14 +608,13 @@ func persistReleasePlanEditingSession(session *ReleasePlanEditingSession) error 
 		return err
 	}
 
-	redisCache := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB())
-	if err := redisCache.Write(releasePlanCollabSessionKey(session.SessionID), string(payload), releasePlanCollabSessionTTL); err != nil {
+	if err := storeReleasePlanEditingSession(session, string(payload)); err != nil {
 		return err
 	}
-	if err := redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabSessionTTL); err != nil {
-		return err
+	if !broadcast {
+		return nil
 	}
-	return broadcastReleasePlanCollaboration(session.PlanID)
+	return publishReleasePlanCollaboration(session.PlanID)
 }
 
 func removeReleasePlanEditingSession(planID, sessionID string) error {
@@ -709,7 +727,7 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 			}
 
 			switch msg.Type {
-			case "join", "focus_section", "heartbeat":
+			case "join", "focus_section":
 				sectionKey, sectionType, sectionName := normalizeReleasePlanCollaborationSection(msg.SectionKey, msg.SectionType, msg.SectionName)
 				if !authorizeReleasePlanEditing(ctx, sectionType) {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
@@ -764,6 +782,24 @@ func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 				snapshot, err := GetReleasePlanCollaborationSnapshot(planID)
 				if err == nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "snapshot", Snapshot: snapshot})
+				}
+			case "heartbeat":
+				session, err := getReleasePlanEditingSession(planID, msg.SessionID)
+				if err != nil {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
+					continue
+				}
+				if !authorizeReleasePlanEditing(ctx, session.SectionType) {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
+					continue
+				}
+				if !canManageReleasePlanEditingSession(session, ctx.UserID, ctx.Resources != nil && ctx.Resources.IsSystemAdmin) {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
+					continue
+				}
+				if err := refreshReleasePlanEditingSession(session); err != nil {
+					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
+					continue
 				}
 			case "leave":
 				session, err := getReleasePlanEditingSession(planID, msg.SessionID)

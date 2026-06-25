@@ -17,20 +17,44 @@
 package service
 
 import (
+	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+)
+
+var (
+	updateReleasePlanDocument = func(ctx context.Context, planID string, plan *models.ReleasePlan) error {
+		return mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan)
+	}
+	createReleasePlanVersionDocument = func(ctx context.Context, version *models.ReleasePlanVersion) error {
+		return mongodb.NewReleasePlanVersionColl().CreateWithCtx(ctx, version)
+	}
+	deleteReleasePlanVersionDocument = func(ctx context.Context, planID string, version int64) error {
+		return mongodb.NewReleasePlanVersionColl().DeleteWithCtx(ctx, planID, version)
+	}
 )
 
 func createReleasePlanVersion(planID string, version int64, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	return createReleasePlanVersionWithBaseSnapshot(planID, version, 0, nil, snapshot, operator, account, sectionKey, sectionName, verb)
+	return createReleasePlanVersionWithBaseSnapshotCtx(context.Background(), planID, version, 0, nil, snapshot, operator, account, sectionKey, sectionName, verb)
 }
 
 func createReleasePlanVersionWithBaseSnapshot(planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	return mongodb.NewReleasePlanVersionColl().Create(&models.ReleasePlanVersion{
+	return createReleasePlanVersionWithBaseSnapshotCtx(context.Background(), planID, version, previousVersion, baseSnapshot, snapshot, operator, account, sectionKey, sectionName, verb)
+}
+
+func createReleasePlanVersionWithBaseSnapshotCtx(ctx context.Context, planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
+	return createReleasePlanVersionDocument(ctx, newReleasePlanVersionDocument(planID, version, previousVersion, baseSnapshot, snapshot, operator, account, sectionKey, sectionName, verb))
+}
+
+func newReleasePlanVersionDocument(planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) *models.ReleasePlanVersion {
+	return &models.ReleasePlanVersion{
 		PlanID:          planID,
 		Version:         version,
 		PreviousVersion: previousVersion,
@@ -43,7 +67,55 @@ func createReleasePlanVersionWithBaseSnapshot(planID string, version, previousVe
 		BaseSnapshot:    sanitizeReleasePlanValue(baseSnapshot),
 		Snapshot:        sanitizeReleasePlanValue(snapshot),
 		CreatedAt:       time.Now().Unix(),
-	})
+	}
+}
+
+func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) error {
+	if plan == nil {
+		return errors.New("nil release plan")
+	}
+	if versionDoc == nil {
+		return errors.New("nil release plan version")
+	}
+
+	if config.EnableTransaction() {
+		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
+		if err != nil {
+			return errors.Wrap(err, "start release plan transaction")
+		}
+
+		var retErr error
+		defer func() {
+			deferSession(retErr)
+		}()
+
+		sessionCtx := mongotool.SessionContext(ctx, session)
+		if err := updateReleasePlanDocument(sessionCtx, planID, plan); err != nil {
+			retErr = errors.Wrap(err, "update plan")
+			return retErr
+		}
+		if err := createReleasePlanVersionDocument(sessionCtx, versionDoc); err != nil {
+			retErr = errors.Wrap(err, "create release plan version")
+			return retErr
+		}
+		if err := mongotool.CommitTransaction(session); err != nil {
+			retErr = errors.Wrap(err, "commit release plan transaction")
+			return retErr
+		}
+		return nil
+	}
+
+	if err := createReleasePlanVersionDocument(ctx, versionDoc); err != nil {
+		return errors.Wrap(err, "create release plan version")
+	}
+	if err := updateReleasePlanDocument(ctx, planID, plan); err != nil {
+		cleanupErr := deleteReleasePlanVersionDocument(ctx, planID, versionDoc.Version)
+		if cleanupErr != nil {
+			return errors.Wrapf(err, "update plan; cleanup release plan version error: %v", cleanupErr)
+		}
+		return errors.Wrap(err, "update plan")
+	}
+	return nil
 }
 
 func shouldBuildReleasePlanVersionBaseSnapshot(planID, sectionKey string, version int64, verb UpdateReleasePlanVerb) (bool, int64, error) {
