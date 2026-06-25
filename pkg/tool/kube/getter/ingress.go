@@ -119,7 +119,15 @@ func GetIngressYaml(ns string, name string, cl client.Client, lessThan122 bool) 
 	return GetResourceYamlInCache(ns, name, gvk, cl)
 }
 
-func GetIngressYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := IngressBetaGVK
+func GetIngressYamlFormat(ns string, name string, cl client.Client, lessThan122 bool) ([]byte, bool, error) {
+	gvk := IngressGVK
+	bs, exist, err := GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	if !lessThan122 {
+		return bs, exist, err
+	}
+	if exist && err == nil {
+		return bs, exist, err
+	}
+	gvk = IngressBetaGVK
 	return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 }
