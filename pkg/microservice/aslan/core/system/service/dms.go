@@ -53,8 +53,6 @@ func ListDMSOrders(ctx *internalhandler.Context, id string, keyword string) ([]*
 		OrderResultType: tea.String("AS_ADMIN"),
 		SearchContent:   tea.String(keyword),
 		OrderStatus:     tea.String("RUNNING"),
-		PageNumber:      tea.Int32(1),
-		PageSize:        tea.Int32(200),
 	}
 
 	orderList, err := client.ListOrders(listOrdersRequest)

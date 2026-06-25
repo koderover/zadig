@@ -296,9 +296,7 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 
 	switch task.Action {
 	case config.ApisixActionTypeCreate:
-		// resp, err := client.CreateProto(proto)
-		id := proto.Name
-		resp, err := client.UpdateProto(id, proto)
+		resp, err := client.UpdateProto(proto.ID, proto)
 		if err != nil {
 			return err
 		}
@@ -402,6 +400,7 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 		return nil, fmt.Errorf("failed to unmarshal to proto: %v", err)
 	}
 	proto.Desc = proto.Name
+	proto.ID = proto.Name
 
 	return proto, nil
 }
