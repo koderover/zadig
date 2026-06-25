@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"go.uber.org/zap"
 
@@ -296,6 +297,7 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 
 	switch task.Action {
 	case config.ApisixActionTypeCreate:
+		log.Printf("create proto: %v", proto)
 		resp, err := client.UpdateProto(proto.ID, proto)
 		if err != nil {
 			return err
@@ -306,6 +308,7 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 		return nil
 
 	case config.ApisixActionTypeUpdate:
+		log.Printf("update proto: %v", proto)
 		if proto.ID == "" {
 			return fmt.Errorf("proto id is required for update operation")
 		}
@@ -401,6 +404,7 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 	}
 	proto.Desc = proto.Name
 	proto.ID = proto.Name
+	log.Printf("convertToProto: %v", proto)
 
 	return proto, nil
 }
