@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -297,7 +296,9 @@ func (c *ApisixJobCtl) executeProtoTask(client *apisix.Client, task *commonmodel
 
 	switch task.Action {
 	case config.ApisixActionTypeCreate:
-		resp, err := client.CreateProto(proto)
+		// resp, err := client.CreateProto(proto)
+		id := proto.Name
+		resp, err := client.UpdateProto(id, proto)
 		if err != nil {
 			return err
 		}
@@ -400,10 +401,7 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 	if err := json.Unmarshal(data, proto); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal to proto: %v", err)
 	}
-
-	proto.ID = proto.Name
 	proto.Desc = proto.Name
-	log.Info("proto", zap.Any("proto", proto))
 
 	return proto, nil
 }
