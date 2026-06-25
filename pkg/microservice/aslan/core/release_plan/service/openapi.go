@@ -387,6 +387,13 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
+	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, releasePlanVersionSectionPlan, currentSnapshot)
+	if err != nil {
+		return errors.Wrap(err, "build release plan persisted snapshot")
+	}
+	if !hasChanges {
+		return nil
+	}
 	var baseSnapshot interface{}
 	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(plan.ID.Hex(), releasePlanVersionSectionPlan, plan.Version, VerbUpdate)
 	if err != nil {
@@ -404,14 +411,11 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	}
 	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
 
-	err = mongodb.NewReleasePlanColl().UpdateByID(c, id, plan)
-	if err != nil {
-		return errors.Wrap(err, "update release plan error")
+	versionDoc := newReleasePlanVersionDocument(plan.ID.Hex(), plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name), string(VerbUpdate))
+	if err := persistReleasePlanWithVersion(c, id, plan, versionDoc); err != nil {
+		return errors.Wrap(err, "persist release plan update")
 	}
-
-	if err := createReleasePlanVersionWithBaseSnapshot(plan.ID.Hex(), plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, plan.Name), VerbUpdate); err != nil {
-		log.Errorf("create release plan version error: %v", err)
-	} else if shouldCreateLog {
+	if shouldCreateLog {
 		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:      plan.ID.Hex(),
 			Username:    c.UserName,
