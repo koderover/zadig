@@ -460,7 +460,7 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
+	ctx.RespErr = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, true, ctx.Logger)
 }
 
 func GetYamlServiceOpenAPI(c *gin.Context) {
