@@ -202,8 +202,49 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		return nil, errors.Wrap(err, "convert current snapshot")
 	}
 
+	return &ReleasePlanVersionDiffResponse{
+		PlanID:          planID,
+		Version:         version,
+		PreviousVersion: current.PreviousVersion,
+		Groups:          buildReleasePlanVersionDiffGroups(current, fromData, toData),
+	}, nil
+}
+
+func buildReleasePlanVersionDiffGroups(current *models.ReleasePlanVersion, fromData, toData interface{}) []*ReleasePlanVersionDiffGroup {
+	if current.SectionKey == releasePlanVersionSectionPlan && current.Verb == VerbCreate {
+		return buildReleasePlanCreateVersionDiffGroups(current, fromData, toData)
+	}
+
 	groupKey, groupName, groupType := releasePlanVersionDiffGroup(current.SectionKey, current.SectionName)
-	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(current.SectionKey, groupType, current.Verb, fromData, toData)
+	groups := buildReleasePlanSectionVersionDiffGroups(groupKey, groupName, groupType, current.SectionKey, current.Verb, fromData, toData)
+	sort.Slice(groups, func(i, j int) bool {
+		return groups[i].GroupKey < groups[j].GroupKey
+	})
+	return groups
+}
+
+func buildReleasePlanCreateVersionDiffGroups(current *models.ReleasePlanVersion, fromData, toData interface{}) []*ReleasePlanVersionDiffGroup {
+	fromPlan := releasePlanVersionDiffPlanSnapshot(fromData)
+	toPlan := releasePlanVersionDiffPlanSnapshot(toData)
+
+	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
+	groupOrder := make([]string, 0)
+	appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, current.SectionName), releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan), releasePlanVersionSectionPlan, current.Verb, fromPlan, toPlan)
+	appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, releasePlanVersionSectionApproval, releasePlanVersionSectionName(releasePlanVersionSectionApproval, ""), releasePlanVersionSectionGroupType(releasePlanVersionSectionApproval), releasePlanVersionSectionApproval, current.Verb, fromPlan["approval"], toPlan["approval"])
+	appendReleasePlanCreateJobVersionDiffGroups(groupMap, &groupOrder, current.Verb, fromPlan["jobs"], toPlan["jobs"])
+
+	return releasePlanVersionDiffGroupsFromMap(groupMap, groupOrder)
+}
+
+func buildReleasePlanSectionVersionDiffGroups(groupKey, groupName, groupType, sectionKey, verb string, fromData, toData interface{}) []*ReleasePlanVersionDiffGroup {
+	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
+	groupOrder := make([]string, 0)
+	appendReleasePlanVersionDiffGroup(groupMap, &groupOrder, groupKey, groupName, groupType, sectionKey, verb, fromData, toData)
+	return releasePlanVersionDiffGroupsFromMap(groupMap, groupOrder)
+}
+
+func appendReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDiffGroup, groupOrder *[]string, groupKey, groupName, groupType, sectionKey, verb string, fromData, toData interface{}) {
+	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(sectionKey, groupType, verb, fromData, toData)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
 	if shouldBuildReleasePlanPathDiff(displayMode) {
@@ -212,10 +253,8 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		diffReleasePlanValues(releasePlanDiffContext{GroupType: groupType}, "", fromData, toData, &rawEntries)
 	}
 
-	groupMap := map[string]*ReleasePlanVersionDiffGroup{}
-	groupOrder := make([]string, 0)
 	if shouldAddReleasePlanVersionDiffDisplaySpec(displayMode, beforeSpec, afterSpec) {
-		group := ensureReleasePlanVersionDiffGroup(groupMap, &groupOrder, groupKey, groupName, groupType)
+		group := ensureReleasePlanVersionDiffGroup(groupMap, groupOrder, groupKey, groupName, groupType)
 		group.DisplayMode = displayMode
 		group.BeforeSpec = sanitizeReleasePlanValueForDisplay(beforeSpec)
 		group.AfterSpec = sanitizeReleasePlanValueForDisplay(afterSpec)
@@ -224,7 +263,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		if shouldIgnoreReleasePlanDiffPath(entry.Path) {
 			continue
 		}
-		group := ensureReleasePlanVersionDiffGroup(groupMap, &groupOrder, groupKey, groupName, groupType)
+		group := ensureReleasePlanVersionDiffGroup(groupMap, groupOrder, groupKey, groupName, groupType)
 
 		change := &ReleasePlanVersionDiffChange{
 			ChangeType: entry.ChangeType,
@@ -244,8 +283,82 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		}
 		group.Changes = append(group.Changes, change)
 	}
+}
 
-	sort.Strings(groupOrder)
+func appendReleasePlanCreateJobVersionDiffGroups(groupMap map[string]*ReleasePlanVersionDiffGroup, groupOrder *[]string, verb string, fromData, toData interface{}) {
+	fromJobs, fromOrder := releasePlanVersionDiffJobsByID(fromData)
+	toJobs, toOrder := releasePlanVersionDiffJobsByID(toData)
+	for _, jobID := range mergeReleasePlanVersionDiffJobOrder(toOrder, fromOrder) {
+		sectionKey := releasePlanVersionSectionJobPrefix + jobID
+		groupName := releasePlanVersionDiffJobName(toJobs[jobID], fromJobs[jobID])
+		appendReleasePlanVersionDiffGroup(groupMap, groupOrder, sectionKey, releasePlanVersionSectionName(sectionKey, groupName), releasePlanVersionSectionGroupType(sectionKey), sectionKey, verb, fromJobs[jobID], toJobs[jobID])
+	}
+}
+
+func releasePlanVersionDiffPlanSnapshot(value interface{}) map[string]interface{} {
+	snapshot, ok := getMapField(value)
+	if !ok {
+		return map[string]interface{}{}
+	}
+	return snapshot
+}
+
+func releasePlanVersionDiffJobsByID(value interface{}) (map[string]map[string]interface{}, []string) {
+	jobs := map[string]map[string]interface{}{}
+	order := make([]string, 0)
+	items, ok := value.([]interface{})
+	if !ok {
+		return jobs, order
+	}
+	for _, item := range items {
+		job, ok := getMapField(item)
+		if !ok {
+			continue
+		}
+		jobID, ok := getStringField(job, "id")
+		if !ok {
+			continue
+		}
+		if _, exists := jobs[jobID]; exists {
+			continue
+		}
+		jobs[jobID] = job
+		order = append(order, jobID)
+	}
+	return jobs, order
+}
+
+func mergeReleasePlanVersionDiffJobOrder(primary, secondary []string) []string {
+	merged := make([]string, 0, len(primary)+len(secondary))
+	seen := map[string]struct{}{}
+	for _, jobID := range primary {
+		if _, exists := seen[jobID]; exists {
+			continue
+		}
+		seen[jobID] = struct{}{}
+		merged = append(merged, jobID)
+	}
+	for _, jobID := range secondary {
+		if _, exists := seen[jobID]; exists {
+			continue
+		}
+		seen[jobID] = struct{}{}
+		merged = append(merged, jobID)
+	}
+	return merged
+}
+
+func releasePlanVersionDiffJobName(values ...map[string]interface{}) string {
+	for _, value := range values {
+		name, ok := getStringField(value, "name")
+		if ok {
+			return name
+		}
+	}
+	return ""
+}
+
+func releasePlanVersionDiffGroupsFromMap(groupMap map[string]*ReleasePlanVersionDiffGroup, groupOrder []string) []*ReleasePlanVersionDiffGroup {
 	groups := make([]*ReleasePlanVersionDiffGroup, 0, len(groupOrder))
 	for _, key := range groupOrder {
 		group := groupMap[key]
@@ -254,13 +367,7 @@ func GetReleasePlanVersionDiff(planID string, version int64) (*ReleasePlanVersio
 		})
 		groups = append(groups, group)
 	}
-
-	return &ReleasePlanVersionDiffResponse{
-		PlanID:          planID,
-		Version:         version,
-		PreviousVersion: current.PreviousVersion,
-		Groups:          groups,
-	}, nil
+	return groups
 }
 
 func ensureReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDiffGroup, groupOrder *[]string, groupKey, groupName, groupType string) *ReleasePlanVersionDiffGroup {
