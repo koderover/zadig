@@ -379,6 +379,14 @@ func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bo
 	return !releasePlanSnapshotValuesEqual(beforeComparable, afterComparable)
 }
 
+func hasReleasePlanPersistedSectionChanges(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) (bool, error) {
+	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+	if err != nil {
+		return false, err
+	}
+	return hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot), nil
+}
+
 func releasePlanSnapshotValuesEqual(left, right interface{}) bool {
 	switch leftValue := left.(type) {
 	case map[string]interface{}:
@@ -630,6 +638,13 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
+	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, sectionKey, currentSnapshot)
+	if err != nil {
+		return errors.Wrap(err, "build release plan persisted snapshot")
+	}
+	if !hasChanges {
+		return nil
+	}
 	var baseSnapshot interface{}
 	nextVersion := originalPlan.Version + 1
 	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(planID, sectionKey, nextVersion, args.Verb)
@@ -675,10 +690,6 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 	plan.InstanceCode = instanceCode
 
-	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
-		return errors.Wrap(err, "update plan")
-	}
-
 	logItem := &models.ReleasePlanLog{
 		PlanID:      planID,
 		Username:    c.UserName,
@@ -692,9 +703,11 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		SectionType: releasePlanVersionSectionGroupType(sectionKey),
 		CreatedAt:   time.Now().Unix(),
 	}
-	if err := createReleasePlanVersionWithBaseSnapshot(planID, plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb)); err != nil {
-		log.Errorf("create release plan version error: %v", err)
-	} else if shouldCreateLog {
+	versionDoc := newReleasePlanVersionDocument(planID, plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb))
+	if err := persistReleasePlanWithVersion(ctx, planID, plan, versionDoc); err != nil {
+		return err
+	}
+	if shouldCreateLog {
 		if err := createReleasePlanLog(logItem); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}

@@ -63,11 +63,27 @@ func (c *ReleasePlanVersionColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *ReleasePlanVersionColl) Create(args *models.ReleasePlanVersion) error {
+	return c.CreateWithCtx(context.Background(), args)
+}
+
+func (c *ReleasePlanVersionColl) CreateWithCtx(ctx context.Context, args *models.ReleasePlanVersion) error {
 	if args == nil {
 		return errors.New("nil ReleasePlanVersion")
 	}
 
-	_, err := c.InsertOne(context.Background(), args)
+	_, err := c.InsertOne(ctx, args)
+	return err
+}
+
+func (c *ReleasePlanVersionColl) Delete(planID string, version int64) error {
+	return c.DeleteWithCtx(context.Background(), planID, version)
+}
+
+func (c *ReleasePlanVersionColl) DeleteWithCtx(ctx context.Context, planID string, version int64) error {
+	_, err := c.DeleteOne(ctx, bson.M{
+		"plan_id": planID,
+		"version": version,
+	})
 	return err
 }
 
