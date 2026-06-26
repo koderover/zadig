@@ -75,6 +75,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	}
 
 	ticketID := c.Query("approval_ticket_id")
+	ctx.Logger.Infof("CreateWorkflowTaskV4 request params: projectName=%s, approvalTicketID=%s, workflowName=%s, workflowDisplayName=%s, userName=%s, userID=%s, isSystemAdmin=%v, body=%s", c.Query("projectName"), ticketID, args.Name, args.DisplayName, ctx.UserName, ctx.UserID, ctx.Resources.IsSystemAdmin, data)
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流任务", args.Name, args.Name, data, types.RequestBodyTypeJSON, ctx.Logger)
 
@@ -283,6 +284,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	ctx.Logger.Infof("CloneWorkflowTaskV4 request params: projectName=%s, workflowName=%s, taskID=%d, userName=%s, userID=%s, isSystemAdmin=%v", projectKey, workflowName, taskID, ctx.UserName, ctx.UserID, ctx.Resources.IsSystemAdmin)
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "克隆", "工作流任务", c.Param("workflowName"), c.Param("workflowName"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check

@@ -514,6 +514,8 @@ func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels
 }
 
 func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+	log.Infof("CreateWorkflowTaskV4 service params: workflowName=%s, projectName=%s, creator=%s, creatorID=%s, type=%s, approvalTicketID=%s, skipWorkflowUpdate=%v", workflow.Name, workflow.Project, args.Name, args.UserID, args.Type, args.ApprovalTicketID, args.SkipWorkflowUpdate)
+
 	resp := &CreateTaskV4Resp{
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
@@ -914,6 +916,8 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 }
 
 func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	logger.Infof("CloneWorkflowTaskV4 service params: workflowName=%s, taskID=%d, isView=%v", workflowName, taskID, isView)
+
 	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("find workflowV4 error: %s", err)
