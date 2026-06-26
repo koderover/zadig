@@ -17,52 +17,35 @@ import (
 type dynamicRecipientKind string
 
 const (
-	dynamicRecipientKindEmail   dynamicRecipientKind = "email"
-	dynamicRecipientKindMobile  dynamicRecipientKind = "mobile"
-	dynamicRecipientKindAccount dynamicRecipientKind = "account"
-	dynamicRecipientKindUserID  dynamicRecipientKind = "user_id"
-	dynamicRecipientKindOpenID  dynamicRecipientKind = "open_id"
-
-	searchAllIdentityType = "*"
+	dynamicRecipientKindEmail  dynamicRecipientKind = "email"
+	dynamicRecipientKindMobile dynamicRecipientKind = "mobile"
 )
 
 var supportedDynamicRecipientKinds = map[setting.NotifyWebHookType]map[dynamicRecipientKind]struct{}{
 	setting.NotifyWebhookTypeFeishuApp: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
-		dynamicRecipientKindUserID:  {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
 	setting.NotifyWebHookTypeFeishuPerson: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
-		dynamicRecipientKindUserID:  {},
-		dynamicRecipientKindOpenID:  {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
 	setting.NotifyWebHookTypeFeishu: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
-		dynamicRecipientKindUserID:  {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
-	setting.NotifyWebHookTypeWechatWork: {
-		dynamicRecipientKindUserID: {},
-	},
+	setting.NotifyWebHookTypeWechatWork: {},
 	setting.NotifyWebHookTypeDingDing: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
 	setting.NotifyWebHookTypeMSTeam: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
 	setting.NotifyWebHookTypeMail: {
-		dynamicRecipientKindEmail:   {},
-		dynamicRecipientKindMobile:  {},
-		dynamicRecipientKindAccount: {},
+		dynamicRecipientKindEmail:  {},
+		dynamicRecipientKindMobile: {},
 	},
 }
 
@@ -75,13 +58,11 @@ type dynamicRecipientSpec struct {
 type Resolver struct {
 	keyMap map[string]string
 
-	lookupUsersByAccount func(account string) ([]*userclient.User, error)
-	lookupUsersByEmail   func(email string) ([]*userclient.User, error)
-	lookupUsersByPhone   func(phone string) ([]*userclient.User, error)
+	lookupUsersByEmail func(email string) ([]*userclient.User, error)
+	lookupUsersByPhone func(phone string) ([]*userclient.User, error)
 
-	accountUsersCache map[string][]*userclient.User
-	emailUsersCache   map[string][]*userclient.User
-	phoneUsersCache   map[string][]*userclient.User
+	emailUsersCache map[string][]*userclient.User
+	phoneUsersCache map[string][]*userclient.User
 
 	larkClientCache   map[string]*larktool.Client
 	larkUserIDCache   map[string]string
@@ -115,36 +96,22 @@ func ValidateDynamicRecipientsForNotifyConfig(notifyType setting.NotifyWebHookTy
 	if err := ValidateDynamicRecipientsForNotifyType(notifyType, recipients); err != nil {
 		return err
 	}
-	if notifyType != setting.NotifyWebHookTypeFeishu || strings.TrimSpace(appID) != "" {
+	if len(recipients) == 0 || !isLarkNotifyType(notifyType) || strings.TrimSpace(appID) != "" {
 		return nil
 	}
 
-	for _, recipient := range recipients {
-		spec, err := parseDynamicRecipient(recipient)
-		if err != nil {
-			return err
-		}
-		if spec.kind != dynamicRecipientKindUserID {
-			return fmt.Errorf("dynamic recipient %s requires app_id for notification type %s", recipient, notifyType)
-		}
-	}
-
-	return nil
+	return fmt.Errorf("app_id is required to resolve dynamic recipients for notification type %s", notifyType)
 }
 
 func NewResolver(keyMap map[string]string) *Resolver {
 	return &Resolver{
 		keyMap: keyMap,
-		lookupUsersByAccount: func(account string) ([]*userclient.User, error) {
-			return searchUsersByAccount(account)
-		},
 		lookupUsersByEmail: func(email string) ([]*userclient.User, error) {
 			return searchUsersByEmail(email)
 		},
 		lookupUsersByPhone: func(phone string) ([]*userclient.User, error) {
 			return searchUsersByPhone(phone)
 		},
-		accountUsersCache: make(map[string][]*userclient.User),
 		emailUsersCache:   make(map[string][]*userclient.User),
 		phoneUsersCache:   make(map[string][]*userclient.User),
 		larkClientCache:   make(map[string]*larktool.Client),
@@ -169,16 +136,6 @@ func (r *Resolver) ResolveEmails(recipients []string) ([]string, error) {
 			resp = append(resp, value)
 		case dynamicRecipientKindMobile:
 			users, err := r.getUsersByPhone(value)
-			if err != nil {
-				return nil, err
-			}
-			for _, user := range users {
-				if user != nil && user.Email != "" {
-					resp = append(resp, user.Email)
-				}
-			}
-		case dynamicRecipientKindAccount:
-			users, err := r.getUsersByAccount(value)
 			if err != nil {
 				return nil, err
 			}
@@ -218,16 +175,6 @@ func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
 					resp = append(resp, user.Phone)
 				}
 			}
-		case dynamicRecipientKindAccount:
-			users, err := r.getUsersByAccount(value)
-			if err != nil {
-				return nil, err
-			}
-			for _, user := range users {
-				if user != nil && user.Phone != "" {
-					resp = append(resp, user.Phone)
-				}
-			}
 		default:
 			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to mobile", recipient)
 		}
@@ -235,34 +182,21 @@ func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
 	return UniqStrings(resp), nil
 }
 
-func (r *Resolver) ResolveDirectValues(recipients []string, supportedKinds ...dynamicRecipientKind) ([]string, error) {
-	supported := make(map[dynamicRecipientKind]struct{}, len(supportedKinds))
-	for _, kind := range supportedKinds {
-		supported[kind] = struct{}{}
-	}
-
-	resp := make([]string, 0)
+func (r *Resolver) ResolveUserIDs(recipients []string) ([]string, error) {
 	for _, recipient := range recipients {
-		spec, value, ok, err := r.resolveRecipient(recipient)
+		_, _, ok, err := r.resolveRecipient(recipient)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			continue
 		}
-		if _, ok := supported[spec.kind]; !ok {
-			return nil, fmt.Errorf("dynamic recipient %s is not supported in this notification channel", recipient)
-		}
-		resp = append(resp, value)
+		return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to user_id", recipient)
 	}
-	return UniqStrings(resp), nil
+	return nil, nil
 }
 
-func (r *Resolver) ResolveUserIDs(recipients []string) ([]string, error) {
-	return r.ResolveDirectValues(recipients, dynamicRecipientKindUserID)
-}
-
-func (r *Resolver) ResolveLarkUsers(recipients []string, appID string, allowOpenID bool) ([]*larktool.UserInfo, error) {
+func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) ([]*larktool.UserInfo, error) {
 	if len(recipients) == 0 {
 		return nil, nil
 	}
@@ -274,7 +208,7 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string, allowOpen
 			return client, nil
 		}
 		if strings.TrimSpace(appID) == "" {
-			return nil, fmt.Errorf("app_id is required to resolve lark dynamic recipients by email/mobile/account")
+			return nil, fmt.Errorf("app_id is required to resolve lark dynamic recipients by email/mobile")
 		}
 		var err error
 		client, err = r.getLarkClient(appID)
@@ -294,13 +228,6 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string, allowOpen
 		}
 
 		switch spec.kind {
-		case dynamicRecipientKindUserID:
-			resp = append(resp, &larktool.UserInfo{ID: value, IDType: setting.LarkUserID})
-		case dynamicRecipientKindOpenID:
-			if !allowOpenID {
-				return nil, fmt.Errorf("dynamic recipient %s is not supported in this notification channel", recipient)
-			}
-			resp = append(resp, &larktool.UserInfo{ID: value, IDType: setting.LarkUserOpenID})
 		case dynamicRecipientKindEmail:
 			client, err := getClient()
 			if err != nil {
@@ -319,18 +246,6 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string, allowOpen
 				return nil, err
 			}
 			ids, err := r.resolveLarkUserIDsByPhone(client, appID, value)
-			if err != nil {
-				return nil, err
-			}
-			for _, id := range ids {
-				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
-			}
-		case dynamicRecipientKindAccount:
-			client, err := getClient()
-			if err != nil {
-				return nil, err
-			}
-			ids, err := r.resolveLarkUserIDsByAccount(client, appID, value)
 			if err != nil {
 				return nil, err
 			}
@@ -401,40 +316,6 @@ func (r *Resolver) resolveLarkUserIDsByPhone(client *larktool.Client, appID, pho
 	return UniqStrings(resp), nil
 }
 
-func (r *Resolver) resolveLarkUserIDsByAccount(client *larktool.Client, appID, account string) ([]string, error) {
-	users, err := r.getUsersByAccount(account)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := make([]string, 0)
-	for _, user := range users {
-		if user == nil {
-			continue
-		}
-		if user.Email != "" {
-			id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeEmail, user.Email)
-			if err != nil {
-				return nil, err
-			}
-			if found {
-				resp = append(resp, id)
-				continue
-			}
-		}
-		if user.Phone != "" {
-			id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeMobile, user.Phone)
-			if err != nil {
-				return nil, err
-			}
-			if found {
-				resp = append(resp, id)
-			}
-		}
-	}
-	return UniqStrings(resp), nil
-}
-
 func (r *Resolver) lookupLarkUserID(client *larktool.Client, appID, queryType, value string) (string, bool, error) {
 	cacheKey := strings.Join([]string{appID, queryType, value}, ":")
 	if cached, ok := r.larkUserIDCache[cacheKey]; ok {
@@ -461,18 +342,6 @@ func (r *Resolver) lookupLarkUserID(client *larktool.Client, appID, queryType, v
 
 	r.larkUserIDCache[cacheKey] = userID
 	return userID, true, nil
-}
-
-func (r *Resolver) getUsersByAccount(account string) ([]*userclient.User, error) {
-	if users, ok := r.accountUsersCache[account]; ok {
-		return users, nil
-	}
-	users, err := r.lookupUsersByAccount(account)
-	if err != nil {
-		return nil, err
-	}
-	r.accountUsersCache[account] = users
-	return users, nil
 }
 
 func (r *Resolver) getUsersByEmail(email string) ([]*userclient.User, error) {
@@ -614,14 +483,8 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 		kind = dynamicRecipientKindEmail
 	case "mobile", "phone":
 		kind = dynamicRecipientKindMobile
-	case "account":
-		kind = dynamicRecipientKindAccount
-	case "user_id", "userid":
-		kind = dynamicRecipientKindUserID
-	case "open_id":
-		kind = dynamicRecipientKindOpenID
 	default:
-		return nil, fmt.Errorf("dynamic recipient %s is not supported, only email/mobile(phone)/account/user_id(userid)/open_id are allowed", input)
+		return nil, fmt.Errorf("dynamic recipient %s is not supported, only email/mobile(phone) are allowed", input)
 	}
 
 	return &dynamicRecipientSpec{
@@ -629,20 +492,6 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 		key:  key,
 		kind: kind,
 	}, nil
-}
-
-func searchUsersByAccount(account string) ([]*userclient.User, error) {
-	resp, err := userclient.New().SearchUser(&userclient.SearchUserArgs{
-		Account:      account,
-		IdentityType: searchAllIdentityType,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil {
-		return nil, nil
-	}
-	return resp.Users, nil
 }
 
 func searchUsersByEmail(email string) ([]*userclient.User, error) {
@@ -683,4 +532,10 @@ func isLarkUserNotFoundErr(err error) bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "user not found")
+}
+
+func isLarkNotifyType(notifyType setting.NotifyWebHookType) bool {
+	return notifyType == setting.NotifyWebHookTypeFeishu ||
+		notifyType == setting.NotifyWebhookTypeFeishuApp ||
+		notifyType == setting.NotifyWebHookTypeFeishuPerson
 }

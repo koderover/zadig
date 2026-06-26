@@ -502,7 +502,7 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 	resolver := dynamicrecipient.NewResolver(keyMap)
 
 	if cfg := notify.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}
@@ -515,14 +515,14 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 		cfg.AtUsers = dynamicrecipient.UniqStrings(cfg.AtUsers)
 	}
 	if cfg := notify.LarkGroupNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}
 		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
 	}
 	if cfg := notify.LarkPersonNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}

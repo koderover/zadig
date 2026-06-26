@@ -67,17 +67,61 @@ func (j NotificationJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
-	if j.jobSpec.WebHookType == setting.NotifyWebHookTypeFeishu && j.jobSpec.LarkHookNotificationConfig != nil {
-		if err := dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(
-			j.jobSpec.WebHookType,
-			j.jobSpec.LarkHookNotificationConfig.AppID,
-			[]string(j.jobSpec.LarkHookNotificationConfig.DynamicRecipients),
-		); err != nil {
-			return e.ErrLintWorkflow.AddDesc(err.Error())
-		}
+	if err := validateNotificationJobDynamicRecipients(j.jobSpec); err != nil {
+		return e.ErrLintWorkflow.AddDesc(err.Error())
 	}
 
 	return nil
+}
+
+func validateNotificationJobDynamicRecipients(spec *commonmodels.NotificationJobSpec) error {
+	if spec == nil {
+		return nil
+	}
+
+	validate := func(appID string, recipients commonmodels.DynamicRecipients) error {
+		return dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(spec.WebHookType, appID, []string(recipients))
+	}
+
+	switch spec.WebHookType {
+	case setting.NotifyWebHookTypeFeishu:
+		if spec.LarkHookNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkHookNotificationConfig.AppID, spec.LarkHookNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebhookTypeFeishuApp:
+		if spec.LarkGroupNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkGroupNotificationConfig.AppID, spec.LarkGroupNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeFeishuPerson:
+		if spec.LarkPersonNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkPersonNotificationConfig.AppID, spec.LarkPersonNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeWechatWork:
+		if spec.WechatNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.WechatNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeDingDing:
+		if spec.DingDingNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.DingDingNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeMSTeam:
+		if spec.MSTeamsNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.MSTeamsNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeMail:
+		if spec.MailNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.MailNotificationConfig.DynamicRecipients)
+	default:
+		return nil
+	}
 }
 
 func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
