@@ -791,6 +791,7 @@ type LarkChat struct {
 type JobTaskNotificationSpec struct {
 	WebHookType setting.NotifyWebHookType `bson:"webhook_type"                    yaml:"webhook_type"                     json:"webhook_type"`
 
+	LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
 	LarkGroupNotificationConfig  *LarkGroupNotificationConfig  `bson:"lark_group_notification_config,omitempty"  yaml:"lark_group_notification_config,omitempty"  json:"lark_group_notification_config,omitempty"`
 	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
 	WechatNotificationConfig     *WechatNotificationConfig     `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`

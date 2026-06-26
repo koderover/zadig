@@ -116,7 +116,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
@@ -150,7 +150,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
@@ -176,7 +176,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerWorkflowV4ByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerWorkflowV4ByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()

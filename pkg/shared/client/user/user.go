@@ -82,6 +82,8 @@ func (c *Client) CreateUser(args *CreateUserArgs) (*CreateUserResp, error) {
 type SearchUserArgs struct {
 	Name         string   `json:"name,omitempty"`
 	Account      string   `json:"account,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	Phone        string   `json:"phone,omitempty"`
 	IdentityType string   `json:"identity_type,omitempty"`
 	UIDs         []string `json:"uids,omitempty"`
 	PerPage      int      `json:"per_page,omitempty"`

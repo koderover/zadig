@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS "user"(
 ) ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS account ON "user"(account,identity_type);
+CREATE INDEX IF NOT EXISTS idx_email ON "user"(email);
+CREATE INDEX IF NOT EXISTS idx_phone ON "user"(phone);
 
 CREATE TABLE IF NOT EXISTS user_group (
     group_id    varchar(64) NOT NULL COMMENT '用户组ID',

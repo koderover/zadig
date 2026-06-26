@@ -46,6 +46,33 @@ func GetUser(account string, identityType string, db *gorm.DB) (*models.User, er
 	return &user, nil
 }
 
+func ListUsersByAccount(account string, db *gorm.DB) ([]models.User, error) {
+	users := make([]models.User, 0)
+	err := db.Where("account = ?", account).Find(&users).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	return users, nil
+}
+
+func ListUsersByEmail(email string, db *gorm.DB) ([]models.User, error) {
+	users := make([]models.User, 0)
+	err := db.Where("email = ?", email).Find(&users).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	return users, nil
+}
+
+func ListUsersByPhone(phone string, db *gorm.DB) ([]models.User, error) {
+	users := make([]models.User, 0)
+	err := db.Where("phone = ?", phone).Find(&users).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	return users, nil
+}
+
 // GetUserByUid Get a user based on uid
 func GetUserByUid(uid string, db *gorm.DB) (*models.User, error) {
 	var user models.User
