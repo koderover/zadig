@@ -260,6 +260,7 @@ func restoreNotificationDynamicRecipientsToTaskSpec(spec *commonmodels.JobTaskNo
 	)
 }
 
+// RenderJobTaskWithGlobalVariables replays a task spec with persisted GlobalContext during retry/manual execution.
 func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
 	if task == nil {
 		return nil
@@ -267,6 +268,8 @@ func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap m
 
 	var notificationRecipients *notificationDynamicRecipients
 	if task.JobType == string(config.JobNotification) {
+		// DynamicRecipients must stay as templates until NotificationJobCtl resolves them with payload/user mapping.
+		// Rendering them here would turn {{.payload.user.email}} into a raw value and lose the identity suffix.
 		spec := &commonmodels.JobTaskNotificationSpec{}
 		if err := commonmodels.IToi(task.Spec, spec); err != nil {
 			return fmt.Errorf("failed to decode notification task spec for task %s, error: %w", task.Name, err)

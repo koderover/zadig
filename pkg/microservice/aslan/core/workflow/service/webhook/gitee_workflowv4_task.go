@@ -136,7 +136,6 @@ func (gmem *giteeMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		TargetBranch:  gmem.event.PullRequest.Base.Ref,
 		PR:            gmem.event.PullRequest.Number,
 		CommitID:      gmem.event.PullRequest.Head.Sha,
-		CommitMessage: gmem.event.PullRequest.Title,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -286,7 +285,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					CommitSHA:      commitID,
-					CommitMessage:  ev.PullRequest.Title,
 					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
 					RawPayload:     rawPayload,

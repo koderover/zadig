@@ -105,7 +105,7 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		TargetBranch:  gmem.event.ObjectAttributes.TargetBranch,
 		PR:            gmem.event.ObjectAttributes.IID,
 		CommitID:      gmem.event.ObjectAttributes.LastCommit.ID,
-		CommitMessage: gmem.event.ObjectAttributes.Title,
+		CommitMessage: gmem.event.ObjectAttributes.LastCommit.Message,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -377,7 +377,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					CommitSHA:      commitID,
-					CommitMessage:  ev.ObjectAttributes.Title,
+					CommitMessage:  ev.ObjectAttributes.LastCommit.Message,
 					Committer:      ev.User.Username,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
