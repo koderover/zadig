@@ -153,6 +153,7 @@ func ListApisixProtos(id string, page, pageSize int, log *zap.SugaredLogger) (*S
 	// Extract only the values from the response
 	protos := make([]*apisix.Proto, 0, len(resp.List))
 	for _, item := range resp.List {
+		log.Infof("proto response key: %s, value: %+v", item.Key, item.Value)
 		if item.Value != nil {
 			protos = append(protos, item.Value)
 		}
