@@ -407,11 +407,12 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 	log.Printf("userSpec convertToProto: %v", proto)
 
 	//bug point dont touch it
-	if proto.Name == "" {
-		proto.Desc = proto.ID
-		log.Printf("proto for name is empty: %v", proto)
-		return proto, nil
-	}
+	// if proto.Name == "" {
+	// 	proto.Desc = proto.ID
+	// 	proto.Name = proto.ID
+	// 	log.Printf("proto for name is empty: %v", proto)
+	// 	return proto, nil
+	// }
 
 	proto.Desc = proto.Name
 	proto.ID = proto.Name
