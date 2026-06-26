@@ -282,7 +282,7 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 	resolver := dynamicrecipient.NewResolver(keyMap)
 
 	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}
@@ -295,14 +295,14 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 		cfg.AtUsers = lo.Uniq(cfg.AtUsers)
 	}
 	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, false)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}
 		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
 	}
 	if cfg := c.jobTaskSpec.LarkPersonNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID, true)
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
 		}
