@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -128,14 +127,14 @@ func Heartbeat(agentCtl *agent.AgentController, errChan chan error, successChan 
 		errChan <- err
 		return
 	}
-	if resp.NeedUpdateAgentVersion {
-		err = updater.UpdateAgent(agentCtl, resp.AgentVersion)
-		if err != nil {
-			log.Errorf("failed to update agent: %v", err)
-			errChan <- err
-			return
-		}
-	}
+	// if resp.NeedUpdateAgentVersion {
+	// 	err = updater.UpdateAgent(agentCtl, resp.AgentVersion)
+	// 	if err != nil {
+	// 		log.Errorf("failed to update agent: %v", err)
+	// 		errChan <- err
+	// 		return
+	// 	}
+	// }
 
 	if resp.NeedOffline {
 		log.Infof("agent is offline")
