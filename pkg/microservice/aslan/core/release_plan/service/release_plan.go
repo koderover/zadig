@@ -110,6 +110,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
+	args.Version = 1
 	args.Status = config.ReleasePlanStatusPlanning
 
 	args.InstanceCode, err = generateInstanceCode(args)
@@ -131,14 +132,25 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-			PlanID:     planID,
-			Username:   c.UserName,
-			Account:    c.Account,
-			Verb:       VerbCreate,
-			TargetName: args.Name,
-			TargetType: TargetTypeReleasePlan,
-			CreatedAt:  time.Now().Unix(),
+		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
+		if err == nil {
+			err = createReleasePlanVersion(planID, 1, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+		}
+		if err != nil {
+			log.Errorf("create release plan version error: %v", err)
+		}
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
+			PlanID:      planID,
+			Username:    c.UserName,
+			Account:     c.Account,
+			Verb:        VerbCreate,
+			TargetName:  args.Name,
+			TargetType:  TargetTypeReleasePlan,
+			Version:     1,
+			SectionKey:  releasePlanVersionSectionPlan,
+			SectionName: releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name),
+			SectionType: releasePlanVersionSectionGroupType(releasePlanVersionSectionPlan),
+			CreatedAt:   time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
@@ -331,8 +343,20 @@ func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
 		return nil, errors.Wrap(err, "get release plan logs")
 	}
 
+	sanitizedLogs := make([]*models.ReleasePlanLog, 0, len(logs))
+	for _, item := range logs {
+		if item == nil {
+			continue
+		}
+		cloned := *item
+		cloned.TargetType = normalizeReleasePlanTargetType(item.TargetType)
+		cloned.Before = sanitizeReleasePlanValueForDisplay(item.Before)
+		cloned.After = sanitizeReleasePlanValueForDisplay(item.After)
+		sanitizedLogs = append(sanitizedLogs, &cloned)
+	}
+
 	return &GetReleasePlanLogsResponse{
-		List: logs,
+		List: sanitizedLogs,
 		I18N: &ReleasePlanLogI18N{
 			VerbI18Map:       VerbI18nMap,
 			TargetTypeI18Map: TargetTypeI18nMap,
@@ -340,6 +364,190 @@ func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
 			UserNameI18Map:   UserNameI18nMap,
 		},
 	}, nil
+}
+
+func resolveReleasePlanLogBaseSnapshot(baseSnapshot interface{}, originalPlan *models.ReleasePlan, sectionKey string) (interface{}, error) {
+	if baseSnapshot != nil {
+		return baseSnapshot, nil
+	}
+	return buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+}
+
+func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bool {
+	beforeComparable := normalizeReleasePlanSnapshotComparableValue("", beforeSnapshot)
+	afterComparable := normalizeReleasePlanSnapshotComparableValue("", afterSnapshot)
+	return !releasePlanSnapshotValuesEqual(beforeComparable, afterComparable)
+}
+
+func hasReleasePlanPersistedSectionChanges(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) (bool, error) {
+	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+	if err != nil {
+		return false, err
+	}
+	return hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot), nil
+}
+
+func releasePlanSnapshotValuesEqual(left, right interface{}) bool {
+	switch leftValue := left.(type) {
+	case map[string]interface{}:
+		rightValue, ok := right.(map[string]interface{})
+		if !ok {
+			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
+		}
+		return releasePlanSnapshotMapsEqual(leftValue, rightValue)
+	case []interface{}:
+		rightValue, ok := right.([]interface{})
+		if !ok {
+			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
+		}
+		return releasePlanSnapshotListsEqual(leftValue, rightValue)
+	default:
+		switch right.(type) {
+		case map[string]interface{}, []interface{}:
+			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
+		}
+	}
+
+	if isEmptyReleasePlanSnapshotScalarValue(left) && isEmptyReleasePlanSnapshotScalarValue(right) {
+		return true
+	}
+	leftNumber, leftIsNumber := releasePlanSnapshotNumber(left)
+	rightNumber, rightIsNumber := releasePlanSnapshotNumber(right)
+	if leftIsNumber || rightIsNumber {
+		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
+	}
+
+	return left == right
+}
+
+func releasePlanSnapshotMapsEqual(left, right map[string]interface{}) bool {
+	for key, leftValue := range left {
+		rightValue, exists := right[key]
+		if !exists {
+			if !isEmptyReleasePlanSnapshotValue(leftValue) {
+				return false
+			}
+			continue
+		}
+		if !releasePlanSnapshotValuesEqual(leftValue, rightValue) {
+			return false
+		}
+	}
+
+	for key, rightValue := range right {
+		if _, exists := left[key]; exists {
+			continue
+		}
+		if !isEmptyReleasePlanSnapshotValue(rightValue) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func releasePlanSnapshotListsEqual(left, right []interface{}) bool {
+	leftIdx, rightIdx := 0, 0
+	for {
+		for leftIdx < len(left) && isEmptyReleasePlanSnapshotValue(left[leftIdx]) {
+			leftIdx++
+		}
+		for rightIdx < len(right) && isEmptyReleasePlanSnapshotValue(right[rightIdx]) {
+			rightIdx++
+		}
+		if leftIdx == len(left) || rightIdx == len(right) {
+			break
+		}
+		if !releasePlanSnapshotValuesEqual(left[leftIdx], right[rightIdx]) {
+			return false
+		}
+		leftIdx++
+		rightIdx++
+	}
+
+	for leftIdx < len(left) {
+		if !isEmptyReleasePlanSnapshotValue(left[leftIdx]) {
+			return false
+		}
+		leftIdx++
+	}
+	for rightIdx < len(right) {
+		if !isEmptyReleasePlanSnapshotValue(right[rightIdx]) {
+			return false
+		}
+		rightIdx++
+	}
+
+	return true
+}
+
+func isEmptyReleasePlanSnapshotValue(value interface{}) bool {
+	switch typedValue := value.(type) {
+	case map[string]interface{}:
+		for _, item := range typedValue {
+			if !isEmptyReleasePlanSnapshotValue(item) {
+				return false
+			}
+		}
+		return true
+	case []interface{}:
+		for _, item := range typedValue {
+			if !isEmptyReleasePlanSnapshotValue(item) {
+				return false
+			}
+		}
+		return true
+	default:
+		return isEmptyReleasePlanSnapshotScalarValue(value)
+	}
+}
+
+func isEmptyReleasePlanSnapshotScalarValue(value interface{}) bool {
+	switch typedValue := value.(type) {
+	case nil:
+		return true
+	case string:
+		return typedValue == ""
+	case bool:
+		return !typedValue
+	default:
+		number, ok := releasePlanSnapshotNumber(value)
+		return ok && number == 0
+	}
+}
+
+func releasePlanSnapshotNumber(value interface{}) (float64, bool) {
+	switch typedValue := value.(type) {
+	case int:
+		return float64(typedValue), true
+	case int8:
+		return float64(typedValue), true
+	case int16:
+		return float64(typedValue), true
+	case int32:
+		return float64(typedValue), true
+	case int64:
+		return float64(typedValue), true
+	case uint:
+		return float64(typedValue), true
+	case uint8:
+		return float64(typedValue), true
+	case uint16:
+		return float64(typedValue), true
+	case uint32:
+		return float64(typedValue), true
+	case uint64:
+		return float64(typedValue), true
+	case float32:
+		return float64(typedValue), true
+	case float64:
+		return typedValue, true
+	case json.Number:
+		number, err := typedValue.Float64()
+		return number, err == nil
+	default:
+		return 0, false
+	}
 }
 
 func DeleteReleasePlan(c *gin.Context, username, id string) error {
@@ -401,6 +609,10 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
+	originalPlan, err := cloneReleasePlan(plan)
+	if err != nil {
+		return errors.Wrap(err, "clone plan")
+	}
 
 	if plan.Status != config.ReleasePlanStatusPlanning {
 		return errors.Errorf("plan status is %s, can not update", plan.Status)
@@ -414,10 +626,50 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
-	before, after, err := updater.Update(plan)
-	if err != nil {
+	if err = updater.Update(plan); err != nil {
 		return errors.Wrap(err, "update")
 	}
+
+	sectionKey, sectionName, err := releasePlanVersionSectionKeyByVerb(originalPlan, plan, args)
+	if err != nil {
+		return errors.Wrap(err, "resolve release plan section")
+	}
+	currentSnapshot, err := buildReleasePlanVersionSnapshot(plan, sectionKey)
+	if err != nil {
+		return errors.Wrap(err, "build release plan current snapshot")
+	}
+	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, sectionKey, currentSnapshot)
+	if err != nil {
+		return errors.Wrap(err, "build release plan persisted snapshot")
+	}
+	if !hasChanges {
+		return nil
+	}
+	var baseSnapshot interface{}
+	nextVersion := originalPlan.Version + 1
+	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(planID, sectionKey, nextVersion, args.Verb)
+	if err != nil {
+		return errors.Wrap(err, "check release plan base snapshot")
+	}
+	if !needBaseSnapshot {
+		needBaseSnapshot, err = shouldBuildReleasePlanWorkflowDisplayBaseSnapshot(planID, sectionKey, previousVersion, currentSnapshot)
+		if err != nil {
+			return errors.Wrap(err, "check release plan workflow base snapshot")
+		}
+	}
+	if needBaseSnapshot {
+		baseSnapshot, err = buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+		if err != nil {
+			return errors.Wrap(err, "build release plan base snapshot")
+		}
+	}
+	logBaseSnapshot, err := resolveReleasePlanLogBaseSnapshot(baseSnapshot, originalPlan, sectionKey)
+	if err != nil {
+		return errors.Wrap(err, "build release plan log base snapshot")
+	}
+	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
+
+	plan.Version = nextVersion
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -438,25 +690,31 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 	plan.InstanceCode = instanceCode
 
-	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
-		return errors.Wrap(err, "update plan")
+	logItem := &models.ReleasePlanLog{
+		PlanID:      planID,
+		Username:    c.UserName,
+		Account:     c.Account,
+		Verb:        updater.Verb(),
+		TargetName:  updater.TargetName(),
+		TargetType:  updater.TargetType(),
+		Version:     plan.Version,
+		SectionKey:  sectionKey,
+		SectionName: releasePlanVersionSectionName(sectionKey, sectionName),
+		SectionType: releasePlanVersionSectionGroupType(sectionKey),
+		CreatedAt:   time.Now().Unix(),
 	}
-
-	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-			PlanID:     planID,
-			Username:   c.UserName,
-			Account:    c.Account,
-			Verb:       updater.Verb(),
-			Before:     before,
-			After:      after,
-			TargetName: updater.TargetName(),
-			TargetType: updater.TargetType(),
-			CreatedAt:  time.Now().Unix(),
-		}); err != nil {
+	versionDoc := newReleasePlanVersionDocument(planID, plan.Version, previousVersion, baseSnapshot, currentSnapshot, c.UserName, c.Account, sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), string(args.Verb))
+	if err := persistReleasePlanWithVersion(ctx, planID, plan, versionDoc); err != nil {
+		return err
+	}
+	if shouldCreateLog {
+		if err := createReleasePlanLog(logItem); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
-	}()
+	}
+	if err := broadcastReleasePlanCollaboration(planID); err != nil {
+		log.Errorf("broadcast release plan collaboration error: %v", err)
+	}
 
 	return nil
 }
@@ -477,6 +735,10 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 				if spec.Workflow == nil {
 					return nil, fmt.Errorf("workflow is nil")
 				}
+				spec.Workflow, err = normalizeReleasePlanWorkflowForController(spec.Workflow)
+				if err != nil {
+					return nil, fmt.Errorf("invalid workflow for job: %s. normalize error: %s", releasePlanJob.Name, err)
+				}
 
 				workflowController := controller.CreateWorkflowController(spec.Workflow)
 				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
@@ -493,6 +755,47 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 	}
 
 	return nil, fmt.Errorf("failed to find release plan job with id: %s. Job does not exist", jobID)
+}
+
+func findReleasePlanJob(plan *models.ReleasePlan, jobID string) (*models.ReleaseJob, error) {
+	if plan == nil {
+		return nil, errors.New("nil release plan")
+	}
+	for _, job := range plan.Jobs {
+		if job.ID == jobID {
+			return job, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to find release plan job with id: %s. Job does not exist", jobID)
+}
+
+func buildReleasePlanJobLogSnapshot(job *models.ReleaseJob) map[string]interface{} {
+	if job == nil {
+		return nil
+	}
+
+	snapshot := map[string]interface{}{
+		"type":          job.Type,
+		"status":        job.Status,
+		"executed_by":   job.ExecutedBy,
+		"executed_time": job.ExecutedTime,
+	}
+
+	switch job.Type {
+	case config.JobText:
+		spec := new(models.TextReleaseJobSpec)
+		if err := models.IToi(job.Spec, spec); err == nil {
+			snapshot["remark"] = spec.Remark
+		}
+	case config.JobWorkflow:
+		spec := new(models.WorkflowReleaseJobSpec)
+		if err := models.IToi(job.Spec, spec); err == nil {
+			snapshot["workflow_status"] = spec.Status
+			snapshot["task_id"] = spec.TaskID
+		}
+	}
+
+	return snapshot
 }
 
 type ExecuteReleaseJobArgs struct {
@@ -531,6 +834,12 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		}
 	}
 
+	jobBefore, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job before execute")
+	}
+	beforeSnapshot := buildReleasePlanJobLogSnapshot(jobBefore)
+
 	executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
 		AuthResources: c.Resources,
 		UserID:        c.UserID,
@@ -543,6 +852,11 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	if err = executor.Execute(plan); err != nil {
 		return errors.Wrap(err, "execute")
 	}
+	jobAfter, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job after execute")
+	}
+	afterSnapshot := buildReleasePlanJobLogSnapshot(jobAfter)
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -578,11 +892,13 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:     planID,
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbExecute,
+			Before:     beforeSnapshot,
+			After:      afterSnapshot,
 			TargetName: args.Name,
 			TargetType: TargetTypeReleaseJob,
 			CreatedAt:  time.Now().Unix(),
@@ -630,6 +946,12 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 		}
 	}
 
+	jobBefore, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job before retry")
+	}
+	beforeSnapshot := buildReleasePlanJobLogSnapshot(jobBefore)
+
 	retryer, err := NewReleaseJobRetryer(&RetryReleaseJobContext{
 		AuthResources: c.Resources,
 		UserID:        c.UserID,
@@ -637,11 +959,16 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 		UserName:      c.UserName,
 	}, args)
 	if err != nil {
-		return errors.Wrap(err, "new release job executor")
+		return errors.Wrap(err, "new release job retryer")
 	}
 	if err = retryer.Retry(plan); err != nil {
-		return errors.Wrap(err, "execute")
+		return errors.Wrap(err, "retry")
 	}
+	jobAfter, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job after retry")
+	}
+	afterSnapshot := buildReleasePlanJobLogSnapshot(jobAfter)
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -679,11 +1006,13 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:     planID,
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbRetry,
+			Before:     beforeSnapshot,
+			After:      afterSnapshot,
 			TargetName: args.Name,
 			TargetType: TargetTypeReleaseJob,
 			CreatedAt:  time.Now().Unix(),
@@ -776,19 +1105,11 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				Type: string(job.Type),
 			}
 
-			go func() {
-				if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-					PlanID:     planID,
-					Username:   UserNameSystem,
-					Account:    "",
-					Verb:       VerbExecute,
-					TargetName: args.Name,
-					TargetType: TargetTypeReleaseJob,
-					CreatedAt:  time.Now().Unix(),
-				}); err != nil {
-					log.Errorf("create release plan log error: %v", err)
-				}
-			}()
+			jobBefore, err := findReleasePlanJob(plan, job.ID)
+			if err != nil {
+				return err
+			}
+			beforeSnapshot := buildReleasePlanJobLogSnapshot(jobBefore)
 
 			executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
 				AuthResources: c.Resources,
@@ -806,6 +1127,12 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				log.Error(err)
 				return err
 			}
+
+			jobAfter, err := findReleasePlanJob(plan, job.ID)
+			if err != nil {
+				return err
+			}
+			afterSnapshot := buildReleasePlanJobLogSnapshot(jobAfter)
 
 			plan.UpdatedBy = UserNameSystem
 			plan.UpdateTime = time.Now().Unix()
@@ -831,6 +1158,22 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				log.Error(err)
 				return err
 			}
+
+			go func(jobName string, before, after map[string]interface{}) {
+				if err := createReleasePlanLog(&models.ReleasePlanLog{
+					PlanID:     planID,
+					Username:   UserNameSystem,
+					Account:    "",
+					Verb:       VerbExecute,
+					Before:     before,
+					After:      after,
+					TargetName: jobName,
+					TargetType: TargetTypeReleaseJob,
+					CreatedAt:  time.Now().Unix(),
+				}); err != nil {
+					log.Errorf("create release plan log error: %v", err)
+				}
+			}(job.Name, beforeSnapshot, afterSnapshot)
 		}
 	}
 
@@ -873,6 +1216,12 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		}
 	}
 
+	jobBefore, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job before skip")
+	}
+	beforeSnapshot := buildReleasePlanJobLogSnapshot(jobBefore)
+
 	skipper, err := NewReleaseJobSkipper(&SkipReleaseJobContext{
 		AuthResources: c.Resources,
 		UserID:        c.UserID,
@@ -885,6 +1234,11 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	if err = skipper.Skip(plan); err != nil {
 		return errors.Wrap(err, "skip")
 	}
+	jobAfter, err := findReleasePlanJob(plan, args.ID)
+	if err != nil {
+		return errors.Wrap(err, "find release job after skip")
+	}
+	afterSnapshot := buildReleasePlanJobLogSnapshot(jobAfter)
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
@@ -905,6 +1259,8 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		} else {
 			plan.SuccessTime = time.Now().Unix()
 		}
+
+		sendWebhook = true
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
@@ -918,11 +1274,13 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:     planID,
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbSkip,
+			Before:     beforeSnapshot,
+			After:      afterSnapshot,
 			TargetName: args.Name,
 			TargetType: TargetTypeReleaseJob,
 			CreatedAt:  time.Now().Unix(),
@@ -954,7 +1312,9 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		return errors.Errorf("only manager can update plan status")
 	}
 
-	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(targetStatus)) {
+	newStatus := config.ReleasePlanStatus(targetStatus)
+	oldStatus := plan.Status
+	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], newStatus) {
 		return errors.Errorf("can't convert plan status %s to %s", plan.Status, targetStatus)
 	}
 
@@ -962,8 +1322,6 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 	if err != nil {
 		return errors.Wrap(err, "get user")
 	}
-
-	detail := ""
 
 	sendWebhook := false
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
@@ -989,14 +1347,14 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		config.ReleasePlanStatusWaitForExecuteExternalCheckFailed,
 		config.ReleasePlanStatusWaitForAllDoneExternalCheck,
 		config.ReleasePlanStatusWaitForAllDoneExternalCheckFailed:
-		if config.ReleasePlanStatus(targetStatus) != config.ReleasePlanStatusPlanning && config.ReleasePlanStatus(targetStatus) != config.ReleasePlanStatusCancel {
+		if newStatus != config.ReleasePlanStatusPlanning && newStatus != config.ReleasePlanStatusCancel {
 			return fmt.Errorf("can't update status, current status: %s", plan.Status)
 		}
 	}
-	plan.Status = config.ReleasePlanStatus(targetStatus)
+	plan.Status = newStatus
 
 	// target status check and update
-	switch config.ReleasePlanStatus(targetStatus) {
+	switch newStatus {
 	case config.ReleasePlanStatusPlanning:
 		for _, job := range plan.Jobs {
 			job.LastStatus = job.Status
@@ -1116,6 +1474,8 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 	if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
 		return errors.Wrap(err, "upsert release plan cron")
 	}
+	updatedStatus := plan.Status
+	detail := fmt.Sprintf("状态从 %s 变更为 %s", oldStatus, updatedStatus)
 
 	if sendWebhook {
 		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
@@ -1124,16 +1484,16 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 	}
 
 	go func() {
-		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:     planID,
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     detail,
-			Before:     plan.Status,
-			After:      targetStatus,
+			Before:     oldStatus,
+			After:      updatedStatus,
 			CreatedAt:  time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
@@ -1204,16 +1564,18 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		plan.Approval.Status = config.StatusPassed
 	}
 	var planLog *models.ReleasePlanLog
+	beforeStatus := config.ReleasePlanStatusWaitForApprove
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
 			PlanID:     planID,
 			Username:   UserNameSystem,
+			Account:    "",
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     DetailApprovalPass,
-			After:      config.ReleasePlanStatusExecuting,
+			Before:     beforeStatus,
 			CreatedAt:  time.Now().Unix(),
 		}
 		plan.Status = config.ReleasePlanStatusExecuting
@@ -1235,11 +1597,19 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		sendWebhook = true
 
 		setReleaseJobsForExecuting(plan)
+		planLog.After = plan.Status
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
-			PlanID:    planID,
-			Detail:    DetailApprovalReject,
-			CreatedAt: time.Now().Unix(),
+			PlanID:     planID,
+			Username:   UserNameSystem,
+			Account:    "",
+			Verb:       VerbUpdate,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
+			TargetType: TargetTypeReleasePlanStatus,
+			Detail:     DetailApprovalReject,
+			Before:     beforeStatus,
+			After:      config.ReleasePlanStatusApprovalDenied,
+			CreatedAt:  time.Now().Unix(),
 		}
 
 		plan.Status = config.ReleasePlanStatusApprovalDenied
@@ -1261,7 +1631,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			return
 		}
 
-		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+		if err := createReleasePlanLog(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
 	}()
