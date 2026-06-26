@@ -136,7 +136,6 @@ func (gmem *githubMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		TargetBranch:  *gmem.event.PullRequest.Base.Ref,
 		PR:            *gmem.event.PullRequest.Number,
 		CommitID:      *gmem.event.PullRequest.Head.SHA,
-		CommitMessage: *gmem.event.PullRequest.Title,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -284,7 +283,6 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					CommitSHA:      commitID,
-					CommitMessage:  *ev.PullRequest.Title,
 					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
 					RawPayload:     rawPayload,
