@@ -63,6 +63,7 @@ func CreateTestTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
+
 	projectKey := args.ProductName
 
 	detail := fmt.Sprintf("%s-%s", args.TestName, "job")
