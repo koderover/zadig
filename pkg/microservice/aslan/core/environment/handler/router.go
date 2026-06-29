@@ -145,6 +145,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("", CreateProduct)
 
 		environments.GET("/:name", GetEnvironment)
+		environments.GET("/:name/topology", GetTopology)
+		environments.GET("/:name/topology/node", GetTopologyNode)
+		environments.GET("/:name/topology/diff", GetTopologyDiff)
+		environments.POST("/:name/topology/sync", SyncTopology)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
 		environments.PUT("/:name/alias", UpdateProductAlias)
 		environments.POST("/:name/affectedservices", AffectedServices)
