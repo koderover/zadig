@@ -342,8 +342,6 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 	}
 
 	// set pr and branch
-	// pr, _ := strconv.Atoi(args.Repos[0].MergeRequestID)
-	// log.Printf("pr: %d", pr)
 	for i, build := range testInfo.Repos {
 		// check same repo and source
 		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {

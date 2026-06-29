@@ -63,8 +63,7 @@ func CreateTestTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
-	log.Infof("CreateTestTask data: %v", string(data))
-	log.Infof("CreateTestTask args: %v", args)
+
 	projectKey := args.ProductName
 
 	detail := fmt.Sprintf("%s-%s", args.TestName, "job")
@@ -90,7 +89,6 @@ func CreateTestTask(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	log.Infof("CreateTestTask args2: %v", args)
 
 	if args.TestTaskCreator != setting.CronTaskCreator && args.TestTaskCreator != setting.WebhookTaskCreator {
 		args.TestTaskCreator = ctx.UserName
