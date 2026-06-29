@@ -19,7 +19,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -346,7 +345,6 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		// check same repo and source
 		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {
 			pr := args.Repos[i].PRs
-			log.Printf("pr: %v", pr)
 			if len(pr) != 0 {
 				testInfo.Repos[i].PRs = pr
 			}
