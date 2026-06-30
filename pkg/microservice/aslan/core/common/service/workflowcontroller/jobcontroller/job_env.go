@@ -58,14 +58,22 @@ type ProductServiceDeployInfo struct {
 func mergeContainers(currentContainer []*models.Container, newContainers ...[]*models.Container) []*models.Container {
 	containerMap := make(map[string]*models.Container)
 	for _, container := range currentContainer {
+		if container == nil || container.Name == "" {
+			continue
+		}
 		containerMap[container.Name] = container
 	}
 
 	for _, containers := range newContainers {
 		for _, container := range containers {
+			if container == nil || container.Name == "" {
+				continue
+			}
 			if curContainer, ok := containerMap[container.Name]; ok {
 				curContainer.Image = container.Image
 				curContainer.ImageName = container.ImageName
+			} else {
+				containerMap[container.Name] = container
 			}
 		}
 	}
@@ -169,7 +177,12 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 
 		// update product info
-		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
+		serviceModules, _, err := repository.ResolveServiceModules(context.Background(), deployInfo.ProductName, deployInfo.ServiceName, productInfo.Production, int64(deployInfo.ServiceRevision))
+		if err != nil {
+			mongo.AbortTransaction(session)
+			return errors.Wrapf(err, "failed to resolve service modules for %s/%s revision %d", deployInfo.ProductName, deployInfo.ServiceName, deployInfo.ServiceRevision)
+		}
+		productSvc.Containers = mergeContainers(serviceModules, productSvc.Containers, deployInfo.Containers)
 		productSvc.WorkLoads = deployInfo.WorkLoads
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
 		productSvc.Resources = kube.UnstructuredToResources(deployInfo.Resources)
