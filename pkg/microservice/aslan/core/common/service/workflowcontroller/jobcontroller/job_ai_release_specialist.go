@@ -43,21 +43,37 @@ const (
 	aiReleaseSpecialistMaxPromptTokens       = 12000
 )
 
-const defaultAIReleaseSpecialistSystemPrompt = "你是发布前检查助手。\n\n" +
-	"请基于下面的发布上下文，输出一个 JSON 代码块，不要输出额外解释文字。\n\n" +
-	"JSON schema:\n" +
-	"{\n" +
-	"  \"conclusion\": \"pass|warning|fail\",\n" +
-	"  \"summary\": \"一句到三句中文总结\",\n" +
-	"  \"checks\": [\n" +
-	"    {\n" +
-	"      \"name\": \"检查项名称\",\n" +
-	"      \"result\": \"pass|warning|fail\",\n" +
-	"      \"evidence\": \"判断依据\",\n" +
-	"      \"suggestion\": \"建议动作\"\n" +
-	"    }\n" +
-	"  ]\n" +
-	"}"
+const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员，负责在人工审批前评估本次发布风险，并给出是否建议继续后续发布动作的结论。
+
+任务语义说明：
+- 代码扫描：表示静态检查或安全扫描结果，只能依据任务状态和错误摘要判断，不代表完整漏洞报告。
+- 构建：表示本次变更来源，可提供仓库、分支、tag、commit message、服务或模块信息，用于理解变更范围，不代表变更已验证通过。
+- 测试：表示自动化验证结果，只能依据任务状态和错误摘要判断，不代表完整测试报告或覆盖率。
+- 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
+- 部署类任务：表示 AI 节点之前已经确定的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设存在 AI 节点之后的发布动作。
+
+判断约束：
+- 你只能依据输入的发布上下文做判断，不要虚构 PR 正文、代码 diff、日志全文、监控告警、集群实时状态或人工结论。
+- 如果关键信息缺失，应明确指出缺失项，并优先给出 warning，而不是假设一切正常。
+- 如果代码扫描或测试结果出现明确失败、超时、取消或错误摘要，通常应给出 fail。
+- 如果发布目标中明确标记为生产环境，应使用更严格的风险判断标准；如果输入里没有给出生产发布目标，不要自行推断。
+- remark、branch、tag、commit message 只能作为风险线索，不要据此臆测未提供的实现细节。
+
+输出要求：
+- 只输出一个 JSON 代码块，不要输出额外解释文字。
+- JSON schema:
+{
+  "conclusion": "pass|warning|fail",
+  "summary": "一句到三句中文总结",
+  "checks": [
+    {
+      "name": "检查项名称",
+      "result": "pass|warning|fail",
+      "evidence": "判断依据，必须引用已提供的上下文字段或明确说明缺失项",
+      "suggestion": "建议动作"
+    }
+  ]
+}`
 
 type AIReleaseSpecialistPromptDebugResult struct {
 	SystemPrompt   string
@@ -73,6 +89,18 @@ type AIReleaseSpecialistJobCtl struct {
 	jobTaskSpec *commonmodels.JobTaskAIReleaseSpecialistSpec
 	ack         func()
 }
+
+var (
+	findWorkflowTaskForAIReleaseSpecialist = func(workflowName string, taskID int64) (*commonmodels.WorkflowTask, error) {
+		return mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	}
+	getAIReleaseSpecialistLLMClient    = getDefaultAIReleaseSpecialistLLMClient
+	getAIReleaseSpecialistConfirmUsers = func(users []*commonmodels.User, taskCreatorUserID string) ([]*commonmodels.User, map[string]struct{}) {
+		flatUsers, _ := commonutil.GeneFlatUsersWithCaller(users, taskCreatorUserID)
+		return flatUsers, map[string]struct{}{}
+	}
+	waitForAIReleaseSpecialistApprove = waitForNativeApprove
+)
 
 func NewAIReleaseSpecialistJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *AIReleaseSpecialistJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
@@ -102,7 +130,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	}
 	defer cancel()
 
-	task, err := mongodb.NewworkflowTaskv4Coll().Find(c.workflowCtx.WorkflowName, c.workflowCtx.TaskID)
+	task, err := findWorkflowTaskForAIReleaseSpecialist(c.workflowCtx.WorkflowName, c.workflowCtx.TaskID)
 	if err != nil {
 		c.job.Status = config.StatusFailed
 		c.job.Error = fmt.Sprintf("find workflow task failed: %v", err)
@@ -127,7 +155,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	client, err := getDefaultAIReleaseSpecialistLLMClient(jobCtx)
+	client, err := getAIReleaseSpecialistLLMClient(jobCtx)
 	if err != nil {
 		c.job.Status = config.StatusFailed
 		c.job.Error = fmt.Sprintf("get default llm client failed: %v", err)
@@ -168,7 +196,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result)
 	c.ack()
 
-	if result.Conclusion == "fail" {
+	if result.Conclusion == "fail" && !c.jobTaskSpec.RequireManualConfirm {
 		c.job.Status = config.StatusFailed
 		if result.Summary != "" {
 			c.job.Error = result.Summary
@@ -207,7 +235,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		c.job.Status = config.StatusWaitingApprove
 		c.ack()
 
-		status, err := waitForNativeApprove(jobCtx, approvalSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
+		status, err := waitForAIReleaseSpecialistApprove(jobCtx, approvalSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
 		c.job.Status = status
 		if err != nil {
 			c.job.Error = err.Error()
@@ -248,7 +276,7 @@ func (c *AIReleaseSpecialistJobCtl) getRemainingTimeout(jobStartTime time.Time) 
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.User, error) {
-	flatUsers, _ := commonutil.GeneFlatUsersWithCaller(c.jobTaskSpec.ConfirmUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
+	flatUsers, _ := getAIReleaseSpecialistConfirmUsers(c.jobTaskSpec.ConfirmUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
 	if len(flatUsers) == 0 {
 		return nil, fmt.Errorf("confirm users are empty")
 	}
@@ -512,11 +540,12 @@ func BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride
 	if err != nil {
 		return nil, err
 	}
-	systemPrompt := buildAIReleaseSpecialistSystemPrompt(string(inputJSON), systemPromptOverride)
+	systemPrompt := buildAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	prompt := systemPrompt
 	if strings.TrimSpace(promptTemplate) != "" {
-		prompt = fmt.Sprintf("%s\n\n%s", strings.TrimSpace(promptTemplate), systemPrompt)
+		prompt = fmt.Sprintf("%s\n\n额外关注点：\n%s", prompt, strings.TrimSpace(promptTemplate))
 	}
+	prompt = fmt.Sprintf("%s\n\n发布上下文:\n```json\n%s\n```", prompt, string(inputJSON))
 	promptTokens := getAIReleaseSpecialistPromptTokens(prompt)
 	return &AIReleaseSpecialistPromptDebugResult{
 		SystemPrompt:   systemPrompt,
@@ -526,12 +555,12 @@ func BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride
 	}, nil
 }
 
-func buildAIReleaseSpecialistSystemPrompt(inputJSON, systemPromptOverride string) string {
+func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
 	systemPrompt := strings.TrimSpace(systemPromptOverride)
 	if systemPrompt == "" {
 		systemPrompt = defaultAIReleaseSpecialistSystemPrompt
 	}
-	return fmt.Sprintf("%s\n\n发布上下文:\n```json\n%s\n```", systemPrompt, inputJSON)
+	return systemPrompt
 }
 
 func getAIReleaseSpecialistPromptTokens(prompt string) int {
@@ -564,6 +593,7 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	if result.Conclusion == "" {
 		return nil, fmt.Errorf("empty conclusion")
 	}
+	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil
 }
 
@@ -600,6 +630,19 @@ func normalizeAIResultValue(value string) string {
 	}
 }
 
+func translateAIResultValue(value string) string {
+	switch normalizeAIResultValue(value) {
+	case "pass":
+		return "通过"
+	case "warning":
+		return "需关注"
+	case "fail":
+		return "不建议继续"
+	default:
+		return strings.TrimSpace(value)
+	}
+}
+
 func writeAIReleaseSpecialistOutputs(workflowCtx *commonmodels.WorkflowTaskCtx, jobKey string, result *commonmodels.AIReleaseSpecialistResult) {
 	if workflowCtx == nil || result == nil {
 		return
@@ -609,7 +652,22 @@ func writeAIReleaseSpecialistOutputs(workflowCtx *commonmodels.WorkflowTaskCtx, 
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CONCLUSION"), result.Conclusion)
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "SUMMARY"), result.Summary)
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_COUNT"), fmt.Sprintf("%d", len(result.Checks)))
-	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_DETAILS_MARKDOWN"), renderCheckDetailsMarkdown(result.Checks))
+	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_DETAILS_MARKDOWN"), result.Markdown)
+}
+
+func renderAIReleaseSpecialistResultMarkdown(result *commonmodels.AIReleaseSpecialistResult) string {
+	if result == nil {
+		return ""
+	}
+	lines := []string{"## 检测结论", translateAIResultValue(result.Conclusion)}
+	if result.Summary != "" {
+		lines = append(lines, "", safeMarkdownText(result.Summary))
+	}
+	if len(result.Checks) > 0 {
+		lines = append(lines, "", "## 检测项明细")
+		lines = append(lines, renderCheckDetailsMarkdown(result.Checks))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func renderCheckDetailsMarkdown(checks []*commonmodels.AIReleaseSpecialistCheckItem) string {
@@ -621,7 +679,8 @@ func renderCheckDetailsMarkdown(checks []*commonmodels.AIReleaseSpecialistCheckI
 		if check == nil {
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("- %s [%s]", safeMarkdownText(check.Name), safeMarkdownText(check.Result)))
+		lines = append(lines, fmt.Sprintf("### %s", safeMarkdownText(check.Name)))
+		lines = append(lines, fmt.Sprintf("- 检测结果: %s", translateAIResultValue(check.Result)))
 		if check.Evidence != "" {
 			lines = append(lines, fmt.Sprintf("  - 依据: %s", safeMarkdownText(check.Evidence)))
 		}

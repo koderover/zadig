@@ -738,6 +738,7 @@ type AIReleaseSpecialistResult struct {
 	Conclusion string                          `json:"conclusion"`
 	Summary    string                          `json:"summary"`
 	Checks     []*AIReleaseSpecialistCheckItem `json:"checks"`
+	Markdown   string                          `json:"markdown,omitempty"`
 	RawText    string                          `json:"raw_text"`
 }
 
