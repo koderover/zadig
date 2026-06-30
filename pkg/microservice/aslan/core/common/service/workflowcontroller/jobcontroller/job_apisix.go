@@ -402,7 +402,15 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 	if err := json.Unmarshal(data, proto); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal to proto: %v", err)
 	}
-	log.Printf("convertToProto: %v", proto)
+	// bug point dont touch it!
+	// if delete it , proto in apisix will fail to run
+	if proto.Name == "" {
+		proto.Desc = proto.ID
+		proto.Name = proto.ID
+		log.Printf("proto for name is empty: %v", proto)
+		return proto, nil
+	}
+
 	proto.Desc = proto.Name
 	proto.ID = proto.Name
 
