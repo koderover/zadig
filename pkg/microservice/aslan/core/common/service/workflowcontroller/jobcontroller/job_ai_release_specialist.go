@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
@@ -95,10 +96,10 @@ var (
 	findWorkflowTaskForAIReleaseSpecialist = func(workflowName string, taskID int64) (*commonmodels.WorkflowTask, error) {
 		return mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	}
-	getAIReleaseSpecialistLLMClient    = getDefaultAIReleaseSpecialistLLMClient
-	getAIReleaseSpecialistConfirmUsers = func(users []*commonmodels.User, taskCreatorUserID string) ([]*commonmodels.User, map[string]struct{}) {
+	getAIReleaseSpecialistLLMClient    = llmservice.GetDefaultLLMClient
+	getAIReleaseSpecialistConfirmUsers = func(users []*commonmodels.User, taskCreatorUserID string) []*commonmodels.User {
 		flatUsers, _ := commonutil.GeneFlatUsersWithCaller(users, taskCreatorUserID)
-		return flatUsers, map[string]struct{}{}
+		return flatUsers
 	}
 	waitForAIReleaseSpecialistApprove = waitForNativeApprove
 )
@@ -194,7 +195,9 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec.Result = result
 	c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
-	writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result)
+	if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
+		c.logger.Warnf("marshal ai release specialist result failed: %v", err)
+	}
 	c.ack()
 
 	if result.Conclusion == "fail" && !c.jobTaskSpec.RequireManualConfirm {
@@ -277,7 +280,7 @@ func (c *AIReleaseSpecialistJobCtl) getRemainingTimeout(jobStartTime time.Time) 
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.User, error) {
-	flatUsers, _ := getAIReleaseSpecialistConfirmUsers(c.jobTaskSpec.ConfirmUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
+	flatUsers := getAIReleaseSpecialistConfirmUsers(c.jobTaskSpec.ConfirmUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
 	if len(flatUsers) == 0 {
 		return nil, fmt.Errorf("confirm users are empty")
 	}
@@ -299,6 +302,7 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 			Remark: strings.TrimSpace(task.Remark),
 		},
 	}
+	envMap := make(map[string]*commonmodels.Product)
 
 	var (
 		releaseTargets []*commonmodels.AIReleaseTargetsSummary
@@ -322,19 +326,25 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromDeploy(job, spec))
+				target := buildReleaseTargetFromDeploy(job, spec)
+				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
+				releaseTargets = append(releaseTargets, target)
 			case string(config.JobZadigHelmDeploy):
 				spec := &commonmodels.JobTaskHelmDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmDeploy(job, spec))
+				target := buildReleaseTargetFromHelmDeploy(job, spec)
+				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
+				releaseTargets = append(releaseTargets, target)
 			case string(config.JobZadigHelmChartDeploy):
 				spec := &commonmodels.JobTaskHelmChartDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmChartDeploy(job, spec))
+				target := buildReleaseTargetFromHelmChartDeploy(job, spec)
+				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
+				releaseTargets = append(releaseTargets, target)
 			case string(config.JobZadigBuild):
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -398,9 +408,6 @@ func buildReleaseTargetFromDeploy(job *commonmodels.JobTask, spec *commonmodels.
 		target.TargetCount++
 	}
 	for _, serviceAndImage := range spec.ServiceAndImages {
-		if spec.ServiceName != "" {
-			target.ServiceNames = append(target.ServiceNames, spec.ServiceName)
-		}
 		if serviceAndImage.Image != "" {
 			target.ImageVersions = append(target.ImageVersions, serviceAndImage.Image)
 		}
@@ -424,9 +431,6 @@ func buildReleaseTargetFromHelmDeploy(job *commonmodels.JobTask, spec *commonmod
 		target.ServiceNames = append(target.ServiceNames, spec.ServiceName)
 	}
 	for _, imageAndModule := range spec.ImageAndModules {
-		if spec.ServiceName != "" {
-			target.ServiceNames = append(target.ServiceNames, spec.ServiceName)
-		}
 		if imageAndModule.Image != "" {
 			target.ImageVersions = append(target.ImageVersions, imageAndModule.Image)
 		}
@@ -487,6 +491,19 @@ func mergeReleaseTargets(targets []*commonmodels.AIReleaseTargetsSummary) *commo
 	}
 	merged.Items = uniqueReleaseTargetItems(merged.Items)
 	return merged
+}
+
+func fillReleaseTargetEnvAlias(projectName string, target *commonmodels.AIReleaseTargetsSummary, envMap map[string]*commonmodels.Product) {
+	if target == nil || strings.TrimSpace(projectName) == "" || strings.TrimSpace(target.EnvName) == "" {
+		return
+	}
+	target.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, target.EnvName, envMap))
+	for _, item := range target.Items {
+		if item == nil {
+			continue
+		}
+		item.EnvAlias = target.EnvAlias
+	}
 }
 
 func appendChangeSummarySource(changeSummary *commonmodels.AIChangeSummary, job *commonmodels.JobTask) {
@@ -754,16 +771,19 @@ func translateAIResultValue(value string) string {
 	}
 }
 
-func writeAIReleaseSpecialistOutputs(workflowCtx *commonmodels.WorkflowTaskCtx, jobKey string, result *commonmodels.AIReleaseSpecialistResult) {
+func writeAIReleaseSpecialistOutputs(workflowCtx *commonmodels.WorkflowTaskCtx, jobKey string, result *commonmodels.AIReleaseSpecialistResult) error {
 	if workflowCtx == nil || result == nil {
-		return
+		return nil
 	}
-	resultJSONBytes, _ := json.Marshal(result)
-	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "RESULT_JSON"), string(resultJSONBytes))
+	resultJSONBytes, err := json.Marshal(result)
+	if err == nil {
+		workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "RESULT_JSON"), string(resultJSONBytes))
+	}
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CONCLUSION"), result.Conclusion)
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "SUMMARY"), result.Summary)
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_COUNT"), fmt.Sprintf("%d", len(result.Checks)))
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_DETAILS_MARKDOWN"), result.Markdown)
+	return err
 }
 
 func renderAIReleaseSpecialistResultMarkdown(result *commonmodels.AIReleaseSpecialistResult) string {
@@ -865,30 +885,4 @@ func uniquePreserveOrder(values []string) []string {
 		resp = append(resp, value)
 	}
 	return resp
-}
-
-func getDefaultAIReleaseSpecialistLLMClient(ctx context.Context) (llm.ILLM, error) {
-	llmIntegration, err := mongodb.NewLLMIntegrationColl().FindDefault(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find default llm integration, err: %w", err)
-	}
-
-	llmConfig := llm.LLMConfig{
-		ProviderName: llmIntegration.ProviderName,
-		Token:        llmIntegration.Token,
-		BaseURL:      llmIntegration.BaseURL,
-		Model:        llmIntegration.Model,
-	}
-	if llmIntegration.EnableProxy {
-		llmConfig.Proxy = config.ProxyHTTPSAddr()
-	}
-
-	llmClient, err := llm.NewClient(llmConfig.ProviderName)
-	if err != nil {
-		return nil, fmt.Errorf("could not create the llm client for %s: %w", llmConfig.ProviderName, err)
-	}
-	if err := llmClient.Configure(llmConfig); err != nil {
-		return nil, fmt.Errorf("could not configure the llm client for %s: %w", llmConfig.ProviderName, err)
-	}
-	return llmClient, nil
 }

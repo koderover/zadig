@@ -76,7 +76,7 @@ func DebugAIReleaseSpecialistPrompt(ctx *handler.Context, req *DebugAIReleaseSpe
 		logger.Errorf("find workflow task failed, workflow: %s, taskID: %d, err: %v", workflowName, taskID, err)
 		return nil, e.ErrFindWorkflow.AddErr(err)
 	}
-	if err := ensureWorkflowPermission(ctx, task.ProjectName, workflowName); err != nil {
+	if err := ensureWorkflowPermission(ctx, task.ProjectName, workflowName, req.Execute); err != nil {
 		return nil, err
 	}
 
@@ -169,13 +169,10 @@ func getAIReleaseSpecialistPromptTemplate(workflowName, jobName, override string
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return "", e.ErrInvalidParam.AddDesc(fmt.Sprintf("decode ai release specialist job spec failed: %v", err))
 	}
-	if strings.TrimSpace(spec.PromptTemplate) == "" {
-		return "", e.ErrInvalidParam.AddDesc("prompt template cannot be empty")
-	}
 	return strings.TrimSpace(spec.PromptTemplate), nil
 }
 
-func ensureWorkflowPermission(ctx *handler.Context, projectName, workflowName string) error {
+func ensureWorkflowPermission(ctx *handler.Context, projectName, workflowName string, requireEdit bool) error {
 	if ctx == nil || ctx.Resources == nil {
 		return e.ErrUnauthorized
 	}
@@ -190,11 +187,20 @@ func ensureWorkflowPermission(ctx *handler.Context, projectName, workflowName st
 	if projectAuth.IsProjectAdmin {
 		return nil
 	}
-	if projectAuth.Workflow != nil && (projectAuth.Workflow.View || projectAuth.Workflow.Edit) {
-		return nil
+	if projectAuth.Workflow != nil {
+		if requireEdit && projectAuth.Workflow.Edit {
+			return nil
+		}
+		if !requireEdit && (projectAuth.Workflow.View || projectAuth.Workflow.Edit) {
+			return nil
+		}
 	}
 
-	permitted, err := handler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionView)
+	action := types.WorkflowActionView
+	if requireEdit {
+		action = types.WorkflowActionEdit
+	}
+	permitted, err := handler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeWorkflow, workflowName, action)
 	if err == nil && permitted {
 		return nil
 	}

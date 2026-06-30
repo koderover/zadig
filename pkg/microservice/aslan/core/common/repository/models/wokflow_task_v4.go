@@ -701,79 +701,79 @@ type JobTaskAIReleaseSpecialistSpec struct {
 }
 
 type AIReleaseSpecialistInput struct {
-	ReleaseTargets *AIReleaseTargetsSummary `json:"release_targets,omitempty"`
-	ChangeSummary  *AIChangeSummary         `json:"change_summary,omitempty"`
-	ScanSummary    *AIScanSummary           `json:"scan_summary,omitempty"`
-	TestSummary    *AITestSummary           `json:"test_summary,omitempty"`
+	ReleaseTargets *AIReleaseTargetsSummary `bson:"release_targets,omitempty" json:"release_targets,omitempty" yaml:"release_targets,omitempty"`
+	ChangeSummary  *AIChangeSummary         `bson:"change_summary,omitempty" json:"change_summary,omitempty" yaml:"change_summary,omitempty"`
+	ScanSummary    *AIScanSummary           `bson:"scan_summary,omitempty" json:"scan_summary,omitempty" yaml:"scan_summary,omitempty"`
+	TestSummary    *AITestSummary           `bson:"test_summary,omitempty" json:"test_summary,omitempty" yaml:"test_summary,omitempty"`
 }
 
 type AIReleaseContextSource struct {
-	JobName string `json:"job_name,omitempty"`
-	JobType string `json:"job_type,omitempty"`
+	JobName string `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType string `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
 }
 
 type AIReleaseSummaryItem struct {
-	JobName string `json:"job_name,omitempty"`
-	JobType string `json:"job_type,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Summary string `json:"summary,omitempty"`
+	JobName string `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType string `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	Status  string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Summary string `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
 }
 
 type AIReleaseTargetItem struct {
-	JobName       string   `json:"job_name,omitempty"`
-	JobType       string   `json:"job_type,omitempty"`
-	EnvName       string   `json:"env_name,omitempty"`
-	EnvAlias      string   `json:"env_alias,omitempty"`
-	Production    bool     `json:"production,omitempty"`
-	ServiceNames  []string `json:"service_names,omitempty"`
-	ImageVersions []string `json:"image_versions,omitempty"`
-	TargetCount   int      `json:"target_count,omitempty"`
+	JobName       string   `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType       string   `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	EnvName       string   `bson:"env_name,omitempty" json:"env_name,omitempty" yaml:"env_name,omitempty"`
+	EnvAlias      string   `bson:"env_alias,omitempty" json:"env_alias,omitempty" yaml:"env_alias,omitempty"`
+	Production    bool     `bson:"production,omitempty" json:"production,omitempty" yaml:"production,omitempty"`
+	ServiceNames  []string `bson:"service_names,omitempty" json:"service_names,omitempty" yaml:"service_names,omitempty"`
+	ImageVersions []string `bson:"image_versions,omitempty" json:"image_versions,omitempty" yaml:"image_versions,omitempty"`
+	TargetCount   int      `bson:"target_count,omitempty" json:"target_count,omitempty" yaml:"target_count,omitempty"`
 }
 
 type AIReleaseTargetsSummary struct {
-	EnvName       string                 `json:"env_name,omitempty"`
-	EnvAlias      string                 `json:"env_alias,omitempty"`
-	Production    bool                   `json:"production,omitempty"`
-	ServiceNames  []string               `json:"service_names,omitempty"`
-	ImageVersions []string               `json:"image_versions,omitempty"`
-	TargetCount   int                    `json:"target_count,omitempty"`
-	Items         []*AIReleaseTargetItem `json:"items,omitempty"`
+	EnvName       string                 `bson:"env_name,omitempty" json:"env_name,omitempty" yaml:"env_name,omitempty"`
+	EnvAlias      string                 `bson:"env_alias,omitempty" json:"env_alias,omitempty" yaml:"env_alias,omitempty"`
+	Production    bool                   `bson:"production,omitempty" json:"production,omitempty" yaml:"production,omitempty"`
+	ServiceNames  []string               `bson:"service_names,omitempty" json:"service_names,omitempty" yaml:"service_names,omitempty"`
+	ImageVersions []string               `bson:"image_versions,omitempty" json:"image_versions,omitempty" yaml:"image_versions,omitempty"`
+	TargetCount   int                    `bson:"target_count,omitempty" json:"target_count,omitempty" yaml:"target_count,omitempty"`
+	Items         []*AIReleaseTargetItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 type AIChangeSummary struct {
-	Remark         string                    `json:"remark,omitempty"`
-	Branches       []string                  `json:"branches,omitempty"`
-	Tags           []string                  `json:"tags,omitempty"`
-	CommitMessages []string                  `json:"commit_messages,omitempty"`
-	Services       []string                  `json:"services,omitempty"`
-	Sources        []*AIReleaseContextSource `json:"sources,omitempty"`
+	Remark         string                    `bson:"remark,omitempty" json:"remark,omitempty" yaml:"remark,omitempty"`
+	Branches       []string                  `bson:"branches,omitempty" json:"branches,omitempty" yaml:"branches,omitempty"`
+	Tags           []string                  `bson:"tags,omitempty" json:"tags,omitempty" yaml:"tags,omitempty"`
+	CommitMessages []string                  `bson:"commit_messages,omitempty" json:"commit_messages,omitempty" yaml:"commit_messages,omitempty"`
+	Services       []string                  `bson:"services,omitempty" json:"services,omitempty" yaml:"services,omitempty"`
+	Sources        []*AIReleaseContextSource `bson:"sources,omitempty" json:"sources,omitempty" yaml:"sources,omitempty"`
 }
 
 type AIScanSummary struct {
-	JobStatuses []string                `json:"job_statuses,omitempty"`
-	Summaries   []string                `json:"summaries,omitempty"`
-	Items       []*AIReleaseSummaryItem `json:"items,omitempty"`
+	JobStatuses []string                `bson:"job_statuses,omitempty" json:"job_statuses,omitempty" yaml:"job_statuses,omitempty"`
+	Summaries   []string                `bson:"summaries,omitempty" json:"summaries,omitempty" yaml:"summaries,omitempty"`
+	Items       []*AIReleaseSummaryItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 type AITestSummary struct {
-	JobStatuses []string                `json:"job_statuses,omitempty"`
-	Summaries   []string                `json:"summaries,omitempty"`
-	Items       []*AIReleaseSummaryItem `json:"items,omitempty"`
+	JobStatuses []string                `bson:"job_statuses,omitempty" json:"job_statuses,omitempty" yaml:"job_statuses,omitempty"`
+	Summaries   []string                `bson:"summaries,omitempty" json:"summaries,omitempty" yaml:"summaries,omitempty"`
+	Items       []*AIReleaseSummaryItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 type AIReleaseSpecialistResult struct {
-	Conclusion string                          `json:"conclusion"`
-	Summary    string                          `json:"summary"`
-	Checks     []*AIReleaseSpecialistCheckItem `json:"checks"`
-	Markdown   string                          `json:"markdown,omitempty"`
-	RawText    string                          `json:"raw_text"`
+	Conclusion string                          `bson:"conclusion" json:"conclusion" yaml:"conclusion"`
+	Summary    string                          `bson:"summary" json:"summary" yaml:"summary"`
+	Checks     []*AIReleaseSpecialistCheckItem `bson:"checks" json:"checks" yaml:"checks"`
+	Markdown   string                          `bson:"markdown,omitempty" json:"markdown,omitempty" yaml:"markdown,omitempty"`
+	RawText    string                          `bson:"raw_text" json:"raw_text" yaml:"raw_text"`
 }
 
 type AIReleaseSpecialistCheckItem struct {
-	Name       string `json:"name"`
-	Result     string `json:"result"`
-	Evidence   string `json:"evidence"`
-	Suggestion string `json:"suggestion"`
+	Name       string `bson:"name" json:"name" yaml:"name"`
+	Result     string `bson:"result" json:"result" yaml:"result"`
+	Evidence   string `bson:"evidence" json:"evidence" yaml:"evidence"`
+	Suggestion string `bson:"suggestion" json:"suggestion" yaml:"suggestion"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

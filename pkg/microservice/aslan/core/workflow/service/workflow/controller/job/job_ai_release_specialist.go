@@ -16,6 +16,7 @@ const (
 	AIReleaseSpecialistOutputSummary              = "SUMMARY"
 	AIReleaseSpecialistOutputCheckCount           = "CHECK_COUNT"
 	AIReleaseSpecialistOutputCheckDetailsMarkdown = "CHECK_DETAILS_MARKDOWN"
+	aiReleaseSpecialistDefaultTimeoutMinutes      = 60
 )
 
 type AIReleaseSpecialistJobController struct {
@@ -53,9 +54,6 @@ func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
 }
 
 func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
-	if strings.TrimSpace(j.jobSpec.PromptTemplate) == "" {
-		return fmt.Errorf("prompt template cannot be empty")
-	}
 	if j.jobSpec.RequireManualConfirm && len(j.jobSpec.ConfirmUsers) == 0 {
 		return fmt.Errorf("confirm users cannot be empty when manual confirm is enabled")
 	}
@@ -109,8 +107,9 @@ func (j AIReleaseSpecialistJobController) ClearOptions() {}
 func (j AIReleaseSpecialistJobController) ClearSelection() {}
 
 func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+	timeout := j.getTimeout()
 	spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{
-		Timeout:              j.jobSpec.Timeout,
+		Timeout:              timeout,
 		PromptTemplate:       j.jobSpec.PromptTemplate,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
@@ -119,7 +118,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 		spec.NativeApproval = &commonmodels.NativeApproval{
 			ApproveUsers:    j.jobSpec.ConfirmUsers,
 			NeededApprovers: 1,
-			Timeout:         int(j.jobSpec.Timeout),
+			Timeout:         int(timeout),
 		}
 	}
 
@@ -133,7 +132,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 		},
 		JobType:       string(config.JobAIReleaseSpecialist),
 		Spec:          spec,
-		Timeout:       j.jobSpec.Timeout,
+		Timeout:       timeout,
 		ErrorPolicy:   j.errorPolicy,
 		ExecutePolicy: j.executePolicy,
 		Outputs: []*commonmodels.Output{
@@ -146,6 +145,13 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 	}
 
 	return []*commonmodels.JobTask{jobTask}, nil
+}
+
+func (j AIReleaseSpecialistJobController) getTimeout() int64 {
+	if j.jobSpec.Timeout > 0 {
+		return j.jobSpec.Timeout
+	}
+	return aiReleaseSpecialistDefaultTimeoutMinutes
 }
 
 func (j AIReleaseSpecialistJobController) SetRepo(repo *types.Repository) error {
