@@ -1188,6 +1188,13 @@ type NotificationJobSpec struct {
 	IsAtAll         bool                      `bson:"is_at_all"                     yaml:"is_at_all"                     json:"is_at_all"`
 }
 
+type AIReleaseSpecialistJobSpec struct {
+	Timeout              int64   `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string  `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RequireManualConfirm bool    `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+}
+
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
 func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 	switch n.WebHookType {

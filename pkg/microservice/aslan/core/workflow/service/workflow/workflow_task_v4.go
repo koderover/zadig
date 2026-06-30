@@ -2964,6 +2964,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				sepc.ClusterName = cluster.Name
 			}
 			jobPreview.Spec = sepc
+		case string(config.JobAIReleaseSpecialist):
+			spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+			if err := commonmodels.IToi(job.Spec, spec); err != nil {
+				continue
+			}
+			jobPreview.Spec = spec
 		default:
 			jobPreview.Spec = job.Spec
 		}
