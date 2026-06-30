@@ -76,6 +76,11 @@ func SyncAutoServiceModules(ctx context.Context, svc *models.Service, production
 	}
 	coll := pickServiceModuleColl(production)
 	records := containersToAutoRecords(svc.ProductName, svc.ServiceName, svc.Revision, svc.Containers)
+	ignoredRecords, err := coll.ListIgnoredAutoByRevision(ctx, svc.ProductName, svc.ServiceName, svc.Revision)
+	if err != nil {
+		return err
+	}
+	records = filterIgnoredAutoRecords(records, ignoredRecords)
 	return coll.ReplaceAutoForRevision(ctx, svc.ProductName, svc.ServiceName, svc.Revision, records)
 }
 
@@ -140,6 +145,16 @@ func DeleteAutoServiceModuleByID(ctx context.Context, production bool, id primit
 	return pickServiceModuleColl(production).DeleteAutoByID(ctx, id)
 }
 
+// RestoreAutoServiceModulesForRevision clears ignored tombstones for one
+// revision. Callers should run SyncAutoServiceModules afterwards to re-parse
+// the current YAML and drop records that no longer exist in the template.
+func RestoreAutoServiceModulesForRevision(ctx context.Context, projectName, serviceName string, production bool, revision int64) error {
+	if projectName == "" || serviceName == "" || revision == 0 {
+		return nil
+	}
+	return pickServiceModuleColl(production).RestoreIgnoredAutoByRevision(ctx, projectName, serviceName, revision)
+}
+
 func pickServiceModuleColl(production bool) *mongodb.ServiceModuleColl {
 	if production {
 		return mongodb.NewProductionServiceModuleColl()
@@ -165,6 +180,29 @@ func containersToAutoRecords(projectName, serviceName string, revision int64, co
 		})
 	}
 	return records
+}
+
+func filterIgnoredAutoRecords(records []*models.ServiceModule, ignoredRecords []*models.ServiceModule) []*models.ServiceModule {
+	if len(records) == 0 || len(ignoredRecords) == 0 {
+		return records
+	}
+	ignoredNames := make(map[string]struct{}, len(ignoredRecords))
+	for _, r := range ignoredRecords {
+		if r != nil && r.Name != "" {
+			ignoredNames[r.Name] = struct{}{}
+		}
+	}
+	filtered := make([]*models.ServiceModule, 0, len(records))
+	for _, r := range records {
+		if r == nil {
+			continue
+		}
+		if _, ok := ignoredNames[r.Name]; ok {
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	return filtered
 }
 
 // normalizeImageName mirrors the legacy GetImageNameFromContainerInfo

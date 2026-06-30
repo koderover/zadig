@@ -109,6 +109,7 @@ func (c *ServiceModuleColl) ListByServiceRevision(ctx context.Context, projectNa
 	query := bson.M{
 		"project_name": projectName,
 		"service_name": serviceName,
+		"ignored":      bson.M{"$ne": true},
 		"$or": bson.A{
 			bson.M{"is_manual": true},
 			bson.M{"is_manual": false, "revision_bound": revision},
@@ -143,6 +144,20 @@ func (c *ServiceModuleColl) ListAutoByRevision(ctx context.Context, projectName,
 		"service_name":   serviceName,
 		"is_manual":      false,
 		"revision_bound": revision,
+		"ignored":        bson.M{"$ne": true},
+	}
+	return c.findAll(ctx, query, nil)
+}
+
+// ListIgnoredAutoByRevision returns hidden auto-discovered records. The write
+// side uses these records as tombstones while re-syncing parsed YAML.
+func (c *ServiceModuleColl) ListIgnoredAutoByRevision(ctx context.Context, projectName, serviceName string, revision int64) ([]*models.ServiceModule, error) {
+	query := bson.M{
+		"project_name":   projectName,
+		"service_name":   serviceName,
+		"is_manual":      false,
+		"revision_bound": revision,
+		"ignored":        true,
 	}
 	return c.findAll(ctx, query, nil)
 }
@@ -229,6 +244,7 @@ func (c *ServiceModuleColl) ReplaceAutoForRevision(ctx context.Context, projectN
 		"service_name":   serviceName,
 		"is_manual":      false,
 		"revision_bound": revision,
+		"ignored":        bson.M{"$ne": true},
 	}); err != nil {
 		return err
 	}
@@ -243,6 +259,7 @@ func (c *ServiceModuleColl) ReplaceAutoForRevision(ctx context.Context, projectN
 		r.ServiceName = serviceName
 		r.IsManual = false
 		r.RevisionBound = revision
+		r.Ignored = false
 		if r.CreateTime == 0 {
 			r.CreateTime = now
 		}
@@ -268,9 +285,33 @@ func (c *ServiceModuleColl) DeleteAutoByRevision(ctx context.Context, projectNam
 // DeleteAutoByID removes one auto-discovered module by ObjectID. Manual
 // records with the same ID are intentionally untouched by the is_manual guard.
 func (c *ServiceModuleColl) DeleteAutoByID(ctx context.Context, id primitive.ObjectID) error {
-	_, err := c.Collection.DeleteOne(mongotool.SessionContext(ctx, c.Session), bson.M{
+	_, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), bson.M{
 		"_id":       id,
 		"is_manual": false,
+	}, bson.M{
+		"$set": bson.M{
+			"ignored":     true,
+			"update_time": time.Now().Unix(),
+		},
+	})
+	return err
+}
+
+// RestoreIgnoredAutoByRevision makes all hidden auto-discovered modules for a
+// service revision visible again. The caller should re-sync parsed YAML after
+// this so restored records reflect the latest service YAML.
+func (c *ServiceModuleColl) RestoreIgnoredAutoByRevision(ctx context.Context, projectName, serviceName string, revision int64) error {
+	_, err := c.Collection.UpdateMany(mongotool.SessionContext(ctx, c.Session), bson.M{
+		"project_name":   projectName,
+		"service_name":   serviceName,
+		"is_manual":      false,
+		"revision_bound": revision,
+		"ignored":        true,
+	}, bson.M{
+		"$set": bson.M{
+			"ignored":     false,
+			"update_time": time.Now().Unix(),
+		},
 	})
 	return err
 }

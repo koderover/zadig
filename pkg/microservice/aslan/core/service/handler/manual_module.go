@@ -244,6 +244,44 @@ func DeleteAutoServiceModule(c *gin.Context) {
 	ctx.RespErr = svcservice.DeleteAutoServiceModule(id, production, ctx.Logger)
 }
 
+// RecognizeAutoServiceModules restores auto-discovered modules hidden for the
+// current service revision and re-runs recognition from service YAML.
+// Query: ?projectName=...&production=true|false
+// Path:  /services/:name/auto-modules/recognize
+func RecognizeAutoServiceModules(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
+	serviceName := c.Param("name")
+
+	if !canEditService(ctx, projectName, production) {
+		ctx.UnAuthorized = true
+		return
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	function := "项目管理-服务"
+	if production {
+		function = "项目管理-生产服务"
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "识别", function+"/自动识别模块", serviceName, "", "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	ctx.Resp, ctx.RespErr = svcservice.RecognizeAutoServiceModules(projectName, serviceName, production, ctx.Logger)
+}
+
 // canViewService mirrors the authorization scaffolding used by the existing
 // service-template handlers — system admin / project admin / service view
 // permission, branching on production.
