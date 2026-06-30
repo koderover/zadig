@@ -707,7 +707,21 @@ type AIReleaseSpecialistInput struct {
 	TestSummary    *AITestSummary           `json:"test_summary,omitempty"`
 }
 
-type AIReleaseTargetsSummary struct {
+type AIReleaseContextSource struct {
+	JobName string `json:"job_name,omitempty"`
+	JobType string `json:"job_type,omitempty"`
+}
+
+type AIReleaseSummaryItem struct {
+	JobName string `json:"job_name,omitempty"`
+	JobType string `json:"job_type,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Summary string `json:"summary,omitempty"`
+}
+
+type AIReleaseTargetItem struct {
+	JobName       string   `json:"job_name,omitempty"`
+	JobType       string   `json:"job_type,omitempty"`
 	EnvName       string   `json:"env_name,omitempty"`
 	EnvAlias      string   `json:"env_alias,omitempty"`
 	Production    bool     `json:"production,omitempty"`
@@ -716,22 +730,35 @@ type AIReleaseTargetsSummary struct {
 	TargetCount   int      `json:"target_count,omitempty"`
 }
 
+type AIReleaseTargetsSummary struct {
+	EnvName       string                 `json:"env_name,omitempty"`
+	EnvAlias      string                 `json:"env_alias,omitempty"`
+	Production    bool                   `json:"production,omitempty"`
+	ServiceNames  []string               `json:"service_names,omitempty"`
+	ImageVersions []string               `json:"image_versions,omitempty"`
+	TargetCount   int                    `json:"target_count,omitempty"`
+	Items         []*AIReleaseTargetItem `json:"items,omitempty"`
+}
+
 type AIChangeSummary struct {
-	Remark         string   `json:"remark,omitempty"`
-	Branches       []string `json:"branches,omitempty"`
-	Tags           []string `json:"tags,omitempty"`
-	CommitMessages []string `json:"commit_messages,omitempty"`
-	Services       []string `json:"services,omitempty"`
+	Remark         string                    `json:"remark,omitempty"`
+	Branches       []string                  `json:"branches,omitempty"`
+	Tags           []string                  `json:"tags,omitempty"`
+	CommitMessages []string                  `json:"commit_messages,omitempty"`
+	Services       []string                  `json:"services,omitempty"`
+	Sources        []*AIReleaseContextSource `json:"sources,omitempty"`
 }
 
 type AIScanSummary struct {
-	JobStatuses []string `json:"job_statuses,omitempty"`
-	Summaries   []string `json:"summaries,omitempty"`
+	JobStatuses []string                `json:"job_statuses,omitempty"`
+	Summaries   []string                `json:"summaries,omitempty"`
+	Items       []*AIReleaseSummaryItem `json:"items,omitempty"`
 }
 
 type AITestSummary struct {
-	JobStatuses []string `json:"job_statuses,omitempty"`
-	Summaries   []string `json:"summaries,omitempty"`
+	JobStatuses []string                `json:"job_statuses,omitempty"`
+	Summaries   []string                `json:"summaries,omitempty"`
+	Items       []*AIReleaseSummaryItem `json:"items,omitempty"`
 }
 
 type AIReleaseSpecialistResult struct {

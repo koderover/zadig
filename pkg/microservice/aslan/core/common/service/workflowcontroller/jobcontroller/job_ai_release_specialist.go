@@ -51,6 +51,7 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 测试：表示自动化验证结果，只能依据任务状态和错误摘要判断，不代表完整测试报告或覆盖率。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
 - 部署类任务：表示 AI 节点之前已经确定的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设存在 AI 节点之后的发布动作。
+- 如果输入中带有 sources 或 items 字段，这些字段表示对应上下文来自哪个上游任务；应优先结合其中的 job_name、job_type、status、summary 判断每条信息的来源和含义。
 
 判断约束：
 - 你只能依据输入的发布上下文做判断，不要虚构 PR 正文、代码 diff、日志全文、监控告警、集群实时状态或人工结论。
@@ -303,14 +304,16 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 		releaseTargets []*commonmodels.AIReleaseTargetsSummary
 		scanStatuses   []string
 		scanSummaries  []string
+		scanItems      []*commonmodels.AIReleaseSummaryItem
 		testStatuses   []string
 		testSummaries  []string
+		testItems      []*commonmodels.AIReleaseSummaryItem
 	)
 
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name == currentJobName {
-				return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, testStatuses, testSummaries), nil
+				return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems), nil
 			}
 
 			switch job.JobType {
@@ -319,62 +322,70 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromDeploy(spec))
+				releaseTargets = append(releaseTargets, buildReleaseTargetFromDeploy(job, spec))
 			case string(config.JobZadigHelmDeploy):
 				spec := &commonmodels.JobTaskHelmDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmDeploy(spec))
+				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmDeploy(job, spec))
 			case string(config.JobZadigHelmChartDeploy):
 				spec := &commonmodels.JobTaskHelmChartDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmChartDeploy(spec))
+				releaseTargets = append(releaseTargets, buildReleaseTargetFromHelmChartDeploy(job, spec))
 			case string(config.JobZadigBuild):
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
+				appendChangeSummarySource(input.ChangeSummary, job)
 				collectChangeSummaryFromFreestyleSpec(input.ChangeSummary, spec)
 			case string(config.JobZadigScanning):
 				scanStatuses = append(scanStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				scanSummaries = append(scanSummaries, buildResultSummaryLine(job))
+				summary := buildResultSummaryLine(job)
+				scanSummaries = append(scanSummaries, summary)
+				scanItems = append(scanItems, buildReleaseSummaryItem(job, summary))
 			case string(config.JobZadigTesting):
 				testStatuses = append(testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				testSummaries = append(testSummaries, buildResultSummaryLine(job))
+				summary := buildResultSummaryLine(job)
+				testSummaries = append(testSummaries, summary)
+				testItems = append(testItems, buildReleaseSummaryItem(job, summary))
 			}
 		}
 	}
 
-	return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, testStatuses, testSummaries), nil
+	return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems), nil
 }
 
-func finalizeAIReleaseSpecialistInput(input *commonmodels.AIReleaseSpecialistInput, releaseTargets []*commonmodels.AIReleaseTargetsSummary, scanStatuses, scanSummaries, testStatuses, testSummaries []string) *commonmodels.AIReleaseSpecialistInput {
+func finalizeAIReleaseSpecialistInput(input *commonmodels.AIReleaseSpecialistInput, releaseTargets []*commonmodels.AIReleaseTargetsSummary, scanStatuses, scanSummaries []string, scanItems []*commonmodels.AIReleaseSummaryItem, testStatuses, testSummaries []string, testItems []*commonmodels.AIReleaseSummaryItem) *commonmodels.AIReleaseSpecialistInput {
 	if len(releaseTargets) > 0 {
 		input.ReleaseTargets = mergeReleaseTargets(releaseTargets)
 	}
-	if len(scanStatuses) > 0 || len(scanSummaries) > 0 {
+	if len(scanStatuses) > 0 || len(scanSummaries) > 0 || len(scanItems) > 0 {
 		input.ScanSummary = &commonmodels.AIScanSummary{
 			JobStatuses: uniqueSortedStrings(scanStatuses),
 			Summaries:   uniquePreserveOrder(scanSummaries),
+			Items:       uniqueReleaseSummaryItems(scanItems),
 		}
 	}
-	if len(testStatuses) > 0 || len(testSummaries) > 0 {
+	if len(testStatuses) > 0 || len(testSummaries) > 0 || len(testItems) > 0 {
 		input.TestSummary = &commonmodels.AITestSummary{
 			JobStatuses: uniqueSortedStrings(testStatuses),
 			Summaries:   uniquePreserveOrder(testSummaries),
+			Items:       uniqueReleaseSummaryItems(testItems),
 		}
 	}
 	input.ChangeSummary.Branches = uniqueSortedStrings(input.ChangeSummary.Branches)
 	input.ChangeSummary.Tags = uniqueSortedStrings(input.ChangeSummary.Tags)
 	input.ChangeSummary.Services = uniqueSortedStrings(input.ChangeSummary.Services)
 	input.ChangeSummary.CommitMessages = uniquePreserveOrder(input.ChangeSummary.CommitMessages)
+	input.ChangeSummary.Sources = uniqueReleaseContextSources(input.ChangeSummary.Sources)
 	return input
 }
 
-func buildReleaseTargetFromDeploy(spec *commonmodels.JobTaskDeploySpec) *commonmodels.AIReleaseTargetsSummary {
+func buildReleaseTargetFromDeploy(job *commonmodels.JobTask, spec *commonmodels.JobTaskDeploySpec) *commonmodels.AIReleaseTargetsSummary {
 	target := &commonmodels.AIReleaseTargetsSummary{
 		EnvName:    spec.Env,
 		Production: spec.Production,
@@ -400,10 +411,11 @@ func buildReleaseTargetFromDeploy(spec *commonmodels.JobTaskDeploySpec) *commonm
 	if target.TargetCount == 0 && len(target.ServiceNames) > 0 {
 		target.TargetCount = len(target.ServiceNames)
 	}
+	target.Items = append(target.Items, buildReleaseTargetItem(job, target))
 	return target
 }
 
-func buildReleaseTargetFromHelmDeploy(spec *commonmodels.JobTaskHelmDeploySpec) *commonmodels.AIReleaseTargetsSummary {
+func buildReleaseTargetFromHelmDeploy(job *commonmodels.JobTask, spec *commonmodels.JobTaskHelmDeploySpec) *commonmodels.AIReleaseTargetsSummary {
 	target := &commonmodels.AIReleaseTargetsSummary{
 		EnvName:    spec.Env,
 		Production: spec.IsProduction,
@@ -425,10 +437,11 @@ func buildReleaseTargetFromHelmDeploy(spec *commonmodels.JobTaskHelmDeploySpec) 
 	if target.TargetCount == 0 && len(target.ServiceNames) > 0 {
 		target.TargetCount = len(target.ServiceNames)
 	}
+	target.Items = append(target.Items, buildReleaseTargetItem(job, target))
 	return target
 }
 
-func buildReleaseTargetFromHelmChartDeploy(spec *commonmodels.JobTaskHelmChartDeploySpec) *commonmodels.AIReleaseTargetsSummary {
+func buildReleaseTargetFromHelmChartDeploy(job *commonmodels.JobTask, spec *commonmodels.JobTaskHelmChartDeploySpec) *commonmodels.AIReleaseTargetsSummary {
 	target := &commonmodels.AIReleaseTargetsSummary{
 		EnvName: spec.Env,
 	}
@@ -443,6 +456,7 @@ func buildReleaseTargetFromHelmChartDeploy(spec *commonmodels.JobTaskHelmChartDe
 	}
 	target.ServiceNames = uniqueSortedStrings(target.ServiceNames)
 	target.ImageVersions = uniquePreserveOrder(target.ImageVersions)
+	target.Items = append(target.Items, buildReleaseTargetItem(job, target))
 	return target
 }
 
@@ -464,13 +478,110 @@ func mergeReleaseTargets(targets []*commonmodels.AIReleaseTargetsSummary) *commo
 		merged.ServiceNames = append(merged.ServiceNames, target.ServiceNames...)
 		merged.ImageVersions = append(merged.ImageVersions, target.ImageVersions...)
 		merged.TargetCount += target.TargetCount
+		merged.Items = append(merged.Items, target.Items...)
 	}
 	merged.ServiceNames = uniqueSortedStrings(merged.ServiceNames)
 	merged.ImageVersions = uniquePreserveOrder(merged.ImageVersions)
 	if merged.TargetCount == 0 {
 		merged.TargetCount = len(merged.ServiceNames)
 	}
+	merged.Items = uniqueReleaseTargetItems(merged.Items)
 	return merged
+}
+
+func appendChangeSummarySource(changeSummary *commonmodels.AIChangeSummary, job *commonmodels.JobTask) {
+	if changeSummary == nil || job == nil {
+		return
+	}
+	changeSummary.Sources = append(changeSummary.Sources, &commonmodels.AIReleaseContextSource{
+		JobName: job.OriginName,
+		JobType: job.JobType,
+	})
+}
+
+func buildReleaseSummaryItem(job *commonmodels.JobTask, summary string) *commonmodels.AIReleaseSummaryItem {
+	if job == nil {
+		return nil
+	}
+	return &commonmodels.AIReleaseSummaryItem{
+		JobName: job.OriginName,
+		JobType: job.JobType,
+		Status:  string(job.Status),
+		Summary: summary,
+	}
+}
+
+func buildReleaseTargetItem(job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary) *commonmodels.AIReleaseTargetItem {
+	if job == nil || target == nil {
+		return nil
+	}
+	return &commonmodels.AIReleaseTargetItem{
+		JobName:       job.OriginName,
+		JobType:       job.JobType,
+		EnvName:       target.EnvName,
+		EnvAlias:      target.EnvAlias,
+		Production:    target.Production,
+		ServiceNames:  append([]string{}, target.ServiceNames...),
+		ImageVersions: append([]string{}, target.ImageVersions...),
+		TargetCount:   target.TargetCount,
+	}
+}
+
+func uniqueReleaseContextSources(values []*commonmodels.AIReleaseContextSource) []*commonmodels.AIReleaseContextSource {
+	seen := map[string]struct{}{}
+	resp := make([]*commonmodels.AIReleaseContextSource, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType)
+		if key == "|" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, value)
+	}
+	return resp
+}
+
+func uniqueReleaseSummaryItems(values []*commonmodels.AIReleaseSummaryItem) []*commonmodels.AIReleaseSummaryItem {
+	seen := map[string]struct{}{}
+	resp := make([]*commonmodels.AIReleaseSummaryItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType) + "|" + strings.TrimSpace(value.Status) + "|" + strings.TrimSpace(value.Summary)
+		if key == "|||" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, value)
+	}
+	return resp
+}
+
+func uniqueReleaseTargetItems(values []*commonmodels.AIReleaseTargetItem) []*commonmodels.AIReleaseTargetItem {
+	seen := map[string]struct{}{}
+	resp := make([]*commonmodels.AIReleaseTargetItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType) + "|" + strings.TrimSpace(value.EnvName)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, value)
+	}
+	return resp
 }
 
 func collectChangeSummaryFromFreestyleSpec(changeSummary *commonmodels.AIChangeSummary, spec *commonmodels.JobTaskFreestyleSpec) {
