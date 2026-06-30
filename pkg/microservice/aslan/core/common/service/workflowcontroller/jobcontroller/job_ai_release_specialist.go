@@ -147,6 +147,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.Input = input
+	c.jobTaskSpec.SystemPrompt = GetDefaultAIReleaseSpecialistSystemPrompt()
 
 	prompt, err := BuildAIReleaseSpecialistPrompt(c.jobTaskSpec.PromptTemplate, input)
 	if err != nil {
@@ -680,6 +681,10 @@ func BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride
 		PromptTokens:   promptTokens,
 		PromptTooLarge: promptTokens > aiReleaseSpecialistMaxPromptTokens,
 	}, nil
+}
+
+func GetDefaultAIReleaseSpecialistSystemPrompt() string {
+	return buildAIReleaseSpecialistSystemPrompt("")
 }
 
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {

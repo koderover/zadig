@@ -2969,6 +2969,9 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			if err := commonmodels.IToi(job.Spec, spec); err != nil {
 				continue
 			}
+			if spec.SystemPrompt == "" {
+				spec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
+			}
 			jobPreview.Spec = spec
 		default:
 			jobPreview.Spec = job.Spec

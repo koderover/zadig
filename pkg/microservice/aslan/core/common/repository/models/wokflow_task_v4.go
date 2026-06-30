@@ -694,6 +694,7 @@ type JobTaskAIReleaseSpecialistSpec struct {
 	PromptTemplate       string                     `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
 	RequireManualConfirm bool                       `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
 	ConfirmUsers         []*User                    `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	SystemPrompt         string                     `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
 	NativeApproval       *NativeApproval            `bson:"native_approval,omitempty" json:"native_approval,omitempty" yaml:"native_approval,omitempty"`
 	Input                *AIReleaseSpecialistInput  `bson:"input,omitempty" json:"input,omitempty" yaml:"input,omitempty"`
 	Result               *AIReleaseSpecialistResult `bson:"result,omitempty" json:"result,omitempty" yaml:"result,omitempty"`

@@ -64,6 +64,7 @@ import (
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
@@ -1543,6 +1544,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
+		spec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
 		job.Spec = spec
 	}
 	return nil

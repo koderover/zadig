@@ -6,6 +6,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -31,6 +32,7 @@ func CreateAIReleaseSpecialistJobController(job *commonmodels.Job, workflow *com
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return nil, fmt.Errorf("failed to create ai release specialist job controller, error: %s", err)
 	}
+	spec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
 
 	basicInfo := &BasicInfo{
 		name:          job.Name,
@@ -51,6 +53,7 @@ func (j AIReleaseSpecialistJobController) SetWorkflow(wf *commonmodels.WorkflowV
 }
 
 func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
+	j.jobSpec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
 	return j.jobSpec
 }
 
@@ -99,6 +102,7 @@ func (j AIReleaseSpecialistJobController) Update(useUserInput bool, ticket *comm
 	j.jobSpec.PromptTemplate = currJobSpec.PromptTemplate
 	j.jobSpec.RequireManualConfirm = currJobSpec.RequireManualConfirm
 	j.jobSpec.ConfirmUsers = currJobSpec.ConfirmUsers
+	j.jobSpec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
 	return nil
 }
 
@@ -117,6 +121,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 		PromptTemplate:       j.jobSpec.PromptTemplate,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
+		SystemPrompt:         runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt(),
 	}
 	if j.jobSpec.RequireManualConfirm {
 		spec.NativeApproval = &commonmodels.NativeApproval{
