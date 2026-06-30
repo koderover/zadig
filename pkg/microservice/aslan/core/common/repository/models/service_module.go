@@ -75,6 +75,11 @@ type ServiceModule struct {
 	// ExtractImageName, falling back to Name.
 	ImageName string `bson:"image_name,omitempty"      json:"image_name,omitempty"`
 
+	// Ignored marks an auto-discovered module as hidden for this revision.
+	// It is used as a tombstone when users delete an auto module, so later YAML
+	// re-parses (for example saving variables) don't silently add it back.
+	Ignored bool `bson:"ignored,omitempty"         json:"ignored,omitempty"`
+
 	CreateTime int64 `bson:"create_time"               json:"create_time"`
 	UpdateTime int64 `bson:"update_time,omitempty"     json:"update_time,omitempty"`
 }

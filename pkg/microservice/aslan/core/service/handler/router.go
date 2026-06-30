@@ -65,6 +65,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		// per-service; created/updated/deleted by id.
 		k8s.GET("/:name/manual-modules", ListManualServiceModules)
 		k8s.GET("/:name/auto-modules", ListAutoServiceModules)
+		k8s.POST("/:name/auto-modules/recognize", RecognizeAutoServiceModules)
 		k8s.POST("/manual-modules", CreateManualServiceModule)
 		k8s.PUT("/manual-modules/:id", UpdateManualServiceModule)
 		k8s.DELETE("/manual-modules/:id", DeleteManualServiceModule)

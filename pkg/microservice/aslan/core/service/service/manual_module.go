@@ -27,7 +27,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // moduleImagePlaceholderRegex matches `$<name>-image$` anywhere in a string
@@ -215,6 +217,52 @@ func DeleteAutoServiceModule(id string, production bool, log *zap.SugaredLogger)
 		return fmt.Errorf("failed to delete auto module: %s", err)
 	}
 	return nil
+}
+
+// RecognizeAutoServiceModules restores auto-discovered modules hidden for the
+// current service revision and re-runs YAML parsing so the auto list matches
+// the latest service template.
+func RecognizeAutoServiceModules(projectName, serviceName string, production bool, log *zap.SugaredLogger) ([]*commonmodels.ServiceModule, error) {
+	if projectName == "" || serviceName == "" {
+		return nil, fmt.Errorf("projectName and serviceName are required")
+	}
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName:   projectName,
+		ServiceName:   serviceName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if production {
+		svc, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+			ProductName:   projectName,
+			ServiceName:   serviceName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		})
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find service %s/%s: %s", projectName, serviceName, err)
+	}
+	if svc.Type != setting.K8SDeployType {
+		return nil, fmt.Errorf("invalid service type: %v", svc.Type)
+	}
+	if err := repository.RestoreAutoServiceModulesForRevision(context.Background(), projectName, serviceName, production, svc.Revision); err != nil {
+		log.Errorf("failed to restore ignored auto modules for %s/%s rev %d: %s", projectName, serviceName, svc.Revision, err)
+		return nil, fmt.Errorf("failed to restore ignored auto modules: %s", err)
+	}
+
+	yamlForParse := svc.RenderedYaml
+	if yamlForParse == "" {
+		yamlForParse = svc.Yaml
+	}
+	svc.KubeYamls = util.SplitYaml(yamlForParse)
+	if err := commonutil.SetCurrentContainerImages(svc); err != nil {
+		log.Errorf("failed to recognize auto modules for %s/%s rev %d: %s", projectName, serviceName, svc.Revision, err)
+		return nil, fmt.Errorf("failed to recognize auto modules: %s", err)
+	}
+	if err := repository.SyncAutoServiceModules(context.Background(), svc, production); err != nil {
+		log.Errorf("failed to sync recognized auto modules for %s/%s rev %d: %s", projectName, serviceName, svc.Revision, err)
+		return nil, fmt.Errorf("failed to sync recognized auto modules: %s", err)
+	}
+	return repository.ListAutoServiceModules(context.Background(), projectName, serviceName, production, svc.Revision)
 }
 
 // ResolveServiceModules is a convenience wrapper around the merge function
