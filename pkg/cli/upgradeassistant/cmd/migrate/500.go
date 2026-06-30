@@ -26,6 +26,7 @@ import (
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	servicerepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -209,6 +210,13 @@ func migrateServiceModule500(migrationInfo *internalmodels.Migration) error {
 // (corrupt yaml, dead project) doesn't halt the whole migration. The
 // returned count is the number of revisions successfully mirrored.
 func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Collection, label string, production bool) (int, error) {
+	total, countErr := coll.CountDocuments(ctx, bson.M{})
+	if countErr != nil {
+		log.Warnf("migration 5.0.0: failed to count %s db=%s collection=%s: %s", label, config.MongoDatabase(), coll.Name(), countErr)
+	} else {
+		log.Infof("migration 5.0.0: scanning %s db=%s collection=%s total=%d", label, config.MongoDatabase(), coll.Name(), total)
+	}
+
 	cursor, err := coll.Find(ctx, bson.M{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to open cursor over %s: %s", label, err)
@@ -217,6 +225,7 @@ func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Col
 
 	migrated := 0
 	skipped := 0
+	emptyContainers := 0
 	for cursor.Next(ctx) {
 		// Decode into the local legacy view (see legacyServiceForMigration500
 		// above) - commonmodels.Service has bson:"-" on Containers and would
@@ -233,6 +242,12 @@ func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Col
 			Revision:    legacy.Revision,
 			Type:        legacy.Type,
 			Containers:  legacy.Containers,
+		}
+		if len(svc.Containers) == 0 {
+			emptyContainers++
+			if emptyContainers <= 5 {
+				log.Warnf("migration 5.0.0: %s %s/%s rev %d has empty legacy containers", label, svc.ProductName, svc.ServiceName, svc.Revision)
+			}
 		}
 		// SyncAutoServiceModules tolerates empty Containers (no-op) and
 		// validates required fields itself. Errors here are logged but not
@@ -254,5 +269,6 @@ func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Col
 	if skipped > 0 {
 		log.Warnf("migration 5.0.0: %s complete - %d mirrored, %d skipped (inspect warn logs above)", label, migrated, skipped)
 	}
+	log.Infof("migration 5.0.0: %s complete - %d mirrored, %d skipped, %d empty legacy containers", label, migrated, skipped, emptyContainers)
 	return migrated, nil
 }
