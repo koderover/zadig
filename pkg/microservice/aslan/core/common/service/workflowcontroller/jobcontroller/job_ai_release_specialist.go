@@ -40,8 +40,7 @@ import (
 )
 
 const (
-	aiReleaseSpecialistDefaultTimeoutMinutes = 60
-	aiReleaseSpecialistMaxPromptTokens       = 12000
+	aiReleaseSpecialistMaxPromptTokens = 12000
 )
 
 const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员，负责在人工审批前评估本次发布风险，并给出是否建议继续后续发布动作的结论。
@@ -268,7 +267,7 @@ func (c *AIReleaseSpecialistJobCtl) getJobTimeout() int64 {
 	if c.jobTaskSpec.Timeout > 0 {
 		return c.jobTaskSpec.Timeout
 	}
-	return aiReleaseSpecialistDefaultTimeoutMinutes
+	return config.AIReleaseSpecialistDefaultTimeoutMinutes
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRemainingTimeout(jobStartTime time.Time) int64 {

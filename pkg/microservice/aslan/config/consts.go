@@ -38,6 +38,8 @@ const (
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
 	CVMNameRegexString     = "^[a-zA-Z_]\\w*$"
 
+	AIReleaseSpecialistDefaultTimeoutMinutes = 60
+
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
 	EnvRecyclePolicyNever      = "never"

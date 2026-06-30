@@ -25,7 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -110,7 +110,7 @@ func DebugAIReleaseSpecialistPrompt(ctx *handler.Context, req *DebugAIReleaseSpe
 		return resp, nil
 	}
 
-	llmClient, err := commonservice.GetDefaultLLMClient(ctx.Context)
+	llmClient, err := llmservice.GetDefaultLLMClient(ctx.Context)
 	if err != nil {
 		resp.LLMError = err.Error()
 		return resp, nil

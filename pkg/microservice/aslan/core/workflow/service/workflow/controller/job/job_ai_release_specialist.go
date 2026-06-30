@@ -6,7 +6,9 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -16,7 +18,6 @@ const (
 	AIReleaseSpecialistOutputSummary              = "SUMMARY"
 	AIReleaseSpecialistOutputCheckCount           = "CHECK_COUNT"
 	AIReleaseSpecialistOutputCheckDetailsMarkdown = "CHECK_DETAILS_MARKDOWN"
-	aiReleaseSpecialistDefaultTimeoutMinutes      = 60
 )
 
 type AIReleaseSpecialistJobController struct {
@@ -54,6 +55,9 @@ func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
 }
 
 func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
 	if j.jobSpec.RequireManualConfirm && len(j.jobSpec.ConfirmUsers) == 0 {
 		return fmt.Errorf("confirm users cannot be empty when manual confirm is enabled")
 	}
@@ -151,7 +155,7 @@ func (j AIReleaseSpecialistJobController) getTimeout() int64 {
 	if j.jobSpec.Timeout > 0 {
 		return j.jobSpec.Timeout
 	}
-	return aiReleaseSpecialistDefaultTimeoutMinutes
+	return config.AIReleaseSpecialistDefaultTimeoutMinutes
 }
 
 func (j AIReleaseSpecialistJobController) SetRepo(repo *types.Repository) error {
