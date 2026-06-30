@@ -398,6 +398,10 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 	case config.JobApproval:
 		updater := new(ApprovalJobInput)
 		return updater, nil
+	case config.JobAIReleaseSpecialist:
+		updater := new(EmptyInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	case config.JobSQL:
 		updater := new(SQLJobInput)
 		err := commonmodels.IToi(input, updater)

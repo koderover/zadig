@@ -1536,6 +1536,15 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 
 		job.Spec = spec
 	}
+
+	if job.JobType == config.JobAIReleaseSpecialist {
+		spec := &commonmodels.AIReleaseSpecialistJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		job.Spec = spec
+	}
 	return nil
 }
 
