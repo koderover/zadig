@@ -215,6 +215,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 							IsPr:           true,
 							MergeRequestID: mergeRequestID,
 							CommitID:       commitID,
+							CommitSHA:      commitID,
 							CodehostID:     eventRepo.CodehostID,
 							EventType:      eventType,
 						}
@@ -233,6 +234,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 							Ref:        ref,
 							IsPr:       false,
 							CommitID:   commitID,
+							CommitSHA:  commitID,
 							CodehostID: eventRepo.CodehostID,
 							EventType:  eventType,
 						}

@@ -22,7 +22,9 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -65,8 +67,61 @@ func (j NotificationJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
+	if err := validateNotificationJobDynamicRecipients(j.jobSpec); err != nil {
+		return e.ErrLintWorkflow.AddDesc(err.Error())
+	}
 
 	return nil
+}
+
+func validateNotificationJobDynamicRecipients(spec *commonmodels.NotificationJobSpec) error {
+	if spec == nil {
+		return nil
+	}
+
+	validate := func(appID string, recipients commonmodels.DynamicRecipients) error {
+		return dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(spec.WebHookType, appID, []string(recipients))
+	}
+
+	switch spec.WebHookType {
+	case setting.NotifyWebHookTypeFeishu:
+		if spec.LarkHookNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkHookNotificationConfig.AppID, spec.LarkHookNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebhookTypeFeishuApp:
+		if spec.LarkGroupNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkGroupNotificationConfig.AppID, spec.LarkGroupNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeFeishuPerson:
+		if spec.LarkPersonNotificationConfig == nil {
+			return nil
+		}
+		return validate(spec.LarkPersonNotificationConfig.AppID, spec.LarkPersonNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeWechatWork:
+		if spec.WechatNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.WechatNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeDingDing:
+		if spec.DingDingNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.DingDingNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeMSTeam:
+		if spec.MSTeamsNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.MSTeamsNotificationConfig.DynamicRecipients)
+	case setting.NotifyWebHookTypeMail:
+		if spec.MailNotificationConfig == nil {
+			return nil
+		}
+		return validate("", spec.MailNotificationConfig.DynamicRecipients)
+	default:
+		return nil
+	}
 }
 
 func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
@@ -86,30 +141,42 @@ func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodel
 	j.jobSpec.Source = currJobSpec.Source
 
 	if currJobSpec.Source == "runtime" {
+		if currJobSpec.LarkHookNotificationConfig != nil && j.jobSpec.LarkHookNotificationConfig != nil {
+			currJobSpec.LarkHookNotificationConfig.AtUsers = j.jobSpec.LarkHookNotificationConfig.AtUsers
+			currJobSpec.LarkHookNotificationConfig.DynamicRecipients = j.jobSpec.LarkHookNotificationConfig.DynamicRecipients
+			currJobSpec.LarkHookNotificationConfig.IsAtAll = j.jobSpec.LarkHookNotificationConfig.IsAtAll
+		}
 		if currJobSpec.LarkGroupNotificationConfig != nil && j.jobSpec.LarkGroupNotificationConfig != nil {
 			currJobSpec.LarkGroupNotificationConfig.AtUsers = j.jobSpec.LarkGroupNotificationConfig.AtUsers
+			currJobSpec.LarkGroupNotificationConfig.DynamicRecipients = j.jobSpec.LarkGroupNotificationConfig.DynamicRecipients
 			currJobSpec.LarkGroupNotificationConfig.IsAtAll = j.jobSpec.LarkGroupNotificationConfig.IsAtAll
 		}
 		if currJobSpec.LarkPersonNotificationConfig != nil && j.jobSpec.LarkPersonNotificationConfig != nil {
 			currJobSpec.LarkPersonNotificationConfig.TargetUsers = j.jobSpec.LarkPersonNotificationConfig.TargetUsers
+			currJobSpec.LarkPersonNotificationConfig.DynamicRecipients = j.jobSpec.LarkPersonNotificationConfig.DynamicRecipients
 		}
 		if currJobSpec.WechatNotificationConfig != nil && j.jobSpec.WechatNotificationConfig != nil {
 			currJobSpec.WechatNotificationConfig.AtUsers = j.jobSpec.WechatNotificationConfig.AtUsers
+			currJobSpec.WechatNotificationConfig.DynamicRecipients = j.jobSpec.WechatNotificationConfig.DynamicRecipients
 			currJobSpec.WechatNotificationConfig.IsAtAll = j.jobSpec.WechatNotificationConfig.IsAtAll
 		}
 		if currJobSpec.DingDingNotificationConfig != nil && j.jobSpec.DingDingNotificationConfig != nil {
 			currJobSpec.DingDingNotificationConfig.AtMobiles = j.jobSpec.DingDingNotificationConfig.AtMobiles
+			currJobSpec.DingDingNotificationConfig.DynamicRecipients = j.jobSpec.DingDingNotificationConfig.DynamicRecipients
 			currJobSpec.DingDingNotificationConfig.IsAtAll = j.jobSpec.DingDingNotificationConfig.IsAtAll
 		}
 		if currJobSpec.MSTeamsNotificationConfig != nil && j.jobSpec.MSTeamsNotificationConfig != nil {
 			currJobSpec.MSTeamsNotificationConfig.AtEmails = j.jobSpec.MSTeamsNotificationConfig.AtEmails
+			currJobSpec.MSTeamsNotificationConfig.DynamicRecipients = j.jobSpec.MSTeamsNotificationConfig.DynamicRecipients
 		}
 		if currJobSpec.MailNotificationConfig != nil && j.jobSpec.MailNotificationConfig != nil {
 			currJobSpec.MailNotificationConfig.TargetUsers = j.jobSpec.MailNotificationConfig.TargetUsers
+			currJobSpec.MailNotificationConfig.DynamicRecipients = j.jobSpec.MailNotificationConfig.DynamicRecipients
 		}
 	}
 
 	// use the latest webhook settings, except for title and content
+	j.jobSpec.LarkHookNotificationConfig = currJobSpec.LarkHookNotificationConfig
 	j.jobSpec.LarkGroupNotificationConfig = currJobSpec.LarkGroupNotificationConfig
 	j.jobSpec.LarkPersonNotificationConfig = currJobSpec.LarkPersonNotificationConfig
 	j.jobSpec.WechatNotificationConfig = currJobSpec.WechatNotificationConfig
@@ -218,6 +285,7 @@ func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commo
 		return nil, err
 	}
 
+	resp.LarkHookNotificationConfig = spec.LarkHookNotificationConfig
 	resp.MailNotificationConfig = spec.MailNotificationConfig
 	resp.WechatNotificationConfig = spec.WechatNotificationConfig
 	resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
