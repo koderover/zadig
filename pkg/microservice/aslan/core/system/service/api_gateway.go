@@ -61,6 +61,7 @@ func DeleteApiGateway(idHex string, log *zap.SugaredLogger) error {
 // ValidateApiGateway validates the api gateway connection
 // TODO: Implement the actual validation logic
 func ValidateApiGateway(apiGateway *models.ApiGateway, log *zap.SugaredLogger) error {
+	log.Infof("Validate api gateway: %v", apiGateway)
 	client := apisix.NewClient(apiGateway.Address, apiGateway.Token)
 
 	_, err := client.ListUpstreams(1, 10)
@@ -71,4 +72,3 @@ func ValidateApiGateway(apiGateway *models.ApiGateway, log *zap.SugaredLogger) e
 
 	return nil
 }
-
