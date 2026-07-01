@@ -700,6 +700,65 @@ type JobTaskApprovalSpec struct {
 	ApprovalMessage  string              `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
 }
 
+type JobTaskAIReleaseSpecialistSpec struct {
+	Timeout              int64                      `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string                     `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RequireManualConfirm bool                       `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User                    `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	NativeApproval       *NativeApproval            `bson:"native_approval,omitempty" json:"native_approval,omitempty" yaml:"native_approval,omitempty"`
+	Input                *AIReleaseSpecialistInput  `bson:"input,omitempty" json:"input,omitempty" yaml:"input,omitempty"`
+	Result               *AIReleaseSpecialistResult `bson:"result,omitempty" json:"result,omitempty" yaml:"result,omitempty"`
+	ChangeSummaryText    string                     `bson:"change_summary_text,omitempty" json:"change_summary_text,omitempty" yaml:"change_summary_text,omitempty"`
+}
+
+type AIReleaseSpecialistInput struct {
+	ReleaseTargets *AIReleaseTargetsSummary `json:"release_targets,omitempty"`
+	ChangeSummary  *AIChangeSummary         `json:"change_summary,omitempty"`
+	ScanSummary    *AIScanSummary           `json:"scan_summary,omitempty"`
+	TestSummary    *AITestSummary           `json:"test_summary,omitempty"`
+}
+
+type AIReleaseTargetsSummary struct {
+	EnvName       string   `json:"env_name,omitempty"`
+	EnvAlias      string   `json:"env_alias,omitempty"`
+	Production    bool     `json:"production,omitempty"`
+	ServiceNames  []string `json:"service_names,omitempty"`
+	ImageVersions []string `json:"image_versions,omitempty"`
+	TargetCount   int      `json:"target_count,omitempty"`
+}
+
+type AIChangeSummary struct {
+	Remark         string   `json:"remark,omitempty"`
+	Branches       []string `json:"branches,omitempty"`
+	Tags           []string `json:"tags,omitempty"`
+	CommitMessages []string `json:"commit_messages,omitempty"`
+	Services       []string `json:"services,omitempty"`
+}
+
+type AIScanSummary struct {
+	JobStatuses []string `json:"job_statuses,omitempty"`
+	Summaries   []string `json:"summaries,omitempty"`
+}
+
+type AITestSummary struct {
+	JobStatuses []string `json:"job_statuses,omitempty"`
+	Summaries   []string `json:"summaries,omitempty"`
+}
+
+type AIReleaseSpecialistResult struct {
+	Conclusion string                          `json:"conclusion"`
+	Summary    string                          `json:"summary"`
+	Checks     []*AIReleaseSpecialistCheckItem `json:"checks"`
+	RawText    string                          `json:"raw_text"`
+}
+
+type AIReleaseSpecialistCheckItem struct {
+	Name       string `json:"name"`
+	Result     string `json:"result"`
+	Evidence   string `json:"evidence"`
+	Suggestion string `json:"suggestion"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`

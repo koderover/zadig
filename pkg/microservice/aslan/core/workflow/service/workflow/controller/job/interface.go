@@ -80,6 +80,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateApolloJobController(job, workflow)
 	case config.JobApproval:
 		return CreateApprovalJobController(job, workflow)
+	case config.JobAIReleaseSpecialist:
+		return CreateAIReleaseSpecialistJobController(job, workflow)
 	case config.JobK8sBlueGreenDeploy:
 		return CreateBlueGreenDeployJobController(job, workflow)
 	case config.JobK8sBlueGreenRelease:
