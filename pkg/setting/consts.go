@@ -48,6 +48,7 @@ const (
 	ENVPodIP                      = "BE_POD_IP"
 	ENVNamespace                  = "BE_POD_NAMESPACE"
 	ENVDisableKubeClientKeepAlive = "DISABLE_KUBE_CLIENT_KEEP_ALIVE"
+	ENVKubeInformerIdleTimeout    = "KUBE_INFORMER_IDLE_TIMEOUT_MINUTES"
 
 	// Aslan
 	ENVLogLevel                  = "LOG_LEVEL"
