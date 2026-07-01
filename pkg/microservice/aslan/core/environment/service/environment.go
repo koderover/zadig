@@ -596,10 +596,16 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		strategyMap := make(map[string]setting.ServiceDeployStrategy)
 		overrideResourceMap := make(map[string]bool)
 		updateSvcs := make([]*templatemodels.ServiceRender, 0)
+		requestSvcs := make([]string, 0)
 		updateRevisionSvcs := make([]string, 0)
+		serviceRevisionMap := make(map[string]*SvcRevision)
+		if prodRevision, ok := productMap[arg.EnvName]; ok {
+			serviceRevisionMap = getServiceRevisionMap(prodRevision.ServiceRevisions)
+		}
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
 			overrideResourceMap[svc.ServiceName] = svc.OverrideResource
+			requestSvcs = append(requestSvcs, svc.ServiceName)
 
 			err = commontypes.ValidateRenderVariables(exitedProd.GlobalVariables, svc.VariableKVs)
 			if err != nil {
@@ -614,16 +620,18 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 					RenderVariableKVs: svc.VariableKVs,
 				},
 			})
-			updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
+			if svcRev, ok := serviceRevisionMap[serviceNameTypeKey(svc.ServiceName, setting.K8SDeployType)]; ok && svcRev.Updatable {
+				updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
+			}
 		}
 
 		filter := func(svc *commonmodels.ProductService) bool {
-			return util.InStringArray(svc.ServiceName, updateRevisionSvcs)
+			return util.InStringArray(svc.ServiceName, requestSvcs)
 		}
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, overrideResourceMap, force, exitedProd.GlobalVariables, log)
+		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, requestSvcs, filter, updateSvcs, strategyMap, overrideResourceMap, force, exitedProd.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -2212,6 +2220,10 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, userName, requestID string, log *zap.SugaredLogger) error {
+	requestSvcs := make([]string, 0, len(productResp.ServiceRenders))
+	for _, sr := range productResp.ServiceRenders {
+		requestSvcs = append(requestSvcs, sr.ServiceName)
+	}
 	filter := func(service *commonmodels.ProductService) bool {
 		for _, sr := range productResp.ServiceRenders {
 			if sr.ServiceName == service.ServiceName {
@@ -2220,7 +2232,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 		}
 		return false
 	}
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, nil, false, productResp.GlobalVariables, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, requestSvcs, filter, productResp.ServiceRenders, nil, nil, false, productResp.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
