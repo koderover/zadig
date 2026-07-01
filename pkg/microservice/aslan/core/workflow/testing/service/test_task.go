@@ -241,10 +241,19 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		}
 	}
 
+	errorMsg := workflowTask.Stages[0].Jobs[0].Error
+	if errorMsg == "" {
+		errorMsg = workflowTask.Stages[0].Error
+	}
+	if errorMsg == "" {
+		errorMsg = workflowTask.Error
+	}
+
 	subTaskInfo[testName] = map[string]interface{}{
 		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
 		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
 		"status":     workflowTask.Stages[0].Jobs[0].Status,
+		"error":      errorMsg,
 		"job_ctx": struct {
 			JobName       string              `json:"job_name"`
 			IsHasArtifact bool                `json:"is_has_artifact"`
@@ -265,6 +274,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		SubTasks:  subTaskInfo,
 		StartTime: workflowTask.Stages[0].StartTime,
 		EndTime:   workflowTask.Stages[0].EndTime,
+		Error:     errorMsg,
 		TypeName:  workflowTask.Stages[0].Name,
 	})
 
@@ -280,9 +290,11 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		CreateTime:          workflowTask.CreateTime,
 		StartTime:           workflowTask.StartTime,
 		EndTime:             workflowTask.EndTime,
+		Error:               errorMsg,
 		Stages:              stages,
 		TestReports:         testResultMap,
 		IsRestart:           workflowTask.IsRestart,
+		Events:              jobSpec.Events,
 	}, nil
 }
 
