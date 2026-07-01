@@ -1216,7 +1216,14 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
 		modulesMap := make(map[string]struct{})
-		for _, module := range service.Containers {
+		// Service.Containers is no longer persisted; read modules from the
+		// normalized module store so services not deployed in the env still
+		// expose their selectable modules in workflow presets.
+		containers, _, rErr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, production, service.Revision)
+		if rErr != nil {
+			return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", service.ProductName, service.ServiceName, service.Revision, rErr)
+		}
+		for _, module := range containers {
 			modulesMap[module.Name] = struct{}{}
 			if approvalTicket.IsAllowedService(project, service.ServiceName, module.Name) {
 				modules = append(modules, &commonmodels.DeployModuleInfo{
