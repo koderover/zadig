@@ -235,6 +235,61 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 	return resp, count, nil
 }
 
+func (c *ReleasePlanColl) FindReleasePlanRefsByWorkflowAndTaskIDs(workflowName string, taskIDs []int64) (map[int64]*models.ReleasePlanRef, error) {
+	result := make(map[int64]*models.ReleasePlanRef)
+	if workflowName == "" || len(taskIDs) == 0 {
+		return result, nil
+	}
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{
+			"jobs.type":               config.JobWorkflow,
+			"jobs.spec.workflow.name": workflowName,
+		}}},
+		{{Key: "$unwind", Value: "$jobs"}},
+		{{Key: "$match", Value: bson.M{
+			"jobs.type":               config.JobWorkflow,
+			"jobs.spec.workflow.name": workflowName,
+			"jobs.spec.task_id":       bson.M{"$in": taskIDs},
+		}}},
+		{{Key: "$project", Value: bson.M{
+			"task_id": "$jobs.spec.task_id",
+			"id":      bson.M{"$toString": "$_id"},
+			"name":    "$name",
+			"index":   "$index",
+		}}},
+	}
+
+	type releasePlanTaskRefResult struct {
+		TaskID int64  `bson:"task_id"`
+		ID     string `bson:"id"`
+		Name   string `bson:"name"`
+		Index  int64  `bson:"index"`
+	}
+
+	cursor, err := c.Collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*releasePlanTaskRefResult, 0)
+	if err := cursor.All(context.Background(), &resp); err != nil {
+		return nil, err
+	}
+
+	for _, item := range resp {
+		if item == nil {
+			continue
+		}
+		result[item.TaskID] = &models.ReleasePlanRef{
+			ID:    item.ID,
+			Name:  item.Name,
+			Index: item.Index,
+		}
+	}
+	return result, nil
+}
+
 // ListFinishedReleasePlan list all finished release plans in the given time period
 func (c *ReleasePlanColl) ListFinishedReleasePlan(startTime, endTime int64) ([]*models.ReleasePlan, error) {
 	query := bson.M{}

@@ -2183,6 +2183,39 @@ type TaskHistoryFilter struct {
 	JobName      string `json:"jobName" form:"jobName"`
 }
 
+func fillWorkflowTaskReleasePlans(workflowName string, tasks []*commonmodels.WorkflowTask) map[int64]*commonmodels.ReleasePlanRef {
+	result := make(map[int64]*commonmodels.ReleasePlanRef)
+	if workflowName == "" || len(tasks) == 0 {
+		return result
+	}
+
+	taskIDs := make([]int64, 0)
+	for _, task := range tasks {
+		if task == nil {
+			continue
+		}
+		if task.ReleasePlan != nil {
+			result[task.TaskID] = task.ReleasePlan
+			continue
+		}
+		taskIDs = append(taskIDs, task.TaskID)
+	}
+
+	if len(taskIDs) == 0 {
+		return result
+	}
+
+	planMap, err := commonrepo.NewReleasePlanColl().FindReleasePlanRefsByWorkflowAndTaskIDs(workflowName, taskIDs)
+	if err != nil {
+		log.Errorf("find workflow task release plan refs error: %v", err)
+		return result
+	}
+	for taskID, releasePlan := range planMap {
+		result[taskID] = releasePlan
+	}
+	return result
+}
+
 func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, logger *zap.SugaredLogger) ([]*commonmodels.WorkflowTaskPreview, int64, error) {
 	var listTaskOpt *mongodb.WorkFlowTaskFilter
 	switch filter.QueryType {
@@ -2224,6 +2257,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		return nil, total, err
 	}
 
+	releasePlanMap := fillWorkflowTaskReleasePlans(filter.WorkflowName, tasks)
 	envMap := make(map[string]*commonmodels.Product)
 	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
 	for _, task := range tasks {
@@ -2243,7 +2277,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			LarkWorkItemAPIName:   task.LarkWorkItemAPIName,
 			LarkWorkItemID:        task.LarkWorkItemID,
 			Hash:                  task.Hash,
-			ReleasePlan:           task.ReleasePlan,
+			ReleasePlan:           releasePlanMap[task.TaskID],
 		}
 
 		stagePreviews := make([]*commonmodels.StagePreview, 0)
@@ -2424,6 +2458,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, err
 	}
+	releasePlanMap := fillWorkflowTaskReleasePlans(workflowName, []*commonmodels.WorkflowTask{task})
 	resp := &WorkflowTaskPreview{
 		TaskID:              task.TaskID,
 		WorkflowName:        task.WorkflowName,
@@ -2443,7 +2478,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		Debug:               task.IsDebug,
 		ApprovalTicketID:    task.ApprovalTicketID,
 		ApprovalID:          task.ApprovalID,
-		ReleasePlan:         task.ReleasePlan,
+		ReleasePlan:         releasePlanMap[task.TaskID],
 	}
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {
