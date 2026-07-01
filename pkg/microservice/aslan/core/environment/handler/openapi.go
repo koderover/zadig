@@ -494,7 +494,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, !req.NotDeleteResource, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, !req.NotDeleteResource, nil, ctx.Logger)
 }
 
 func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
@@ -550,7 +550,7 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, !req.NotDeleteResource, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, !req.NotDeleteResource, nil, ctx.Logger)
 }
 
 func OpenAPIApplyProductionYamlService(c *gin.Context) {

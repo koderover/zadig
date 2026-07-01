@@ -2574,7 +2574,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 
 				// @todo fix env already deleted issue, may cause service not really deleted in k8s
-				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, isDelete, log)
+				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, isDelete, nil, log)
 				if err != nil {
 					log.Warnf("DeleteProductServices error: %v", err)
 				}
@@ -2617,7 +2617,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	return nil
 }
 
-func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production, isDelete bool, log *zap.SugaredLogger) (err error) {
+func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production, isDelete bool, deleteResources map[string][]*K8sServiceResource, log *zap.SugaredLogger) (err error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
 		err = fmt.Errorf("failed to find product, productName: %s, envName: %s, production: %v, error: %v", productName, envName, production, err)
@@ -2627,7 +2627,7 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 	if getProjectType(productName) == setting.HelmDeployType {
 		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, isDelete, log)
 	}
-	return deleteK8sProductServices(productInfo, serviceNames, isDelete, log)
+	return deleteK8sProductServices(productInfo, serviceNames, isDelete, deleteResources, log)
 }
 
 func DeleteProductHelmReleases(userName, requestID, envName, productName string, releases []string, production, isDelete bool, log *zap.SugaredLogger) (err error) {
@@ -2643,7 +2643,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, isDelete, log)
 }
 
-func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, isDelete bool, log *zap.SugaredLogger) error {
+func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, isDelete bool, deleteResources map[string][]*K8sServiceResource, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
 		if !commonutil.ServiceIsDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) || !isDelete {
@@ -2659,6 +2659,20 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			if err != nil {
 				log.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", service.ServiceName, err)
 				return fmt.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", service.ServiceName, err)
+			}
+
+			if deleteResources != nil {
+				selectedResources, ok := deleteResources[service.ServiceName]
+				if ok {
+					yaml, err = filterSelectedServiceResourceYaml(yaml, selectedResources)
+					if err != nil {
+						log.Errorf("failed to filter selected k8s resources for service : %s, err: %s", service.ServiceName, err)
+						return fmt.Errorf("failed to filter selected k8s resources for service : %s, err: %s", service.ServiceName, err)
+					}
+					if len(selectedResources) == 0 {
+						log.Infof("all k8s resources are retained when deleting service %s in env %s/%s", service.ServiceName, productInfo.ProductName, productInfo.EnvName)
+					}
+				}
 			}
 			serviceRelatedYaml[service.ServiceName] = yaml
 		}
