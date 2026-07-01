@@ -547,6 +547,32 @@ func ListRolesByNamespaceAndUserID(projectName, uid string, log *zap.SugaredLogg
 	return resp, nil
 }
 
+func ListRolesByNamespaceAndUserIDs(projectName string, uids []string, log *zap.SugaredLogger) (map[string][]*types.Role, error) {
+	rolesByUID, err := orm.ListRoleByUIDsAndNamespace(uids, projectName, repository.DB)
+	if err != nil {
+		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
+		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
+	}
+
+	resp := make(map[string][]*types.Role, len(rolesByUID))
+	for uid, roles := range rolesByUID {
+		roleList := make([]*types.Role, 0, len(roles))
+		for _, role := range roles {
+			roleList = append(roleList, &types.Role{
+				ID:             role.ID,
+				Name:           role.Name,
+				Namespace:      role.Namespace,
+				Description:    role.Description,
+				Type:           convertDBRoleType(role.Type),
+				GlobalReadOnly: role.GlobalReadOnly,
+			})
+		}
+		resp[uid] = roleList
+	}
+
+	return resp, nil
+}
+
 func GetRole(ns, name string, log *zap.SugaredLogger) (*types.DetailedRole, error) {
 	role, err := orm.GetRole(name, ns, repository.DB)
 	if err != nil {

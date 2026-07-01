@@ -32,6 +32,7 @@ type User struct {
 	Phone           string `json:"phone"`
 	IdentityType    string `json:"identity_type"`
 	Account         string `json:"account"`
+	MFAEnabled      bool   `json:"mfa_enabled"`
 	APITokenEnabled bool   `json:"api_token_enabled"`
 }
 
@@ -40,10 +41,11 @@ type usersResp struct {
 }
 
 type SearchArgs struct {
-	Name    string   `json:"name"`
-	UIDs    []string `json:"uids"`
-	PerPage int      `json:"per_page,omitempty"`
-	Page    int      `json:"page,omitempty"`
+	Name       string   `json:"name"`
+	UIDs       []string `json:"uids"`
+	PerPage    int      `json:"per_page,omitempty"`
+	Page       int      `json:"page,omitempty"`
+	MFAEnabled *bool    `json:"mfa_enabled,omitempty"`
 }
 
 func (c *Client) ListUsers(args *SearchArgs) ([]*User, error) {
@@ -86,6 +88,7 @@ type SearchUserArgs struct {
 	UIDs         []string `json:"uids,omitempty"`
 	PerPage      int      `json:"per_page,omitempty"`
 	Page         int      `json:"page,omitempty"`
+	MFAEnabled   *bool    `json:"mfa_enabled,omitempty"`
 }
 
 type SearchUserResp struct {
