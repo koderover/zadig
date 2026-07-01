@@ -91,6 +91,13 @@ func (c *RedisCache) GetString(key string) (string, error) {
 	return c.redisClient.Get(context.TODO(), key).Result()
 }
 
+func (c *RedisCache) MGet(keys []string) ([]interface{}, error) {
+	if len(keys) == 0 {
+		return []interface{}{}, nil
+	}
+	return c.redisClient.MGet(context.TODO(), keys...).Result()
+}
+
 func (c *RedisCache) HGetString(key, field string) (string, error) {
 	return c.redisClient.HGet(context.TODO(), key, field).Result()
 }
