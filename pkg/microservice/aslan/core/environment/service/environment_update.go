@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -38,7 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -193,7 +191,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 			}
 			return false
 		}
-		err = updateK8sProduct(product, "system", "", []string{svcRender.ServiceName}, []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, nil, false, product.GlobalVariables, log.SugaredLogger())
+		err = updateK8sProduct(product, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, nil, false, product.GlobalVariables, log.SugaredLogger())
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
@@ -201,7 +199,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 	return retErr.ErrorOrNil()
 }
 
-func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc, requestSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]setting.ServiceDeployStrategy, overrideResource map[string]bool,
+func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]setting.ServiceDeployStrategy, overrideResource map[string]bool,
 	force bool, globalVariables []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(exitedProd.ClusterID)
@@ -213,7 +211,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(exitedProd.Namespace, kubeClient))
 		var specifyModifiedServices []*serviceInfo
 		for _, modifiedService := range modifiedServices {
-			if util.InStringArray(modifiedService.Name, requestSvc) {
+			if util.InStringArray(modifiedService.Name, updateRevisionSvc) {
 				specifyModifiedServices = append(specifyModifiedServices, modifiedService)
 			}
 		}
@@ -234,11 +232,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
-	requestSvcSet := sets.NewString(requestSvc...)
-
-	if err := syncUpdatedServiceImagesFromWorkloads(exitedProd, requestSvcSet, deployStrategy, kubeClient, log); err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
 
 	updatedSvcMap := make(map[string]*templatemodels.ServiceRender)
 
@@ -448,30 +441,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			return
 		}
 	}()
-
-	return nil
-}
-
-func syncUpdatedServiceImagesFromWorkloads(product *commonmodels.Product, requestSvcSet sets.String, deployStrategy map[string]setting.ServiceDeployStrategy, kubeClient client.Client, log *zap.SugaredLogger) error {
-	if product == nil || len(requestSvcSet) == 0 {
-		return nil
-	}
-
-	for _, service := range product.GetServiceMap() {
-		if service == nil || service.Type != setting.K8SDeployType || !requestSvcSet.Has(service.ServiceName) {
-			continue
-		}
-		if commonutil.ServiceIsImported(service.ServiceName, deployStrategy) || commonutil.ServiceIsDraft(service.ServiceName, deployStrategy) {
-			continue
-		}
-
-		containers, err := fetchWorkloadImages(service, product, kubeClient)
-		if err != nil {
-			log.Warnf("failed to sync current workload images for service %s/%s before update: %v", product.EnvName, service.ServiceName, err)
-			continue
-		}
-		service.Containers = commonutil.FoldManualModulesInto(containers, service.Containers)
-	}
 
 	return nil
 }
