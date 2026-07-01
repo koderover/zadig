@@ -725,6 +725,9 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	if result.Conclusion == "" {
 		return nil, fmt.Errorf("empty conclusion")
 	}
+	if !isValidAIReleaseSpecialistConclusion(result.Conclusion) {
+		return nil, fmt.Errorf("invalid conclusion: %s", result.Conclusion)
+	}
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil
 }
@@ -759,6 +762,15 @@ func normalizeAIResultValue(value string) string {
 		return "fail"
 	default:
 		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func isValidAIReleaseSpecialistConclusion(value string) bool {
+	switch value {
+	case "pass", "warning", "fail":
+		return true
+	default:
+		return false
 	}
 }
 
