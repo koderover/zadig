@@ -30,6 +30,7 @@ const (
 	envRegexString       = `\$EnvName\$`
 	productRegexString   = `\$Product\$`
 	serviceRegexString   = `\$Service\$`
+	clusterRegexString   = `\$ClusterName\$`
 )
 
 var (
@@ -41,13 +42,15 @@ var (
 	productRegex   = regexp.MustCompile(productRegexString)
 	envNameRegex   = regexp.MustCompile(envRegexString)
 	serviceRegex   = regexp.MustCompile(serviceRegexString)
+	clusterRegex   = regexp.MustCompile(clusterRegexString)
 )
 
 // ParseSysKeys 渲染系统变量键值
-func ParseSysKeys(namespace, envName, productName, serviceName, ori string) string {
+func ParseSysKeys(namespace, envName, productName, serviceName, clusterName, ori string) string {
 	ori = envNameRegex.ReplaceAllLiteralString(ori, strings.ToLower(envName))
 	ori = namespaceRegex.ReplaceAllLiteralString(ori, strings.ToLower(namespace))
 	ori = productRegex.ReplaceAllLiteralString(ori, strings.ToLower(productName))
 	ori = serviceRegex.ReplaceAllLiteralString(ori, strings.ToLower(serviceName))
+	ori = clusterRegex.ReplaceAllLiteralString(ori, strings.ToLower(clusterName))
 	return ori
 }

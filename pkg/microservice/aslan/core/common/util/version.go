@@ -22,6 +22,10 @@ func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, is
 }
 
 func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail string, session mongo.Session, log *zap.SugaredLogger) error {
+	return CreateEnvServiceVersionWithClusterName(env, prodSvc, createBy, operation, detail, "", session, log)
+}
+
+func CreateEnvServiceVersionWithClusterName(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail, clusterName string, session mongo.Session, log *zap.SugaredLogger) error {
 	name := prodSvc.ServiceName
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
@@ -50,11 +54,21 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		return fmt.Errorf("failed to find template product %s, error: %v", env.ProductName, err)
 	}
 
+	var cluster *models.K8SCluster
+	if clusterName == "" && env.ClusterID != "" {
+		cluster, err = commonrepo.NewK8SClusterColl().FindByID(env.ClusterID)
+		if err != nil {
+			return fmt.Errorf("failed to find cluster by id %s, error: %v", env.ClusterID, err)
+		}
+		clusterName = cluster.Name
+	}
+
 	svcVersionColl := mongodb.NewEnvServiceVersionCollWithSession(session)
 	version := &models.EnvServiceVersion{
 		ProductName:     env.ProductName,
 		EnvName:         env.EnvName,
 		Namespace:       env.Namespace,
+		ClusterName:     clusterName,
 		Production:      env.Production,
 		Revision:        revision,
 		Service:         prodSvc,

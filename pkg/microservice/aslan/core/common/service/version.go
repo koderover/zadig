@@ -139,14 +139,42 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		return resp, nil
 	}
 
+	// for get clusterID
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &isProduction,
+	})
+	if err != nil {
+		return resp, fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", projectName, envName, isProduction, err)
+	}
+
 	if envSvcRevision.Service.Type == setting.K8SDeployType {
 		fakeEnv := &commonmodels.Product{
 			ProductName: envSvcRevision.ProductName,
 			EnvName:     envSvcRevision.EnvName,
+			ClusterID:   env.ClusterID,
 			Namespace:   envSvcRevision.Namespace,
 			Production:  envSvcRevision.Production,
 		}
-		parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcRevision.Service.GetServiceRender(), envSvcRevision.Service)
+		clusterName := envSvcRevision.ClusterName
+		if clusterName == "" {
+			cluster, err := kube.GetCluster(env.ClusterID)
+			if err != nil {
+				return resp, err
+			}
+			clusterName = cluster.Name
+		}
+		svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: envSvcRevision.Service.ServiceName,
+			ProductName: envSvcRevision.ProductName,
+			Type:        envSvcRevision.Service.Type,
+			Revision:    envSvcRevision.Service.Revision,
+		}, envSvcRevision.Production)
+		if err != nil {
+			return resp, fmt.Errorf("failed to find %s/%s/%d service template, isProduction %v, error: %v", envSvcRevision.ProductName, envSvcRevision.Service.ServiceName, envSvcRevision.Service.Revision, envSvcRevision.Production, err)
+		}
+		parsedYaml, err := kube.RenderEnvServiceWithTempl(fakeEnv, envSvcRevision.Service.GetServiceRender(), envSvcRevision.Service, svcTmpl, clusterName)
 		if err != nil {
 			err = fmt.Errorf("Failed to render env Service %s, error: %v", envSvcRevision.Service.ServiceName, err)
 			return resp, err
@@ -396,7 +424,8 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					VariableKVs:           envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs,
 					Containers:            envSvcVersion.Service.Containers,
 				}
-				_, _, resources, err := kube.GenerateRenderedYaml(option)
+				var resources []*kube.WorkloadResource
+				_, _, resources, err = kube.GenerateRenderedYaml(option)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 				}
@@ -419,10 +448,28 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				fakeEnv := &commonmodels.Product{
 					ProductName: envSvcVersion.ProductName,
 					EnvName:     envSvcVersion.EnvName,
+					ClusterID:   env.ClusterID,
 					Namespace:   envSvcVersion.Namespace,
 					Production:  envSvcVersion.Production,
 				}
-				parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcVersion.Service.GetServiceRender(), envSvcVersion.Service)
+				clusterName := envSvcVersion.ClusterName
+				if clusterName == "" {
+					cluster, err := kube.GetCluster(env.ClusterID)
+					if err != nil {
+						return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+					}
+					clusterName = cluster.Name
+				}
+				svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+					ServiceName: envSvcVersion.Service.ServiceName,
+					ProductName: envSvcVersion.ProductName,
+					Type:        envSvcVersion.Service.Type,
+					Revision:    envSvcVersion.Service.Revision,
+				}, envSvcVersion.Production)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%d service template, isProduction %v, error: %v", envSvcVersion.ProductName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, envSvcVersion.Production, err))
+				}
+				parsedYaml, err := kube.RenderEnvServiceWithTempl(fakeEnv, envSvcVersion.Service.GetServiceRender(), envSvcVersion.Service, svcTmpl, clusterName)
 				if err != nil {
 					err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
@@ -502,7 +549,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 
 				env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-				err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail)
+				err = helmservice.UpdateServiceInEnvWithClusterName(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail, envSvcVersion.ClusterName)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 				}
