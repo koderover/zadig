@@ -50,6 +50,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -93,6 +94,10 @@ func CreateK8SDeliveryVersionV2(args *CreateDeliveryVersionRequest, logger *zap.
 
 	targetRegistry, err := checkDeliveryVersionRegistry(args, registryMap)
 	if err != nil {
+		return err
+	}
+
+	if err = fillK8SDeliveryVersionYamlContent(args); err != nil {
 		return err
 	}
 
@@ -1237,6 +1242,8 @@ func GetDeliveryVersionDetailV2(args *commonrepo.DeliveryVersionV2Args, log *zap
 		return nil, e.ErrGetDeliveryVersion
 	}
 
+	fillDeliveryVersionYamlContentForDetail(version, log)
+
 	// order deploys by service name
 	productTemplate, err := templaterepo.NewProductColl().Find(version.ProjectName)
 	if err != nil {
@@ -1262,6 +1269,82 @@ func GetDeliveryVersionDetailV2(args *commonrepo.DeliveryVersionV2Args, log *zap
 	})
 
 	return version, nil
+}
+
+func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest) error {
+	if args == nil || args.Source != setting.DeliveryVersionSourceFromEnv {
+		return nil
+	}
+
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       args.ProjectName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find env, projectName: %s, envName: %s, err: %v", args.ProjectName, args.EnvName, err)
+	}
+
+	return fillDeliveryVersionServicesYamlContent(env, args.Services)
+}
+
+func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersionV2, logger *zap.SugaredLogger) {
+	if version == nil ||
+		version.Type != setting.DeliveryVersionTypeYaml ||
+		version.Source != setting.DeliveryVersionSourceFromEnv ||
+		!hasEmptyDeliveryVersionYamlContent(version.Services) {
+		return
+	}
+
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       version.ProjectName,
+		EnvName:    version.EnvName,
+		Production: &version.Production,
+	})
+	if err != nil {
+		logger.Errorf("failed to find env to fill delivery version yaml content, projectName: %s, envName: %s, err: %v", version.ProjectName, version.EnvName, err)
+		return
+	}
+
+	if err = fillDeliveryVersionServicesYamlContent(env, version.Services); err != nil {
+		logger.Errorf("failed to fill delivery version yaml content, version: %s, projectName: %s, err: %v", version.Version, version.ProjectName, err)
+	}
+}
+
+func hasEmptyDeliveryVersionYamlContent(services []*commonmodels.DeliveryVersionService) bool {
+	for _, service := range services {
+		if service != nil && service.YamlContent == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService) error {
+	if env == nil {
+		return fmt.Errorf("env is nil")
+	}
+
+	serviceMap := env.GetServiceMap()
+	for _, service := range services {
+		if service == nil || service.YamlContent != "" {
+			continue
+		}
+
+		envSvc := serviceMap[service.ServiceName]
+		if envSvc == nil {
+			return fmt.Errorf("not found service %s in env %s", service.ServiceName, env.EnvName)
+		}
+
+		yamlContent, err := kube.RenderEnvService(env, envSvc.GetServiceRender(), envSvc)
+		if err != nil {
+			return fmt.Errorf("failed to render env service yaml, projectName: %s, envName: %s, serviceName: %s, err: %w",
+				env.ProductName, env.EnvName, service.ServiceName, err)
+		}
+		service.YamlContent = yamlContent
+	}
+
+	return nil
 }
 
 func CheckDeliveryImageStatus(version *commonmodels.DeliveryVersionV2, workflowTask *commonmodels.WorkflowTask, log *zap.SugaredLogger) (bool, error) {
