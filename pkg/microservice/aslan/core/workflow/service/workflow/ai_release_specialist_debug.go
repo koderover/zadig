@@ -84,12 +84,20 @@ func DebugAIReleaseSpecialistPrompt(ctx *handler.Context, req *DebugAIReleaseSpe
 	if err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("build ai release specialist input failed: %v", err))
 	}
-	promptTemplate, err := getAIReleaseSpecialistPromptTemplate(workflowName, jobName, req.PromptTemplate, logger)
+	spec, err := getAIReleaseSpecialistJobSpec(workflowName, jobName, logger)
 	if err != nil {
 		return nil, err
 	}
+	promptTemplate := strings.TrimSpace(spec.PromptTemplate)
+	if strings.TrimSpace(req.PromptTemplate) != "" {
+		promptTemplate = strings.TrimSpace(req.PromptTemplate)
+	}
+	systemPromptOverride := strings.TrimSpace(req.SystemPromptOverride)
+	if systemPromptOverride == "" {
+		systemPromptOverride = spec.SystemPrompt
+	}
 
-	debugResult, err := jobcontroller.BuildAIReleaseSpecialistPromptForDebug(promptTemplate, req.SystemPromptOverride, input)
+	debugResult, err := jobcontroller.BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride, input)
 	if err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("build prompt failed: %v", err))
 	}
@@ -148,28 +156,25 @@ func validateAIReleaseSpecialistDebugRequest(req *DebugAIReleaseSpecialistPrompt
 	return nil
 }
 
-func getAIReleaseSpecialistPromptTemplate(workflowName, jobName, override string, logger *zap.SugaredLogger) (string, error) {
-	if strings.TrimSpace(override) != "" {
-		return strings.TrimSpace(override), nil
-	}
-
+func getAIReleaseSpecialistJobSpec(workflowName, jobName string, logger *zap.SugaredLogger) (*commonmodels.AIReleaseSpecialistJobSpec, error) {
 	workflow, err := FindWorkflowV4Raw(workflowName, logger)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	job, err := workflow.FindJob(jobName, "")
 	if err != nil {
-		return "", e.ErrFindWorkflow.AddDesc(err.Error())
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 	if job.JobType != config.JobAIReleaseSpecialist {
-		return "", e.ErrInvalidParam.AddDesc(fmt.Sprintf("job %s is not ai release specialist", jobName))
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("job %s is not ai release specialist", jobName))
 	}
 
 	spec := new(commonmodels.AIReleaseSpecialistJobSpec)
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return "", e.ErrInvalidParam.AddDesc(fmt.Sprintf("decode ai release specialist job spec failed: %v", err))
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("decode ai release specialist job spec failed: %v", err))
 	}
-	return strings.TrimSpace(spec.PromptTemplate), nil
+	spec.SystemPrompt = jobcontroller.GetEffectiveAIReleaseSpecialistSystemPrompt(spec.SystemPrompt)
+	return spec, nil
 }
 
 func ensureWorkflowPermission(ctx *handler.Context, projectName, workflowName string, requireEdit bool) error {

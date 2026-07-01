@@ -1544,7 +1544,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		spec.SystemPrompt = runtimeJobController.GetDefaultAIReleaseSpecialistSystemPrompt()
+		spec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(spec.SystemPrompt)
 		job.Spec = spec
 	}
 	return nil

@@ -1193,7 +1193,7 @@ type AIReleaseSpecialistJobSpec struct {
 	PromptTemplate       string  `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
 	RequireManualConfirm bool    `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
 	ConfirmUsers         []*User `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
-	SystemPrompt         string  `bson:"-" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+	SystemPrompt         string  `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
 }
 
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.

@@ -147,9 +147,9 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.Input = input
-	c.jobTaskSpec.SystemPrompt = GetDefaultAIReleaseSpecialistSystemPrompt()
+	c.jobTaskSpec.SystemPrompt = GetEffectiveAIReleaseSpecialistSystemPrompt(c.jobTaskSpec.SystemPrompt)
 
-	prompt, err := BuildAIReleaseSpecialistPrompt(c.jobTaskSpec.PromptTemplate, input)
+	prompt, err := BuildAIReleaseSpecialistPrompt(c.jobTaskSpec.PromptTemplate, c.jobTaskSpec.SystemPrompt, input)
 	if err != nil {
 		c.job.Status = config.StatusFailed
 		c.job.Error = fmt.Sprintf("build ai release specialist prompt failed: %v", err)
@@ -652,8 +652,8 @@ func buildResultSummaryLine(job *commonmodels.JobTask) string {
 	return fmt.Sprintf("%s(%s)", job.OriginName, job.Status)
 }
 
-func BuildAIReleaseSpecialistPrompt(promptTemplate string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {
-	debugResult, err := BuildAIReleaseSpecialistPromptForDebug(promptTemplate, "", input)
+func BuildAIReleaseSpecialistPrompt(promptTemplate, systemPrompt string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {
+	debugResult, err := BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPrompt, input)
 	if err != nil {
 		return "", err
 	}
@@ -685,6 +685,10 @@ func BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride
 
 func GetDefaultAIReleaseSpecialistSystemPrompt() string {
 	return buildAIReleaseSpecialistSystemPrompt("")
+}
+
+func GetEffectiveAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
+	return buildAIReleaseSpecialistSystemPrompt(systemPrompt)
 }
 
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
