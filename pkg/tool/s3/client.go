@@ -18,6 +18,7 @@ package s3
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"mime"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -250,6 +252,20 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		input.ContentType = &mimetype
 	}
 	_, err = c.PutObject(input)
+	return err
+}
+
+func (c *Client) UploadReader(bucketName string, body io.Reader, objectKey string, contentType string) error {
+	uploader := s3manager.NewUploaderWithClient(c.S3)
+	input := &s3manager.UploadInput{
+		Body:   body,
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectKey),
+	}
+	if contentType != "" {
+		input.ContentType = aws.String(contentType)
+	}
+	_, err := uploader.Upload(input)
 	return err
 }
 

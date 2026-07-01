@@ -72,7 +72,7 @@ func ConnectSshPmExec(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.ConnectSshPmExec(c, ctx.UserName, name, projectKey, ip, hostId, cols, rows, ctx.Logger)
+	ctx.RespErr = service.ConnectSshPmExec(c, ctx.UserName, ctx.UserID, ctx.Account, name, projectKey, c.Param("serviceName"), ip, hostId, cols, rows, ctx.Logger)
 }
 
 // @summary Exec VM Service Command
