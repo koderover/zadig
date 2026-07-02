@@ -728,6 +728,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Script:       originParam.Script,
 					CallFunction: originParam.CallFunction,
 					FileID:       originParam.FileID,
+					FileName:     originParam.FileName,
 					FilePath:     originParam.FilePath,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
