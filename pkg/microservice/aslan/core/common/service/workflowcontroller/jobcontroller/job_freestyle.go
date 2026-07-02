@@ -1309,6 +1309,7 @@ func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job
 			fileInfo := &JobFileInfo{
 				EnvKey:   env.Key,
 				FileID:   env.FileID,
+				FileName: env.FileName,
 				FilePath: env.FilePath,
 			}
 
