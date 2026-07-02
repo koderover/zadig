@@ -18,6 +18,7 @@ package kube
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -65,6 +66,10 @@ type GeneSvcYamlOption struct {
 	IgnoreCurrentReplicaOverrides bool
 	UnInstall                     bool
 	Containers                    []*models.Container
+	// AllowUnresolvedModuleImages skips the post-render check that errors
+	// when a $<module>-image$ placeholder remains in the YAML. Set this on
+	// initial-deploy code paths where the image hasn't been built yet.
+	AllowUnresolvedModuleImages bool
 }
 
 type WorkloadResource struct {
@@ -438,8 +443,25 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 			return "", 0, err
 		}
 		fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+
+		// Post-deprecation: Service.Containers is bson:"-", so the DB-loaded
+		// prodSvcTemplate.Containers is nil. Re-parse the rendered YAML to
+		// recover env-resolved auto entries — same pattern as
+		// GenerateRenderedYaml. No manual fold here: this function surfaces
+		// what's currently applied in env, and curProductSvc.Containers is
+		// the authoritative env snapshot (which upsertService now writes
+		// correctly, including manual modules). Manuals added after the
+		// last reconcile aren't applied yet and intentionally don't show
+		// here — that's "current applied", not "what would be applied".
+		prodSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
+		commonutil.SetCurrentContainerImages(prodSvcTemplate)
+
 		mergedContainers := mergeContainers(prodSvcTemplate.Containers, curProductSvc.Containers)
 		fullRenderedYaml, _, err = ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+		if err != nil {
+			return "", 0, err
+		}
+		fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
 		if err != nil {
 			return "", 0, err
 		}
@@ -777,7 +799,15 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 			manifestArr = append(manifestArr, string(workloadBs))
 		}
 	}
-	return ReplaceWorkloadImages(util.JoinYamls(manifestArr), option.Containers)
+	replacedYaml, workloadResource, err := ReplaceWorkloadImages(util.JoinYamls(manifestArr), option.Containers)
+	if err != nil {
+		return "", nil, err
+	}
+	replacedYaml, err = ParseModuleImageKeys(replacedYaml, option.Containers, option.AllowUnresolvedModuleImages)
+	if err != nil {
+		return "", nil, err
+	}
+	return replacedYaml, workloadResource, nil
 }
 
 func variableYamlNil(variableYaml string) bool {
@@ -876,7 +906,22 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers
-		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestSvcTemplate.Containers, productInfo)
+		// Service.Containers is no longer persisted (Phase 4 moved it to the
+		// service_module collection), so prodSvcTemplate/latestSvcTemplate
+		// loaded above have empty Containers. Resolve the merged module lists
+		// for the deployed revision and the latest revision so CalculateContainer
+		// gets both the env-image baseline and the default-image baseline; empty
+		// baselines make it always fall back to the latest default image.
+		curUsedMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, prodSvcTemplate.Revision)
+		if err != nil {
+			return "", 0, nil, fmt.Errorf("failed to resolve current service modules: %v", err)
+		}
+		prodSvcTemplate.Containers = curUsedMerged
+		latestMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, latestSvcTemplate.Revision)
+		if err != nil {
+			return "", 0, nil, fmt.Errorf("failed to resolve latest service modules: %v", err)
+		}
+		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestMerged, productInfo)
 	}
 
 	renderVariableKVs := serviceRender.OverrideYaml.RenderVariableKVs
@@ -900,10 +945,29 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
 
+	// Fold user-declared manual modules into the freshly-parsed slice so
+	// latestSvcTemplate.Containers represents the complete module set for this
+	// render. The legacy mergeContainers priority chain
+	// (cur → tmpl → env-touched → workflow option) is then preserved verbatim:
+	// workflow option still overrides, env-touched still wins second, manuals
+	// participate at the template-baseline level.
+	manualContainers, err := repository.ListManualServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("failed to list manual service modules: %v", err)
+	}
+	latestSvcTemplate.Containers = commonutil.FoldManualModulesInto(latestSvcTemplate.Containers, manualContainers)
+
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
+	}
+	// Second image-substitution pass — text-level $<module>-image$ replacement
+	// for any workload kind not handled by ReplaceWorkloadImages (e.g. DaemonSets,
+	// Argo Rollouts, other CRDs).
+	fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("failed to parse module image keys: %v", err)
 	}
 
 	var currentReplicaOverrides []*commonmodels.WorkLoad
@@ -1016,7 +1080,31 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
+
+	// Fold manual modules into service.Containers before substitution.
+	//
+	// service.Containers nominally reflects the env's runtime snapshot, but
+	// callers like buildPreviewCandidateOverrides clone a ProductService and
+	// only override Revision — Containers still reflect the OLD revision's
+	// state. When the new revision's YAML carries $<name>-image$ for a
+	// module that wasn't in the env before, substitution fails without this
+	// re-merge.
+	//
+	// For "true env snapshot" callers (e.g. genuinely rendering what's in
+	// env), the fold is a no-op when env state is consistent. The only
+	// observable difference is in the candidate-render path, which is what
+	// we want.
+	manualContainers, err := repository.ListManualServiceModules(context.Background(), prod.ProductName, service.ServiceName, prod.Production)
+	if err != nil {
+		return "", fmt.Errorf("failed to list manual service modules: %v", err)
+	}
+	allContainers := commonutil.FoldManualModulesInto(service.Containers, manualContainers)
+
+	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, allContainers)
+	if err != nil {
+		return "", err
+	}
+	parsedYaml, err = ParseModuleImageKeys(parsedYaml, allContainers, false)
 	if err != nil {
 		return "", err
 	}

@@ -1062,7 +1062,17 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 
 	resp.Ingress = svcResp.Ingress
 	resp.Workloads = svcResp.Workloads
-	if len(serviceTmpl.Containers) == 0 {
+	hasTrackableWorkload := serviceHasTrackableWorkload(productInfo, serviceTmpl, log)
+	// Service.Containers no longer persisted — check the module count via the
+	// merged view. Pure-CRD services with only manual modules still report
+	// PodReady here because they have no native workload readiness signal
+	// (intentional, matching the prior "no parsed containers" branch).
+	resolvedContainers, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTmpl.ProductName, serviceTmpl.ServiceName, productInfo.Production, serviceTmpl.Revision)
+	if rerr != nil {
+		log.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.Revision, rerr)
+		// Fall through: treat as no-modules to avoid blocking status display.
+	}
+	if len(resolvedContainers) == 0 {
 		resp.PodStatus = setting.PodSucceeded
 		resp.Ready = setting.PodReady
 		return resp
@@ -1087,6 +1097,14 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 		}
 
 		resp.Images = imageSet.List()
+		if !hasTrackableWorkload {
+			if serviceHasApplyError(productInfo, serviceTmpl.ServiceName) {
+				resp.PodStatus = setting.PodFailed
+				return resp
+			}
+			resp.PodStatus, resp.Ready = setting.PodSucceeded, setting.PodReady
+			return resp
+		}
 		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
 		return resp
 	}
@@ -1136,4 +1154,52 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 
 	resp.PodStatus, resp.Ready = setting.PodRunning, ready
 	return resp
+}
+
+func serviceHasApplyError(productInfo *commonmodels.Product, serviceName string) bool {
+	if productInfo == nil {
+		return false
+	}
+	for _, svc := range productInfo.GetSvcList() {
+		if svc.ServiceName == serviceName && strings.TrimSpace(svc.Error) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func serviceHasTrackableWorkload(productInfo *commonmodels.Product, serviceTmpl *commonmodels.Service, log *zap.SugaredLogger) bool {
+	if productInfo == nil || serviceTmpl == nil {
+		return false
+	}
+	if productSvc := productInfo.GetServiceMap()[serviceTmpl.ServiceName]; productSvc != nil && len(productSvc.Resources) > 0 {
+		return resourcesHaveTrackableWorkload(productSvc.Resources)
+	}
+
+	renderedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productInfo.ProductName, serviceTmpl.ServiceName, productInfo.GetSvcRender(serviceTmpl.ServiceName))
+	if err != nil {
+		log.Errorf("failed to render service yaml for workload status, err: %s", err)
+		return true
+	}
+	renderedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceTmpl.ServiceName, renderedYaml)
+
+	resources, err := kube.ManifestToResource(renderedYaml)
+	if err != nil {
+		log.Errorf("failed to parse service yaml resources for workload status, err: %s", err)
+		return true
+	}
+	return resourcesHaveTrackableWorkload(resources)
+}
+
+func resourcesHaveTrackableWorkload(resources []*commonmodels.ServiceResource) bool {
+	for _, res := range resources {
+		if res == nil {
+			continue
+		}
+		switch res.Kind {
+		case setting.Deployment, setting.DaemonSet, setting.CloneSet, setting.StatefulSet, setting.Job, setting.CronJob:
+			return true
+		}
+	}
+	return false
 }

@@ -225,11 +225,19 @@ func compareGroupServicesRev(svcTmplNameList []string, productInfo *commonmodels
 	return serviceRev, nil
 }
 
-func containerImageChanged(svcTempl *commonmodels.Service, container *commonmodels.Container) bool {
+func containerImageChanged(svcTempl *commonmodels.Service, container *commonmodels.Container, production bool) bool {
 	if svcTempl == nil {
 		return true
 	}
-	for _, c := range svcTempl.Containers {
+	// Service.Containers is no longer persisted — resolve from the
+	// service_module table for the template's revision. Errors surface as
+	// "changed" so the caller falls back to using the env's current image,
+	// which preserves the conservative legacy semantic.
+	resolved, _, err := repository.ResolveServiceModules(context.Background(), svcTempl.ProductName, svcTempl.ServiceName, production, svcTempl.Revision)
+	if err != nil {
+		return true
+	}
+	for _, c := range resolved {
 		if c.Name != container.Name {
 			continue
 		}
@@ -285,7 +293,14 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 			}
 			if latestSvcTmpl.Type == setting.K8SDeployType {
 				serviceRev.Containers = make([]*commonmodels.Container, 0)
-				for _, container := range latestSvcTmpl.Containers {
+				// Service.Containers no longer persisted — pull merged
+				// (auto + manual) module list for the latest revision.
+				resolved, _, rerr := repository.ResolveServiceModules(context.Background(), latestSvcTmpl.ProductName, latestSvcTmpl.ServiceName, productInfo.Production, latestSvcTmpl.Revision)
+				if rerr != nil {
+					log.Errorf("failed to resolve modules for %s/%s rev %d: %s", latestSvcTmpl.ProductName, latestSvcTmpl.ServiceName, latestSvcTmpl.Revision, rerr)
+					return serviceRevs, rerr
+				}
+				for _, container := range resolved {
 					serviceRev.Containers = append(serviceRev.Containers, &commonmodels.Container{
 						Image:     container.Image,
 						Name:      container.Name,
@@ -344,17 +359,38 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 			if productService.Type == setting.K8SDeployType {
 				serviceRev.Containers = make([]*commonmodels.Container, 0)
 
-				for _, container := range latestServiceTmpl.Containers {
+				// Phase 4: pull the full module list (auto + manual) for the
+				// latest template revision from the service_module collection.
+				// Manual modules (CRD/DaemonSet declarations) flow through the
+				// bridge alongside parsed containers so the env carries them
+				// in ProductService.Containers after the next reconcile.
+				mergedContainers, _, err := repository.ResolveServiceModules(
+					context.Background(),
+					latestServiceTmpl.ProductName,
+					latestServiceTmpl.ServiceName,
+					productInfo.Production,
+					latestServiceTmpl.Revision,
+				)
+				if err != nil {
+					log.Errorf("Failed to resolve service modules, %s:%s/%d, Error: %v", productInfo.ProductName, latestServiceTmpl.ServiceName, latestServiceTmpl.Revision, err)
+					return serviceRevs, err
+				}
+
+				for _, container := range mergedContainers {
 					c := &commonmodels.Container{
 						Image:     container.Image,
 						Name:      container.Name,
 						ImageName: util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 					}
 
-					// reuse existed container image only if it has been changed since last deploy
+					// reuse existed container image only if it has been changed since last deploy.
+					// Note: for manual modules, curUsedSvc.Containers (legacy field) doesn't
+					// know about them, so containerImageChanged always returns true — meaning
+					// any env-deployed image for a manual module is preserved. That's the
+					// intended semantic.
 					for _, exitedContainer := range productService.Containers {
 						if exitedContainer.Name == container.Name {
-							if containerImageChanged(curUsedSvc, exitedContainer) {
+							if containerImageChanged(curUsedSvc, exitedContainer, productInfo.Production) {
 								c.Image = exitedContainer.Image
 								c.ImageName = exitedContainer.ImageName
 							}

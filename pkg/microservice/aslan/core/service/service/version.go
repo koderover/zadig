@@ -184,6 +184,12 @@ func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceNa
 	service.Revision = rev
 	service.CreateBy = ctx.UserName
 	service.Status = ""
+	if service.Type == setting.K8SDeployType {
+		service.KubeYamls = []string{service.Yaml}
+		if err := commonutil.SetCurrentContainerImages(service); err != nil {
+			return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to parse service %s/%s/%d containers, isProduction %v, error: %v", service.ProductName, service.ServiceName, service.Revision, isProduction, err))
+		}
+	}
 	err = repository.Create(service, isProduction)
 	if err != nil {
 		return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to create service %s/%s/%d, isProduction %v, error: %v", service.ProductName, service.ServiceName, service.Revision, isProduction, err))

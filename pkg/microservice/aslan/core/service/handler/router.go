@@ -59,6 +59,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		k8s.GET("/kube/workloads", GetKubeWorkloads)
 		k8s.POST("/yaml", LoadKubeWorkloadsYaml)
+
+		// Manual service modules — user-declared modules for CRD/DaemonSet
+		// workloads that the YAML parser can't auto-discover. Listed
+		// per-service; created/updated/deleted by id.
+		k8s.GET("/:name/manual-modules", ListManualServiceModules)
+		k8s.GET("/:name/auto-modules", ListAutoServiceModules)
+		k8s.POST("/:name/auto-modules/recognize", RecognizeAutoServiceModules)
+		k8s.POST("/manual-modules", CreateManualServiceModule)
+		k8s.PUT("/manual-modules/:id", UpdateManualServiceModule)
+		k8s.DELETE("/manual-modules/:id", DeleteManualServiceModule)
+		k8s.DELETE("/auto-modules/:id", DeleteAutoServiceModule)
 	}
 
 	labels := router.Group("labels")
