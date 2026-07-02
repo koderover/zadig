@@ -152,6 +152,27 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		if err != nil {
 			curUsedSvc = nil
 		}
+		// Service.Containers is no longer persisted (Phase 4 moved
+		// authoritative storage to the service_module collection), so a
+		// freshly loaded curUsedSvc has empty Containers. Resolve the merged
+		// module list at the currently-deployed revision so CalculateContainer
+		// gets the default-image baseline that was in effect at deploy time.
+		// Without this the baseline is empty and CalculateContainer always
+		// falls back to the latest default image, rolling back any env-side
+		// image change (workflow/manual edit) on every service update.
+		if curUsedSvc != nil {
+			curUsedMerged, _, err := repository.ResolveServiceModules(
+				context.Background(),
+				curUsedSvc.ProductName,
+				curUsedSvc.ServiceName,
+				prodinfo.Production,
+				curUsedSvc.Revision,
+			)
+			if err != nil {
+				return e.ErrUpdateService.AddErr(fmt.Errorf("failed to resolve current service modules: %s", err))
+			}
+			curUsedSvc.Containers = curUsedMerged
+		}
 		// Phase 4: pull the merged (auto + manual) module list at the latest
 		// template revision so manual CRD/DaemonSet modules participate in
 		// the env override calc, not just legacy-field auto entries.
