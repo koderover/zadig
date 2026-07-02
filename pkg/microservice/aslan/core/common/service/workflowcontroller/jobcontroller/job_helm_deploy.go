@@ -150,6 +150,9 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 	newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
 	productInfo.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] = setting.ServiceDeployStrategyDeploy
+	if currentEnvSvc == nil {
+		fillHelmValuesSource(newEnvService, latestTmplSvc)
+	}
 
 	// calc final values yaml
 	finalValuesYaml := ""
@@ -344,6 +347,24 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+func fillHelmValuesSource(envSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service) {
+	if envSvc == nil || tmplSvc == nil {
+		return
+	}
+
+	createFrom, err := tmplSvc.GetHelmCreateFrom()
+	if err != nil || createFrom.YamlData == nil {
+		return
+	}
+
+	serviceRender := envSvc.GetServiceRender()
+	serviceRender.OverrideYaml.Source = createFrom.YamlData.Source
+	serviceRender.OverrideYaml.SourceDetail = createFrom.YamlData.SourceDetail
+	serviceRender.OverrideYaml.SourceID = createFrom.YamlData.SourceID
+	serviceRender.OverrideYaml.AutoSync = createFrom.YamlData.AutoSync
+	serviceRender.OverrideYaml.AutoSyncYaml = createFrom.YamlData.AutoSyncYaml
 }
 
 type ManifestStruct struct {
