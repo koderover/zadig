@@ -180,6 +180,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			CallFunction:      baseKV.CallFunction,
 			Script:            baseKV.Script,
 			FileID:            baseKV.FileID,
+			FileName:          baseKV.FileName,
 			FilePath:          baseKV.FilePath,
 			Required:          baseKV.Required,
 		}
@@ -206,6 +207,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 					item.Value = strings.Join(item.ChoiceValue, ",")
 				} else if item.Type == commonmodels.FileType {
 					item.FileID = inputKV.FileID
+					item.FileName = inputKV.FileName
 					item.FilePath = inputKV.FilePath
 				} else if item.Type == commonmodels.Script {
 					item.CallFunction = inputKV.CallFunction
@@ -397,6 +399,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			CallFunction:      src1KV.CallFunction,
 			Script:            src1KV.Script,
 			FileID:            src1KV.FileID,
+			FileName:          src1KV.FileName,
 			FilePath:          src1KV.FilePath,
 			Required:          src1KV.Required,
 		}
@@ -421,6 +424,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			CallFunction:      src2KV.CallFunction,
 			Script:            src2KV.Script,
 			FileID:            src2KV.FileID,
+			FileName:          src2KV.FileName,
 			FilePath:          src2KV.FilePath,
 			Required:          src2KV.Required,
 		}
@@ -728,6 +732,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Script:       originParam.Script,
 					CallFunction: originParam.CallFunction,
 					FileID:       originParam.FileID,
+					FileName:     originParam.FileName,
 					FilePath:     originParam.FilePath,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,

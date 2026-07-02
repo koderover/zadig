@@ -224,6 +224,7 @@ type KeyVal struct {
 	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
 	FilePath          string               `bson:"file_path,omitempty"          json:"file_path,omitempty"          yaml:"file_path,omitempty"`
+	FileName          string               `bson:"file_name,omitempty"          json:"file_name,omitempty"          yaml:"file_name,omitempty"`
 	FileID            string               `bson:"file_id,omitempty"            json:"file_id,omitempty"            yaml:"file_id,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
