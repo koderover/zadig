@@ -729,7 +729,7 @@ type AIScanMetrics struct {
 	Vulnerabilities   string `bson:"vulnerabilities,omitempty" json:"vulnerabilities,omitempty" yaml:"vulnerabilities,omitempty"`
 	CodeSmells        string `bson:"code_smells,omitempty" json:"code_smells,omitempty" yaml:"code_smells,omitempty"`
 	Coverage          string `bson:"coverage,omitempty" json:"coverage,omitempty" yaml:"coverage,omitempty"`
-	CheckQualityGate  bool   `bson:"check_quality_gate,omitempty" json:"check_quality_gate,omitempty" yaml:"check_quality_gate,omitempty"`
+	CheckQualityGate  bool   `bson:"check_quality_gate" json:"check_quality_gate" yaml:"check_quality_gate"`
 }
 
 type AITestStatistics struct {

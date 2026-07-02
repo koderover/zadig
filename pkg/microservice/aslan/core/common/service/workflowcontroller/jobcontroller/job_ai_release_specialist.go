@@ -363,7 +363,7 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				testStatuses = append(testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
 				testSummaries = append(testSummaries, summary)
-				testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(task.WorkflowName, job.Name, task.TaskID)
+				testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobTaskName(task.WorkflowName, job.Name, task.TaskID)
 				if err != nil {
 					return nil, err
 				}
