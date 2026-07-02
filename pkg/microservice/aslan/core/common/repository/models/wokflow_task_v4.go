@@ -714,10 +714,47 @@ type AIReleaseContextSource struct {
 }
 
 type AIReleaseSummaryItem struct {
-	JobName string `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
-	JobType string `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
-	Status  string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Summary string `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
+	JobName        string            `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType        string            `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	Status         string            `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Summary        string            `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
+	ScanMetrics    *AIScanMetrics    `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
+	TestStatistics *AITestStatistics `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+}
+
+type AIScanMetrics struct {
+	QualityGateStatus string `bson:"quality_gate_status,omitempty" json:"quality_gate_status,omitempty" yaml:"quality_gate_status,omitempty"`
+	Ncloc             string `bson:"ncloc,omitempty" json:"ncloc,omitempty" yaml:"ncloc,omitempty"`
+	Bugs              string `bson:"bugs,omitempty" json:"bugs,omitempty" yaml:"bugs,omitempty"`
+	Vulnerabilities   string `bson:"vulnerabilities,omitempty" json:"vulnerabilities,omitempty" yaml:"vulnerabilities,omitempty"`
+	CodeSmells        string `bson:"code_smells,omitempty" json:"code_smells,omitempty" yaml:"code_smells,omitempty"`
+	Coverage          string `bson:"coverage,omitempty" json:"coverage,omitempty" yaml:"coverage,omitempty"`
+	CheckQualityGate  bool   `bson:"check_quality_gate,omitempty" json:"check_quality_gate,omitempty" yaml:"check_quality_gate,omitempty"`
+}
+
+type AITestStatistics struct {
+	TestCaseNum    int                    `bson:"test_case_num,omitempty" json:"test_case_num,omitempty" yaml:"test_case_num,omitempty"`
+	SuccessCaseNum int                    `bson:"success_case_num,omitempty" json:"success_case_num,omitempty" yaml:"success_case_num,omitempty"`
+	SkipCaseNum    int                    `bson:"skip_case_num,omitempty" json:"skip_case_num,omitempty" yaml:"skip_case_num,omitempty"`
+	FailedCaseNum  int                    `bson:"failed_case_num,omitempty" json:"failed_case_num,omitempty" yaml:"failed_case_num,omitempty"`
+	ErrorCaseNum   int                    `bson:"error_case_num,omitempty" json:"error_case_num,omitempty" yaml:"error_case_num,omitempty"`
+	PassRate       float64                `bson:"pass_rate,omitempty" json:"pass_rate,omitempty" yaml:"pass_rate,omitempty"`
+	Reports        []*AITestReportSummary `bson:"reports,omitempty" json:"reports,omitempty" yaml:"reports,omitempty"`
+}
+
+type AITestReportSummary struct {
+	JobTaskName    string  `bson:"job_task_name,omitempty" json:"job_task_name,omitempty" yaml:"job_task_name,omitempty"`
+	TestName       string  `bson:"test_name,omitempty" json:"test_name,omitempty" yaml:"test_name,omitempty"`
+	ZadigTestName  string  `bson:"zadig_test_name,omitempty" json:"zadig_test_name,omitempty" yaml:"zadig_test_name,omitempty"`
+	ServiceName    string  `bson:"service_name,omitempty" json:"service_name,omitempty" yaml:"service_name,omitempty"`
+	ServiceModule  string  `bson:"service_module,omitempty" json:"service_module,omitempty" yaml:"service_module,omitempty"`
+	TestCaseNum    int     `bson:"test_case_num,omitempty" json:"test_case_num,omitempty" yaml:"test_case_num,omitempty"`
+	SuccessCaseNum int     `bson:"success_case_num,omitempty" json:"success_case_num,omitempty" yaml:"success_case_num,omitempty"`
+	SkipCaseNum    int     `bson:"skip_case_num,omitempty" json:"skip_case_num,omitempty" yaml:"skip_case_num,omitempty"`
+	FailedCaseNum  int     `bson:"failed_case_num,omitempty" json:"failed_case_num,omitempty" yaml:"failed_case_num,omitempty"`
+	ErrorCaseNum   int     `bson:"error_case_num,omitempty" json:"error_case_num,omitempty" yaml:"error_case_num,omitempty"`
+	TestTime       float64 `bson:"test_time,omitempty" json:"test_time,omitempty" yaml:"test_time,omitempty"`
+	PassRate       float64 `bson:"pass_rate,omitempty" json:"pass_rate,omitempty" yaml:"pass_rate,omitempty"`
 }
 
 type AIReleaseTargetItem struct {

@@ -30,7 +30,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -46,9 +46,9 @@ const (
 const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员，负责在人工审批前评估本次发布风险，并给出是否建议继续后续发布动作的结论。
 
 任务语义说明：
-- 代码扫描：表示静态检查或安全扫描结果，只能依据任务状态和错误摘要判断，不代表完整漏洞报告。
+- 代码扫描：表示静态检查或安全扫描结果；如果 scan_metrics 存在，应优先参考质量门禁、bug、漏洞、异味、覆盖率等结构化指标，否则只能依据任务状态和错误摘要判断。
 - 构建：表示本次变更来源，可提供仓库、分支、tag、commit message、服务或模块信息，用于理解变更范围，不代表变更已验证通过。
-- 测试：表示自动化验证结果，只能依据任务状态和错误摘要判断，不代表完整测试报告或覆盖率。
+- 测试：表示自动化验证结果；如果 test_statistics 存在，应优先参考总用例数、成功数、失败数、错误数、跳过数和通过率，否则只能依据任务状态和错误摘要判断。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
 - 部署类任务：表示 AI 节点之前已经确定的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设存在 AI 节点之后的发布动作。
 - 如果输入中带有 sources 或 items 字段，这些字段表示对应上下文来自哪个上游任务；应优先结合其中的 job_name、job_type、status、summary 判断每条信息的来源和含义。
@@ -56,7 +56,7 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 判断约束：
 - 你只能依据输入的发布上下文做判断，不要虚构 PR 正文、代码 diff、日志全文、监控告警、集群实时状态或人工结论。
 - 如果关键信息缺失，应明确指出缺失项，并优先给出 warning，而不是假设一切正常。
-- 如果代码扫描或测试结果出现明确失败、超时、取消或错误摘要，通常应给出 fail。
+- 如果代码扫描或测试结果出现明确失败、超时、取消、错误摘要，或结构化指标显示质量门禁/通过率不满足额外关注点要求，通常应给出 fail。
 - 如果发布目标中明确标记为生产环境，应使用更严格的风险判断标准；如果输入里没有给出生产发布目标，不要自行推断。
 - remark、branch、tag、commit message 只能作为风险线索，不要据此臆测未提供的实现细节。
 
@@ -93,7 +93,7 @@ type AIReleaseSpecialistJobCtl struct {
 
 var (
 	findWorkflowTaskForAIReleaseSpecialist = func(workflowName string, taskID int64) (*commonmodels.WorkflowTask, error) {
-		return mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+		return commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	}
 	getAIReleaseSpecialistLLMClient    = llmservice.GetDefaultLLMClient
 	getAIReleaseSpecialistConfirmUsers = func(users []*commonmodels.User, taskCreatorUserID string) []*commonmodels.User {
@@ -251,7 +251,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 }
 
 func (c *AIReleaseSpecialistJobCtl) SaveInfo(ctx context.Context) error {
-	return mongodb.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
+	return commonrepo.NewJobInfoColl().Create(ctx, &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
@@ -356,12 +356,20 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				scanStatuses = append(scanStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
 				scanSummaries = append(scanSummaries, summary)
-				scanItems = append(scanItems, buildReleaseSummaryItem(job, summary))
+				item := buildReleaseSummaryItem(job, summary)
+				item.ScanMetrics = buildAIScanMetricsFromJob(job)
+				scanItems = append(scanItems, item)
 			case string(config.JobZadigTesting):
 				testStatuses = append(testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
 				testSummaries = append(testSummaries, summary)
-				testItems = append(testItems, buildReleaseSummaryItem(job, summary))
+				testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(task.WorkflowName, job.Name, task.TaskID)
+				if err != nil {
+					return nil, err
+				}
+				item := buildReleaseSummaryItem(job, summary)
+				item.TestStatistics = buildAITestStatisticsFromReports(testReports)
+				testItems = append(testItems, item)
 			}
 		}
 	}
@@ -526,6 +534,86 @@ func buildReleaseSummaryItem(job *commonmodels.JobTask, summary string) *commonm
 		Status:  string(job.Status),
 		Summary: summary,
 	}
+}
+
+func buildAIScanMetricsFromJob(job *commonmodels.JobTask) *commonmodels.AIScanMetrics {
+	if job == nil {
+		return nil
+	}
+	spec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return nil
+	}
+	for _, stepTask := range spec.Steps {
+		if stepTask == nil || stepTask.StepType != config.StepSonarGetMetrics {
+			continue
+		}
+		stepSpec := &steptypes.StepSonarGetMetricsSpec{}
+		if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil || stepSpec.SonarMetrics == nil {
+			return nil
+		}
+		metrics := &commonmodels.AIScanMetrics{
+			QualityGateStatus: string(stepSpec.SonarMetrics.QualityGateStatus),
+			Ncloc:             strings.TrimSpace(stepSpec.SonarMetrics.Ncloc),
+			Bugs:              strings.TrimSpace(stepSpec.SonarMetrics.Bugs),
+			Vulnerabilities:   strings.TrimSpace(stepSpec.SonarMetrics.Vulnerabilities),
+			CodeSmells:        strings.TrimSpace(stepSpec.SonarMetrics.CodeSmells),
+			Coverage:          strings.TrimSpace(stepSpec.SonarMetrics.Coverage),
+			CheckQualityGate:  stepSpec.CheckQualityGate,
+		}
+		if metrics.QualityGateStatus == "" && metrics.Ncloc == "" && metrics.Bugs == "" &&
+			metrics.Vulnerabilities == "" && metrics.CodeSmells == "" && metrics.Coverage == "" {
+			return nil
+		}
+		return metrics
+	}
+	return nil
+}
+
+func buildAITestStatisticsFromReports(reports []*commonmodels.CustomWorkflowTestReport) *commonmodels.AITestStatistics {
+	if len(reports) == 0 {
+		return nil
+	}
+	stats := &commonmodels.AITestStatistics{
+		Reports: make([]*commonmodels.AITestReportSummary, 0, len(reports)),
+	}
+	for _, report := range reports {
+		if report == nil {
+			continue
+		}
+		reportSummary := &commonmodels.AITestReportSummary{
+			JobTaskName:    report.JobTaskName,
+			TestName:       report.TestName,
+			ZadigTestName:  report.ZadigTestName,
+			ServiceName:    report.ServiceName,
+			ServiceModule:  report.ServiceModule,
+			TestCaseNum:    report.TestCaseNum,
+			SuccessCaseNum: report.SuccessCaseNum,
+			SkipCaseNum:    report.SkipCaseNum,
+			FailedCaseNum:  report.FailedCaseNum,
+			ErrorCaseNum:   report.ErrorCaseNum,
+			TestTime:       report.TestTime,
+			PassRate:       buildAITestPassRate(report.SuccessCaseNum, report.TestCaseNum),
+		}
+		stats.TestCaseNum += report.TestCaseNum
+		stats.SuccessCaseNum += report.SuccessCaseNum
+		stats.SkipCaseNum += report.SkipCaseNum
+		stats.FailedCaseNum += report.FailedCaseNum
+		stats.ErrorCaseNum += report.ErrorCaseNum
+		stats.Reports = append(stats.Reports, reportSummary)
+	}
+	if len(stats.Reports) == 0 {
+		return nil
+	}
+	stats.PassRate = buildAITestPassRate(stats.SuccessCaseNum, stats.TestCaseNum)
+	return stats
+}
+
+func buildAITestPassRate(successCaseNum, testCaseNum int) float64 {
+	if testCaseNum <= 0 {
+		return 0
+	}
+	return math.Round(float64(successCaseNum)/float64(testCaseNum)*10000) / 100
 }
 
 func buildReleaseTargetItem(job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary) *commonmodels.AIReleaseTargetItem {
