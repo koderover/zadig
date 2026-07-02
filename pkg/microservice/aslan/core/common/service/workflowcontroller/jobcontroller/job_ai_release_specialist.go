@@ -315,11 +315,13 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 		testSummaries  []string
 		testItems      []*commonmodels.AIReleaseSummaryItem
 	)
+	currentJobReached := false
 
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name == currentJobName {
-				return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems), nil
+				currentJobReached = true
+				continue
 			}
 
 			switch job.JobType {
@@ -348,6 +350,9 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
 				releaseTargets = append(releaseTargets, target)
 			case string(config.JobZadigBuild):
+				if currentJobReached {
+					continue
+				}
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
@@ -355,6 +360,9 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				appendChangeSummarySource(input.ChangeSummary, job)
 				collectChangeSummaryFromFreestyleSpec(input.ChangeSummary, spec)
 			case string(config.JobZadigScanning):
+				if currentJobReached {
+					continue
+				}
 				scanStatuses = append(scanStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
 				scanSummaries = append(scanSummaries, summary)
@@ -362,6 +370,9 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				item.ScanMetrics = buildAIScanMetricsFromJob(job)
 				scanItems = append(scanItems, item)
 			case string(config.JobZadigTesting):
+				if currentJobReached {
+					continue
+				}
 				testStatuses = append(testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
 				testSummaries = append(testSummaries, summary)
@@ -414,10 +425,14 @@ func buildReleaseTargetFromDeploy(job *commonmodels.JobTask, spec *commonmodels.
 		target.ServiceNames = append(target.ServiceNames, spec.ServiceName)
 	}
 	if spec.ServiceModule != "" && spec.Image != "" {
+		target.ServiceNames = append(target.ServiceNames, spec.ServiceModule)
 		target.ImageVersions = append(target.ImageVersions, spec.Image)
 		target.TargetCount++
 	}
 	for _, serviceAndImage := range spec.ServiceAndImages {
+		if serviceAndImage.ServiceModule != "" {
+			target.ServiceNames = append(target.ServiceNames, serviceAndImage.ServiceModule)
+		}
 		if serviceAndImage.Image != "" {
 			target.ImageVersions = append(target.ImageVersions, serviceAndImage.Image)
 		}
