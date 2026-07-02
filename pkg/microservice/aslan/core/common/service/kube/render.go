@@ -70,6 +70,14 @@ type GeneSvcYamlOption struct {
 	// when a $<module>-image$ placeholder remains in the YAML. Set this on
 	// initial-deploy code paths where the image hasn't been built yet.
 	AllowUnresolvedModuleImages bool
+	// PreserveEnvContainerImages makes the rendered yaml keep the environment's
+	// current container images unless the service_module default image has been
+	// updated since the last deploy. It resolves the deployed- and latest-revision
+	// module baselines (Service.Containers is no longer persisted) so
+	// CalculateContainer can compare env image vs default image correctly.
+	// Only set this on single-service update/preview paths; workflow deploy and
+	// other callers intentionally keep their existing image-resolution behavior.
+	PreserveEnvContainerImages bool
 }
 
 type WorkloadResource struct {
@@ -906,7 +914,26 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers
-		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestSvcTemplate.Containers, productInfo)
+		latestContainers := latestSvcTemplate.Containers
+		if option.PreserveEnvContainerImages {
+			// Service.Containers is no longer persisted (Phase 4 moved it to the
+			// service_module collection), so prodSvcTemplate/latestSvcTemplate
+			// loaded above have empty Containers. Resolve the merged module lists
+			// for the deployed revision and the latest revision so CalculateContainer
+			// gets both the env-image baseline and the default-image baseline; empty
+			// baselines make it always fall back to the latest default image.
+			curUsedMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, prodSvcTemplate.Revision)
+			if err != nil {
+				return "", 0, nil, fmt.Errorf("failed to resolve current service modules: %v", err)
+			}
+			prodSvcTemplate.Containers = curUsedMerged
+			latestMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, latestSvcTemplate.Revision)
+			if err != nil {
+				return "", 0, nil, fmt.Errorf("failed to resolve latest service modules: %v", err)
+			}
+			latestContainers = latestMerged
+		}
+		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestContainers, productInfo)
 	}
 
 	renderVariableKVs := serviceRender.OverrideYaml.RenderVariableKVs

@@ -430,6 +430,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		Containers:                    args.ServiceModules,
 		ReplicaOverrides:              candidateOverrides,
 		IgnoreCurrentReplicaOverrides: args.UpdateServiceRevision,
+		PreserveEnvContainerImages:    true,
 	})
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
