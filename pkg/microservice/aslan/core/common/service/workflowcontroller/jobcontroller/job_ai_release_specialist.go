@@ -902,28 +902,36 @@ func renderAIReleaseSpecialistResultMarkdown(result *commonmodels.AIReleaseSpeci
 	lines := []string{
 		"## 发布结论",
 		"",
-		fmt.Sprintf("结论：%s", renderAIResultBadge(result.Conclusion)),
+		fmt.Sprintf("结论：%s", safeHTMLText(translateAIResultValue(result.Conclusion))),
 	}
 	if result.Summary != "" {
-		lines = append(lines, "", "## 风险摘要", "", safeMarkdownText(result.Summary))
+		lines = append(lines, "", "## 风险摘要", "", safeHTMLText(result.Summary))
 	}
 	if len(result.Checks) > 0 {
 		lines = append(lines, "", "## 检查项")
-		lines = append(lines, renderCheckDetailsMarkdown(result.Checks))
+		lines = append(lines, renderCheckDetailsHTMLTable(result.Checks))
 	}
 	if suggestion := renderReleaseSuggestion(result.Conclusion); suggestion != "" {
-		lines = append(lines, "", "## 发布建议", "", suggestion)
+		lines = append(lines, "", "## 发布建议", "", safeHTMLText(suggestion))
 	}
 	return strings.Join(lines, "\n")
 }
 
-func renderCheckDetailsMarkdown(checks []*commonmodels.AIReleaseSpecialistCheckItem) string {
+func renderCheckDetailsHTMLTable(checks []*commonmodels.AIReleaseSpecialistCheckItem) string {
 	if len(checks) == 0 {
 		return ""
 	}
 	lines := []string{
-		"| 检查项 | 结果 | 判断依据 | 建议 |",
-		"| --- | --- | --- | --- |",
+		`<table style="width:100%;border-collapse:collapse;margin:8px 0 12px;font-size:13px;line-height:1.6;">`,
+		`<thead>`,
+		`<tr>`,
+		fmt.Sprintf(`<th style="%s">检查项</th>`, aiReleaseSpecialistTableHeaderStyle()),
+		fmt.Sprintf(`<th style="%s">结果</th>`, aiReleaseSpecialistTableHeaderStyle()),
+		fmt.Sprintf(`<th style="%s">判断依据</th>`, aiReleaseSpecialistTableHeaderStyle()),
+		fmt.Sprintf(`<th style="%s">建议</th>`, aiReleaseSpecialistTableHeaderStyle()),
+		`</tr>`,
+		`</thead>`,
+		`<tbody>`,
 	}
 	for idx, check := range checks {
 		if check == nil {
@@ -934,14 +942,27 @@ func renderCheckDetailsMarkdown(checks []*commonmodels.AIReleaseSpecialistCheckI
 			name = fmt.Sprintf("检查项 %d", idx+1)
 		}
 		lines = append(lines, fmt.Sprintf(
-			"| %s | %s | %s | %s |",
-			safeMarkdownTableText(name),
+			`<tr><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td></tr>`,
+			aiReleaseSpecialistTableCellStyle(),
+			safeHTMLText(name),
+			aiReleaseSpecialistTableCellStyle(),
 			renderAIResultBadge(check.Result),
-			safeMarkdownTableText(check.Evidence),
-			safeMarkdownTableText(check.Suggestion),
+			aiReleaseSpecialistTableCellStyle(),
+			safeHTMLText(check.Evidence),
+			aiReleaseSpecialistTableCellStyle(),
+			safeHTMLText(check.Suggestion),
 		))
 	}
+	lines = append(lines, `</tbody>`, `</table>`)
 	return strings.Join(lines, "\n")
+}
+
+func aiReleaseSpecialistTableHeaderStyle() string {
+	return "padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;text-align:left;font-weight:600;color:#374151;"
+}
+
+func aiReleaseSpecialistTableCellStyle() string {
+	return "padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top;color:#374151;word-break:break-word;"
 }
 
 func renderAIResultBadge(value string) string {
@@ -953,7 +974,7 @@ func renderAIResultBadge(value string) string {
 	case "fail":
 		return `<span style="color:#dc2626;font-weight:600;">不建议继续</span>`
 	default:
-		return safeMarkdownText(translateAIResultValue(value))
+		return safeHTMLText(translateAIResultValue(value))
 	}
 }
 
@@ -997,12 +1018,8 @@ func compactSingleLine(text string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(text)), " ")
 }
 
-func safeMarkdownText(text string) string {
+func safeHTMLText(text string) string {
 	return html.EscapeString(compactSingleLine(text))
-}
-
-func safeMarkdownTableText(text string) string {
-	return strings.ReplaceAll(safeMarkdownText(text), "|", "\\|")
 }
 
 func uniqueSortedStrings(values []string) []string {
