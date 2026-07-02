@@ -125,6 +125,9 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return config.StatusTimeout, fmt.Errorf("workflow timeout")
+			}
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
@@ -258,6 +261,10 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		time.Sleep(2 * time.Second)
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				cancelApproval()
+				return config.StatusTimeout, fmt.Errorf("workflow timeout")
+			}
 			cancelApproval()
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
 		case <-timeoutChan:
@@ -432,6 +439,9 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return config.StatusTimeout, fmt.Errorf("workflow timeout")
+			}
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
@@ -685,6 +695,9 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return config.StatusTimeout, fmt.Errorf("workflow timeout")
+			}
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
