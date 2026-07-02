@@ -307,6 +307,7 @@ type JobTaskHelmDeploySpec struct {
 	YamlContent  string `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue            string                    `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
+	ValuesSyncedFromSource       bool                      `bson:"values_synced_from_source" json:"values_synced_from_source" yaml:"values_synced_from_source"`
 	UpdateConfig                 bool                      `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	SkipCheckRunStatus           bool                      `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	SkipCheckHelmWorkfloadStatus bool                      `bson:"skip_check_helm_workload_status"  json:"skip_check_helm_workload_status"     yaml:"skip_check_helm_workload_status"`

@@ -24,9 +24,11 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
@@ -639,17 +641,19 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 		for jobSubTaskID, svc := range j.jobSpec.Services {
 			var serviceRevision int64
 			var autoSyncFlag bool
+			var serviceRender *templatemodels.ServiceRender
 			pSvc, ok := productServiceMap[svc.ServiceName]
 			if ok {
 				serviceRevision = pSvc.Revision
+				serviceRender = pSvc.GetServiceRender()
 				// if the service is deployed in the env, and the variable is set to auto sync, ignore user input.
 				// sync the values from codehost and set the value merge strategy to override
-				if pSvc.GetServiceRender().OverrideYaml.AutoSync {
+				if serviceRender.OverrideYaml.AutoSync {
 					autoSyncFlag = true
 				}
 
 				if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) &&
-					commonutil.GetChartDeployed(pSvc.GetServiceRender(), product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
+					commonutil.GetChartDeployed(serviceRender, product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
 					return nil, fmt.Errorf("service %s is in draft, cannot deploy image only", svc.ServiceName)
 				}
 			}
@@ -698,15 +702,29 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			}
 
 			if autoSyncFlag || j.jobSpec.ValueSyncStrategy == config.ValueSyncStrategyAuto {
-				pSvc.GetServiceRender().SetAutoSync(true)
-				_, values, err := commonservice.SyncYamlFromSource(pSvc.GetServiceRender().OverrideYaml, pSvc.GetServiceRender().OverrideYaml.YamlContent, pSvc.GetServiceRender().OverrideYaml.AutoSyncYaml)
-				if err != nil {
-					return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
+				if serviceRender != nil {
+					serviceRender.SetAutoSync(true)
+					_, values, err := commonservice.SyncYamlFromSource(serviceRender.OverrideYaml, serviceRender.OverrideYaml.YamlContent, serviceRender.OverrideYaml.AutoSyncYaml)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
+					}
+					serviceRender.SetAutoSync(autoSyncFlag)
+					jobTaskSpec.UpdateConfig = svc.UpdateConfig
+					jobTaskSpec.VariableYaml = values
+					jobTaskSpec.UserSuppliedValue = values
+					jobTaskSpec.ValuesSyncedFromSource = true
+				} else {
+					values, synced, err := syncValuesFromTemplateService(revisionSvc, svc.VariableYaml)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
+					}
+					if synced {
+						jobTaskSpec.UpdateConfig = svc.UpdateConfig
+						jobTaskSpec.VariableYaml = values
+						jobTaskSpec.UserSuppliedValue = values
+						jobTaskSpec.ValuesSyncedFromSource = true
+					}
 				}
-				pSvc.GetServiceRender().SetAutoSync(autoSyncFlag)
-				jobTaskSpec.UpdateConfig = svc.UpdateConfig
-				jobTaskSpec.VariableYaml = values
-				jobTaskSpec.UserSuppliedValue = values
 			}
 
 			jobTask := &commonmodels.JobTask{
@@ -736,6 +754,64 @@ func (j DeployJobController) SetRepo(repo *types.Repository) error {
 
 func (j DeployJobController) SetRepoCommitInfo() error {
 	return nil
+}
+
+func syncValuesFromTemplateService(service *commonmodels.Service, currentValues string) (string, bool, error) {
+	if service == nil {
+		return "", false, nil
+	}
+
+	// chart-template service with a values source: sync from the configured source.
+	createFrom, err := service.GetHelmCreateFrom()
+	if err == nil && createFrom.YamlData != nil {
+		yamlData := &templatemodels.CustomYaml{
+			YamlContent:       createFrom.YamlData.YamlContent,
+			RenderVariableKVs: createFrom.YamlData.RenderVariableKVs,
+			Source:            createFrom.YamlData.Source,
+			AutoSync:          true,
+			AutoSyncYaml:      createFrom.YamlData.AutoSyncYaml,
+			SourceDetail:      createFrom.YamlData.SourceDetail,
+			SourceID:          createFrom.YamlData.SourceID,
+		}
+		_, values, err := commonservice.SyncYamlFromSource(yamlData, currentValues, yamlData.AutoSyncYaml)
+		if err != nil {
+			return "", false, err
+		}
+		if values == "" {
+			return "", false, nil
+		}
+		return values, true, nil
+	}
+
+	// git-loaded helm service (chart loaded from a git repo): the chart's values.yaml in
+	// the repo is the source of truth. Fetch the latest values.yaml so the first deployment
+	// is driven by the up-to-date chart values instead of a possibly stale snapshot.
+	return syncValuesFromChartRepo(service)
+}
+
+// syncValuesFromChartRepo downloads the chart's values.yaml from the service's git repo.
+// It is the fallback for undeployed helm services loaded from a git repo, whose template
+// has no YamlData (no separate values auto-sync source) but whose chart values live in git.
+func syncValuesFromChartRepo(service *commonmodels.Service) (string, bool, error) {
+	if service == nil || service.CodehostID == 0 || service.RepoName == "" || service.LoadPath == "" {
+		return "", false, nil
+	}
+	valuesPath := fmt.Sprintf("%s/%s", service.LoadPath, setting.ValuesYaml)
+	valuesYAML, err := fs.DownloadFileFromSource(&fs.DownloadFromSourceArgs{
+		CodehostID: service.CodehostID,
+		Owner:      service.RepoOwner,
+		Namespace:  service.RepoNamespace,
+		Repo:       service.RepoName,
+		Path:       valuesPath,
+		Branch:     service.BranchName,
+	})
+	if err != nil {
+		return "", false, err
+	}
+	if len(valuesYAML) == 0 {
+		return "", false, nil
+	}
+	return string(valuesYAML), true, nil
 }
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
