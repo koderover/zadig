@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
@@ -760,28 +761,57 @@ func syncValuesFromTemplateService(service *commonmodels.Service, currentValues 
 		return "", false, nil
 	}
 
+	// chart-template service with a values source: sync from the configured source.
 	createFrom, err := service.GetHelmCreateFrom()
-	if err != nil || createFrom.YamlData == nil {
-		return "", false, nil
+	if err == nil && createFrom.YamlData != nil {
+		yamlData := &templatemodels.CustomYaml{
+			YamlContent:       createFrom.YamlData.YamlContent,
+			RenderVariableKVs: createFrom.YamlData.RenderVariableKVs,
+			Source:            createFrom.YamlData.Source,
+			AutoSync:          true,
+			AutoSyncYaml:      createFrom.YamlData.AutoSyncYaml,
+			SourceDetail:      createFrom.YamlData.SourceDetail,
+			SourceID:          createFrom.YamlData.SourceID,
+		}
+		_, values, err := commonservice.SyncYamlFromSource(yamlData, currentValues, yamlData.AutoSyncYaml)
+		if err != nil {
+			return "", false, err
+		}
+		if values == "" {
+			return "", false, nil
+		}
+		return values, true, nil
 	}
 
-	yamlData := &templatemodels.CustomYaml{
-		YamlContent:       createFrom.YamlData.YamlContent,
-		RenderVariableKVs: createFrom.YamlData.RenderVariableKVs,
-		Source:            createFrom.YamlData.Source,
-		AutoSync:          true,
-		AutoSyncYaml:      createFrom.YamlData.AutoSyncYaml,
-		SourceDetail:      createFrom.YamlData.SourceDetail,
-		SourceID:          createFrom.YamlData.SourceID,
+	// git-loaded helm service (chart loaded from a git repo): the chart's values.yaml in
+	// the repo is the source of truth. Fetch the latest values.yaml so the first deployment
+	// is driven by the up-to-date chart values instead of a possibly stale snapshot.
+	return syncValuesFromChartRepo(service)
+}
+
+// syncValuesFromChartRepo downloads the chart's values.yaml from the service's git repo.
+// It is the fallback for undeployed helm services loaded from a git repo, whose template
+// has no YamlData (no separate values auto-sync source) but whose chart values live in git.
+func syncValuesFromChartRepo(service *commonmodels.Service) (string, bool, error) {
+	if service == nil || service.CodehostID == 0 || service.RepoName == "" || service.LoadPath == "" {
+		return "", false, nil
 	}
-	_, values, err := commonservice.SyncYamlFromSource(yamlData, currentValues, yamlData.AutoSyncYaml)
+	valuesPath := fmt.Sprintf("%s/%s", service.LoadPath, setting.ValuesYaml)
+	valuesYAML, err := fs.DownloadFileFromSource(&fs.DownloadFromSourceArgs{
+		CodehostID: service.CodehostID,
+		Owner:      service.RepoOwner,
+		Namespace:  service.RepoNamespace,
+		Repo:       service.RepoName,
+		Path:       valuesPath,
+		Branch:     service.BranchName,
+	})
 	if err != nil {
 		return "", false, err
 	}
-	if values == "" {
+	if len(valuesYAML) == 0 {
 		return "", false, nil
 	}
-	return values, true, nil
+	return string(valuesYAML), true, nil
 }
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
