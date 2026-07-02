@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"math"
 	"sort"
 	"strings"
@@ -898,13 +899,20 @@ func renderAIReleaseSpecialistResultMarkdown(result *commonmodels.AIReleaseSpeci
 	if result == nil {
 		return ""
 	}
-	lines := []string{"## 检测结论", translateAIResultValue(result.Conclusion)}
+	lines := []string{
+		"## 发布结论",
+		"",
+		fmt.Sprintf("结论：%s", renderAIResultBadge(result.Conclusion)),
+	}
 	if result.Summary != "" {
-		lines = append(lines, "", safeMarkdownText(result.Summary))
+		lines = append(lines, "", "## 风险摘要", "", safeMarkdownText(result.Summary))
 	}
 	if len(result.Checks) > 0 {
-		lines = append(lines, "", "## 检测项明细")
+		lines = append(lines, "", "## 检查项")
 		lines = append(lines, renderCheckDetailsMarkdown(result.Checks))
+	}
+	if suggestion := renderReleaseSuggestion(result.Conclusion); suggestion != "" {
+		lines = append(lines, "", "## 发布建议", "", suggestion)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -913,21 +921,53 @@ func renderCheckDetailsMarkdown(checks []*commonmodels.AIReleaseSpecialistCheckI
 	if len(checks) == 0 {
 		return ""
 	}
-	lines := make([]string, 0, len(checks)*4)
-	for _, check := range checks {
+	lines := []string{
+		"| 检查项 | 结果 | 判断依据 | 建议 |",
+		"| --- | --- | --- | --- |",
+	}
+	for idx, check := range checks {
 		if check == nil {
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("### %s", safeMarkdownText(check.Name)))
-		lines = append(lines, fmt.Sprintf("- 检测结果: %s", translateAIResultValue(check.Result)))
-		if check.Evidence != "" {
-			lines = append(lines, fmt.Sprintf("  - 依据: %s", safeMarkdownText(check.Evidence)))
+		name := check.Name
+		if strings.TrimSpace(name) == "" {
+			name = fmt.Sprintf("检查项 %d", idx+1)
 		}
-		if check.Suggestion != "" {
-			lines = append(lines, fmt.Sprintf("  - 建议: %s", safeMarkdownText(check.Suggestion)))
-		}
+		lines = append(lines, fmt.Sprintf(
+			"| %s | %s | %s | %s |",
+			safeMarkdownTableText(name),
+			renderAIResultBadge(check.Result),
+			safeMarkdownTableText(check.Evidence),
+			safeMarkdownTableText(check.Suggestion),
+		))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func renderAIResultBadge(value string) string {
+	switch normalizeAIResultValue(value) {
+	case "pass":
+		return `<span style="color:#16a34a;font-weight:600;">通过</span>`
+	case "warning":
+		return `<span style="color:#d97706;font-weight:600;">需关注</span>`
+	case "fail":
+		return `<span style="color:#dc2626;font-weight:600;">不建议继续</span>`
+	default:
+		return safeMarkdownText(translateAIResultValue(value))
+	}
+}
+
+func renderReleaseSuggestion(conclusion string) string {
+	switch normalizeAIResultValue(conclusion) {
+	case "pass":
+		return "当前未发现明确阻断风险，可继续后续发布流程。"
+	case "warning":
+		return "建议人工确认上述风险点，再决定是否继续发布。"
+	case "fail":
+		return "建议暂停发布，优先处理失败项后再重新执行。"
+	default:
+		return ""
+	}
 }
 
 func buildChangeSummaryText(changeSummary *commonmodels.AIChangeSummary) string {
@@ -958,7 +998,11 @@ func compactSingleLine(text string) string {
 }
 
 func safeMarkdownText(text string) string {
-	return strings.ReplaceAll(compactSingleLine(text), "\n", " ")
+	return html.EscapeString(compactSingleLine(text))
+}
+
+func safeMarkdownTableText(text string) string {
+	return strings.ReplaceAll(safeMarkdownText(text), "|", "\\|")
 }
 
 func uniqueSortedStrings(values []string) []string {
