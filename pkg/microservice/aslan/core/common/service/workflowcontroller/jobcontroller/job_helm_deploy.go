@@ -35,6 +35,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
@@ -216,9 +217,16 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			return
 		}
 		if currentEnvSvc == nil && c.jobTaskSpec.ValuesSyncedFromSource {
+			svcRender := newEnvService.GetServiceRender()
+			// For a git-loaded helm service (no YamlData on the template), fillHelmValuesSource
+			// left the source empty. Seed it from the chart git repo so future auto-sync runs
+			// can re-fetch the latest values.yaml from the same source.
+			if svcRender.OverrideYaml.Source == "" {
+				seedChartRepoSource(svcRender, latestTmplSvc)
+			}
 			// use the pure source values (before image injection in GenMergedValues) as the
 			// auto-sync baseline, so that future syncs compare against the unmodified source yaml.
-			newEnvService.GetServiceRender().SetAutoSyncYaml(c.jobTaskSpec.UserSuppliedValue)
+			svcRender.SetAutoSyncYaml(c.jobTaskSpec.UserSuppliedValue)
 		}
 	}
 
@@ -370,6 +378,32 @@ func fillHelmValuesSource(envSvc *commonmodels.ProductService, tmplSvc *commonmo
 	serviceRender.OverrideYaml.SourceID = createFrom.YamlData.SourceID
 	serviceRender.OverrideYaml.AutoSync = createFrom.YamlData.AutoSync
 	serviceRender.OverrideYaml.AutoSyncYaml = createFrom.YamlData.AutoSyncYaml
+}
+
+// seedChartRepoSource records the chart git repo as the values source on the render, for
+// git-loaded helm services whose values were synced from the chart's values.yaml. Unlike
+// fillHelmValuesSource (which only handles templates carrying YamlData), this serves services
+// loaded directly from a git repo where the chart's values.yaml is the source of truth.
+// AutoSync is intentionally left untouched: the workflow's auto sync strategy drives sync at
+// deploy time via a temporary flip in ToTask, so we only persist the source location here.
+func seedChartRepoSource(svcRender *templatemodels.ServiceRender, tmplSvc *commonmodels.Service) {
+	if svcRender == nil || svcRender.OverrideYaml == nil || tmplSvc == nil {
+		return
+	}
+	if tmplSvc.CodehostID == 0 || tmplSvc.RepoName == "" || tmplSvc.LoadPath == "" {
+		return
+	}
+	svcRender.OverrideYaml.Source = setting.SourceFromGitRepo
+	svcRender.OverrideYaml.SourceDetail = &commonmodels.CreateFromRepo{
+		GitRepoConfig: &templatemodels.GitRepoConfig{
+			CodehostID: tmplSvc.CodehostID,
+			Owner:      tmplSvc.RepoOwner,
+			Repo:       tmplSvc.RepoName,
+			Branch:     tmplSvc.BranchName,
+			Namespace:  tmplSvc.RepoNamespace,
+		},
+		LoadPath: fmt.Sprintf("%s/%s", tmplSvc.LoadPath, setting.ValuesYaml),
+	}
 }
 
 type ManifestStruct struct {
