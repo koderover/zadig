@@ -215,6 +215,11 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			logError(c.job, msg, c.logger)
 			return
 		}
+		if currentEnvSvc == nil && c.jobTaskSpec.ValuesSyncedFromSource {
+			// use the pure source values (before image injection in GenMergedValues) as the
+			// auto-sync baseline, so that future syncs compare against the unmodified source yaml.
+			newEnvService.GetServiceRender().SetAutoSyncYaml(c.jobTaskSpec.UserSuppliedValue)
+		}
 	}
 
 	newResourceMap, err := genHelmResourceMap(helmDeploySvc, productInfo, newEnvService, latestTmplSvc, helmClient)

@@ -711,6 +711,18 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					jobTaskSpec.UpdateConfig = svc.UpdateConfig
 					jobTaskSpec.VariableYaml = values
 					jobTaskSpec.UserSuppliedValue = values
+					jobTaskSpec.ValuesSyncedFromSource = true
+				} else {
+					values, synced, err := syncValuesFromTemplateService(revisionSvc, svc.VariableYaml)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
+					}
+					if synced {
+						jobTaskSpec.UpdateConfig = svc.UpdateConfig
+						jobTaskSpec.VariableYaml = values
+						jobTaskSpec.UserSuppliedValue = values
+						jobTaskSpec.ValuesSyncedFromSource = true
+					}
 				}
 			}
 
@@ -741,6 +753,35 @@ func (j DeployJobController) SetRepo(repo *types.Repository) error {
 
 func (j DeployJobController) SetRepoCommitInfo() error {
 	return nil
+}
+
+func syncValuesFromTemplateService(service *commonmodels.Service, currentValues string) (string, bool, error) {
+	if service == nil {
+		return "", false, nil
+	}
+
+	createFrom, err := service.GetHelmCreateFrom()
+	if err != nil || createFrom.YamlData == nil {
+		return "", false, nil
+	}
+
+	yamlData := &templatemodels.CustomYaml{
+		YamlContent:       createFrom.YamlData.YamlContent,
+		RenderVariableKVs: createFrom.YamlData.RenderVariableKVs,
+		Source:            createFrom.YamlData.Source,
+		AutoSync:          true,
+		AutoSyncYaml:      createFrom.YamlData.AutoSyncYaml,
+		SourceDetail:      createFrom.YamlData.SourceDetail,
+		SourceID:          createFrom.YamlData.SourceID,
+	}
+	_, values, err := commonservice.SyncYamlFromSource(yamlData, currentValues, yamlData.AutoSyncYaml)
+	if err != nil {
+		return "", false, err
+	}
+	if values == "" {
+		return "", false, nil
+	}
+	return values, true, nil
 }
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
