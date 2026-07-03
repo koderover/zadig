@@ -28,6 +28,9 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -35,13 +38,16 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	runtimejob "github.com/koderover/zadig/v2/pkg/types/job"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 const (
-	aiReleaseSpecialistMaxPromptTokens = 12000
+	aiReleaseSpecialistMaxPromptTokens  = 12000
+	aiReleaseSpecialistKubeQueryTimeout = 5 * time.Second
 )
 
 const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员，负责在人工审批前评估本次发布风险，并给出是否建议继续后续发布动作的结论。
@@ -50,8 +56,10 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 代码扫描：表示静态检查或安全扫描结果；如果 scan_metrics 存在，应优先参考质量门禁、bug、漏洞、异味、覆盖率等结构化指标，否则只能依据任务状态和错误摘要判断。
 - 构建：表示本次变更来源，可提供仓库、分支、tag、commit message、服务或模块信息，用于理解变更范围，不代表变更已验证通过。
 - 测试：表示自动化验证结果；如果 test_statistics 存在，应优先参考总用例数、成功数、失败数、错误数、跳过数和通过率，否则只能依据任务状态和错误摘要判断。
+- 监控告警：如果 observability_summary 存在，表示工作流中已有 Grafana 或观测云检查任务的执行结果；这不是全量监控平台告警，只能依据其中的任务状态、检查项状态、级别和链接判断。
+- 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；pod_status、ready、pod_count、ready_pods 是从 Kubernetes workload 关联 Pod 查询到的就绪信号，可用于判断目标服务是否明显异常；这不代表实时 CPU、内存、磁盘或业务日志。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
-- 部署类任务：表示 AI 节点之前已经确定的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设存在 AI 节点之后的发布动作。
+- 部署类任务：表示工作流中已配置的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设未提供的发布动作。
 - 如果输入中带有 sources 或 items 字段，这些字段表示对应上下文来自哪个上游任务；应优先结合其中的 job_name、job_type、status、summary 判断每条信息的来源和含义。
 
 判断约束：
@@ -314,6 +322,9 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 		testStatuses   []string
 		testSummaries  []string
 		testItems      []*commonmodels.AIReleaseSummaryItem
+		obsStatuses    []string
+		obsSummaries   []string
+		obsItems       []*commonmodels.AIObservabilityItem
 	)
 	currentJobReached := false
 
@@ -383,16 +394,33 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				item := buildReleaseSummaryItem(job, summary)
 				item.TestStatistics = buildAITestStatisticsFromReports(testReports)
 				testItems = append(testItems, item)
+			case string(config.JobGrafana):
+				if currentJobReached {
+					continue
+				}
+				item := buildAIObservabilityItemFromGrafana(job)
+				obsStatuses = append(obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				obsSummaries = append(obsSummaries, buildObservabilitySummaryLine(item))
+				obsItems = append(obsItems, item)
+			case string(config.JobGuanceyunCheck):
+				if currentJobReached {
+					continue
+				}
+				item := buildAIObservabilityItemFromGuanceyun(job)
+				obsStatuses = append(obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				obsSummaries = append(obsSummaries, buildObservabilitySummaryLine(item))
+				obsItems = append(obsItems, item)
 			}
 		}
 	}
 
-	return finalizeAIReleaseSpecialistInput(input, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems), nil
+	return finalizeAIReleaseSpecialistInput(task.ProjectName, input, envMap, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems, obsStatuses, obsSummaries, obsItems), nil
 }
 
-func finalizeAIReleaseSpecialistInput(input *commonmodels.AIReleaseSpecialistInput, releaseTargets []*commonmodels.AIReleaseTargetsSummary, scanStatuses, scanSummaries []string, scanItems []*commonmodels.AIReleaseSummaryItem, testStatuses, testSummaries []string, testItems []*commonmodels.AIReleaseSummaryItem) *commonmodels.AIReleaseSpecialistInput {
+func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AIReleaseSpecialistInput, envMap map[string]*commonmodels.Product, releaseTargets []*commonmodels.AIReleaseTargetsSummary, scanStatuses, scanSummaries []string, scanItems []*commonmodels.AIReleaseSummaryItem, testStatuses, testSummaries []string, testItems []*commonmodels.AIReleaseSummaryItem, obsStatuses, obsSummaries []string, obsItems []*commonmodels.AIObservabilityItem) *commonmodels.AIReleaseSpecialistInput {
 	if len(releaseTargets) > 0 {
 		input.ReleaseTargets = mergeReleaseTargets(releaseTargets)
+		input.RuntimeServices = buildAIRuntimeServicesSummary(projectName, releaseTargets, envMap)
 	}
 	if len(scanStatuses) > 0 || len(scanSummaries) > 0 || len(scanItems) > 0 {
 		input.ScanSummary = &commonmodels.AIScanSummary{
@@ -406,6 +434,13 @@ func finalizeAIReleaseSpecialistInput(input *commonmodels.AIReleaseSpecialistInp
 			JobStatuses: uniqueSortedStrings(testStatuses),
 			Summaries:   uniquePreserveOrder(testSummaries),
 			Items:       uniqueReleaseSummaryItems(testItems),
+		}
+	}
+	if len(obsStatuses) > 0 || len(obsSummaries) > 0 || len(obsItems) > 0 {
+		input.ObservabilitySummary = &commonmodels.AIObservabilitySummary{
+			JobStatuses: uniqueSortedStrings(obsStatuses),
+			Summaries:   uniquePreserveOrder(obsSummaries),
+			Items:       uniqueAIObservabilityItems(obsItems),
 		}
 	}
 	input.ChangeSummary.Branches = uniqueSortedStrings(input.ChangeSummary.Branches)
@@ -522,7 +557,10 @@ func fillReleaseTargetEnvAlias(projectName string, target *commonmodels.AIReleas
 	if target == nil || strings.TrimSpace(projectName) == "" || strings.TrimSpace(target.EnvName) == "" {
 		return
 	}
-	target.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, target.EnvName, envMap))
+	product, err := getAIReleaseProduct(projectName, target.EnvName, target.Production, envMap)
+	if err == nil {
+		target.EnvAlias = commonutil.GetEnvAlias(product)
+	}
 	for _, item := range target.Items {
 		if item == nil {
 			continue
@@ -633,6 +671,332 @@ func buildAITestPassRate(successCaseNum, testCaseNum int) float64 {
 	return math.Round(float64(successCaseNum)/float64(testCaseNum)*10000) / 100
 }
 
+func buildAIObservabilityItemFromGrafana(job *commonmodels.JobTask) *commonmodels.AIObservabilityItem {
+	item := &commonmodels.AIObservabilityItem{
+		JobName:  job.OriginName,
+		JobType:  job.JobType,
+		Status:   string(job.Status),
+		Provider: "grafana",
+	}
+	spec := &commonmodels.JobTaskGrafanaSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return item
+	}
+	item.Name = spec.Name
+	item.CheckMode = spec.CheckMode
+	item.CheckTime = spec.CheckTime
+	for _, alert := range spec.Alerts {
+		if alert == nil {
+			continue
+		}
+		item.Events = append(item.Events, &commonmodels.AIObservabilityEvent{
+			ID:     alert.ID,
+			Name:   alert.Name,
+			Status: alert.Status,
+			URL:    alert.Url,
+		})
+	}
+	return item
+}
+
+func buildAIObservabilityItemFromGuanceyun(job *commonmodels.JobTask) *commonmodels.AIObservabilityItem {
+	item := &commonmodels.AIObservabilityItem{
+		JobName:  job.OriginName,
+		JobType:  job.JobType,
+		Status:   string(job.Status),
+		Provider: "guanceyun",
+	}
+	spec := &commonmodels.JobTaskGuanceyunCheckSpec{}
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return item
+	}
+	item.Name = spec.Name
+	item.CheckMode = spec.CheckMode
+	item.CheckTime = spec.CheckTime
+	for _, monitor := range spec.Monitors {
+		if monitor == nil {
+			continue
+		}
+		item.Events = append(item.Events, &commonmodels.AIObservabilityEvent{
+			ID:     monitor.ID,
+			Name:   monitor.Name,
+			Level:  string(monitor.Level),
+			Status: monitor.Status,
+			URL:    monitor.Url,
+		})
+	}
+	return item
+}
+
+func buildObservabilitySummaryLine(item *commonmodels.AIObservabilityItem) string {
+	if item == nil {
+		return ""
+	}
+	triggered := 0
+	for _, event := range item.Events {
+		if event != nil && event.Status == StatusAbnormal {
+			triggered++
+		}
+	}
+	if triggered > 0 {
+		return fmt.Sprintf("%s(%s): %d observability event(s) abnormal", item.JobName, item.Status, triggered)
+	}
+	return fmt.Sprintf("%s(%s)", item.JobName, item.Status)
+}
+
+func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonmodels.AIReleaseTargetsSummary, envMap map[string]*commonmodels.Product) *commonmodels.AIRuntimeServicesSummary {
+	if len(releaseTargets) == 0 || strings.TrimSpace(projectName) == "" {
+		return nil
+	}
+	summary := &commonmodels.AIRuntimeServicesSummary{}
+	for _, target := range releaseTargets {
+		if target == nil || strings.TrimSpace(target.EnvName) == "" {
+			continue
+		}
+		product, err := getAIReleaseProduct(projectName, target.EnvName, target.Production, envMap)
+		if err != nil {
+			summary.QueryErrors = append(summary.QueryErrors, err.Error())
+			continue
+		}
+		var kubeClient client.Client
+		if hasK8SRuntimeServices(product, target.ServiceNames) {
+			kubeClient, err = getAIReleaseKubeClient(product.ClusterID)
+			if err != nil {
+				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("get env %s kube client failed: %v", target.EnvName, err))
+			}
+		}
+		serviceMap := product.GetServiceMap()
+		for _, serviceName := range target.ServiceNames {
+			serviceName = strings.TrimSpace(serviceName)
+			if serviceName == "" {
+				continue
+			}
+			service := serviceMap[serviceName]
+			if service == nil {
+				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("service %s not found in env %s", serviceName, target.EnvName))
+				continue
+			}
+			item := buildAIRuntimeServiceItem(product, service)
+			if kubeClient != nil {
+				if err := fillAIRuntimeServicePodReady(product, service, item, kubeClient); err != nil {
+					summary.QueryErrors = append(summary.QueryErrors, err.Error())
+				}
+			}
+			summary.Items = append(summary.Items, item)
+		}
+	}
+	summary.Items = uniqueAIRuntimeServiceItems(summary.Items)
+	summary.QueryErrors = uniquePreserveOrder(summary.QueryErrors)
+	if len(summary.Items) == 0 && len(summary.QueryErrors) == 0 {
+		return nil
+	}
+	return summary
+}
+
+func getAIReleaseProduct(projectName, envName string, production bool, envMap map[string]*commonmodels.Product) (*commonmodels.Product, error) {
+	key := strings.TrimSpace(envName)
+	if envMap != nil {
+		if product := envMap[key]; product != nil && product.Production == production {
+			return product, nil
+		}
+	}
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("find env %s failed: %v", envName, err)
+	}
+	if envMap != nil {
+		envMap[key] = product
+	}
+	return product, nil
+}
+
+func getAIReleaseKubeClient(clusterID string) (client.Client, error) {
+	type resp struct {
+		kubeClient client.Client
+		err        error
+	}
+	ch := make(chan resp, 1)
+	go func() {
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+		ch <- resp{kubeClient: kubeClient, err: err}
+	}()
+	select {
+	case result := <-ch:
+		return result.kubeClient, result.err
+	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+		return nil, fmt.Errorf("get kube client timeout after %s", aiReleaseSpecialistKubeQueryTimeout)
+	}
+}
+
+func hasK8SRuntimeServices(product *commonmodels.Product, serviceNames []string) bool {
+	if product == nil || len(serviceNames) == 0 {
+		return false
+	}
+	serviceMap := product.GetServiceMap()
+	for _, serviceName := range serviceNames {
+		service := serviceMap[strings.TrimSpace(serviceName)]
+		if service != nil && service.Type == setting.K8SDeployType && len(service.WorkLoads) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmodels.ProductService) *commonmodels.AIRuntimeServiceItem {
+	item := &commonmodels.AIRuntimeServiceItem{
+		EnvName:     product.EnvName,
+		EnvAlias:    commonutil.GetEnvAlias(product),
+		Production:  product.Production,
+		ServiceName: service.ServiceName,
+		ServiceType: service.Type,
+		Revision:    service.Revision,
+		Error:       compactSingleLine(service.Error),
+		UpdateTime:  service.UpdateTime,
+	}
+	for _, container := range service.Containers {
+		if container == nil || strings.TrimSpace(container.Image) == "" {
+			continue
+		}
+		item.Images = append(item.Images, container.Image)
+	}
+	for _, workload := range service.WorkLoads {
+		if workload == nil {
+			continue
+		}
+		item.Workloads = append(item.Workloads, &commonmodels.AIRuntimeWorkload{
+			WorkloadType: workload.WorkloadType,
+			WorkloadName: workload.WorkloadName,
+			Replicas:     workload.Replicas,
+		})
+	}
+	for _, resource := range service.Resources {
+		if resource == nil {
+			continue
+		}
+		item.Resources = append(item.Resources, &commonmodels.AIRuntimeResource{
+			Kind: resource.Kind,
+			Name: resource.Name,
+		})
+	}
+	item.Images = uniquePreserveOrder(item.Images)
+	return item
+}
+
+func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *commonmodels.ProductService, item *commonmodels.AIRuntimeServiceItem, kubeClient client.Client) error {
+	if product == nil || service == nil || item == nil || kubeClient == nil {
+		return nil
+	}
+	if service.Type != setting.K8SDeployType || len(service.WorkLoads) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(product.Namespace) == "" {
+		return fmt.Errorf("query service %s pod status failed: env namespace is empty", service.ServiceName)
+	}
+	var queryErrors []string
+	for _, workload := range service.WorkLoads {
+		if workload == nil || strings.TrimSpace(workload.WorkloadName) == "" {
+			continue
+		}
+		pods, err := listAIRuntimeWorkloadPodsWithTimeout(product.Namespace, workload, kubeClient)
+		if err != nil {
+			queryErrors = append(queryErrors, err.Error())
+			continue
+		}
+		for _, pod := range pods {
+			if pod == nil {
+				continue
+			}
+			item.PodCount++
+			if isAIRuntimePodReady(pod) {
+				item.ReadyPods++
+			}
+		}
+	}
+	switch {
+	case len(queryErrors) > 0 && item.PodCount == 0:
+	case item.PodCount == 0:
+		item.PodStatus = setting.PodNonStarted
+		item.Ready = setting.PodNotReady
+	case item.ReadyPods == item.PodCount:
+		item.PodStatus = setting.PodRunning
+		item.Ready = setting.PodReady
+	default:
+		item.PodStatus = setting.PodUnstable
+		item.Ready = setting.PodNotReady
+	}
+	if len(queryErrors) > 0 {
+		return fmt.Errorf("query service %s pod status failed: %s", service.ServiceName, strings.Join(uniquePreserveOrder(queryErrors), "; "))
+	}
+	return nil
+}
+
+func listAIRuntimeWorkloadPods(namespace string, workload *commonmodels.WorkLoad, kubeClient client.Client) ([]*corev1.Pod, error) {
+	switch workload.WorkloadType {
+	case setting.Deployment:
+		deployment, found, err := getter.GetDeployment(namespace, workload.WorkloadName, kubeClient)
+		if err != nil {
+			return nil, fmt.Errorf("get deployment %s/%s failed: %v", namespace, workload.WorkloadName, err)
+		}
+		if !found || deployment == nil {
+			return nil, fmt.Errorf("deployment %s/%s not found", namespace, workload.WorkloadName)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("get deployment %s/%s selector failed: %v", namespace, workload.WorkloadName, err)
+		}
+		return getter.ListPods(namespace, selector, kubeClient)
+	case setting.StatefulSet:
+		statefulSet, found, err := getter.GetStatefulSet(namespace, workload.WorkloadName, kubeClient)
+		if err != nil {
+			return nil, fmt.Errorf("get statefulset %s/%s failed: %v", namespace, workload.WorkloadName, err)
+		}
+		if !found || statefulSet == nil {
+			return nil, fmt.Errorf("statefulset %s/%s not found", namespace, workload.WorkloadName)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(statefulSet.Spec.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("get statefulset %s/%s selector failed: %v", namespace, workload.WorkloadName, err)
+		}
+		return getter.ListPods(namespace, selector, kubeClient)
+	default:
+		return nil, nil
+	}
+}
+
+func listAIRuntimeWorkloadPodsWithTimeout(namespace string, workload *commonmodels.WorkLoad, kubeClient client.Client) ([]*corev1.Pod, error) {
+	type resp struct {
+		pods []*corev1.Pod
+		err  error
+	}
+	ch := make(chan resp, 1)
+	go func() {
+		pods, err := listAIRuntimeWorkloadPods(namespace, workload, kubeClient)
+		ch <- resp{pods: pods, err: err}
+	}()
+	select {
+	case result := <-ch:
+		return result.pods, result.err
+	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+		return nil, fmt.Errorf("query workload %s/%s pods timeout after %s", namespace, workload.WorkloadName, aiReleaseSpecialistKubeQueryTimeout)
+	}
+}
+
+func isAIRuntimePodReady(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
 func buildReleaseTargetItem(job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary) *commonmodels.AIReleaseTargetItem {
 	if job == nil || target == nil {
 		return nil
@@ -678,6 +1042,46 @@ func uniqueReleaseSummaryItems(values []*commonmodels.AIReleaseSummaryItem) []*c
 		}
 		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType) + "|" + strings.TrimSpace(value.Status) + "|" + strings.TrimSpace(value.Summary)
 		if key == "|||" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, value)
+	}
+	return resp
+}
+
+func uniqueAIObservabilityItems(values []*commonmodels.AIObservabilityItem) []*commonmodels.AIObservabilityItem {
+	seen := map[string]struct{}{}
+	resp := make([]*commonmodels.AIObservabilityItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType) + "|" + strings.TrimSpace(value.Provider)
+		if key == "||" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		resp = append(resp, value)
+	}
+	return resp
+}
+
+func uniqueAIRuntimeServiceItems(values []*commonmodels.AIRuntimeServiceItem) []*commonmodels.AIRuntimeServiceItem {
+	seen := map[string]struct{}{}
+	resp := make([]*commonmodels.AIRuntimeServiceItem, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		key := strings.TrimSpace(value.EnvName) + "|" + strings.TrimSpace(value.ServiceName)
+		if key == "|" {
 			continue
 		}
 		if _, ok := seen[key]; ok {
