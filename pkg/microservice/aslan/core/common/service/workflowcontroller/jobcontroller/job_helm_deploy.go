@@ -153,6 +153,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	productInfo.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] = setting.ServiceDeployStrategyDeploy
 	if currentEnvSvc == nil {
 		fillHelmValuesSource(newEnvService, latestTmplSvc)
+		seedChartRepoSource(newEnvService.GetServiceRender(), latestTmplSvc)
+		applySyncedValuesToNewEnvService(newEnvService, c.jobTaskSpec)
 	}
 
 	// calc final values yaml
@@ -380,6 +382,16 @@ func fillHelmValuesSource(envSvc *commonmodels.ProductService, tmplSvc *commonmo
 	serviceRender.OverrideYaml.AutoSyncYaml = createFrom.YamlData.AutoSyncYaml
 }
 
+func applySyncedValuesToNewEnvService(envSvc *commonmodels.ProductService, jobSpec *commonmodels.JobTaskHelmDeploySpec) {
+	if envSvc == nil || jobSpec == nil || !jobSpec.ValuesSyncedFromSource || jobSpec.VariableYaml == "" {
+		return
+	}
+
+	serviceRender := envSvc.GetServiceRender()
+	serviceRender.SetOverrideYaml(jobSpec.VariableYaml)
+	serviceRender.SetAutoSyncYaml(jobSpec.UserSuppliedValue)
+}
+
 // seedChartRepoSource records the chart git repo as the values source on the render, for
 // git-loaded helm services whose values were synced from the chart's values.yaml. Unlike
 // fillHelmValuesSource (which only handles templates carrying YamlData), this serves services
@@ -388,6 +400,9 @@ func fillHelmValuesSource(envSvc *commonmodels.ProductService, tmplSvc *commonmo
 // deploy time via a temporary flip in ToTask, so we only persist the source location here.
 func seedChartRepoSource(svcRender *templatemodels.ServiceRender, tmplSvc *commonmodels.Service) {
 	if svcRender == nil || svcRender.OverrideYaml == nil || tmplSvc == nil {
+		return
+	}
+	if svcRender.OverrideYaml.SourceDetail != nil {
 		return
 	}
 	if tmplSvc.CodehostID == 0 || tmplSvc.RepoName == "" || tmplSvc.LoadPath == "" {
