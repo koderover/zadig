@@ -783,19 +783,10 @@ func syncValuesFromTemplateService(service *commonmodels.Service, currentValues 
 		return values, true, nil
 	}
 
-	// git-loaded helm service (chart loaded from a git repo): the chart's values.yaml in
-	// the repo is the source of truth. Fetch the latest values.yaml so the first deployment
-	// is driven by the up-to-date chart values instead of a possibly stale snapshot.
-	return syncValuesFromChartRepo(service)
-}
-
-// syncValuesFromChartRepo downloads the chart's values.yaml from the service's git repo.
-// It is the fallback for undeployed helm services loaded from a git repo, whose template
-// has no YamlData (no separate values auto-sync source) but whose chart values live in git.
-func syncValuesFromChartRepo(service *commonmodels.Service) (string, bool, error) {
-	if service == nil || service.CodehostID == 0 || service.RepoName == "" || service.LoadPath == "" {
+	if service.CodehostID == 0 || service.RepoName == "" || service.LoadPath == "" {
 		return "", false, nil
 	}
+
 	valuesPath := fmt.Sprintf("%s/%s", service.LoadPath, setting.ValuesYaml)
 	valuesYAML, err := fs.DownloadFileFromSource(&fs.DownloadFromSourceArgs{
 		CodehostID: service.CodehostID,
