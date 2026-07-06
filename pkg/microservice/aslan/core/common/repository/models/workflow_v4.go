@@ -19,6 +19,7 @@ package models
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,6 +45,7 @@ type WorkflowV4 struct {
 	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
 	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	TemplateName   string                   `bson:"-"                   yaml:"template_name,omitempty" json:"template_name,omitempty"`
 	Disabled       bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
 	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
 	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
@@ -914,6 +916,7 @@ type ZadigBlueGreenDeployEnvInformation struct {
 
 type ZadigVMDeployEnvInformation struct {
 	Env      string                `json:"env"      yaml:"env"`
+	Alias    string                `json:"alias"    yaml:"alias"`
 	Services []*ServiceAndVMDeploy `json:"services" yaml:"services"`
 }
 
@@ -971,9 +974,15 @@ type JiraJobSpec struct {
 	// JQL: when query type is advanced, use this
 	JQL string `bson:"jql" json:"jql" yaml:"jql"`
 
-	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	IssueType     string              `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID          `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus  string              `bson:"target_status" json:"target_status" yaml:"target_status"`
+	FieldMappings []*JiraFieldMapping `bson:"field_mappings" json:"field_mappings" yaml:"field_mappings"`
+}
+
+type JiraFieldMapping struct {
+	JiraFieldID string `bson:"jira_field_id" json:"jira_field_id" yaml:"jira_field_id"`
+	ValueSource string `bson:"value_source" json:"value_source" yaml:"value_source"`
 }
 
 type IstioJobSpec struct {
@@ -1474,6 +1483,27 @@ type ApisixItemSpec struct {
 	Spec   interface{}             `bson:"spec"          json:"spec"          yaml:"spec"`
 }
 
+func (s *ApisixItemSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemSpec is nil")
+	}
+	return getApisixConfigName(s.Spec)
+}
+
+func getApisixConfigName(spec interface{}) (string, error) {
+	if spec == nil {
+		return "", errors.New("spec is nil")
+	}
+	if specMap, ok := spec.(map[string]interface{}); ok {
+		name, ok := specMap["name"].(string)
+		if ok {
+			return strings.TrimSpace(name), nil
+		}
+		return "", errors.New("config name is empty from spec")
+	}
+	return "", errors.New("spec is not a map type")
+}
+
 type PingCodeJobSpec struct {
 	PingCodeID       string                 `bson:"pingcode_id"         json:"pingcode_id"         yaml:"pingcode_id"`
 	Source           config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
@@ -1681,10 +1711,12 @@ type Param struct {
 	Script       string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
 	CallFunction string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
 	FileID       string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
+	FileName     string                 `bson:"file_name,omitempty"       json:"file_name,omitempty"         yaml:"file_name,omitempty"`
 	FilePath     string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
+	Required     bool                   `bson:"required,omitempty"        json:"required,omitempty"          yaml:"required,omitempty"`
 }
 
 func (p *Param) GetValue() string {

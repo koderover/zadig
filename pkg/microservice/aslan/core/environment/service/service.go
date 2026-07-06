@@ -83,6 +83,8 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	switch args.Type {
 	case setting.Deployment:
 		err = updater.RestartDeploymentV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
+	case setting.DaemonSet:
+		err = updater.RestartDaemonSet(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	case setting.StatefulSet:
 		err = updater.RestartStatefulSetV2(context.Background(), prod.ClusterID, prod.Namespace, args.Name)
 	}
@@ -179,6 +181,10 @@ func GetService(envName, productName, serviceName string, production bool, workL
 func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Product, inf informers.SharedInformerFactory, log *zap.SugaredLogger) ([]*commonservice.Workload, error) {
 	ret := make([]*commonservice.Workload, 0)
 	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
+	cluster, err := kube.GetCluster(env.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to get cluster for cluster %s: %w", env.ClusterID, err))
+	}
 
 	svcRender := env.GetSvcRender(svcTmpl.ServiceName)
 	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, svcRender)
@@ -186,7 +192,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, err
 	}
-	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, parsedYaml)
+	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, cluster.Name, parsedYaml)
 
 	manifests := releaseutil.SplitManifests(parsedYaml)
 	for _, item := range manifests {
@@ -215,6 +221,25 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Annotation: wd.Annotations,
 			})
 
+		case setting.DaemonSet:
+			daemonSet, err := getter.GetDaemonSetByNameWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get daemonset %s, err: %s", u.GetName(), err)
+				continue
+			}
+			wd := wrapper.DaemonSet(daemonSet)
+			ret = append(ret, &commonservice.Workload{
+				Name:       wd.Name,
+				Spec:       wd.Spec.Template,
+				Selector:   wd.Spec.Selector,
+				Type:       setting.DaemonSet,
+				Replicas:   wd.Status.DesiredNumberScheduled,
+				Images:     wd.ImageInfos(),
+				Containers: wd.GetContainers(),
+				Ready:      wd.Ready(),
+				Annotation: wd.Annotations,
+			})
+
 		case setting.StatefulSet:
 			sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
 			if err != nil {
@@ -231,6 +256,24 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Containers: ws.GetContainers(),
 				Ready:      ws.Ready(),
 				Annotation: ws.Annotations,
+			})
+		case setting.Job:
+			job, err := getter.GetJobByNameWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get job %s, err: %s", u.GetName(), err)
+				continue
+			}
+			wj := wrapper.Job(job)
+			_, ready, _ := kube.GetSelectedPodsInfo(labels.SelectorFromSet(job.Spec.Selector.MatchLabels), inf, wj.ImageInfos(), log)
+			ret = append(ret, &commonservice.Workload{
+				Name:       wj.Name,
+				Spec:       wj.Spec.Template,
+				Selector:   wj.Spec.Selector,
+				Type:       setting.Job,
+				Images:     wj.ImageInfos(),
+				Containers: wj.GetContainers(),
+				Ready:      ready == setting.PodReady || ready == setting.JobReady,
+				Annotation: wj.Annotations,
 			})
 		}
 	}
@@ -445,6 +488,14 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		}
 		if found {
 			return updater.RestartDeploymentV2(context.Background(), productObj.ClusterID, productObj.Namespace, deploy.Name)
+		}
+
+		daemonSet, found, err := getter.GetDaemonSet(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to find resource %s, type %s, err %s", args.ServiceName, setting.DaemonSet, err.Error())
+		}
+		if found {
+			return updater.RestartDaemonSet(context.Background(), productObj.ClusterID, productObj.Namespace, daemonSet.Name)
 		}
 
 		sts, found, err := getter.GetStatefulSet(productObj.Namespace, args.ServiceName, kubeClient)

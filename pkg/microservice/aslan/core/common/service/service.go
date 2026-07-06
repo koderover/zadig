@@ -1361,6 +1361,12 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	err = nil
 
 	namespace := env.Namespace
+	// get cluster name by id
+	cluster, err := kube.GetCluster(env.ClusterID)
+	if err != nil {
+		log.Errorf("", err)
+		return nil, err
+	}
 	switch env.Source {
 	case setting.SourceFromHelm:
 		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
@@ -1406,6 +1412,13 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 				return ret, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for cronjob, err: %s", serviceName, err.Error()))
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
+		case setting.Job:
+			job, err := getter.GetJobByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for job, err: %s", serviceName, err.Error()))
+			}
+			ret.Scales = append(ret.Scales, getJobWorkloadResource(job, inf, log))
+			ret.Workloads = append(ret.Workloads, toJobWorkload(job))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
@@ -1421,8 +1434,9 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err
 		}
-		// 渲染系统变量键值
-		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+
+		// render system kv value
+		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, cluster.Name, parsedYaml)
 
 		manifests := releaseutil.SplitManifests(parsedYaml)
 		for _, item := range manifests {
@@ -1441,6 +1455,14 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 				ret.Scales = append(ret.Scales, GetDeploymentWorkloadResource(d, inf, log))
 				ret.Workloads = append(ret.Workloads, ToDeploymentWorkload(d))
+			case setting.DaemonSet:
+				daemonSet, err := getter.GetDaemonSetByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, GetDaemonSetWorkloadResource(daemonSet, inf, log))
+				ret.Workloads = append(ret.Workloads, ToDaemonSetWorkload(daemonSet))
 			case setting.CloneSet:
 				dc, err := clientmanager.NewKubeClientManager().GetKruiseClient(env.ClusterID)
 				if err != nil {
@@ -1460,6 +1482,14 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
 				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
+			case setting.Job:
+				job, err := getter.GetJobByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, getJobWorkloadResource(job, inf, log))
+				ret.Workloads = append(ret.Workloads, toJobWorkload(job))
 			case setting.CronJob:
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
@@ -1535,6 +1565,15 @@ func GetCloneSetWorkloadResource(d *v1alpha1.CloneSet, informer informers.Shared
 	return wrapper.CloneSet(d).WorkloadResource(pods)
 }
 
+func GetDaemonSetWorkloadResource(daemonSet *appsv1.DaemonSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(daemonSet.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.DaemonSet(daemonSet).WorkloadResource(pods)
+}
+
 func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
 	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(sts.Spec.Selector.MatchLabels), informer)
 	if err != nil {
@@ -1542,6 +1581,15 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	}
 
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
+}
+
+func getJobWorkloadResource(job *batchv1.Job, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(job.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.Job(job).WorkloadResource(pods)
 }
 
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
@@ -1589,6 +1637,20 @@ func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
 	return workload
 }
 
+func ToDaemonSetWorkload(v *appsv1.DaemonSet) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Selector:   v.Spec.Selector,
+		Type:       setting.DaemonSet,
+		Images:     wrapper.DaemonSet(v).ImageInfos(),
+		Containers: wrapper.DaemonSet(v).GetContainers(),
+		Ready:      wrapper.DaemonSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
 func ToCloneSetWorkload(v *v1alpha1.CloneSet) *Workload {
 	workload := &Workload{
 		Name:       v.Name,
@@ -1612,6 +1674,20 @@ func toStsWorkload(v *appsv1.StatefulSet) *Workload {
 		Images:     wrapper.StatefulSet(v).ImageInfos(),
 		Containers: wrapper.StatefulSet(v).GetContainers(),
 		Ready:      wrapper.StatefulSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
+func toJobWorkload(v *batchv1.Job) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Selector:   v.Spec.Selector,
+		Type:       setting.Job,
+		Images:     wrapper.Job(v).ImageInfos(),
+		Containers: wrapper.Job(v).GetContainers(),
+		Ready:      wrapper.Job(v).Complete(),
 		Annotation: v.Annotations,
 	}
 	return workload

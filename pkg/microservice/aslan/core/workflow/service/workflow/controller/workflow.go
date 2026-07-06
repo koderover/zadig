@@ -356,15 +356,20 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
-	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+
+	projectName := ""
+	if w.Project != "" {
+		projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+		}
+		projectName = projectInfo.ProjectName
 	}
 	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "project.id", Value: w.Project, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectInfo.ProjectName, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.Name, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.DisplayName, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectName, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.workflowID(), ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.workflowName(), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
@@ -372,13 +377,16 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.is_release_plan_trigger", Value: fmt.Sprintf("%t", releasePlan != nil), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.datetime", Value: time.Now().Format(time.DateTime), ParamsType: "string", IsCredential: false})
-	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		configbase.SystemAddress(),
-		w.Project,
-		w.Name,
-		taskID,
-		url.QueryEscape(w.DisplayName),
-	)
+	detailURL := ""
+	if w.Project != "" {
+		detailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+			configbase.SystemAddress(),
+			w.Project,
+			w.workflowID(),
+			taskID,
+			url.QueryEscape(w.workflowName()),
+		)
+	}
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.url", Value: detailURL, ParamsType: "string", IsCredential: false})
 
 	for _, param := range w.Params {
@@ -392,6 +400,121 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		resp = append(resp, newParam)
 	}
 	return resp, nil
+}
+
+func (w *Workflow) workflowID() string {
+	if w.Name != "" {
+		return w.Name
+	}
+	if w.TemplateName != "" {
+		return w.TemplateName
+	}
+	return w.DisplayName
+}
+
+func (w *Workflow) workflowName() string {
+	if w.DisplayName != "" {
+		return w.DisplayName
+	}
+	if w.TemplateName != "" {
+		return w.TemplateName
+	}
+	return w.Name
+}
+
+// sanitizeDynamicVariableKey sanitizes the dynamic variable key by replacing special characters with underscores.
+func sanitizeDynamicVariableKey(key string) string {
+	key = strings.ReplaceAll(key, "-", "_")
+	key = strings.ReplaceAll(key, ".", "_")
+	return key
+}
+
+// GetWorkflowParamReferableVariables returns the workflow param referable variables.
+func (w *Workflow) GetWorkflowParamReferableVariables(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.KeyVal, error) {
+	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
+	if err != nil {
+		return nil, fmt.Errorf("get workflow default params error: %v", err)
+	}
+
+	resp := make([]*commonmodels.KeyVal, 0, len(globalParams))
+	for _, param := range globalParams {
+		if param.ParamsType == "repo" || param.ParamsType == "file" {
+			continue
+		}
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          param.Name,
+			Value:        param.GetValue(),
+			Type:         "string",
+			IsCredential: param.IsCredential,
+		})
+	}
+
+	return resp, nil
+}
+
+func (w *Workflow) getWorkflowParamDynamicValueMap(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) (map[string]string, error) {
+	globalParams, err := w.GetWorkflowParamReferableVariables(taskID, creator, account, uid, releasePlan)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make(map[string]string, len(globalParams))
+	for _, param := range globalParams {
+		if param.Value == "" {
+			continue
+		}
+		resp[sanitizeDynamicVariableKey(param.Key)] = param.Value
+	}
+
+	return resp, nil
+}
+
+// RenderWorkflowDynamicParams renders the workflow dynamic params.
+func (w *Workflow) RenderWorkflowDynamicParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
+	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid, releasePlan)
+	if err != nil {
+		return fmt.Errorf("get workflow param dynamic value map error: %v", err)
+	}
+
+	for _, param := range w.Params {
+		if param.ParamsType == "repo" || param.ParamsType == "file" || param.Script == "" || param.CallFunction == "" {
+			continue
+		}
+
+		resp, err := jobctrl.RenderScriptedVariableOptions("", "", param.Script, param.CallFunction, valueMap)
+		if err != nil {
+			return fmt.Errorf("render workflow param %s dynamic options error: %v", param.Name, err)
+		}
+
+		param.ChoiceOption = resp
+		if param.GetValue() != "" {
+			valueMap[sanitizeDynamicVariableKey(strings.Join([]string{"workflow", "params", param.Name}, "."))] = param.GetValue()
+		}
+	}
+
+	return nil
+}
+
+func (w *Workflow) GetWorkflowParamDynamicValues(taskID int64, creator, account, uid string, key string, releasePlan *commonmodels.ReleasePlanRef) ([]string, error) {
+	valueMap, err := w.getWorkflowParamDynamicValueMap(taskID, creator, account, uid, releasePlan)
+	if err != nil {
+		return nil, fmt.Errorf("get workflow param dynamic value map error: %v", err)
+	}
+
+	for _, param := range w.Params {
+		if param.Name != key && strings.Join([]string{"workflow", "params", param.Name}, ".") != key {
+			continue
+		}
+
+		resp, err := jobctrl.RenderScriptedVariableOptions("", "", param.Script, param.CallFunction, valueMap)
+		if err != nil {
+			return nil, fmt.Errorf("render workflow param %s dynamic options error: %v", param.Name, err)
+		}
+		return resp, nil
+	}
+
+	return nil, fmt.Errorf("workflow param %s not found", key)
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
@@ -447,6 +570,9 @@ func (w *Workflow) Validate(isExecution bool) error {
 		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {
 			return e.ErrLintWorkflow.AddDesc("workflow remark is required.")
 		}
+		if err := validateRequiredWorkflowParams(w.Params); err != nil {
+			return e.ErrLintWorkflow.AddErr(err)
+		}
 	}
 
 	for _, stage := range w.Stages {
@@ -493,6 +619,45 @@ func (w *Workflow) Validate(isExecution bool) error {
 		}
 	}
 	return nil
+}
+
+func validateRequiredWorkflowParams(params []*commonmodels.Param) error {
+	for _, param := range params {
+		if !param.Required {
+			continue
+		}
+		if !workflowParamValueProvided(param) {
+			return fmt.Errorf("workflow param %s is required", param.Name)
+		}
+	}
+	return nil
+}
+
+func workflowParamValueProvided(param *commonmodels.Param) bool {
+	if param == nil {
+		return false
+	}
+
+	switch param.ParamsType {
+	case string(commonmodels.MultiSelectType):
+		return len(param.ChoiceValue) > 0
+	case "repo":
+		return repositoryValueProvided(param.Repo)
+	case string(commonmodels.FileType):
+		return strings.TrimSpace(param.FileID) != "" || strings.TrimSpace(param.FilePath) != ""
+	default:
+		return strings.TrimSpace(param.Value) != ""
+	}
+}
+
+func repositoryValueProvided(repo *types.Repository) bool {
+	if repo == nil {
+		return false
+	}
+	if strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.GetRepoNamespace()) == "" {
+		return false
+	}
+	return strings.TrimSpace(repo.Ref()) != ""
 }
 
 func (w *Workflow) SetRepo(repo *types.Repository) error {
@@ -624,14 +789,14 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.id",
-		Value:        w.Name,
+		Value:        w.workflowID(),
 		Type:         "string",
 		IsCredential: false,
 	})
 
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.name",
-		Value:        w.Name,
+		Value:        w.workflowName(),
 		Type:         "string",
 		IsCredential: false,
 	})
@@ -688,7 +853,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "workflow.task.url",
-			Value:        w.Name,
+			Value:        w.workflowID(),
 			Type:         "string",
 			IsCredential: false,
 		})
@@ -824,11 +989,14 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Repo:         originParam.Repo,
 					ChoiceOption: originParam.ChoiceOption,
 					ChoiceValue:  originParam.ChoiceValue,
+					Script:       originParam.Script,
+					CallFunction: originParam.CallFunction,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
+					Required:     originParam.Required,
 				}
-				if originParam.Source != config.ParamSourceFixed {
+				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
 					newParam.Repo = inputParam.Repo
 					newParam.ChoiceValue = inputParam.ChoiceValue

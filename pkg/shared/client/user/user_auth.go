@@ -51,6 +51,7 @@ type SystemActions struct {
 	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
 	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
 	LabelManagement      *LabelManagementActions      `json:"label_management"`
+	LogOperation         *LogOperationActions         `json:"log_operation"`
 }
 
 type WorkflowActions struct {
@@ -183,9 +184,9 @@ type ReleasePlanActions struct {
 type BusinessDirectoryActions struct {
 	View bool
 	// Edit business directory metadata/configuration.
-	Edit bool
-	Create     bool
-	Delete     bool
+	Edit   bool
+	Create bool
+	Delete bool
 }
 
 type ClusterManagementActions struct {
@@ -234,6 +235,10 @@ type LabelManagementActions struct {
 	Create bool
 	Edit   bool
 	Delete bool
+}
+
+type LogOperationActions struct {
+	View bool
 }
 
 type SprintTemplateActions struct {

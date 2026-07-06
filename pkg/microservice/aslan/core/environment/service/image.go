@@ -146,6 +146,11 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 				log.Errorf("[%s] UpdateDeploymentImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
 			}
+		case setting.DaemonSet:
+			if err := updater.UpdateDaemonSetImage(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
+				log.Errorf("[%s] UpdateDaemonSetImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 DaemonSet 容器镜像失败")
+			}
 		case setting.StatefulSet:
 			if err := updater.UpdateStatefulSetImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
@@ -187,7 +192,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
-		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, config.EnvOperationDefault, "", session, log)
+		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, config.EnvOperationDefault, "", "", session, log)
 		if err != nil {
 			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}

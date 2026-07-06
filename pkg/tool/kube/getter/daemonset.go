@@ -20,37 +20,67 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ListDaemonsets(ns string, selector labels.Selector, cl client.Client) ([]*appsv1.DaemonSet, error) {
-	dss := &appsv1.DaemonSetList{}
-	err := ListResourceInCache(ns, selector, nil, dss, cl)
+var DaemonSetGVK = schema.GroupVersionKind{
+	Group:   "apps",
+	Kind:    "DaemonSet",
+	Version: "v1",
+}
+
+func GetDaemonSet(ns, name string, cl client.Client) (*appsv1.DaemonSet, bool, error) {
+	daemonSet := &appsv1.DaemonSet{}
+	found, err := GetResourceInCache(ns, name, daemonSet, cl)
+	if err != nil || !found {
+		daemonSet = nil
+	}
+	setDaemonSetGVK(daemonSet)
+	return daemonSet, found, err
+}
+
+func ListDaemonSets(ns string, selector labels.Selector, cl client.Client) ([]*appsv1.DaemonSet, error) {
+	daemonSetList := &appsv1.DaemonSetList{}
+	err := ListResourceInCache(ns, selector, nil, daemonSetList, cl)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*appsv1.DaemonSet
-	for i := range dss.Items {
-		res = append(res, &dss.Items[i])
+	daemonSets := make([]*appsv1.DaemonSet, 0, len(daemonSetList.Items))
+	for i := range daemonSetList.Items {
+		setDaemonSetGVK(&daemonSetList.Items[i])
+		daemonSets = append(daemonSets, &daemonSetList.Items[i])
 	}
-	return res, err
+	return daemonSets, err
 }
 
-func GetDaemonSet(ns, name string, cl client.Client) (*appsv1.DaemonSet, bool, error) {
-	ss := &appsv1.DaemonSet{}
-	found, err := GetResourceInCache(ns, name, ss, cl)
-	if err != nil || !found {
-		ss = nil
+func ListDaemonSetsWithCache(selector labels.Selector, lister informers.SharedInformerFactory) ([]*appsv1.DaemonSet, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
 	}
-	return ss, found, err
+	return lister.Apps().V1().DaemonSets().Lister().List(selector)
+}
+
+func GetDaemonSetByNameWithCache(name, namespace string, lister informers.SharedInformerFactory) (*appsv1.DaemonSet, error) {
+	return lister.Apps().V1().DaemonSets().Lister().DaemonSets(namespace).Get(name)
+}
+
+func ListDaemonSetsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
+	return ListResourceYamlInCache(ns, selector, nil, DaemonSetGVK, cl)
 }
 
 func GetDaemonSetYaml(ns, name string, cl client.Client) ([]byte, bool, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "DaemonSet",
-		Version: "v1",
+	return GetResourceYamlInCache(ns, name, DaemonSetGVK, cl)
+}
+
+func GetDaemonSetYamlFormat(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	return GetResourceYamlInCacheFormat(ns, name, DaemonSetGVK, cl)
+}
+
+func setDaemonSetGVK(daemonSet *appsv1.DaemonSet) {
+	if daemonSet == nil {
+		return
 	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	daemonSet.SetGroupVersionKind(DaemonSetGVK)
 }

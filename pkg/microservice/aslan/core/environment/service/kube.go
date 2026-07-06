@@ -600,6 +600,23 @@ func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*
 			})
 		}
 	}
+	daemonSets, err := getter.ListDaemonSets(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, daemonSet := range daemonSets {
+		for _, container := range daemonSet.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadInfo{
+				WorkloadType:  setting.DaemonSet,
+				WorkloadName:  daemonSet.Name,
+				ContainerName: container.Name,
+			})
+		}
+	}
 	return resp, nil
 }
 
@@ -626,6 +643,19 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 	for _, deployment := range deployments {
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.Deployment, deployment.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
+		}
+	}
+	daemonSets, err := getter.ListDaemonSets(namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		log.Errorf("ListDaemonSets err:%v", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+	for _, daemonSet := range daemonSets {
+		for _, container := range daemonSet.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.DaemonSet, daemonSet.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
 		}
 	}
 	statefulsets, err := getter.ListStatefulSets(namespace, labels.Everything(), kubeClient)
@@ -934,6 +964,10 @@ func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernete
 
 func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, production bool, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
+	cluster, err := kube.GetCluster(clusterID)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to get cluster by id: %s, err: %s", clusterID, err))
+	}
 
 	svcSet := sets.NewString()
 	for _, svc := range request.Services {
@@ -983,7 +1017,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
-		rederedYaml = kube.ParseSysKeys(request.Namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
+		rederedYaml = kube.ParseSysKeys(request.Namespace, request.EnvName, productName, svc.ServiceName, cluster.Name, rederedYaml)
 
 		manifests := releaseutil.SplitManifests(rederedYaml)
 		resources := make([]*ResourceDeployStatus, 0)

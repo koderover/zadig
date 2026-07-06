@@ -40,7 +40,7 @@ func GetOperationLogs(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
 		ctx.UnAuthorized = true
 		return
 	}

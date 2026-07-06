@@ -180,7 +180,9 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			CallFunction:      baseKV.CallFunction,
 			Script:            baseKV.Script,
 			FileID:            baseKV.FileID,
+			FileName:          baseKV.FileName,
 			FilePath:          baseKV.FilePath,
+			Required:          baseKV.Required,
 		}
 		item := &commonmodels.RuntimeKeyVal{
 			KeyVal: newKV,
@@ -196,14 +198,16 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			if (item.Source != config.ParamSourceFixed && item.Source != config.ParamSourceReference) || useInputKVSource {
 				if item.Type == commonmodels.MultiSelectType {
 					item.ChoiceValue = inputKV.ChoiceValue
-					// TODO: move this logic to somewhere else
-					if inputKV.Value == "" {
-						item.Value = strings.Join(item.ChoiceValue, ",")
-					} else {
-						item.Value = inputKV.Value
+					// ChoiceValue is the canonical multi-select value. Keep Value as its
+					// comma-separated runtime representation so older consumers remain compatible.
+					if item.ChoiceValue == nil && inputKV.Value != "" {
+						// Older callers may only send Value, so backfill ChoiceValue before normalizing.
+						item.ChoiceValue = strings.Split(inputKV.Value, ",")
 					}
+					item.Value = strings.Join(item.ChoiceValue, ",")
 				} else if item.Type == commonmodels.FileType {
 					item.FileID = inputKV.FileID
+					item.FileName = inputKV.FileName
 					item.FilePath = inputKV.FilePath
 				} else if item.Type == commonmodels.Script {
 					item.CallFunction = inputKV.CallFunction
@@ -395,7 +399,9 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			CallFunction:      src1KV.CallFunction,
 			Script:            src1KV.Script,
 			FileID:            src1KV.FileID,
+			FileName:          src1KV.FileName,
 			FilePath:          src1KV.FilePath,
+			Required:          src1KV.Required,
 		}
 		existingKVMap[src1KV.Key] = src1KV
 		resp = append(resp, item)
@@ -418,7 +424,9 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			CallFunction:      src2KV.CallFunction,
 			Script:            src2KV.Script,
 			FileID:            src2KV.FileID,
+			FileName:          src2KV.FileName,
 			FilePath:          src2KV.FilePath,
+			Required:          src2KV.Required,
 		}
 		existingKVMap[src2KV.Key] = src2KV
 		resp = append(resp, item)
@@ -502,6 +510,7 @@ func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmod
 			FunctionReference: nil,
 			IsCredential:      param.IsCredential,
 			Description:       param.Description,
+			Required:          param.Required,
 		})
 	}
 
@@ -723,10 +732,12 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					Script:       originParam.Script,
 					CallFunction: originParam.CallFunction,
 					FileID:       originParam.FileID,
+					FileName:     originParam.FileName,
 					FilePath:     originParam.FilePath,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
+					Required:     originParam.Required,
 				}
 				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
@@ -744,4 +755,31 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 	}
 
 	return resp
+}
+
+func ValidateRequiredRuntimeKeyVals(kvs commonmodels.RuntimeKeyValList, scope string) error {
+	for _, kv := range kvs {
+		if kv == nil || !kv.Required {
+			continue
+		}
+		if !runtimeKeyValValueProvided(kv) {
+			return fmt.Errorf("%s variable %s is required", scope, kv.Key)
+		}
+	}
+	return nil
+}
+
+func runtimeKeyValValueProvided(kv *commonmodels.RuntimeKeyVal) bool {
+	if kv == nil {
+		return false
+	}
+
+	switch kv.Type {
+	case commonmodels.MultiSelectType:
+		return len(kv.ChoiceValue) > 0
+	case commonmodels.FileType:
+		return strings.TrimSpace(kv.FileID) != "" || strings.TrimSpace(kv.FilePath) != ""
+	default:
+		return strings.TrimSpace(kv.Value) != ""
+	}
 }

@@ -84,6 +84,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	image := router.Group("image")
 	{
 		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
+		image.POST("/daemonset/:envName", UpdateDaemonSetContainerImage)
 		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
 		image.POST("/cronjob/:envName", UpdateCronJobContainerImage)
 	}

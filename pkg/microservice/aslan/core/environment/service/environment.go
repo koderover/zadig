@@ -793,7 +793,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						service.Containers = containers
 
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -801,7 +801,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						return
 					} else if commonutil.ServiceIsDraft(pSvc.ServiceName, deployStrategy) {
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -833,7 +833,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 					}
 					service.Resources = kube.UnstructuredToResources(items)
 
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 					if err != nil {
 						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}
@@ -2941,8 +2941,13 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 		case setting.Deployment:
 			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
+		case setting.DaemonSet:
+			err = updater.RestartDaemonSet(context.Background(), clusterID, env.Namespace, u.GetName())
+			return errors.Wrapf(err, "failed to restart daemonset %s", u.GetName())
 		case setting.StatefulSet:
+			err = updater.RestartStatefulSetV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}
@@ -3035,8 +3040,20 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
 	log *zap.SugaredLogger) (string, error) {
+	// Use the current applied yaml as the update baseline so resource patching stays
+	// consistent with preview/export behavior after cluster name changes.
+	parsedYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName:      env.ProductName,
+		EnvName:          env.EnvName,
+		ServiceName:      oldService.ServiceName,
+		IsImportToDeploy: env.ServiceDeployStrategy[oldService.ServiceName] == setting.ServiceDeployStrategyImport,
+	})
+	if err == nil {
+		return parsedYaml, nil
+	}
+	log.Warnf("failed to fetch current applied yaml for %s/%s/%s, fallback to rendered service yaml, err: %v", env.ProductName, env.EnvName, oldService.ServiceName, err)
 
-	parsedYaml, err := kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
+	parsedYaml, err = kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return "", err
@@ -4311,6 +4328,13 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
+	cluster, err := kube.GetCluster(prod.ClusterID)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to get cluster for cluster %s, err: %v", prod.ClusterID, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
 	if prod.Production != isProduction {
 		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
 		log.Error(err)
@@ -4405,7 +4429,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, cluster.Name)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}

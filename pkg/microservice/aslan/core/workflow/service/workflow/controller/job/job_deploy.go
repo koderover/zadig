@@ -647,11 +647,11 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				if pSvc.GetServiceRender().OverrideYaml.AutoSync {
 					autoSyncFlag = true
 				}
-			}
 
-			if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) &&
-				commonutil.GetChartDeployed(pSvc.GetServiceRender(), product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
-				return nil, fmt.Errorf("service %s is in draft, cannot deploy image only", svc.ServiceName)
+				if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) &&
+					commonutil.GetChartDeployed(pSvc.GetServiceRender(), product.ServiceDeployStrategy) == setting.ServiceDeployStrategyDraft {
+					return nil, fmt.Errorf("service %s is in draft, cannot deploy image only", svc.ServiceName)
+				}
 			}
 
 			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -1082,7 +1082,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 				Revision:    service.Revision,
 			}, production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to query template service %s/%s/%s, error: %s", project, service.ServiceName, service.Revision, err)
+				return nil, fmt.Errorf("failed to query template service %s/%s/%d, error: %s", project, service.ServiceName, service.Revision, err)
 			}
 
 			currentReleaseName = util.GeneReleaseName(envService.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)

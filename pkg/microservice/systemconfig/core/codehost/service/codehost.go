@@ -171,6 +171,21 @@ func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeH
 	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete)
 }
 
+func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
+	codeHost, err := GetCodeHost(id, ignoreDelete, log)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := EncypteCodeHost(encryptedKey, []*models.CodeHost{codeHost}, log)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, nil
+	}
+	return resp[0], nil
+}
+
 func GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByAlias(alias)
 }

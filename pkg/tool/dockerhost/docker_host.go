@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 var (
@@ -151,10 +152,7 @@ func (d *dockerhosts) initClusterInfo(clusterID ClusterID) {
 }
 
 func (d *dockerhosts) getDockerHostsSvc(clusterID ClusterID) []consistent.Member {
-	ns := config.Namespace()
-	if string(clusterID) != setting.LocalClusterID {
-		ns = setting.AttachedClusterNamespace
-	}
+	ns := d.getDindNamespace(clusterID)
 
 	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(string(clusterID))
 	if err != nil {
@@ -180,12 +178,19 @@ func (d *dockerhosts) getDockerHostsSvc(clusterID ClusterID) []consistent.Member
 	return members
 }
 
+func (d *dockerhosts) getDindNamespace(clusterID ClusterID) string {
+	if clusterID == "" || string(clusterID) == setting.LocalClusterID {
+		return config.Namespace()
+	}
+	return setting.AttachedClusterNamespace
+}
+
 func (d *dockerhosts) getDefaultDockerHosts() []consistent.Member {
 	return []consistent.Member{d.genDindAddr(0)}
 }
 
 func (d *dockerhosts) genDindAddr(idx int) Member {
-	return Member(fmt.Sprintf("tcp://dind-%d.dind:2375", idx))
+	return Member(fmt.Sprintf("tcp://dind-%d.dind:%d", idx, types.DindTLSPort))
 }
 
 func (d *dockerhosts) Sync() {

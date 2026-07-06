@@ -356,6 +356,32 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
+func GetJiraIssueStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	issueKey := c.Query("issueKey")
+	if issueKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("issueKey cannot be empty")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetJiraIssueStatus(c.Param("id"), issueKey)
+}
+
+func ListJiraIssueTransitions(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	issueKey := c.Query("issueKey")
+	if issueKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("issueKey cannot be empty")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.ListJiraIssueTransitions(c.Param("id"), issueKey)
+}
+
 // @Summary Get Jira Types
 // @Description Get Jira Types
 // @Tags 	system

@@ -417,6 +417,61 @@ func SearchJiraProjectIssuesWithJQL(id, project, jql, summary string) ([]*jira.I
 	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.SearchByJQL(jql, true)
 }
 
+type JiraIssueStatusResp struct {
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	CurrentStatus string `json:"current_status"`
+}
+
+func GetJiraIssueStatus(id, issueKey string) (*JiraIssueStatusResp, error) {
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
+	if err != nil {
+		return nil, err
+	}
+
+	issue, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.GetByKeyOrID(issueKey, "summary,status")
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &JiraIssueStatusResp{Key: issueKey}
+	if issue == nil || issue.Fields == nil {
+		return resp, nil
+	}
+	resp.Name = issue.Fields.Summary
+	if issue.Fields.Status != nil {
+		resp.CurrentStatus = issue.Fields.Status.Name
+	}
+	return resp, nil
+}
+
+type JiraIssueTransitionResp struct {
+	Name string `json:"name"`
+}
+
+func ListJiraIssueTransitions(id, issueKey string) ([]*JiraIssueTransitionResp, error) {
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
+	if err != nil {
+		return nil, err
+	}
+
+	transitions, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.GetTransitions(issueKey)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*JiraIssueTransitionResp, 0)
+	for _, transition := range transitions {
+		if transition == nil {
+			continue
+		}
+		resp = append(resp, &JiraIssueTransitionResp{
+			Name: transition.To.Name,
+		})
+	}
+	return resp, nil
+}
+
 func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
 	if event.Issue == nil || event.Issue.Key == "" {
 		logger.Errorf("HandleJiraHookEvent: nil issue or issue key, skip")

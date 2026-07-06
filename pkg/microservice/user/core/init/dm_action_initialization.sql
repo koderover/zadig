@@ -105,4 +105,5 @@ VALUES
     ('配置效能洞察', 'edit_dashboard_config', 'DataCenter', 2),
     ('新建', 'create_label_setting', 'LabelManagement', 2),
     ('编辑', 'edit_label_setting', 'LabelManagement', 2),
-    ('删除', 'delete_label_setting', 'LabelManagement', 2);
+    ('删除', 'delete_label_setting', 'LabelManagement', 2),
+    ('查看', 'get_log_operation', 'LogOperation', 2);

@@ -39,11 +39,11 @@ type SonarGetMetrics struct {
 	secretEnvs []string
 	workspace  string
 	dirs       *types.AgentWorkDirs
-	Logger     *log.JobLogger
+	logger     *log.JobLogger
 }
 
 func NewSonarGetMetricsStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*SonarGetMetrics, error) {
-	sonarCheckStep := &SonarGetMetrics{dirs: dirs, workspace: dirs.Workspace, envs: envs, secretEnvs: secretEnvs}
+	sonarCheckStep := &SonarGetMetrics{dirs: dirs, workspace: dirs.Workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return sonarCheckStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -55,7 +55,7 @@ func NewSonarGetMetricsStep(spec interface{}, dirs *types.AgentWorkDirs, envs, s
 }
 
 func (s *SonarGetMetrics) Run(ctx context.Context) error {
-	s.Logger.Infof("Start get Sonar scanning metrics.")
+	s.logger.Infof("Start get Sonar scanning metrics.")
 	sonarWorkDir := sonar.GetSonarWorkDir(s.spec.Parameter)
 	if sonarWorkDir == "" {
 		sonarWorkDir = ".scannerwork"
@@ -66,13 +66,13 @@ func (s *SonarGetMetrics) Run(ctx context.Context) error {
 	taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
 	bytes, err := os.ReadFile(taskReportDir)
 	if err != nil {
-		s.Logger.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
+		s.logger.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
 		return nil
 	}
 	taskReportContent := string(bytes)
 	ceTaskID := sonar.GetSonarCETaskID(taskReportContent)
 	if ceTaskID == "" {
-		s.Logger.Errorf("can not get sonar ce task ID")
+		s.logger.Errorf("can not get sonar ce task ID")
 		return nil
 	}
 
@@ -80,7 +80,7 @@ func (s *SonarGetMetrics) Run(ctx context.Context) error {
 	err = util.AppendToFile(outputFileName, ceTaskID)
 	if err != nil {
 		err = fmt.Errorf("append sonar ce task ID %s to output file %s error: %v", ceTaskID, outputFileName, err)
-		s.Logger.Errorf(err.Error())
+		s.logger.Errorf(err.Error())
 		return nil
 	}
 

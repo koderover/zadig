@@ -97,6 +97,9 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
+	if jobTaskSpec.Events == nil {
+		jobTaskSpec.Events = &commonmodels.Events{}
+	}
 	job.Spec = jobTaskSpec
 	return &FreestyleJobCtl{
 		job:             job,
@@ -1164,7 +1167,10 @@ func (c *FreestyleJobCtl) cleanupHelperPod(ctx context.Context, client crClient.
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger, func(events *commonmodels.Events) {
+		c.jobTaskSpec.Events = events
+		c.ack()
+	})
 	if err != nil {
 		c.job.Error = err.Error()
 	}
@@ -1309,6 +1315,7 @@ func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job
 			fileInfo := &JobFileInfo{
 				EnvKey:   env.Key,
 				FileID:   env.FileID,
+				FileName: env.FileName,
 				FilePath: env.FilePath,
 			}
 
