@@ -157,6 +157,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 			Namespace:   envSvcRevision.Namespace,
 			Production:  envSvcRevision.Production,
 		}
+		// 从历史版本中获取clusterName
 		clusterName := envSvcRevision.ClusterName
 		if clusterName == "" {
 			cluster, err := kube.GetCluster(env.ClusterID)
@@ -165,6 +166,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 			}
 			clusterName = cluster.Name
 		}
+
 		svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: envSvcRevision.Service.ServiceName,
 			ProductName: envSvcRevision.ProductName,
@@ -549,7 +551,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 
 				env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-				err = helmservice.UpdateServiceInEnvWithClusterName(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail, envSvcVersion.ClusterName)
+				err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail, envSvcVersion.ClusterName)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 				}

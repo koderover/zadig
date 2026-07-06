@@ -657,7 +657,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 	)
 
 	if productSvc.DeployStrategy == setting.ServiceDeployStrategyDraft {
-		return helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "")
+		return helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "", "")
 	}
 
 	releaseName = productSvc.ReleaseName
@@ -745,7 +745,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		return err
 	}
 
-	err = helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "")
+	err = helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "", "")
 	return err
 }
 
@@ -816,7 +816,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				if err != nil {
 					param.ProdService.Error = err.Error()
 				} else {
-					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, config.EnvOperationDefault, "", session, log)
+					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, config.EnvOperationDefault, "", "", session, log)
 					if err != nil {
 						log.Errorf("failed to create service version, err: %v", err)
 					}
@@ -889,7 +889,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				prodSvc.Render = chartInfo
 				prodSvc.UpdateTime = time.Now().Unix()
 
-				err = commonutil.CreateEnvServiceVersion(productResp, prodSvc, user, config.EnvOperationDefault, "", session, log)
+				err = commonutil.CreateEnvServiceVersion(productResp, prodSvc, user, config.EnvOperationDefault, "", "", session, log)
 				if err != nil {
 					log.Errorf("failed to create service version, err: %v", err)
 				}

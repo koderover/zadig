@@ -271,7 +271,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := commonutil.CreateEnvServiceVersion(prodinfo, newProductSvc, args.UpdateBy, config.EnvOperationDefault, "", session, k.log); err != nil {
+	if err := commonutil.CreateEnvServiceVersion(prodinfo, newProductSvc, args.UpdateBy, config.EnvOperationDefault, "", "", session, k.log); err != nil {
 		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
@@ -685,7 +685,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			}
 			group[i].Containers = containers
 
-			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", nil, k.log)
+			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", "", nil, k.log)
 			if err != nil {
 				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, group[i].ServiceName, err)
 			}
@@ -709,7 +709,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			}
 			svc.Resources = kube.UnstructuredToResources(items)
 
-			err = commonutil.CreateEnvServiceVersion(product, svc, username, config.EnvOperationDefault, "", nil, k.log)
+			err = commonutil.CreateEnvServiceVersion(product, svc, username, config.EnvOperationDefault, "", "", nil, k.log)
 			if err != nil {
 				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
 			}

@@ -21,11 +21,7 @@ func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, is
 	return commonrepo.NewCounterCollWithSession(session).GetNextSeq(counterName)
 }
 
-func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail string, session mongo.Session, log *zap.SugaredLogger) error {
-	return CreateEnvServiceVersionWithClusterName(env, prodSvc, createBy, operation, detail, "", session, log)
-}
-
-func CreateEnvServiceVersionWithClusterName(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail, clusterName string, session mongo.Session, log *zap.SugaredLogger) error {
+func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail, clusterName string, session mongo.Session, log *zap.SugaredLogger) error {
 	name := prodSvc.ServiceName
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
