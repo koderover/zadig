@@ -710,7 +710,6 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				jobTaskSpec.UpdateConfig = svc.UpdateConfig
 				jobTaskSpec.VariableYaml = values
 				jobTaskSpec.UserSuppliedValue = values
-				jobTaskSpec.ValuesSyncedFromSource = true
 			}
 
 			jobTask := &commonmodels.JobTask{
