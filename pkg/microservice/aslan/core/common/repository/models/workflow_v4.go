@@ -1702,6 +1702,7 @@ type Param struct {
 	Script       string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
 	CallFunction string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
 	FileID       string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
+	FileName     string                 `bson:"file_name,omitempty"       json:"file_name,omitempty"         yaml:"file_name,omitempty"`
 	FilePath     string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
