@@ -573,5 +573,42 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 			}
 		}
 	}
+	if err := ensureHelmImagePaths(prodSvc, tmplSvc); err != nil {
+		return nil, nil, err
+	}
 	return prodSvc, tmplSvc, nil
+}
+
+func ensureHelmImagePaths(prodSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service) error {
+	if prodSvc == nil || tmplSvc == nil || tmplSvc.HelmChart == nil || len(prodSvc.Containers) == 0 {
+		return nil
+	}
+
+	valuesMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(tmplSvc.HelmChart.ValuesYaml), &valuesMap); err != nil {
+		return fmt.Errorf("failed to unmarshal helm values for service %s/%s: %w", tmplSvc.ProductName, tmplSvc.ServiceName, err)
+	}
+
+	templateContainers, err := commonutil.ParseImagesForProductService(valuesMap, tmplSvc.ServiceName, tmplSvc.ProductName)
+	if err != nil {
+		return fmt.Errorf("failed to parse helm image paths for service %s/%s: %w", tmplSvc.ProductName, tmplSvc.ServiceName, err)
+	}
+
+	imagePathByName := make(map[string]*commonmodels.ImagePathSpec, len(templateContainers))
+	for _, c := range templateContainers {
+		if c != nil && c.Name != "" && c.ImagePath != nil {
+			imagePathByName[c.Name] = c.ImagePath
+		}
+	}
+
+	for _, c := range prodSvc.Containers {
+		if c == nil || c.ImagePath != nil {
+			continue
+		}
+		if imagePath := imagePathByName[c.Name]; imagePath != nil {
+			c.ImagePath = imagePath
+		}
+	}
+
+	return nil
 }
