@@ -3040,20 +3040,8 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
 	log *zap.SugaredLogger) (string, error) {
-	// Use the current applied yaml as the update baseline so resource patching stays
-	// consistent with preview/export behavior after cluster name changes.
-	parsedYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-		ProductName:      env.ProductName,
-		EnvName:          env.EnvName,
-		ServiceName:      oldService.ServiceName,
-		IsImportToDeploy: env.ServiceDeployStrategy[oldService.ServiceName] == setting.ServiceDeployStrategyImport,
-	})
-	if err == nil {
-		return parsedYaml, nil
-	}
-	log.Warnf("failed to fetch current applied yaml for %s/%s/%s, fallback to rendered service yaml, err: %v", env.ProductName, env.EnvName, oldService.ServiceName, err)
 
-	parsedYaml, err = kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
+	parsedYaml, err := kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return "", err
@@ -4328,13 +4316,6 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
-	cluster, err := kube.GetCluster(prod.ClusterID)
-	if err != nil {
-		wrapErr := fmt.Errorf("failed to get cluster for cluster %s, err: %v", prod.ClusterID, err)
-		log.Error(wrapErr)
-		return e.ErrEnvSleep.AddErr(wrapErr)
-	}
-
 	if prod.Production != isProduction {
 		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
 		log.Error(err)
@@ -4429,7 +4410,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, cluster.Name)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}
