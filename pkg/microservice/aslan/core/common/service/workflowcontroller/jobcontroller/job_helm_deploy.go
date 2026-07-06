@@ -35,7 +35,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/joblog"
@@ -151,14 +150,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 	newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
 	productInfo.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] = setting.ServiceDeployStrategyDeploy
-	if currentEnvSvc == nil {
-		fillHelmValuesSource(newEnvService, latestTmplSvc)
-		if c.jobTaskSpec.ValuesSyncedFromSource && c.jobTaskSpec.VariableYaml != "" {
-			serviceRender := newEnvService.GetServiceRender()
-			serviceRender.SetOverrideYaml(c.jobTaskSpec.VariableYaml)
-			serviceRender.SetAutoSyncYaml(c.jobTaskSpec.UserSuppliedValue)
-		}
-	}
 
 	// calc final values yaml
 	finalValuesYaml := ""
@@ -220,18 +211,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
 			logError(c.job, msg, c.logger)
 			return
-		}
-		if currentEnvSvc == nil && c.jobTaskSpec.ValuesSyncedFromSource {
-			svcRender := newEnvService.GetServiceRender()
-			// For a git-loaded helm service (no YamlData on the template), fillHelmValuesSource
-			// left the source empty. Seed it from the chart git repo so future auto-sync runs
-			// can re-fetch the latest values.yaml from the same source.
-			if svcRender.OverrideYaml.Source == "" {
-				seedChartRepoSource(svcRender, latestTmplSvc)
-			}
-			// use the pure source values (before image injection in GenMergedValues) as the
-			// auto-sync baseline, so that future syncs compare against the unmodified source yaml.
-			svcRender.SetAutoSyncYaml(c.jobTaskSpec.UserSuppliedValue)
 		}
 	}
 
@@ -365,48 +344,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	c.job.Status = config.StatusPassed
-}
-
-func fillHelmValuesSource(envSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service) {
-	if envSvc == nil || tmplSvc == nil {
-		return
-	}
-
-	createFrom, err := tmplSvc.GetHelmCreateFrom()
-	if err != nil || createFrom.YamlData == nil {
-		return
-	}
-
-	serviceRender := envSvc.GetServiceRender()
-	serviceRender.OverrideYaml.Source = createFrom.YamlData.Source
-	serviceRender.OverrideYaml.SourceDetail = createFrom.YamlData.SourceDetail
-	serviceRender.OverrideYaml.SourceID = createFrom.YamlData.SourceID
-	serviceRender.OverrideYaml.AutoSync = createFrom.YamlData.AutoSync
-	serviceRender.OverrideYaml.AutoSyncYaml = createFrom.YamlData.AutoSyncYaml
-}
-
-// seedChartRepoSource records the chart git repo as the values source for git-loaded helm services.
-func seedChartRepoSource(svcRender *templatemodels.ServiceRender, tmplSvc *commonmodels.Service) {
-	if svcRender == nil || svcRender.OverrideYaml == nil || tmplSvc == nil {
-		return
-	}
-	if svcRender.OverrideYaml.Source != "" || svcRender.OverrideYaml.SourceDetail != nil {
-		return
-	}
-	if tmplSvc.CodehostID == 0 || tmplSvc.RepoName == "" || tmplSvc.LoadPath == "" {
-		return
-	}
-	svcRender.OverrideYaml.Source = setting.SourceFromGitRepo
-	svcRender.OverrideYaml.SourceDetail = &commonmodels.CreateFromRepo{
-		GitRepoConfig: &templatemodels.GitRepoConfig{
-			CodehostID: tmplSvc.CodehostID,
-			Owner:      tmplSvc.RepoOwner,
-			Repo:       tmplSvc.RepoName,
-			Branch:     tmplSvc.BranchName,
-			Namespace:  tmplSvc.RepoNamespace,
-		},
-		LoadPath: fmt.Sprintf("%s/%s", tmplSvc.LoadPath, setting.ValuesYaml),
-	}
 }
 
 type ManifestStruct struct {
