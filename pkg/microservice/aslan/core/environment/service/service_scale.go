@@ -155,7 +155,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	if err := commonutil.CreateEnvServiceVersion(prod, candidateSvc, updateBy, config.EnvOperationDefault, "", session, logger); err != nil {
+	if err := commonutil.CreateEnvServiceVersion(prod, candidateSvc, updateBy, config.EnvOperationDefault, "", "", session, logger); err != nil {
 		mongotool.AbortTransaction(session)
 		return e.ErrScaleService.AddErr(err)
 	}

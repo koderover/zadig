@@ -205,7 +205,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	service := prod.GetServiceMap()[serviceName]
 	if service != nil {
-		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, detail, session, log.SugaredLogger())
+		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, detail, "", session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}

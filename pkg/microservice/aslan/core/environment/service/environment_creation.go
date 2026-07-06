@@ -302,6 +302,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 }
 
 func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID, userName string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
 		Revision:        templateProduct.Revision,
