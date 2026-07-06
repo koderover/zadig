@@ -212,109 +212,28 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 		return nil
 	}
 
-	newYamlContent := ""
-
-	yamls := util.SplitYaml(service.YamlContent)
-	for _, yamlContent := range yamls {
-		var manifest map[string]interface{}
-		if err := yaml.Unmarshal([]byte(yamlContent), &manifest); err != nil {
-			return fmt.Errorf("解析yaml失败: %w", err)
-		}
-
-		kind, ok := manifest["kind"].(string)
-		if !ok {
-			return fmt.Errorf("yaml缺少kind字段")
-		}
-
-		// 只处理workload类型
-		workloadKinds := map[string]bool{
-			"Deployment":  true,
-			"StatefulSet": true,
-			"DaemonSet":   true,
-			"Job":         true,
-			"CronJob":     true,
-			"ReplicaSet":  true,
-		}
-		if !workloadKinds[kind] {
-			continue
-		}
-
-		// 处理 CronJob 的特殊结构
-		if kind == "CronJob" {
-			spec, ok := manifest["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少spec字段")
-			}
-			jobTemplate, ok := spec["jobTemplate"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate字段")
-			}
-			jobSpec, ok := jobTemplate["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec字段")
-			}
-			template, ok := jobSpec["template"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec.template字段")
-			}
-			podSpec, ok := template["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec.template.spec字段")
-			}
-			containers, ok := podSpec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少containers字段")
-			}
-			for _, img := range service.Images {
-				for _, c := range containers {
-					container, ok := c.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if container["name"] == img.ContainerName {
-						container["image"] = img.TargetImage
-					}
-				}
-			}
-		} else {
-			// 其它workload结构
-			spec, ok := manifest["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少spec字段")
-			}
-			template, ok := spec["template"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少template字段")
-			}
-			podSpec, ok := template["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少template.spec字段")
-			}
-			containers, ok := podSpec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少containers字段")
-			}
-			for _, img := range service.Images {
-				for _, c := range containers {
-					container, ok := c.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if container["name"] == img.ContainerName {
-						container["image"] = img.TargetImage
-					}
-				}
-			}
-		}
-
-		newYaml, err := yaml.Marshal(manifest)
-		if err != nil {
-			return fmt.Errorf("序列化yaml失败: %w", err)
-		}
-		newYamlContent += string(newYaml) + "\n"
+	containers := make([]*commonmodels.Container, 0, len(service.Images))
+	for _, image := range service.Images {
+		containers = append(containers, &commonmodels.Container{
+			Name:      image.ContainerName,
+			ImageName: image.ImageName,
+			Image:     image.TargetImage,
+		})
 	}
 
-	service.YamlContent = newYamlContent
+	replacedYaml, _, err := kube.ReplaceWorkloadImages(service.YamlContent, containers)
+	if err != nil {
+		return err
+	}
+
+	for _, image := range service.Images {
+		if image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
+			continue
+		}
+		replacedYaml = strings.ReplaceAll(replacedYaml, image.SourceImage, image.TargetImage)
+	}
+
+	service.YamlContent = replacedYaml
 	return nil
 }
 
