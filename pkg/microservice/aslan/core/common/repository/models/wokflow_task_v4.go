@@ -687,6 +687,15 @@ type JobTaskApprovalSpec struct {
 	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
 	ApprovalMessage  string              `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
+
+	// NotifyCtls is the task-level notification configuration. When set, notifications will be
+	// sent to these channels when the task enters the waiting state, instead of using the
+	// workflow-level notification configuration.
+	NotifyCtls []*NotifyCtl `bson:"notify_ctls,omitempty"          yaml:"notify_ctls,omitempty"          json:"notify_ctls,omitempty"`
+
+	// NotificationSent ensures that the task-level wait notification is sent only once per
+	// wait-state entry, preventing duplicate notifications during polling or re-entry.
+	NotificationSent bool `bson:"notification_sent,omitempty"     yaml:"notification_sent,omitempty"     json:"notification_sent,omitempty"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

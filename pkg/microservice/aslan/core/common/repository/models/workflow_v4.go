@@ -1156,6 +1156,11 @@ type ApprovalJobSpec struct {
 	WorkWXApproval        *WorkWXApproval         `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"         json:"workwx_approval,omitempty"`
 	ApprovalMessage       string                  `bson:"approval_message"            yaml:"approval_message,omitempty"        json:"approval_message,omitempty"`
 	ApprovalMessageSource config.DeploySourceType `bson:"approval_message_source"     yaml:"approval_message_source,omitempty" json:"approval_message_source,omitempty"`
+
+	// NotifyCtls is the task-level notification configuration. When set, notifications will be
+	// sent to these channels when the approval task enters the waiting state, instead of using
+	// the workflow-level notification configuration.
+	NotifyCtls []*NotifyCtl `bson:"notify_ctls,omitempty"          yaml:"notify_ctls,omitempty"          json:"notify_ctls,omitempty"`
 }
 
 type NotificationJobSpec struct {

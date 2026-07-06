@@ -688,6 +688,293 @@ func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) 
 	return commonutil.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
 }
 
+// ---------------------------------------------------------------------------
+// Generic task-level wait notification
+// ---------------------------------------------------------------------------
+
+// TaskWaitNotifyInput holds the context needed to send a task-level wait notification.
+type TaskWaitNotifyInput struct {
+	// Task is the workflow task. If nil, the function will fetch it from the database
+	// using WorkflowName and TaskID.
+	Task *models.WorkflowTask
+	// WorkflowName is the name of the workflow, used to fetch the task if Task is nil.
+	WorkflowName string
+	// TaskID is the ID of the workflow task, used to fetch the task if Task is nil.
+	TaskID int64
+	// NotifyCtls is the task-level notification configuration. When set, notifications
+	// will be sent to these channels instead of the workflow-level notification config.
+	NotifyCtls []*models.NotifyCtl
+	// WaitStatus is the status that triggered the wait (e.g. StatusWaitingApprove).
+	// The function only sends notifications for NotifyCtls whose NotifyTypes include
+	// this status.
+	WaitStatus config.Status
+	// StatusTextKeyOverride allows the caller to customise the status text shown in the
+	// notification. If empty, defaults to "taskStatusManualApproval" (待确认).
+	StatusTextKeyOverride string
+}
+
+// HasTaskWaitNotifyCtls reports whether there is at least one enabled task-level
+// notification config that applies to the given wait status.
+func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Status) bool {
+	for _, notify := range notifyCtls {
+		if notify == nil || !notify.Enabled {
+			continue
+		}
+
+		notifyToCheck := *notify
+		if err := notifyToCheck.GenerateNewNotifyConfigWithOldData(); err != nil {
+			continue
+		}
+
+		if sets.NewString(notifyToCheck.NotifyTypes...).Has(string(waitStatus)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// SendTaskWaitNotifications sends task-level wait notifications when a task enters a
+// wait state. It supports all existing notification channels (feishu group, feishu
+// person, feishu webhook, dingding, wechat work, msteams, mail, webhook) and reuses
+// the existing notification rendering and sending pipeline.
+//
+// This is the generic task-level wait notification sender described in the design
+// document (docs/design/workflow-job-wait-notification-design.md §5). The caller is
+// responsible for:
+//   - deciding when to enter the wait state (business semantics)
+//   - ensuring the notification is sent only once per wait-state entry (deduplication)
+//
+// The function is responsible for:
+//   - resolving notification recipients (e.g. task_creator expansion)
+//   - rendering notification content via the existing template engine
+//   - dispatching to all configured channels
+func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
+	if input == nil || len(input.NotifyCtls) == 0 {
+		return nil
+	}
+
+	task := input.Task
+	if task == nil {
+		if input.WorkflowName == "" || input.TaskID <= 0 {
+			return nil
+		}
+		var err error
+		task, err = w.workflowTaskV4Coll.Find(input.WorkflowName, input.TaskID)
+		if err != nil {
+			return fmt.Errorf("failed to find workflow task %s/%d: %w", input.WorkflowName, input.TaskID, err)
+		}
+	}
+
+	// Override the task status for notification rendering so the template engine
+	// picks up the correct status text and colour.
+	task.Status = input.WaitStatus
+
+	statusTextKey := input.StatusTextKeyOverride
+	if statusTextKey == "" {
+		statusTextKey = "taskStatusManualApproval"
+	}
+
+	respErr := new(multierror.Error)
+	for _, notify := range input.NotifyCtls {
+		if notify == nil || !notify.Enabled {
+			continue
+		}
+
+		if err := notify.GenerateNewNotifyConfigWithOldData(); err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to generate notify config: %w", err))
+			continue
+		}
+
+		// Only send notifications for configs that include the wait status.
+		statusSets := sets.NewString(notify.NotifyTypes...)
+		if !statusSets.Has(string(input.WaitStatus)) {
+			continue
+		}
+
+		// Shallow-copy the notify so we can override per-channel configs without
+		// mutating the original.
+		notifyToSend := *notify
+
+		// Resolve feishu_person targets (e.g. IsExecutor → task creator).
+		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
+			resolvedTargets, err := w.resolveTaskWaitLarkTargets(task, notify)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+			if len(resolvedTargets) == 0 {
+				continue
+			}
+			notifyToSend.LarkPersonNotificationConfig = &models.LarkPersonNotificationConfig{
+				AppID:       notify.LarkPersonNotificationConfig.AppID,
+				TargetUsers: resolvedTargets,
+			}
+		}
+
+		// Resolve mail targets (e.g. UserTypeTaskCreator → task creator, UserTypeGroup → expand).
+		if notifyToSend.WebHookType == setting.NotifyWebHookTypeMail && notifyToSend.MailNotificationConfig != nil {
+			resolvedUsers, err := w.resolveTaskWaitMailUsers(task, notify)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+			if len(resolvedUsers) == 0 {
+				continue
+			}
+			notifyToSend.MailNotificationConfig = &models.MailNotificationConfig{TargetUsers: resolvedUsers}
+		}
+
+		title, content, larkCard, webhookNotify, err := w.getNotificationContentWithOptions(&notifyToSend, task, &workflowNotificationOptions{
+			StatusTextKeyOverride: statusTextKey,
+		})
+		if err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to get notification content: %w", err))
+			continue
+		}
+
+		if err := w.sendNotification(title, content, &notifyToSend, larkCard, webhookNotify, task.Status); err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to send %s notification: %w", notifyToSend.WebHookType, err))
+		}
+	}
+
+	return respErr.ErrorOrNil()
+}
+
+// resolveTaskWaitLarkTargets resolves feishu_person notification targets for a task-level
+// wait notification. It handles the IsExecutor flag by resolving it to the task creator's
+// lark user ID. Direct user IDs are passed through unchanged.
+func (w *Service) resolveTaskWaitLarkTargets(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
+	if notify == nil || notify.LarkPersonNotificationConfig == nil || notify.LarkPersonNotificationConfig.AppID == "" {
+		return nil, nil
+	}
+
+	client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
+	if err != nil {
+		return nil, fmt.Errorf("create feishu client error: %w", err)
+	}
+
+	respErr := new(multierror.Error)
+	targets := make([]*lark.UserInfo, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
+	targetSet := sets.NewString()
+
+	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+		if target == nil {
+			continue
+		}
+
+		if target.IsExecutor {
+			if task.TaskCreatorID == "" {
+				respErr = multierror.Append(respErr, fmt.Errorf("executor id is empty, cannot send message"))
+				continue
+			}
+			userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
+			if err != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("failed to find user %s: %w", task.TaskCreatorID, err))
+				continue
+			}
+			if len(userInfo.Phone) == 0 {
+				respErr = multierror.Append(respErr, fmt.Errorf("executor phone not configured"))
+				continue
+			}
+			larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+			if err != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("find lark user with phone %s error: %w", userInfo.Phone, err))
+				continue
+			}
+			userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
+			if err != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("find lark user info for userID %s error: %w", util.GetStringFromPointer(larkUser.UserId), err))
+				continue
+			}
+			resolvedID := util.GetStringFromPointer(larkUser.UserId)
+			if !targetSet.Has(resolvedID) {
+				targets = append(targets, &lark.UserInfo{
+					ID:         resolvedID,
+					Name:       userDetailedInfo.Name,
+					Avatar:     userDetailedInfo.Avatar,
+					IDType:     setting.LarkUserID,
+					IsExecutor: true,
+				})
+				targetSet.Insert(resolvedID)
+			}
+			continue
+		}
+
+		// Direct user ID — pass through unchanged.
+		if target.ID == "" {
+			continue
+		}
+		idType := target.IDType
+		if idType == "" {
+			idType = setting.LarkUserID
+		}
+		if !targetSet.Has(target.ID) {
+			targets = append(targets, &lark.UserInfo{
+				ID:              target.ID,
+				IDType:          idType,
+				Name:            target.Name,
+				Avatar:          target.Avatar,
+				IsExecutor:      target.IsExecutor,
+				IsStageExecutor: target.IsStageExecutor,
+			})
+			targetSet.Insert(target.ID)
+		}
+	}
+
+	return targets, respErr.ErrorOrNil()
+}
+
+// resolveTaskWaitMailUsers resolves mail notification targets for a task-level wait
+// notification. It handles UserTypeTaskCreator by resolving it to the task creator's
+// user info, and expands UserTypeGroup via GeneFlatUsersWithCaller.
+func (w *Service) resolveTaskWaitMailUsers(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*models.User, error) {
+	if notify == nil || notify.MailNotificationConfig == nil {
+		return nil, nil
+	}
+
+	usersToExpand := make([]*models.User, 0, len(notify.MailNotificationConfig.TargetUsers))
+	taskCreatorResolved := false
+	for _, user := range notify.MailNotificationConfig.TargetUsers {
+		if user == nil {
+			continue
+		}
+		if user.Type == setting.UserTypeTaskCreator {
+			if taskCreatorResolved {
+				continue
+			}
+			if task.TaskCreatorID == "" {
+				continue
+			}
+			userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
+			if err != nil {
+				log.Warnf("failed to find task creator %s: %s", task.TaskCreatorID, err)
+				continue
+			}
+			usersToExpand = append(usersToExpand, &models.User{
+				Type:     setting.UserTypeUser,
+				UserID:   userInfo.Uid,
+				UserName: userInfo.Name,
+			})
+			taskCreatorResolved = true
+			continue
+		}
+		usersToExpand = append(usersToExpand, user)
+	}
+
+	if len(usersToExpand) == 0 {
+		return nil, nil
+	}
+
+	if task.TaskCreatorID != "" {
+		users, _ := commonutil.GeneFlatUsersWithCaller(usersToExpand, task.TaskCreatorID)
+		return users, nil
+	}
+
+	users, _ := commonutil.GeneFlatUsers(usersToExpand)
+	return users, nil
+}
+
 func (w *Service) resolveManualExecStageLarkTargetFromUser(client *lark.Client, userID, userName string) (*lark.UserInfo, string, error) {
 	userInfo, err := userclient.New().GetUserByID(userID)
 	if err != nil {
