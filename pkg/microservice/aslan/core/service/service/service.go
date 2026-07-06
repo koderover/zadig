@@ -123,10 +123,22 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, p
 
 	serviceOption, err := GetServiceOption(service, production, log)
 	if serviceOption != nil {
+		service.Containers = containersFromServiceModules(serviceOption.ServiceModules)
 		serviceOption.Service = service
 	}
 
 	return serviceOption, err
+}
+
+func containersFromServiceModules(modules []*ServiceModule) []*commonmodels.Container {
+	containers := make([]*commonmodels.Container, 0, len(modules))
+	for _, module := range modules {
+		if module == nil || module.Container == nil {
+			continue
+		}
+		containers = append(containers, module.Container)
+	}
+	return containers
 }
 
 func GetServiceOption(args *commonmodels.Service, production bool, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -315,8 +327,13 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
-				productSvc.Containers = templateSvcs[tempWorkload.Name].Containers
-				productSvc.Resources, _ = kube.ManifestToResource(templateSvcs[tempWorkload.Name].Yaml)
+				templateSvc := templateSvcs[tempWorkload.Name]
+				containers, err := commonservice.ResolveServiceTemplateContainers(templateSvc, production)
+				if err != nil {
+					return err
+				}
+				productSvc.Containers = containers
+				productSvc.Resources, _ = kube.ManifestToResource(templateSvc.Yaml)
 				return nil
 			}
 

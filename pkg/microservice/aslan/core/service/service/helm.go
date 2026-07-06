@@ -148,6 +148,14 @@ func ListHelmServices(productName string, production bool, removeApplicationLink
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
 	}
+	for _, svc := range services {
+		containers, err := commonservice.ResolveServiceTemplateContainers(svc, production)
+		if err != nil {
+			log.Errorf("[helmService.list] failed to resolve service modules for %s/%s: %v", productName, svc.ServiceName, err)
+			return nil, e.ErrListTemplate.AddErr(err)
+		}
+		svc.Containers = containers
+	}
 	helmService.ServiceInfos = services
 
 	if len(services) > 0 {

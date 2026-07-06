@@ -1399,11 +1399,16 @@ func prepareEstimateDataForEnvCreation(projectName, serviceName string, producti
 			return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 		}
 
+		containers, err := commonservice.ResolveServiceTemplateContainers(templateService, production)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		prodSvc := &commonmodels.ProductService{
 			ServiceName: serviceName,
 			ProductName: projectName,
 			Revision:    templateService.Revision,
-			Containers:  templateService.Containers,
+			Containers:  containers,
 			Render: &templatemodels.ServiceRender{
 				ServiceName:  serviceName,
 				OverrideYaml: &templatemodels.CustomYaml{},
@@ -1487,11 +1492,15 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 		}
 
 		if prodSvc == nil {
+			containers, err := commonservice.ResolveServiceTemplateContainers(latestTmplSvc, production)
+			if err != nil {
+				return nil, nil, nil, nil, err
+			}
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceOrReleaseName,
 				ProductName: productName,
 				Revision:    latestTmplSvc.Revision,
-				Containers:  latestTmplSvc.Containers,
+				Containers:  containers,
 			}
 		}
 

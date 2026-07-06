@@ -573,13 +573,13 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 			}
 		}
 	}
-	if err := ensureHelmImagePaths(prodSvc, tmplSvc); err != nil {
+	if err := EnsureHelmImagePaths(prodSvc, tmplSvc); err != nil {
 		return nil, nil, err
 	}
 	return prodSvc, tmplSvc, nil
 }
 
-func ensureHelmImagePaths(prodSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service) error {
+func EnsureHelmImagePaths(prodSvc *commonmodels.ProductService, tmplSvc *commonmodels.Service) error {
 	if prodSvc == nil || tmplSvc == nil || tmplSvc.HelmChart == nil || len(prodSvc.Containers) == 0 {
 		return nil
 	}

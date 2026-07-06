@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
@@ -178,6 +179,36 @@ func FillContainerBuilds(source []*commonmodels.Container) []*ContainerWithBuild
 	return ret
 }
 
+func ResolveServiceTemplateContainers(svc *commonmodels.Service, production bool) ([]*commonmodels.Container, error) {
+	if svc == nil || svc.ProductName == "" || svc.ServiceName == "" || svc.Revision == 0 {
+		return nil, nil
+	}
+	if svc.Type != setting.K8SDeployType && svc.Type != setting.HelmDeployType {
+		return nil, nil
+	}
+
+	containers, _, err := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, production, svc.Revision)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve service modules for %s/%s rev %d: %w", svc.ProductName, svc.ServiceName, svc.Revision, err)
+	}
+
+	if svc.Type == setting.HelmDeployType {
+		prodSvc := &commonmodels.ProductService{
+			ServiceName: svc.ServiceName,
+			ProductName: svc.ProductName,
+			Type:        svc.Type,
+			Revision:    svc.Revision,
+			Containers:  containers,
+		}
+		if err := helmservice.EnsureHelmImagePaths(prodSvc, svc); err != nil {
+			return nil, err
+		}
+		containers = prodSvc.Containers
+	}
+
+	return containers, nil
+}
+
 func GetCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
 	bs, err := json.Marshal(createFrom)
 	if err != nil {
@@ -263,12 +294,16 @@ func ListServiceTemplate(productName string, production bool, removeApplicationL
 		if err != nil {
 			log.Warnf("faile to fill service creation info: %s", err)
 		}
+		containers, err := ResolveServiceTemplateContainers(serviceObject, production)
+		if err != nil {
+			return nil, e.ErrListTemplate.AddErr(err)
+		}
 		spmap := &ServiceProductMap{
 			Service:                    serviceObject.ServiceName,
 			Type:                       serviceObject.Type,
 			Source:                     serviceObject.Source,
 			ProductName:                serviceObject.ProductName,
-			Containers:                 FillContainerBuilds(serviceObject.Containers),
+			Containers:                 FillContainerBuilds(containers),
 			Product:                    []string{productName},
 			CodehostID:                 serviceObject.CodehostID,
 			RepoOwner:                  serviceObject.RepoOwner,
@@ -396,6 +431,10 @@ func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excl
 	}
 
 	resp.Resources = GeneSvcStructure(svcTemplate)
+	svcTemplate.Containers, err = ResolveServiceTemplateContainers(svcTemplate, production)
+	if err != nil {
+		return nil, e.ErrGetTemplate.AddErr(err)
+	}
 
 	if serviceType == setting.PMDeployType {
 		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName})
