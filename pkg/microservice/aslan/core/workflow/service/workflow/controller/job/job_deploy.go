@@ -28,7 +28,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
@@ -643,7 +642,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			var autoSyncFlag bool
 			var serviceRender *templatemodels.ServiceRender
 			pSvc, ok := productServiceMap[svc.ServiceName]
-			if ok {
+			if ok && pSvc != nil {
 				serviceRevision = pSvc.Revision
 				serviceRender = pSvc.GetServiceRender()
 				// if the service is deployed in the env, and the variable is set to auto sync, ignore user input.
@@ -701,30 +700,17 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				})
 			}
 
-			if autoSyncFlag || j.jobSpec.ValueSyncStrategy == config.ValueSyncStrategyAuto {
-				if serviceRender != nil {
-					serviceRender.SetAutoSync(true)
-					_, values, err := commonservice.SyncYamlFromSource(serviceRender.OverrideYaml, serviceRender.OverrideYaml.YamlContent, serviceRender.OverrideYaml.AutoSyncYaml)
-					if err != nil {
-						return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
-					}
-					serviceRender.SetAutoSync(autoSyncFlag)
-					jobTaskSpec.UpdateConfig = svc.UpdateConfig
-					jobTaskSpec.VariableYaml = values
-					jobTaskSpec.UserSuppliedValue = values
-					jobTaskSpec.ValuesSyncedFromSource = true
-				} else {
-					values, synced, err := syncValuesFromTemplateService(revisionSvc, svc.VariableYaml)
-					if err != nil {
-						return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
-					}
-					if synced {
-						jobTaskSpec.UpdateConfig = svc.UpdateConfig
-						jobTaskSpec.VariableYaml = values
-						jobTaskSpec.UserSuppliedValue = values
-						jobTaskSpec.ValuesSyncedFromSource = true
-					}
+			if serviceRender != nil && (autoSyncFlag || j.jobSpec.ValueSyncStrategy == config.ValueSyncStrategyAuto) {
+				serviceRender.SetAutoSync(true)
+				_, values, err := commonservice.SyncYamlFromSource(serviceRender.OverrideYaml, serviceRender.OverrideYaml.YamlContent, serviceRender.OverrideYaml.AutoSyncYaml)
+				if err != nil {
+					return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
 				}
+				serviceRender.SetAutoSync(autoSyncFlag)
+				jobTaskSpec.UpdateConfig = svc.UpdateConfig
+				jobTaskSpec.VariableYaml = values
+				jobTaskSpec.UserSuppliedValue = values
+				jobTaskSpec.ValuesSyncedFromSource = true
 			}
 
 			jobTask := &commonmodels.JobTask{
@@ -754,55 +740,6 @@ func (j DeployJobController) SetRepo(repo *types.Repository) error {
 
 func (j DeployJobController) SetRepoCommitInfo() error {
 	return nil
-}
-
-func syncValuesFromTemplateService(service *commonmodels.Service, currentValues string) (string, bool, error) {
-	if service == nil {
-		return "", false, nil
-	}
-
-	// chart-template service with a values source: sync from the configured source.
-	createFrom, err := service.GetHelmCreateFrom()
-	if err == nil && createFrom.YamlData != nil {
-		yamlData := &templatemodels.CustomYaml{
-			YamlContent:       createFrom.YamlData.YamlContent,
-			RenderVariableKVs: createFrom.YamlData.RenderVariableKVs,
-			Source:            createFrom.YamlData.Source,
-			AutoSync:          true,
-			AutoSyncYaml:      createFrom.YamlData.AutoSyncYaml,
-			SourceDetail:      createFrom.YamlData.SourceDetail,
-			SourceID:          createFrom.YamlData.SourceID,
-		}
-		_, values, err := commonservice.SyncYamlFromSource(yamlData, currentValues, yamlData.AutoSyncYaml)
-		if err != nil {
-			return "", false, err
-		}
-		if values == "" {
-			return "", false, nil
-		}
-		return values, true, nil
-	}
-
-	if service.CodehostID == 0 || service.RepoName == "" || service.LoadPath == "" {
-		return "", false, nil
-	}
-
-	valuesPath := fmt.Sprintf("%s/%s", service.LoadPath, setting.ValuesYaml)
-	valuesYAML, err := fs.DownloadFileFromSource(&fs.DownloadFromSourceArgs{
-		CodehostID: service.CodehostID,
-		Owner:      service.RepoOwner,
-		Namespace:  service.RepoNamespace,
-		Repo:       service.RepoName,
-		Path:       valuesPath,
-		Branch:     service.BranchName,
-	})
-	if err != nil {
-		return "", false, err
-	}
-	if len(valuesYAML) == 0 {
-		return "", false, nil
-	}
-	return string(valuesYAML), true, nil
 }
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
