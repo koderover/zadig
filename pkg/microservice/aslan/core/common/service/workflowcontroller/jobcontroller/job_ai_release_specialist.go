@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -110,7 +111,10 @@ var (
 		flatUsers, _ := commonutil.GeneFlatUsersWithCaller(users, taskCreatorUserID)
 		return flatUsers
 	}
-	waitForAIReleaseSpecialistApprove = waitForNativeApprove
+	sendAIReleaseSpecialistTaskWaitNotifications = func(input *instantmessage.TaskWaitNotifyInput) error {
+		return instantmessage.NewWeChatClient().SendTaskWaitNotifications(input)
+	}
+	waitForAIReleaseSpecialistApprove = waitForNativeApproveCore
 )
 
 func NewAIReleaseSpecialistJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *AIReleaseSpecialistJobCtl {
@@ -248,6 +252,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		c.jobTaskSpec.NativeApproval = approvalSpec.NativeApproval
 		c.job.Status = config.StatusWaitingApprove
 		c.ack()
+		c.sendWaitNotifications(task)
 
 		status, err := waitForAIReleaseSpecialistApprove(jobCtx, approvalSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
 		c.job.Status = status
@@ -304,6 +309,30 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 		}
 	}
 	return flatUsers, nil
+}
+
+func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.WorkflowTask) {
+	if c.jobTaskSpec.NotificationSent {
+		return
+	}
+
+	if !instantmessage.HasTaskWaitNotifyCtls(c.jobTaskSpec.NotifyCtls, config.StatusWaitingApprove) {
+		return
+	}
+
+	if err := sendAIReleaseSpecialistTaskWaitNotifications(&instantmessage.TaskWaitNotifyInput{
+		Task:         task,
+		WorkflowName: c.workflowCtx.WorkflowName,
+		TaskID:       c.workflowCtx.TaskID,
+		NotifyCtls:   c.jobTaskSpec.NotifyCtls,
+		WaitStatus:   config.StatusWaitingApprove,
+	}); err != nil {
+		c.logger.Warnf("send ai release specialist task wait notification failed: %v", err)
+		return
+	}
+
+	c.jobTaskSpec.NotificationSent = true
+	c.ack()
 }
 
 func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, currentJobName string) (*commonmodels.AIReleaseSpecialistInput, error) {

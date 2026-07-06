@@ -61,6 +61,9 @@ func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
+	if err := validateAIReleaseSpecialistNotifyCtls(j.jobSpec.NotifyCtls); err != nil {
+		return err
+	}
 	if j.jobSpec.RequireManualConfirm && len(j.jobSpec.ConfirmUsers) == 0 {
 		return fmt.Errorf("confirm users cannot be empty when manual confirm is enabled")
 	}
@@ -85,6 +88,26 @@ func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
 	return nil
 }
 
+func validateAIReleaseSpecialistNotifyCtls(notifyCtls []*commonmodels.NotifyCtl) error {
+	for i, notify := range notifyCtls {
+		if notify == nil || !notify.Enabled {
+			continue
+		}
+
+		notifyToCheck := *notify
+		if err := notifyToCheck.GenerateNewNotifyConfigWithOldData(); err != nil {
+			return fmt.Errorf("notify config %d is invalid: %w", i, err)
+		}
+		if notifyToCheck.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
+			if notifyToCheck.LarkPersonNotificationConfig == nil || notifyToCheck.LarkPersonNotificationConfig.AppID == "" {
+				return fmt.Errorf("notify config %d app id cannot be empty for feishu person notification", i)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (j AIReleaseSpecialistJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	currJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
@@ -102,6 +125,7 @@ func (j AIReleaseSpecialistJobController) Update(useUserInput bool, ticket *comm
 	j.jobSpec.PromptTemplate = currJobSpec.PromptTemplate
 	j.jobSpec.RequireManualConfirm = currJobSpec.RequireManualConfirm
 	j.jobSpec.ConfirmUsers = currJobSpec.ConfirmUsers
+	j.jobSpec.NotifyCtls = currJobSpec.NotifyCtls
 	j.jobSpec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(currJobSpec.SystemPrompt)
 	return nil
 }
@@ -121,6 +145,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 		PromptTemplate:       j.jobSpec.PromptTemplate,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
+		NotifyCtls:           j.jobSpec.NotifyCtls,
 		SystemPrompt:         runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(j.jobSpec.SystemPrompt),
 	}
 	if j.jobSpec.RequireManualConfirm {

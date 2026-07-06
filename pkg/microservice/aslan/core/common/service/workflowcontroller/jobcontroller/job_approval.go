@@ -98,7 +98,18 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
 	log.Infof("waitForNativeApprove start")
+	return waitForNativeApproveWithCallback(ctx, spec, workflowName, jobName, taskID, ack, func() {
+		if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID, nil); err != nil {
+			log.Errorf("send approve notification failed, error: %v", err)
+		}
+	})
+}
 
+func waitForNativeApproveCore(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
+	return waitForNativeApproveWithCallback(ctx, spec, workflowName, jobName, taskID, ack, nil)
+}
+
+func waitForNativeApproveWithCallback(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func(), afterRegister func()) (config.Status, error) {
 	approval := spec.NativeApproval
 
 	if approval == nil {
@@ -115,8 +126,8 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	defer func() {
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 	}()
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID, nil); err != nil {
-		log.Errorf("send approve notification failed, error: %v", err)
+	if afterRegister != nil {
+		afterRegister()
 	}
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
