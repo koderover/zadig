@@ -159,14 +159,6 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		}
 		// 从历史版本中获取clusterName
 		clusterName := envSvcRevision.ClusterName
-		// if clusterName == "" {
-		// 	cluster, err := kube.GetCluster(env.ClusterID)
-		// 	if err != nil {
-		// 		return resp, err
-		// 	}
-		// 	clusterName = cluster.Name
-		// }
-
 		svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: envSvcRevision.Service.ServiceName,
 			ProductName: envSvcRevision.ProductName,
