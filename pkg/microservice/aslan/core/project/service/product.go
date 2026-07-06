@@ -1121,7 +1121,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 				break
 			}
 
-			if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+			if err = repository.Create(serviceTmpl, production); err != nil {
 				log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
 				err = e.ErrUpdateTemplate.AddDesc(err.Error())
 				break
@@ -1132,7 +1132,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 				break
 			}
 
-			if err = commonrepo.NewProductionServiceColl().Create(serviceTmpl); err != nil {
+			if err = repository.Create(serviceTmpl, production); err != nil {
 				log.Errorf("helmService.update production service, serviceName:%s error:%v", serviceTmpl.ServiceName, err)
 				err = e.ErrUpdateTemplate.AddDesc(err.Error())
 				break

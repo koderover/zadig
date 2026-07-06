@@ -18,7 +18,6 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -225,10 +224,9 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, isPro
 
 	helmServiceModule := new(HelmServiceModule)
 	serviceModules := make([]*ServiceModule, 0)
-	// Service.Containers no longer persisted — read from service_module table.
-	resolvedContainers, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTemplate.ProductName, serviceTemplate.ServiceName, isProduction, serviceTemplate.Revision)
-	if rerr != nil {
-		return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceTemplate.ProductName, serviceTemplate.ServiceName, serviceTemplate.Revision, rerr)
+	resolvedContainers, err := commonservice.ResolveServiceTemplateContainers(serviceTemplate, isProduction)
+	if err != nil {
+		return nil, err
 	}
 	for _, container := range resolvedContainers {
 		serviceModule := new(ServiceModule)
@@ -257,6 +255,7 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, isPro
 	}
 
 	helmServiceModule.Service = serviceTemplate
+	serviceTemplate.Containers = resolvedContainers
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
 	return helmServiceModule, err
@@ -1599,16 +1598,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	}
 
 	// create new service template
-	if !args.Production {
-		if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
-			log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
-			return nil, err
-		}
-	} else {
-		if err = commonrepo.NewProductionServiceColl().Create(serviceObj); err != nil {
-			log.Errorf("Failed to create production service %s error: %s", args.ServiceName, err)
-			return nil, err
-		}
+	if err = repository.Create(serviceObj, args.Production); err != nil {
+		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
+		return nil, err
 	}
 
 	// TODO: webhook process
