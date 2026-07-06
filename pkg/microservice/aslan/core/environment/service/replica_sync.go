@@ -96,7 +96,14 @@ func renderServiceWithOverrides(prod *commonmodels.Product, service *commonmodel
 		return "", fmt.Errorf("service is nil")
 	}
 	serviceCopy.WorkLoads = cloneWorkLoads(overrides)
-	return kube.RenderEnvServiceWithTempl(prod, serviceCopy.GetServiceRender(), serviceCopy, tmpl)
+
+	// get cluster
+	cluster, err := kube.GetCluster(prod.ClusterID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster for cluster %s: %w", prod.ClusterID, err)
+	}
+
+	return kube.RenderEnvServiceWithTempl(prod, serviceCopy.GetServiceRender(), serviceCopy, tmpl, cluster.Name)
 }
 
 func serviceReplicaStateChanged(currentSvc, candidateSvc *commonmodels.ProductService) bool {

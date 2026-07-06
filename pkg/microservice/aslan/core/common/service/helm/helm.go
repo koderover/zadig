@@ -116,6 +116,12 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 
 // Update Service and ServiceDeployStrategy for a single service in environment
 func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail string) error {
+	return UpdateServiceInEnvWithClusterName(product, productSvc, user, operation, detail, "")
+}
+
+// UpdateServiceInEnvWithClusterName keeps the created env service version snapshot aligned
+// with the applied rollback target when cluster name should come from a historical version.
+func UpdateServiceInEnvWithClusterName(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail, clusterName string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -125,7 +131,7 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 	}
 
 	product.LintServices()
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, operation, detail, session, log.SugaredLogger())
+	err = commonutil.CreateEnvServiceVersionWithClusterName(product, productSvc, user, operation, detail, clusterName, session, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("failed to create helm service version, err: %v", err)
 	}

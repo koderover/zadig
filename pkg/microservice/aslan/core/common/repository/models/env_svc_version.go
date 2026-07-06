@@ -30,6 +30,7 @@ type EnvServiceVersion struct {
 	ProductName    string                         `bson:"product_name"              json:"product_name"`
 	EnvName        string                         `bson:"env_name"                  json:"env_name"`
 	Namespace      string                         `bson:"namespace"                 json:"namespace"`
+	ClusterName    string                         `bson:"cluster_name,omitempty"    json:"cluster_name,omitempty"`
 	Production     bool                           `bson:"production"                json:"production"`
 	Revision       int64                          `bson:"revision"                  json:"revision"`
 	Operation      config.EnvOperation            `bson:"operation"                 json:"operation"`
