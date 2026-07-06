@@ -310,13 +310,17 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 	respList := make([]*ScanningTaskResp, 0)
 
 	for _, workflowTask := range workflowTasks {
+		status := workflowTask.Status
+		if len(workflowTask.Stages) == 1 && len(workflowTask.Stages[0].Jobs) == 1 && workflowTask.Stages[0].Jobs[0].Status != "" {
+			status = workflowTask.Stages[0].Jobs[0].Status
+		}
 		taskInfo := &ScanningTaskResp{
 			ScanID:    workflowTask.TaskID,
-			Status:    string(workflowTask.Status),
+			Status:    string(status),
 			Creator:   workflowTask.TaskCreator,
 			CreatedAt: workflowTask.CreateTime,
 		}
-		if workflowTask.Status == config.StatusPassed || workflowTask.Status == config.StatusCancelled || workflowTask.Status == config.StatusFailed {
+		if status == config.StatusPassed || status == config.StatusCancelled || status == config.StatusFailed {
 			taskInfo.RunTime = workflowTask.EndTime - workflowTask.StartTime
 		}
 		respList = append(respList, taskInfo)
@@ -432,11 +436,25 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		repo.Username = ""
 	}
 
+	status := workflowTask.Status
+	if workflowTask.Stages[0].Jobs[0].Status != "" {
+		status = workflowTask.Stages[0].Jobs[0].Status
+	}
+	errorMsg := workflowTask.Stages[0].Jobs[0].Error
+	if errorMsg == "" {
+		errorMsg = workflowTask.Stages[0].Error
+	}
+	if errorMsg == "" {
+		errorMsg = workflowTask.Error
+	}
+
 	return &ScanningTaskDetail{
 		Creator:       workflowTask.TaskCreator,
-		Status:        string(workflowTask.Status),
+		Status:        string(status),
+		Error:         errorMsg,
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
+		Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,
@@ -543,10 +561,10 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 		Repos:       repos,
 		KeyVals:     renderKeyVals(args.KeyVals, kvs).ToRuntimeList(),
 	}
-	
+
 	// validate kv in the standalone scanning
-	if err:= jobctrl.ValidateRequiredRuntimeKeyVals(scan.KeyVals,fmt.Sprintf("scan %s", scanInfo.Name));err!= nil{
-			return nil, err
+	if err := jobctrl.ValidateRequiredRuntimeKeyVals(scan.KeyVals, fmt.Sprintf("scan %s", scanInfo.Name)); err != nil {
+		return nil, err
 	}
 
 	job := make([]*commonmodels.Job, 0)
