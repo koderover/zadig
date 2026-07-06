@@ -793,7 +793,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						service.Containers = containers
 
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -801,7 +801,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						return
 					} else if commonutil.ServiceIsDraft(pSvc.ServiceName, deployStrategy) {
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -833,7 +833,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 					}
 					service.Resources = kube.UnstructuredToResources(items)
 
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 					if err != nil {
 						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}

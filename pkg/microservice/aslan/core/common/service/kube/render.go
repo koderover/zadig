@@ -455,8 +455,9 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 }
 
+// resolves the cluster name for a service in the current environment.
 func resolveCurrentAppliedClusterName(productInfo *models.Product, serviceName string) (string, error) {
-	
+
 	cluster, err := GetCluster(productInfo.ClusterID)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get cluster name by cluster id %s", productInfo.ClusterID)
