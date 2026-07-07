@@ -113,10 +113,29 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	}
+
 	s.Logger.Infof("Finish archive %s.", s.spec.FileName)
-	if results.Failures > 0 || results.Errors > 0 {
-		return fmt.Errorf("%d case(s) failed, %d case(s) error", results.Failures, results.Errors)
+
+	total := results.Tests
+	if total == 0 {
+		return fmt.Errorf("no test cases found")
 	}
+	success := results.Tests - results.Failures - results.Errors
+
+	passRate := float64(success) / float64(total)
+	passRatePercent := passRate * 100
+
+	// TestResultPassRate 是百分比，0-100的int，0表示100
+	requiredPassRate := s.spec.TestResultPassRate
+	if requiredPassRate == 0 {
+		requiredPassRate = 100
+	}
+
+	actualPassRatePercent := int(passRatePercent + 0.5)
+	if actualPassRatePercent < requiredPassRate {
+		return fmt.Errorf("test pass rate %d%% is below required %d%% (%d/%d cases passed)", actualPassRatePercent, requiredPassRate, success, total)
+	}
+
 	return nil
 }
 
