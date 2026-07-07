@@ -1181,7 +1181,12 @@ func serviceHasTrackableWorkload(productInfo *commonmodels.Product, serviceTmpl 
 		log.Errorf("failed to render service yaml for workload status, err: %s", err)
 		return true
 	}
-	renderedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceTmpl.ServiceName, renderedYaml)
+	cluster, err := kube.GetCluster(productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to get cluster name for workload status, err: %s", err)
+		return true
+	}
+	renderedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceTmpl.ServiceName, cluster.Name, renderedYaml)
 
 	resources, err := kube.ManifestToResource(renderedYaml)
 	if err != nil {
