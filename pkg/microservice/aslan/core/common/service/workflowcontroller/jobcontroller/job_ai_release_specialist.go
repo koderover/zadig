@@ -42,6 +42,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	runtimejob "github.com/koderover/zadig/v2/pkg/types/job"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -56,7 +57,10 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 任务语义说明：
 - 代码扫描：表示静态检查或安全扫描结果；如果 scan_metrics 存在，应优先参考质量门禁、bug、漏洞、异味、覆盖率等结构化指标，否则只能依据任务状态和错误摘要判断。
 - 构建：表示本次变更来源，可提供仓库、分支、tag、commit message、服务或模块信息，用于理解变更范围，不代表变更已验证通过。
+- 构建摘要：如果 build_summary 存在，表示工作流中构建任务的执行状态和代码来源详情；items 中的 details 字段可能包含 branches、tags、services、commit_messages 等结构化信息。
 - 测试：表示自动化验证结果；如果 test_statistics 存在，应优先参考总用例数、成功数、失败数、错误数、跳过数和通过率，否则只能依据任务状态和错误摘要判断。
+- 审批摘要：如果 approval_summary 存在，表示工作流中当前 AI 节点之前已有人工审批节点的执行结果；items 中的 details 字段可能包含 approval_type、decision、approvers、needed_approvers 等信息。
+- 其他任务摘要：如果 other_task_summary 存在，表示工作流中当前 AI 节点之前 VM 部署、自定义任务等的执行状态；items 中的 details 字段可能包含 service_name、service_module、infrastructure、vm_labels、step_types 等信息。
 - 监控告警：如果 observability_summary 存在，表示工作流中已有 Grafana 或观测云检查任务的执行结果；这不是全量监控平台告警，只能依据其中的任务状态、检查项状态、级别和链接判断。
 - 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；pod_status、ready、pod_count、ready_pods 是从 Kubernetes workload 关联 Pod 查询到的就绪信号，可用于判断目标服务是否明显异常；这不代表实时 CPU、内存、磁盘或业务日志。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
@@ -342,26 +346,13 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 		},
 	}
 	envMap := make(map[string]*commonmodels.Product)
+	collector := &aiReleaseInputCollector{}
 
-	var (
-		releaseTargets []*commonmodels.AIReleaseTargetsSummary
-		scanStatuses   []string
-		scanSummaries  []string
-		scanItems      []*commonmodels.AIReleaseSummaryItem
-		testStatuses   []string
-		testSummaries  []string
-		testItems      []*commonmodels.AIReleaseSummaryItem
-		obsStatuses    []string
-		obsSummaries   []string
-		obsItems       []*commonmodels.AIObservabilityItem
-	)
-	currentJobReached := false
-
+outer:
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name == currentJobName {
-				currentJobReached = true
-				continue
+				break outer
 			}
 
 			switch job.JobType {
@@ -372,7 +363,7 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				}
 				target := buildReleaseTargetFromDeploy(job, spec)
 				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
-				releaseTargets = append(releaseTargets, target)
+				collector.releaseTargets = append(collector.releaseTargets, target)
 			case string(config.JobZadigHelmDeploy):
 				spec := &commonmodels.JobTaskHelmDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -380,7 +371,7 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				}
 				target := buildReleaseTargetFromHelmDeploy(job, spec)
 				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
-				releaseTargets = append(releaseTargets, target)
+				collector.releaseTargets = append(collector.releaseTargets, target)
 			case string(config.JobZadigHelmChartDeploy):
 				spec := &commonmodels.JobTaskHelmChartDeploySpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -388,88 +379,132 @@ func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, curr
 				}
 				target := buildReleaseTargetFromHelmChartDeploy(job, spec)
 				fillReleaseTargetEnvAlias(task.ProjectName, target, envMap)
-				releaseTargets = append(releaseTargets, target)
+				collector.releaseTargets = append(collector.releaseTargets, target)
 			case string(config.JobZadigBuild):
-				if currentJobReached {
-					continue
-				}
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
+				collector.buildStatuses = append(collector.buildStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				summary := buildResultSummaryLine(job)
+				collector.buildSummaries = append(collector.buildSummaries, summary)
+				collector.buildItems = append(collector.buildItems, buildAIBuildSummaryItem(job, spec, summary))
 				appendChangeSummarySource(input.ChangeSummary, job)
 				collectChangeSummaryFromFreestyleSpec(input.ChangeSummary, spec)
 			case string(config.JobZadigScanning):
-				if currentJobReached {
-					continue
-				}
-				scanStatuses = append(scanStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				collector.scanStatuses = append(collector.scanStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
-				scanSummaries = append(scanSummaries, summary)
+				collector.scanSummaries = append(collector.scanSummaries, summary)
 				item := buildReleaseSummaryItem(job, summary)
 				item.ScanMetrics = buildAIScanMetricsFromJob(job)
-				scanItems = append(scanItems, item)
+				collector.scanItems = append(collector.scanItems, item)
 			case string(config.JobZadigTesting):
-				if currentJobReached {
-					continue
-				}
-				testStatuses = append(testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				collector.testStatuses = append(collector.testStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildResultSummaryLine(job)
-				testSummaries = append(testSummaries, summary)
+				collector.testSummaries = append(collector.testSummaries, summary)
 				testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobTaskName(task.WorkflowName, job.Name, task.TaskID)
 				if err != nil {
 					return nil, err
 				}
 				item := buildReleaseSummaryItem(job, summary)
 				item.TestStatistics = buildAITestStatisticsFromReports(testReports)
-				testItems = append(testItems, item)
+				collector.testItems = append(collector.testItems, item)
+			case string(config.JobApproval):
+				spec := &commonmodels.JobTaskApprovalSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					continue
+				}
+				collector.approvalStatuses = append(collector.approvalStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				summary := buildApprovalSummaryLine(job, spec)
+				collector.approvalSummaries = append(collector.approvalSummaries, summary)
+				collector.approvalItems = append(collector.approvalItems, buildAIApprovalSummaryItem(job, spec, summary))
+			case string(config.JobZadigVMDeploy), string(config.JobFreestyle):
+				spec := &commonmodels.JobTaskFreestyleSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					continue
+				}
+				collector.otherStatuses = append(collector.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				summary := buildResultSummaryLine(job)
+				collector.otherSummaries = append(collector.otherSummaries, summary)
+				collector.otherItems = append(collector.otherItems, buildAIOtherTaskSummaryItem(job, spec, summary))
 			case string(config.JobGrafana):
-				if currentJobReached {
-					continue
-				}
 				item := buildAIObservabilityItemFromGrafana(job)
-				obsStatuses = append(obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				obsSummaries = append(obsSummaries, buildObservabilitySummaryLine(item))
-				obsItems = append(obsItems, item)
+				collector.obsStatuses = append(collector.obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				collector.obsSummaries = append(collector.obsSummaries, buildObservabilitySummaryLine(item))
+				collector.obsItems = append(collector.obsItems, item)
 			case string(config.JobGuanceyunCheck):
-				if currentJobReached {
-					continue
-				}
 				item := buildAIObservabilityItemFromGuanceyun(job)
-				obsStatuses = append(obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				obsSummaries = append(obsSummaries, buildObservabilitySummaryLine(item))
-				obsItems = append(obsItems, item)
+				collector.obsStatuses = append(collector.obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				collector.obsSummaries = append(collector.obsSummaries, buildObservabilitySummaryLine(item))
+				collector.obsItems = append(collector.obsItems, item)
 			}
 		}
 	}
 
-	return finalizeAIReleaseSpecialistInput(task.ProjectName, input, envMap, releaseTargets, scanStatuses, scanSummaries, scanItems, testStatuses, testSummaries, testItems, obsStatuses, obsSummaries, obsItems), nil
+	return finalizeAIReleaseSpecialistInput(task.ProjectName, input, envMap, collector), nil
 }
 
-func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AIReleaseSpecialistInput, envMap map[string]*commonmodels.Product, releaseTargets []*commonmodels.AIReleaseTargetsSummary, scanStatuses, scanSummaries []string, scanItems []*commonmodels.AIReleaseSummaryItem, testStatuses, testSummaries []string, testItems []*commonmodels.AIReleaseSummaryItem, obsStatuses, obsSummaries []string, obsItems []*commonmodels.AIObservabilityItem) *commonmodels.AIReleaseSpecialistInput {
-	if len(releaseTargets) > 0 {
-		input.ReleaseTargets = mergeReleaseTargets(releaseTargets)
-		input.RuntimeServices = buildAIRuntimeServicesSummary(projectName, releaseTargets, envMap)
+type aiReleaseInputCollector struct {
+	releaseTargets []*commonmodels.AIReleaseTargetsSummary
+
+	buildStatuses  []string
+	buildSummaries []string
+	buildItems     []*commonmodels.AIReleaseSummaryItem
+
+	scanStatuses  []string
+	scanSummaries []string
+	scanItems     []*commonmodels.AIReleaseSummaryItem
+
+	testStatuses  []string
+	testSummaries []string
+	testItems     []*commonmodels.AIReleaseSummaryItem
+
+	approvalStatuses  []string
+	approvalSummaries []string
+	approvalItems     []*commonmodels.AIReleaseSummaryItem
+
+	otherStatuses  []string
+	otherSummaries []string
+	otherItems     []*commonmodels.AIReleaseSummaryItem
+
+	obsStatuses  []string
+	obsSummaries []string
+	obsItems     []*commonmodels.AIObservabilityItem
+}
+
+func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AIReleaseSpecialistInput, envMap map[string]*commonmodels.Product, collector *aiReleaseInputCollector) *commonmodels.AIReleaseSpecialistInput {
+	if len(collector.releaseTargets) > 0 {
+		input.ReleaseTargets = mergeReleaseTargets(collector.releaseTargets)
+		input.RuntimeServices = buildAIRuntimeServicesSummary(projectName, collector.releaseTargets, envMap)
 	}
-	if len(scanStatuses) > 0 || len(scanSummaries) > 0 || len(scanItems) > 0 {
+	if len(collector.buildStatuses) > 0 || len(collector.buildSummaries) > 0 || len(collector.buildItems) > 0 {
+		input.BuildSummary = buildAIJobSummary(collector.buildStatuses, collector.buildSummaries, collector.buildItems)
+	}
+	if len(collector.scanStatuses) > 0 || len(collector.scanSummaries) > 0 || len(collector.scanItems) > 0 {
 		input.ScanSummary = &commonmodels.AIScanSummary{
-			JobStatuses: uniqueSortedStrings(scanStatuses),
-			Summaries:   uniquePreserveOrder(scanSummaries),
-			Items:       uniqueReleaseSummaryItems(scanItems),
+			JobStatuses: uniqueSortedStrings(collector.scanStatuses),
+			Summaries:   uniquePreserveOrder(collector.scanSummaries),
+			Items:       uniqueReleaseSummaryItems(collector.scanItems),
 		}
 	}
-	if len(testStatuses) > 0 || len(testSummaries) > 0 || len(testItems) > 0 {
+	if len(collector.testStatuses) > 0 || len(collector.testSummaries) > 0 || len(collector.testItems) > 0 {
 		input.TestSummary = &commonmodels.AITestSummary{
-			JobStatuses: uniqueSortedStrings(testStatuses),
-			Summaries:   uniquePreserveOrder(testSummaries),
-			Items:       uniqueReleaseSummaryItems(testItems),
+			JobStatuses: uniqueSortedStrings(collector.testStatuses),
+			Summaries:   uniquePreserveOrder(collector.testSummaries),
+			Items:       uniqueReleaseSummaryItems(collector.testItems),
 		}
 	}
-	if len(obsStatuses) > 0 || len(obsSummaries) > 0 || len(obsItems) > 0 {
+	if len(collector.approvalStatuses) > 0 || len(collector.approvalSummaries) > 0 || len(collector.approvalItems) > 0 {
+		input.ApprovalSummary = buildAIJobSummary(collector.approvalStatuses, collector.approvalSummaries, collector.approvalItems)
+	}
+	if len(collector.otherStatuses) > 0 || len(collector.otherSummaries) > 0 || len(collector.otherItems) > 0 {
+		input.OtherTaskSummary = buildAIJobSummary(collector.otherStatuses, collector.otherSummaries, collector.otherItems)
+	}
+	if len(collector.obsStatuses) > 0 || len(collector.obsSummaries) > 0 || len(collector.obsItems) > 0 {
 		input.ObservabilitySummary = &commonmodels.AIObservabilitySummary{
-			JobStatuses: uniqueSortedStrings(obsStatuses),
-			Summaries:   uniquePreserveOrder(obsSummaries),
-			Items:       uniqueAIObservabilityItems(obsItems),
+			JobStatuses: uniqueSortedStrings(collector.obsStatuses),
+			Summaries:   uniquePreserveOrder(collector.obsSummaries),
+			Items:       uniqueAIObservabilityItems(collector.obsItems),
 		}
 	}
 	input.ChangeSummary.Branches = uniqueSortedStrings(input.ChangeSummary.Branches)
@@ -618,6 +653,124 @@ func buildReleaseSummaryItem(job *commonmodels.JobTask, summary string) *commonm
 		Status:  string(job.Status),
 		Summary: summary,
 	}
+}
+
+func buildAIJobSummary(statuses, summaries []string, items []*commonmodels.AIReleaseSummaryItem) *commonmodels.AIJobSummary {
+	if len(statuses) == 0 && len(summaries) == 0 && len(items) == 0 {
+		return nil
+	}
+	return &commonmodels.AIJobSummary{
+		JobStatuses: uniqueSortedStrings(statuses),
+		Summaries:   uniquePreserveOrder(summaries),
+		Items:       uniqueReleaseSummaryItems(items),
+	}
+}
+
+func buildAIBuildSummaryItem(job *commonmodels.JobTask, spec *commonmodels.JobTaskFreestyleSpec, summary string) *commonmodels.AIReleaseSummaryItem {
+	item := buildReleaseSummaryItem(job, summary)
+	if item == nil || spec == nil {
+		return item
+	}
+
+	repoInfo := extractGitRepoInfo(spec)
+	item.Details = appendSummaryDetails(item.Details, "branches", uniqueSortedStrings(repoInfo.branches))
+	item.Details = appendSummaryDetails(item.Details, "tags", uniqueSortedStrings(repoInfo.tags))
+	item.Details = appendSummaryDetails(item.Details, "services", uniqueSortedStrings(repoInfo.services))
+	item.Details = appendSummaryDetails(item.Details, "commit_messages", uniquePreserveOrder(repoInfo.commitMessages))
+	return item
+}
+
+func buildApprovalSummaryLine(job *commonmodels.JobTask, spec *commonmodels.JobTaskApprovalSpec) string {
+	if strings.TrimSpace(job.Error) != "" {
+		return fmt.Sprintf("%s(%s): %s", job.OriginName, job.Status, compactSingleLine(job.Error))
+	}
+	if spec == nil {
+		return fmt.Sprintf("%s(%s)", job.OriginName, job.Status)
+	}
+
+	parts := make([]string, 0, 2)
+	if spec.Type != "" {
+		parts = append(parts, string(spec.Type))
+	}
+	if decision := getApprovalDecision(spec); decision != "" {
+		parts = append(parts, decision)
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("%s(%s)", job.OriginName, job.Status)
+	}
+	return fmt.Sprintf("%s(%s): %s", job.OriginName, job.Status, strings.Join(parts, ", "))
+}
+
+func buildAIApprovalSummaryItem(job *commonmodels.JobTask, spec *commonmodels.JobTaskApprovalSpec, summary string) *commonmodels.AIReleaseSummaryItem {
+	item := buildReleaseSummaryItem(job, summary)
+	if item == nil || spec == nil {
+		return item
+	}
+
+	if spec.Type != "" {
+		item.Details = append(item.Details, fmt.Sprintf("approval_type: %s", spec.Type))
+	}
+	if spec.Description != "" {
+		item.Details = append(item.Details, fmt.Sprintf("description: %s", compactSingleLine(spec.Description)))
+	}
+	if spec.ApprovalMessage != "" {
+		item.Details = append(item.Details, fmt.Sprintf("approval_message: %s", compactSingleLine(spec.ApprovalMessage)))
+	}
+	if decision := getApprovalDecision(spec); decision != "" {
+		item.Details = append(item.Details, fmt.Sprintf("decision: %s", decision))
+	}
+	if neededApprovers := getApprovalNeededApprovers(spec); neededApprovers > 0 {
+		item.Details = append(item.Details, fmt.Sprintf("needed_approvers: %d", neededApprovers))
+	}
+	item.Details = appendSummaryDetails(item.Details, "approvers", getApprovalApprovers(spec))
+	return item
+}
+
+func buildAIOtherTaskSummaryItem(job *commonmodels.JobTask, spec *commonmodels.JobTaskFreestyleSpec, summary string) *commonmodels.AIReleaseSummaryItem {
+	item := buildReleaseSummaryItem(job, summary)
+	if item == nil {
+		return item
+	}
+
+	switch job.JobType {
+	case string(config.JobZadigVMDeploy):
+		if serviceName := getJobInfoString(job.JobInfo, "service_name"); serviceName != "" {
+			item.Details = append(item.Details, fmt.Sprintf("service_name: %s", serviceName))
+		}
+		if serviceModule := getJobInfoString(job.JobInfo, "service_module"); serviceModule != "" {
+			item.Details = append(item.Details, fmt.Sprintf("service_module: %s", serviceModule))
+		}
+		if job.Infrastructure != "" {
+			item.Details = append(item.Details, fmt.Sprintf("infrastructure: %s", job.Infrastructure))
+		}
+		item.Details = appendSummaryDetails(item.Details, "vm_labels", uniqueSortedStrings(job.VMLabels))
+	}
+
+	if spec == nil {
+		return item
+	}
+	stepTypes := make([]string, 0, len(spec.Steps))
+	services := make([]string, 0)
+	for _, step := range spec.Steps {
+		if step == nil {
+			continue
+		}
+		stepTypes = append(stepTypes, string(step.StepType))
+	}
+	for _, kv := range spec.Properties.Envs {
+		if kv == nil {
+			continue
+		}
+		switch kv.Key {
+		case "SERVICE_NAME", "SERVICE_MODULE":
+			if kv.Value != "" {
+				services = append(services, kv.Value)
+			}
+		}
+	}
+	item.Details = appendSummaryDetails(item.Details, "step_types", uniqueSortedStrings(stepTypes))
+	item.Details = appendSummaryDetails(item.Details, "services", uniqueSortedStrings(services))
+	return item
 }
 
 func buildAIScanMetricsFromJob(job *commonmodels.JobTask) *commonmodels.AIScanMetrics {
@@ -1033,6 +1186,7 @@ func buildReleaseTargetItem(job *commonmodels.JobTask, target *commonmodels.AIRe
 	return &commonmodels.AIReleaseTargetItem{
 		JobName:       job.OriginName,
 		JobType:       job.JobType,
+		Status:        string(job.Status),
 		EnvName:       target.EnvName,
 		EnvAlias:      target.EnvAlias,
 		Production:    target.Production,
@@ -1143,7 +1297,29 @@ func collectChangeSummaryFromFreestyleSpec(changeSummary *commonmodels.AIChangeS
 	if changeSummary == nil || spec == nil {
 		return
 	}
+	repoInfo := extractGitRepoInfo(spec)
+	changeSummary.Branches = append(changeSummary.Branches, repoInfo.branches...)
+	changeSummary.Tags = append(changeSummary.Tags, repoInfo.tags...)
+	changeSummary.CommitMessages = append(changeSummary.CommitMessages, repoInfo.commitMessages...)
+	changeSummary.Services = append(changeSummary.Services, repoInfo.services...)
+}
+
+type aiGitRepoInfo struct {
+	branches       []string
+	tags           []string
+	services       []string
+	commitMessages []string
+}
+
+func extractGitRepoInfo(spec *commonmodels.JobTaskFreestyleSpec) *aiGitRepoInfo {
+	info := &aiGitRepoInfo{}
+	if spec == nil {
+		return info
+	}
 	for _, step := range spec.Steps {
+		if step == nil {
+			continue
+		}
 		if step.StepType != config.StepGit {
 			continue
 		}
@@ -1156,31 +1332,31 @@ func collectChangeSummaryFromFreestyleSpec(changeSummary *commonmodels.AIChangeS
 				continue
 			}
 			if repo.Branch != "" {
-				changeSummary.Branches = append(changeSummary.Branches, repo.Branch)
+				info.branches = append(info.branches, repo.Branch)
 			}
 			if repo.Tag != "" {
-				changeSummary.Tags = append(changeSummary.Tags, repo.Tag)
+				info.tags = append(info.tags, repo.Tag)
 			}
 			if repo.CommitMessage != "" {
-				changeSummary.CommitMessages = append(changeSummary.CommitMessages, compactSingleLine(repo.CommitMessage))
+				info.commitMessages = append(info.commitMessages, compactSingleLine(repo.CommitMessage))
 			}
 			if repo.RepoName != "" {
-				changeSummary.Services = append(changeSummary.Services, repo.RepoName)
+				info.services = append(info.services, repo.RepoName)
 			}
 		}
 	}
 	for _, kv := range spec.Properties.Envs {
+		if kv == nil {
+			continue
+		}
 		switch kv.Key {
-		case "SERVICE_NAME":
+		case "SERVICE_NAME", "SERVICE_MODULE":
 			if kv.Value != "" {
-				changeSummary.Services = append(changeSummary.Services, kv.Value)
-			}
-		case "SERVICE_MODULE":
-			if kv.Value != "" {
-				changeSummary.Services = append(changeSummary.Services, kv.Value)
+				info.services = append(info.services, kv.Value)
 			}
 		}
 	}
+	return info
 }
 
 func buildResultSummaryLine(job *commonmodels.JobTask) string {
@@ -1188,6 +1364,193 @@ func buildResultSummaryLine(job *commonmodels.JobTask) string {
 		return fmt.Sprintf("%s(%s): %s", job.OriginName, job.Status, compactSingleLine(job.Error))
 	}
 	return fmt.Sprintf("%s(%s)", job.OriginName, job.Status)
+}
+
+func appendSummaryDetails(details []string, label string, values []string) []string {
+	if len(values) == 0 {
+		return details
+	}
+	return append(details, fmt.Sprintf("%s: %s", label, strings.Join(values, ", ")))
+}
+
+func getApprovalDecision(spec *commonmodels.JobTaskApprovalSpec) string {
+	if spec == nil {
+		return ""
+	}
+	switch spec.Type {
+	case config.NativeApproval:
+		if spec.NativeApproval != nil {
+			return string(spec.NativeApproval.RejectOrApprove)
+		}
+	case config.LarkApproval:
+		if spec.LarkApproval != nil {
+			decisions := make([]string, 0, len(spec.LarkApproval.ApprovalNodes))
+			for _, node := range spec.LarkApproval.ApprovalNodes {
+				if node == nil {
+					continue
+				}
+				if decision := string(node.RejectOrApprove); decision != "" {
+					decisions = append(decisions, decision)
+				}
+			}
+			return mergeApprovalDecisions(decisions)
+		}
+	case config.DingTalkApproval:
+		if spec.DingTalkApproval != nil {
+			decisions := make([]string, 0, len(spec.DingTalkApproval.ApprovalNodes))
+			for _, node := range spec.DingTalkApproval.ApprovalNodes {
+				if node == nil {
+					continue
+				}
+				if decision := string(node.RejectOrApprove); decision != "" {
+					decisions = append(decisions, decision)
+				}
+			}
+			return mergeApprovalDecisions(decisions)
+		}
+	case config.WorkWXApproval:
+		if spec.WorkWXApproval != nil {
+			decisions := make([]string, 0, len(spec.WorkWXApproval.ApprovalNodeDetails))
+			for _, node := range spec.WorkWXApproval.ApprovalNodeDetails {
+				if node == nil {
+					continue
+				}
+				switch node.Status {
+				case workwx.ApprovalNodeStatusApproved:
+					decisions = append(decisions, string(config.ApprovalStatusApprove))
+				case workwx.ApprovalNodeStatusRejected:
+					decisions = append(decisions, string(config.ApprovalStatusReject))
+				case workwx.ApprovalNodeStatusWaiting:
+					decisions = append(decisions, string(config.ApprovalStatusPending))
+				}
+			}
+			return mergeApprovalDecisions(decisions)
+		}
+	}
+	return ""
+}
+
+func mergeApprovalDecisions(decisions []string) string {
+	lastDecision := ""
+	for _, decision := range decisions {
+		if decision == "" {
+			continue
+		}
+		if decision == string(config.ApprovalStatusReject) {
+			return decision
+		}
+		lastDecision = decision
+	}
+	return lastDecision
+}
+
+func getApprovalNeededApprovers(spec *commonmodels.JobTaskApprovalSpec) int {
+	if spec == nil || spec.Type != config.NativeApproval || spec.NativeApproval == nil {
+		return 0
+	}
+	return spec.NativeApproval.NeededApprovers
+}
+
+func getApprovalApprovers(spec *commonmodels.JobTaskApprovalSpec) []string {
+	if spec == nil {
+		return nil
+	}
+	approvers := make([]string, 0)
+	switch spec.Type {
+	case config.NativeApproval:
+		if spec.NativeApproval != nil {
+			for _, user := range spec.NativeApproval.ApproveUsers {
+				if user == nil {
+					continue
+				}
+				if value := formatApprovalUser(user.UserName, user.UserID); value != "" {
+					approvers = append(approvers, value)
+				}
+			}
+		}
+	case config.LarkApproval:
+		if spec.LarkApproval != nil {
+			for _, user := range spec.LarkApproval.ApproveUsers {
+				if user == nil {
+					continue
+				}
+				if value := formatApprovalUser(user.Name, user.ID); value != "" {
+					approvers = append(approvers, value)
+				}
+			}
+			for _, node := range spec.LarkApproval.ApprovalNodes {
+				if node == nil {
+					continue
+				}
+				for _, user := range node.ApproveUsers {
+					if user == nil {
+						continue
+					}
+					if value := formatApprovalUser(user.Name, user.ID); value != "" {
+						approvers = append(approvers, value)
+					}
+				}
+			}
+		}
+	case config.DingTalkApproval:
+		if spec.DingTalkApproval != nil {
+			for _, node := range spec.DingTalkApproval.ApprovalNodes {
+				if node == nil {
+					continue
+				}
+				for _, user := range node.ApproveUsers {
+					if user == nil {
+						continue
+					}
+					if value := formatApprovalUser(user.Name, user.ID); value != "" {
+						approvers = append(approvers, value)
+					}
+				}
+			}
+		}
+	case config.WorkWXApproval:
+		if spec.WorkWXApproval != nil {
+			for _, node := range spec.WorkWXApproval.ApprovalNodes {
+				if node == nil {
+					continue
+				}
+				for _, user := range node.Users {
+					if user == nil {
+						continue
+					}
+					if value := formatApprovalUser(user.Name, user.ID); value != "" {
+						approvers = append(approvers, value)
+					}
+				}
+			}
+		}
+	}
+	return uniqueSortedStrings(approvers)
+}
+
+func formatApprovalUser(name, id string) string {
+	name = strings.TrimSpace(name)
+	id = strings.TrimSpace(id)
+	switch {
+	case name != "" && id != "":
+		return fmt.Sprintf("%s(%s)", name, id)
+	case name != "":
+		return name
+	default:
+		return id
+	}
+}
+
+func getJobInfoString(jobInfo interface{}, key string) string {
+	switch info := jobInfo.(type) {
+	case map[string]string:
+		return strings.TrimSpace(info[key])
+	case map[string]interface{}:
+		if value, ok := info[key]; ok {
+			return strings.TrimSpace(fmt.Sprint(value))
+		}
+	}
+	return ""
 }
 
 func BuildAIReleaseSpecialistPrompt(promptTemplate, systemPrompt string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {

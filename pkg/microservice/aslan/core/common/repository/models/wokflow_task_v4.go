@@ -719,8 +719,11 @@ type JobTaskAIReleaseSpecialistSpec struct {
 type AIReleaseSpecialistInput struct {
 	ReleaseTargets       *AIReleaseTargetsSummary  `bson:"release_targets,omitempty" json:"release_targets,omitempty" yaml:"release_targets,omitempty"`
 	ChangeSummary        *AIChangeSummary          `bson:"change_summary,omitempty" json:"change_summary,omitempty" yaml:"change_summary,omitempty"`
+	BuildSummary         *AIJobSummary             `bson:"build_summary,omitempty" json:"build_summary,omitempty" yaml:"build_summary,omitempty"`
 	ScanSummary          *AIScanSummary            `bson:"scan_summary,omitempty" json:"scan_summary,omitempty" yaml:"scan_summary,omitempty"`
 	TestSummary          *AITestSummary            `bson:"test_summary,omitempty" json:"test_summary,omitempty" yaml:"test_summary,omitempty"`
+	ApprovalSummary      *AIJobSummary             `bson:"approval_summary,omitempty" json:"approval_summary,omitempty" yaml:"approval_summary,omitempty"`
+	OtherTaskSummary     *AIJobSummary             `bson:"other_task_summary,omitempty" json:"other_task_summary,omitempty" yaml:"other_task_summary,omitempty"`
 	ObservabilitySummary *AIObservabilitySummary   `bson:"observability_summary,omitempty" json:"observability_summary,omitempty" yaml:"observability_summary,omitempty"`
 	RuntimeServices      *AIRuntimeServicesSummary `bson:"runtime_services,omitempty" json:"runtime_services,omitempty" yaml:"runtime_services,omitempty"`
 }
@@ -735,8 +738,15 @@ type AIReleaseSummaryItem struct {
 	JobType        string            `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
 	Status         string            `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
 	Summary        string            `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
+	Details        []string          `bson:"details,omitempty" json:"details,omitempty" yaml:"details,omitempty"`
 	ScanMetrics    *AIScanMetrics    `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
 	TestStatistics *AITestStatistics `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+}
+
+type AIJobSummary struct {
+	JobStatuses []string                `bson:"job_statuses,omitempty" json:"job_statuses,omitempty" yaml:"job_statuses,omitempty"`
+	Summaries   []string                `bson:"summaries,omitempty" json:"summaries,omitempty" yaml:"summaries,omitempty"`
+	Items       []*AIReleaseSummaryItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 type AIScanMetrics struct {
@@ -777,6 +787,7 @@ type AITestReportSummary struct {
 type AIReleaseTargetItem struct {
 	JobName       string   `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
 	JobType       string   `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	Status        string   `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
 	EnvName       string   `bson:"env_name,omitempty" json:"env_name,omitempty" yaml:"env_name,omitempty"`
 	EnvAlias      string   `bson:"env_alias,omitempty" json:"env_alias,omitempty" yaml:"env_alias,omitempty"`
 	Production    bool     `bson:"production,omitempty" json:"production,omitempty" yaml:"production,omitempty"`
