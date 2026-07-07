@@ -35,30 +35,33 @@ import (
 )
 
 type Workflow struct {
-	Name                 string                     `json:"name"`
-	DisplayName          string                     `json:"display_name"`
-	ProjectName          string                     `json:"projectName"`
-	Disabled             bool                       `json:"disabled"`
-	UpdateTime           int64                      `json:"updateTime"`
-	CreateTime           int64                      `json:"createTime"`
-	UpdateBy             string                     `json:"updateBy,omitempty"`
-	Schedules            *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
-	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
-	EnabledStages        []string                   `json:"enabledStages"`
-	IsFavorite           bool                       `json:"isFavorite"`
-	WorkflowType         string                     `json:"workflow_type"`
-	RecentTask           *TaskInfo                  `json:"recentTask"`
-	RecentTasks          []*TaskInfo                `json:"recentTasks"`
-	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
-	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
-	AverageExecutionTime float64                    `json:"averageExecutionTime"`
-	SuccessRate          float64                    `json:"successRate"`
-	Description          string                     `json:"description,omitempty"`
-	BaseName             string                     `json:"base_name"`
-	BaseRefs             []string                   `json:"base_refs"`
-	NeverRun             bool                       `json:"never_run"`
-	RemarkRequired       bool                       `json:"remark_required"`
-	EnableApprovalTicket bool                       `json:"enable_approval_ticket"`
+	Name                  string                     `json:"name"`
+	DisplayName           string                     `json:"display_name"`
+	ProjectName           string                     `json:"projectName"`
+	Disabled              bool                       `json:"disabled"`
+	UpdateTime            int64                      `json:"updateTime"`
+	CreateTime            int64                      `json:"createTime"`
+	UpdateBy              string                     `json:"updateBy,omitempty"`
+	Schedules             *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
+	SchedulerEnabled      bool                       `json:"schedulerEnabled"`
+	EnabledStages         []string                   `json:"enabledStages"`
+	IsFavorite            bool                       `json:"isFavorite"`
+	WorkflowType          string                     `json:"workflow_type"`
+	RecentTask            *TaskInfo                  `json:"recentTask"`
+	RecentTasks           []*TaskInfo                `json:"recentTasks"`
+	RecentSuccessfulTask  *TaskInfo                  `json:"recentSuccessfulTask"`
+	RecentFailedTask      *TaskInfo                  `json:"recentFailedTask"`
+	AverageExecutionTime  float64                    `json:"averageExecutionTime"`
+	SuccessRate           float64                    `json:"successRate"`
+	Description           string                     `json:"description,omitempty"`
+	BaseName              string                     `json:"base_name"`
+	BaseRefs              []string                   `json:"base_refs"`
+	NeverRun              bool                       `json:"never_run"`
+	RemarkRequired        bool                       `json:"remark_required"`
+	EnableApprovalTicket  bool                       `json:"enable_approval_ticket"`
+	TemplateBound         bool                       `json:"template_bound"`
+	TemplateName          string                     `json:"template_name,omitempty"`
+	TemplateBindingStatus string                     `json:"template_binding_status,omitempty"`
 }
 
 type TaskInfo struct {

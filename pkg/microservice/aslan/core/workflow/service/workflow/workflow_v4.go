@@ -92,6 +92,10 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 
+	if err := prepareTemplateBoundWorkflowForCreate(user, workflow, logger); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
 	workflowController := controller.CreateWorkflowController(workflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
@@ -267,6 +271,10 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		}
 	}
 
+	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
 	workflowController := controller.CreateWorkflowController(inputWorkflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
@@ -295,6 +303,14 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
 		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+
+	if isTemplateBindingEnabled(workflow) {
+		rendered, _, err := RenderWorkflowV4WithTemplateBinding(workflow)
+		if err != nil {
+			return workflow, e.ErrFindWorkflow.AddErr(err)
+		}
+		workflow = rendered
 	}
 
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
@@ -437,6 +453,11 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			BaseName:             workflowModel.BaseName,
 			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
+		}
+		if isTemplateBindingEnabled(workflowModel) {
+			workflow.TemplateBound = true
+			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
+			workflow.TemplateBindingStatus = workflowModel.TemplateBinding.Status
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
 			workflow.WorkflowType = string(setting.ReleaseWorkflow)
@@ -592,6 +613,11 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 			BaseName:             workflowModel.BaseName,
 			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
+		}
+		if isTemplateBindingEnabled(workflowModel) {
+			workflow.TemplateBound = true
+			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
+			workflow.TemplateBindingStatus = workflowModel.TemplateBinding.Status
 		}
 
 		setRecentTaskV4Info(workflow, workflowTasks)
@@ -2759,6 +2785,11 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 			Description:  customWorkflow.Description,
 			BaseName:     customWorkflow.BaseName,
 		})
+		if isTemplateBindingEnabled(customWorkflow) {
+			resp[len(resp)-1].TemplateBound = true
+			resp[len(resp)-1].TemplateName = customWorkflow.TemplateBinding.TemplateName
+			resp[len(resp)-1].TemplateBindingStatus = customWorkflow.TemplateBinding.Status
+		}
 	}
 
 	return resp, nil

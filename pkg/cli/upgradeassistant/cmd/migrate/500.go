@@ -17,11 +17,16 @@ limitations under the License.
 package migrate
 
 import (
+	"context"
 	"fmt"
+
+	"go.mongodb.org/mongo-driver/mongo"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	userorm "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
@@ -66,6 +71,11 @@ func V430ToV500() error {
 	}
 
 	err = migrateUserContactIndexes500(migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateWorkflowTemplateVersion500(migrationInfo)
 	if err != nil {
 		return err
 	}
@@ -127,6 +137,59 @@ func migrateUserContactIndexes500(migrationInfo *internalmodels.Migration) error
 	}
 
 	return nil
+}
+
+func migrateWorkflowTemplateVersion500(migrationInfo *internalmodels.Migration) error {
+	if migrationInfo.Migration500WorkflowTemplateVersion {
+		return nil
+	}
+
+	versionColl := commonrepo.NewWorkflowV4TemplateVersionColl()
+	if err := versionColl.EnsureIndex(context.Background()); err != nil {
+		return fmt.Errorf("failed to ensure workflow template version indexes, err: %s", err)
+	}
+
+	cursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list workflow templates, err: %s", err)
+	}
+	defer cursor.Close(context.Background())
+
+	for cursor.Next(context.Background()) {
+		template := new(commonmodels.WorkflowV4Template)
+		if err := cursor.Decode(template); err != nil {
+			return fmt.Errorf("failed to decode workflow template, err: %s", err)
+		}
+
+		latest, err := versionColl.GetLatest(template.ID.Hex())
+		if err == mongo.ErrNoDocuments {
+			user := template.UpdatedBy
+			if user == "" {
+				user = template.CreatedBy
+			}
+			latest, err = versionColl.CreateNext(template, user)
+			if err != nil {
+				return fmt.Errorf("failed to create workflow template version for template %s, err: %s", template.TemplateName, err)
+			}
+			log.Infof("created initial workflow template version for template: %s", template.TemplateName)
+		} else if err != nil {
+			return fmt.Errorf("failed to get latest workflow template version for template %s, err: %s", template.TemplateName, err)
+		}
+
+		if template.LatestVersion != latest.Version || template.LatestVersionID != latest.ID.Hex() {
+			if err := commonrepo.NewWorkflowV4TemplateColl().UpdateVersionInfo(template.ID, latest.Version, latest.ID.Hex()); err != nil {
+				return fmt.Errorf("failed to update workflow template version info for template %s, err: %s", template.TemplateName, err)
+			}
+		}
+	}
+
+	if err := cursor.Err(); err != nil {
+		return fmt.Errorf("workflow template cursor error, err: %s", err)
+	}
+
+	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500WorkflowTemplateVersion): true,
+	})
 }
 
 // ensureAction500 guarantees the target action exists and supports repeated execution.
