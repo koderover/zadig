@@ -768,7 +768,9 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 
 	// Override the task status for notification rendering so the template engine
 	// picks up the correct status text and colour.
-	task.Status = input.WaitStatus
+	taskCopy := *task
+	taskCopy.Status = input.WaitStatus
+	task = &taskCopy
 
 	statusTextKey := input.StatusTextKeyOverride
 	if statusTextKey == "" {
