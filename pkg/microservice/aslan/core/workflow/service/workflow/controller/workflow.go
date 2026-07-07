@@ -195,6 +195,9 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 			if err != nil {
 				return nil, err
 			}
+			for _, task := range tasks {
+				task.NotifyCtls = job.NotifyCtls
+			}
 
 			// Update the spec, since sometimes we update the calculated field
 			job.Spec = ctrl.GetSpec()

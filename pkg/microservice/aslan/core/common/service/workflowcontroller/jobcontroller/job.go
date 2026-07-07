@@ -32,6 +32,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -44,6 +45,10 @@ type JobCtl interface {
 	Clean(ctx context.Context)
 	// SaveInfo is used to update the basic information of the job task to the mongoDB
 	SaveInfo(ctx context.Context) error
+}
+
+var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
+	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -142,6 +147,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		setJobFinalStatusContext(job, workflowCtx)
 		ack()
+		sendJobNotifications(workflowCtx, job, job.Status, logger)
 		if workflowCtx.IsDebug {
 			logger.Infof("skip updating debug job info into db")
 			return
@@ -203,6 +209,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()
 
+	sendJobNotifications(workflowCtx, job, config.StatusPrepare, logger)
+
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 
 	jobCtl.Run(ctx)
@@ -219,6 +227,28 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		case config.JobErrorPolicyManualCheck:
 			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
 		}
+	}
+}
+
+func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, status config.Status, logger *zap.SugaredLogger) {
+	if workflowCtx == nil || job == nil || !instantmessage.HasTaskNotifyCtls(job.NotifyCtls, status) {
+		return
+	}
+
+	statusTextKeyOverride := ""
+	if status == config.StatusPrepare {
+		statusTextKeyOverride = "taskStatusExecutionStarted"
+	}
+
+	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
+		WorkflowName:          workflowCtx.WorkflowName,
+		TaskID:                workflowCtx.TaskID,
+		Job:                   job,
+		NotifyCtls:            job.NotifyCtls,
+		Status:                status,
+		StatusTextKeyOverride: statusTextKeyOverride,
+	}); err != nil {
+		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", job.Name, status, err)
 	}
 }
 

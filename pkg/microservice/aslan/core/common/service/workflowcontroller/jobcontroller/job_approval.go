@@ -115,7 +115,7 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	defer func() {
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 	}()
-	if err := sendApprovalWaitNotifications(spec, workflowName, taskID, nil, config.StatusWaitingApprove, ack); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID, nil); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -238,7 +238,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 	approval.InstanceCode = instance
 
-	if err := sendApprovalWaitNotifications(spec, workflowCtx.WorkflowName, workflowCtx.TaskID, task, config.StatusWaitingApprove, ack); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -372,7 +372,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 	instanceID := instanceResp.InstanceID
 	log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
 
-	if err := sendApprovalWaitNotifications(spec, workflowCtx.WorkflowName, workflowCtx.TaskID, task, config.StatusWaitingApprove, ack); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 	defer func() {
@@ -672,7 +672,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	ack()
 	log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
 
-	if err := sendApprovalWaitNotifications(spec, workflowCtx.WorkflowName, workflowCtx.TaskID, task, config.StatusWaitingApprove, ack); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -710,30 +710,6 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 			}
 		}
 	}
-}
-
-func sendApprovalWaitNotifications(spec *commonmodels.JobTaskApprovalSpec, workflowName string, taskID int64, task *models.WorkflowTask, waitStatus config.Status, ack func()) error {
-	if instantmessage.HasTaskWaitNotifyCtls(spec.NotifyCtls, waitStatus) {
-		if spec.NotificationSent {
-			return nil
-		}
-
-		if err := instantmessage.NewWeChatClient().SendTaskWaitNotifications(&instantmessage.TaskWaitNotifyInput{
-			Task:         task,
-			WorkflowName: workflowName,
-			TaskID:       taskID,
-			NotifyCtls:   spec.NotifyCtls,
-			WaitStatus:   waitStatus,
-		}); err != nil {
-			return err
-		}
-
-		spec.NotificationSent = true
-		ack()
-		return nil
-	}
-
-	return instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID, task)
 }
 
 func generateDeployFormContent(workflowName string, taskID int64) (*commonmodels.WorkflowTask, string, error) {

@@ -689,33 +689,32 @@ func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) 
 }
 
 // ---------------------------------------------------------------------------
-// Generic task-level wait notification
+// Generic task-level notification
 // ---------------------------------------------------------------------------
 
-// TaskWaitNotifyInput holds the context needed to send a task-level wait notification.
-type TaskWaitNotifyInput struct {
+// TaskNotifyInput holds the context needed to send a task-level notification.
+type TaskNotifyInput struct {
 	// Task is the workflow task. If nil, the function will fetch it from the database
 	// using WorkflowName and TaskID.
 	Task *models.WorkflowTask
+	// Job is the current job that triggered the notification.
+	Job *models.JobTask
 	// WorkflowName is the name of the workflow, used to fetch the task if Task is nil.
 	WorkflowName string
 	// TaskID is the ID of the workflow task, used to fetch the task if Task is nil.
 	TaskID int64
-	// NotifyCtls is the task-level notification configuration. When set, notifications
-	// will be sent to these channels instead of the workflow-level notification config.
+	// NotifyCtls is the task-level notification configuration.
 	NotifyCtls []*models.NotifyCtl
-	// WaitStatus is the status that triggered the wait (e.g. StatusWaitingApprove).
-	// The function only sends notifications for NotifyCtls whose NotifyTypes include
-	// this status.
-	WaitStatus config.Status
+	// Status is the status that triggered the notification.
+	Status config.Status
 	// StatusTextKeyOverride allows the caller to customise the status text shown in the
-	// notification. If empty, defaults to "taskStatusManualApproval" (待确认).
+	// notification. If empty, the normal status text is used.
 	StatusTextKeyOverride string
 }
 
-// HasTaskWaitNotifyCtls reports whether there is at least one enabled task-level
-// notification config that applies to the given wait status.
-func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Status) bool {
+// HasTaskNotifyCtls reports whether there is at least one enabled task-level
+// notification config that applies to the given status.
+func HasTaskNotifyCtls(notifyCtls []*models.NotifyCtl, status config.Status) bool {
 	for _, notify := range notifyCtls {
 		if notify == nil || !notify.Enabled {
 			continue
@@ -726,7 +725,7 @@ func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Sta
 			continue
 		}
 
-		if sets.NewString(notifyToCheck.NotifyTypes...).Has(string(waitStatus)) {
+		if sets.NewString(notifyToCheck.NotifyTypes...).Has(string(status)) {
 			return true
 		}
 	}
@@ -734,22 +733,11 @@ func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Sta
 	return false
 }
 
-// SendTaskWaitNotifications sends task-level wait notifications when a task enters a
-// wait state. It supports all existing notification channels (feishu group, feishu
+// SendTaskNotifications sends task-level notifications when a task enters a configured
+// status. It supports all existing notification channels (feishu group, feishu
 // person, feishu webhook, dingding, wechat work, msteams, mail, webhook) and reuses
 // the existing notification rendering and sending pipeline.
-//
-// This is the generic task-level wait notification sender described in the design
-// document (docs/design/workflow-job-wait-notification-design.md §5). The caller is
-// responsible for:
-//   - deciding when to enter the wait state (business semantics)
-//   - ensuring the notification is sent only once per wait-state entry (deduplication)
-//
-// The function is responsible for:
-//   - resolving notification recipients (e.g. task_creator expansion)
-//   - rendering notification content via the existing template engine
-//   - dispatching to all configured channels
-func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
+func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 	if input == nil || len(input.NotifyCtls) == 0 {
 		return nil
 	}
@@ -769,13 +757,22 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 	// Override the task status for notification rendering so the template engine
 	// picks up the correct status text and colour.
 	taskCopy := *task
-	taskCopy.Status = input.WaitStatus
+	taskCopy.Status = input.Status
+	if input.Job != nil {
+		taskCopy.Stages = []*models.StageTask{
+			{
+				Name:      input.Job.DisplayName,
+				Status:    input.Job.Status,
+				StartTime: input.Job.StartTime,
+				EndTime:   input.Job.EndTime,
+				Error:     input.Job.Error,
+				Jobs:      []*models.JobTask{input.Job},
+			},
+		}
+	}
 	task = &taskCopy
 
 	statusTextKey := input.StatusTextKeyOverride
-	if statusTextKey == "" {
-		statusTextKey = "taskStatusManualApproval"
-	}
 
 	respErr := new(multierror.Error)
 	for _, notify := range input.NotifyCtls {
@@ -788,9 +785,9 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 			continue
 		}
 
-		// Only send notifications for configs that include the wait status.
+		// Only send notifications for configs that include the trigger status.
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if !statusSets.Has(string(input.WaitStatus)) {
+		if !statusSets.Has(string(input.Status)) {
 			continue
 		}
 
@@ -800,7 +797,7 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 
 		// Resolve feishu_person targets (e.g. IsExecutor → task creator).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
-			resolvedTargets, err := w.resolveTaskWaitLarkTargets(task, notify)
+			resolvedTargets, err := w.resolveTaskNotifyLarkTargets(task, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -816,7 +813,7 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 
 		// Resolve mail targets (e.g. UserTypeTaskCreator → task creator, UserTypeGroup → expand).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeMail && notifyToSend.MailNotificationConfig != nil {
-			resolvedUsers, err := w.resolveTaskWaitMailUsers(task, notify)
+			resolvedUsers, err := w.resolveTaskNotifyMailUsers(task, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -843,10 +840,10 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 	return respErr.ErrorOrNil()
 }
 
-// resolveTaskWaitLarkTargets resolves feishu_person notification targets for a task-level
-// wait notification. It handles the IsExecutor flag by resolving it to the task creator's
+// resolveTaskNotifyLarkTargets resolves feishu_person notification targets for a task-level
+// notification. It handles the IsExecutor flag by resolving it to the task creator's
 // lark user ID. Direct user IDs are passed through unchanged.
-func (w *Service) resolveTaskWaitLarkTargets(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
+func (w *Service) resolveTaskNotifyLarkTargets(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
 	if notify == nil || notify.LarkPersonNotificationConfig == nil || notify.LarkPersonNotificationConfig.AppID == "" {
 		return nil, nil
 	}
@@ -927,10 +924,10 @@ func (w *Service) resolveTaskWaitLarkTargets(task *models.WorkflowTask, notify *
 	return targets, respErr.ErrorOrNil()
 }
 
-// resolveTaskWaitMailUsers resolves mail notification targets for a task-level wait
+// resolveTaskNotifyMailUsers resolves mail notification targets for a task-level
 // notification. It handles UserTypeTaskCreator by resolving it to the task creator's
 // user info, and expands UserTypeGroup via GeneFlatUsersWithCaller.
-func (w *Service) resolveTaskWaitMailUsers(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*models.User, error) {
+func (w *Service) resolveTaskNotifyMailUsers(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*models.User, error) {
 	if notify == nil || notify.MailNotificationConfig == nil {
 		return nil, nil
 	}
@@ -1516,7 +1513,7 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 			return getText("taskTypeWorkflow", language)
 		},
 		"getColor": func(status config.Status) string {
-			if status == config.StatusPassed || status == config.StatusCreated {
+			if status == config.StatusPassed || status == config.StatusCreated || status == config.StatusPrepare {
 				return textColorGreen
 			} else {
 				return textColorRed
@@ -1534,7 +1531,7 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusTimeout", language)
 			} else if status == config.StatusReject {
 				return getText("taskStatusRejected", language)
-			} else if status == config.StatusCreated {
+			} else if status == config.StatusCreated || status == config.StatusPrepare {
 				return getText("taskStatusExecutionStarted", language)
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
@@ -1546,7 +1543,7 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 
 		},
 		"getIcon": func(status config.Status) string {
-			if status == config.StatusPassed || status == config.StatusCreated {
+			if status == config.StatusPassed || status == config.StatusCreated || status == config.StatusPrepare {
 				return "👍"
 			} else if status == config.StatusFailed {
 				return "❌"
@@ -1594,7 +1591,7 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("taskStatusTimeout", language)
 			} else if status == config.StatusReject {
 				return getText("taskStatusRejected", language)
-			} else if status == config.StatusCreated {
+			} else if status == config.StatusCreated || status == config.StatusPrepare {
 				return getText("taskStatusExecutionStarted", language)
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
