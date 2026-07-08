@@ -179,19 +179,37 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 		return fmt.Errorf("template_binding is required for template bound workflow")
 	}
 	frontendDeltaPatches := input.TemplateBinding.DeltaPatches
-	input.TemplateBinding = existing.TemplateBinding
-	version, err := getTemplateVersion(existing.TemplateBinding.TemplateID, existing.TemplateBinding.BaseVersion)
+	input.TemplateBinding = &commonmodels.WorkflowTemplateBinding{}
+	_ = util.DeepCopy(input.TemplateBinding, existing.TemplateBinding)
+
+	currentVersion, err := getTemplateVersion(existing.TemplateBinding.TemplateID, existing.TemplateBinding.BaseVersion)
 	if err != nil {
 		return err
 	}
-	base := workflowFromTemplateSnapshot(version.Snapshot, input)
+	targetVersion, err := getTemplateVersion(existing.TemplateBinding.TemplateID, 0)
+	if err != nil {
+		return err
+	}
+
+	input.TemplateBinding.DeltaPatches = frontendDeltaPatches
+	conflicts := calculateBindingConflicts(input, targetVersion.Version)
+	if targetVersion.Version <= currentVersion.Version || len(conflicts) > 0 {
+		targetVersion = currentVersion
+	}
+
+	base := workflowFromTemplateSnapshot(targetVersion.Snapshot, input)
 	delta, _, err := validateFrontendWorkflowDelta(base, frontendDeltaPatches)
 	if err != nil {
 		return err
 	}
 	input.TemplateBinding.DeltaPatches = delta
-	input.TemplateBinding.BaseVersionID = version.ID.Hex()
-	input.TemplateBinding.LatestResolvedVersion = existing.TemplateBinding.LatestResolvedVersion
+	input.TemplateBinding.BaseVersion = targetVersion.Version
+	input.TemplateBinding.BaseVersionID = targetVersion.ID.Hex()
+	if targetVersion.Version > existing.TemplateBinding.BaseVersion {
+		input.TemplateBinding.LatestResolvedVersion = targetVersion.Version
+	} else {
+		input.TemplateBinding.LatestResolvedVersion = existing.TemplateBinding.LatestResolvedVersion
+	}
 	status, conflicts, invalidPatches := calculateBindingStatus(input, 0)
 	input.TemplateBinding.Status = status
 	input.TemplateBinding.ConflictCount = len(conflicts)
