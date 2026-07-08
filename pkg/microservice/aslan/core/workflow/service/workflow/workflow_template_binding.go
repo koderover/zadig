@@ -33,20 +33,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-const (
-	WorkflowTemplateBindingStatusSynced          = "synced"
-	WorkflowTemplateBindingStatusTemplateUpdated = "template_updated"
-	WorkflowTemplateBindingStatusConflict        = "conflict"
-	WorkflowTemplateBindingStatusInvalidDelta    = "invalid_delta"
-)
-
 type WorkflowTemplateBindingStatusResponse struct {
 	Enabled        bool                               `json:"enabled"`
 	TemplateID     string                             `json:"template_id,omitempty"`
 	TemplateName   string                             `json:"template_name,omitempty"`
 	BaseVersion    int                                `json:"base_version,omitempty"`
 	LatestVersion  int                                `json:"latest_version,omitempty"`
-	Status         string                             `json:"status,omitempty"`
 	HasDelta       bool                               `json:"has_workflow_delta"`
 	HasConflict    bool                               `json:"has_conflict"`
 	ConflictCount  int                                `json:"conflict_count"`
@@ -152,7 +144,6 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	workflow.TemplateBinding.BaseVersionID = version.ID.Hex()
 	workflow.TemplateBinding.LatestResolvedVersion = version.Version
 	workflow.TemplateBinding.DeltaPatches = delta
-	workflow.TemplateBinding.Status = WorkflowTemplateBindingStatusSynced
 	workflow.TemplateBinding.ConflictCount = 0
 	workflow.TemplateBinding.InvalidPatches = nil
 
@@ -212,8 +203,7 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 	} else {
 		input.TemplateBinding.LatestResolvedVersion = existing.TemplateBinding.LatestResolvedVersion
 	}
-	status, conflicts, invalidPatches := calculateBindingStatus(input, 0)
-	input.TemplateBinding.Status = status
+	conflicts, invalidPatches := calculateBindingState(input, 0)
 	input.TemplateBinding.ConflictCount = len(conflicts)
 	input.TemplateBinding.InvalidPatches = invalidPatches
 
@@ -241,7 +231,7 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		return &WorkflowTemplateBindingStatusResponse{Enabled: false}, nil
 	}
 
-	status, conflicts, invalidPatches := calculateBindingStatus(workflow, 0)
+	conflicts, invalidPatches := calculateBindingState(workflow, 0)
 	latestVersion := workflow.TemplateBinding.BaseVersion
 	if latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(workflow.TemplateBinding.TemplateID); err == nil {
 		latestVersion = latest.Version
@@ -252,7 +242,6 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		TemplateName:   workflow.TemplateBinding.TemplateName,
 		BaseVersion:    workflow.TemplateBinding.BaseVersion,
 		LatestVersion:  latestVersion,
-		Status:         status,
 		HasDelta:       len(workflow.TemplateBinding.DeltaPatches) > 0,
 		HasConflict:    len(conflicts) > 0,
 		ConflictCount:  len(conflicts),
@@ -309,7 +298,6 @@ func ResolveWorkflowTemplateBinding(workflowName, user string, req *ResolveWorkf
 	workflow.TemplateBinding.BaseVersion = target.Version
 	workflow.TemplateBinding.BaseVersionID = target.ID.Hex()
 	workflow.TemplateBinding.LatestResolvedVersion = target.Version
-	workflow.TemplateBinding.Status = WorkflowTemplateBindingStatusSynced
 	workflow.TemplateBinding.ConflictCount = 0
 	workflow.TemplateBinding.InvalidPatches = nil
 	workflow.UpdatedBy = user
@@ -359,9 +347,8 @@ func renderWorkflowWithTemplateBinding(workflow *commonmodels.WorkflowV4, target
 	if rendered.TemplateBinding == nil {
 		rendered.TemplateBinding = workflow.TemplateBinding
 	}
-	status, conflicts, calculatedInvalid := calculateBindingStatus(workflow, targetVersion)
+	conflicts, calculatedInvalid := calculateBindingState(workflow, targetVersion)
 	invalidPatches = append(invalidPatches, calculatedInvalid...)
-	rendered.TemplateBinding.Status = status
 	rendered.TemplateBinding.ConflictCount = len(conflicts)
 	rendered.TemplateBinding.InvalidPatches = invalidPatches
 	return rendered, &WorkflowTemplateBindingPreviewResponse{
@@ -372,20 +359,10 @@ func renderWorkflowWithTemplateBinding(workflow *commonmodels.WorkflowV4, target
 	}, nil
 }
 
-func calculateBindingStatus(workflow *commonmodels.WorkflowV4, targetVersion int) (string, []*WorkflowTemplateBindingConflict, []*commonmodels.InvalidJSONPatch) {
+func calculateBindingState(workflow *commonmodels.WorkflowV4, targetVersion int) ([]*WorkflowTemplateBindingConflict, []*commonmodels.InvalidJSONPatch) {
 	conflicts := calculateBindingConflicts(workflow, targetVersion)
 	invalidPatches := validateWorkflowDeltaPatches(workflow, targetVersion)
-	if len(invalidPatches) > 0 {
-		return WorkflowTemplateBindingStatusInvalidDelta, conflicts, invalidPatches
-	}
-	if len(conflicts) > 0 {
-		return WorkflowTemplateBindingStatusConflict, conflicts, nil
-	}
-	latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(workflow.TemplateBinding.TemplateID)
-	if err == nil && latest.Version > workflow.TemplateBinding.BaseVersion {
-		return WorkflowTemplateBindingStatusTemplateUpdated, nil, nil
-	}
-	return WorkflowTemplateBindingStatusSynced, nil, nil
+	return conflicts, invalidPatches
 }
 
 func calculateBindingConflicts(workflow *commonmodels.WorkflowV4, targetVersion int) []*WorkflowTemplateBindingConflict {

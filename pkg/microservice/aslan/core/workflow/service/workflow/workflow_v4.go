@@ -459,7 +459,6 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		if isTemplateBindingEnabled(workflowModel) {
 			workflow.TemplateBound = true
 			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
-			workflow.TemplateBindingStatus = workflowModel.TemplateBinding.Status
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
 			workflow.WorkflowType = string(setting.ReleaseWorkflow)
@@ -619,7 +618,6 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 		if isTemplateBindingEnabled(workflowModel) {
 			workflow.TemplateBound = true
 			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
-			workflow.TemplateBindingStatus = workflowModel.TemplateBinding.Status
 		}
 
 		setRecentTaskV4Info(workflow, workflowTasks)
@@ -2790,7 +2788,6 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 		if isTemplateBindingEnabled(customWorkflow) {
 			resp[len(resp)-1].TemplateBound = true
 			resp[len(resp)-1].TemplateName = customWorkflow.TemplateBinding.TemplateName
-			resp[len(resp)-1].TemplateBindingStatus = customWorkflow.TemplateBinding.Status
 		}
 	}
 

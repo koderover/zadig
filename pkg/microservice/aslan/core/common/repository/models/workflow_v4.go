@@ -89,7 +89,6 @@ type WorkflowTemplateBinding struct {
 	BaseVersionID         string                `bson:"base_version_id"                 yaml:"base_version_id"                 json:"base_version_id"`
 	LatestResolvedVersion int                   `bson:"latest_resolved_version"         yaml:"latest_resolved_version"         json:"latest_resolved_version"`
 	DeltaPatches          []*JSONPatchOperation `bson:"delta_patches"                   yaml:"delta_patches"                   json:"delta_patches"`
-	Status                string                `bson:"status"                          yaml:"status"                          json:"status"`
 	ConflictCount         int                   `bson:"conflict_count"                  yaml:"conflict_count"                  json:"conflict_count"`
 	InvalidPatches        []*InvalidJSONPatch   `bson:"invalid_patches,omitempty"       yaml:"invalid_patches,omitempty"       json:"invalid_patches,omitempty"`
 }
