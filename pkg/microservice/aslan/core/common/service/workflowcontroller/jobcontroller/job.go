@@ -225,7 +225,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		case config.JobErrorPolicyRetry:
 			retryJob(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
 		case config.JobErrorPolicyManualCheck:
-			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
+			waitForManualErrorHandling(ctx, workflowCtx, job, ack, logger)
 		}
 	}
 }
@@ -281,10 +281,11 @@ retryLoop:
 	}
 }
 
-func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
+func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
 	originalStatus := job.Status
 	job.Status = config.StatusManualApproval
 	ack()
+	sendJobNotifications(workflowCtx, job, config.StatusManualApproval, logger)
 
 	for {
 		time.Sleep(1 * time.Second)
@@ -294,7 +295,7 @@ func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID
 			job.Error = fmt.Sprintf("controller shutdown, marking job as cancelled.")
 			return
 		default:
-			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowName, job.Name, taskID)
+			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowCtx.WorkflowName, job.Name, workflowCtx.TaskID)
 			if err != nil {
 				continue
 			}
