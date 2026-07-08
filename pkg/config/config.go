@@ -316,6 +316,10 @@ func DisableKubeClientKeepAlive() bool {
 	return viper.GetBool(setting.ENVDisableKubeClientKeepAlive)
 }
 
+func KubeInformerIdleTimeoutMinutes() int {
+	return viper.GetInt(setting.ENVKubeInformerIdleTimeout)
+}
+
 func IsDocumentDB() bool {
 	return viper.GetBool(setting.ENVIsDocumentDB)
 }
