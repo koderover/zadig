@@ -135,9 +135,13 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if spec.Workflow == nil {
 			return errors.Errorf("workflow is nil")
 		}
-
-		err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.Ctx.UserName, e.Ctx.UserID, e.Ctx.AuthResources)
+		normalizedWorkflow, err := normalizeReleasePlanWorkflowForController(spec.Workflow)
 		if err != nil {
+			return errors.Wrap(err, "normalize workflow")
+		}
+		spec.Workflow = normalizedWorkflow
+
+		if err := jobManagerAuth(plan.Name, plan.ManagerID, job, e.Ctx.UserName, e.Ctx.UserID, e.Ctx.AuthResources); err != nil {
 			return err
 		}
 
