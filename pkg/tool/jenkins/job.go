@@ -76,7 +76,7 @@ func (c *Client) listJobNames(parent string) ([]string, error) {
 			}
 		}
 
-		if strings.Contains(job.Class, ".folder.") || strings.Contains(job.Class, "Folder") {
+		if isFolderLikeJob(job.Class) {
 			childJobNames, err := c.listJobNames(fullName)
 			if err != nil {
 				return nil, err
@@ -88,6 +88,12 @@ func (c *Client) listJobNames(parent string) ([]string, error) {
 		jobNames = append(jobNames, fullName)
 	}
 	return jobNames, nil
+}
+
+func isFolderLikeJob(class string) bool {
+	return strings.Contains(class, ".folder.") ||
+		strings.Contains(class, "Folder") ||
+		strings.Contains(class, "MultiBranchProject")
 }
 
 func JobPath(name string) string {

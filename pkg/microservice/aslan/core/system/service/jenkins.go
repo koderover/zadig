@@ -90,6 +90,9 @@ func ListJobBuildArgs(id, jobName string, log *zap.SugaredLogger) ([]*JenkinsBui
 	if err != nil {
 		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
 	}
+	if jenkinsJob == nil {
+		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(fmt.Errorf("jenkins job not found: %s", jobName))
+	}
 	jenkinsBuildArgsResp := make([]*JenkinsBuildArgs, 0)
 	for _, paramDefinition := range jenkinsJob.GetParameters() {
 		arg := &JenkinsBuildArgs{
