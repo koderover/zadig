@@ -51,6 +51,10 @@ var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
+var sendManualApprovalJobNotifications = func(workflowCtx *commonmodels.WorkflowTaskCtx, stage *commonmodels.StageTask, notifyCtls []*commonmodels.NotifyCtl) error {
+	return instantmessage.NewWeChatClient().SendManualApprovalJobNotifications(workflowCtx, stage, notifyCtls)
+}
+
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
 	var jobCtl JobCtl
 	switch job.JobType {
@@ -285,7 +289,7 @@ func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.W
 	originalStatus := job.Status
 	job.Status = config.StatusManualApproval
 	ack()
-	sendJobNotifications(workflowCtx, job, config.StatusManualApproval, logger)
+	sendManualApprovalNotifications(workflowCtx, job, logger)
 
 	for {
 		time.Sleep(1 * time.Second)
@@ -317,6 +321,32 @@ func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.W
 				continue
 			}
 		}
+	}
+}
+
+func sendManualApprovalNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, logger *zap.SugaredLogger) {
+	if workflowCtx == nil || job == nil || job.ErrorPolicy == nil || len(job.ErrorPolicy.ApprovalUsers) == 0 {
+		return
+	}
+
+	if err := sendManualApprovalJobNotifications(workflowCtx, buildManualApprovalStage(job), job.NotifyCtls); err != nil {
+		logger.Warnf("send manual approval notification failed, job: %s, error: %v", job.Name, err)
+	}
+}
+
+func buildManualApprovalStage(job *commonmodels.JobTask) *commonmodels.StageTask {
+	return &commonmodels.StageTask{
+		Name:      job.DisplayName,
+		Status:    job.Status,
+		StartTime: job.StartTime,
+		EndTime:   job.EndTime,
+		Error:     job.Error,
+		Jobs:      []*commonmodels.JobTask{job},
+		ManualExec: &commonmodels.ManualExec{
+			// Reuse manual-exec user resolution to expand approval users into IM targets.
+			Enabled:         true,
+			ManualExecUsers: job.ErrorPolicy.ApprovalUsers,
+		},
 	}
 }
 
