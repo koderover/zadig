@@ -773,6 +773,9 @@ func getFreestyleJobVariables(taskID int64, project, workflowName, workflowDispl
 	// basic envs
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
 	// repo envs
+	if serviceAndImage != nil && len(serviceAndImage.Repos) > 0 {
+		repos = serviceAndImage.Repos
+	}
 	ret = append(ret, getReposVariables(repos)...)
 	// service envs
 	if serviceAndImage != nil {
