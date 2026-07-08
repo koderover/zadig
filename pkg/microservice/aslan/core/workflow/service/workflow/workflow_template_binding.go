@@ -67,7 +67,6 @@ type WorkflowTemplateBindingConflict struct {
 
 type ResolveWorkflowTemplateBindingRequest struct {
 	TargetVersion int                                `json:"target_version"`
-	Strategy      string                             `json:"strategy"`
 	DeltaPatches  []*commonmodels.JSONPatchOperation `json:"delta_patches"`
 }
 
@@ -179,6 +178,9 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 		return fmt.Errorf("template_binding is required for template bound workflow")
 	}
 	frontendDeltaPatches := input.TemplateBinding.DeltaPatches
+	if frontendDeltaPatches == nil {
+		return fmt.Errorf("template_binding.delta_patches is required for template bound workflow")
+	}
 	input.TemplateBinding = &commonmodels.WorkflowTemplateBinding{}
 	_ = util.DeepCopy(input.TemplateBinding, existing.TemplateBinding)
 
@@ -282,6 +284,9 @@ func ResolveWorkflowTemplateBinding(workflowName, user string, req *ResolveWorkf
 	if req == nil {
 		req = &ResolveWorkflowTemplateBindingRequest{}
 	}
+	if req.DeltaPatches == nil {
+		return fmt.Errorf("delta_patches is required to resolve workflow template binding")
+	}
 	targetVersion := req.TargetVersion
 	if targetVersion == 0 {
 		latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(workflow.TemplateBinding.TemplateID)
@@ -290,31 +295,16 @@ func ResolveWorkflowTemplateBinding(workflowName, user string, req *ResolveWorkf
 		}
 		targetVersion = latest.Version
 	}
-	_, preview, err := renderWorkflowWithTemplateBinding(workflow, targetVersion)
-	if err != nil {
-		return err
-	}
 	target, err := getTemplateVersion(workflow.TemplateBinding.TemplateID, targetVersion)
 	if err != nil {
 		return err
 	}
-	if req.DeltaPatches != nil {
-		base := workflowFromTemplateSnapshot(target.Snapshot, workflow)
-		delta, _, err := validateFrontendWorkflowDelta(base, req.DeltaPatches)
-		if err != nil {
-			return err
-		}
-		workflow.TemplateBinding.DeltaPatches = delta
-	} else {
-		switch req.Strategy {
-		case "", "keep_template":
-			workflow.TemplateBinding.DeltaPatches = filterNonConflictingPatches(workflow.TemplateBinding.DeltaPatches, preview.Conflicts)
-		case "keep_workflow":
-			return fmt.Errorf("delta_patches is required when strategy is keep_workflow")
-		default:
-			return fmt.Errorf("unsupported resolve strategy %s", req.Strategy)
-		}
+	base := workflowFromTemplateSnapshot(target.Snapshot, workflow)
+	delta, _, err := validateFrontendWorkflowDelta(base, req.DeltaPatches)
+	if err != nil {
+		return err
 	}
+	workflow.TemplateBinding.DeltaPatches = delta
 
 	workflow.TemplateBinding.BaseVersion = target.Version
 	workflow.TemplateBinding.BaseVersionID = target.ID.Hex()
@@ -625,19 +615,4 @@ func jsonPatchPathConflict(a, b string) bool {
 	a = strings.TrimRight(a, "/")
 	b = strings.TrimRight(b, "/")
 	return strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/")
-}
-
-func filterNonConflictingPatches(patches []*commonmodels.JSONPatchOperation, conflicts []*WorkflowTemplateBindingConflict) []*commonmodels.JSONPatchOperation {
-	conflictPaths := make(map[string]bool)
-	for _, conflict := range conflicts {
-		conflictPaths[conflict.Path] = true
-	}
-	resp := make([]*commonmodels.JSONPatchOperation, 0, len(patches))
-	for _, patch := range patches {
-		if conflictPaths[patch.Path] {
-			continue
-		}
-		resp = append(resp, patch)
-	}
-	return resp
 }

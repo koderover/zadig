@@ -286,6 +286,8 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.UpdatedBy = user
 	inputWorkflow.UpdateTime = time.Now().Unix()
 	inputWorkflow.ID = workflow.ID
+	inputWorkflow.CreatedBy = workflow.CreatedBy
+	inputWorkflow.CreateTime = workflow.CreateTime
 	inputWorkflow.CustomField = workflow.CustomField
 
 	if err := commonrepo.NewWorkflowV4Coll().Update(
