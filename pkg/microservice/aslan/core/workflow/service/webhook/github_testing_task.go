@@ -87,6 +87,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 							CodehostID:     item.MainRepo.CodehostID,
 							MergeRequestID: mergeRequestID,
 							CommitID:       commitID,
+							CommitSHA:      commitID,
 							EventType:      eventType,
 						}
 					case *github.PushEvent:
@@ -104,6 +105,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 								Ref:        ref,
 								IsPr:       false,
 								CommitID:   commitID,
+								CommitSHA:  commitID,
 								EventType:  eventType,
 								CodehostID: item.MainRepo.CodehostID,
 							}

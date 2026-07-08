@@ -81,12 +81,20 @@ func (gpem *giteePushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Mai
 }
 
 func (gpem *giteePushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	commitMessage := ""
+	if len(gpem.event.Commits) > 0 {
+		commitMessage = gpem.event.Commits[len(gpem.event.Commits)-1].Message
+	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		RepoOwner:     hookRepo.RepoOwner,
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
+		CommitID:      gpem.event.After,
+		CommitMessage: commitMessage,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -139,7 +147,11 @@ func (gmem *giteeMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  gmem.event.PullRequest.Base.Ref,
 		PR:            gmem.event.PullRequest.Number,
+		CommitID:      gmem.event.PullRequest.Head.Sha,
+		CommitMessage: gmem.event.PullRequest.Title,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -173,7 +185,9 @@ func (gtem *giteeTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodel
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -206,7 +220,7 @@ func createGiteeEventMatcherForWorkflowV4(
 	return nil
 }
 
-func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
 	if err != nil {
 		errMsg := fmt.Sprintf("list workflow v4 error: %v", err)
@@ -276,10 +290,15 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					Repo:           eventRepo.RepoName,
 					CodehostID:     item.MainRepo.CodehostID,
 					Branch:         eventRepo.Branch,
+					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
+					CommitMessage:  ev.PullRequest.Title,
+					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
+					RawPayload:     rawPayload,
 				}
 			case *gitee.PushEvent:
 				eventType = EventTypePush
@@ -289,19 +308,28 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 				autoCancelOpt.CommitID = commitID
 				autoCancelOpt.Ref = ref
 				hookPayload = &commonmodels.HookPayload{
-					Owner:      eventRepo.RepoOwner,
-					Repo:       eventRepo.RepoName,
-					CodehostID: item.MainRepo.CodehostID,
-					Branch:     eventRepo.Branch,
-					Ref:        ref,
-					IsPr:       false,
-					CommitID:   commitID,
-					EventType:  eventType,
+					Owner:         eventRepo.RepoOwner,
+					Repo:          eventRepo.RepoName,
+					CodehostID:    item.MainRepo.CodehostID,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Ref:           ref,
+					IsPr:          false,
+					CommitID:      commitID,
+					CommitSHA:     commitID,
+					CommitMessage: eventRepo.CommitMessage,
+					Committer:     eventRepo.Committer,
+					EventType:     eventType,
+					RawPayload:    rawPayload,
 				}
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					Branch:       eventRepo.Branch,
+					TargetBranch: eventRepo.TargetBranch,
+					Committer:    eventRepo.Committer,
+					EventType:    eventType,
+					RawPayload:   rawPayload,
 				}
 			}
 			if autoCancelOpt.Type != "" {
