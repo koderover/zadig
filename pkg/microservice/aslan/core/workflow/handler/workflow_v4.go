@@ -72,25 +72,6 @@ type listWorkflowV4Resp struct {
 	Total        int64                `json:"total"`
 }
 
-func DebugAIReleaseSpecialistPrompt(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	req := new(workflow.DebugAIReleaseSpecialistPromptRequest)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Resp, ctx.RespErr = workflow.DebugAIReleaseSpecialistPrompt(ctx, req, ctx.Logger)
-}
-
 // @Summary 创建工作流
 // @Description 创建工作流
 // @Tags 	workflow

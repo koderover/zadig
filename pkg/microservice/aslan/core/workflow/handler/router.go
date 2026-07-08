@@ -65,7 +65,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflowV4 := router.Group("v4")
 	{
 		workflowV4.POST("", CreateWorkflowV4)
-		workflowV4.POST("/ai-release-specialist/debug", DebugAIReleaseSpecialistPrompt)
 		workflowV4.POST("/workflowtask/:workflowName/field", SetWorkflowTasksCustomFields)
 		workflowV4.GET("/workflowtask/:workflowName/field", GetWorkflowTasksCustomFields)
 		workflowV4.GET("", ListWorkflowV4)
