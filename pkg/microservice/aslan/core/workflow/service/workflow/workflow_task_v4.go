@@ -2509,13 +2509,14 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
-	if errorJob.ErrorPolicy == nil || errorJob.ErrorPolicy.Policy != config.JobErrorPolicyManualCheck {
-		errMsg := fmt.Sprintf("error policy for job: %s is %s", jobName, errorJob.ErrorPolicy.Policy)
+	canHandle, confirmUsers := getJobErrorDecisionInfo(errorJob)
+	if !canHandle {
+		errMsg := fmt.Sprintf("job %s does not support manual error handling", jobName)
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
-	_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, userID)
+	_, userMap := util.GeneFlatUsersWithCaller(confirmUsers, userID)
 
 	if _, ok := userMap[userID]; !ok {
 		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
@@ -2528,6 +2529,20 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddErr(err)
 	}
 	return nil
+}
+
+func getJobErrorDecisionInfo(job *commonmodels.JobTask) (bool, []*commonmodels.User) {
+	if job == nil {
+		return false, nil
+	}
+	if job.ErrorPolicy != nil && job.ErrorPolicy.Policy == config.JobErrorPolicyManualCheck {
+		return true, job.ErrorPolicy.ApprovalUsers
+	}
+	spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+	if job.JobType == string(config.JobAIReleaseSpecialist) && commonmodels.IToi(job.Spec, spec) == nil {
+		return spec.RequireManualConfirm, spec.ConfirmUsers
+	}
+	return false, nil
 }
 
 // extractRuntimeJobEvents extracts the runtime job events from the job task spec.

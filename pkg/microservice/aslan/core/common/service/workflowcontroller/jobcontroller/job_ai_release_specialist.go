@@ -42,6 +42,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	runtimejob "github.com/koderover/zadig/v2/pkg/types/job"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
@@ -118,7 +119,7 @@ var (
 	sendAIReleaseSpecialistTaskWaitNotifications = func(input *instantmessage.TaskWaitNotifyInput) error {
 		return instantmessage.NewWeChatClient().SendTaskWaitNotifications(input)
 	}
-	waitForAIReleaseSpecialistApprove = waitForNativeApproveCore
+	waitForAIReleaseSpecialistConfirmDecision = workflowtool.GetJobErrorHandlingDecision
 )
 
 func NewAIReleaseSpecialistJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *AIReleaseSpecialistJobCtl {
@@ -244,29 +245,62 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 			c.ack()
 			return
 		}
-		approvalSpec := &commonmodels.JobTaskApprovalSpec{
-			Timeout: remainingTimeout,
-			Type:    config.NativeApproval,
-			NativeApproval: &commonmodels.NativeApproval{
-				ApproveUsers:    approvalUsers,
-				NeededApprovers: 1,
-				Timeout:         int(remainingTimeout),
-			},
-		}
-		c.jobTaskSpec.NativeApproval = approvalSpec.NativeApproval
-		c.job.Status = config.StatusWaitingApprove
+		c.jobTaskSpec.ConfirmUsers = approvalUsers
+		c.job.Status = config.StatusManualApproval
 		c.ack()
 		c.sendWaitNotifications(task)
 
-		status, err := waitForAIReleaseSpecialistApprove(jobCtx, approvalSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
-		c.job.Status = status
-		if err != nil {
-			c.job.Error = err.Error()
-		}
+		c.waitForManualConfirmDecision(jobCtx, remainingTimeout)
 		return
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+func (c *AIReleaseSpecialistJobCtl) waitForManualConfirmDecision(ctx context.Context, timeoutMinutes int64) {
+	timeoutChan := time.After(time.Duration(timeoutMinutes) * time.Minute)
+
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				c.job.Status = config.StatusTimeout
+				c.job.Error = "ai release specialist timeout"
+				return
+			}
+			c.job.Status = config.StatusCancelled
+			c.job.Error = "workflow was canceled"
+			return
+		case <-timeoutChan:
+			c.job.Status = config.StatusTimeout
+			c.job.Error = "ai release specialist timeout"
+			return
+		default:
+			decision, userID, username, err := waitForAIReleaseSpecialistConfirmDecision(c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID)
+			if err != nil {
+				continue
+			}
+
+			switch decision {
+			case workflowtool.JobErrorDecisionIgnore:
+				c.job.Status = config.StatusPassed
+				c.job.Error = ""
+				c.job.ErrorHandlerUserID = userID
+				c.job.ErrorHandlerUserName = username
+				c.ack()
+				return
+			case workflowtool.JobErrorDecisionReject:
+				c.job.Status = config.StatusReject
+				c.job.ErrorHandlerUserID = userID
+				c.job.ErrorHandlerUserName = username
+				c.ack()
+				return
+			default:
+				continue
+			}
+		}
+	}
 }
 
 func (c *AIReleaseSpecialistJobCtl) SaveInfo(ctx context.Context) error {
@@ -320,7 +354,7 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 		return
 	}
 
-	if !instantmessage.HasTaskWaitNotifyCtls(c.jobTaskSpec.NotifyCtls, config.StatusWaitingApprove) {
+	if !instantmessage.HasTaskWaitNotifyCtls(c.jobTaskSpec.NotifyCtls, config.StatusManualApproval) {
 		return
 	}
 
@@ -329,7 +363,7 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 		WorkflowName: c.workflowCtx.WorkflowName,
 		TaskID:       c.workflowCtx.TaskID,
 		NotifyCtls:   c.jobTaskSpec.NotifyCtls,
-		WaitStatus:   config.StatusWaitingApprove,
+		WaitStatus:   config.StatusManualApproval,
 	}); err != nil {
 		c.logger.Warnf("send ai release specialist task wait notification failed: %v", err)
 		return
