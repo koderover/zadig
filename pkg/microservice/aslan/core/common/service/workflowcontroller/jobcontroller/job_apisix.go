@@ -399,6 +399,17 @@ func convertToProto(spec interface{}) (*apisix.Proto, error) {
 		return nil, fmt.Errorf("failed to unmarshal to proto: %v", err)
 	}
 
+	// bug point dont touch it!
+	// if delete it , proto in apisix will fail to run
+	if proto.Name == "" {
+		proto.Desc = proto.ID
+		proto.Name = proto.ID
+		return proto, nil
+	}
+
+	proto.Desc = proto.Name
+	proto.ID = proto.Name
+
 	return proto, nil
 }
 
