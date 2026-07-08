@@ -82,15 +82,14 @@ type WorkflowV4 struct {
 }
 
 type WorkflowTemplateBinding struct {
-	Enabled               bool                  `bson:"enabled"                         yaml:"enabled"                         json:"enabled"`
-	TemplateID            string                `bson:"template_id"                     yaml:"template_id"                     json:"template_id"`
-	TemplateName          string                `bson:"template_name"                   yaml:"template_name"                   json:"template_name"`
-	BaseVersion           int                   `bson:"base_version"                    yaml:"base_version"                    json:"base_version"`
-	BaseVersionID         string                `bson:"base_version_id"                 yaml:"base_version_id"                 json:"base_version_id"`
-	LatestResolvedVersion int                   `bson:"latest_resolved_version"         yaml:"latest_resolved_version"         json:"latest_resolved_version"`
-	DeltaPatches          []*JSONPatchOperation `bson:"delta_patches"                   yaml:"delta_patches"                   json:"delta_patches"`
-	ConflictCount         int                   `bson:"conflict_count"                  yaml:"conflict_count"                  json:"conflict_count"`
-	InvalidPatches        []*InvalidJSONPatch   `bson:"invalid_patches,omitempty"       yaml:"invalid_patches,omitempty"       json:"invalid_patches,omitempty"`
+	Enabled        bool                  `bson:"enabled"                         yaml:"enabled"                         json:"enabled"`
+	TemplateID     string                `bson:"template_id"                     yaml:"template_id"                     json:"template_id"`
+	TemplateName   string                `bson:"template_name"                   yaml:"template_name"                   json:"template_name"`
+	BaseVersion    int                   `bson:"base_version"                    yaml:"base_version"                    json:"base_version"`
+	BaseVersionID  string                `bson:"base_version_id"                 yaml:"base_version_id"                 json:"base_version_id"`
+	DeltaPatches   []*JSONPatchOperation `bson:"delta_patches"                   yaml:"delta_patches"                   json:"delta_patches"`
+	ConflictCount  int                   `bson:"conflict_count"                  yaml:"conflict_count"                  json:"conflict_count"`
+	InvalidPatches []*InvalidJSONPatch   `bson:"invalid_patches,omitempty"       yaml:"invalid_patches,omitempty"       json:"invalid_patches,omitempty"`
 }
 
 type JSONPatchOperation struct {

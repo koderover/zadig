@@ -119,7 +119,11 @@ func DiffWorkflowTemplateVersions(templateID string, fromVersion, toVersion int)
 	if err != nil {
 		return nil, err
 	}
-	return createJSONPatchOperations(from.Snapshot, to.Snapshot)
+	patches, err := createJSONPatchOperations(from.Snapshot, to.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	return filterTemplateBindingPatches(patches), nil
 }
 
 func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -142,7 +146,6 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	workflow.TemplateBinding.TemplateName = template.TemplateName
 	workflow.TemplateBinding.BaseVersion = version.Version
 	workflow.TemplateBinding.BaseVersionID = version.ID.Hex()
-	workflow.TemplateBinding.LatestResolvedVersion = version.Version
 	workflow.TemplateBinding.DeltaPatches = delta
 	workflow.TemplateBinding.ConflictCount = 0
 	workflow.TemplateBinding.InvalidPatches = nil
@@ -198,11 +201,6 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 	input.TemplateBinding.DeltaPatches = delta
 	input.TemplateBinding.BaseVersion = targetVersion.Version
 	input.TemplateBinding.BaseVersionID = targetVersion.ID.Hex()
-	if targetVersion.Version > existing.TemplateBinding.BaseVersion {
-		input.TemplateBinding.LatestResolvedVersion = targetVersion.Version
-	} else {
-		input.TemplateBinding.LatestResolvedVersion = existing.TemplateBinding.LatestResolvedVersion
-	}
 	conflicts, invalidPatches := calculateBindingState(input, 0)
 	input.TemplateBinding.ConflictCount = len(conflicts)
 	input.TemplateBinding.InvalidPatches = invalidPatches
@@ -297,7 +295,6 @@ func ResolveWorkflowTemplateBinding(workflowName, user string, req *ResolveWorkf
 
 	workflow.TemplateBinding.BaseVersion = target.Version
 	workflow.TemplateBinding.BaseVersionID = target.ID.Hex()
-	workflow.TemplateBinding.LatestResolvedVersion = target.Version
 	workflow.TemplateBinding.ConflictCount = 0
 	workflow.TemplateBinding.InvalidPatches = nil
 	workflow.UpdatedBy = user
@@ -384,6 +381,7 @@ func calculateBindingConflicts(workflow *commonmodels.WorkflowV4, targetVersion 
 	if err != nil {
 		return nil
 	}
+	templatePatches = filterTemplateBindingPatches(templatePatches)
 	conflicts := make([]*WorkflowTemplateBindingConflict, 0)
 	for _, templatePatch := range templatePatches {
 		for _, deltaPatch := range workflow.TemplateBinding.DeltaPatches {
@@ -592,4 +590,24 @@ func jsonPatchPathConflict(a, b string) bool {
 	a = strings.TrimRight(a, "/")
 	b = strings.TrimRight(b, "/")
 	return strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/")
+}
+
+func filterTemplateBindingPatches(patches []*commonmodels.JSONPatchOperation) []*commonmodels.JSONPatchOperation {
+	resp := make([]*commonmodels.JSONPatchOperation, 0, len(patches))
+	for _, patch := range patches {
+		if patch == nil {
+			continue
+		}
+		if isTemplateBindingInheritedPath(patch.Path) {
+			resp = append(resp, patch)
+		}
+	}
+	return resp
+}
+
+func isTemplateBindingInheritedPath(path string) bool {
+	return path == "/params" || strings.HasPrefix(path, "/params/") ||
+		path == "/stages" || strings.HasPrefix(path, "/stages/") ||
+		path == "/share_storages" || strings.HasPrefix(path, "/share_storages/") ||
+		path == "/concurrency_limit"
 }
