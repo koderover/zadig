@@ -96,6 +96,8 @@ const (
 	DockerAuthDir   = "DOCKER_AUTH_DIR"
 	Path            = "PATH"
 	DockerHost      = "DOCKER_HOST"
+	DockerTLSVerify = "DOCKER_TLS_VERIFY"
+	DockerCertPath  = "DOCKER_CERT_PATH"
 	BuildURL        = "BUILD_URL"
 	DefaultDockSock = "/var/run/docker.sock"
 
