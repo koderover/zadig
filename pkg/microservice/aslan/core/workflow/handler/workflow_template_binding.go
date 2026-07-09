@@ -62,6 +62,18 @@ func DiffWorkflowTemplateVersions(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflow.DiffWorkflowTemplateVersions(c.Param("templateID"), fromVersion, toVersion)
 }
 
+func ListWorkflowTemplateReferences(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = workflow.ListWorkflowTemplateReferences(c.Param("templateID"))
+}
+
 func GetWorkflowTemplateBindingStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -75,26 +87,6 @@ func GetWorkflowTemplateBindingStatus(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTemplateBindingStatus(c.Param("name"))
-}
-
-func PreviewWorkflowTemplateBinding(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-	if !authorizeWorkflowTemplateBindingView(ctx, c.Param("name")) {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	req := struct {
-		TargetVersion int `json:"target_version"`
-	}{}
-	_ = c.ShouldBindJSON(&req)
-	ctx.Resp, ctx.RespErr = workflow.PreviewWorkflowTemplateBinding(c.Param("name"), req.TargetVersion)
 }
 
 func ResolveWorkflowTemplateBinding(c *gin.Context) {
@@ -116,24 +108,6 @@ func ResolveWorkflowTemplateBinding(c *gin.Context) {
 		return
 	}
 	ctx.RespErr = workflow.ResolveWorkflowTemplateBinding(c.Param("name"), ctx.UserName, req, ctx.Logger)
-}
-
-func UnbindWorkflowTemplateBinding(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-	if !authorizeWorkflowTemplateBindingEdit(ctx, c.Param("name")) {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	req := new(workflow.UnbindWorkflowTemplateBindingRequest)
-	_ = c.ShouldBindJSON(req)
-	ctx.RespErr = workflow.UnbindWorkflowTemplateBinding(c.Param("name"), ctx.UserName, req, ctx.Logger)
 }
 
 func authorizeWorkflowTemplateBindingView(ctx *internalhandler.Context, workflowName string) bool {

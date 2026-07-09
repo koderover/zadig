@@ -53,6 +53,17 @@ type WorkflowTemplateBindingPreviewResponse struct {
 	InvalidPatches   []*commonmodels.InvalidJSONPatch      `json:"invalid_patches"`
 }
 
+type WorkflowTemplateReferenceResponse struct {
+	TemplateID string                               `json:"template_id"`
+	Workflows  []*WorkflowTemplateReferenceWorkflow `json:"workflows"`
+}
+
+type WorkflowTemplateReferenceWorkflow struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Project     string `json:"project"`
+}
+
 type WorkflowTemplateBindingConflict struct {
 	Path string `json:"path"`
 }
@@ -124,6 +135,32 @@ func DiffWorkflowTemplateVersions(templateID string, fromVersion, toVersion int)
 		return nil, err
 	}
 	return filterTemplateBindingPatches(patches), nil
+}
+
+func ListWorkflowTemplateReferences(templateID string) (*WorkflowTemplateReferenceResponse, error) {
+	workflows, err := commonrepo.NewWorkflowV4Coll().ListTemplateBoundByTemplateID(templateID)
+	if err != nil {
+		return nil, err
+	}
+	resp := &WorkflowTemplateReferenceResponse{
+		TemplateID: templateID,
+		Workflows:  make([]*WorkflowTemplateReferenceWorkflow, 0, len(workflows)),
+	}
+	for _, workflow := range workflows {
+		resp.Workflows = append(resp.Workflows, WorkflowTemplateReferenceFromWorkflow(workflow))
+	}
+	return resp, nil
+}
+
+func WorkflowTemplateReferenceFromWorkflow(workflow *commonmodels.WorkflowV4) *WorkflowTemplateReferenceWorkflow {
+	if workflow == nil {
+		return nil
+	}
+	return &WorkflowTemplateReferenceWorkflow{
+		Name:        workflow.Name,
+		DisplayName: workflow.DisplayName,
+		Project:     workflow.Project,
+	}
 }
 
 func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -246,18 +283,6 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		Conflicts:      conflicts,
 		InvalidPatches: invalidPatches,
 	}, nil
-}
-
-func PreviewWorkflowTemplateBinding(workflowName string, targetVersion int) (*WorkflowTemplateBindingPreviewResponse, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
-	if err != nil {
-		return nil, err
-	}
-	if !isTemplateBindingEnabled(workflow) {
-		return &WorkflowTemplateBindingPreviewResponse{RenderedWorkflow: workflow}, nil
-	}
-	_, preview, err := renderWorkflowWithTemplateBinding(workflow, targetVersion)
-	return preview, err
 }
 
 func ResolveWorkflowTemplateBinding(workflowName, user string, req *ResolveWorkflowTemplateBindingRequest, logger *zap.SugaredLogger) error {
@@ -464,28 +489,6 @@ func isTemplateBindingEnabled(workflow *commonmodels.WorkflowV4) bool {
 	return workflow != nil && workflow.TemplateBinding != nil && workflow.TemplateBinding.Enabled
 }
 
-func validateWorkflowTopologyUnchanged(base, input *commonmodels.WorkflowV4) error {
-	if len(base.Stages) != len(input.Stages) {
-		return fmt.Errorf("template bound workflow cannot add or delete stages")
-	}
-	for stageIndex, baseStage := range base.Stages {
-		inputStage := input.Stages[stageIndex]
-		if baseStage.Name != inputStage.Name {
-			return fmt.Errorf("template bound workflow cannot rename or move stage %s", baseStage.Name)
-		}
-		if len(baseStage.Jobs) != len(inputStage.Jobs) {
-			return fmt.Errorf("template bound workflow cannot add or delete jobs in stage %s", baseStage.Name)
-		}
-		for jobIndex, baseJob := range baseStage.Jobs {
-			inputJob := inputStage.Jobs[jobIndex]
-			if baseJob.Name != inputJob.Name || baseJob.JobType != inputJob.JobType {
-				return fmt.Errorf("template bound workflow cannot rename, move, or change type of job %s", baseJob.Name)
-			}
-		}
-	}
-	return nil
-}
-
 func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*commonmodels.JSONPatchOperation) ([]*commonmodels.JSONPatchOperation, *commonmodels.WorkflowV4, error) {
 	if patches == nil {
 		patches = make([]*commonmodels.JSONPatchOperation, 0)
@@ -501,9 +504,6 @@ func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*com
 		}
 		rendered = next
 	}
-	if err := validateWorkflowTopologyUnchanged(base, rendered); err != nil {
-		return nil, nil, err
-	}
 	return patches, rendered, nil
 }
 
@@ -511,25 +511,7 @@ func validateTemplateBindingPatch(patch *commonmodels.JSONPatchOperation) error 
 	if patch == nil {
 		return fmt.Errorf("nil json patch operation")
 	}
-	switch patch.Operation {
-	case "add", "remove", "replace":
-	default:
-		return fmt.Errorf("unsupported template binding patch operation %s", patch.Operation)
-	}
-
-	if patch.Path == "/params" || strings.HasPrefix(patch.Path, "/params/") {
-		return nil
-	}
-
-	pathParts := strings.Split(strings.TrimPrefix(patch.Path, "/"), "/")
-	if len(pathParts) >= 5 &&
-		pathParts[0] == "stages" &&
-		pathParts[2] == "jobs" &&
-		pathParts[4] == "spec" {
-		return nil
-	}
-
-	return fmt.Errorf("template bound workflow patch path %s is not allowed", patch.Path)
+	return nil
 }
 
 func createJSONPatchOperations(from, to interface{}) ([]*commonmodels.JSONPatchOperation, error) {

@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	jobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -112,6 +113,11 @@ type ListWorkflowTemplateResp struct {
 	BuildInWorkflowTemplatei18ns []*WorkflowTemplatei18n    `json:"build_in_workflow_template_i18ns"`
 }
 
+type DeleteWorkflowTemplateResponse struct {
+	Deleted          bool                                                 `json:"deleted"`
+	UnboundWorkflows []*workflowservice.WorkflowTemplateReferenceWorkflow `json:"unbound_workflows,omitempty"`
+}
+
 func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.SugaredLogger) (*ListWorkflowTemplateResp, error) {
 	workflowTemplates := []*WorkflowtemplatePreView{}
 	templates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{Category: category, ExcludeBuildIn: excludeBuildIn})
@@ -194,13 +200,38 @@ func GetWorkflowTemplateByID(idStr string, logger *zap.SugaredLogger) (*commonmo
 	return template, nil
 }
 
-func DeleteWorkflowTemplateByID(idStr string, logger *zap.SugaredLogger) error {
+func DeleteWorkflowTemplateByID(userName, idStr string, force bool, logger *zap.SugaredLogger) (*DeleteWorkflowTemplateResponse, error) {
+	references, err := commonrepo.NewWorkflowV4Coll().ListTemplateBoundByTemplateID(idStr)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to list template-bound workflows for workflow template %s, err: %v", idStr, err)
+		logger.Error(errMsg)
+		return nil, e.ErrDeleteWorkflowTemplate.AddDesc(errMsg)
+	}
+	if len(references) > 0 && !force {
+		errMsg := fmt.Sprintf("workflow template %s is referenced by %d template-bound workflows", idStr, len(references))
+		logger.Error(errMsg)
+		return nil, e.ErrDeleteWorkflowTemplate.AddDesc(errMsg)
+	}
+
+	resp := &DeleteWorkflowTemplateResponse{
+		Deleted:          true,
+		UnboundWorkflows: make([]*workflowservice.WorkflowTemplateReferenceWorkflow, 0, len(references)),
+	}
+	for _, ref := range references {
+		if err := workflowservice.UnbindWorkflowTemplateBinding(ref.Name, userName, &workflowservice.UnbindWorkflowTemplateBindingRequest{}, logger); err != nil {
+			errMsg := fmt.Sprintf("Failed to unbind workflow %s before deleting workflow template %s, err: %v", ref.Name, idStr, err)
+			logger.Error(errMsg)
+			return nil, e.ErrDeleteWorkflowTemplate.AddDesc(errMsg)
+		}
+		resp.UnboundWorkflows = append(resp.UnboundWorkflows, workflowservice.WorkflowTemplateReferenceFromWorkflow(ref))
+	}
+
 	if err := commonrepo.NewWorkflowV4TemplateColl().DeleteByID(idStr); err != nil {
 		errMsg := fmt.Sprintf("Failed to delete workflow template err: %v", err)
 		logger.Error(errMsg)
-		return e.ErrDeleteWorkflowTemplate.AddDesc(errMsg)
+		return nil, e.ErrDeleteWorkflowTemplate.AddDesc(errMsg)
 	}
-	return nil
+	return resp, nil
 }
 
 func lintWorkflowTemplate(template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
