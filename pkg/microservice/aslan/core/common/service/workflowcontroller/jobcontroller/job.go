@@ -33,8 +33,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/rand"
 )
@@ -49,10 +49,6 @@ type JobCtl interface {
 
 var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
-}
-
-var sendManualApprovalJobNotifications = func(workflowCtx *commonmodels.WorkflowTaskCtx, stage *commonmodels.StageTask, notifyCtls []*commonmodels.NotifyCtl) error {
-	return instantmessage.NewWeChatClient().SendManualApprovalJobNotifications(workflowCtx, stage, notifyCtls)
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -229,7 +225,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		case config.JobErrorPolicyRetry:
 			retryJob(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
 		case config.JobErrorPolicyManualCheck:
-			waitForManualErrorHandling(ctx, workflowCtx, job, ack, logger)
+			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
 		}
 	}
 }
@@ -285,82 +281,41 @@ retryLoop:
 	}
 }
 
-func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
+func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
 	originalStatus := job.Status
-	job.Status = config.StatusWaitingApprove
+	job.Status = config.StatusManualApproval
 	ack()
 
-	approvalUsers, _ := commonutil.GeneFlatUsersWithCaller(job.ErrorPolicy.ApprovalUsers, workflowCtx.WorkflowTaskCreatorUserID)
-	if len(approvalUsers) == 0 {
-		job.Status = originalStatus
-		job.Error = "approval users are empty"
-		ack()
-		return
-	}
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			job.Status = config.StatusCancelled
+			job.Error = fmt.Sprintf("controller shutdown, marking job as cancelled.")
+			return
+		default:
+			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowName, job.Name, taskID)
+			if err != nil {
+				continue
+			}
 
-	approvalSpec := &commonmodels.JobTaskApprovalSpec{
-		Timeout: 60,
-		Type:    config.NativeApproval,
-		NativeApproval: &commonmodels.NativeApproval{
-			ApproveUsers:    approvalUsers,
-			NeededApprovers: 1,
-			Timeout:         60,
-		},
-	}
-
-	status, err := waitForNativeApproveWithCallback(ctx, approvalSpec, workflowCtx.WorkflowName, job.Name, workflowCtx.TaskID, ack, func() {
-		sendManualApprovalNotifications(workflowCtx, job, logger)
-	})
-	if err != nil {
-		job.Error = err.Error()
-	}
-	fillManualErrorHandler(job, approvalUsers)
-	switch status {
-	case config.StatusPassed:
-		job.Status = config.StatusUnstable
-		job.Error = ""
-	case config.StatusReject:
-		job.Status = originalStatus
-	default:
-		job.Status = status
-	}
-	ack()
-}
-
-func fillManualErrorHandler(job *commonmodels.JobTask, approvalUsers []*commonmodels.User) {
-	for _, user := range approvalUsers {
-		if user == nil || user.RejectOrApprove == "" {
-			continue
+			switch decision {
+			case workflowtool.JobErrorDecisionIgnore:
+				job.Status = config.StatusUnstable
+				job.ErrorHandlerUserID = userID
+				job.ErrorHandlerUserName = username
+				ack()
+				return
+			case workflowtool.JobErrorDecisionReject:
+				job.Status = originalStatus
+				job.ErrorHandlerUserID = userID
+				job.ErrorHandlerUserName = username
+				ack()
+				return
+			default:
+				continue
+			}
 		}
-		job.ErrorHandlerUserID = user.UserID
-		job.ErrorHandlerUserName = user.UserName
-		return
-	}
-}
-
-func sendManualApprovalNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, logger *zap.SugaredLogger) {
-	if workflowCtx == nil || job == nil || job.ErrorPolicy == nil || len(job.ErrorPolicy.ApprovalUsers) == 0 {
-		return
-	}
-
-	if err := sendManualApprovalJobNotifications(workflowCtx, buildManualApprovalStage(job), job.NotifyCtls); err != nil {
-		logger.Warnf("send manual approval notification failed, job: %s, error: %v", job.Name, err)
-	}
-}
-
-func buildManualApprovalStage(job *commonmodels.JobTask) *commonmodels.StageTask {
-	return &commonmodels.StageTask{
-		Name:      job.DisplayName,
-		Status:    job.Status,
-		StartTime: job.StartTime,
-		EndTime:   job.EndTime,
-		Error:     job.Error,
-		Jobs:      []*commonmodels.JobTask{job},
-		ManualExec: &commonmodels.ManualExec{
-			// Reuse manual-exec user resolution to expand approval users into IM targets.
-			Enabled:         true,
-			ManualExecUsers: job.ErrorPolicy.ApprovalUsers,
-		},
 	}
 }
 

@@ -478,42 +478,6 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusPause, "taskStatusWaitingManualExec")
 }
 
-func (w *Service) SendManualApprovalJobNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask, notifyCtls []*models.NotifyCtl) error {
-	if workflowCtx == nil || stage == nil || stage.ManualExec == nil {
-		return nil
-	}
-
-	taskForNotification := &models.WorkflowTask{
-		WorkflowName:        workflowCtx.WorkflowName,
-		WorkflowDisplayName: workflowCtx.WorkflowDisplayName,
-		ProjectName:         workflowCtx.ProjectName,
-		ProjectDisplayName:  workflowCtx.ProjectDisplayName,
-		TaskID:              workflowCtx.TaskID,
-		Remark:              workflowCtx.Remark,
-		TaskCreator:         workflowCtx.WorkflowTaskCreatorUsername,
-		TaskCreatorID:       workflowCtx.WorkflowTaskCreatorUserID,
-		TaskCreatorPhone:    workflowCtx.WorkflowTaskCreatorMobile,
-		TaskCreatorEmail:    workflowCtx.WorkflowTaskCreatorEmail,
-		StartTime:           workflowCtx.StartTime.Unix(),
-		Status:              config.StatusWaitingApprove,
-		Stages:              []*models.StageTask{stage},
-		Type:                config.WorkflowTaskTypeWorkflow,
-	}
-	stageForNotification := stage
-	if taskInColl, findErr := w.workflowTaskV4Coll.Find(workflowCtx.WorkflowName, workflowCtx.TaskID); findErr == nil && taskInColl != nil {
-		taskCopy := *taskInColl
-		taskForNotification = &taskCopy
-	}
-	taskForNotification.Status = config.StatusWaitingApprove
-
-	notifyCtls = getManualApprovalJobNotifyCtls(taskForNotification, notifyCtls)
-	if len(notifyCtls) == 0 {
-		return nil
-	}
-
-	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusWaitingApprove, "taskStatusManualApproval")
-}
-
 func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string) error {
 	respErr := new(multierror.Error)
 	for _, notify := range notifyCtls {
@@ -619,77 +583,6 @@ func getManualExecStageNotifyCtls(task *models.WorkflowTask) []*models.NotifyCtl
 	}
 
 	return ret
-}
-
-func getManualApprovalJobNotifyCtls(task *models.WorkflowTask, notifyCtls []*models.NotifyCtl) []*models.NotifyCtl {
-	if task == nil {
-		return nil
-	}
-
-	ret := make([]*models.NotifyCtl, 0, len(notifyCtls))
-	for _, notify := range notifyCtls {
-		if notify == nil || !notify.Enabled {
-			continue
-		}
-
-		notifyToSend := *notify
-		if err := notifyToSend.GenerateNewNotifyConfigWithOldData(); err != nil {
-			log.Errorf("failed to parse notification config for workflow %s task %d: %v", task.WorkflowName, task.TaskID, err)
-			continue
-		}
-		if !isTaskWaitingApproveNotifyType(sets.NewString(notifyToSend.NotifyTypes...)) {
-			continue
-		}
-
-		switch notifyToSend.WebHookType {
-		case setting.NotifyWebHookTypeFeishuPerson:
-			if notifyToSend.LarkPersonNotificationConfig == nil {
-				continue
-			}
-			targetUsers := append([]*lark.UserInfo{}, notifyToSend.LarkPersonNotificationConfig.TargetUsers...)
-			if !hasStageExecutorLarkTarget(targetUsers) {
-				targetUsers = append(targetUsers, &lark.UserInfo{IsStageExecutor: true})
-			}
-			notifyToSend.LarkPersonNotificationConfig = &models.LarkPersonNotificationConfig{
-				AppID:       notifyToSend.LarkPersonNotificationConfig.AppID,
-				TargetUsers: targetUsers,
-			}
-		case setting.NotifyWebHookTypeMail:
-			targetUsers := make([]*models.User, 0)
-			if notifyToSend.MailNotificationConfig != nil {
-				targetUsers = append([]*models.User{}, notifyToSend.MailNotificationConfig.TargetUsers...)
-			}
-			if !hasStageExecutorMailTarget(targetUsers) {
-				targetUsers = append(targetUsers, &models.User{Type: setting.UserTypeStageExecutor})
-			}
-			// Mail can resolve approval users at runtime; unlike feishu_person it does not need an AppID.
-			notifyToSend.MailNotificationConfig = &models.MailNotificationConfig{
-				TargetUsers: targetUsers,
-			}
-		}
-
-		ret = append(ret, &notifyToSend)
-	}
-
-	return ret
-}
-
-func hasStageExecutorLarkTarget(targets []*lark.UserInfo) bool {
-	for _, target := range targets {
-		if target != nil && target.IsStageExecutor {
-			return true
-		}
-	}
-	return false
-}
-
-func hasStageExecutorMailTarget(targets []*models.User) bool {
-	for _, target := range targets {
-		if target != nil && target.Type == setting.UserTypeStageExecutor {
-			return true
-		}
-	}
-	return false
 }
 
 func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
