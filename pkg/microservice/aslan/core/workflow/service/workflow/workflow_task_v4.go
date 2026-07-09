@@ -2517,7 +2517,7 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	}
 
 	if !isSystemAdmin {
-		_, userMap := util.GeneFlatUsersWithCaller(confirmUsers, userID)
+		_, userMap := util.GeneFlatUsersWithCaller(confirmUsers, workflowTask.TaskCreatorID)
 
 		if _, ok := userMap[userID]; !ok {
 			errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)

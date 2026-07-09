@@ -778,8 +778,15 @@ type HandleJobErrorRequest struct {
 }
 
 func HandleJobError(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &HandleJobErrorRequest{}
 
 	data, err := c.GetRawData()
