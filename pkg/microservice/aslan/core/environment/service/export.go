@@ -97,6 +97,26 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 		yamls = append(yamls, cronJobs...)
 		cloneSets := getKruiseYaml(kruise, namespace, selector, log)
 		yamls = append(yamls, cloneSets...)
+		if productService, ok := env.GetServiceMap()[serviceName]; ok {
+			for _, res := range productService.Resources {
+				if res == nil || res.Name == "" {
+					continue
+				}
+				switch res.Kind {
+				case setting.Deployment, setting.DaemonSet, setting.StatefulSet, setting.Job, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob, setting.CloneSet:
+					continue
+				}
+				resource, exists, err := getter.GetResourceYamlInCache(namespace, res.Name, res.GroupVersionKind, kubeClient)
+				if err != nil {
+					log.Errorf("failed to get resource yaml, err: %s", err)
+					continue
+				}
+				if !exists {
+					continue
+				}
+				yamls = append(yamls, resource)
+			}
+		}
 		if len(deploys) == 0 && len(daemonSets) == 0 && len(stss) == 0 && len(jobs) == 0 && len(cronJobs) == 0 && len(cloneSets) == 0 {
 			if source == "wd" {
 				needFetchByRenderedManifest = true
@@ -127,18 +147,15 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 				log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", item, err)
 				continue
 			}
-			switch u.GetKind() {
-			case setting.Deployment, setting.DaemonSet, setting.StatefulSet, setting.Job, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob, setting.CloneSet:
-				resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
-				if err != nil {
-					log.Errorf("failed to get resource yaml, err: %s", err)
-					continue
-				}
-				if !exists {
-					continue
-				}
-				yamls = append(yamls, resource)
+			resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
+			if err != nil {
+				log.Errorf("failed to get resource yaml, err: %s", err)
+				continue
 			}
+			if !exists {
+				continue
+			}
+			yamls = append(yamls, resource)
 		}
 	}
 
