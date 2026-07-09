@@ -838,6 +838,10 @@ type TaskNotifyInput struct {
 // HasTaskNotifyCtls reports whether there is at least one enabled task-level
 // notification config that applies to the given status.
 func HasTaskNotifyCtls(notifyCtls []*models.NotifyCtl, status config.Status) bool {
+	if !isTaskNotifyStatus(status) {
+		return false
+	}
+
 	for _, notify := range notifyCtls {
 		if notify == nil || !notify.Enabled {
 			continue
@@ -856,12 +860,29 @@ func HasTaskNotifyCtls(notifyCtls []*models.NotifyCtl, status config.Status) boo
 	return false
 }
 
+func isTaskNotifyStatus(status config.Status) bool {
+	switch status {
+	case config.StatusPrepare,
+		config.StatusPassed,
+		config.StatusFailed,
+		config.StatusTimeout,
+		config.StatusCancelled,
+		config.StatusReject:
+		return true
+	default:
+		return false
+	}
+}
+
 // SendTaskNotifications sends task-level notifications when a task enters a configured
 // status. It supports all existing notification channels (feishu group, feishu
 // person, feishu webhook, dingding, wechat work, msteams, mail, webhook) and reuses
 // the existing notification rendering and sending pipeline.
 func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 	if input == nil || len(input.NotifyCtls) == 0 {
+		return nil
+	}
+	if !isTaskNotifyStatus(input.Status) {
 		return nil
 	}
 
