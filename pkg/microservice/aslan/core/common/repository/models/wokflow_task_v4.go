@@ -707,7 +707,6 @@ type JobTaskAIReleaseSpecialistSpec struct {
 	PromptTemplate       string                     `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
 	RequireManualConfirm bool                       `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
 	ConfirmUsers         []*User                    `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
-	NotifyCtls           []*NotifyCtl               `bson:"notify_ctls,omitempty" json:"notify_ctls,omitempty" yaml:"notify_ctls,omitempty"`
 	NotificationSent     bool                       `bson:"notification_sent,omitempty" json:"notification_sent,omitempty" yaml:"notification_sent,omitempty"`
 	SystemPrompt         string                     `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
 	NativeApproval       *NativeApproval            `bson:"native_approval,omitempty" json:"native_approval,omitempty" yaml:"native_approval,omitempty"`
