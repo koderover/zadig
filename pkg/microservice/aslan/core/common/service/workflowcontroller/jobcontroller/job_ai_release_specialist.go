@@ -200,6 +200,11 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		} else {
 			c.job.Status = config.StatusFailed
 			c.job.Error = fmt.Sprintf("llm completion failed: %v", err)
+			c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, "")
+			c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
+			if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
+				c.logger.Warnf("marshal ai release specialist llm error result failed: %v", err)
+			}
 		}
 		c.ack()
 		return
@@ -209,6 +214,11 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	if err != nil {
 		c.job.Status = config.StatusFailed
 		c.job.Error = fmt.Sprintf("parse llm result failed: %v", err)
+		c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, answer)
+		c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
+		if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
+			c.logger.Warnf("marshal ai release specialist parse error result failed: %v", err)
+		}
 		c.ack()
 		return
 	}
@@ -1739,6 +1749,29 @@ func writeAIReleaseSpecialistOutputs(workflowCtx *commonmodels.WorkflowTaskCtx, 
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_COUNT"), fmt.Sprintf("%d", len(result.Checks)))
 	workflowCtx.GlobalContextSet(runtimejob.GetJobOutputKey(jobKey, "CHECK_DETAILS_MARKDOWN"), result.Markdown)
 	return err
+}
+
+func buildAIReleaseSpecialistLLMErrorResult(errMsg, rawText string) *commonmodels.AIReleaseSpecialistResult {
+	evidence := errMsg
+	if strings.TrimSpace(rawText) != "" {
+		evidence = fmt.Sprintf("%s\n\n模型原始返回：\n%s", errMsg, rawText)
+	}
+
+	result := &commonmodels.AIReleaseSpecialistResult{
+		Conclusion: "fail",
+		Summary:    errMsg,
+		Checks: []*commonmodels.AIReleaseSpecialistCheckItem{
+			{
+				Name:       "模型调用",
+				Result:     "fail",
+				Evidence:   evidence,
+				Suggestion: "请根据模型返回的错误信息处理后重试。",
+			},
+		},
+		RawText: evidence,
+	}
+	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
+	return result
 }
 
 func renderAIReleaseSpecialistResultMarkdown(result *commonmodels.AIReleaseSpecialistResult) string {
