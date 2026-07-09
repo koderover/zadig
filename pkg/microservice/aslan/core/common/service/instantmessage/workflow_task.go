@@ -409,16 +409,6 @@ type TaskWaitNotifyInput struct {
 	StatusTextKeyOverride string
 }
 
-const notifyTypeWaitingApprove = "waiting_approve"
-
-func hasTaskWaitNotifyType(notifyTypes []string, waitStatus config.Status) bool {
-	statusSets := sets.NewString(notifyTypes...)
-	if statusSets.Has(string(waitStatus)) {
-		return true
-	}
-	return waitStatus == config.StatusWaitingApprove && statusSets.Has(notifyTypeWaitingApprove)
-}
-
 func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Status) bool {
 	for _, notify := range notifyCtls {
 		if notify == nil || !notify.Enabled {
@@ -430,7 +420,7 @@ func HasTaskWaitNotifyCtls(notifyCtls []*models.NotifyCtl, waitStatus config.Sta
 			continue
 		}
 
-		if hasTaskWaitNotifyType(notifyToCheck.NotifyTypes, waitStatus) {
+		if sets.NewString(notifyToCheck.NotifyTypes...).Has(string(waitStatus)) {
 			return true
 		}
 	}
@@ -496,7 +486,7 @@ func (w *Service) SendTaskWaitNotifications(input *TaskWaitNotifyInput) error {
 			continue
 		}
 
-		if !hasTaskWaitNotifyType(notify.NotifyTypes, input.WaitStatus) {
+		if !sets.NewString(notify.NotifyTypes...).Has(string(input.WaitStatus)) {
 			continue
 		}
 

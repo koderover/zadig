@@ -209,6 +209,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 			}
 
 			for _, task := range tasks {
+				task.NotifyCtls = job.NotifyCtls
 				taskBytes, _ := json.Marshal(task)
 				taskString := string(taskBytes)
 				for k, v := range globalKeyMap {
