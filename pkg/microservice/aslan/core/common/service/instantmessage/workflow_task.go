@@ -242,7 +242,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 
 	for _, notify := range resp.NotifyCtls {
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if !statusSets.Has(string(config.StatusWaitingApprove)) {
+		if !isTaskWaitingApproveNotifyType(statusSets) {
 			continue
 		}
 		if !notify.Enabled {
@@ -495,7 +495,7 @@ func (w *Service) SendManualApprovalJobNotifications(workflowCtx *models.Workflo
 		TaskCreatorPhone:    workflowCtx.WorkflowTaskCreatorMobile,
 		TaskCreatorEmail:    workflowCtx.WorkflowTaskCreatorEmail,
 		StartTime:           workflowCtx.StartTime.Unix(),
-		Status:              config.StatusManualApproval,
+		Status:              config.StatusWaitingApprove,
 		Stages:              []*models.StageTask{stage},
 		Type:                config.WorkflowTaskTypeWorkflow,
 	}
@@ -504,14 +504,14 @@ func (w *Service) SendManualApprovalJobNotifications(workflowCtx *models.Workflo
 		taskCopy := *taskInColl
 		taskForNotification = &taskCopy
 	}
-	taskForNotification.Status = config.StatusManualApproval
+	taskForNotification.Status = config.StatusWaitingApprove
 
 	notifyCtls = getManualApprovalJobNotifyCtls(taskForNotification, notifyCtls)
 	if len(notifyCtls) == 0 {
 		return nil
 	}
 
-	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusManualApproval, "taskStatusManualApproval")
+	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusWaitingApprove, "taskStatusManualApproval")
 }
 
 func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string) error {
@@ -637,7 +637,7 @@ func getManualApprovalJobNotifyCtls(task *models.WorkflowTask, notifyCtls []*mod
 			log.Errorf("failed to parse notification config for workflow %s task %d: %v", task.WorkflowName, task.TaskID, err)
 			continue
 		}
-		if !sets.NewString(notifyToSend.NotifyTypes...).Has(string(config.StatusManualApproval)) {
+		if !isTaskWaitingApproveNotifyType(sets.NewString(notifyToSend.NotifyTypes...)) {
 			continue
 		}
 
@@ -852,12 +852,20 @@ func HasTaskNotifyCtls(notifyCtls []*models.NotifyCtl, status config.Status) boo
 			continue
 		}
 
-		if sets.NewString(notifyToCheck.NotifyTypes...).Has(string(status)) {
+		statusSets := sets.NewString(notifyToCheck.NotifyTypes...)
+		if status == config.StatusWaitingApprove && isTaskWaitingApproveNotifyType(statusSets) {
+			return true
+		}
+		if statusSets.Has(string(status)) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func isTaskWaitingApproveNotifyType(statusSets sets.String) bool {
+	return statusSets.Has(string(config.StatusWaitingApprove)) || statusSets.Has("waiting_approve")
 }
 
 func isTaskNotifyStatus(status config.Status) bool {
@@ -931,7 +939,11 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 		// Only send notifications for configs that include the trigger status.
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if !statusSets.Has(string(input.Status)) {
+		if input.Status == config.StatusWaitingApprove {
+			if !isTaskWaitingApproveNotifyType(statusSets) {
+				continue
+			}
+		} else if !statusSets.Has(string(input.Status)) {
 			continue
 		}
 
