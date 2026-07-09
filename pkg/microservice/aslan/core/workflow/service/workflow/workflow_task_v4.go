@@ -677,7 +677,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 
-		err = workflowCtrl.Validate(true)
+		err = ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, log)
 		if err != nil {
 			log.Errorf("failed to validate workflow task args, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
