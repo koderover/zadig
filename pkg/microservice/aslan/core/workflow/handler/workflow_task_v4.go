@@ -778,15 +778,8 @@ type HandleJobErrorRequest struct {
 }
 
 func HandleJobError(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
 	args := &HandleJobErrorRequest{}
 
 	data, err := c.GetRawData()
@@ -804,8 +797,7 @@ func HandleJobError(c *gin.Context) {
 		return
 	}
 
-	isSystemAdmin := ctx.Resources != nil && ctx.Resources.IsSystemAdmin
-	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, isSystemAdmin, ctx.Logger)
+	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
