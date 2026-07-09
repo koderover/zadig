@@ -797,7 +797,8 @@ func HandleJobError(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, ctx.Resources.IsSystemAdmin, ctx.Logger)
+	isSystemAdmin := ctx.Resources != nil && ctx.Resources.IsSystemAdmin
+	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, isSystemAdmin, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
