@@ -2475,7 +2475,7 @@ func ApproveStage(workflowName, jobName, userName, userID, comment string, taskI
 	return nil
 }
 
-func HandleJobError(workflowName, jobName, userID, username string, taskID int64, decision workflowtool.JobErrorDecision, logger *zap.SugaredLogger) error {
+func HandleJobError(workflowName, jobName, userID, username string, taskID int64, decision workflowtool.JobErrorDecision, isSystemAdmin bool, logger *zap.SugaredLogger) error {
 	if workflowName == "" || jobName == "" || taskID == 0 {
 		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,jobName: %s", workflowName, taskID, jobName)
 		logger.Error(errMsg)
@@ -2516,12 +2516,14 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
-	_, userMap := util.GeneFlatUsersWithCaller(confirmUsers, userID)
+	if !isSystemAdmin {
+		_, userMap := util.GeneFlatUsersWithCaller(confirmUsers, userID)
 
-	if _, ok := userMap[userID]; !ok {
-		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
-		logger.Error(errMsg)
-		return e.ErrApproveTask.AddDesc(errMsg)
+		if _, ok := userMap[userID]; !ok {
+			errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
+			logger.Error(errMsg)
+			return e.ErrApproveTask.AddDesc(errMsg)
+		}
 	}
 
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
