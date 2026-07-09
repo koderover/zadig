@@ -280,10 +280,14 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 		return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 	}
 
+	return w.UpdateWithWorkflowSettings(latestWorkflowSettings, ticket)
+}
+
+func (w *Workflow) UpdateWithWorkflowSettings(latestWorkflowSettings *commonmodels.WorkflowV4, ticket *commonmodels.ApprovalTicket) error {
 	w.Params = renderParams(latestWorkflowSettings.Params, w.Params)
 
 	newStage := make([]*commonmodels.WorkflowStage, 0)
-	err = util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
+	err := util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
 	if err != nil {
 		return err
 	}

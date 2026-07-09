@@ -370,7 +370,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			}
 			hookPayload.PayloadVars = recipientPayloadVariables
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
-			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
