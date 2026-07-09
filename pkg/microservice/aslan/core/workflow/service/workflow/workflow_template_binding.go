@@ -19,6 +19,8 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -407,10 +409,19 @@ func calculateBindingConflicts(workflow *commonmodels.WorkflowV4, targetVersion 
 		return nil
 	}
 	templatePatches = filterTemplateBindingPatches(templatePatches)
+	targetBase := workflowFromTemplateSnapshot(target.Snapshot, workflow)
+	targetRendered := targetBase
+	for _, deltaPatch := range workflow.TemplateBinding.DeltaPatches {
+		next, err := applySingleJSONPatch(targetRendered, deltaPatch)
+		if err != nil {
+			continue
+		}
+		targetRendered = next
+	}
 	conflicts := make([]*WorkflowTemplateBindingConflict, 0)
 	for _, templatePatch := range templatePatches {
 		for _, deltaPatch := range workflow.TemplateBinding.DeltaPatches {
-			if jsonPatchPathConflict(templatePatch.Path, deltaPatch.Path) {
+			if jsonPatchPathConflict(templatePatch.Path, deltaPatch.Path) && jsonPatchValueConflict(targetBase, targetRendered, templatePatch.Path, deltaPatch.Path) {
 				conflicts = append(conflicts, &WorkflowTemplateBindingConflict{Path: deltaPatch.Path})
 				break
 			}
@@ -572,6 +583,70 @@ func jsonPatchPathConflict(a, b string) bool {
 	a = strings.TrimRight(a, "/")
 	b = strings.TrimRight(b, "/")
 	return strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/")
+}
+
+func jsonPatchValueConflict(base, rendered *commonmodels.WorkflowV4, templatePath, deltaPath string) bool {
+	comparePath := moreSpecificJSONPatchPath(templatePath, deltaPath)
+	baseValue, baseOK := workflowJSONPointerValue(base, comparePath)
+	renderedValue, renderedOK := workflowJSONPointerValue(rendered, comparePath)
+	if baseOK != renderedOK {
+		return true
+	}
+	if !baseOK && !renderedOK {
+		return false
+	}
+	return !reflect.DeepEqual(baseValue, renderedValue)
+}
+
+func moreSpecificJSONPatchPath(a, b string) string {
+	a = strings.TrimRight(a, "/")
+	b = strings.TrimRight(b, "/")
+	if strings.HasPrefix(a, b+"/") {
+		return a
+	}
+	return b
+}
+
+func workflowJSONPointerValue(workflow *commonmodels.WorkflowV4, path string) (interface{}, bool) {
+	workflowBytes, err := json.Marshal(workflow)
+	if err != nil {
+		return nil, false
+	}
+	var data interface{}
+	if err := json.Unmarshal(workflowBytes, &data); err != nil {
+		return nil, false
+	}
+	return jsonPointerValue(data, path)
+}
+
+func jsonPointerValue(data interface{}, path string) (interface{}, bool) {
+	if path == "" {
+		return data, true
+	}
+	if !strings.HasPrefix(path, "/") {
+		return nil, false
+	}
+	current := data
+	for _, part := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
+		part = strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")
+		switch typed := current.(type) {
+		case map[string]interface{}:
+			next, ok := typed[part]
+			if !ok {
+				return nil, false
+			}
+			current = next
+		case []interface{}:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(typed) {
+				return nil, false
+			}
+			current = typed[index]
+		default:
+			return nil, false
+		}
+	}
+	return current, true
 }
 
 func filterTemplateBindingPatches(patches []*commonmodels.JSONPatchOperation) []*commonmodels.JSONPatchOperation {
