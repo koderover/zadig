@@ -127,7 +127,7 @@ type JobTask struct {
 
 	ErrorPolicy   *JobErrorPolicy   `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
 	ExecutePolicy *JobExecutePolicy `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
-	NotifyCtls    []*NotifyCtl      `bson:"notify_ctls"          yaml:"notify_ctls"          json:"notify_ctls"`
+	NotifyCtls    []*NotifyCtl      `bson:"notify_ctls,omitempty" yaml:"notify_ctls,omitempty" json:"notify_ctls,omitempty"`
 	// ErrorHandler is the user ID who did the error handling
 	ErrorHandlerUserID   string `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`

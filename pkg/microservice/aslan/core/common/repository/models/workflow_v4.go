@@ -306,8 +306,8 @@ type Job struct {
 	RunPolicy      config.JobRunPolicy      `bson:"run_policy"           yaml:"run_policy"           json:"run_policy"`
 	ErrorPolicy    *JobErrorPolicy          `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
 	ExecutePolicy  *JobExecutePolicy        `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
-	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"          yaml:"notify_ctls"          json:"notify_ctls"`
 	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                                  json:"service_modules"`
+	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls,omitempty" yaml:"notify_ctls,omitempty" json:"notify_ctls,omitempty"`
 }
 
 type JobErrorPolicy struct {
