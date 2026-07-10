@@ -62,8 +62,8 @@ type CreateApprovalResponse struct {
 	ProcessCode string `json:"processCode"`
 }
 
-func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
-	_, err = c.R().SetBodyJsonMarshal(getRandNameDefaultApprovalFormDefinition()).
+func (c *Client) CreateApproval(formName string) (resp *CreateApprovalResponse, err error) {
+	_, err = c.R().SetBodyJsonMarshal(getRandNameDefaultApprovalFormDefinition(formName)).
 		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/forms")
 	if err != nil && strings.Contains(err.Error(), "已有相同名称表单") {
@@ -72,9 +72,14 @@ func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
 	return
 }
 
-func getRandNameDefaultApprovalFormDefinition() ApprovalFormDefinition {
+func getRandNameDefaultApprovalFormDefinition(formName string) ApprovalFormDefinition {
+	name := DefaultApprovalFormName
+	if formName != "" {
+		name = strings.TrimSpace(formName)
+	}
+
 	return ApprovalFormDefinition{
-		Name:        DefaultApprovalFormName,
+		Name:        name,
 		Description: "用于 Zadig Workflow 审批",
 		FormComponents: []FormComponents{
 			{

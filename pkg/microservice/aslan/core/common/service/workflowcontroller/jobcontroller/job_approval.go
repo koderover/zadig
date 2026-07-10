@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -94,6 +95,47 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	}
 
 	return
+}
+
+func getDingTalkApprovalProcessCode(client *dingtalk.Client, defaultProcessCode, approvalTitle string) (string, error) {
+	formName := strings.TrimSpace(approvalTitle)
+	if formName == "" {
+		formName = dingtalk.DefaultApprovalFormName
+		if defaultProcessCode != "" {
+			return defaultProcessCode, nil
+		}
+	}
+
+	formList, err := client.GetAllApprovalFormDefinitionList()
+	if err != nil {
+		return "", fmt.Errorf("get dingtalk approval form definition list error: %s", err)
+	}
+	for _, form := range formList {
+		if form.Name == formName {
+			return form.ProcessCode, nil
+		}
+	}
+
+	resp, err := client.CreateApproval(formName)
+	if err == dingtalk.ErrApprovalFormNameExists {
+		formList, listErr := client.GetAllApprovalFormDefinitionList()
+		if listErr != nil {
+			return "", fmt.Errorf("get dingtalk approval form definition list after create conflict error: %s", listErr)
+		}
+		for _, form := range formList {
+			if form.Name == formName {
+				return form.ProcessCode, nil
+			}
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("create dingtalk approval form %s error: %s", formName, err)
+	}
+	if resp == nil || resp.ProcessCode == "" {
+		return "", fmt.Errorf("create dingtalk approval form %s returned empty process code", formName)
+	}
+
+	return resp.ProcessCode, nil
 }
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
@@ -174,10 +216,11 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		return config.StatusFailed, fmt.Errorf("get lark im app data error: %s", err)
 	}
 
-	approvalCode := data.LarkApprovalCodeList[approval.GetNodeTypeKey()]
+	approvalNodeTypeKey := approval.GetNodeTypeTitleKey(spec.ApprovalTitle)
+	approvalCode := data.LarkApprovalCodeList[approvalNodeTypeKey]
 	if approvalCode == "" {
-		log.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
-		return config.StatusFailed, fmt.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
+		log.Errorf("failed to find approval code for node type %s", approvalNodeTypeKey)
+		return config.StatusFailed, fmt.Errorf("failed to find approval code for node type %s", approvalNodeTypeKey)
 	}
 
 	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
@@ -346,9 +389,14 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		formContent = spec.ApprovalMessage
 	}
 
+	processCode, err := getDingTalkApprovalProcessCode(client, data.DingTalkDefaultApprovalFormCode, spec.ApprovalTitle)
+	if err != nil {
+		return config.StatusFailed, err
+	}
+
 	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
-		ProcessCode:      data.DingTalkDefaultApprovalFormCode,
+		ProcessCode:      processCode,
 		OriginatorUserID: userID,
 		ApproverNodeList: func() (nodeList []*dingtalk.ApprovalNode) {
 			for _, node := range approval.ApprovalNodes {
@@ -638,6 +686,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	if spec.ApprovalMessage != "" {
 		formContent = spec.ApprovalMessage
 	}
+	approvalTitle := strings.TrimSpace(spec.ApprovalTitle)
 
 	log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 
@@ -656,13 +705,25 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		node.UserID = userIDList
 	}
 
+	summaryList := make([]*workwx.ApprovalSummary, 0)
+	if approvalTitle != "" {
+		summaryList = append(summaryList, &workwx.ApprovalSummary{
+			SummaryInfo: []*workwx.GeneralText{
+				{
+					Text: approvalTitle,
+					Lang: workwx.LanguageCN,
+				},
+			},
+		})
+	}
+
 	instanceID, err := client.CreateApprovalInstance(
 		data.WorkWXApprovalTemplateID,
 		applicant,
 		false,
 		applydata,
 		approval.ApprovalNodes,
-		make([]*workwx.ApprovalSummary, 0),
+		summaryList,
 	)
 	if err != nil {
 		log.Errorf("waitForWorkWXApprove: create instance failed: %v", err)

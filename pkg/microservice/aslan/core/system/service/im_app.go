@@ -75,7 +75,7 @@ func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error
 	}
 
 	if args.DingTalkDefaultApprovalFormCode == "" {
-		resp, err := client.CreateApproval()
+		resp, err := client.CreateApproval(dingtalk.DefaultApprovalFormName)
 		if err != nil {
 			return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create approval form"))
 		}
@@ -157,7 +157,7 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 		}
 	}
 	if args.DingTalkDefaultApprovalFormCode == "" {
-		resp, err := client.CreateApproval()
+		resp, err := client.CreateApproval(dingtalk.DefaultApprovalFormName)
 		if err != nil {
 			return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
 		}
