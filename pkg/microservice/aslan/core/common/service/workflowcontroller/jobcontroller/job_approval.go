@@ -764,25 +764,13 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		node.UserID = userIDList
 	}
 
-	summaryList := make([]*workwx.ApprovalSummary, 0)
-	if approvalTitle != "" {
-		summaryList = append(summaryList, &workwx.ApprovalSummary{
-			SummaryInfo: []*workwx.GeneralText{
-				{
-					Text: approvalTitle,
-					Lang: workwx.LanguageCN,
-				},
-			},
-		})
-	}
-
 	instanceID, err := client.CreateApprovalInstance(
 		templateID,
 		applicant,
 		false,
 		applydata,
 		approval.ApprovalNodes,
-		summaryList,
+		make([]*workwx.ApprovalSummary, 0),
 	)
 	if err != nil {
 		log.Errorf("waitForWorkWXApprove: create instance failed: %v", err)
@@ -815,8 +803,10 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 				continue
 			}
 
-			spec.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
-			ack()
+			if userApprovalResult.ProcessList != nil {
+				spec.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
+				ack()
+			}
 
 			switch userApprovalResult.Status {
 			case workwx.ApprovalStatusApproved:
