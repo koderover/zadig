@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	jenkinsclient "github.com/koderover/zadig/v2/pkg/tool/jenkins"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.uber.org/zap"
 )
@@ -76,9 +77,18 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	job, err := jenkinsClient.GetJob(context.TODO(), c.jobTaskSpec.Job.JobName)
+	job := &jenkins.Job{
+		Jenkins: jenkinsClient,
+		Raw:     new(jenkins.JobResponse),
+		Base:    jenkinsclient.JobPath(c.jobTaskSpec.Job.JobName),
+	}
+	status, err := job.Poll(context.TODO())
 	if err != nil {
 		logError(c.job, fmt.Sprintf("failed to get jenkins job, error is: %s", err), c.logger)
+		return
+	}
+	if status != http.StatusOK {
+		logError(c.job, fmt.Sprintf("failed to get jenkins job, error is: %d", status), c.logger)
 		return
 	}
 
@@ -94,7 +104,7 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	build, err := jenkinsClient.GetBuildFromQueueID(context.TODO(), queueid)
+	build, err := getJenkinsBuildFromQueueID(ctx, jenkinsClient, job, queueid)
 	if err != nil {
 		logError(c.job, fmt.Sprintf("failed to get jenkins build, error is: %s", err), c.logger)
 		return
@@ -136,6 +146,31 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 
 	c.job.Status = config.StatusPassed
 	return
+}
+
+func getJenkinsBuildFromQueueID(ctx context.Context, jenkinsClient *jenkins.Jenkins, job *jenkins.Job, queueID int64) (*jenkins.Build, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	task, err := jenkinsClient.GetQueueItem(ctx, queueID)
+	if err != nil {
+		return nil, err
+	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for task.Raw.Executable.Number == 0 {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			if _, err := task.Poll(ctx); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return job.GetBuild(ctx, task.Raw.Executable.Number)
 }
 
 func (c *JenkinsJobCtl) SaveInfo(ctx context.Context) error {

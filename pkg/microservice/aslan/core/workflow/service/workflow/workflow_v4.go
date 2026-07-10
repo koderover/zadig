@@ -3261,6 +3261,9 @@ func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
 	if err != nil {
 		return nil, errors.Errorf("get jenkins job error: %v", err)
 	}
+	if jobInfo == nil {
+		return nil, errors.Errorf("jenkins job not found: %s", jobName)
+	}
 
 	resp := make([]*JenkinsJobParams, 0)
 	for _, definition := range jobInfo.GetParameters() {

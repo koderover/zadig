@@ -84,11 +84,16 @@ func (j JenkinsJobController) Update(useUserInput bool, ticket *commonmodels.App
 	j.errorPolicy = currJob.ErrorPolicy
 	j.executePolicy = currJob.ExecutePolicy
 
+	if j.jobSpec.ID != "" && currJobSpec.ID != "" && j.jobSpec.ID != currJobSpec.ID {
+		j.jobSpec.Jobs = make([]*commonmodels.JenkinsJobInfo, 0)
+	}
 	j.jobSpec.ID = currJobSpec.ID
+	j.jobSpec.JobOptions = getJenkinsJobOptions(currJobSpec)
+
 	if useUserInput {
 		newJobs := make([]*commonmodels.JenkinsJobInfo, 0)
 		configuredJobMap := make(map[string]*commonmodels.JenkinsJobInfo)
-		for _, option := range currJobSpec.JobOptions {
+		for _, option := range j.jobSpec.JobOptions {
 			configuredJobMap[option.JobName] = option
 		}
 
@@ -110,11 +115,12 @@ func (j JenkinsJobController) Update(useUserInput bool, ticket *commonmodels.App
 }
 
 func (j JenkinsJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+	j.jobSpec.JobOptions = getJenkinsJobOptions(j.jobSpec)
 	return nil
 }
 
 func (j JenkinsJobController) ClearOptions() {
-	return
+	j.jobSpec.JobOptions = make([]*commonmodels.JenkinsJobInfo, 0)
 }
 
 func (j JenkinsJobController) ClearSelection() {
@@ -185,4 +191,12 @@ func (j JenkinsJobController) RenderDynamicVariableOptions(key string, option *R
 
 func (j JenkinsJobController) IsServiceTypeJob() bool {
 	return false
+}
+
+func getJenkinsJobOptions(spec *commonmodels.JenkinsJobSpec) []*commonmodels.JenkinsJobInfo {
+	if len(spec.JobOptions) > 0 {
+		return spec.JobOptions
+	}
+
+	return spec.Jobs
 }
