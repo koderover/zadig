@@ -768,7 +768,8 @@ func isTaskNotifyStatus(status config.Status) bool {
 		config.StatusFailed,
 		config.StatusTimeout,
 		config.StatusCancelled,
-		config.StatusReject:
+		config.StatusReject,
+		config.StatusWaitingApprove:
 		return true
 	default:
 		return false
