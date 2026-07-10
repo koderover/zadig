@@ -104,7 +104,7 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	build, err := getJenkinsBuildFromQueueID(context.TODO(), jenkinsClient, job, queueid)
+	build, err := getJenkinsBuildFromQueueID(ctx, jenkinsClient, job, queueid)
 	if err != nil {
 		logError(c.job, fmt.Sprintf("failed to get jenkins build, error is: %s", err), c.logger)
 		return
@@ -149,14 +149,24 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 }
 
 func getJenkinsBuildFromQueueID(ctx context.Context, jenkinsClient *jenkins.Jenkins, job *jenkins.Job, queueID int64) (*jenkins.Build, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
 	task, err := jenkinsClient.GetQueueItem(ctx, queueID)
 	if err != nil {
 		return nil, err
 	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for task.Raw.Executable.Number == 0 {
-		time.Sleep(time.Second)
-		if _, err := task.Poll(ctx); err != nil {
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			if _, err := task.Poll(ctx); err != nil {
+				return nil, err
+			}
 		}
 	}
 
