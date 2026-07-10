@@ -1296,7 +1296,17 @@ func uniqueReleaseTargetItems(values []*commonmodels.AIReleaseTargetItem) []*com
 		if value == nil {
 			continue
 		}
-		key := strings.TrimSpace(value.JobName) + "|" + strings.TrimSpace(value.JobType) + "|" + strings.TrimSpace(value.EnvName)
+		key := strings.Join([]string{
+			strings.TrimSpace(value.JobName),
+			strings.TrimSpace(value.JobType),
+			strings.TrimSpace(value.Status),
+			strings.TrimSpace(value.EnvName),
+			strings.TrimSpace(value.EnvAlias),
+			fmt.Sprintf("%t", value.Production),
+			strings.Join(uniqueSortedStrings(value.ServiceNames), ","),
+			strings.Join(uniqueSortedStrings(value.ImageVersions), ","),
+			fmt.Sprintf("%d", value.TargetCount),
+		}, "|")
 		if _, ok := seen[key]; ok {
 			continue
 		}
