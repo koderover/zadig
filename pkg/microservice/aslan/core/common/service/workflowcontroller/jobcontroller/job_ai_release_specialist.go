@@ -48,8 +48,10 @@ import (
 )
 
 const (
-	aiReleaseSpecialistMaxPromptTokens  = 12000
-	aiReleaseSpecialistKubeQueryTimeout = 5 * time.Second
+	aiReleaseSpecialistMaxPromptTokens          = 12000
+	aiReleaseSpecialistCompletionMaxTokens      = 8192
+	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
+	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
 
 const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员，负责在人工审批前评估本次发布风险，并给出是否建议继续后续发布动作的结论。
@@ -182,15 +184,11 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	options := []llm.ParamOption{
-		llm.WithTemperature(0.1),
-		llm.WithMaxTokens(3000),
+	answer, err := client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(client, aiReleaseSpecialistCompletionMaxTokens)...)
+	if err == nil && strings.TrimSpace(answer) == "" {
+		c.logger.Warnf("llm completion returned empty response, retry with max tokens %d", aiReleaseSpecialistCompletionRetryMaxTokens)
+		answer, err = client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(client, aiReleaseSpecialistCompletionRetryMaxTokens)...)
 	}
-	if client.GetModel() != "" {
-		options = append(options, llm.WithModel(client.GetModel()))
-	}
-
-	answer, err := client.GetCompletion(jobCtx, prompt, options...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
@@ -203,6 +201,17 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 			if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
 				c.logger.Warnf("marshal ai release specialist llm error result failed: %v", err)
 			}
+		}
+		c.ack()
+		return
+	}
+	if strings.TrimSpace(answer) == "" {
+		c.job.Status = config.StatusFailed
+		c.job.Error = "llm completion returned empty response"
+		c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, "")
+		c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
+		if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
+			c.logger.Warnf("marshal ai release specialist empty llm result failed: %v", err)
 		}
 		c.ack()
 		return
@@ -280,6 +289,17 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+func buildAIReleaseSpecialistCompletionOptions(client llm.ILLM, maxTokens int) []llm.ParamOption {
+	options := []llm.ParamOption{
+		llm.WithTemperature(0.1),
+		llm.WithMaxTokens(maxTokens),
+	}
+	if client != nil && client.GetModel() != "" {
+		options = append(options, llm.WithModel(client.GetModel()))
+	}
+	return options
 }
 
 func (c *AIReleaseSpecialistJobCtl) SaveInfo(ctx context.Context) error {
