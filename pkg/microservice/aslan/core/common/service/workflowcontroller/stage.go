@@ -77,8 +77,12 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 	}
 }
 
-func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve bool) error {
+func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve, allowUnlistedApprover bool) error {
 	approveKey := fmt.Sprintf("%s-%s-%d", workflowName, jobName, taskID)
+	if allowUnlistedApprover {
+		_, err := approvalservice.GlobalApproveMap.DoApprovalAsAdmin(approveKey, userName, userID, comment, approve)
+		return err
+	}
 	_, err := approvalservice.GlobalApproveMap.DoApproval(approveKey, userName, userID, comment, approve)
 	return err
 }

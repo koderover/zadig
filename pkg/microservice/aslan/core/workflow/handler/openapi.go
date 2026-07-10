@@ -421,7 +421,7 @@ func OpenAPIApproveStage(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflowservice.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
+	ctx.RespErr = workflowservice.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, false, ctx.Logger)
 }
 
 func generalRequestValidate(c *gin.Context) (string, int64, error) {
