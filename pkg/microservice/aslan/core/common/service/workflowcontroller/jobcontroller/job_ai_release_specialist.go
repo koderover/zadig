@@ -470,6 +470,11 @@ outer:
 				collector.obsStatuses = append(collector.obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				collector.obsSummaries = append(collector.obsSummaries, buildObservabilitySummaryLine(item))
 				collector.obsItems = append(collector.obsItems, item)
+			default:
+				collector.otherStatuses = append(collector.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+				summary := buildResultSummaryLine(job)
+				collector.otherSummaries = append(collector.otherSummaries, summary)
+				collector.otherItems = append(collector.otherItems, buildReleaseSummaryItem(job, summary))
 			}
 		}
 	}
