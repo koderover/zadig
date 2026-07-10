@@ -1,0 +1,4 @@
+.env
+/hello-agent
+/tmp/
+*.test
