@@ -375,7 +375,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		newSevices = append(newSevices, group)
 	}
 	productInfo.Services = newSevices
-	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production, userName)
 	if err != nil {
 		log.Errorf("UpdateHelmProductServices error: %v", err)
 		return err
@@ -396,7 +396,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		delete(productInfo.ServiceDeployStrategy, commonutil.GetReleaseDeployStrategyKey(prodSvc.ReleaseName))
 	}
 
-	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, userName)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
@@ -508,7 +508,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		newServices = append(newServices, group)
 	}
 	productInfo.Services = newServices
-	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production, userName)
 	if err != nil {
 		err = fmt.Errorf("UpdateHelmProductServices error: %v", err)
 		log.Error(err)
@@ -527,7 +527,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	for _, singleName := range serviceNames {
 		delete(productInfo.ServiceDeployStrategy, singleName)
 	}
-	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, userName)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
@@ -918,7 +918,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
 
-		err := helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production)
+		err := helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production, user)
 		if err != nil {
 			log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productName, envName, err)
 			mongotool.AbortTransaction(session)

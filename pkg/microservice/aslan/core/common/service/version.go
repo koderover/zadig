@@ -568,6 +568,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 				globalKV.RelatedServices = relatedServiceSet.List()
 			}
+			env.UpdateBy = ctx.UserName
 			err = commonrepo.NewProductCollWithSession(session).UpdateGlobalVariable(env)
 			if err != nil {
 				mongotool.AbortTransaction(session)

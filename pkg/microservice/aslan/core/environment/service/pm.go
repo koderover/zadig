@@ -80,6 +80,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
+	exitedProd.UpdateBy = args.UpdateBy
 	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
 		p.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct
@@ -246,6 +247,7 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 					}
 				}
 			}
+			prod.UpdateBy = username
 			if err := commonrepo.NewProductColl().Update(prod); err != nil {
 				log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
 				errList = multierror.Append(errList, err)

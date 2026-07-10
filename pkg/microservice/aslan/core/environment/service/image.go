@@ -186,6 +186,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
 
+		product.UpdateBy = username
 		if err := commonrepo.NewProductCollWithSession(session).Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
 			mongotool.AbortTransaction(session)

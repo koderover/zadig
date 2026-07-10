@@ -209,6 +209,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	}
 
+	productInfo.UpdateBy = deployInfo.UserName
 	err = commonrepo.NewProductCollWithSession(session).Update(productInfo)
 	if err != nil {
 		mongo.AbortTransaction(session)
