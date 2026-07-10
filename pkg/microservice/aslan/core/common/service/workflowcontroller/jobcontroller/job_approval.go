@@ -138,6 +138,61 @@ func getDingTalkApprovalProcessCode(client *dingtalk.Client, defaultProcessCode,
 	return resp.ProcessCode, nil
 }
 
+func getWorkWXApprovalTemplateID(client *workwx.Client, imApp *commonmodels.IMApp, approvalTitle string) (string, error) {
+	approvalTitle = strings.TrimSpace(approvalTitle)
+	if approvalTitle == "" {
+		return imApp.WorkWXApprovalTemplateID, nil
+	}
+
+	if imApp.WorkWXApprovalTemplateIDList == nil {
+		imApp.WorkWXApprovalTemplateIDList = make(map[string]string)
+	}
+	if templateID := imApp.WorkWXApprovalTemplateIDList[approvalTitle]; templateID != "" {
+		return templateID, nil
+	}
+
+	templateName, controls := generateWorkWXApprovalTemplate(approvalTitle)
+	templateID, err := client.CreateApprovalTemplate(templateName, controls)
+	if err != nil {
+		return "", fmt.Errorf("create workwx approval template %s error: %s", approvalTitle, err)
+	}
+
+	imApp.WorkWXApprovalTemplateIDList[approvalTitle] = templateID
+	if err := mongodb.NewIMAppColl().Update(context.Background(), imApp.ID.Hex(), imApp); err != nil {
+		return "", fmt.Errorf("update workwx approval template %s error: %s", approvalTitle, err)
+	}
+
+	return templateID, nil
+}
+
+func generateWorkWXApprovalTemplate(title string) ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
+	templateName := []*workwx.GeneralText{
+		{
+			Text: title,
+			Lang: workwx.LanguageCN,
+		},
+	}
+
+	controls := []*workwx.ApprovalControl{
+		{
+			Property: &workwx.ApprovalControlProperty{
+				Type: config.DefaultWorkWXApprovalControlType,
+				ID:   config.DefaultWorkWXApprovalControlID,
+				Title: []*workwx.GeneralText{
+					{
+						Text: "审批内容",
+						Lang: workwx.LanguageCN,
+					},
+				},
+				Require: 1,
+				UnPrint: 0,
+			},
+		},
+	}
+
+	return templateName, controls
+}
+
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
 	log.Infof("waitForNativeApprove start")
 
@@ -687,6 +742,10 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		formContent = spec.ApprovalMessage
 	}
 	approvalTitle := strings.TrimSpace(spec.ApprovalTitle)
+	templateID, err := getWorkWXApprovalTemplateID(client, data, approvalTitle)
+	if err != nil {
+		return config.StatusFailed, err
+	}
 
 	log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 
@@ -718,7 +777,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}
 
 	instanceID, err := client.CreateApprovalInstance(
-		data.WorkWXApprovalTemplateID,
+		templateID,
 		applicant,
 		false,
 		applydata,
