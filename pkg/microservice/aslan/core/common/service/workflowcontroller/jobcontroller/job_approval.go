@@ -153,28 +153,12 @@ func getWorkWXApprovalTemplateID(client *workwx.Client, imApp *commonmodels.IMAp
 		return templateID, nil
 	}
 
-	templateName, controls := generateWorkWXApprovalTemplate(approvalTitle)
-	templateID, err := client.CreateApprovalTemplate(templateName, controls)
-	if err != nil {
-		return "", fmt.Errorf("create workwx approval template %s error: %s", approvalTitle, err)
-	}
-
-	imApp.WorkWXApprovalTemplateIDList[approvalTitle] = templateID
-	if err := mongodb.NewIMAppColl().Update(context.Background(), imApp.ID.Hex(), imApp); err != nil {
-		return "", fmt.Errorf("update workwx approval template %s error: %s", approvalTitle, err)
-	}
-
-	return templateID, nil
-}
-
-func generateWorkWXApprovalTemplate(title string) ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
 	templateName := []*workwx.GeneralText{
 		{
-			Text: title,
+			Text: approvalTitle,
 			Lang: workwx.LanguageCN,
 		},
 	}
-
 	controls := []*workwx.ApprovalControl{
 		{
 			Property: &workwx.ApprovalControlProperty{
@@ -191,26 +175,17 @@ func generateWorkWXApprovalTemplate(title string) ([]*workwx.GeneralText, []*wor
 			},
 		},
 	}
-
-	return templateName, controls
-}
-
-func workWXApprovalDetailToWebhookMessage(detail *workwx.ApprovalDetail) *workwx.ApprovalWebhookMessage {
-	if detail == nil {
-		return nil
+	templateID, err := client.CreateApprovalTemplate(templateName, controls)
+	if err != nil {
+		return "", fmt.Errorf("create workwx approval template %s error: %s", approvalTitle, err)
 	}
 
-	msg := &workwx.ApprovalWebhookMessage{
-		ID:           detail.ID,
-		TemplateName: detail.TemplateName,
-		TemplateID:   detail.TemplateID,
-		Status:       detail.Status,
-		ApplyTime:    detail.ApplyTime,
+	imApp.WorkWXApprovalTemplateIDList[approvalTitle] = templateID
+	if err := mongodb.NewIMAppColl().Update(context.Background(), imApp.ID.Hex(), imApp); err != nil {
+		return "", fmt.Errorf("update workwx approval template %s error: %s", approvalTitle, err)
 	}
-	msg.Applyer.UserID = detail.Applyer.UserID
-	msg.Applyer.DepartmentID = detail.Applyer.DepartmentID
 
-	return msg
+	return templateID, nil
 }
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
@@ -830,10 +805,18 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 					log.Warnf("failed to get workwx approval detail, error: %s", detailErr)
 					continue
 				}
-				userApprovalResult = workWXApprovalDetailToWebhookMessage(detail)
-				if userApprovalResult == nil {
+				if detail == nil {
 					continue
 				}
+				userApprovalResult = &workwx.ApprovalWebhookMessage{
+					ID:           detail.ID,
+					TemplateName: detail.TemplateName,
+					TemplateID:   detail.TemplateID,
+					Status:       detail.Status,
+					ApplyTime:    detail.ApplyTime,
+				}
+				userApprovalResult.Applyer.UserID = detail.Applyer.UserID
+				userApprovalResult.Applyer.DepartmentID = detail.Applyer.DepartmentID
 			}
 
 			if userApprovalResult.ProcessList != nil {
