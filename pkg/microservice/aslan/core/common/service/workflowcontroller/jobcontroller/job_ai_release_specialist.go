@@ -54,7 +54,8 @@ const (
 	aiReleaseSpecialistMaxPromptTokens          = 12000
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
-	aiReleaseSpecialistRulePlanMaxTokens        = 2048
+	aiReleaseSpecialistRulePlanMaxTokens        = 8192
+	aiReleaseSpecialistRulePlanRetryMaxTokens   = 12000
 	aiReleaseSpecialistRulePlanVersion          = 2
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -315,10 +316,10 @@ func buildAIReleaseSpecialistCompletionOptions(client llm.ILLM, maxTokens int) [
 	return options
 }
 
-func buildAIReleaseSpecialistRulePlanCompletionOptions(client llm.ILLM) []llm.ParamOption {
+func buildAIReleaseSpecialistRulePlanCompletionOptions(client llm.ILLM, maxTokens int) []llm.ParamOption {
 	options := []llm.ParamOption{
 		llm.WithTemperature(0),
-		llm.WithMaxTokens(aiReleaseSpecialistRulePlanMaxTokens),
+		llm.WithMaxTokens(maxTokens),
 	}
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
@@ -2103,9 +2104,16 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 		if err != nil {
 			return nil, fmt.Errorf("get default llm client: %w", err)
 		}
-		answer, err := client.GetCompletion(ctx, buildAIReleaseSpecialistRulePlanPrompt(sourceRule), buildAIReleaseSpecialistRulePlanCompletionOptions(client)...)
+		prompt := buildAIReleaseSpecialistRulePlanPrompt(sourceRule)
+		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanMaxTokens)...)
 		if err != nil {
 			return nil, fmt.Errorf("compile rule plan with llm: %w", err)
+		}
+		if strings.TrimSpace(answer) == "" {
+			answer, err = client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanRetryMaxTokens)...)
+			if err != nil {
+				return nil, fmt.Errorf("compile rule plan with llm: %w", err)
+			}
 		}
 		if strings.TrimSpace(answer) == "" {
 			return nil, fmt.Errorf("compile rule plan with llm: empty response")
