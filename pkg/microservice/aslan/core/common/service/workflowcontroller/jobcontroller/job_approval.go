@@ -52,6 +52,8 @@ type ApprovalJobCtl struct {
 	ack         func()
 }
 
+const workWXApprovalDetailPollInterval = 10 * time.Second
+
 func NewApprovalJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *ApprovalJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskApprovalSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -191,6 +193,24 @@ func generateWorkWXApprovalTemplate(title string) ([]*workwx.GeneralText, []*wor
 	}
 
 	return templateName, controls
+}
+
+func workWXApprovalDetailToWebhookMessage(detail *workwx.ApprovalDetail) *workwx.ApprovalWebhookMessage {
+	if detail == nil {
+		return nil
+	}
+
+	msg := &workwx.ApprovalWebhookMessage{
+		ID:           detail.ID,
+		TemplateName: detail.TemplateName,
+		TemplateID:   detail.TemplateID,
+		Status:       detail.Status,
+		ApplyTime:    detail.ApplyTime,
+	}
+	msg.Applyer.UserID = detail.Applyer.UserID
+	msg.Applyer.DepartmentID = detail.Applyer.DepartmentID
+
+	return msg
 }
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
@@ -789,6 +809,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}()
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
+	nextApprovalDetailQueryTime := time.Now()
 	for {
 		time.Sleep(1 * time.Second)
 		select {
@@ -799,8 +820,20 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		default:
 			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
 			if err != nil {
-				log.Warnf("failed to handle workwx approval event, error: %s", err)
-				continue
+				if time.Now().Before(nextApprovalDetailQueryTime) {
+					continue
+				}
+
+				nextApprovalDetailQueryTime = time.Now().Add(workWXApprovalDetailPollInterval)
+				detail, detailErr := client.GetApprovalDetail(instanceID)
+				if detailErr != nil {
+					log.Warnf("failed to get workwx approval detail, error: %s", detailErr)
+					continue
+				}
+				userApprovalResult = workWXApprovalDetailToWebhookMessage(detail)
+				if userApprovalResult == nil {
+					continue
+				}
 			}
 
 			if userApprovalResult.ProcessList != nil {
@@ -813,8 +846,8 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 				return config.StatusPassed, nil
 			case workwx.ApprovalStatusRejected:
 				return config.StatusReject, errors.New("Approval has been rejected")
-			case workwx.ApprovalStatusDeleted:
-				return config.StatusCancelled, errors.New("Approval has been deleted")
+			case workwx.ApprovalStatusRecant, workwx.ApprovalStatusApprovedThenRecant, workwx.ApprovalStatusDeleted:
+				return config.StatusCancelled, errors.New("Approval has been cancelled")
 			default:
 				continue
 			}
