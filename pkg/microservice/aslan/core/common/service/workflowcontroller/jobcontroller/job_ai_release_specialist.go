@@ -387,6 +387,11 @@ func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context) (*commonmod
 	}
 	c.jobTaskSpec.RulePlan = rulePlan
 	c.ack()
+	if c.job.OriginName != "" {
+		if _, err := commonrepo.NewWorkflowV4Coll().UpdateAIReleaseSpecialistRulePlan(ctx, c.workflowCtx.WorkflowName, c.job.OriginName, c.jobTaskSpec.PromptTemplate, rulePlan); err != nil {
+			c.logger.Warnf("persist ai release specialist rule plan failed: %v", err)
+		}
+	}
 	return rulePlan, nil
 }
 
@@ -1843,7 +1848,7 @@ func ParseAIReleaseSpecialistRulePlan(answer string) (*commonmodels.AIReleaseSpe
 	return response, nil
 }
 
-func CompileAIReleaseSpecialistRulePlans(ctx context.Context, workflow, existingWorkflow *commonmodels.WorkflowV4) error {
+func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodels.WorkflowV4) error {
 	existingPlans := getAIReleaseSpecialistRulePlans(existingWorkflow)
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -1870,11 +1875,7 @@ func CompileAIReleaseSpecialistRulePlans(ctx context.Context, workflow, existing
 				continue
 			}
 
-			rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, sourceRule)
-			if err != nil {
-				return fmt.Errorf("compile ai release specialist job %s rule plan: %w", job.Name, err)
-			}
-			spec.RulePlan = rulePlan
+			spec.RulePlan = nil
 			job.Spec = spec
 		}
 	}
