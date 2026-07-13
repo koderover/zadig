@@ -610,11 +610,12 @@ func newAIReleaseSpecialistRulePlanFilter(rulePlan *commonmodels.AIReleaseSpecia
 			dimensionScopes = &aiReleaseSpecialistDimensionScopes{}
 			filter.dimensions[dimension] = dimensionScopes
 		}
-		if !hasAIReleaseSpecialistRuleScope(rule.Scope) {
-			dimensionScopes.unrestricted = true
-			continue
+		if hasAIReleaseSpecialistRuleScope(rule.Scope) {
+			dimensionScopes.scopes = append(dimensionScopes.scopes, rule.Scope)
 		}
-		dimensionScopes.scopes = append(dimensionScopes.scopes, rule.Scope)
+	}
+	for _, dimensionScopes := range filter.dimensions {
+		dimensionScopes.unrestricted = len(dimensionScopes.scopes) == 0
 	}
 	for _, contextName := range rulePlan.Contexts {
 		if _, ok := filter.dimensions[contextName]; !ok {
