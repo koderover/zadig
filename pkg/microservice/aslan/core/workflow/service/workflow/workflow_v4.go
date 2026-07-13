@@ -96,6 +96,9 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := workflowController.Validate(false); err != nil {
 		return err
 	}
+	if err := runtimeJobController.CompileAIReleaseSpecialistRulePlans(context.Background(), workflow, nil); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
 
 	workflow.CreatedBy = user
 	workflow.UpdatedBy = user
@@ -267,6 +270,9 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	workflowController := controller.CreateWorkflowController(inputWorkflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
+	}
+	if err := runtimeJobController.CompileAIReleaseSpecialistRulePlans(context.Background(), inputWorkflow, workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
 	inputWorkflow.UpdatedBy = user

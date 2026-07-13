@@ -100,6 +100,7 @@ func (j AIReleaseSpecialistJobController) Update(useUserInput bool, ticket *comm
 	j.executePolicy = currJob.ExecutePolicy
 	j.jobSpec.Timeout = currJobSpec.Timeout
 	j.jobSpec.PromptTemplate = currJobSpec.PromptTemplate
+	j.jobSpec.RulePlan = currJobSpec.RulePlan
 	j.jobSpec.RequireManualConfirm = currJobSpec.RequireManualConfirm
 	j.jobSpec.ConfirmUsers = currJobSpec.ConfirmUsers
 	j.jobSpec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(currJobSpec.SystemPrompt)
@@ -119,6 +120,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 	spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{
 		Timeout:              timeout,
 		PromptTemplate:       j.jobSpec.PromptTemplate,
+		RulePlan:             j.jobSpec.RulePlan,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
 		SystemPrompt:         runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(j.jobSpec.SystemPrompt),

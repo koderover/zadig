@@ -704,16 +704,17 @@ type JobTaskApprovalSpec struct {
 }
 
 type JobTaskAIReleaseSpecialistSpec struct {
-	Timeout              int64                      `bson:"timeout" json:"timeout" yaml:"timeout"`
-	PromptTemplate       string                     `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
-	RequireManualConfirm bool                       `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
-	ConfirmUsers         []*User                    `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
-	NotificationSent     bool                       `bson:"notification_sent,omitempty" json:"notification_sent,omitempty" yaml:"notification_sent,omitempty"`
-	SystemPrompt         string                     `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
-	NativeApproval       *NativeApproval            `bson:"native_approval,omitempty" json:"native_approval,omitempty" yaml:"native_approval,omitempty"`
-	Input                *AIReleaseSpecialistInput  `bson:"input,omitempty" json:"input,omitempty" yaml:"input,omitempty"`
-	Result               *AIReleaseSpecialistResult `bson:"result,omitempty" json:"result,omitempty" yaml:"result,omitempty"`
-	ChangeSummaryText    string                     `bson:"change_summary_text,omitempty" json:"change_summary_text,omitempty" yaml:"change_summary_text,omitempty"`
+	Timeout              int64                        `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string                       `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RulePlan             *AIReleaseSpecialistRulePlan `bson:"rule_plan,omitempty" json:"rule_plan,omitempty" yaml:"rule_plan,omitempty"`
+	RequireManualConfirm bool                         `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User                      `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	NotificationSent     bool                         `bson:"notification_sent,omitempty" json:"notification_sent,omitempty" yaml:"notification_sent,omitempty"`
+	SystemPrompt         string                       `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+	NativeApproval       *NativeApproval              `bson:"native_approval,omitempty" json:"native_approval,omitempty" yaml:"native_approval,omitempty"`
+	Input                *AIReleaseSpecialistInput    `bson:"input,omitempty" json:"input,omitempty" yaml:"input,omitempty"`
+	Result               *AIReleaseSpecialistResult   `bson:"result,omitempty" json:"result,omitempty" yaml:"result,omitempty"`
+	ChangeSummaryText    string                       `bson:"change_summary_text,omitempty" json:"change_summary_text,omitempty" yaml:"change_summary_text,omitempty"`
 }
 
 type AIReleaseSpecialistInput struct {
