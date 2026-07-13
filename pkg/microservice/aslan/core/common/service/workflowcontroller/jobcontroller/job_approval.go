@@ -52,8 +52,6 @@ type ApprovalJobCtl struct {
 	ack         func()
 }
 
-const workWXApprovalDetailPollInterval = 10 * time.Second
-
 func NewApprovalJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *ApprovalJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskApprovalSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -784,7 +782,6 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}()
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
-	nextApprovalDetailQueryTime := time.Now()
 	for {
 		time.Sleep(1 * time.Second)
 		select {
@@ -793,38 +790,16 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
-			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
+			detail, err := client.GetApprovalDetail(instanceID)
 			if err != nil {
-				if time.Now().Before(nextApprovalDetailQueryTime) {
-					continue
-				}
-
-				nextApprovalDetailQueryTime = time.Now().Add(workWXApprovalDetailPollInterval)
-				detail, detailErr := client.GetApprovalDetail(instanceID)
-				if detailErr != nil {
-					log.Warnf("failed to get workwx approval detail, error: %s", detailErr)
-					continue
-				}
-				if detail == nil {
-					continue
-				}
-				userApprovalResult = &workwx.ApprovalWebhookMessage{
-					ID:           detail.ID,
-					TemplateName: detail.TemplateName,
-					TemplateID:   detail.TemplateID,
-					Status:       detail.Status,
-					ApplyTime:    detail.ApplyTime,
-				}
-				userApprovalResult.Applyer.UserID = detail.Applyer.UserID
-				userApprovalResult.Applyer.DepartmentID = detail.Applyer.DepartmentID
+				log.Warnf("failed to get workwx approval detail, error: %s", err)
+				continue
+			}
+			if detail == nil {
+				continue
 			}
 
-			if userApprovalResult.ProcessList != nil {
-				spec.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
-				ack()
-			}
-
-			switch userApprovalResult.Status {
+			switch detail.Status {
 			case workwx.ApprovalStatusApproved:
 				return config.StatusPassed, nil
 			case workwx.ApprovalStatusRejected:
