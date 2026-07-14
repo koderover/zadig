@@ -257,7 +257,7 @@ type DistributeImageJobSpec struct {
 
 // GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, log)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
