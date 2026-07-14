@@ -860,63 +860,18 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
-	if status == config.StatusPassed {
-		jobLogManager := joblog.NewJobLogManager(jobLogCtx)
-		ownerUIDs := make(map[string]bool)
-		for _, resource := range c.jobTaskSpec.ReplaceResources {
-			if resource.PodOwnerUID != "" {
-				ownerUIDs[resource.PodOwnerUID] = true
-			}
-		}
-
-		podUIDs := make(map[string]bool)
-		runningPods := 0
-		totalPods := 0
-		countErr := false
-		for _, label := range c.jobTaskSpec.RelatedPodLabels {
-			if len(label) == 0 {
-				continue
-			}
-			selector := labels.Set(label).AsSelector()
-			pods, err := getter.ListPods(c.namespace, selector, c.kubeClient)
-			if err != nil {
-				jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get running pod count: %v", err))
-				countErr = true
-				break
-			}
-			for _, pod := range pods {
-				if len(ownerUIDs) > 0 {
-					ownerMatched := false
-					for _, owner := range pod.OwnerReferences {
-						if ownerUIDs[string(owner.UID)] {
-							ownerMatched = true
-							break
-						}
-					}
-					if !ownerMatched {
-						continue
-					}
-				}
-				if podUIDs[string(pod.UID)] {
-					continue
-				}
-				podUIDs[string(pod.UID)] = true
-				totalPods++
-				if pod.Status.Phase == corev1.PodRunning {
-					runningPods++
-				}
-			}
-		}
-		if !countErr {
-			jobLogManager.SaveJobLog(fmt.Sprintf("Running pods: %d/%d", runningPods, totalPods))
-		}
-	}
 	c.job.Status = status
 }
 
 func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, jobLogCtx *joblog.JobLogContext, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
 	jobLogManager := joblog.NewJobLogManager(jobLogCtx)
 	jobLogManager.SaveJobLog("Checking workloads' pod status ...")
+	ownerUIDs := make(map[string]bool)
+	for _, resource := range replaceResources {
+		if resource.PodOwnerUID != "" {
+			ownerUIDs[resource.PodOwnerUID] = true
+		}
+	}
 
 	for {
 		select {
@@ -955,6 +910,48 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 			return config.StatusTimeout, nil
 		default:
 			time.Sleep(time.Second * 2)
+			podUIDs := make(map[string]bool)
+			runningPods := 0
+			totalPods := 0
+			countErr := false
+			for _, label := range relatedPodLabels {
+				if len(label) == 0 {
+					continue
+				}
+				selector := labels.Set(label).AsSelector()
+				pods, err := getter.ListPods(namespace, selector, kubeClient)
+				if err != nil {
+					jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get running pod count: %v", err))
+					countErr = true
+					break
+				}
+				for _, pod := range pods {
+					if len(ownerUIDs) > 0 {
+						ownerMatched := false
+						for _, owner := range pod.OwnerReferences {
+							if ownerUIDs[string(owner.UID)] {
+								ownerMatched = true
+								break
+							}
+						}
+						if !ownerMatched {
+							continue
+						}
+					}
+					if podUIDs[string(pod.UID)] {
+						continue
+					}
+					podUIDs[string(pod.UID)] = true
+					totalPods++
+					if pod.Status.Phase == corev1.PodRunning {
+						runningPods++
+					}
+				}
+			}
+			if !countErr {
+				jobLogManager.SaveJobLog(fmt.Sprintf("Running pods: %d/%d", runningPods, totalPods))
+			}
+
 			ready := true
 			var err error
 		L:
