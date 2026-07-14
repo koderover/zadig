@@ -79,8 +79,7 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 
 判断约束：
 - 你只能依据输入的发布上下文做判断，不要虚构 PR 正文、代码 diff、日志全文、监控告警、集群实时状态或人工结论。
-- 如果关键信息缺失，应明确指出缺失项，并优先给出 warning，而不是假设一切正常。
-- 如果 release_targets 缺失，表示当前输入中没有提供部署目标信息；不要单独输出“发布目标”检查项，也不要把它作为 fail 的唯一依据。必要时只在 summary 或其他检查项依据里简要说明“本次结论未覆盖部署目标维度”。
+- 上下文缺失时，仅当缺失内容直接影响已配置检查项的判断，才在对应 evidence 中简短说明；不要在 summary 中罗列本次未提供的上下文，也不要因为缺失本身给出 warning。
 - 如果代码扫描或测试结果出现明确失败、超时、取消、错误摘要，或结构化指标显示质量门禁/通过率不满足额外关注点要求，通常应给出 fail。
 - 如果发布目标中明确标记为生产环境，应使用更严格的风险判断标准；如果输入里没有给出生产发布目标，不要自行推断。
 - remark、branch、tag、commit message 只能作为风险线索，不要据此臆测未提供的实现细节。
@@ -100,6 +99,10 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
     }
   ]
 }`
+
+const aiReleaseSpecialistOutputConstraints = `输出补充约束：
+- summary 只写基于实际提供上下文的判断，不要输出“本次输入未提供”这类缺失上下文清单，不要罗列代码扫描、构建、测试、审批、部署目标等未提供项。
+- 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。`
 
 type AIReleaseSpecialistPromptDebugResult struct {
 	SystemPrompt   string
@@ -1970,7 +1973,7 @@ func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
 	if systemPrompt == "" {
 		systemPrompt = defaultAIReleaseSpecialistSystemPrompt
 	}
-	return systemPrompt
+	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints)
 }
 
 func getAIReleaseSpecialistPromptTokens(prompt string) int {
