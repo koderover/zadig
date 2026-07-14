@@ -71,6 +71,8 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 其他任务摘要：如果 other_task_summary 存在，表示工作流中当前 AI 节点之前 VM 部署、自定义任务等的执行状态；items 中的 details 字段可能包含 service_name、service_module、infrastructure、vm_labels、step_types 等信息。
 - 监控告警：如果 observability_summary 存在，表示工作流中已有 Grafana 或观测云检查任务的执行结果；这不是全量监控平台告警，只能依据其中的任务状态、检查项状态、级别和链接判断。
 - 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；pod_status、ready、pod_count、ready_pods 是从 Kubernetes workload 关联 Pod 查询到的就绪信号，可用于判断目标服务是否明显异常；这不代表实时 CPU、内存、磁盘或业务日志。
+- 运行时副本数语义：runtime_services.items 中的 pod_count 和 ready_pods 是按 env_name、service_name 记录的当前实际 Pod 数，不同环境的副本数允许不同，不能跨环境比较。
+- workloads[].replicas 仅表示对应工作负载的配置副本数；当评估规则未明确要求检查目标副本数时，不能仅因为 ready_pods != workloads[].replicas 给出 warning；service_ready 应根据同一环境、同一服务的 ready、pod_count 和 ready_pods 判断。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
 - 部署类任务：表示工作流中已配置的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设未提供的发布动作。
 - 如果输入中带有 sources 或 items 字段，这些字段表示对应上下文来自哪个上游任务；应优先结合其中的 job_name、job_type、status、summary 判断每条信息的来源和含义。
@@ -1387,7 +1389,6 @@ func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmod
 		item.Workloads = append(item.Workloads, &commonmodels.AIRuntimeWorkload{
 			WorkloadType: workload.WorkloadType,
 			WorkloadName: workload.WorkloadName,
-			Replicas:     workload.Replicas,
 		})
 	}
 	for _, resource := range service.Resources {
