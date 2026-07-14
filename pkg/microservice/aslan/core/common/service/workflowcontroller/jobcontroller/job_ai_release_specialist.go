@@ -102,7 +102,8 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 
 const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - summary 只写基于实际提供上下文的判断，不要输出“本次输入未提供”这类缺失上下文清单，不要罗列代码扫描、构建、测试、审批、部署目标等未提供项。
-- 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。`
+- 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
+- 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的 pod_count 和 ready_pods，不能只写“Pod 已就绪”或“数量一致”。`
 
 type AIReleaseSpecialistPromptDebugResult struct {
 	SystemPrompt   string
