@@ -170,6 +170,36 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 	VariableYaml util.KVInput `json:"variable_yaml"`
 }
 
+type OpenAPILoadServiceFromCodeHostReq struct {
+	CodehostID   int               `json:"-"`
+	RepoName     string            `json:"-"`
+	RepoUUID     string            `json:"-"`
+	BranchName   string            `json:"-"`
+	RemoteName   string            `json:"-"`
+	RepoOwner    string            `json:"-"`
+	Namespace    string            `json:"-"`
+	Production   bool              `json:"-"`
+	Type         string            `json:"type"`
+	ProductName  string            `json:"product_name"`
+	ServicePaths []LoadServicePath `json:"service_paths"`
+}
+
+func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
+	if req.RepoName == "" && req.RepoUUID == "" {
+		return fmt.Errorf("repoName and repoUUID cannot be empty at the same time")
+	}
+	if req.ProductName == "" {
+		return fmt.Errorf("product name cannot be empty")
+	}
+	if req.Type == "" {
+		return fmt.Errorf("type cannot be empty")
+	}
+	if len(req.ServicePaths) == 0 {
+		return fmt.Errorf("service paths cannot be empty")
+	}
+	return nil
+}
+
 type OpenAPIUpdateServiceConfigArgs struct {
 	ProjectName string `json:"project_name" `
 	ServiceName string `json:"service_name"`

@@ -38,6 +38,21 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, req.Production, logger)
 }
 
+func OpenAPILoadServiceFromCodeHost(username string, req *OpenAPILoadServiceFromCodeHostReq, logger *zap.SugaredLogger) error {
+	namespace := req.Namespace
+	if namespace == "" {
+		namespace = req.RepoOwner
+	}
+
+	loadArgs := &LoadServiceReq{
+		Type:         req.Type,
+		ProductName:  req.ProductName,
+		ServicePaths: req.ServicePaths,
+	}
+
+	return LoadServiceFromCodeHost(username, req.CodehostID, req.RepoOwner, namespace, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, loadArgs, false, false, req.Production, logger)
+}
+
 func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
 	createArgs := &commonmodels.Service{
 		ServiceName:        req.ServiceName,
@@ -295,6 +310,12 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 	}
 
 	return resp, nil
+}
+
+func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, args *HelmServiceCreationArgs) (*BulkHelmServiceCreationResponse, error) {
+	args.CreatedBy = ctx.UserName
+	args.RequestID = ctx.RequestID
+	return CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
 }
 
 func OpenAPILoadHelmServiceFromTemplate(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceFromTemplateReq) error {
