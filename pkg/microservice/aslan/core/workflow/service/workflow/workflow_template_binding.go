@@ -25,7 +25,6 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	jsonpatchdiff "gomodules.xyz/jsonpatch/v2"
 
@@ -79,45 +78,11 @@ type UnbindWorkflowTemplateBindingRequest struct {
 	SnapshotVersion string `json:"snapshot_version"`
 }
 
-func EnsureWorkflowTemplateVersion(templateID, user string) (*commonmodels.WorkflowV4TemplateVersion, error) {
-	template, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{ID: templateID})
-	if err != nil {
-		return nil, err
-	}
-	if template.LatestVersion > 0 && template.LatestVersionID != "" {
-		version, err := commonrepo.NewWorkflowV4TemplateVersionColl().Find(&commonrepo.WorkflowTemplateVersionQueryOption{
-			VersionID: template.LatestVersionID,
-		})
-		if err == nil {
-			return version, nil
-		}
-		if err != mongo.ErrNoDocuments {
-			return nil, err
-		}
-	}
-	version, err := commonrepo.NewWorkflowV4TemplateVersionColl().CreateNext(template, user)
-	if err != nil {
-		return nil, err
-	}
-	template.LatestVersion = version.Version
-	template.LatestVersionID = version.ID.Hex()
-	if err := commonrepo.NewWorkflowV4TemplateColl().UpdateVersionInfo(template.ID, version.Version, version.ID.Hex()); err != nil {
-		return nil, err
-	}
-	return version, nil
-}
-
 func ListWorkflowTemplateVersions(templateID string) ([]*commonmodels.WorkflowV4TemplateVersion, error) {
-	if _, err := EnsureWorkflowTemplateVersion(templateID, ""); err != nil {
-		return nil, err
-	}
 	return commonrepo.NewWorkflowV4TemplateVersionColl().List(templateID)
 }
 
 func DiffWorkflowTemplateVersions(templateID string, fromVersion, toVersion int) ([]*commonmodels.JSONPatchOperation, error) {
-	if _, err := EnsureWorkflowTemplateVersion(templateID, ""); err != nil {
-		return nil, err
-	}
 	from, err := commonrepo.NewWorkflowV4TemplateVersionColl().Find(&commonrepo.WorkflowTemplateVersionQueryOption{
 		TemplateID: templateID,
 		Version:    fromVersion,
@@ -170,7 +135,7 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 		return nil
 	}
 
-	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion, user)
+	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
 	if err != nil {
 		return err
 	}
@@ -451,12 +416,9 @@ func validateWorkflowDeltaPatches(workflow *commonmodels.WorkflowV4, targetVersi
 	return invalidPatches
 }
 
-func getTemplateAndVersionForBinding(templateID string, version int, user string) (*commonmodels.WorkflowV4Template, *commonmodels.WorkflowV4TemplateVersion, error) {
+func getTemplateAndVersionForBinding(templateID string, version int) (*commonmodels.WorkflowV4Template, *commonmodels.WorkflowV4TemplateVersion, error) {
 	template, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{ID: templateID})
 	if err != nil {
-		return nil, nil, err
-	}
-	if _, err := EnsureWorkflowTemplateVersion(template.ID.Hex(), user); err != nil {
 		return nil, nil, err
 	}
 	versionModel, err := getTemplateVersion(template.ID.Hex(), version)
@@ -474,12 +436,6 @@ func getTemplateVersion(templateID string, version int) (*commonmodels.WorkflowV
 		})
 	}
 	latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(templateID)
-	if err == mongo.ErrNoDocuments {
-		if _, ensureErr := EnsureWorkflowTemplateVersion(templateID, ""); ensureErr != nil {
-			return nil, ensureErr
-		}
-		return commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(templateID)
-	}
 	return latest, err
 }
 
