@@ -919,7 +919,6 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 					if d.Spec.Replicas != nil {
 						totalPods += int(*d.Spec.Replicas)
 					}
-					readyPods += int(d.Status.AvailableReplicas)
 				case setting.DaemonSet:
 					daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
@@ -928,7 +927,6 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break
 					}
 					totalPods += int(daemonSet.Status.DesiredNumberScheduled)
-					readyPods += int(daemonSet.Status.NumberReady)
 				case setting.StatefulSet:
 					sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
@@ -939,9 +937,36 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 					if sts.Spec.Replicas != nil {
 						totalPods += int(*sts.Spec.Replicas)
 					}
-					readyPods += int(sts.Status.ReadyReplicas)
 				default:
 					continue
+				}
+				if countErr {
+					break
+				}
+				podUIDs := make(map[string]bool)
+				for _, label := range relatedPodLabels {
+					if len(label) == 0 {
+						continue
+					}
+					selector := labels.Set(label).AsSelector()
+					pods, err := getter.ListPods(namespace, selector, kubeClient)
+					if err != nil {
+						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready replica count: %v", err))
+						countErr = true
+						break
+					}
+					for _, pod := range pods {
+						if !wrapper.Pod(pod).IsOwnerMatched(resource.PodOwnerUID) {
+							continue
+						}
+						if podUIDs[string(pod.UID)] {
+							continue
+						}
+						podUIDs[string(pod.UID)] = true
+						if wrapper.Pod(pod).Ready() {
+							readyPods++
+						}
+					}
 				}
 				if countErr {
 					break
