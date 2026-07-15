@@ -802,6 +802,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 	// Override the task status for notification rendering so the template engine
 	// picks up the correct status text and colour.
+	stageForNotification := findTaskNotifyStage(task.Stages, input.Job)
 	taskCopy := *task
 	taskCopy.Status = input.Status
 	if input.Job != nil {
@@ -845,9 +846,9 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 		// mutating the original.
 		notifyToSend := *notify
 
-		// Resolve feishu_person targets (e.g. IsExecutor → task creator).
+		// Resolve feishu_person targets (e.g. executor placeholders).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
-			resolvedTargets, err := w.resolveTaskNotifyLarkTargets(task, notify)
+			resolvedTargets, err := w.resolveTaskNotifyLarkTargets(task, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -861,9 +862,9 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 			}
 		}
 
-		// Resolve mail targets (e.g. UserTypeTaskCreator → task creator, UserTypeGroup → expand).
+		// Resolve mail targets (e.g. executor placeholders and user groups).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeMail && notifyToSend.MailNotificationConfig != nil {
-			resolvedUsers, err := w.resolveTaskNotifyMailUsers(task, notify)
+			resolvedUsers, err := w.resolveTaskNotifyMailUsers(task, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -891,9 +892,9 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 }
 
 // resolveTaskNotifyLarkTargets resolves feishu_person notification targets for a task-level
-// notification. It handles the IsExecutor flag by resolving it to the task creator's
-// lark user ID. Direct user IDs are passed through unchanged.
-func (w *Service) resolveTaskNotifyLarkTargets(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
+// notification. It resolves workflow and stage executor placeholders to lark user IDs.
+// Direct user IDs are passed through unchanged.
+func (w *Service) resolveTaskNotifyLarkTargets(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
 	if notify == nil || notify.LarkPersonNotificationConfig == nil || notify.LarkPersonNotificationConfig.AppID == "" {
 		return nil, nil
 	}
@@ -909,6 +910,25 @@ func (w *Service) resolveTaskNotifyLarkTargets(task *models.WorkflowTask, notify
 
 	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 		if target == nil {
+			continue
+		}
+
+		if target.IsStageExecutor {
+			userID, userName, err := getTaskNotifyStageExecutor(stage)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
+			resolvedTarget, _, err := w.resolveManualExecStageLarkTargetFromUser(client, userID, userName)
+			if err != nil {
+				respErr = multierror.Append(respErr, fmt.Errorf("resolve stage executor %s: %w", userID, err))
+				continue
+			}
+			if !targetSet.Has(resolvedTarget.ID) {
+				resolvedTarget.IsStageExecutor = true
+				targets = append(targets, resolvedTarget)
+				targetSet.Insert(resolvedTarget.ID)
+			}
 			continue
 		}
 
@@ -974,10 +994,9 @@ func (w *Service) resolveTaskNotifyLarkTargets(task *models.WorkflowTask, notify
 	return targets, respErr.ErrorOrNil()
 }
 
-// resolveTaskNotifyMailUsers resolves mail notification targets for a task-level
-// notification. It handles UserTypeTaskCreator by resolving it to the task creator's
-// user info, and expands UserTypeGroup via GeneFlatUsersWithCaller.
-func (w *Service) resolveTaskNotifyMailUsers(task *models.WorkflowTask, notify *models.NotifyCtl) ([]*models.User, error) {
+// resolveTaskNotifyMailUsers resolves executor placeholders and expands user groups
+// for a task-level mail notification.
+func (w *Service) resolveTaskNotifyMailUsers(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*models.User, error) {
 	if notify == nil || notify.MailNotificationConfig == nil {
 		return nil, nil
 	}
@@ -986,6 +1005,18 @@ func (w *Service) resolveTaskNotifyMailUsers(task *models.WorkflowTask, notify *
 	taskCreatorResolved := false
 	for _, user := range notify.MailNotificationConfig.TargetUsers {
 		if user == nil {
+			continue
+		}
+		if user.Type == setting.UserTypeStageExecutor {
+			userID, userName, err := getTaskNotifyStageExecutor(stage)
+			if err != nil {
+				return nil, err
+			}
+			usersToExpand = append(usersToExpand, &models.User{
+				Type:     setting.UserTypeUser,
+				UserID:   userID,
+				UserName: userName,
+			})
 			continue
 		}
 		if user.Type == setting.UserTypeTaskCreator {
@@ -1022,6 +1053,36 @@ func (w *Service) resolveTaskNotifyMailUsers(task *models.WorkflowTask, notify *
 
 	users, _ := commonutil.GeneFlatUsers(usersToExpand)
 	return users, nil
+}
+
+func findTaskNotifyStage(stages []*models.StageTask, job *models.JobTask) *models.StageTask {
+	if job == nil {
+		return nil
+	}
+	for _, stage := range stages {
+		if stage == nil {
+			continue
+		}
+		for _, stageJob := range stage.Jobs {
+			if stageJob == nil {
+				continue
+			}
+			if job.Name != "" && stageJob.Name == job.Name {
+				return stage
+			}
+			if job.Key != "" && stageJob.Key == job.Key {
+				return stage
+			}
+		}
+	}
+	return nil
+}
+
+func getTaskNotifyStageExecutor(stage *models.StageTask) (string, string, error) {
+	if stage == nil || stage.ManualExec == nil || stage.ManualExec.ManualExectorID == "" {
+		return "", "", fmt.Errorf("stage executor is empty, cannot send message")
+	}
+	return stage.ManualExec.ManualExectorID, stage.ManualExec.ManualExectorName, nil
 }
 
 func (w *Service) resolveManualExecStageLarkTargetFromUser(client *lark.Client, userID, userName string) (*lark.UserInfo, string, error) {
