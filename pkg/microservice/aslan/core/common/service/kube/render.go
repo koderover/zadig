@@ -18,6 +18,7 @@ package kube
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -948,6 +949,11 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
+
+	log.Debugf("fullRenderedYaml: %s", fullRenderedYaml)
+	mergedContainersJson, _ := json.Marshal(mergedContainers)
+	log.Debugf("mergedContainers: %s", string(mergedContainersJson))
+
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
