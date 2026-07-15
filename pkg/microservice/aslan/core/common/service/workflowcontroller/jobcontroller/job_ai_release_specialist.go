@@ -54,8 +54,8 @@ const (
 	aiReleaseSpecialistMaxPromptTokens          = 12000
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
-	aiReleaseSpecialistRulePlanMaxTokens        = 8192
-	aiReleaseSpecialistRulePlanMaxRetries       = 2
+	aiReleaseSpecialistRulePlanMaxTokens        = 64 * 1024
+	aiReleaseSpecialistRulePlanRequestTimeout   = 10 * time.Minute
 	aiReleaseSpecialistRulePlanVersion          = 2
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -330,6 +330,7 @@ func buildAIReleaseSpecialistRulePlanCompletionOptions(client llm.ILLM, maxToken
 		llm.WithMaxTokens(maxTokens),
 		llm.WithReasoningEffort(llm.ReasoningEffortLow),
 		llm.WithErrorOnMaxTokens(),
+		llm.WithRequestTimeout(aiReleaseSpecialistRulePlanRequestTimeout),
 	}
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
@@ -2155,26 +2156,9 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 			return nil, fmt.Errorf("get default llm client: %w", err)
 		}
 		prompt := buildAIReleaseSpecialistRulePlanPrompt(sourceRule)
-		maxTokens := aiReleaseSpecialistRulePlanMaxTokens
-		var answer string
-		for attempt := 0; attempt <= aiReleaseSpecialistRulePlanMaxRetries; attempt++ {
-			answer, err = client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, maxTokens)...)
-			if err == nil {
-				break
-			}
-			if !errors.Is(err, llm.ErrMaxTokensExceeded) {
-				return nil, fmt.Errorf("compile rule plan with llm: %w", err)
-			}
-			if strings.TrimSpace(answer) != "" {
-				if rulePlan, parseErr := ParseAIReleaseSpecialistRulePlan(answer); parseErr == nil {
-					rulePlan.SourceRule = sourceRule
-					return rulePlan, nil
-				}
-			}
-			if attempt == aiReleaseSpecialistRulePlanMaxRetries {
-				return nil, fmt.Errorf("compile rule plan with llm: %w", err)
-			}
-			maxTokens *= 2
+		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanMaxTokens)...)
+		if err != nil {
+			return nil, fmt.Errorf("compile rule plan with llm: %w", err)
 		}
 		if strings.TrimSpace(answer) == "" {
 			return nil, fmt.Errorf("compile rule plan with llm: empty response")

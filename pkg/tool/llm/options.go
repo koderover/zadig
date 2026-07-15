@@ -1,6 +1,9 @@
 package llm
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var ErrMaxTokensExceeded = errors.New("llm completion reached max tokens")
 
@@ -25,6 +28,8 @@ type ParamOptions struct {
 	ReasoningEffort ReasoningEffort `json:"reasoning_effort"`
 	// ErrorOnMaxTokens returns ErrMaxTokensExceeded when generation reaches its token limit.
 	ErrorOnMaxTokens bool `json:"error_on_max_tokens"`
+	// RequestTimeout overrides the default timeout for this completion request.
+	RequestTimeout time.Duration `json:"-"`
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
@@ -53,6 +58,12 @@ func WithReasoningEffort(reasoningEffort ReasoningEffort) ParamOption {
 func WithErrorOnMaxTokens() ParamOption {
 	return func(o *ParamOptions) {
 		o.ErrorOnMaxTokens = true
+	}
+}
+
+func WithRequestTimeout(timeout time.Duration) ParamOption {
+	return func(o *ParamOptions) {
+		o.RequestTimeout = timeout
 	}
 }
 

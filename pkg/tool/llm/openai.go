@@ -35,6 +35,7 @@ import (
 const (
 	DefaultOpenAIModel           = openai.O120241217
 	DefaultOpenAIModelTokenLimit = "128000"
+	defaultCompletionTimeout     = 5 * time.Minute
 )
 
 type OpenAIClient struct {
@@ -73,9 +74,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		defaultConfig = openai.DefaultConfig(token)
 	}
 
-	httpClient := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	httpClient := &http.Client{}
 	if config.GetProxy() != "" {
 		proxyUrl, err := url.Parse(config.GetProxy())
 		if err != nil {
@@ -106,6 +105,12 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		opt(&opts)
 	}
 	opts = ValidOptions(opts)
+	requestTimeout := opts.RequestTimeout
+	if requestTimeout <= 0 {
+		requestTimeout = defaultCompletionTimeout
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 
 	model := opts.Model
 	if model == "" {
@@ -134,10 +139,10 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 
 	now := time.Now()
-	resp, err := c.client.CreateChatCompletion(ctx, request)
+	resp, err := c.client.CreateChatCompletion(requestCtx, request)
 	if err != nil {
 		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
-		return "", fmt.Errorf("create chat completion failed: %v", err)
+		return "", fmt.Errorf("create chat completion failed: %w", err)
 	}
 	log.Debugf("ai completion took: %v", time.Since(now))
 
