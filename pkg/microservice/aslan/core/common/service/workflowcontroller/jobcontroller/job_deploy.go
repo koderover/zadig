@@ -912,7 +912,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				case setting.Deployment:
 					d, found, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready replica count: failed to get deployment %s/%s - %v", namespace, resource.Name, err))
+						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get deployment %s/%s - %v", namespace, resource.Name, err))
 						countErr = true
 						break
 					}
@@ -922,7 +922,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				case setting.DaemonSet:
 					daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready replica count: failed to get daemonSet %s/%s - %v", namespace, resource.Name, err))
+						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get daemonSet %s/%s - %v", namespace, resource.Name, err))
 						countErr = true
 						break
 					}
@@ -930,7 +930,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				case setting.StatefulSet:
 					sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready replica count: failed to get statefulSet %s/%s - %v", namespace, resource.Name, err))
+						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get statefulSet %s/%s - %v", namespace, resource.Name, err))
 						countErr = true
 						break
 					}
@@ -951,7 +951,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 					selector := labels.Set(label).AsSelector()
 					pods, err := getter.ListPods(namespace, selector, kubeClient)
 					if err != nil {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready replica count: %v", err))
+						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: %v", err))
 						countErr = true
 						break
 					}
@@ -973,7 +973,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				}
 			}
 			if !countErr {
-				jobLogManager.SaveJobLog(fmt.Sprintf("Ready replicas: %d/%d", readyPods, totalPods))
+				jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods: %d/%d", readyPods, totalPods))
 			}
 
 			ready := true

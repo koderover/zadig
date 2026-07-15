@@ -431,12 +431,15 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
-		case setting.Deployment, setting.StatefulSet:
+		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
 			resources = append(resources, commonmodels.Resource{
 				Kind: u.GetKind(),
 				Name: u.GetName(),
 			})
-			relatedPodLabels = append(relatedPodLabels, u.GetLabels())
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
+			if err == nil {
+				relatedPodLabels = append(relatedPodLabels, podLabels)
+			}
 		}
 	}
 
