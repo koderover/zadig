@@ -174,7 +174,7 @@ func UpdateReleasePlan(c *gin.Context) {
 			permitted = ctx.Resources.SystemActions.ReleasePlan.EditMetadata
 		case service.ActionUpdateApproval, service.ActionDeleteApproval:
 			permitted = ctx.Resources.SystemActions.ReleasePlan.EditApproval
-		case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob:
+		case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob, service.ActionReorderReleaseJob:
 			permitted = ctx.Resources.SystemActions.ReleasePlan.EditSubtasks
 		default:
 			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown verb: %s", req.Verb))
