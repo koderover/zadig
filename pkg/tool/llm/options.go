@@ -1,5 +1,17 @@
 package llm
 
+import "errors"
+
+var ErrMaxTokensExceeded = errors.New("llm completion reached max tokens")
+
+type ReasoningEffort string
+
+const (
+	ReasoningEffortLow    ReasoningEffort = "low"
+	ReasoningEffortMedium ReasoningEffort = "medium"
+	ReasoningEffortHigh   ReasoningEffort = "high"
+)
+
 // ParamOption is a function that configures a CallOptions.
 type ParamOption func(*ParamOptions)
 
@@ -9,6 +21,10 @@ type ParamOptions struct {
 	Model string `json:"model"`
 	// MaxTokens is the maximum number of tokens to generate.
 	MaxTokens int `json:"max_tokens"`
+	// ReasoningEffort controls reasoning depth for providers that support it.
+	ReasoningEffort ReasoningEffort `json:"reasoning_effort"`
+	// ErrorOnMaxTokens returns ErrMaxTokensExceeded when generation reaches its token limit.
+	ErrorOnMaxTokens bool `json:"error_on_max_tokens"`
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
@@ -25,6 +41,18 @@ func WithModel(model string) ParamOption {
 func WithMaxTokens(maxTokens int) ParamOption {
 	return func(o *ParamOptions) {
 		o.MaxTokens = maxTokens
+	}
+}
+
+func WithReasoningEffort(reasoningEffort ReasoningEffort) ParamOption {
+	return func(o *ParamOptions) {
+		o.ReasoningEffort = reasoningEffort
+	}
+}
+
+func WithErrorOnMaxTokens() ParamOption {
+	return func(o *ParamOptions) {
+		o.ErrorOnMaxTokens = true
 	}
 }
 

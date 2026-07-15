@@ -55,7 +55,7 @@ const (
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
 	aiReleaseSpecialistRulePlanMaxTokens        = 8192
-	aiReleaseSpecialistRulePlanRetryMaxTokens   = 12000
+	aiReleaseSpecialistRulePlanMaxRetries       = 2
 	aiReleaseSpecialistRulePlanVersion          = 2
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -67,8 +67,8 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 构建：表示本次变更来源，可提供仓库、分支、tag、commit message、服务或模块信息，用于理解变更范围，不代表变更已验证通过。
 - 构建摘要：如果 build_summary 存在，表示工作流中构建任务的执行状态和代码来源详情；items 中的 details 字段可能包含 branches、tags、services、commit_messages 等结构化信息。
 - 测试：表示自动化验证结果；如果 test_statistics 存在，应优先参考总用例数、成功数、失败数、错误数、跳过数和通过率，否则只能依据任务状态和错误摘要判断。
-- 审批摘要：如果 approval_summary 存在，表示工作流中当前 AI 节点之前已有人工审批节点的执行结果；items 中的 details 字段可能包含 approval_type、decision、approvers、needed_approvers 等信息。
-- 其他任务摘要：如果 other_task_summary 存在，表示工作流中当前 AI 节点之前 VM 部署、自定义任务等的执行状态；items 中的 details 字段可能包含 service_name、service_module、infrastructure、vm_labels、step_types 等信息。
+- 审批摘要：如果 approval_summary 存在，表示工作流中与当前 AI 节点相关的人工审批节点执行结果，节点可能位于当前 AI 节点之前或之后；items 中的 details 字段可能包含 approval_type、decision、approvers、needed_approvers 等信息。
+- 其他任务摘要：如果 other_task_summary 存在，表示工作流中其他 VM 部署、自定义任务等的执行状态，任务可能位于当前 AI 节点之前或之后；items 中的 details 字段可能包含 service_name、service_module、infrastructure、vm_labels、step_types 等信息。
 - 监控告警：如果 observability_summary 存在，表示工作流中已有 Grafana 或观测云检查任务的执行结果；这不是全量监控平台告警，只能依据其中的任务状态、检查项状态、级别和链接判断。
 - 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；pod_status、ready、pod_count、ready_pods 是从 Kubernetes workload 关联 Pod 查询到的就绪信号，可用于判断目标服务是否明显异常；这不代表实时 CPU、内存、磁盘或业务日志。
 - 运行时副本数语义：runtime_services.items 中的 pod_count 和 ready_pods 是按 env_name、service_name 记录的当前实际 Pod 数，不同环境的副本数允许不同，不能跨环境比较。
@@ -249,6 +249,8 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		c.ack()
 		return
 	}
+	enrichAIReleaseSpecialistRuntimeEvidence(result, input.RuntimeServices)
+	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	c.jobTaskSpec.Result = result
 	c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
 	if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
@@ -326,6 +328,8 @@ func buildAIReleaseSpecialistRulePlanCompletionOptions(client llm.ILLM, maxToken
 	options := []llm.ParamOption{
 		llm.WithTemperature(0),
 		llm.WithMaxTokens(maxTokens),
+		llm.WithReasoningEffort(llm.ReasoningEffortLow),
+		llm.WithErrorOnMaxTokens(),
 	}
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
@@ -380,12 +384,21 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
-	if (c.jobTaskSpec.RulePlan != nil && c.jobTaskSpec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion) || strings.TrimSpace(c.jobTaskSpec.PromptTemplate) == "" {
+	sourceRule := strings.TrimSpace(c.jobTaskSpec.PromptTemplate)
+	if c.jobTaskSpec.RulePlan != nil &&
+		c.jobTaskSpec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion &&
+		(sourceRule == "" || c.jobTaskSpec.RulePlan.SourceRule == sourceRule) {
+		if err := normalizeAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan); err != nil {
+			return nil, err
+		}
+		return c.jobTaskSpec.RulePlan, nil
+	}
+	if sourceRule == "" {
 		return c.jobTaskSpec.RulePlan, nil
 	}
 
 	// Workflows saved before rule plans were introduced still carry only the source rule.
-	rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, c.jobTaskSpec.PromptTemplate)
+	rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, sourceRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1970,11 +1983,28 @@ func GetEffectiveAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
 }
 
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
-	systemPrompt := strings.TrimSpace(systemPromptOverride)
+	systemPrompt := normalizeAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	if systemPrompt == "" {
 		systemPrompt = defaultAIReleaseSpecialistSystemPrompt
 	}
 	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints)
+}
+
+func normalizeAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
+	systemPrompt = strings.TrimSpace(systemPrompt)
+	for strings.HasSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints) {
+		systemPrompt = strings.TrimSpace(strings.TrimSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints))
+	}
+	legacyDefaultSystemPrompt := strings.ReplaceAll(defaultAIReleaseSpecialistSystemPrompt,
+		"工作流中与当前 AI 节点相关的人工审批节点执行结果，节点可能位于当前 AI 节点之前或之后",
+		"工作流中当前 AI 节点之前已有人工审批节点的执行结果")
+	legacyDefaultSystemPrompt = strings.ReplaceAll(legacyDefaultSystemPrompt,
+		"工作流中其他 VM 部署、自定义任务等的执行状态，任务可能位于当前 AI 节点之前或之后",
+		"工作流中当前 AI 节点之前 VM 部署、自定义任务等的执行状态")
+	if systemPrompt == legacyDefaultSystemPrompt {
+		return defaultAIReleaseSpecialistSystemPrompt
+	}
+	return systemPrompt
 }
 
 func getAIReleaseSpecialistPromptTokens(prompt string) int {
@@ -2027,21 +2057,30 @@ func ParseAIReleaseSpecialistRulePlan(answer string) (*commonmodels.AIReleaseSpe
 	if len(response.Rules) == 0 {
 		return nil, fmt.Errorf("rule plan cannot be empty")
 	}
+	if err := normalizeAIReleaseSpecialistRulePlan(response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
 
+func normalizeAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialistRulePlan) error {
+	if plan == nil {
+		return nil
+	}
 	contexts := make(map[string]struct{})
-	for _, rule := range response.Rules {
+	for _, rule := range plan.Rules {
 		if err := validateAIReleaseSpecialistRule(rule); err != nil {
-			return nil, err
+			return err
 		}
 		contexts[rule.Dimension] = struct{}{}
 	}
-	response.Version = aiReleaseSpecialistRulePlanVersion
-	response.Contexts = make([]string, 0, len(contexts))
+	plan.Version = aiReleaseSpecialistRulePlanVersion
+	plan.Contexts = make([]string, 0, len(contexts))
 	for contextName := range contexts {
-		response.Contexts = append(response.Contexts, contextName)
+		plan.Contexts = append(plan.Contexts, contextName)
 	}
-	sort.Strings(response.Contexts)
-	return response, nil
+	sort.Strings(plan.Contexts)
+	return nil
 }
 
 func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodels.WorkflowV4) error {
@@ -2063,12 +2102,17 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 				continue
 			}
 			if spec.RulePlan != nil && spec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion && spec.RulePlan.SourceRule == sourceRule {
-				continue
+				if err := normalizeAIReleaseSpecialistRulePlan(spec.RulePlan); err == nil {
+					job.Spec = spec
+					continue
+				}
 			}
 			if existingPlan, ok := existingPlans[job.Name]; ok && existingPlan.Version == aiReleaseSpecialistRulePlanVersion && existingPlan.SourceRule == sourceRule {
-				spec.RulePlan = existingPlan
-				job.Spec = spec
-				continue
+				if err := normalizeAIReleaseSpecialistRulePlan(existingPlan); err == nil {
+					spec.RulePlan = existingPlan
+					job.Spec = spec
+					continue
+				}
 			}
 
 			spec.RulePlan = nil
@@ -2111,15 +2155,26 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 			return nil, fmt.Errorf("get default llm client: %w", err)
 		}
 		prompt := buildAIReleaseSpecialistRulePlanPrompt(sourceRule)
-		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanMaxTokens)...)
-		if err != nil {
-			return nil, fmt.Errorf("compile rule plan with llm: %w", err)
-		}
-		if strings.TrimSpace(answer) == "" {
-			answer, err = client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanRetryMaxTokens)...)
-			if err != nil {
+		maxTokens := aiReleaseSpecialistRulePlanMaxTokens
+		var answer string
+		for attempt := 0; attempt <= aiReleaseSpecialistRulePlanMaxRetries; attempt++ {
+			answer, err = client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, maxTokens)...)
+			if err == nil {
+				break
+			}
+			if !errors.Is(err, llm.ErrMaxTokensExceeded) {
 				return nil, fmt.Errorf("compile rule plan with llm: %w", err)
 			}
+			if strings.TrimSpace(answer) != "" {
+				if rulePlan, parseErr := ParseAIReleaseSpecialistRulePlan(answer); parseErr == nil {
+					rulePlan.SourceRule = sourceRule
+					return rulePlan, nil
+				}
+			}
+			if attempt == aiReleaseSpecialistRulePlanMaxRetries {
+				return nil, fmt.Errorf("compile rule plan with llm: %w", err)
+			}
+			maxTokens *= 2
 		}
 		if strings.TrimSpace(answer) == "" {
 			return nil, fmt.Errorf("compile rule plan with llm: empty response")
@@ -2154,7 +2209,7 @@ Do not evaluate an actual release and do not explain your reasoning. Return exac
 
 Metrics:
 - release_target.target_count:number; release_target.production:boolean
-- runtime.ready_pod_count:number; runtime.pod_count:number; runtime.service_ready:boolean
+- runtime.ready_pod_count:number; runtime.pod_count:number; runtime.service_ready:boolean (metric must be the bare name without the runtime. prefix)
 - test.failed_case_count:number; test.error_case_count:number; test.pass_rate:number
 - scan.quality_gate_status:ok|error|warn|none; scan.bug_count:number; scan.vulnerability_count:number; scan.coverage:number
 - approval.approval_decision:approved|rejected|waiting
@@ -2187,6 +2242,15 @@ func validateAIReleaseSpecialistRule(rule *commonmodels.AIReleaseSpecialistRuleP
 	rule.Operator = strings.ToLower(strings.TrimSpace(rule.Operator))
 	rule.Value = strings.ToLower(strings.TrimSpace(rule.Value))
 	rule.Result = strings.ToLower(strings.TrimSpace(rule.Result))
+	if separator := strings.Index(rule.Metric, "."); separator > 0 {
+		metricDimension := strings.TrimSpace(rule.Metric[:separator])
+		metricName := strings.TrimSpace(rule.Metric[separator+1:])
+		if rule.Dimension != "" && rule.Dimension != metricDimension {
+			return fmt.Errorf("metric %s does not belong to dimension %s", rule.Metric, rule.Dimension)
+		}
+		rule.Dimension = metricDimension
+		rule.Metric = metricName
+	}
 
 	metric, ok := aiReleaseSpecialistRuleMetrics[rule.Metric]
 	if !ok {
@@ -2299,6 +2363,53 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	}
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil
+}
+
+func enrichAIReleaseSpecialistRuntimeEvidence(result *commonmodels.AIReleaseSpecialistResult, runtime *commonmodels.AIRuntimeServicesSummary) {
+	if result == nil || runtime == nil {
+		return
+	}
+
+	evidenceLines := make([]string, 0, len(runtime.Items)+len(runtime.QueryErrors))
+	for _, item := range runtime.Items {
+		if item == nil {
+			continue
+		}
+		evidenceLines = append(evidenceLines, fmt.Sprintf(
+			"env_name=%s, service_name=%s, pod_count=%d, ready_pods=%d",
+			item.EnvName, item.ServiceName, item.PodCount, item.ReadyPods,
+		))
+	}
+	for _, queryError := range runtime.QueryErrors {
+		if queryError = strings.TrimSpace(queryError); queryError != "" {
+			evidenceLines = append(evidenceLines, "query_error="+queryError)
+		}
+	}
+	if len(evidenceLines) == 0 {
+		return
+	}
+
+	const evidenceMarker = "运行时服务明细："
+	evidence := evidenceMarker + strings.Join(evidenceLines, "; ")
+	for _, check := range result.Checks {
+		if check == nil || !isAIReleaseSpecialistRuntimeCheck(check) {
+			continue
+		}
+		if !strings.Contains(check.Evidence, evidenceMarker) {
+			check.Evidence = strings.TrimSpace(strings.TrimSuffix(check.Evidence, "。"))
+			if check.Evidence != "" {
+				check.Evidence += "；"
+			}
+			check.Evidence += evidence
+		}
+		return
+	}
+}
+
+func isAIReleaseSpecialistRuntimeCheck(check *commonmodels.AIReleaseSpecialistCheckItem) bool {
+	text := strings.ToLower(check.Name + " " + check.Evidence)
+	return strings.Contains(text, "运行时") || strings.Contains(text, "runtime") ||
+		strings.Contains(text, "service_ready") || strings.Contains(text, "pod_count") || strings.Contains(text, "ready_pods")
 }
 
 func extractJSONCodeBlock(text string) string {

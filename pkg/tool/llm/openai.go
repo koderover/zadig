@@ -123,27 +123,18 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		},
 	}
 
-	var resp openai.ChatCompletionResponse
-	var err error
-	now := time.Now()
-	if opts.MaxTokens == 0 {
-		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
-			Temperature: opts.Temperature,
-			Stop:        opts.StopWords,
-			LogitBias:   opts.LogitBias,
-		})
-	} else {
-		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
-			MaxTokens:   opts.MaxTokens,
-			Temperature: opts.Temperature,
-			Stop:        opts.StopWords,
-			LogitBias:   opts.LogitBias,
-		})
+	request := openai.ChatCompletionRequest{
+		Model:           model,
+		Messages:        messages,
+		MaxTokens:       opts.MaxTokens,
+		Temperature:     opts.Temperature,
+		Stop:            opts.StopWords,
+		LogitBias:       opts.LogitBias,
+		ReasoningEffort: c.resolveReasoningEffort(model, opts.ReasoningEffort),
 	}
+
+	now := time.Now()
+	resp, err := c.client.CreateChatCompletion(ctx, request)
 	if err != nil {
 		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
 		return "", fmt.Errorf("create chat completion failed: %v", err)
@@ -153,7 +144,6 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	if len(resp.Choices) == 0 {
 		return "", errors.New("no completion choices")
 	}
-
 	thinkStartTag := "<think>"
 	thinkEndTag := "</think>"
 	message := resp.Choices[0].Message.Content
@@ -170,7 +160,33 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		message = strings.TrimSpace(message)
 	}
 
+	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(resp.Choices[0].FinishReason) {
+		return message, ErrMaxTokensExceeded
+	}
 	return message, nil
+}
+
+func isMaxTokensFinishReason(finishReason openai.FinishReason) bool {
+	return finishReason == openai.FinishReasonLength || string(finishReason) == "max_tokens"
+}
+
+func (c *OpenAIClient) resolveReasoningEffort(model string, reasoningEffort ReasoningEffort) string {
+	if reasoningEffort == "" {
+		return ""
+	}
+	// OpenAI-compatible providers may reject optional fields they do not support.
+	model = strings.ToLower(strings.TrimSpace(model))
+	switch Provider(c.name) {
+	case ProviderOpenAI:
+		if strings.HasPrefix(model, "o1") || strings.HasPrefix(model, "o3") || strings.HasPrefix(model, "o4") || strings.HasPrefix(model, "gpt-5") {
+			return string(reasoningEffort)
+		}
+	case ProviderVolcengineArk:
+		if strings.HasPrefix(model, "glm-5") {
+			return string(reasoningEffort)
+		}
+	}
+	return ""
 }
 
 func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {
