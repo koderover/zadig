@@ -867,6 +867,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
+
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
@@ -960,6 +961,14 @@ func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *t
 
 // RenderEnvService renders service with particular revision and service vars in environment
 func RenderEnvService(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService) (yaml string, err error) {
+	return renderEnvService(prod, serviceRender, service, true)
+}
+
+func RenderEnvServiceNotSetImages(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService) (yaml string, err error) {
+	return renderEnvService(prod, serviceRender, service, false)
+}
+
+func renderEnvService(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, setImages bool) (yaml string, err error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
 		ProductName: service.ProductName,
@@ -971,10 +980,18 @@ func RenderEnvService(prod *commonmodels.Product, serviceRender *template.Servic
 		return "", err
 	}
 
-	return RenderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl)
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, setImages)
 }
 
 func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, true)
+}
+
+func RenderEnvServiceWithTemplNotSetImages(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, false)
+}
+
+func renderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service, setImages bool) (yaml string, err error) {
 	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, serviceRender)
 	if err != nil {
@@ -982,9 +999,13 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
-	if err != nil {
-		return "", err
+
+	if setImages {
+		parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
+		if err != nil {
+			return "", err
+		}
 	}
+
 	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }

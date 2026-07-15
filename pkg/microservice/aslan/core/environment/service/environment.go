@@ -2982,15 +2982,30 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		return nil, nil
 	}
 
-	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)
-	if err != nil {
-		log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
-		errList = multierror.Append(errList, fmt.Errorf("newService template %s error: %v", newService.ServiceName, err))
-		return nil, errList
-	}
+	var err error
+	var parsedYaml string
 
-	if prevSvc == nil {
-		fakeTemplateSvc := &commonmodels.Service{ServiceName: newService.ServiceName, ProductName: newService.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
+	if prevSvc != nil {
+		parsedYaml, err = kube.RenderEnvService(env, newService.GetServiceRender(), newService)
+		if err != nil {
+			log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
+			errList = multierror.Append(errList, fmt.Errorf("newService template %s error: %v", newService.ServiceName, err))
+			return nil, errList
+		}
+	} else {
+		// When prevSvc is nil, it means this is a new service.
+		// So we need to render the service yaml without setting the images.
+		parsedYaml, err = kube.RenderEnvServiceNotSetImages(env, newService.GetServiceRender(), newService)
+		if err != nil {
+			return nil, err
+		}
+
+		fakeTemplateSvc := &commonmodels.Service{
+			ServiceName: newService.ServiceName,
+			ProductName: newService.ServiceName,
+			KubeYamls:   util.SplitYaml(parsedYaml),
+		}
+
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
 		newService.Containers = fakeTemplateSvc.Containers
 	}
