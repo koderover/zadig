@@ -1167,7 +1167,7 @@ func (c *FreestyleJobCtl) cleanupHelperPod(ctx context.Context, client crClient.
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger, nil)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger)
 	if err != nil {
 		c.job.Error = err.Error()
 	}

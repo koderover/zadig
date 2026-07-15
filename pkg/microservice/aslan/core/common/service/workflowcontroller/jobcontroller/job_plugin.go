@@ -153,7 +153,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 func (c *PluginJobCtl) wait(ctx context.Context) {
 	var err error
 	timeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, timeout, c.logger, nil)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, timeout, c.logger)
 	if err != nil {
 		c.logger.Errorf("wait job start error: %v", err)
 	}

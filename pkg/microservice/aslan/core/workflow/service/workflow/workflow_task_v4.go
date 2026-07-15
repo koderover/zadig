@@ -2584,6 +2584,11 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.Sugared
 		logger.Errorf("get kube client failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
 		return nil
 	}
+	apiReader, err := clientmanager.NewKubeClientManager().GetControllerRuntimeAPIReader(clusterID)
+	if err != nil {
+		logger.Errorf("get kube api reader failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
+		return nil
+	}
 
 	podSelector := k8slabels.Set{setting.JobLabelNameKey: strings.Replace(job.K8sJobName, "_", "-", -1)}.AsSelector()
 	pods, err := getter.ListPods(namespace, podSelector, kubeClient)
@@ -2602,7 +2607,7 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.Sugared
 	kubeEvents := make([]*corev1.Event, 0)
 	for _, pod := range pods {
 		selector := fields.Set{"involvedObject.name": pod.Name, "involvedObject.kind": setting.Pod}.AsSelector()
-		podEvents, err := getter.ListEvents(namespace, selector, kubeClient)
+		podEvents, err := getter.ListEvents(namespace, selector, apiReader)
 		if err != nil {
 			logger.Errorf("list events failed for pod %s/%s: %s", namespace, pod.Name, err)
 			continue
