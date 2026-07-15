@@ -55,7 +55,6 @@ const (
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
 	aiReleaseSpecialistRulePlanMaxTokens        = 64 * 1024
-	aiReleaseSpecialistRulePlanRequestTimeout   = 10 * time.Minute
 	aiReleaseSpecialistRulePlanVersion          = 2
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -172,8 +171,13 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 
 	rulePlan, err := c.getRulePlan(jobCtx)
 	if err != nil {
-		c.job.Status = config.StatusFailed
-		c.job.Error = fmt.Sprintf("compile ai release specialist rule plan failed: %v", err)
+		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
+			c.job.Status = config.StatusTimeout
+			c.job.Error = "ai release specialist timeout"
+		} else {
+			c.job.Status = config.StatusFailed
+			c.job.Error = fmt.Sprintf("compile ai release specialist rule plan failed: %v", err)
+		}
 		c.ack()
 		return
 	}
@@ -204,10 +208,10 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	answer, err := client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(client, aiReleaseSpecialistCompletionMaxTokens)...)
+	answer, err := client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(jobCtx, client, aiReleaseSpecialistCompletionMaxTokens)...)
 	if err == nil && strings.TrimSpace(answer) == "" {
 		c.logger.Warnf("llm completion returned empty response, retry with max tokens %d", aiReleaseSpecialistCompletionRetryMaxTokens)
-		answer, err = client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(client, aiReleaseSpecialistCompletionRetryMaxTokens)...)
+		answer, err = client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(jobCtx, client, aiReleaseSpecialistCompletionRetryMaxTokens)...)
 	}
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
@@ -313,7 +317,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusPassed
 }
 
-func buildAIReleaseSpecialistCompletionOptions(client llm.ILLM, maxTokens int) []llm.ParamOption {
+func buildAIReleaseSpecialistCompletionOptions(ctx context.Context, client llm.ILLM, maxTokens int) []llm.ParamOption {
 	options := []llm.ParamOption{
 		llm.WithTemperature(0.1),
 		llm.WithMaxTokens(maxTokens),
@@ -321,19 +325,25 @@ func buildAIReleaseSpecialistCompletionOptions(client llm.ILLM, maxTokens int) [
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
 	}
-	return options
+	return appendAIReleaseSpecialistRequestTimeout(ctx, options)
 }
 
-func buildAIReleaseSpecialistRulePlanCompletionOptions(client llm.ILLM, maxTokens int) []llm.ParamOption {
+func buildAIReleaseSpecialistRulePlanCompletionOptions(ctx context.Context, client llm.ILLM, maxTokens int) []llm.ParamOption {
 	options := []llm.ParamOption{
 		llm.WithTemperature(0),
 		llm.WithMaxTokens(maxTokens),
 		llm.WithReasoningEffort(llm.ReasoningEffortLow),
 		llm.WithErrorOnMaxTokens(),
-		llm.WithRequestTimeout(aiReleaseSpecialistRulePlanRequestTimeout),
 	}
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
+	}
+	return appendAIReleaseSpecialistRequestTimeout(ctx, options)
+}
+
+func appendAIReleaseSpecialistRequestTimeout(ctx context.Context, options []llm.ParamOption) []llm.ParamOption {
+	if deadline, ok := ctx.Deadline(); ok {
+		options = append(options, llm.WithRequestTimeout(time.Until(deadline)))
 	}
 	return options
 }
@@ -2156,7 +2166,7 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 			return nil, fmt.Errorf("get default llm client: %w", err)
 		}
 		prompt := buildAIReleaseSpecialistRulePlanPrompt(sourceRule)
-		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(client, aiReleaseSpecialistRulePlanMaxTokens)...)
+		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(ctx, client, aiReleaseSpecialistRulePlanMaxTokens)...)
 		if err != nil {
 			return nil, fmt.Errorf("compile rule plan with llm: %w", err)
 		}
