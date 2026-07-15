@@ -2572,8 +2572,11 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.Sugared
 			namespace = taskJobSpec.Properties.Namespace
 		}
 	}
-	if clusterID == "" || namespace == "" {
+	if namespace == "" {
 		return nil
+	}
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
 	}
 
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
