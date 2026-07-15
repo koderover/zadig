@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,6 +68,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/nacos"
@@ -2455,7 +2460,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:    stage.EndTime,
 			Parallel:   stage.Parallel,
 			ManualExec: stage.ManualExec,
-			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
+			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName, logger),
 			Error:      stage.Error,
 		})
 	}
@@ -2547,7 +2552,106 @@ func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
 	return nil
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
+func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.SugaredLogger) *commonmodels.Events {
+	if job.K8sJobName == "" {
+		return nil
+	}
+
+	var clusterID, namespace string
+	switch job.JobType {
+	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
+		taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
+			clusterID = taskJobSpec.Properties.ClusterID
+			namespace = taskJobSpec.Properties.Namespace
+		}
+	case string(config.JobPlugin):
+		taskJobSpec := &commonmodels.JobTaskPluginSpec{}
+		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
+			clusterID = taskJobSpec.Properties.ClusterID
+			namespace = taskJobSpec.Properties.Namespace
+		}
+	}
+	if clusterID == "" || namespace == "" {
+		return nil
+	}
+
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	if err != nil {
+		logger.Errorf("get kube client failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
+		return nil
+	}
+
+	podSelector := k8slabels.Set{setting.JobLabelNameKey: strings.Replace(job.K8sJobName, "_", "-", -1)}.AsSelector()
+	pods, err := getter.ListPods(namespace, podSelector, kubeClient)
+	if err != nil {
+		logger.Errorf("list pods failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+		return nil
+	}
+	if len(pods) == 0 {
+		pods, err = getter.ListPods(namespace, k8slabels.Set{"job-name": job.K8sJobName}.AsSelector(), kubeClient)
+		if err != nil {
+			logger.Errorf("list pods by job-name failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+			return nil
+		}
+	}
+
+	kubeEvents := make([]*corev1.Event, 0)
+	for _, pod := range pods {
+		selector := fields.Set{"involvedObject.name": pod.Name, "involvedObject.kind": setting.Pod}.AsSelector()
+		podEvents, err := getter.ListEvents(namespace, selector, kubeClient)
+		if err != nil {
+			logger.Errorf("list events failed for pod %s/%s: %s", namespace, pod.Name, err)
+			continue
+		}
+		kubeEvents = append(kubeEvents, podEvents...)
+	}
+	if len(kubeEvents) == 0 {
+		return nil
+	}
+
+	sort.SliceStable(kubeEvents, func(i, j int) bool {
+		return kubeEvents[i].CreationTimestamp.Unix() < kubeEvents[j].CreationTimestamp.Unix()
+	})
+
+	reported := make(map[string]struct{})
+	events := &commonmodels.Events{}
+	for _, kubeEvent := range kubeEvents {
+		eventKey := fmt.Sprintf("%s|%s|%s|%s", kubeEvent.InvolvedObject.Name, kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message)
+		if _, ok := reported[eventKey]; ok {
+			continue
+		}
+		reported[eventKey] = struct{}{}
+
+		eventType := "info"
+		if kubeEvent.Type == corev1.EventTypeWarning {
+			eventType = "error"
+		}
+
+		eventTime := kubeEvent.LastTimestamp.Time
+		if kubeEvent.LastTimestamp.IsZero() {
+			eventTime = kubeEvent.FirstTimestamp.Time
+		}
+		if eventTime.IsZero() && !kubeEvent.EventTime.IsZero() {
+			eventTime = kubeEvent.EventTime.Time
+		}
+		if eventTime.IsZero() {
+			eventTime = time.Now()
+		}
+
+		*events = append(*events, &commonmodels.Event{
+			EventType: eventType,
+			Time:      eventTime.Format("2006-01-02 15:04:05"),
+			Message:   fmt.Sprintf("Pod event [%s/%s]: %s", kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message),
+		})
+	}
+	if len(*events) == 0 {
+		return nil
+	}
+	return events
+}
+
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string, logger *zap.SugaredLogger) []*JobTaskPreview {
 	envMap := make(map[string]*commonmodels.Product)
 	resp := []*JobTaskPreview{}
 
@@ -2557,6 +2661,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			costSeconds = now - job.StartTime
 			if job.EndTime != 0 {
 				costSeconds = job.EndTime - job.StartTime
+			}
+		}
+		events := extractRuntimeJobEvents(job)
+		if job.Status == config.StatusPrepare {
+			if kubeEvents := listRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
+				events = kubeEvents
 			}
 		}
 		jobPreview := &JobTaskPreview{
@@ -2578,7 +2688,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			ErrorHandlerUserID:   job.ErrorHandlerUserID,
 			ErrorHandlerUserName: job.ErrorHandlerUserName,
 			RetryCount:           job.RetryCount,
-			Events:               extractRuntimeJobEvents(job),
+			Events:               events,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
