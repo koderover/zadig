@@ -127,6 +127,7 @@ func getDingTalkApprovalProcessCode(client *dingtalk.Client, defaultProcessCode,
 				return form.ProcessCode, nil
 			}
 		}
+		return "", fmt.Errorf("dingtalk approval form %s exists but not found in form list", formName)
 	}
 	if err != nil {
 		return "", fmt.Errorf("create dingtalk approval form %s error: %s", formName, err)

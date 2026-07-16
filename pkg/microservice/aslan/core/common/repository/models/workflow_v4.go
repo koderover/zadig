@@ -232,7 +232,7 @@ func (l LarkApproval) GetNodeTypeTitleKey(title string) string {
 		return nodeTypeKey
 	}
 
-	return fmt.Sprintf("%s-%x", nodeTypeKey, md5.Sum([]byte(title)))
+	return fmt.Sprintf("%s-%s", nodeTypeKey, title)
 }
 
 // GetLarkApprovalNode convert approval node to lark sdk approval node

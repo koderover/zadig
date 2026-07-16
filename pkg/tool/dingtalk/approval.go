@@ -73,9 +73,9 @@ func (c *Client) CreateApproval(formName string) (resp *CreateApprovalResponse, 
 }
 
 func getRandNameDefaultApprovalFormDefinition(formName string) ApprovalFormDefinition {
-	name := DefaultApprovalFormName
-	if formName != "" {
-		name = strings.TrimSpace(formName)
+	name := strings.TrimSpace(formName)
+	if name == "" {
+		name = DefaultApprovalFormName
 	}
 
 	return ApprovalFormDefinition{
