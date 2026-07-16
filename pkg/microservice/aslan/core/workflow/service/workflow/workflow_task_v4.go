@@ -1007,6 +1007,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
 				}
 				jobTask.Spec = t.Spec
+				jobTask.NotifyCtls = t.NotifyCtls
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
 			}
