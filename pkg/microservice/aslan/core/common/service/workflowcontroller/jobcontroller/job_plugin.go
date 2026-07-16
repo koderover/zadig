@@ -74,6 +74,14 @@ func (c *PluginJobCtl) prepare(ctx context.Context) {
 	if c.jobTaskSpec.Properties.ClusterID == "" {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
+	if c.jobTaskSpec.Properties.Namespace == "" {
+		if c.jobTaskSpec.Properties.ClusterID == setting.LocalClusterID {
+			c.jobTaskSpec.Properties.Namespace = zadigconfig.Namespace()
+		} else {
+			c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
+		}
+	}
+	c.ack()
 }
 
 func (c *PluginJobCtl) Clean(ctx context.Context) {}

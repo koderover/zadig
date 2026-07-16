@@ -2568,12 +2568,16 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string
 			namespace = taskJobSpec.Properties.Namespace
 		}
 	}
-	if namespace == "" {
-		logger.Infof("skip listing runtime pod events because namespace is empty, workflow:%s, taskID:%d, job:%s, jobType:%s, k8sJobName:%s", workflowName, taskID, job.Name, job.JobType, job.K8sJobName)
-		return nil
-	}
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
+	}
+	if namespace == "" {
+		if clusterID == setting.LocalClusterID {
+			namespace = config2.Namespace()
+		} else {
+			namespace = setting.AttachedClusterNamespace
+		}
+		logger.Infof("fallback runtime pod events namespace, workflow:%s, taskID:%d, job:%s, jobType:%s, k8sJobName:%s, clusterID:%s, namespace:%s", workflowName, taskID, job.Name, job.JobType, job.K8sJobName, clusterID, namespace)
 	}
 	logger.Infof("listing runtime pod events, workflow:%s, taskID:%d, job:%s, jobType:%s, k8sJobName:%s, clusterID:%s, namespace:%s", workflowName, taskID, job.Name, job.JobType, job.K8sJobName, clusterID, namespace)
 

@@ -156,6 +156,13 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 	if c.jobTaskSpec.Properties.ClusterID == "" {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
+	if c.job.Infrastructure != setting.JobVMInfrastructure && c.jobTaskSpec.Properties.Namespace == "" {
+		if c.jobTaskSpec.Properties.ClusterID == setting.LocalClusterID {
+			c.jobTaskSpec.Properties.Namespace = zadigconfig.Namespace()
+		} else {
+			c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
+		}
+	}
 
 	// Check if there are file type environment variables
 	if err := c.checkAndPrepareFileTypes(ctx); err != nil {
