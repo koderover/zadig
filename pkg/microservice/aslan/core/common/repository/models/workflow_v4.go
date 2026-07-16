@@ -95,12 +95,38 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 		fieldName := fieldType.Name
 		if !ignoringFields.Has(fieldName) {
 			fieldValue := val.Field(i).Interface()
+			if fieldName == "Stages" {
+				fieldValue = stagesWithoutJobNotifyCtls(w.Stages)
+			}
 			fieldList[fieldName] = fieldValue
 		}
 	}
 
 	jsonBytes, _ := json.Marshal(fieldList)
 	return md5.Sum(jsonBytes)
+}
+
+func stagesWithoutJobNotifyCtls(stages []*WorkflowStage) []*WorkflowStage {
+	stagesForHash := make([]*WorkflowStage, len(stages))
+	for stageIndex, stage := range stages {
+		if stage == nil {
+			continue
+		}
+
+		stageForHash := *stage
+		stageForHash.Jobs = make([]*Job, len(stage.Jobs))
+		for jobIndex, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
+
+			jobForHash := *job
+			jobForHash.NotifyCtls = nil
+			stageForHash.Jobs[jobIndex] = &jobForHash
+		}
+		stagesForHash[stageIndex] = &stageForHash
+	}
+	return stagesForHash
 }
 
 // FindJob finds a job in a workflow, note that jobType is an optional parameter, simply pass empty string if you don't need to filter by type
@@ -307,6 +333,7 @@ type Job struct {
 	ErrorPolicy    *JobErrorPolicy          `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
 	ExecutePolicy  *JobExecutePolicy        `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
 	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                                  json:"service_modules"`
+	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls,omitempty" yaml:"notify_ctls,omitempty" json:"notify_ctls,omitempty"`
 }
 
 type JobErrorPolicy struct {
