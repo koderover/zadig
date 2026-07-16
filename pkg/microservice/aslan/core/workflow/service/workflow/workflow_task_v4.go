@@ -2460,7 +2460,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:    stage.EndTime,
 			Parallel:   stage.Parallel,
 			ManualExec: stage.ManualExec,
-			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName, task.WorkflowName, task.TaskID, logger),
+			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName, logger),
 			Error:      stage.Error,
 		})
 	}
@@ -2552,7 +2552,14 @@ func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
 	return nil
 }
 
-func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string, taskID int64, logger *zap.SugaredLogger) *commonmodels.Events {
+func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.SugaredLogger) *commonmodels.Events {
+	if job.K8sJobName == "" {
+		return nil
+	}
+	if job.Infrastructure == setting.JobVMInfrastructure {
+		return nil
+	}
+
 	var clusterID, namespace string
 	switch job.JobType {
 	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
@@ -2567,6 +2574,8 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string
 			clusterID = taskJobSpec.Properties.ClusterID
 			namespace = taskJobSpec.Properties.Namespace
 		}
+	default:
+		return nil
 	}
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
@@ -2577,37 +2586,31 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string
 		} else {
 			namespace = setting.AttachedClusterNamespace
 		}
-		logger.Infof("fallback runtime pod events namespace, workflow:%s, taskID:%d, job:%s, jobType:%s, k8sJobName:%s, clusterID:%s, namespace:%s", workflowName, taskID, job.Name, job.JobType, job.K8sJobName, clusterID, namespace)
 	}
-	logger.Infof("listing runtime pod events, workflow:%s, taskID:%d, job:%s, jobType:%s, k8sJobName:%s, clusterID:%s, namespace:%s", workflowName, taskID, job.Name, job.JobType, job.K8sJobName, clusterID, namespace)
-
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	kubeManager := clientmanager.NewKubeClientManager()
+	kubeClient, err := kubeManager.GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		logger.Errorf("get kube client failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
 		return nil
 	}
-	apiReader, err := clientmanager.NewKubeClientManager().GetControllerRuntimeAPIReader(clusterID)
+	apiReader, err := kubeManager.GetControllerRuntimeAPIReader(clusterID)
 	if err != nil {
 		logger.Errorf("get kube api reader failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
 		return nil
 	}
 
-	pods := make([]*corev1.Pod, 0)
-	if job.K8sJobName != "" {
-		podSelector := k8slabels.Set{setting.JobLabelNameKey: strings.Replace(job.K8sJobName, "_", "-", -1)}.AsSelector()
-		pods, err = getter.ListPods(namespace, podSelector, kubeClient)
+	k8sJobName := strings.Replace(job.K8sJobName, "_", "-", -1)
+	podSelector := k8slabels.Set{setting.JobLabelNameKey: k8sJobName}.AsSelector()
+	pods, err := getter.ListPods(namespace, podSelector, kubeClient)
+	if err != nil {
+		logger.Errorf("list pods failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+		return nil
+	}
+	if len(pods) == 0 {
+		pods, err = getter.ListPods(namespace, k8slabels.Set{"job-name": k8sJobName}.AsSelector(), kubeClient)
 		if err != nil {
-			logger.Errorf("list pods failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+			logger.Errorf("list pods by job-name failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
 			return nil
-		}
-		logger.Infof("listed runtime pods by s-name, workflow:%s, taskID:%d, job:%s, k8sJobName:%s, namespace:%s, podCount:%d", workflowName, taskID, job.Name, job.K8sJobName, namespace, len(pods))
-		if len(pods) == 0 {
-			pods, err = getter.ListPods(namespace, k8slabels.Set{"job-name": job.K8sJobName}.AsSelector(), kubeClient)
-			if err != nil {
-				logger.Errorf("list pods by job-name failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
-				return nil
-			}
-			logger.Infof("listed runtime pods by job-name, workflow:%s, taskID:%d, job:%s, k8sJobName:%s, namespace:%s, podCount:%d", workflowName, taskID, job.Name, job.K8sJobName, namespace, len(pods))
 		}
 	}
 	kubeEvents := make([]*corev1.Event, 0)
@@ -2618,11 +2621,9 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string
 			logger.Errorf("list events failed for pod %s/%s: %s", namespace, pod.Name, err)
 			continue
 		}
-		logger.Infof("listed runtime pod events, workflow:%s, taskID:%d, job:%s, namespace:%s, pod:%s, eventCount:%d", workflowName, taskID, job.Name, namespace, pod.Name, len(podEvents))
 		kubeEvents = append(kubeEvents, podEvents...)
 	}
 	if len(kubeEvents) == 0 {
-		logger.Infof("no runtime pod events found, workflow:%s, taskID:%d, job:%s, namespace:%s, podCount:%d", workflowName, taskID, job.Name, namespace, len(pods))
 		return nil
 	}
 
@@ -2667,7 +2668,7 @@ func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, workflowName string
 	return events
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName, workflowName string, taskID int64, logger *zap.SugaredLogger) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string, logger *zap.SugaredLogger) []*JobTaskPreview {
 	envMap := make(map[string]*commonmodels.Product)
 	resp := []*JobTaskPreview{}
 
@@ -2681,7 +2682,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		}
 		events := extractRuntimeJobEvents(job)
 		if job.Status == config.StatusPrepare {
-			if kubeEvents := listRuntimeJobEventsFromKube(job, workflowName, taskID, logger); kubeEvents != nil {
+			if kubeEvents := listRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
 				events = kubeEvents
 			}
 		}
