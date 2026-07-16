@@ -259,6 +259,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	productColl := commonrepo.NewProductCollWithSession(session)
 
 	// Note update logic need to be optimized since we only need to update one service
+	prodinfo.UpdateBy = args.UpdateBy
 	if err := productColl.Update(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		mongotool.AbortTransaction(session)

@@ -1904,7 +1904,7 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey, ctx.UserName)
 }
 
 func OpenAPIDsiableBaseEnv(c *gin.Context) {
@@ -1949,7 +1949,7 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey, ctx.UserName)
 }
 
 type OpenAPIShareEnvReadyResponse struct {

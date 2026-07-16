@@ -121,7 +121,7 @@ func EnableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey, ctx.UserName)
 }
 
 func DisableBaseEnv(c *gin.Context) {
@@ -167,7 +167,7 @@ func DisableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey, ctx.UserName)
 }
 
 func CheckShareEnvReady(c *gin.Context) {

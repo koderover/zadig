@@ -213,6 +213,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 		log.Errorf("service %s not found in prod %s/%s", serviceName, prod.ProductName, prod.EnvName)
 	}
 
+	prod.UpdateBy = userName
 	if err := commonrepo.NewProductCollWithSession(session).Update(prod); err != nil {
 		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
 		logger.Errorf(errMsg)

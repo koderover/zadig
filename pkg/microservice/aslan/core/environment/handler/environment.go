@@ -2193,7 +2193,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.UpdateEnvConfigs(projectKey, envName, arg, &production, ctx.Logger)
+	ctx.RespErr = service.UpdateEnvConfigs(projectKey, envName, ctx.UserName, arg, &production, ctx.Logger)
 }
 
 // @Summary Run environment Analysis
@@ -2550,7 +2550,7 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.EnvSleep(projectName, envName, action == "enable", production, ctx.Logger)
+	ctx.RespErr = service.EnvSleep(projectName, envName, action == "enable", production, ctx.UserName, ctx.Logger)
 }
 
 // @Summary Get Env Sleep Cron
