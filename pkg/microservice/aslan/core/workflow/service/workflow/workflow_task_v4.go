@@ -2681,7 +2681,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 		}
 		events := extractRuntimeJobEvents(job)
-		if job.Status == config.StatusPrepare {
+		if job.Status == config.StatusPrepare || job.Status == config.StatusRunning {
 			if kubeEvents := listRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
 				events = kubeEvents
 			}
