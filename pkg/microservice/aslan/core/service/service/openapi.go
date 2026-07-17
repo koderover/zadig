@@ -45,7 +45,7 @@ func OpenAPILoadServiceFromCodeHost(username string, req *OpenAPILoadServiceFrom
 	}
 
 	loadArgs := &LoadServiceReq{
-		Type:         req.Type,
+		Type:         setting.K8SDeployType,
 		ProductName:  req.ProductName,
 		ServicePaths: req.ServicePaths,
 	}
@@ -320,8 +320,6 @@ func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req
 		Name:       req.Name,
 		CreatedBy:  ctx.UserName,
 		RequestID:  ctx.RequestID,
-		AutoSync:   req.AutoSync,
-		ValuesData: req.ValuesData,
 		Production: req.Production,
 	}
 

@@ -58,12 +58,8 @@ type OpenAPILoadHelmServiceReq struct {
 	Source LoadSource `json:"source"`
 	// 服务名称。repo/publicRepo 场景可为空，后端会从 Chart.yaml 读取；chartRepo 场景使用 chartName 作为服务名
 	Name string `json:"name"`
-	// 是否自动同步
-	AutoSync bool `json:"auto_sync"`
-	// 服务来源配置。source=repo 时传 codehostID、owner、namespace、repo、branch、paths；source=publicRepo 时传 repoLink、paths；source=chartRepo 时传 chartRepoName、chartName、chartVersion
+	// 服务来源配置。source=repo 时传 createFrom: {codehostID:int, owner:string, namespace:string, repo:string, branch:string, paths:[]string}；source=publicRepo 时传 createFrom: {repoLink:string, paths:[]string}；source=chartRepo 时传 createFrom: {chartRepoName:string, chartName:string, chartVersion:string}
 	CreateFrom interface{} `json:"createFrom"`
-	// Values 配置
-	ValuesData *service.ValuesDataArgs `json:"valuesData"`
 	// 是否创建生产服务
 	Production bool `json:"production"`
 }
@@ -79,14 +75,14 @@ type OpenAPICreateFromRepo struct {
 	Repo string `json:"repo"`
 	// 分支名称
 	Branch string `json:"branch"`
-	// Chart 所在路径列表
+	// Chart 所在路径列表，支持传多个路径
 	Paths []string `json:"paths"`
 }
 
 type OpenAPICreateFromPublicRepo struct {
 	// 公开仓库地址
 	RepoLink string `json:"repoLink"`
-	// Chart 所在路径列表
+	// Chart 所在路径列表，支持传多个路径
 	Paths []string `json:"paths"`
 }
 
@@ -255,8 +251,6 @@ type OpenAPILoadServiceFromCodeHostReq struct {
 	RepoOwner  string `json:"-"`
 	Namespace  string `json:"-"`
 	Production bool   `json:"-"`
-	// 服务类型，固定为 k8s
-	Type string `json:"type"`
 	// 项目标识
 	ProductName string `json:"product_name"`
 	// 服务路径列表
@@ -272,9 +266,6 @@ func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
 	}
 	if req.ProductName == "" {
 		return fmt.Errorf("product name cannot be empty")
-	}
-	if req.Type == "" {
-		return fmt.Errorf("type cannot be empty")
 	}
 	if len(req.ServicePaths) == 0 {
 		return fmt.Errorf("service paths cannot be empty")
