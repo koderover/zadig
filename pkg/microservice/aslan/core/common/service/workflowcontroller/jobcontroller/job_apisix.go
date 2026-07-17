@@ -65,20 +65,27 @@ func (c *ApisixJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	failed := false
 	for _, task := range c.jobTaskSpec.Tasks {
 		task.Status = string(config.StatusRunning)
 		c.ack()
 
 		if err := c.executeTask(client, task); err != nil {
+			failed = true
 			task.Status = string(config.StatusFailed)
 			task.Error = err.Error()
 			logError(c.job, fmt.Sprintf("failed to execute APISIX task: %v", err), c.logger)
-			return
+			c.ack()
+			continue
 		}
 
 		c.writeTaskOutput(task)
 		task.Status = string(config.StatusPassed)
 		c.ack()
+	}
+
+	if failed {
+		return
 	}
 
 	c.job.Status = config.StatusPassed
