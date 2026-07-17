@@ -447,6 +447,12 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	if errorMsg == "" {
 		errorMsg = workflowTask.Error
 	}
+	events := jobTaskSpec.Events
+	if workflowTask.Stages[0].Jobs[0].Status == config.StatusPrepare {
+		if kubeEvents := workflowservice.ListRuntimeJobEventsFromKube(workflowTask.Stages[0].Jobs[0], log); kubeEvents != nil {
+			events = kubeEvents
+		}
+	}
 
 	return &ScanningTaskDetail{
 		Creator:       workflowTask.TaskCreator,
@@ -454,7 +460,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		Error:         errorMsg,
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
-		Events:        jobTaskSpec.Events,
+		Events:        events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,

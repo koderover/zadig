@@ -2552,7 +2552,7 @@ func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
 	return nil
 }
 
-func listRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.SugaredLogger) *commonmodels.Events {
+func ListRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.SugaredLogger) *commonmodels.Events {
 	if job.K8sJobName == "" {
 		return nil
 	}
@@ -2682,7 +2682,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		}
 		events := extractRuntimeJobEvents(job)
 		if job.Status == config.StatusPrepare {
-			if kubeEvents := listRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
+			if kubeEvents := ListRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
 				events = kubeEvents
 			}
 		}

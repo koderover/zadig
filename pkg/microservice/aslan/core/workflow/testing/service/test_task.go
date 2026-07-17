@@ -248,6 +248,12 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	if errorMsg == "" {
 		errorMsg = workflowTask.Error
 	}
+	events := jobSpec.Events
+	if workflowTask.Stages[0].Jobs[0].Status == config.StatusPrepare {
+		if kubeEvents := workflowservice.ListRuntimeJobEventsFromKube(workflowTask.Stages[0].Jobs[0], log); kubeEvents != nil {
+			events = kubeEvents
+		}
+	}
 
 	subTaskInfo[testName] = map[string]interface{}{
 		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
@@ -294,7 +300,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		Stages:              stages,
 		TestReports:         testResultMap,
 		IsRestart:           workflowTask.IsRestart,
-		Events:              jobSpec.Events,
+		Events:              events,
 	}, nil
 }
 
