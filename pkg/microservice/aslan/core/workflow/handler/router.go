@@ -193,6 +193,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		custom.GET("/:name/detail", OpenAPIGetCustomWorkflowV4)
 		custom.POST("/:name/task/:taskID", OpenAPIRetryCustomWorkflowTaskV4)
 		custom.PUT("/:name/task/:taskID", OpenAPIUpdateWorkflowV4TaskRemark)
+		custom.GET("/:name/task/:taskID/manual-exec", OpenAPIGetManualExecWorkflowTaskV4Context)
+		custom.POST("/:name/task/:taskID/manual-exec", OpenAPIManualExecWorkflowTaskV4)
 		custom.GET("/:name/tasks", OpenAPIGetCustomWorkflowTaskV4)
 
 	}
