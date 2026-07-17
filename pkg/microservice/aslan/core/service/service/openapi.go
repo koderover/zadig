@@ -312,9 +312,44 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 	return resp, nil
 }
 
-func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, args *HelmServiceCreationArgs) (*BulkHelmServiceCreationResponse, error) {
-	args.CreatedBy = ctx.UserName
-	args.RequestID = ctx.RequestID
+func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceReq) (*BulkHelmServiceCreationResponse, error) {
+	args := &HelmServiceCreationArgs{
+		HelmLoadSource: HelmLoadSource{
+			Source: req.Source,
+		},
+		Name:       req.Name,
+		CreatedBy:  ctx.UserName,
+		RequestID:  ctx.RequestID,
+		AutoSync:   req.AutoSync,
+		ValuesData: req.ValuesData,
+		Production: req.Production,
+	}
+
+	switch createFrom := req.CreateFrom.(type) {
+	case *OpenAPICreateFromRepo:
+		args.CreateFrom = &CreateFromRepo{
+			CodehostID: createFrom.CodehostID,
+			Owner:      createFrom.Owner,
+			Namespace:  createFrom.Namespace,
+			Repo:       createFrom.Repo,
+			Branch:     createFrom.Branch,
+			Paths:      createFrom.Paths,
+		}
+	case *OpenAPICreateFromPublicRepo:
+		args.CreateFrom = &CreateFromPublicRepo{
+			RepoLink: createFrom.RepoLink,
+			Paths:    createFrom.Paths,
+		}
+	case *OpenAPICreateFromChartRepo:
+		args.CreateFrom = &CreateFromChartRepo{
+			ChartRepoName: createFrom.ChartRepoName,
+			ChartName:     createFrom.ChartName,
+			ChartVersion:  createFrom.ChartVersion,
+		}
+	default:
+		args.CreateFrom = req.CreateFrom
+	}
+
 	return CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
 }
 

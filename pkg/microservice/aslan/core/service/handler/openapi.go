@@ -20,15 +20,15 @@ import (
 // @tags 	OpenAPI
 // @accept 	json
 // @produce json
-// @Param 	codehostId 		path 		int 							  true 	"codehostId"
-// @Param   repoName 		query 		string 							  true 	"repoName"
-// @Param   repoUUID 		query 		string 							  true 	"repoUUID"
-// @Param   branchName 		query 		string 							  true 	"branchName"
-// @Param   remoteName 		query 		string 							  true 	"remoteName"
-// @Param   repoOwner 		query 		string 							  true 	"repoOwner"
-// @Param   namespace 		query 		string 							  true 	"namespace"
-// @Param   production 		query 		bool 							  true 	"production"
-// @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"body"
+// @Param 	codehostId 		path 		int 							  true 		"代码源 ID"
+// @Param   repoName 		query 		string 							  false 	"代码库名称，repoName 和 repoUUID 至少传一个"
+// @Param   repoUUID 		query 		string 							  false 	"代码库唯一标识"
+// @Param   branchName 		query 		string 							  true 		"服务配置所在分支"
+// @Param   remoteName 		query 		string 							  false 	"远端名称，Gerrit 场景使用，普通 Git 仓库可为空"
+// @Param   repoOwner 		query 		string 							  true 		"仓库拥有者/组织名"
+// @Param   namespace 		query 		string 							  false 	"仓库命名空间，为空默认使用 repoOwner"
+// @Param   production 		query 		bool 							  false 	"是否创建生产服务，true 表示生产服务，false 表示测试服务"
+// @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"K8s YAML 服务创建参数。type 固定为 k8s；product_name 为项目标识；service_paths 为服务路径列表，包含 service_name、path、is_dir"
 // @success 200
 // @router /openapi/service/loader/load/:codehostId [post]
 func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
@@ -638,7 +638,7 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 // @accept 	json
 // @produce json
 // @Param   projectKey		query		 string								 true	"项目标识"
-// @Param   body 			body 		 svcservice.HelmServiceCreationArgs true 	"body"
+// @Param   body 			body 		 svcservice.OpenAPILoadHelmServiceReq true 	"Helm 服务创建参数。source=repo 时 createFrom 传 codehostID、owner、namespace、repo、branch、paths；source=publicRepo 时 createFrom 传 repoLink、paths；source=chartRepo 时 createFrom 传 chartRepoName、chartName、chartVersion；production 表示是否创建生产服务"
 // @success 200
 // @router /openapi/service/helm/load [post]
 func LoadHelmServiceOpenAPI(c *gin.Context) {
@@ -657,7 +657,7 @@ func LoadHelmServiceOpenAPI(c *gin.Context) {
 		return
 	}
 
-	args := new(svcservice.HelmServiceCreationArgs)
+	args := new(svcservice.OpenAPILoadHelmServiceReq)
 	data, err := c.GetRawData()
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
@@ -708,13 +708,13 @@ func LoadHelmServiceOpenAPI(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = svcservice.OpenAPILoadHelmService(ctx, projectKey, args)
 }
 
-func getHelmServiceNameFromArgs(args *svcservice.HelmServiceCreationArgs) string {
+func getHelmServiceNameFromArgs(args *svcservice.OpenAPILoadHelmServiceReq) string {
 	if args.Name != "" {
 		return args.Name
 	}
 
 	switch createFrom := args.CreateFrom.(type) {
-	case *svcservice.CreateFromChartRepo:
+	case *svcservice.OpenAPICreateFromChartRepo:
 		return createFrom.ChartName
 	case map[string]interface{}:
 		if chartName, ok := createFrom["chartName"].(string); ok {

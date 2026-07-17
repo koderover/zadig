@@ -53,6 +53,35 @@ type HelmServiceCreationArgs struct {
 	Production     bool                    `json:"production"`
 }
 
+type OpenAPILoadHelmServiceReq struct {
+	Source     LoadSource              `json:"source"`
+	Name       string                  `json:"name"`
+	AutoSync   bool                    `json:"auto_sync"`
+	CreateFrom interface{}             `json:"createFrom"`
+	ValuesData *service.ValuesDataArgs `json:"valuesData"`
+	Production bool                    `json:"production"`
+}
+
+type OpenAPICreateFromRepo struct {
+	CodehostID int      `json:"codehostID"`
+	Owner      string   `json:"owner"`
+	Namespace  string   `json:"namespace"`
+	Repo       string   `json:"repo"`
+	Branch     string   `json:"branch"`
+	Paths      []string `json:"paths"`
+}
+
+type OpenAPICreateFromPublicRepo struct {
+	RepoLink string   `json:"repoLink"`
+	Paths    []string `json:"paths"`
+}
+
+type OpenAPICreateFromChartRepo struct {
+	ChartRepoName string `json:"chartRepoName"`
+	ChartName     string `json:"chartName"`
+	ChartVersion  string `json:"chartVersion"`
+}
+
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
 	CreateFrom interface{}             `json:"createFrom"`
@@ -137,6 +166,26 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*tmp)(a))
 }
 
+func (a *OpenAPILoadHelmServiceReq) UnmarshalJSON(data []byte) error {
+	s := &HelmLoadSource{}
+	if err := json.Unmarshal(data, s); err != nil {
+		return err
+	}
+
+	switch s.Source {
+	case LoadFromRepo, LoadFromGerrit, LoadSource("gitee"), LoadSource("gitee-enterprise"):
+		a.CreateFrom = &OpenAPICreateFromRepo{}
+	case LoadFromPublicRepo:
+		a.CreateFrom = &OpenAPICreateFromPublicRepo{}
+	case LoadFromChartRepo:
+		a.CreateFrom = &OpenAPICreateFromChartRepo{}
+	}
+
+	type tmp OpenAPILoadHelmServiceReq
+
+	return json.Unmarshal(data, (*tmp)(a))
+}
+
 func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	s := &HelmLoadSource{}
 	if err := json.Unmarshal(data, s); err != nil {
@@ -187,6 +236,9 @@ type OpenAPILoadServiceFromCodeHostReq struct {
 func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
 	if req.RepoName == "" && req.RepoUUID == "" {
 		return fmt.Errorf("repoName and repoUUID cannot be empty at the same time")
+	}
+	if req.RepoOwner == "" {
+		return fmt.Errorf("repoOwner cannot be empty")
 	}
 	if req.ProductName == "" {
 		return fmt.Errorf("product name cannot be empty")
