@@ -28,7 +28,7 @@ import (
 // @Param   repoOwner 		query 		string 							  true 		"仓库拥有者/组织名"
 // @Param   namespace 		query 		string 							  false 	"仓库命名空间，为空默认使用 repoOwner"
 // @Param   production 		query 		bool 							  false 	"是否创建生产服务，true 表示生产服务，false 表示测试服务"
-// @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"K8s YAML 服务创建参数。type 固定为 k8s；product_name 为项目标识；service_paths 为服务路径列表，包含 service_name、path、is_dir"
+// @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"K8s YAML 服务创建参数"
 // @success 200
 // @router /openapi/service/loader/load/:codehostId [post]
 func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
@@ -638,7 +638,7 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 // @accept 	json
 // @produce json
 // @Param   projectKey		query		 string								 true	"项目标识"
-// @Param   body 			body 		 svcservice.OpenAPILoadHelmServiceReq true 	"Helm 服务创建参数。source=repo 时 createFrom 传 codehostID、owner、namespace、repo、branch、paths；source=publicRepo 时 createFrom 传 repoLink、paths；source=chartRepo 时 createFrom 传 chartRepoName、chartName、chartVersion；production 表示是否创建生产服务"
+// @Param   body 			body 		 svcservice.OpenAPILoadHelmServiceReq true 	"Helm 服务创建参数"
 // @success 200
 // @router /openapi/service/helm/load [post]
 func LoadHelmServiceOpenAPI(c *gin.Context) {

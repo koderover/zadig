@@ -54,32 +54,59 @@ type HelmServiceCreationArgs struct {
 }
 
 type OpenAPILoadHelmServiceReq struct {
-	Source     LoadSource              `json:"source"`
-	Name       string                  `json:"name"`
-	AutoSync   bool                    `json:"auto_sync"`
-	CreateFrom interface{}             `json:"createFrom"`
+	// 服务来源，支持 repo、publicRepo、chartRepo
+	Source LoadSource `json:"source"`
+	// 服务名称。repo/publicRepo 场景可为空，后端会从 Chart.yaml 读取；chartRepo 场景使用 chartName 作为服务名
+	Name string `json:"name"`
+	// 是否自动同步
+	AutoSync bool `json:"auto_sync"`
+	// 服务来源配置。source=repo 时传 codehostID、owner、namespace、repo、branch、paths；source=publicRepo 时传 repoLink、paths；source=chartRepo 时传 chartRepoName、chartName、chartVersion
+	CreateFrom interface{} `json:"createFrom"`
+	// Values 配置
 	ValuesData *service.ValuesDataArgs `json:"valuesData"`
-	Production bool                    `json:"production"`
+	// 是否创建生产服务
+	Production bool `json:"production"`
 }
 
 type OpenAPICreateFromRepo struct {
-	CodehostID int      `json:"codehostID"`
-	Owner      string   `json:"owner"`
-	Namespace  string   `json:"namespace"`
-	Repo       string   `json:"repo"`
-	Branch     string   `json:"branch"`
-	Paths      []string `json:"paths"`
+	// 代码源 ID
+	CodehostID int `json:"codehostID"`
+	// 仓库拥有者/组织名
+	Owner string `json:"owner"`
+	// 仓库命名空间，GitLab 多层 group 时使用；为空默认使用 owner
+	Namespace string `json:"namespace"`
+	// 代码库名称
+	Repo string `json:"repo"`
+	// 分支名称
+	Branch string `json:"branch"`
+	// Chart 所在路径列表
+	Paths []string `json:"paths"`
 }
 
 type OpenAPICreateFromPublicRepo struct {
-	RepoLink string   `json:"repoLink"`
-	Paths    []string `json:"paths"`
+	// 公开仓库地址
+	RepoLink string `json:"repoLink"`
+	// Chart 所在路径列表
+	Paths []string `json:"paths"`
 }
 
 type OpenAPICreateFromChartRepo struct {
+	// Chart 仓库名称
 	ChartRepoName string `json:"chartRepoName"`
-	ChartName     string `json:"chartName"`
-	ChartVersion  string `json:"chartVersion"`
+	// Chart 名称
+	ChartName string `json:"chartName"`
+	// Chart 版本
+	ChartVersion string `json:"chartVersion"`
+}
+
+type OpenAPILoadHelmServiceResp struct {
+	SuccessServices []string                    `json:"successServices"`
+	FailedServices  []*OpenAPIFailedHelmService `json:"failedServices"`
+}
+
+type OpenAPIFailedHelmService struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
 }
 
 type BulkHelmServiceCreationArgs struct {
@@ -220,16 +247,19 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 }
 
 type OpenAPILoadServiceFromCodeHostReq struct {
-	CodehostID   int               `json:"-"`
-	RepoName     string            `json:"-"`
-	RepoUUID     string            `json:"-"`
-	BranchName   string            `json:"-"`
-	RemoteName   string            `json:"-"`
-	RepoOwner    string            `json:"-"`
-	Namespace    string            `json:"-"`
-	Production   bool              `json:"-"`
-	Type         string            `json:"type"`
-	ProductName  string            `json:"product_name"`
+	CodehostID int    `json:"-"`
+	RepoName   string `json:"-"`
+	RepoUUID   string `json:"-"`
+	BranchName string `json:"-"`
+	RemoteName string `json:"-"`
+	RepoOwner  string `json:"-"`
+	Namespace  string `json:"-"`
+	Production bool   `json:"-"`
+	// 服务类型，固定为 k8s
+	Type string `json:"type"`
+	// 项目标识
+	ProductName string `json:"product_name"`
+	// 服务路径列表
 	ServicePaths []LoadServicePath `json:"service_paths"`
 }
 

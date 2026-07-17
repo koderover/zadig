@@ -312,7 +312,7 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 	return resp, nil
 }
 
-func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceReq) (*BulkHelmServiceCreationResponse, error) {
+func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceReq) (*OpenAPILoadHelmServiceResp, error) {
 	args := &HelmServiceCreationArgs{
 		HelmLoadSource: HelmLoadSource{
 			Source: req.Source,
@@ -350,7 +350,23 @@ func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req
 		args.CreateFrom = req.CreateFrom
 	}
 
-	return CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
+	resp, err := CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	openAPIResp := &OpenAPILoadHelmServiceResp{
+		SuccessServices: resp.SuccessServices,
+		FailedServices:  make([]*OpenAPIFailedHelmService, 0, len(resp.FailedServices)),
+	}
+	for _, failedService := range resp.FailedServices {
+		openAPIResp.FailedServices = append(openAPIResp.FailedServices, &OpenAPIFailedHelmService{
+			Path:  failedService.Path,
+			Error: failedService.Error,
+		})
+	}
+
+	return openAPIResp, nil
 }
 
 func OpenAPILoadHelmServiceFromTemplate(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceFromTemplateReq) error {
