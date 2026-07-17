@@ -29,7 +29,7 @@ import (
 // @Param   namespace 		query 		string 							  false 	"仓库命名空间，为空默认使用 repoOwner"
 // @Param   production 		query 		bool 							  false 	"是否创建生产服务，true 表示生产服务，false 表示测试服务"
 // @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"K8s YAML 服务创建参数"
-// @success 200
+// @success 200 {object} svcservice.OpenAPILoadHelmServiceResp
 // @router /openapi/service/loader/load/:codehostId [post]
 func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

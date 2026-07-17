@@ -96,12 +96,16 @@ type OpenAPICreateFromChartRepo struct {
 }
 
 type OpenAPILoadHelmServiceResp struct {
-	SuccessServices []string                    `json:"successServices"`
-	FailedServices  []*OpenAPIFailedHelmService `json:"failedServices"`
+	// 创建成功的服务名称列表
+	SuccessServices []string `json:"successServices"`
+	// 创建失败的服务列表
+	FailedServices []*OpenAPIFailedHelmService `json:"failedServices"`
 }
 
 type OpenAPIFailedHelmService struct {
-	Path  string `json:"path"`
+	// 创建失败的 Chart 路径
+	Path string `json:"path"`
+	// 失败原因
 	Error string `json:"error"`
 }
 
