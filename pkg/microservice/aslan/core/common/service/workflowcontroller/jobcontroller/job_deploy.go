@@ -904,10 +904,15 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 			return config.StatusTimeout, nil
 		default:
 			time.Sleep(time.Second * 2)
-			readyPods := 0
-			totalPods := 0
+			type readyPodCount struct {
+				resource  commonmodels.Resource
+				readyPods int
+				totalPods int
+			}
+			readyPodCounts := make([]readyPodCount, 0, len(replaceResources))
 			countErr := false
 			for _, resource := range replaceResources {
+				podCount := readyPodCount{resource: resource}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
@@ -917,7 +922,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break
 					}
 					if d.Spec.Replicas != nil {
-						totalPods += int(*d.Spec.Replicas)
+						podCount.totalPods = int(*d.Spec.Replicas)
 					}
 				case setting.DaemonSet:
 					daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
@@ -926,7 +931,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						countErr = true
 						break
 					}
-					totalPods += int(daemonSet.Status.DesiredNumberScheduled)
+					podCount.totalPods = int(daemonSet.Status.DesiredNumberScheduled)
 				case setting.StatefulSet:
 					sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if err != nil || !found {
@@ -935,7 +940,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break
 					}
 					if sts.Spec.Replicas != nil {
-						totalPods += int(*sts.Spec.Replicas)
+						podCount.totalPods = int(*sts.Spec.Replicas)
 					}
 				default:
 					continue
@@ -964,16 +969,24 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						}
 						podUIDs[string(pod.UID)] = true
 						if wrapper.Pod(pod).Ready() {
-							readyPods++
+							podCount.readyPods++
 						}
 					}
 				}
 				if countErr {
 					break
 				}
+				readyPodCounts = append(readyPodCounts, podCount)
 			}
 			if !countErr {
-				jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods: %d/%d", readyPods, totalPods))
+				if len(readyPodCounts) == 1 {
+					podCount := readyPodCounts[0]
+					jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods: %d/%d", podCount.readyPods, podCount.totalPods))
+				} else {
+					for _, podCount := range readyPodCounts {
+						jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
+					}
+				}
 			}
 
 			ready := true
