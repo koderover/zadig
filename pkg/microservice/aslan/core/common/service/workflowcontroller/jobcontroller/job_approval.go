@@ -526,7 +526,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
