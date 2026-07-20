@@ -34,6 +34,49 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string, or
 	return syncYamlFromGit(yamlData, curValue, originValue)
 }
 
+func LoadYamlFromSource(yamlData *templatemodels.CustomYaml) (string, bool, error) {
+	if yamlData == nil {
+		return "", false, nil
+	}
+	if yamlData.Source == setting.SourceFromVariableSet {
+		if yamlData.SourceID == "" {
+			return "", false, nil
+		}
+		variableSet, err := commonrepo.NewVariableSetColl().Find(&commonrepo.VariableSetFindOption{
+			ID: yamlData.SourceID,
+		})
+		if err != nil {
+			return "", false, err
+		}
+		return variableSet.VariableYaml, true, nil
+	}
+	if !fromGitRepo(yamlData.Source) || yamlData.SourceDetail == nil {
+		return "", false, nil
+	}
+	sourceDetail, err := UnMarshalSourceDetail(yamlData.SourceDetail)
+	if err != nil {
+		return "", false, err
+	}
+	if sourceDetail.GitRepoConfig == nil {
+		log.Warnf("git repo config is nil")
+		return "", false, nil
+	}
+	repoConfig := sourceDetail.GitRepoConfig
+
+	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+		CodehostID: repoConfig.CodehostID,
+		Namespace:  repoConfig.Namespace,
+		Owner:      repoConfig.Owner,
+		Repo:       repoConfig.Repo,
+		Path:       sourceDetail.LoadPath,
+		Branch:     repoConfig.Branch,
+	})
+	if err != nil {
+		return "", false, err
+	}
+	return string(valuesYAML), true, nil
+}
+
 func syncYamlFromVariableSet(yamlData *templatemodels.CustomYaml, curValue string) (bool, string, error) {
 	if yamlData.Source != setting.SourceFromVariableSet {
 		return false, "", nil

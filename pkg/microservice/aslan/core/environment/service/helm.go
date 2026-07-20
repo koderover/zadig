@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 	jsonutil "github.com/koderover/zadig/v2/pkg/util/json"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 type HelmReleaseQueryArgs struct {
@@ -76,6 +77,39 @@ type HelmReleaseResp struct {
 	IsHelmChartDeploy bool                          `json:"isHelmChartDeploy"`
 	DeployStrategy    setting.ServiceDeployStrategy `json:"deployStrategy"`
 	Error             string                        `json:"error"`
+	Diff              *HelmServiceDiffSummary       `json:"diff,omitempty"`
+}
+
+type HelmServiceDiffSummary struct {
+	HasDiff             bool   `json:"hasDiff"`
+	VersionChanged      bool   `json:"versionChanged"`
+	ValuesChanged       bool   `json:"valuesChanged"`
+	CurrentRevision     int64  `json:"currentRevision"`
+	LatestRevision      int64  `json:"latestRevision"`
+	CurrentChartVersion string `json:"currentChartVersion"`
+	LatestChartVersion  string `json:"latestChartVersion"`
+	Error               string `json:"error,omitempty"`
+}
+
+type HelmServiceVersionDiff struct {
+	CurrentRevision     int64  `json:"currentRevision"`
+	LatestRevision      int64  `json:"latestRevision"`
+	CurrentChartVersion string `json:"currentChartVersion"`
+	LatestChartVersion  string `json:"latestChartVersion"`
+}
+
+type HelmServiceValuesDiff struct {
+	Current string `json:"current"`
+	Latest  string `json:"latest"`
+}
+
+type HelmServiceDiffResp struct {
+	ServiceName string                  `json:"serviceName"`
+	ReleaseName string                  `json:"releaseName"`
+	HasDiff     bool                    `json:"hasDiff"`
+	Diff        *HelmServiceDiffSummary `json:"diff"`
+	VersionDiff *HelmServiceVersionDiff `json:"versionDiff,omitempty"`
+	ValuesDiff  *HelmServiceValuesDiff  `json:"valuesDiff,omitempty"`
 }
 
 type ChartInfo struct {
@@ -101,7 +135,14 @@ const (
 	HelmReleaseStatusDeployed    ReleaseStatus = "deployed"
 	HelmReleaseStatusFailed      ReleaseStatus = "failed"
 	HelmReleaseStatusNotDeployed ReleaseStatus = "notDeployed"
+
+	helmServiceDiffSummaryConcurrency = 5
 )
+
+type helmServiceDiffResult struct {
+	diff *HelmServiceDiffSummary
+	err  error
+}
 
 func listReleaseInNamespace(helmClient *helmtool.HelmClient, filter *ReleaseFilter) ([]*release.Release, error) {
 	listClient := action.NewList(helmClient.ActionConfig)
@@ -132,6 +173,90 @@ func getReleaseStatus(re *release.Release) ReleaseStatus {
 	default:
 		return HelmReleaseStatusFailed
 	}
+}
+
+func getCurrentTemplateService(productName string, prodSvc *models.ProductService, production bool) (*models.Service, error) {
+	if prodSvc == nil || !prodSvc.FromZadig() {
+		return nil, nil
+	}
+	return repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: prodSvc.ServiceName,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+		Revision:    prodSvc.Revision,
+	}, production)
+}
+
+func getHelmServiceDiffSummary(productName string, prodSvc *models.ProductService, latestTmplSvc *models.Service, production bool) (*HelmServiceDiffSummary, string, bool, error) {
+	summary := &HelmServiceDiffSummary{}
+	if prodSvc == nil {
+		return summary, "", false, nil
+	}
+
+	summary.CurrentRevision = prodSvc.Revision
+	summary.LatestRevision = prodSvc.Revision
+
+	render := prodSvc.GetServiceRender()
+	summary.CurrentChartVersion = render.ChartVersion
+	summary.LatestChartVersion = render.ChartVersion
+
+	if prodSvc.FromZadig() && latestTmplSvc != nil {
+		summary.LatestRevision = latestTmplSvc.Revision
+		if latestTmplSvc.HelmChart != nil {
+			summary.LatestChartVersion = latestTmplSvc.HelmChart.Version
+		}
+		summary.VersionChanged = prodSvc.Revision != latestTmplSvc.Revision
+
+		if !summary.VersionChanged {
+			summary.CurrentChartVersion = summary.LatestChartVersion
+		} else {
+			currentTmplSvc, err := getCurrentTemplateService(productName, prodSvc, production)
+			if err != nil {
+				return summary, "", false, err
+			}
+			if currentTmplSvc != nil && currentTmplSvc.HelmChart != nil {
+				summary.CurrentChartVersion = currentTmplSvc.HelmChart.Version
+			}
+		}
+	}
+	summary.HasDiff = summary.VersionChanged
+
+	sourceValues, hasSource, err := commonservice.LoadYamlFromSource(render.OverrideYaml)
+	if err != nil {
+		return summary, "", false, err
+	}
+	if hasSource {
+		equal, err := yamlutil.Equal(sourceValues, render.GetOverrideYaml())
+		if err != nil {
+			return summary, "", false, err
+		}
+		summary.ValuesChanged = !equal
+	}
+
+	summary.HasDiff = summary.VersionChanged || summary.ValuesChanged
+	return summary, sourceValues, hasSource, nil
+}
+
+func parseOverrideValues(valueStr string) ([]*commonservice.KVPair, error) {
+	if valueStr == "" {
+		return nil, nil
+	}
+
+	ret := make([]*commonservice.KVPair, 0)
+	if err := json.Unmarshal([]byte(valueStr), &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func findHelmProductService(prod *models.Product, serviceOrReleaseName string, isHelmChartDeploy bool) *models.ProductService {
+	if prod == nil {
+		return nil
+	}
+	if isHelmChartDeploy {
+		return prod.GetChartServiceMap()[serviceOrReleaseName]
+	}
+	return prod.GetServiceMap()[serviceOrReleaseName]
 }
 
 type ImageData struct {
@@ -259,10 +384,29 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	}
 
 	ret := make([]*HelmReleaseResp, 0)
+	diffResults := make([]helmServiceDiffResult, len(svcDataList))
+	diffSemaphore := make(chan struct{}, helmServiceDiffSummaryConcurrency)
+	var diffWaitGroup sync.WaitGroup
+	for index, svcDataSet := range svcDataList {
+		if !filterFunc(svcDataSet) {
+			continue
+		}
+		index, svcDataSet := index, svcDataSet
+		diffWaitGroup.Add(1)
+		util.Go(func() {
+			defer diffWaitGroup.Done()
+			diffSemaphore <- struct{}{}
+			defer func() { <-diffSemaphore }()
+
+			diff, _, _, err := getHelmServiceDiffSummary(projectName, svcDataSet.ProdSvc, svcDataSet.TmplSvc, production)
+			diffResults[index] = helmServiceDiffResult{diff: diff, err: err}
+		})
+	}
+	diffWaitGroup.Wait()
 
 	chartInfoMap := prod.GetChartRenderMap()
 	chartDeployInfoMap := prod.GetChartDeployRenderMap()
-	for _, svcDataSet := range svcDataList {
+	for index, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
 			continue
 		}
@@ -321,10 +465,114 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.Status = HelmReleaseStatusFailed
 		}
 
+		diff, err := diffResults[index].diff, diffResults[index].err
+		if err != nil {
+			log.Warnf("failed to get helm service diff summary, project: %s, env: %s, service: %s, err: %s", projectName, envName, svcDataSet.ProdSvc.ServiceName, err)
+			if diff == nil {
+				diff = &HelmServiceDiffSummary{}
+			}
+			diff.Error = err.Error()
+		}
+		respObj.Diff = diff
+
 		ret = append(ret, respObj)
 	}
 
 	return ret, nil
+}
+
+func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, production, isHelmChartDeploy bool, log *zap.SugaredLogger) (*HelmServiceDiffResp, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", productName, err)
+	}
+
+	prodSvc := findHelmProductService(prod, serviceOrReleaseName, isHelmChartDeploy)
+	if prodSvc == nil {
+		if isHelmChartDeploy {
+			return nil, fmt.Errorf("failed to find release %s in env %s", serviceOrReleaseName, envName)
+		}
+		return nil, fmt.Errorf("failed to find service %s in env %s", serviceOrReleaseName, envName)
+	}
+
+	var latestTmplSvc *models.Service
+	if !isHelmChartDeploy {
+		latestTmplSvc, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: prodSvc.ServiceName,
+			ProductName: productName,
+			Type:        setting.HelmDeployType,
+		}, production)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query latest template service, serviceName: %s, err: %s", prodSvc.ServiceName, err)
+		}
+	}
+
+	diff, sourceValues, hasSource, err := getHelmServiceDiffSummary(productName, prodSvc, latestTmplSvc, production)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &HelmServiceDiffResp{
+		ServiceName: prodSvc.ServiceName,
+		ReleaseName: prodSvc.ReleaseName,
+		HasDiff:     diff.HasDiff,
+		Diff:        diff,
+	}
+	if diff.VersionChanged {
+		resp.VersionDiff = &HelmServiceVersionDiff{
+			CurrentRevision:     diff.CurrentRevision,
+			LatestRevision:      diff.LatestRevision,
+			CurrentChartVersion: diff.CurrentChartVersion,
+			LatestChartVersion:  diff.LatestChartVersion,
+		}
+	}
+	if !diff.HasDiff {
+		return resp, nil
+	}
+
+	render := prodSvc.GetServiceRender()
+	overrideYaml := render.GetOverrideYaml()
+	if hasSource {
+		overrideYaml = sourceValues
+	}
+	overrideValues, err := parseOverrideValues(render.OverrideValues)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse override values for service %s, err: %s", prodSvc.ServiceName, err)
+	}
+
+	arg := &EstimateValuesArg{
+		OverrideYaml:   overrideYaml,
+		OverrideValues: overrideValues,
+		Production:     production,
+	}
+	estimateServiceOrReleaseName := prodSvc.ServiceName
+	if isHelmChartDeploy {
+		estimateServiceOrReleaseName = prodSvc.ReleaseName
+		arg.ChartRepo = render.ChartRepo
+		arg.ChartName = render.ChartName
+		arg.ChartVersion = render.ChartVersion
+	}
+	valuesResp, err := GenEstimatedValues(productName, envName, prod.Namespace, estimateServiceOrReleaseName, EstimateValuesSceneUpdateService, EstimateContentTypeValues, EstimateValuesResponseFormatYaml, arg, diff.VersionChanged, production, isHelmChartDeploy, "", log)
+	if err != nil {
+		return nil, err
+	}
+
+	equal, err := yamlutil.Equal(valuesResp.Current, valuesResp.Latest)
+	if err != nil {
+		return nil, err
+	}
+	if !equal {
+		resp.ValuesDiff = &HelmServiceValuesDiff{
+			Current: valuesResp.Current,
+			Latest:  valuesResp.Latest,
+		}
+	}
+
+	return resp, nil
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
