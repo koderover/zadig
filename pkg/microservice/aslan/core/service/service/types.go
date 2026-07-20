@@ -53,6 +53,62 @@ type HelmServiceCreationArgs struct {
 	Production     bool                    `json:"production"`
 }
 
+type OpenAPILoadHelmServiceReq struct {
+	// 服务来源，支持 repo、publicRepo、chartRepo
+	Source LoadSource `json:"source"`
+	// 服务名称。repo/publicRepo 场景可为空，后端会从 Chart.yaml 读取；chartRepo 场景使用 chartName 作为服务名
+	Name string `json:"name"`
+	// 服务来源配置。source=repo 时传 createFrom: {codehostID:int, owner:string, namespace:string, repo:string, branch:string, paths:[]string}；source=publicRepo 时传 createFrom: {repoLink:string, paths:[]string}；source=chartRepo 时传 createFrom: {chartRepoName:string, chartName:string, chartVersion:string}
+	CreateFrom interface{} `json:"createFrom"`
+	// 是否创建生产服务
+	Production bool `json:"production"`
+}
+
+type OpenAPICreateFromRepo struct {
+	// 代码源 ID
+	CodehostID int `json:"codehostID"`
+	// 仓库拥有者/组织名
+	Owner string `json:"owner"`
+	// 仓库命名空间，GitLab 多层 group 时使用；为空默认使用 owner
+	Namespace string `json:"namespace"`
+	// 代码库名称
+	Repo string `json:"repo"`
+	// 分支名称
+	Branch string `json:"branch"`
+	// Chart 所在路径列表，支持传多个路径
+	Paths []string `json:"paths"`
+}
+
+type OpenAPICreateFromPublicRepo struct {
+	// 公开仓库地址
+	RepoLink string `json:"repoLink"`
+	// Chart 所在路径列表，支持传多个路径
+	Paths []string `json:"paths"`
+}
+
+type OpenAPICreateFromChartRepo struct {
+	// Chart 仓库名称
+	ChartRepoName string `json:"chartRepoName"`
+	// Chart 名称
+	ChartName string `json:"chartName"`
+	// Chart 版本
+	ChartVersion string `json:"chartVersion"`
+}
+
+type OpenAPILoadHelmServiceResp struct {
+	// 创建成功的服务名称列表
+	SuccessServices []string `json:"successServices"`
+	// 创建失败的服务列表
+	FailedServices []*OpenAPIFailedHelmService `json:"failedServices"`
+}
+
+type OpenAPIFailedHelmService struct {
+	// 创建失败的 Chart 路径
+	Path string `json:"path"`
+	// 失败原因
+	Error string `json:"error"`
+}
+
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
 	CreateFrom interface{}             `json:"createFrom"`
@@ -137,6 +193,26 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*tmp)(a))
 }
 
+func (a *OpenAPILoadHelmServiceReq) UnmarshalJSON(data []byte) error {
+	s := &HelmLoadSource{}
+	if err := json.Unmarshal(data, s); err != nil {
+		return err
+	}
+
+	switch s.Source {
+	case LoadFromRepo, LoadFromGerrit, LoadSource("gitee"), LoadSource("gitee-enterprise"):
+		a.CreateFrom = &OpenAPICreateFromRepo{}
+	case LoadFromPublicRepo:
+		a.CreateFrom = &OpenAPICreateFromPublicRepo{}
+	case LoadFromChartRepo:
+		a.CreateFrom = &OpenAPICreateFromChartRepo{}
+	}
+
+	type tmp OpenAPILoadHelmServiceReq
+
+	return json.Unmarshal(data, (*tmp)(a))
+}
+
 func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	s := &HelmLoadSource{}
 	if err := json.Unmarshal(data, s); err != nil {
@@ -168,6 +244,37 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 	TemplateName string       `json:"template_name"`
 	AutoSync     bool         `json:"auto_sync"`
 	VariableYaml util.KVInput `json:"variable_yaml"`
+}
+
+type OpenAPILoadServiceFromCodeHostReq struct {
+	CodehostID int    `json:"-"`
+	RepoName   string `json:"-"`
+	RepoUUID   string `json:"-"`
+	BranchName string `json:"-"`
+	RemoteName string `json:"-"`
+	RepoOwner  string `json:"-"`
+	Namespace  string `json:"-"`
+	Production bool   `json:"-"`
+	// 项目标识
+	ProductName string `json:"product_name"`
+	// 服务路径列表
+	ServicePaths []LoadServicePath `json:"service_paths"`
+}
+
+func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
+	if req.RepoName == "" && req.RepoUUID == "" {
+		return fmt.Errorf("repoName and repoUUID cannot be empty at the same time")
+	}
+	if req.RepoOwner == "" {
+		return fmt.Errorf("repoOwner cannot be empty")
+	}
+	if req.ProductName == "" {
+		return fmt.Errorf("product name cannot be empty")
+	}
+	if len(req.ServicePaths) == 0 {
+		return fmt.Errorf("service paths cannot be empty")
+	}
+	return nil
 }
 
 type OpenAPIUpdateServiceConfigArgs struct {

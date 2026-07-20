@@ -111,12 +111,22 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	loader := router.Group("loader")
+	{
+		loader.POST("/load/:codehostId", LoadServiceTemplateFromCodeHostOpenAPI)
+	}
+
 	template := router.Group("template")
 	{
 		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
 		template.POST("/production/load/yaml", LoadProductionServiceFromYamlTemplateOpenAPI)
 
 		template.POST("/load/helm", LoadHelmServiceFromTemplateOpenAPI)
+	}
+
+	helm := router.Group("helm")
+	{
+		helm.POST("/load", LoadHelmServiceOpenAPI)
 	}
 
 	yaml := router.Group("yaml")

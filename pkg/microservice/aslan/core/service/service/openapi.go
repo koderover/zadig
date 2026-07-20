@@ -38,6 +38,21 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, req.Production, logger)
 }
 
+func OpenAPILoadServiceFromCodeHost(username string, req *OpenAPILoadServiceFromCodeHostReq, logger *zap.SugaredLogger) error {
+	namespace := req.Namespace
+	if namespace == "" {
+		namespace = req.RepoOwner
+	}
+
+	loadArgs := &LoadServiceReq{
+		Type:         setting.K8SDeployType,
+		ProductName:  req.ProductName,
+		ServicePaths: req.ServicePaths,
+	}
+
+	return LoadServiceFromCodeHost(username, req.CodehostID, req.RepoOwner, namespace, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, loadArgs, false, false, req.Production, logger)
+}
+
 func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
 	createArgs := &commonmodels.Service{
 		ServiceName:        req.ServiceName,
@@ -295,6 +310,61 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 	}
 
 	return resp, nil
+}
+
+func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceReq) (*OpenAPILoadHelmServiceResp, error) {
+	args := &HelmServiceCreationArgs{
+		HelmLoadSource: HelmLoadSource{
+			Source: req.Source,
+		},
+		Name:       req.Name,
+		CreatedBy:  ctx.UserName,
+		RequestID:  ctx.RequestID,
+		Production: req.Production,
+	}
+
+	switch createFrom := req.CreateFrom.(type) {
+	case *OpenAPICreateFromRepo:
+		args.CreateFrom = &CreateFromRepo{
+			CodehostID: createFrom.CodehostID,
+			Owner:      createFrom.Owner,
+			Namespace:  createFrom.Namespace,
+			Repo:       createFrom.Repo,
+			Branch:     createFrom.Branch,
+			Paths:      createFrom.Paths,
+		}
+	case *OpenAPICreateFromPublicRepo:
+		args.CreateFrom = &CreateFromPublicRepo{
+			RepoLink: createFrom.RepoLink,
+			Paths:    createFrom.Paths,
+		}
+	case *OpenAPICreateFromChartRepo:
+		args.CreateFrom = &CreateFromChartRepo{
+			ChartRepoName: createFrom.ChartRepoName,
+			ChartName:     createFrom.ChartName,
+			ChartVersion:  createFrom.ChartVersion,
+		}
+	default:
+		args.CreateFrom = req.CreateFrom
+	}
+
+	resp, err := CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	openAPIResp := &OpenAPILoadHelmServiceResp{
+		SuccessServices: resp.SuccessServices,
+		FailedServices:  make([]*OpenAPIFailedHelmService, 0, len(resp.FailedServices)),
+	}
+	for _, failedService := range resp.FailedServices {
+		openAPIResp.FailedServices = append(openAPIResp.FailedServices, &OpenAPIFailedHelmService{
+			Path:  failedService.Path,
+			Error: failedService.Error,
+		})
+	}
+
+	return openAPIResp, nil
 }
 
 func OpenAPILoadHelmServiceFromTemplate(ctx *internalhandler.Context, projectKey string, req *OpenAPILoadHelmServiceFromTemplateReq) error {
