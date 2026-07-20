@@ -2631,15 +2631,8 @@ func ListRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.Sugared
 		return kubeEvents[i].CreationTimestamp.Unix() < kubeEvents[j].CreationTimestamp.Unix()
 	})
 
-	reported := make(map[string]struct{})
 	events := &commonmodels.Events{}
 	for _, kubeEvent := range kubeEvents {
-		eventKey := fmt.Sprintf("%s|%s|%s|%s", kubeEvent.InvolvedObject.Name, kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message)
-		if _, ok := reported[eventKey]; ok {
-			continue
-		}
-		reported[eventKey] = struct{}{}
-
 		eventType := "info"
 		if kubeEvent.Type == corev1.EventTypeWarning {
 			eventType = "error"
@@ -2668,6 +2661,28 @@ func ListRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.Sugared
 	return events
 }
 
+func GetWorkflowTaskV4JobEvents(workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.Events, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("failed to find workflow task %d for workflow: %s, error: %s", taskID, workflowName, err)
+		return nil, e.ErrGetTask.AddErr(err)
+	}
+
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if events := ListRuntimeJobEventsFromKube(job, logger); events != nil {
+				return events, nil
+			}
+			return &commonmodels.Events{}, nil
+		}
+	}
+
+	return nil, e.ErrGetTask.AddDesc(fmt.Sprintf("job %s not found", jobName))
+}
+
 func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string, logger *zap.SugaredLogger) []*JobTaskPreview {
 	envMap := make(map[string]*commonmodels.Product)
 	resp := []*JobTaskPreview{}
@@ -2681,11 +2696,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 		}
 		events := extractRuntimeJobEvents(job)
-		if job.Status == config.StatusPrepare {
-			if kubeEvents := ListRuntimeJobEventsFromKube(job, logger); kubeEvents != nil {
-				events = kubeEvents
-			}
-		}
 		jobPreview := &JobTaskPreview{
 			Name:                 job.Name,
 			Key:                  job.Key,

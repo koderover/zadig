@@ -447,26 +447,46 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	if errorMsg == "" {
 		errorMsg = workflowTask.Error
 	}
-	events := jobTaskSpec.Events
-	if workflowTask.Stages[0].Jobs[0].Status == config.StatusPrepare {
-		if kubeEvents := workflowservice.ListRuntimeJobEventsFromKube(workflowTask.Stages[0].Jobs[0], log); kubeEvents != nil {
-			events = kubeEvents
-		}
-	}
-
 	return &ScanningTaskDetail{
 		Creator:       workflowTask.TaskCreator,
 		Status:        string(status),
 		Error:         errorMsg,
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
-		Events:        events,
+		Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,
 		JobName:       jobName,
 		IsHasArtifact: isHasArtifact,
 	}, nil
+}
+
+func GetScanningTaskEvents(scanningID string, taskID int64, log *zap.SugaredLogger) (*commonmodels.Events, error) {
+	scanSvc := commonservice.NewScanningService()
+	scanningInfo, err := scanSvc.GetByID(scanningID)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return nil, err
+	}
+
+	workflowName := commonutil.GenScanningWorkflowName(scanningInfo.ID.Hex())
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		log.Errorf("failed to find workflow task %d for scanning: %s, error: %s", taskID, scanningID, err)
+		return nil, err
+	}
+
+	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+		errMsg := "invalid scan task!"
+		log.Errorf(errMsg)
+		return nil, errors.New(errMsg)
+	}
+
+	if events := workflowservice.ListRuntimeJobEventsFromKube(workflowTask.Stages[0].Jobs[0], log); events != nil {
+		return events, nil
+	}
+	return &commonmodels.Events{}, nil
 }
 
 func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args *CreateScanningTaskReq, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
