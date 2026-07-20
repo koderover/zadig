@@ -979,13 +979,8 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				readyPodCounts = append(readyPodCounts, podCount)
 			}
 			if !countErr {
-				if len(readyPodCounts) == 1 {
-					podCount := readyPodCounts[0]
-					jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods: %d/%d", podCount.readyPods, podCount.totalPods))
-				} else {
-					for _, podCount := range readyPodCounts {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
-					}
+				for _, podCount := range readyPodCounts {
+					jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
 				}
 			}
 

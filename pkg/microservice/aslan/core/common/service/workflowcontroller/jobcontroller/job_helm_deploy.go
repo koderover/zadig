@@ -428,16 +428,16 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 
 	relatedPodLabels := make([]map[string]string, 0)
 	resources := []commonmodels.Resource{}
-	selectedModules := make(map[string]struct{}, len(c.jobTaskSpec.ImageAndModules))
+	selectedImages := make(map[string]struct{}, len(c.jobTaskSpec.ImageAndModules))
 	for _, imageAndModule := range c.jobTaskSpec.ImageAndModules {
-		selectedModules[imageAndModule.ServiceModule] = struct{}{}
+		selectedImages[imageAndModule.Image] = struct{}{}
 	}
-	filterByModule := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedModules) > 0
+	filterByImage := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedImages) > 0
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
 		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
-			if filterByModule && !workloadContainsServiceModule(u, selectedModules) {
+			if filterByImage && !workloadContainsImage(u, selectedImages) {
 				continue
 			}
 			resources = append(resources, commonmodels.Resource{
@@ -464,7 +464,7 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 	return status, nil
 }
 
-func workloadContainsServiceModule(workload *unstructured.Unstructured, selectedModules map[string]struct{}) bool {
+func workloadContainsImage(workload *unstructured.Unstructured, selectedImages map[string]struct{}) bool {
 	for _, containerField := range []string{"containers", "initContainers"} {
 		containers, found, err := unstructured.NestedSlice(workload.Object, "spec", "template", "spec", containerField)
 		if err != nil || !found {
@@ -475,8 +475,8 @@ func workloadContainsServiceModule(workload *unstructured.Unstructured, selected
 			if !ok {
 				continue
 			}
-			name, _, _ := unstructured.NestedString(containerMap, "name")
-			if _, ok := selectedModules[name]; ok {
+			image, _, _ := unstructured.NestedString(containerMap, "image")
+			if _, ok := selectedImages[image]; ok {
 				return true
 			}
 		}
