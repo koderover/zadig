@@ -453,7 +453,6 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		Error:         errorMsg,
 		CreateTime:    workflowTask.CreateTime,
 		EndTime:       workflowTask.EndTime,
-		Events:        jobTaskSpec.Events,
 		RepoInfo:      repoInfo,
 		SonarMetrics:  sonarMetrics,
 		ResultLink:    resultAddr,

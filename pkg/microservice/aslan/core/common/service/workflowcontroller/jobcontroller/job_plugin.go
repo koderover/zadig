@@ -48,9 +48,6 @@ func NewPluginsJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workf
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
-	if jobTaskSpec.Events == nil {
-		jobTaskSpec.Events = &commonmodels.Events{}
-	}
 	job.Spec = jobTaskSpec
 	return &PluginJobCtl{
 		job:         job,

@@ -140,7 +140,6 @@ type JobTaskPreview struct {
 	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
-	Events               *commonmodels.Events         `bson:" - "         json:"events"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -2460,7 +2459,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:    stage.EndTime,
 			Parallel:   stage.Parallel,
 			ManualExec: stage.ManualExec,
-			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName, logger),
+			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
 			Error:      stage.Error,
 		})
 	}
@@ -2531,23 +2530,6 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
-	}
-	return nil
-}
-
-// extractRuntimeJobEvents extracts the runtime job events from the job task spec.
-func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
-	switch job.JobType {
-	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
-		taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
-		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
-			return taskJobSpec.Events
-		}
-	case string(config.JobPlugin):
-		taskJobSpec := &commonmodels.JobTaskPluginSpec{}
-		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
-			return taskJobSpec.Events
-		}
 	}
 	return nil
 }
@@ -2683,7 +2665,7 @@ func GetWorkflowTaskV4JobEvents(workflowName, jobName string, taskID int64, logg
 	return nil, e.ErrGetTask.AddDesc(fmt.Sprintf("job %s not found", jobName))
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string, logger *zap.SugaredLogger) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
 	envMap := make(map[string]*commonmodels.Product)
 	resp := []*JobTaskPreview{}
 
@@ -2695,7 +2677,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				costSeconds = job.EndTime - job.StartTime
 			}
 		}
-		events := extractRuntimeJobEvents(job)
 		jobPreview := &JobTaskPreview{
 			Name:                 job.Name,
 			Key:                  job.Key,
@@ -2715,7 +2696,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			ErrorHandlerUserID:   job.ErrorHandlerUserID,
 			ErrorHandlerUserName: job.ErrorHandlerUserName,
 			RetryCount:           job.RetryCount,
-			Events:               events,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

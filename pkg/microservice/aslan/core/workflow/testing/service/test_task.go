@@ -294,7 +294,6 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		Stages:              stages,
 		TestReports:         testResultMap,
 		IsRestart:           workflowTask.IsRestart,
-		Events:              jobSpec.Events,
 	}, nil
 }
 
