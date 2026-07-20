@@ -115,7 +115,7 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 }
 
 // Update Service and ServiceDeployStrategy for a single service in environment
-func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail string) error {
+func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail, clusterName string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -125,7 +125,7 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 	}
 
 	product.LintServices()
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, operation, detail, session, log.SugaredLogger())
+	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, operation, detail, clusterName, session, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("failed to create helm service version, err: %v", err)
 	}
@@ -210,6 +210,7 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 		}
 	}
 
+	newProductInfo.UpdateBy = user
 	if err = productColl.Update(newProductInfo); err != nil {
 		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
 		mongo.AbortTransaction(session)
@@ -220,7 +221,7 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 }
 
 // Update all services in environment
-func UpdateAllServicesInEnv(productName, envName string, services [][]*models.ProductService, production bool) error {
+func UpdateAllServicesInEnv(productName, envName string, services [][]*models.ProductService, production bool, updateBy string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -275,7 +276,7 @@ func UpdateAllServicesInEnv(productName, envName string, services [][]*models.Pr
 		newServices[len(newServices)-1] = append(newServices[len(newServices)-1], service)
 	}
 
-	if err = productColl.UpdateAllServices(productName, envName, newServices); err != nil {
+	if err = productColl.UpdateAllServices(productName, envName, newServices, updateBy); err != nil {
 		err = fmt.Errorf("failed to update %s/%s product services, err %s", productName, envName, err)
 		mongo.AbortTransaction(session)
 		log.Error(err)
@@ -286,7 +287,7 @@ func UpdateAllServicesInEnv(productName, envName string, services [][]*models.Pr
 }
 
 // Update a services group in environment
-func UpdateServicesGroupInEnv(productName, envName string, index int, group []*models.ProductService, production bool) error {
+func UpdateServicesGroupInEnv(productName, envName string, index int, group []*models.ProductService, production bool, updateBy string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -357,7 +358,7 @@ func UpdateServicesGroupInEnv(productName, envName string, index int, group []*m
 		}
 	}
 
-	if err = productColl.UpdateServicesGroup(productName, envName, index, newGroup); err != nil {
+	if err = productColl.UpdateServicesGroup(productName, envName, index, newGroup, updateBy); err != nil {
 		err = fmt.Errorf("failed to update %s/%s product services, err %s", productName, envName, err)
 		mongo.AbortTransaction(session)
 		log.Error(err)

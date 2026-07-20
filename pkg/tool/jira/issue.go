@@ -199,6 +199,20 @@ func (s *IssueService) UpdateStatus(key, statusID string) error {
 	return nil
 }
 
+func (s *IssueService) UpdateFields(key string, fields map[string]interface{}) error {
+	url := s.client.Host + "/rest/api/2/issue/" + key
+	resp, err := s.client.R().SetBodyJsonMarshal(map[string]interface{}{
+		"fields": fields,
+	}).Put(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
+}
+
 type Transition struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`

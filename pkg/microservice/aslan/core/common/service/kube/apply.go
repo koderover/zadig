@@ -867,7 +867,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					continue
 				}
 			}
-		case setting.Deployment, setting.StatefulSet:
+		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
 			// compatibility flag, We add a match label in spec.selector field pre 1.10.
 			needSelectorLabel := false
 
@@ -974,6 +974,32 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					if fixErr := HandleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", namespace, res.Name, fixErr)
 					}
+				}
+
+			case *appsv1.DaemonSet:
+				if applyParam.InjectSecrets {
+					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
+				}
+
+				logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+				jobLogManager.SaveJobLog(logContent)
+
+				resYAML, marshalErr := yaml.Marshal(res)
+				if marshalErr != nil {
+					log.Errorf("Failed to marshal daemonset %s to YAML: %v", res.Name, marshalErr)
+					errList = multierror.Append(errList, marshalErr)
+					continue
+				}
+				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				originalYAML := ""
+				if curRes, ok := curResourceMap[gvkn]; ok {
+					originalYAML = curRes.Manifest
+				}
+				err = updater.CreateOrPatchDaemonSet(context.TODO(), productInfo.ClusterID, namespace, originalYAML, string(resYAML), applyParam.OverrideResource)
+				if err != nil {
+					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
+					errList = multierror.Append(errList, err)
+					continue
 				}
 
 			case *appsv1.StatefulSet:

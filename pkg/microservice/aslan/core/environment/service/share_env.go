@@ -78,7 +78,7 @@ func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string,
 	return checkWorkloadsHaveK8sService(ctx, kclient, ns)
 }
 
-func EnableBaseEnv(ctx context.Context, envName, productName string) error {
+func EnableBaseEnv(ctx context.Context, envName, productName, userName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -125,11 +125,12 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", setting.IstioNamespace, err)
 	}
 
+	prod.UpdateBy = userName
 	// 5. Update the environment configuration.
 	return ensureBaseEnvConfig(ctx, prod)
 }
 
-func DisableBaseEnv(ctx context.Context, envName, productName string) error {
+func DisableBaseEnv(ctx context.Context, envName, productName, userName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -188,6 +189,7 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err)
 	}
 
+	prod.UpdateBy = userName
 	// 7. Update the environment configuration.
 	return ensureDisableBaseEnvConfig(ctx, prod)
 }

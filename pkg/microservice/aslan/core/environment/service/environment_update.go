@@ -62,7 +62,7 @@ func InstallService(helmClient *helmtool.HelmClient, param *kube.ReleaseInstallP
 	return nil
 }
 
-func setProductServiceError(productInfo *commonmodels.Product, serviceName string, err error) error {
+func setProductServiceError(productInfo *commonmodels.Product, serviceName string, err error, updateBy string) error {
 	foundSvc := false
 	// update service revision data in product
 	for _, svcGroup := range productInfo.Services {
@@ -83,7 +83,7 @@ func setProductServiceError(productInfo *commonmodels.Product, serviceName strin
 		}
 	}
 	if foundSvc {
-		err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+		err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production, updateBy)
 		if err != nil {
 			return fmt.Errorf("failed to update %s/%s product services, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
 		}
@@ -91,7 +91,7 @@ func setProductServiceError(productInfo *commonmodels.Product, serviceName strin
 	return nil
 }
 
-func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceName string, serviceRevision int64) error {
+func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceName string, serviceRevision int64, updateBy string) error {
 	foundSvc := false
 	// update service revision data in product
 	for _, svcGroup := range productInfo.Services {
@@ -108,7 +108,7 @@ func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceNa
 		}
 	}
 	if foundSvc {
-		err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+		err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production, updateBy)
 		if err != nil {
 			return fmt.Errorf("failed to update %s/%s product services, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
 		}

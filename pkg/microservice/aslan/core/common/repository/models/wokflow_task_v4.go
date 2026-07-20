@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -126,6 +127,7 @@ type JobTask struct {
 
 	ErrorPolicy   *JobErrorPolicy   `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
 	ExecutePolicy *JobExecutePolicy `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
+	NotifyCtls    []*NotifyCtl      `bson:"notify_ctls,omitempty" yaml:"notify_ctls,omitempty" json:"notify_ctls,omitempty"`
 	// ErrorHandler is the user ID who did the error handling
 	ErrorHandlerUserID   string `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
@@ -345,11 +347,13 @@ type ImageAndServiceModule struct {
 type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
+	Events     *Events       `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskPluginSpec struct {
 	Properties JobProperties   `bson:"properties"          json:"properties"        yaml:"properties"`
 	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"            yaml:"plugin"`
+	Events     *Events         `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskBlueGreenDeploySpec struct {
@@ -511,18 +515,21 @@ type JobTasK8sPatchSpec struct {
 }
 
 type IssueID struct {
-	Key    string `bson:"key" json:"key" yaml:"key"`
-	Name   string `bson:"name" json:"name" yaml:"name"`
-	Status string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Link   string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
+	Key           string `bson:"key" json:"key" yaml:"key"`
+	Name          string `bson:"name" json:"name" yaml:"name"`
+	CurrentStatus string `bson:"current_status,omitempty" json:"current_status,omitempty" yaml:"current_status,omitempty"`
+	TargetStatus  string `bson:"target_status,omitempty" json:"target_status,omitempty" yaml:"target_status,omitempty"`
+	Status        string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Link          string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
 }
 
 type JobTaskJiraSpec struct {
-	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
-	JiraID       string     `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
-	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
-	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
-	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
+	ProjectID     string              `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	JiraID        string              `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
+	IssueType     string              `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
+	Issues        []*IssueID          `bson:"issues" json:"issues" yaml:"issues"`
+	TargetStatus  string              `bson:"target_status" json:"target_status" yaml:"target_status"`
+	FieldMappings []*JiraFieldMapping `bson:"field_mappings" json:"field_mappings" yaml:"field_mappings"`
 }
 
 type JobTaskCommonRevertSpec struct {
@@ -560,6 +567,13 @@ type ApisixItemUpdateSpec struct {
 	ItemID       string                  `bson:"item_id"       json:"item_id"       yaml:"item_id"`
 	Status       string                  `bson:"status"        json:"status"        yaml:"status"`
 	Error        string                  `bson:"error"         json:"error"         yaml:"error"`
+}
+
+func (s *ApisixItemUpdateSpec) GetConfigName() (string, error) {
+	if s == nil {
+		return "", errors.New("ApisixItemUpdateSpec is nil")
+	}
+	return getApisixConfigName(s.UserSpec)
 }
 
 type NacosData struct {

@@ -44,6 +44,7 @@ type DeployableEnv struct {
 	Alias             string                          `json:"alias"`
 	Namespace         string                          `json:"namespace"`
 	ClusterID         string                          `json:"cluster_id"`
+	ClusterName       string                          `json:"cluster_name"`
 	Services          []*types.ServiceWithVariable    `json:"services"`
 	GlobalVariableKVs []*commontypes.GlobalVariableKV `json:"global_variable_kvs"`
 }
@@ -84,6 +85,32 @@ func GetDeployableEnvs(svcName, projectName string, production bool) (*Deployabl
 	return resp, nil
 }
 
+func getClusterNameMap() (map[string]string, error) {
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		return nil, err
+	}
+
+	clusterNameMap := make(map[string]string, len(clusters))
+	for _, cluster := range clusters {
+		clusterNameMap[cluster.ID.Hex()] = cluster.Name
+	}
+
+	return clusterNameMap, nil
+}
+
+func newDeployableEnv(templateProduct *template.Product, env *commonmodels.Product, clusterNameMap map[string]string) *DeployableEnv {
+	return &DeployableEnv{
+		EnvName:           env.EnvName,
+		Alias:             env.Alias,
+		Namespace:         env.Namespace,
+		ClusterID:         env.ClusterID,
+		ClusterName:       clusterNameMap[env.ClusterID],
+		GlobalVariableKVs: env.GlobalVariables,
+		Services:          getServiceVariables(templateProduct, env),
+	}
+}
+
 type GetKubeWorkloadsResp struct {
 	WorkloadsMap map[string][]string `json:"workloads_map"`
 }
@@ -110,6 +137,16 @@ func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*Get
 		deployNames = append(deployNames, deployment.Name)
 	}
 	workloadsMap["deployment"] = deployNames
+	daemonSets, err := getter.ListDaemonSets(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("GetKubeWorkloads ListDaemonSets error, error msg:%s", err)
+		return nil, err
+	}
+	var daemonsetNames []string
+	for _, daemonSet := range daemonSets {
+		daemonsetNames = append(daemonsetNames, daemonSet.Name)
+	}
+	workloadsMap["daemonset"] = daemonsetNames
 	configMaps, err := getter.ListConfigMaps(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("GetKubeWorkloads ListConfigMaps error, error msg:%s", err)
@@ -240,6 +277,16 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 
 					yamls = append(yamls, string(bs))
 				}
+			case "daemonset":
+				for _, workload := range workloads {
+					bs, _, err := getter.GetDaemonSetYamlFormat(params.Namespace, workload, kubeClient)
+					if len(bs) == 0 || err != nil {
+						log.Errorf("not found yaml %v", err)
+						return e.ErrGetService.AddDesc(fmt.Sprintf("get daemonset failed err:%s", err))
+					}
+
+					yamls = append(yamls, string(bs))
+				}
 			case "service":
 				for _, workload := range workloads {
 					bs, _, err := getter.GetServiceYamlFormat(params.Namespace, workload, kubeClient)
@@ -356,20 +403,14 @@ func getAllGeneralEnvs(templateProduct *template.Product, production bool) ([]*D
 		return nil, err
 	}
 
+	clusterNameMap, err := getClusterNameMap()
+	if err != nil {
+		return nil, err
+	}
+
 	ret := make([]*DeployableEnv, len(envs))
-
-	envNames := make([]string, len(envs))
 	for i, env := range envs {
-
-		envNames[i] = env.EnvName
-		ret[i] = &DeployableEnv{
-			EnvName:           env.EnvName,
-			Alias:             env.Alias,
-			Namespace:         env.Namespace,
-			ClusterID:         env.ClusterID,
-			GlobalVariableKVs: env.GlobalVariables,
-			Services:          getServiceVariables(templateProduct, env),
-		}
+		ret[i] = newDeployableEnv(templateProduct, env, clusterNameMap)
 	}
 
 	return ret, nil
@@ -388,23 +429,20 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product, p
 			return nil, err
 		}
 
+		clusterNameMap, err := getClusterNameMap()
+		if err != nil {
+			return nil, err
+		}
+
 		ret := make([]*DeployableEnv, 0)
 		for _, baseEnv := range baseEnvs {
-
-			ret = append(ret, &DeployableEnv{
-				EnvName:           baseEnv.EnvName,
-				Alias:             baseEnv.Alias,
-				Namespace:         baseEnv.Namespace,
-				ClusterID:         baseEnv.ClusterID,
-				GlobalVariableKVs: baseEnv.GlobalVariables,
-				Services:          getServiceVariables(templateProduct, baseEnv),
-			})
+			ret = append(ret, newDeployableEnv(templateProduct, baseEnv, clusterNameMap))
 
 			if !hasSvcInEnv(svcName, baseEnv) {
 				continue
 			}
 
-			subEnvs, err := getSubEnvs(baseEnv.EnvName, templateProduct)
+			subEnvs, err := getSubEnvs(baseEnv.EnvName, templateProduct, clusterNameMap)
 			if err != nil {
 				return nil, err
 			}
@@ -424,23 +462,20 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product, p
 			return nil, err
 		}
 
+		clusterNameMap, err := getClusterNameMap()
+		if err != nil {
+			return nil, err
+		}
+
 		ret := make([]*DeployableEnv, 0)
 		for _, baseEnv := range baseEnvs {
-
-			ret = append(ret, &DeployableEnv{
-				EnvName:           baseEnv.EnvName,
-				Alias:             baseEnv.Alias,
-				Namespace:         baseEnv.Namespace,
-				ClusterID:         baseEnv.ClusterID,
-				GlobalVariableKVs: baseEnv.GlobalVariables,
-				Services:          getServiceVariables(templateProduct, baseEnv),
-			})
+			ret = append(ret, newDeployableEnv(templateProduct, baseEnv, clusterNameMap))
 
 			if !hasSvcInEnv(svcName, baseEnv) {
 				continue
 			}
 
-			grayEnvs, err := getGrayEnvs(baseEnv.EnvName, baseEnv.ClusterID, templateProduct)
+			grayEnvs, err := getGrayEnvs(baseEnv.EnvName, baseEnv.ClusterID, templateProduct, clusterNameMap)
 			if err != nil {
 				return nil, err
 			}
@@ -452,7 +487,7 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product, p
 	}
 }
 
-func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*DeployableEnv, error) {
+func getSubEnvs(baseEnvName string, templateProduct *template.Product, clusterNameMap map[string]string) ([]*DeployableEnv, error) {
 	projectName := templateProduct.ProjectName
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:            projectName,
@@ -467,20 +502,13 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
-		ret[i] = &DeployableEnv{
-			EnvName:           env.EnvName,
-			Alias:             env.Alias,
-			Namespace:         env.Namespace,
-			ClusterID:         env.ClusterID,
-			GlobalVariableKVs: env.GlobalVariables,
-			Services:          getServiceVariables(templateProduct, env),
-		}
+		ret[i] = newDeployableEnv(templateProduct, env, clusterNameMap)
 	}
 
 	return ret, nil
 }
 
-func getGrayEnvs(baseEnvName, clusterID string, templateProduct *template.Product) ([]*DeployableEnv, error) {
+func getGrayEnvs(baseEnvName, clusterID string, templateProduct *template.Product, clusterNameMap map[string]string) ([]*DeployableEnv, error) {
 	projectName := templateProduct.ProjectName
 	envs, err := commonutil.FetchGrayEnvs(context.TODO(), projectName, clusterID, baseEnvName)
 	if err != nil {
@@ -489,14 +517,7 @@ func getGrayEnvs(baseEnvName, clusterID string, templateProduct *template.Produc
 
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
-		ret[i] = &DeployableEnv{
-			EnvName:           env.EnvName,
-			Alias:             env.Alias,
-			Namespace:         env.Namespace,
-			ClusterID:         env.ClusterID,
-			GlobalVariableKVs: env.GlobalVariables,
-			Services:          getServiceVariables(templateProduct, env),
-		}
+		ret[i] = newDeployableEnv(templateProduct, env, clusterNameMap)
 	}
 
 	return ret, nil

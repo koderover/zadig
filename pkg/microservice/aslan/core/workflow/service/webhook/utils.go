@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -501,16 +502,56 @@ func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 	return false
 }
 
+func MatchTag(m *commonmodels.MainHookRepo, tag string) bool {
+	if !m.TagIsRegular || m.Tag == "" {
+		return true
+	}
+
+	matched, err := regexp.MatchString(m.Tag, tag)
+	return err == nil && matched
+}
+
+func MatchBranch(m *commonmodels.MainHookRepo, event config.HookEventType, branch string) bool {
+	configuredBranch, isRegular := branchConfigForEvent(m, event)
+	if !isRegular {
+		return configuredBranch == branch
+	}
+
+	matched, err := regexp.MatchString(configuredBranch, branch)
+	return err == nil && matched
+}
+
+func branchConfigForEvent(m *commonmodels.MainHookRepo, event config.HookEventType) (string, bool) {
+	switch event {
+	case config.HookEventPush:
+		if m.PushBranch != "" {
+			return m.PushBranch, m.PushIsRegular
+		}
+	case config.HookEventPr:
+		if m.PrBranch != "" {
+			return m.PrBranch, m.PrIsRegular
+		}
+	}
+
+	return m.Branch, m.IsRegular
+}
+
 func ConvertScanningHookToMainHookRepo(hook *commonmodels.ScanningHook) *commonmodels.MainHookRepo {
 	return &commonmodels.MainHookRepo{
-		Source:       hook.Source,
-		RepoOwner:    hook.RepoOwner,
-		RepoName:     hook.RepoName,
-		Branch:       hook.Branch,
-		MatchFolders: hook.MatchFolders,
-		CodehostID:   hook.CodehostID,
-		Events:       hook.Events,
-		IsRegular:    hook.IsRegular,
+		Source:        hook.Source,
+		RepoOwner:     hook.RepoOwner,
+		RepoName:      hook.RepoName,
+		Branch:        hook.Branch,
+		PushBranch:    hook.PushBranch,
+		PrBranch:      hook.PrBranch,
+		Tag:           hook.Tag,
+		MatchFolders:  hook.MatchFolders,
+		CodehostID:    hook.CodehostID,
+		Events:        hook.Events,
+		IsRegular:     hook.IsRegular,
+		PushIsRegular: hook.PushIsRegular,
+		PrIsRegular:   hook.PrIsRegular,
+		TagIsRegular:  hook.TagIsRegular,
 	}
 }
 

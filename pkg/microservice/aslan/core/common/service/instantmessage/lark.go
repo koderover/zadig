@@ -27,6 +27,7 @@ const (
 	feishuCardType                = "interactive"
 	feishuHeaderTemplateTurquoise = "turquoise"
 	feishuHeaderTemplateGreen     = "green"
+	feishuHeaderTemplateOrange    = "orange"
 	feishuHeaderTemplateRed       = "red"
 	feiShuTagText                 = "plain_text"
 	feishuTagMd                   = "lark_md"
@@ -231,6 +232,9 @@ func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) erro
 func getColorTemplateWithStatus(status config.Status) string {
 	if status == config.StatusPassed || status == config.StatusCreated {
 		return feishuHeaderTemplateGreen
+	}
+	if status == config.StatusPause {
+		return feishuHeaderTemplateOrange
 	}
 	return feishuHeaderTemplateRed
 }

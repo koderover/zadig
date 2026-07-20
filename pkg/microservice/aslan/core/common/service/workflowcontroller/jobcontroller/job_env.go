@@ -178,7 +178,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
 		}
 
-		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, config.EnvOperationDefault, "", session, log.SugaredLogger())
+		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, config.EnvOperationDefault, "", "", session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
@@ -209,6 +209,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	}
 
+	productInfo.UpdateBy = deployInfo.UserName
 	err = commonrepo.NewProductCollWithSession(session).Update(productInfo)
 	if err != nil {
 		mongo.AbortTransaction(session)

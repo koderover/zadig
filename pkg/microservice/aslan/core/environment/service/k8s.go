@@ -266,6 +266,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	productColl := commonrepo.NewProductCollWithSession(session)
 
 	// Note update logic need to be optimized since we only need to update one service
+	prodinfo.UpdateBy = args.UpdateBy
 	if err := productColl.Update(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		mongotool.AbortTransaction(session)
@@ -278,7 +279,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := commonutil.CreateEnvServiceVersion(prodinfo, newProductSvc, args.UpdateBy, config.EnvOperationDefault, "", session, k.log); err != nil {
+	if err := commonutil.CreateEnvServiceVersion(prodinfo, newProductSvc, args.UpdateBy, config.EnvOperationDefault, "", "", session, k.log); err != nil {
 		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
@@ -581,6 +582,13 @@ func fetchWorkloadImages(productService *commonmodels.ProductService, product *c
 				continue
 			}
 			containers = append(containers, wrapper.Deployment(deployment).GetContainers()...)
+		} else if u.GetKind() == setting.DaemonSet {
+			daemonSet, exist, err := getter.GetDaemonSet(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find daemonset with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.DaemonSet(daemonSet).GetContainers()...)
 		} else if u.GetKind() == setting.StatefulSet {
 			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
 			if err != nil || !exist {
@@ -634,6 +642,12 @@ func waitResourceRunning(
 				j, found, err = getter.GetJob(namespace, r.GetName(), kubeClient)
 				if err == nil && found {
 					ready = wrapper.Job(j).Complete()
+				}
+			case setting.DaemonSet:
+				var d *appsv1.DaemonSet
+				d, found, err = getter.GetDaemonSet(namespace, r.GetName(), kubeClient)
+				if err == nil && found {
+					ready = wrapper.DaemonSet(d).Ready()
 				}
 			default:
 				ready = true
@@ -692,7 +706,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			}
 			group[i].Containers = containers
 
-			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", nil, k.log)
+			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", "", nil, k.log)
 			if err != nil {
 				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, group[i].ServiceName, err)
 			}
@@ -716,7 +730,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			}
 			svc.Resources = kube.UnstructuredToResources(items)
 
-			err = commonutil.CreateEnvServiceVersion(product, svc, username, config.EnvOperationDefault, "", nil, k.log)
+			err = commonutil.CreateEnvServiceVersion(product, svc, username, config.EnvOperationDefault, "", "", nil, k.log)
 			if err != nil {
 				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
 			}

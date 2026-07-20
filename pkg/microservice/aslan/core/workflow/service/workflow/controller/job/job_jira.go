@@ -89,10 +89,11 @@ func (j JiraJobController) Update(useUserInput bool, ticket *commonmodels.Approv
 	j.jobSpec.QueryType = currJobSpec.QueryType
 	j.jobSpec.JQL = currJobSpec.JQL
 	j.jobSpec.IssueType = currJobSpec.IssueType
-	j.jobSpec.TargetStatus = currJobSpec.TargetStatus
+	j.jobSpec.FieldMappings = currJobSpec.FieldMappings
 
 	if !useUserInput {
 		j.jobSpec.Issues = currJobSpec.Issues
+		j.jobSpec.TargetStatus = currJobSpec.TargetStatus
 	}
 
 	return nil
@@ -107,7 +108,8 @@ func (j JiraJobController) ClearOptions() {
 }
 
 func (j JiraJobController) ClearSelection() {
-	return
+	j.jobSpec.Issues = make([]*commonmodels.IssueID, 0)
+	j.jobSpec.TargetStatus = ""
 }
 
 func (j JiraJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
@@ -133,11 +135,12 @@ func (j JiraJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error)
 		},
 		JobType: string(config.JobJira),
 		Spec: &commonmodels.JobTaskJiraSpec{
-			ProjectID:    j.jobSpec.ProjectID,
-			JiraID:       j.jobSpec.JiraID,
-			IssueType:    j.jobSpec.IssueType,
-			Issues:       j.jobSpec.Issues,
-			TargetStatus: j.jobSpec.TargetStatus,
+			ProjectID:     j.jobSpec.ProjectID,
+			JiraID:        j.jobSpec.JiraID,
+			IssueType:     j.jobSpec.IssueType,
+			Issues:        j.jobSpec.Issues,
+			TargetStatus:  j.jobSpec.TargetStatus,
+			FieldMappings: j.jobSpec.FieldMappings,
 		},
 		Timeout:       0,
 		ErrorPolicy:   j.errorPolicy,

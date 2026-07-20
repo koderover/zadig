@@ -78,6 +78,18 @@ func (job *job) ImageInfos() (images []string) {
 	return
 }
 
+func (job *job) GetContainers() []*resource.ContainerImage {
+	resp := make([]*resource.ContainerImage, 0, len(job.Spec.Template.Spec.Containers))
+	for _, container := range job.Spec.Template.Spec.Containers {
+		resp = append(resp, &resource.ContainerImage{
+			Name:      container.Name,
+			Image:     container.Image,
+			ImageName: util.ExtractImageName(container.Image),
+		})
+	}
+	return resp
+}
+
 func (job *job) GetDuration() string {
 	if job.Status.StartTime != nil && job.Status.CompletionTime != nil {
 		if job.Status.CompletionTime != nil {

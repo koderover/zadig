@@ -694,7 +694,7 @@ func UpdateClusterDind(ctx *handler.Context, id string, dindCfg *commonmodels.Di
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		if dindCfg.Replicas != 1 {
+		if dindCfg.Replicas != 0 && dindCfg.Replicas != 1 {
 			return nil, e.ErrLicenseInvalid.AddDesc("")
 		}
 		if dindCfg.Resources != nil {
@@ -956,8 +956,27 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return errors.Errorf("cluster %s update serviceAccount err: %s", id, err)
 		}
 
+		if _, err := kube.EnsureDindTLSSecret(clientset, config.Namespace()); err != nil {
+			return fmt.Errorf("failed to ensure dind TLS secret in local cluster: %s", err)
+		}
+
+		if err := kube.EnsureDindServiceTLS(kubeClient, config.Namespace()); err != nil {
+			return fmt.Errorf("failed to ensure dind TLS service in local cluster: %s", err)
+		}
+
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
 	} else {
+		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(id)
+		if err != nil {
+			return err
+		}
+		dindNamespace := kube.ResolveDindNamespace(clusterInfo)
+		if _, err := kube.EnsureDindTLSSecret(clientset, dindNamespace); err != nil {
+			err = fmt.Errorf("failed to ensure dind TLS secret in cluster %s before applying yaml: %s", clusterInfo.Name, err)
+			logger.Error(err)
+			return err
+		}
+
 		// Upgrade attached cluster.
 		yamls, err := s.GetYaml(id, config.HubAgentImage(), serverURL, "/api/hub", true, logger)
 		if err != nil {
@@ -993,6 +1012,8 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 				} else {
 					err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
 				}
+			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
+				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)
 			} else {
 				err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			}
@@ -1080,7 +1101,7 @@ func setClusterDind(cluster *commonmodels.K8SCluster) error {
 		return nil
 	}
 
-	if cluster.DindCfg.Replicas <= 0 {
+	if cluster.DindCfg.Replicas < 0 {
 		cluster.DindCfg.Replicas = kube.DefaultDindReplicas
 	}
 	if cluster.DindCfg.Resources == nil {
@@ -1188,9 +1209,13 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	ctx := context.TODO()
+	dindTLSCerts, err := kube.EnsureDindTLSCerts()
+	if err != nil {
+		return err
+	}
 
 	// Retry logic for handling concurrent modifications
-	err := retryOnConflict(func() error {
+	err = retryOnConflict(func() error {
 		dindSts := &appsv1.StatefulSet{}
 		err := kclient.Get(ctx, client.ObjectKey{
 			Name:      types.DindStatefulSetName,
@@ -1206,10 +1231,14 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			return fmt.Errorf("failed to deep copy original dind statefulset, error: %s", err)
 		}
 
-		return applyDindUpgrade(kclient, ctx, dindSts, originalSts, cluster, ns)
+		return applyDindUpgrade(kclient, ctx, dindSts, originalSts, cluster, ns, dindTLSCerts)
 	})
 
 	if err != nil {
+		return err
+	}
+
+	if err := kube.EnsureDindServiceTLS(kclient, ns); err != nil {
 		return err
 	}
 
@@ -1222,7 +1251,7 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	return nil
 }
 
-func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, originalSts *appsv1.StatefulSet, cluster *commonmodels.K8SCluster, ns string) error {
+func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, originalSts *appsv1.StatefulSet, cluster *commonmodels.K8SCluster, ns string, dindTLSCerts *commonmodels.DindTLSCerts) error {
 	var err error
 
 	dindSts.Spec.Replicas = util.GetInt32Pointer(int32(cluster.DindCfg.Replicas))
@@ -1365,6 +1394,7 @@ func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, origi
 
 		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
 	}
+	kube.ApplyDindTLSSettings(dindSts, dindTLSCerts)
 
 	if stsHasImmutableFieldChanged(originalSts, dindSts) {
 		log.Infof("dind has immutable field changed, recreating dind.")

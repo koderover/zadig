@@ -793,7 +793,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						service.Containers = containers
 
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -801,7 +801,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 						return
 					} else if commonutil.ServiceIsDraft(pSvc.ServiceName, deployStrategy) {
 						updateProd.ServiceDeployStrategy = deployStrategy
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 						if err != nil {
 							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 						}
@@ -833,7 +833,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 					}
 					service.Resources = kube.UnstructuredToResources(items)
 
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
 					if err != nil {
 						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}
@@ -876,7 +876,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 		}
 		wg.Wait()
 
-		err = helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupSvcs, updateProd.Production)
+		err = helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupSvcs, updateProd.Production, user)
 		if err != nil {
 			log.Errorf("Failed to update %s/%s - service group %d. Error: %v", productName, envName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -885,6 +885,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 		}
 	}
 
+	updateProd.UpdateBy = user
 	err = commonrepo.NewProductCollWithSession(session).UpdateGlobalVariable(updateProd)
 	if err != nil {
 		log.Errorf("failed to update product globalvariable error: %v", err)
@@ -902,7 +903,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 				existedProd.ServiceDeployStrategy[k] = v
 			}
 		}
-		err = commonrepo.NewProductCollWithSession(session).UpdateDeployStrategy(envName, productName, existedProd.ServiceDeployStrategy)
+		err = commonrepo.NewProductCollWithSession(session).UpdateDeployStrategy(envName, productName, existedProd.ServiceDeployStrategy, user)
 		if err != nil {
 			log.Errorf("Failed to update deploy strategy data, error: %v", err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2185,7 +2186,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	}
 
 	if needUpdateStrategy {
-		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productResp.ProductName, productResp.ServiceDeployStrategy)
+		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productResp.ProductName, productResp.ServiceDeployStrategy, username)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product deploy strategy: %s", productResp.EnvName, productResp.ProductName, err)
 			if syncLock != nil {
@@ -2627,7 +2628,7 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 	if getProjectType(productName) == setting.HelmDeployType {
 		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, isDelete, log)
 	}
-	return deleteK8sProductServices(productInfo, serviceNames, isDelete, deleteResources, log)
+	return deleteK8sProductServices(userName, productInfo, serviceNames, isDelete, deleteResources, log)
 }
 
 func DeleteProductHelmReleases(userName, requestID, envName, productName string, releases []string, production, isDelete bool, log *zap.SugaredLogger) (err error) {
@@ -2643,7 +2644,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, isDelete, log)
 }
 
-func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, isDelete bool, deleteResources map[string][]*K8sServiceResource, log *zap.SugaredLogger) error {
+func deleteK8sProductServices(userName string, productInfo *commonmodels.Product, serviceNames []string, isDelete bool, deleteResources map[string][]*K8sServiceResource, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
 		if !commonutil.ServiceIsDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) || !isDelete {
@@ -2688,7 +2689,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		}
 		newServices = append(newServices, group)
 	}
-	err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, newServices, productInfo.Production)
+	err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, newServices, productInfo.Production, userName)
 	if err != nil {
 		log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return err
@@ -2700,7 +2701,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	for _, singleName := range serviceNames {
 		delete(productInfo.ServiceDeployStrategy, singleName)
 	}
-	err = commonrepo.NewProductColl().UpdateDeployStrategyAndGlobalVariable(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, productInfo.GlobalVariables)
+	err = commonrepo.NewProductColl().UpdateDeployStrategyAndGlobalVariable(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, productInfo.GlobalVariables, userName)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
@@ -2883,7 +2884,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 			log.Errorf("createGroup error :%+v", err)
 			return
 		}
-		err = helmservice.UpdateServicesGroupInEnv(args.ProductName, args.EnvName, groupIndex, group, args.Production)
+		err = helmservice.UpdateServicesGroupInEnv(args.ProductName, args.EnvName, groupIndex, group, args.Production, user)
 		if err != nil {
 			log.Errorf("Failed to update helm product %s/%s - service group %d. Error: %v", args.ProductName, args.EnvName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2955,8 +2956,13 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 		case setting.Deployment:
 			err = updater.RestartDeploymentV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			return errors.Wrapf(err, "failed to restart deployment %s", u.GetName())
+		case setting.DaemonSet:
+			err = updater.RestartDaemonSet(context.Background(), clusterID, env.Namespace, u.GetName())
+			return errors.Wrapf(err, "failed to restart daemonset %s", u.GetName())
 		case setting.StatefulSet:
+			err = updater.RestartStatefulSetV2(context.Background(), clusterID, env.Namespace, u.GetName())
 			// err = updater.RestartStatefulSet(env.Namespace, u.GetName(), kubeClient)
+
 			return errors.Wrapf(err, "failed to restart statefulset %s", u.GetName())
 		}
 	}
@@ -3049,8 +3055,20 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
 	log *zap.SugaredLogger) (string, error) {
+	// Use the current applied yaml as the update baseline so resource patching stays
+	// consistent with preview/export behavior after cluster name changes.
+	parsedYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName:      env.ProductName,
+		EnvName:          env.EnvName,
+		ServiceName:      oldService.ServiceName,
+		IsImportToDeploy: env.ServiceDeployStrategy[oldService.ServiceName] == setting.ServiceDeployStrategyImport,
+	})
+	if err == nil {
+		return parsedYaml, nil
+	}
+	log.Warnf("failed to fetch current applied yaml for %s/%s/%s, fallback to rendered service yaml, err: %v", env.ProductName, env.EnvName, oldService.ServiceName, err)
 
-	parsedYaml, err := kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
+	parsedYaml, err = kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return "", err
@@ -3236,7 +3254,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		}
 	}
 
-	if err = commonrepo.NewProductColl().UpdateDeployStrategy(productResp.EnvName, productResp.ProductName, productResp.ServiceDeployStrategy); err != nil {
+	if err = commonrepo.NewProductColl().UpdateDeployStrategy(productResp.EnvName, productResp.ProductName, productResp.ServiceDeployStrategy, username); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
 		return err
 	}
@@ -3702,7 +3720,7 @@ func UpdateProductGlobalVariablesWithRender(templateProduct *templatemodels.Prod
 		}
 	}
 	if needUpdateStrategy {
-		err = commonrepo.NewProductColl().UpdateDeployStrategy(product.EnvName, product.ProductName, product.ServiceDeployStrategy)
+		err = commonrepo.NewProductColl().UpdateDeployStrategy(product.EnvName, product.ProductName, product.ServiceDeployStrategy, userName)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product deploy strategy: %s", product.EnvName, product.ProductName, err)
 			return e.ErrUpdateEnv.AddErr(err)
@@ -3750,7 +3768,7 @@ func GetEnvConfigs(projectName, envName string, production *bool, logger *zap.Su
 	return configs, nil
 }
 
-func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, production *bool, logger *zap.SugaredLogger) error {
+func UpdateEnvConfigs(projectName, envName, userName string, arg *EnvConfigsArgs, production *bool, logger *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
 		Name:       projectName,
@@ -3768,7 +3786,7 @@ func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, producti
 		}
 	}
 
-	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfigs)
+	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfigs, userName)
 	if err != nil {
 		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to update environment %s/%s, err: %w", projectName, envName, err))
 	}
@@ -3780,8 +3798,8 @@ func GetProductionEnvConfigs(projectName, envName string, logger *zap.SugaredLog
 	return GetEnvConfigs(projectName, envName, boolptr.True(), logger)
 }
 
-func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
-	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
+func UpdateProductionEnvConfigs(projectName, envName, userName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
+	return UpdateEnvConfigs(projectName, envName, userName, arg, boolptr.True(), logger)
 }
 
 type EnvAnalysisRespone struct {
@@ -4310,7 +4328,7 @@ func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 	return nil
 }
 
-func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap.SugaredLogger) error {
+func EnvSleep(productName, envName string, isEnable, isProduction bool, userName string, log *zap.SugaredLogger) error {
 	tempProd, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		err = fmt.Errorf("failed to find template product %s, err: %s", productName, err)
@@ -4325,6 +4343,13 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
+	cluster, err := kube.GetCluster(prod.ClusterID)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to get cluster for cluster %s, err: %v", prod.ClusterID, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
 	if prod.Production != isProduction {
 		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
 		log.Error(err)
@@ -4419,7 +4444,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc, cluster.Name)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}
@@ -4546,6 +4571,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	}
 
 	prod.PreSleepStatus = newScaleNumMap
+	prod.UpdateBy = userName
 	err = commonrepo.NewProductColl().Update(prod)
 	if err != nil {
 		wrapErr := fmt.Errorf("failed to update product, err: %w", err)

@@ -205,7 +205,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	service := prod.GetServiceMap()[serviceName]
 	if service != nil {
-		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, detail, session, log.SugaredLogger())
+		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, detail, "", session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
@@ -213,6 +213,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 		log.Errorf("service %s not found in prod %s/%s", serviceName, prod.ProductName, prod.EnvName)
 	}
 
+	prod.UpdateBy = userName
 	if err := commonrepo.NewProductCollWithSession(session).Update(prod); err != nil {
 		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
 		logger.Errorf(errMsg)

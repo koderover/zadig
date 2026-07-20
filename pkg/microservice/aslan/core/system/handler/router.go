@@ -108,7 +108,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jenkins.GET("/exist", CheckJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
 		jenkins.GET("/jobNames/:id", ListJobNames)
-		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
+		jenkins.GET("/buildArgs/:id/*jobName", ListJobBuildArgs)
 	}
 
 	cicd := router.Group("cicdTools")
@@ -381,6 +381,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.GET("/:id/jira/sprint/:sprintID/issue", ListJiraSprintIssues)
 		pm.GET("/:id/jira/issue", SearchJiraIssues)
 		pm.GET("/:id/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
+		pm.GET("/:id/jira/issue/status", GetJiraIssueStatus)
+		pm.GET("/:id/jira/issue/transitions", ListJiraIssueTransitions)
 		pm.GET("/:id/jira/type", GetJiraTypes)
 		pm.GET("/:id/jira/status", GetJiraProjectStatus)
 		pm.GET("/:id/jira/allStatus", GetJiraAllStatus)

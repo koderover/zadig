@@ -31,8 +31,19 @@ func TestParseK8sServiceResources(t *testing.T) {
 	if len(resources) != 3 {
 		t.Fatalf("expected 3 resources, got %d", len(resources))
 	}
-	if resources[0].APIVersion != "apps/v1" || resources[0].Kind != "Deployment" || resources[0].Name != "demo" {
-		t.Fatalf("unexpected first resource: %+v", resources[0])
+	expected := map[string]struct{}{
+		"apps/v1/Deployment/demo":           {},
+		"v1/Service/demo":                   {},
+		"networking.k8s.io/v1/Ingress/demo": {},
+	}
+	if got := resourceSet(resources); len(got) != len(expected) {
+		t.Fatalf("unexpected parsed resources: %+v", resources)
+	} else {
+		for key := range expected {
+			if _, ok := got[key]; !ok {
+				t.Fatalf("missing parsed resource %s: %+v", key, resources)
+			}
+		}
 	}
 }
 
@@ -52,8 +63,18 @@ func TestFilterSelectedServiceResourceYaml(t *testing.T) {
 	if len(resources) != 2 {
 		t.Fatalf("expected 2 resources, got %d", len(resources))
 	}
-	if resources[0].Kind != "Service" || resources[1].Kind != "Ingress" {
+	expected := map[string]struct{}{
+		"v1/Service/demo":                   {},
+		"networking.k8s.io/v1/Ingress/demo": {},
+	}
+	if got := resourceSet(resources); len(got) != len(expected) {
 		t.Fatalf("unexpected filtered resources: %+v", resources)
+	} else {
+		for key := range expected {
+			if _, ok := got[key]; !ok {
+				t.Fatalf("missing filtered resource %s: %+v", key, resources)
+			}
+		}
 	}
 	if strings.Contains(filtered, "kind: Deployment") {
 		t.Fatalf("filtered yaml should not contain Deployment: %s", filtered)
@@ -77,4 +98,12 @@ func TestFilterSelectedServiceResourceYamlMissingResource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected missing resource error")
 	}
+}
+
+func resourceSet(resources []*K8sServiceResource) map[string]struct{} {
+	ret := make(map[string]struct{}, len(resources))
+	for _, resource := range resources {
+		ret[resource.APIVersion+"/"+resource.Kind+"/"+resource.Name] = struct{}{}
+	}
+	return ret
 }

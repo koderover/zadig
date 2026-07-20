@@ -1912,7 +1912,7 @@ func ListWorkloads(c *gin.Context) {
 		for _, env := range sharedNSEnvs {
 			for _, svc := range env.GetSvcList() {
 				for _, res := range svc.Resources {
-					if res.Kind == setting.Deployment || res.Kind == setting.StatefulSet || res.Kind == setting.CronJob {
+					if res.Kind == setting.Deployment || res.Kind == setting.DaemonSet || res.Kind == setting.StatefulSet || res.Kind == setting.CronJob {
 						workloadM[res.Name] = commonmodels.Workload{
 							EnvName:     env.EnvName,
 							ProductName: env.ProductName,
@@ -2194,7 +2194,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.UpdateEnvConfigs(projectKey, envName, arg, &production, ctx.Logger)
+	ctx.RespErr = service.UpdateEnvConfigs(projectKey, envName, ctx.UserName, arg, &production, ctx.Logger)
 }
 
 // @Summary Run environment Analysis
@@ -2551,7 +2551,7 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.EnvSleep(projectName, envName, action == "enable", production, ctx.Logger)
+	ctx.RespErr = service.EnvSleep(projectName, envName, action == "enable", production, ctx.UserName, ctx.Logger)
 }
 
 // @Summary Get Env Sleep Cron

@@ -135,6 +135,7 @@ type JobTaskPreview struct {
 	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
+	Events               *commonmodels.Events         `bson:" - "         json:"events"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -248,6 +249,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
+// GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
@@ -270,6 +272,12 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
+	// Render workflow dynamic params
+	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
+		log.Errorf("failed to render workflow dynamic params for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
@@ -281,6 +289,22 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	if jobName == "" {
+		variables, err := workflowCtrl.GetWorkflowParamReferableVariables(0, "", "", "", nil)
+		if err != nil {
+			err = fmt.Errorf("failed to get workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+
+		for _, kv := range variables {
+			resp = append(resp, fmt.Sprintf("{{.%s}}", kv.Key))
+		}
+
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,
@@ -305,6 +329,18 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+
+	// When jobName is empty, render dynamic options for workflow-level params instead of job inputs.
+	if jobName == "" {
+		resp, err := workflowCtrl.GetWorkflowParamDynamicValues(0, "", "", "", key, nil)
+		if err != nil {
+			err = fmt.Errorf("failed to render workflow param dynamic variables, error: %v", err)
+			ctx.Logger.Error(err)
+			return nil, err
+		}
+		return resp, nil
+	}
+
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
 		GetRuntimeVariables:         false,
@@ -960,6 +996,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
+				jobTask.NotifyCtls = job.NotifyCtls
 				jobTaskMap[jobTask.Name] = jobTask
 			}
 		}
@@ -1006,6 +1043,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
 				}
 				jobTask.Spec = t.Spec
+				jobTask.NotifyCtls = t.NotifyCtls
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
 			}
@@ -1183,6 +1221,9 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				jobTasks, err := ctrl.ToTask(taskID)
 				if err != nil {
 					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
+				}
+				for _, jobTask := range jobTasks {
+					jobTask.NotifyCtls = job.NotifyCtls
 				}
 
 				job.Spec = ctrl.GetSpec()
@@ -2494,6 +2535,23 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	return nil
 }
 
+// extractRuntimeJobEvents extracts the runtime job events from the job task spec.
+func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
+	switch job.JobType {
+	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
+		taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
+			return taskJobSpec.Events
+		}
+	case string(config.JobPlugin):
+		taskJobSpec := &commonmodels.JobTaskPluginSpec{}
+		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
+			return taskJobSpec.Events
+		}
+	}
+	return nil
+}
+
 func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
 	envMap := make(map[string]*commonmodels.Product)
 	resp := []*JobTaskPreview{}
@@ -2525,6 +2583,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			ErrorHandlerUserID:   job.ErrorHandlerUserID,
 			ErrorHandlerUserName: job.ErrorHandlerUserName,
 			RetryCount:           job.RetryCount,
+			Events:               extractRuntimeJobEvents(job),
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

@@ -84,7 +84,10 @@ func (j TestingJobController) Validate(isExecution bool) error {
 	if isExecution {
 		for _, svcTesting := range j.jobSpec.ServiceAndTests {
 			if svcTesting.Name == "" {
-				return fmt.Errorf("scan name cannot be empty in service scanning")
+				return fmt.Errorf("test name cannot be empty in service testing")
+			}
+			if err := ValidateRequiredRuntimeKeyVals(svcTesting.KeyVals, fmt.Sprintf("job %s service %s/%s", j.name, svcTesting.ServiceName, svcTesting.ServiceModule)); err != nil {
+				return err
 			}
 		}
 	}

@@ -87,6 +87,8 @@ type MainHookRepo struct {
 	RepoNamespace string                 `bson:"repo_namespace"            json:"repo_namespace"`
 	RepoName      string                 `bson:"repo_name"                 json:"repo_name"`
 	Branch        string                 `bson:"branch"                    json:"branch"`
+	PushBranch    string                 `bson:"push_branch"               json:"push_branch"`
+	PrBranch      string                 `bson:"pr_branch"                 json:"pr_branch"`
 	Tag           string                 `bson:"tag"                       json:"tag"`
 	Committer     string                 `bson:"committer"                 json:"committer"`
 	MatchFolders  []string               `bson:"match_folders"             json:"match_folders,omitempty"`
@@ -95,6 +97,9 @@ type MainHookRepo struct {
 	Label         string                 `bson:"label"                     json:"label"`
 	Revision      string                 `bson:"revision"                  json:"revision"`
 	IsRegular     bool                   `bson:"is_regular"                json:"is_regular"`
+	PushIsRegular bool                   `bson:"push_is_regular"           json:"push_is_regular"`
+	PrIsRegular   bool                   `bson:"pr_is_regular"             json:"pr_is_regular"`
+	TagIsRegular  bool                   `bson:"tag_is_regular"            json:"tag_is_regular"`
 }
 
 func (m *MainHookRepo) GetRepoNamespace() string {
@@ -229,17 +234,19 @@ type TestTaskArgs struct {
 	NotificationID  string `bson:"notification_id"         json:"notification_id"`
 	ReqID           string `bson:"req_id"                  json:"req_id"`
 	// webhook触发测试任务时，触发任务的repo、prID和commitID
-	MergeRequestID string       `bson:"merge_request_id" json:"merge_request_id"`
-	CommitID       string       `bson:"commit_id"        json:"commit_id"`
-	Source         string       `bson:"source"           json:"source"`
-	CodehostID     int          `bson:"codehost_id"      json:"codehost_id"`
-	RepoOwner      string       `bson:"repo_owner"       json:"repo_owner"`
-	RepoNamespace  string       `bson:"repo_namespace"   json:"repo_namespace"`
-	RepoName       string       `bson:"repo_name"        json:"repo_name"`
-	Ref            string       `bson:"ref" json:"ref"`
-	Branch         string       `bson:"branch" json:"branch"`
-	EventType      string       `bson:"event_type" json:"event_type"`
-	HookPayload    *HookPayload `bson:"hook_payload" json:"hook_payload"`
+	MergeRequestID string              `bson:"merge_request_id" json:"merge_request_id"`
+	CommitID       string              `bson:"commit_id"        json:"commit_id"`
+	Source         string              `bson:"source"           json:"source"`
+	CodehostID     int                 `bson:"codehost_id"      json:"codehost_id"`
+	RepoOwner      string              `bson:"repo_owner"       json:"repo_owner"`
+	RepoNamespace  string              `bson:"repo_namespace"   json:"repo_namespace"`
+	RepoName       string              `bson:"repo_name"        json:"repo_name"`
+	Ref            string              `bson:"ref" json:"ref"`
+	Branch         string              `bson:"branch" json:"branch"`
+	EventType      string              `bson:"event_type" json:"event_type"`
+	HookPayload    *HookPayload        `bson:"hook_payload" json:"hook_payload"`
+	KeyVals        *KeyValList         `bson:"key_vals" json:"key_vals"`
+	Repos          []*types.Repository `bson:"repos" json:"repos"`
 }
 
 type Slack struct {

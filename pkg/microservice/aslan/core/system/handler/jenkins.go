@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -80,5 +81,5 @@ func ListJobBuildArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = service.ListJobBuildArgs(c.Param("id"), c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListJobBuildArgs(c.Param("id"), strings.TrimPrefix(c.Param("jobName"), "/"), ctx.Logger)
 }

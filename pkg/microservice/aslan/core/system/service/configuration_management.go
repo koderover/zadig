@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 
@@ -19,28 +20,35 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/nacos"
 )
 
-func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
+func ListConfigurationManagement(encryptedKey, _type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
+	var (
+		resp []*commonmodels.ConfigurationManagement
+		err  error
+	)
 	if _type == "nacos" {
-		resp, err := mongodb.NewConfigurationManagementColl().ListNacos(context.Background())
+		resp, err = mongodb.NewConfigurationManagementColl().ListNacos(context.Background())
 		if err != nil {
 			log.Errorf("list nacos configuration management error: %v", err)
 			return nil, e.ErrListConfigurationManagement
 		}
-		return resp, nil
 	} else {
-		resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
+		resp, err = mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
 		if err != nil {
 			log.Errorf("list configuration management error: %v", err)
 			return nil, e.ErrListConfigurationManagement
 		}
-
-		return resp, nil
+	}
+	if err := protectConfigurationManagementSecrets(resp, encryptedKey, log); err != nil {
+		log.Errorf("encrypt configuration management password error: %v", err)
+		return nil, e.ErrListConfigurationManagement.AddErr(err)
 	}
 
+	return resp, nil
 }
 
 func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, log *zap.SugaredLogger) error {
@@ -63,14 +71,83 @@ func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, l
 	return nil
 }
 
-func GetConfigurationManagement(id string, log *zap.SugaredLogger) (*commonmodels.ConfigurationManagement, error) {
+func GetConfigurationManagement(id, encryptedKey string, log *zap.SugaredLogger) (*commonmodels.ConfigurationManagement, error) {
 	resp, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
 	if err != nil {
 		log.Errorf("get configuration management error: %v", err)
 		return nil, e.ErrGetConfigurationManagement.AddErr(err)
 	}
+	if err := protectConfigurationManagementSecrets([]*commonmodels.ConfigurationManagement{resp}, encryptedKey, log); err != nil {
+		log.Errorf("encrypt configuration management password error: %v", err)
+		return nil, e.ErrGetConfigurationManagement.AddErr(err)
+	}
 
 	return resp, nil
+}
+
+func protectConfigurationManagementSecrets(managements []*commonmodels.ConfigurationManagement, encryptedKey string, log *zap.SugaredLogger) error {
+	targets := make([]*string, 0)
+	for _, management := range managements {
+		if management == nil {
+			continue
+		}
+		if err := marshalConfigurationManagementAuthConfig(management); err != nil {
+			return err
+		}
+
+		switch authConfig := management.AuthConfig.(type) {
+		case *commonmodels.ApolloAuthConfig:
+			if authConfig.Token == "" {
+				continue
+			}
+			if encryptedKey == "" {
+				authConfig.Token = setting.MaskValue
+				continue
+			}
+			targets = append(targets, &authConfig.Token)
+		case *nacos.NacosAuthConfig:
+			if authConfig.Password == "" {
+				continue
+			}
+			if encryptedKey == "" {
+				authConfig.Password = setting.MaskValue
+				continue
+			}
+			targets = append(targets, &authConfig.Password)
+		case *nacos.NacosEEMSEAuthConfig:
+			if authConfig.AccessKeySecret == "" {
+				continue
+			}
+			if encryptedKey == "" {
+				authConfig.AccessKeySecret = setting.MaskValue
+				continue
+			}
+			targets = append(targets, &authConfig.AccessKeySecret)
+		}
+	}
+
+	if len(targets) == 0 {
+		return nil
+	}
+
+	aesKeyResp, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		return err
+	}
+
+	encryptedSecrets := make([]string, len(targets))
+	for i, target := range targets {
+		encryptedSecrets[i], err = crypto.AesEncryptByKey(*target, aesKeyResp.PlainText)
+		if err != nil {
+			return err
+		}
+	}
+
+	for i, target := range targets {
+		*target = encryptedSecrets[i]
+	}
+
+	return nil
 }
 
 func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationManagement, log *zap.SugaredLogger) error {
@@ -81,12 +158,19 @@ func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationMa
 		log.Errorf("marshal configuration management error: %v", err)
 		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
-
-	var oldSystemIdentity string
-	oldCm, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
-	if err == nil {
-		oldSystemIdentity = oldCm.SystemIdentity
+	oldCm, err := restoreMaskedConfigurationManagementSecrets(id, args)
+	if err != nil {
+		log.Errorf("restore configuration management masked secrets error: %v", err)
+		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
+	if oldCm == nil {
+		oldCm, err = mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
+		if err != nil {
+			log.Errorf("get configuration management error: %v", err)
+			return e.ErrUpdateConfigurationManagement.AddErr(err)
+		}
+	}
+	oldSystemIdentity := oldCm.SystemIdentity
 	if oldCm.SystemIdentity != "" && args.SystemIdentity != oldSystemIdentity {
 		if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
 			return e.ErrUpdateConfigurationManagement.AddErr(fmt.Errorf("can't set the same system identity"))
@@ -110,18 +194,94 @@ func DeleteConfigurationManagement(id string, log *zap.SugaredLogger) error {
 }
 
 func ValidateConfigurationManagement(rawData string, log *zap.SugaredLogger) error {
-	switch gjson.Get(rawData, "type").String() {
+	management := new(commonmodels.ConfigurationManagement)
+	if err := json.Unmarshal([]byte(rawData), management); err != nil {
+		return e.ErrInvalidParam.AddErr(err)
+	}
+	if err := validateConfigurationManagementType(management); err != nil {
+		return e.ErrInvalidParam.AddErr(err)
+	}
+	if err := marshalConfigurationManagementAuthConfig(management); err != nil {
+		return e.ErrInvalidParam.AddErr(err)
+	}
+	if _, err := restoreMaskedConfigurationManagementSecrets("", management); err != nil {
+		return e.ErrValidateConfigurationManagement.AddErr(err)
+	}
+
+	switch management.Type {
 	case setting.SourceFromApollo:
-		return validateApolloAuthConfig(getApolloConfigFromRaw(rawData))
-	case setting.SourceFromNacos:
-		return validateNacosAuthConfig(getNacosConfigFromRaw(rawData))
-	case setting.SourceFromNacos3:
-		return validateNacosAuthConfig(getNacos3ConfigFromRaw(rawData))
+		return validateApolloAuthConfig(&commonmodels.ApolloConfig{ServerAddress: management.ServerAddress, ApolloAuthConfig: management.AuthConfig.(*commonmodels.ApolloAuthConfig)})
+	case setting.SourceFromNacos, setting.SourceFromNacos3:
+		return validateNacosAuthConfig(&nacos.NacosConfig{Type: management.Type, ServerAddress: management.ServerAddress, NacosAuthConfig: management.AuthConfig})
 	case setting.SourceFromNacosEEMSE:
-		return validateNacosAuthConfig(getNacosEEMSEAuthConfigFromRaw(rawData))
+		return validateNacosAuthConfig(&nacos.NacosConfig{Type: management.Type, ServerAddress: management.ServerAddress, NacosAuthConfig: management.AuthConfig})
 	default:
 		return e.ErrInvalidParam.AddDesc("invalid type")
 	}
+}
+
+func restoreMaskedConfigurationManagementSecrets(id string, management *commonmodels.ConfigurationManagement) (*commonmodels.ConfigurationManagement, error) {
+	if management == nil {
+		return nil, nil
+	}
+
+	oldManagement, err := getConfigurationManagementForMaskedSecrets(id, management)
+	if err != nil || oldManagement == nil {
+		return oldManagement, err
+	}
+	if err := marshalConfigurationManagementAuthConfig(oldManagement); err != nil {
+		return nil, err
+	}
+
+	switch authConfig := management.AuthConfig.(type) {
+	case *commonmodels.ApolloAuthConfig:
+		oldAuthConfig, ok := oldManagement.AuthConfig.(*commonmodels.ApolloAuthConfig)
+		if ok && authConfig.Token == setting.MaskValue {
+			authConfig.Token = oldAuthConfig.Token
+		}
+	case *nacos.NacosAuthConfig:
+		oldAuthConfig, ok := oldManagement.AuthConfig.(*nacos.NacosAuthConfig)
+		if ok && authConfig.Password == setting.MaskValue {
+			authConfig.Password = oldAuthConfig.Password
+		}
+	case *nacos.NacosEEMSEAuthConfig:
+		oldAuthConfig, ok := oldManagement.AuthConfig.(*nacos.NacosEEMSEAuthConfig)
+		if ok && authConfig.AccessKeySecret == setting.MaskValue {
+			authConfig.AccessKeySecret = oldAuthConfig.AccessKeySecret
+		}
+	}
+
+	return oldManagement, nil
+}
+
+func getConfigurationManagementForMaskedSecrets(id string, management *commonmodels.ConfigurationManagement) (*commonmodels.ConfigurationManagement, error) {
+	if management == nil {
+		return nil, nil
+	}
+
+	hasMaskedSecret := false
+	switch authConfig := management.AuthConfig.(type) {
+	case *commonmodels.ApolloAuthConfig:
+		hasMaskedSecret = authConfig.Token == setting.MaskValue
+	case *nacos.NacosAuthConfig:
+		hasMaskedSecret = authConfig.Password == setting.MaskValue
+	case *nacos.NacosEEMSEAuthConfig:
+		hasMaskedSecret = authConfig.AccessKeySecret == setting.MaskValue
+	}
+	if !hasMaskedSecret {
+		return nil, nil
+	}
+
+	if id != "" {
+		return mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
+	}
+	if !management.ID.IsZero() {
+		return mongodb.NewConfigurationManagementColl().GetByID(context.Background(), management.ID.Hex())
+	}
+	if management.SystemIdentity != "" {
+		return mongodb.NewConfigurationManagementColl().GetBySystemIdentity(management.SystemIdentity)
+	}
+	return nil, fmt.Errorf("configuration management id is required when secret fields are masked")
 }
 
 func validateApolloAuthConfig(config *commonmodels.ApolloConfig) error {

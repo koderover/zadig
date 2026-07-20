@@ -122,8 +122,13 @@ func GetSystemCodeHost(c *gin.Context) {
 			return
 		}
 	}
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.RespErr = e.ErrInvalidParam
+		return
+	}
 
-	ctx.Resp, ctx.RespErr = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEncryptedCodeHost(id, ignoreDelete, encryptedKey, ctx.Logger)
 }
 
 func AuthCodeHost(c *gin.Context) {
