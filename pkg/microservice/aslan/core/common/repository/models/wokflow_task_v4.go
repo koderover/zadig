@@ -701,6 +701,7 @@ type JobTaskApprovalSpec struct {
 	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
 	ApprovalMessage  string              `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
+	ApprovalTitle    string              `bson:"approval_title"              yaml:"approval_title,omitempty"      json:"approval_title,omitempty"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

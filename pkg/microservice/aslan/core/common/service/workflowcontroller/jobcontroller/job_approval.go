@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -94,6 +95,96 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	}
 
 	return
+}
+
+func getDingTalkApprovalProcessCode(client *dingtalk.Client, defaultProcessCode, approvalTitle string) (string, error) {
+	formName := strings.TrimSpace(approvalTitle)
+	if formName == "" {
+		formName = dingtalk.DefaultApprovalFormName
+		if defaultProcessCode != "" {
+			return defaultProcessCode, nil
+		}
+	}
+
+	formList, err := client.GetAllApprovalFormDefinitionList()
+	if err != nil {
+		return "", fmt.Errorf("get dingtalk approval form definition list error: %s", err)
+	}
+	for _, form := range formList {
+		if form.Name == formName {
+			return form.ProcessCode, nil
+		}
+	}
+
+	resp, err := client.CreateApproval(formName)
+	if err == dingtalk.ErrApprovalFormNameExists {
+		formList, listErr := client.GetAllApprovalFormDefinitionList()
+		if listErr != nil {
+			return "", fmt.Errorf("get dingtalk approval form definition list after create conflict error: %s", listErr)
+		}
+		for _, form := range formList {
+			if form.Name == formName {
+				return form.ProcessCode, nil
+			}
+		}
+		return "", fmt.Errorf("dingtalk approval form %s exists but not found in form list", formName)
+	}
+	if err != nil {
+		return "", fmt.Errorf("create dingtalk approval form %s error: %s", formName, err)
+	}
+	if resp == nil || resp.ProcessCode == "" {
+		return "", fmt.Errorf("create dingtalk approval form %s returned empty process code", formName)
+	}
+
+	return resp.ProcessCode, nil
+}
+
+func getWorkWXApprovalTemplateID(client *workwx.Client, imApp *commonmodels.IMApp, approvalTitle string) (string, error) {
+	approvalTitle = strings.TrimSpace(approvalTitle)
+	if approvalTitle == "" {
+		return imApp.WorkWXApprovalTemplateID, nil
+	}
+
+	if imApp.WorkWXApprovalTemplateIDList == nil {
+		imApp.WorkWXApprovalTemplateIDList = make(map[string]string)
+	}
+	if templateID := imApp.WorkWXApprovalTemplateIDList[approvalTitle]; templateID != "" {
+		return templateID, nil
+	}
+
+	templateName := []*workwx.GeneralText{
+		{
+			Text: approvalTitle,
+			Lang: workwx.LanguageCN,
+		},
+	}
+	controls := []*workwx.ApprovalControl{
+		{
+			Property: &workwx.ApprovalControlProperty{
+				Type: config.DefaultWorkWXApprovalControlType,
+				ID:   config.DefaultWorkWXApprovalControlID,
+				Title: []*workwx.GeneralText{
+					{
+						Text: "审批内容",
+						Lang: workwx.LanguageCN,
+					},
+				},
+				Require: 1,
+				UnPrint: 0,
+			},
+		},
+	}
+	templateID, err := client.CreateApprovalTemplate(templateName, controls)
+	if err != nil {
+		return "", fmt.Errorf("create workwx approval template %s error: %s", approvalTitle, err)
+	}
+
+	imApp.WorkWXApprovalTemplateIDList[approvalTitle] = templateID
+	if err := mongodb.NewIMAppColl().Update(context.Background(), imApp.ID.Hex(), imApp); err != nil {
+		return "", fmt.Errorf("update workwx approval template %s error: %s", approvalTitle, err)
+	}
+
+	return templateID, nil
 }
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
@@ -185,10 +276,11 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		return config.StatusFailed, fmt.Errorf("get lark im app data error: %s", err)
 	}
 
-	approvalCode := data.LarkApprovalCodeList[approval.GetNodeTypeKey()]
+	approvalNodeTypeKey := approval.GetNodeTypeTitleKey(spec.ApprovalTitle)
+	approvalCode := data.LarkApprovalCodeList[approvalNodeTypeKey]
 	if approvalCode == "" {
-		log.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
-		return config.StatusFailed, fmt.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
+		log.Errorf("failed to find approval code for node type %s", approvalNodeTypeKey)
+		return config.StatusFailed, fmt.Errorf("failed to find approval code for node type %s", approvalNodeTypeKey)
 	}
 
 	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
@@ -357,9 +449,14 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		formContent = spec.ApprovalMessage
 	}
 
+	processCode, err := getDingTalkApprovalProcessCode(client, data.DingTalkDefaultApprovalFormCode, spec.ApprovalTitle)
+	if err != nil {
+		return config.StatusFailed, err
+	}
+
 	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
-		ProcessCode:      data.DingTalkDefaultApprovalFormCode,
+		ProcessCode:      processCode,
 		OriginatorUserID: userID,
 		ApproverNodeList: func() (nodeList []*dingtalk.ApprovalNode) {
 			for _, node := range approval.ApprovalNodes {
@@ -440,7 +537,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
@@ -649,6 +746,11 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	if spec.ApprovalMessage != "" {
 		formContent = spec.ApprovalMessage
 	}
+	approvalTitle := strings.TrimSpace(spec.ApprovalTitle)
+	templateID, err := getWorkWXApprovalTemplateID(client, data, approvalTitle)
+	if err != nil {
+		return config.StatusFailed, err
+	}
 
 	log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 
@@ -668,7 +770,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}
 
 	instanceID, err := client.CreateApprovalInstance(
-		data.WorkWXApprovalTemplateID,
+		templateID,
 		applicant,
 		false,
 		applydata,
@@ -700,22 +802,22 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
-			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
+			detail, err := client.GetApprovalDetail(instanceID)
 			if err != nil {
-				log.Warnf("failed to handle workwx approval event, error: %s", err)
+				log.Warnf("failed to get workwx approval detail, error: %s", err)
+				continue
+			}
+			if detail == nil {
 				continue
 			}
 
-			spec.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
-			ack()
-
-			switch userApprovalResult.Status {
+			switch detail.Status {
 			case workwx.ApprovalStatusApproved:
 				return config.StatusPassed, nil
 			case workwx.ApprovalStatusRejected:
 				return config.StatusReject, errors.New("Approval has been rejected")
-			case workwx.ApprovalStatusDeleted:
-				return config.StatusCancelled, errors.New("Approval has been deleted")
+			case workwx.ApprovalStatusRecant, workwx.ApprovalStatusApprovedThenRecant, workwx.ApprovalStatusDeleted:
+				return config.StatusCancelled, errors.New("Approval has been cancelled")
 			default:
 				continue
 			}
