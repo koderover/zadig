@@ -165,6 +165,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/helm/releases", ListReleases)
 		environments.GET("/:name/helm/releases/:serviceOrReleaseName/diff", GetHelmReleaseDiff)
+		environments.PUT("/:name/helm/releases/:serviceOrReleaseName/values-source", UpdateHelmValuesSource)
 		environments.DELETE("/:name/helm/releases", DeleteHelmReleases)
 		environments.GET("/:name/helm/values", GetChartValues)
 		environments.GET("/:name/helm/charts", GetChartInfos)

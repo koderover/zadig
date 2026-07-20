@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
@@ -146,6 +148,78 @@ func GetHelmReleaseDiff(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetHelmReleaseDiff(projectKey, envName, serviceOrReleaseName, production, isHelmChartDeploy, ctx.Logger)
+}
+
+func UpdateHelmValuesSource(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	serviceOrReleaseName := c.Param("serviceOrReleaseName")
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	isHelmChartDeployParam := c.Query("isHelmChartDeploy")
+	if projectKey == "" {
+		ctx.RespErr = fmt.Errorf("projectName can't be empty")
+		return
+	}
+	if serviceOrReleaseName == "" {
+		ctx.RespErr = fmt.Errorf("serviceOrReleaseName can't be empty")
+		return
+	}
+	if isHelmChartDeployParam != "true" && isHelmChartDeployParam != "false" {
+		ctx.RespErr = fmt.Errorf("isHelmChartDeploy must be true or false")
+		return
+	}
+	isHelmChartDeploy := isHelmChartDeployParam == "true"
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	args := new(service.UpdateHelmValuesSourceArgs)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = err
+		return
+	}
+	// The source snapshot is updated only by a successful import or sync, not by saving configuration.
+	if args.ValuesData != nil {
+		args.ValuesData.AutoSyncYaml = ""
+	}
+	data, _ := json.Marshal(args)
+	detail := fmt.Sprintf("%s:%s", envName, serviceOrReleaseName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "Helm Values 来源配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+
+	ctx.RespErr = service.UpdateHelmValuesSource(projectKey, envName, serviceOrReleaseName, ctx.UserName, production, isHelmChartDeploy, args)
 }
 
 // @Summary 获取Helm服务Chart Values

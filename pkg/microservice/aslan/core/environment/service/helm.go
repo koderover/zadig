@@ -112,6 +112,10 @@ type HelmServiceDiffResp struct {
 	ValuesDiff  *HelmServiceValuesDiff  `json:"valuesDiff,omitempty"`
 }
 
+type UpdateHelmValuesSourceArgs struct {
+	ValuesData *commonservice.ValuesDataArgs `json:"valuesData"`
+}
+
 type ChartInfo struct {
 	ServiceName string `json:"serviceName"`
 	Revision    int64  `json:"revision"`
@@ -257,6 +261,93 @@ func findHelmProductService(prod *models.Product, serviceOrReleaseName string, i
 		return prod.GetChartServiceMap()[serviceOrReleaseName]
 	}
 	return prod.GetServiceMap()[serviceOrReleaseName]
+}
+
+func buildHelmValuesSource(valuesData *commonservice.ValuesDataArgs) (*template.CustomYaml, error) {
+	sourceData := &template.CustomYaml{}
+	if valuesData == nil {
+		return sourceData, nil
+	}
+	repoConfig := valuesData.GitRepoConfig
+	if repoConfig == nil {
+		return nil, fmt.Errorf("gitRepoConfig can't be empty")
+	}
+	if repoConfig.CodehostID == 0 {
+		return nil, fmt.Errorf("codehostID can't be empty")
+	}
+	if repoConfig.Owner == "" && repoConfig.Namespace == "" {
+		return nil, fmt.Errorf("owner or namespace can't be empty")
+	}
+	if repoConfig.Repo == "" {
+		return nil, fmt.Errorf("repo can't be empty")
+	}
+	if repoConfig.Branch == "" {
+		return nil, fmt.Errorf("branch can't be empty")
+	}
+	if len(repoConfig.ValuesPaths) == 0 || repoConfig.ValuesPaths[0] == "" {
+		return nil, fmt.Errorf("values path can't be empty")
+	}
+
+	sourceData.Source = setting.SourceFromGitRepo
+	sourceData.AutoSync = valuesData.AutoSync
+	sourceData.SourceDetail = &models.CreateFromRepo{
+		GitRepoConfig: &template.GitRepoConfig{
+			CodehostID: repoConfig.CodehostID,
+			Owner:      repoConfig.Owner,
+			Namespace:  repoConfig.Namespace,
+			Repo:       repoConfig.Repo,
+			Branch:     repoConfig.Branch,
+		},
+		LoadPath: repoConfig.ValuesPaths[0],
+	}
+	return sourceData, nil
+}
+
+func sameHelmValuesSource(current, target *template.CustomYaml) bool {
+	if current == nil || target == nil || helmValuesSourceType(current) != helmValuesSourceType(target) || current.SourceID != target.SourceID {
+		return false
+	}
+	if helmValuesSourceType(target) == "" {
+		return current.SourceDetail == nil && target.SourceDetail == nil
+	}
+	currentDetail, err := commonservice.UnMarshalSourceDetail(current.SourceDetail)
+	if err != nil || currentDetail == nil || currentDetail.GitRepoConfig == nil {
+		return false
+	}
+	targetDetail, err := commonservice.UnMarshalSourceDetail(target.SourceDetail)
+	if err != nil || targetDetail == nil || targetDetail.GitRepoConfig == nil {
+		return false
+	}
+	currentRepo, targetRepo := currentDetail.GitRepoConfig, targetDetail.GitRepoConfig
+	return currentRepo.CodehostID == targetRepo.CodehostID &&
+		currentRepo.Owner == targetRepo.Owner &&
+		currentRepo.Namespace == targetRepo.Namespace &&
+		currentRepo.Repo == targetRepo.Repo &&
+		currentRepo.Branch == targetRepo.Branch &&
+		currentDetail.LoadPath == targetDetail.LoadPath
+}
+
+func helmValuesSourceType(source *template.CustomYaml) string {
+	if source == nil || source.Source != "" {
+		if source == nil {
+			return ""
+		}
+		return source.Source
+	}
+	detail, err := commonservice.UnMarshalSourceDetail(source.SourceDetail)
+	if err == nil && detail != nil && detail.GitRepoConfig != nil {
+		return setting.SourceFromGitRepo
+	}
+	return ""
+}
+
+func prepareHelmValuesSourceForSave(current, target *template.CustomYaml) {
+	if target == nil || target.Source == "" {
+		return
+	}
+	if sameHelmValuesSource(current, target) {
+		target.AutoSyncYaml = current.AutoSyncYaml
+	}
 }
 
 type ImageData struct {
@@ -573,6 +664,43 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 	}
 
 	return resp, nil
+}
+
+func UpdateHelmValuesSource(productName, envName, serviceOrReleaseName, userName string, production, isHelmChartDeploy bool, args *UpdateHelmValuesSourceArgs) error {
+	if args == nil {
+		return fmt.Errorf("request body can't be empty")
+	}
+	sourceData, err := buildHelmValuesSource(args.ValuesData)
+	if err != nil {
+		return err
+	}
+
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find project: %s, err: %s", productName, err)
+	}
+	prodSvc := findHelmProductService(prod, serviceOrReleaseName, isHelmChartDeploy)
+	if prodSvc == nil {
+		if isHelmChartDeploy {
+			return fmt.Errorf("failed to find release %s in env %s", serviceOrReleaseName, envName)
+		}
+		return fmt.Errorf("failed to find service %s in env %s", serviceOrReleaseName, envName)
+	}
+
+	prepareHelmValuesSourceForSave(prodSvc.GetServiceRender().OverrideYaml, sourceData)
+	return commonrepo.NewProductColl().UpdateServiceValuesSource(
+		productName,
+		envName,
+		production,
+		isHelmChartDeploy,
+		serviceOrReleaseName,
+		sourceData,
+		userName,
+	)
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {

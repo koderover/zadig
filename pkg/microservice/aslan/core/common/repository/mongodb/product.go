@@ -30,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -507,6 +508,62 @@ func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, 
 	}
 
 	return nil
+}
+
+// UpdateServiceValuesSource updates only the external Values source metadata of a service.
+// It intentionally leaves yaml_content and override_values unchanged so saving a source
+// configuration does not trigger or emulate an import.
+func (c *ProductColl) UpdateServiceValuesSource(productName, envName string, production, isHelmChartDeploy bool, identifier string, sourceData *templatemodels.CustomYaml, updateBy string) error {
+	if sourceData == nil {
+		return errors.New("nil values source data")
+	}
+	query, serviceFilter := buildServiceValuesSourceQuery(productName, envName, production, isHelmChartDeploy, identifier)
+	valuesPath := "services.$[].$[svc].render.override_yaml"
+	change := bson.M{"$set": bson.M{
+		"update_time":                  time.Now().Unix(),
+		"update_by":                    updateBy,
+		valuesPath + ".source":         sourceData.Source,
+		valuesPath + ".source_id":      sourceData.SourceID,
+		valuesPath + ".source_detail":  sourceData.SourceDetail,
+		valuesPath + ".auto_sync":      sourceData.AutoSync,
+		valuesPath + ".auto_sync_yaml": sourceData.AutoSyncYaml,
+	}}
+	arrayFilters := options.ArrayFilters{Filters: []interface{}{serviceFilter}}
+	updateOptions := options.UpdateOptions{ArrayFilters: &arrayFilters}
+
+	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change, &updateOptions)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("no matching service found to update values source: %s", identifier)
+	}
+	return nil
+}
+
+func buildServiceValuesSourceQuery(productName, envName string, production, isHelmChartDeploy bool, identifier string) (bson.M, bson.M) {
+	identifierField := "service_name"
+	typeFilter := interface{}(bson.M{"$ne": setting.HelmChartDeployType})
+	if isHelmChartDeploy {
+		identifierField = "release_name"
+		typeFilter = setting.HelmChartDeployType
+	}
+	matchService := bson.M{identifierField: identifier, "type": typeFilter}
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+		"services":     bson.M{"$elemMatch": bson.M{"$elemMatch": matchService}},
+	}
+	if production {
+		query["production"] = true
+	} else {
+		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+	}
+	serviceFilter := bson.M{
+		fmt.Sprintf("svc.%s", identifierField): identifier,
+		"svc.type":                             typeFilter,
+	}
+	return query, serviceFilter
 }
 
 // Note: Only use for add a service
