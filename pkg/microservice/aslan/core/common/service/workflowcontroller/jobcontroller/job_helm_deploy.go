@@ -428,10 +428,18 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 
 	relatedPodLabels := make([]map[string]string, 0)
 	resources := []commonmodels.Resource{}
+	selectedModules := make(map[string]struct{}, len(c.jobTaskSpec.ImageAndModules))
+	for _, imageAndModule := range c.jobTaskSpec.ImageAndModules {
+		selectedModules[imageAndModule.ServiceModule] = struct{}{}
+	}
+	filterByModule := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedModules) > 0
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
 		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
+			if filterByModule && !workloadContainsServiceModule(u, selectedModules) {
+				continue
+			}
 			resources = append(resources, commonmodels.Resource{
 				Kind: u.GetKind(),
 				Name: u.GetName(),
@@ -454,6 +462,26 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}
 	return status, nil
+}
+
+func workloadContainsServiceModule(workload *unstructured.Unstructured, selectedModules map[string]struct{}) bool {
+	for _, containerField := range []string{"containers", "initContainers"} {
+		containers, found, err := unstructured.NestedSlice(workload.Object, "spec", "template", "spec", containerField)
+		if err != nil || !found {
+			continue
+		}
+		for _, container := range containers {
+			containerMap, ok := container.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name, _, _ := unstructured.NestedString(containerMap, "name")
+			if _, ok := selectedModules[name]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *HelmDeployJobCtl) timeout() int {
