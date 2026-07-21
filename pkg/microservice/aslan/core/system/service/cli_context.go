@@ -17,74 +17,49 @@ limitations under the License.
 package service
 
 import (
-	"os"
-	"strings"
+	"errors"
+	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"go.uber.org/zap"
-)
-
-const (
-	cliContextUnknownEdition          = "unknown"
-	cliContextUnavailableLicenseState = "unavailable"
 )
 
 type CLIContextResponse struct {
-	Principal     CLIPrincipal `json:"principal"`
-	Edition       string       `json:"edition"`
-	LicenseStatus string       `json:"license_status"`
-	Features      []string     `json:"features"`
-	ServerVersion string       `json:"server_version"`
-	RequestID     string       `json:"request_id"`
+	User          CLIUser  `json:"principal"`
+	Edition       string   `json:"edition"`
+	LicenseStatus string   `json:"license_status"`
+	Features      []string `json:"features"`
+	ServerVersion string   `json:"server_version"`
+	RequestID     string   `json:"request_id"`
 }
 
-// CLIPrincipal identifies the authenticated user represented by the request token.
-type CLIPrincipal struct {
+type CLIUser struct {
 	UID          string `json:"uid"`
 	Name         string `json:"name"`
 	Account      string `json:"account"`
 	IdentityType string `json:"identity_type"`
 }
 
-func GetCLIContext(principal types.UserBriefInfo, requestID string, log *zap.SugaredLogger) (*CLIContextResponse, error) {
-	response := &CLIContextResponse{
-		Principal: CLIPrincipal{
-			UID:          principal.UID,
-			Name:         principal.Name,
-			Account:      principal.Account,
-			IdentityType: principal.IdentityType,
-		},
-		Edition:       cliContextUnknownEdition,
-		LicenseStatus: cliContextUnavailableLicenseState,
-		Features:      []string{},
-		ServerVersion: strings.TrimSpace(os.Getenv("VERSION")),
-		RequestID:     requestID,
-	}
-
+func GetCLIContext(user types.UserBriefInfo, requestID string) (*CLIContextResponse, error) {
 	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		if log != nil {
-			log.Warnw("failed to load CLI license metadata", "request_id", requestID, "error", err)
-		}
-		return response, nil
+		return nil, fmt.Errorf("check zadig license status: %w", err)
 	}
 	if licenseStatus == nil {
-		if log != nil {
-			log.Warnw("received empty CLI license metadata", "request_id", requestID)
-		}
-		return response, nil
+		return nil, errors.New("check zadig license status: empty response")
 	}
 
-	if value := strings.TrimSpace(licenseStatus.Type); value != "" {
-		response.Edition = value
-	}
-	if value := strings.TrimSpace(licenseStatus.Status); value != "" {
-		response.LicenseStatus = value
-	}
-	if value := strings.TrimSpace(licenseStatus.CurrentVersion); value != "" {
-		response.ServerVersion = value
-	}
-	response.Features = append([]string{}, licenseStatus.Features...)
-	return response, nil
+	return &CLIContextResponse{
+		User: CLIUser{
+			UID:          user.UID,
+			Name:         user.Name,
+			Account:      user.Account,
+			IdentityType: user.IdentityType,
+		},
+		Edition:       licenseStatus.Type,
+		LicenseStatus: licenseStatus.Status,
+		Features:      append([]string{}, licenseStatus.Features...),
+		ServerVersion: licenseStatus.CurrentVersion,
+		RequestID:     requestID,
+	}, nil
 }
