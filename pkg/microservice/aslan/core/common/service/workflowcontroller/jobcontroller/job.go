@@ -32,6 +32,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -44,6 +45,10 @@ type JobCtl interface {
 	Clean(ctx context.Context)
 	// SaveInfo is used to update the basic information of the job task to the mongoDB
 	SaveInfo(ctx context.Context) error
+}
+
+var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
+	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -144,6 +149,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		setJobFinalStatusContext(job, workflowCtx)
 		ack()
+		sendJobNotifications(workflowCtx, job, job.Status, logger)
 		if workflowCtx.IsDebug {
 			logger.Infof("skip updating debug job info into db")
 			return
@@ -205,6 +211,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()
 
+	sendJobNotifications(workflowCtx, job, config.StatusPrepare, logger)
+
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 
 	jobCtl.Run(ctx)
@@ -219,8 +227,30 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		case config.JobErrorPolicyRetry:
 			retryJob(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
 		case config.JobErrorPolicyManualCheck:
-			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
+			waitForManualErrorHandling(ctx, workflowCtx, job, ack, logger)
 		}
+	}
+}
+
+func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, status config.Status, logger *zap.SugaredLogger) {
+	if workflowCtx == nil || job == nil || !instantmessage.HasTaskNotifyCtls(job.NotifyCtls, status) {
+		return
+	}
+
+	statusTextKeyOverride := ""
+	if status == config.StatusPrepare {
+		statusTextKeyOverride = "taskStatusExecutionStarted"
+	}
+
+	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
+		WorkflowName:          workflowCtx.WorkflowName,
+		TaskID:                workflowCtx.TaskID,
+		Job:                   job,
+		NotifyCtls:            job.NotifyCtls,
+		Status:                status,
+		StatusTextKeyOverride: statusTextKeyOverride,
+	}); err != nil {
+		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", job.Name, status, err)
 	}
 }
 
@@ -253,10 +283,11 @@ retryLoop:
 	}
 }
 
-func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
+func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
 	originalStatus := job.Status
 	job.Status = config.StatusManualApproval
 	ack()
+	sendJobNotifications(workflowCtx, job, config.StatusWaitingApprove, logger)
 
 	for {
 		time.Sleep(1 * time.Second)
@@ -266,7 +297,7 @@ func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID
 			job.Error = fmt.Sprintf("controller shutdown, marking job as cancelled.")
 			return
 		default:
-			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowName, job.Name, taskID)
+			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowCtx.WorkflowName, job.Name, workflowCtx.TaskID)
 			if err != nil {
 				continue
 			}

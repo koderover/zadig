@@ -95,12 +95,38 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 		fieldName := fieldType.Name
 		if !ignoringFields.Has(fieldName) {
 			fieldValue := val.Field(i).Interface()
+			if fieldName == "Stages" {
+				fieldValue = stagesWithoutJobNotifyCtls(w.Stages)
+			}
 			fieldList[fieldName] = fieldValue
 		}
 	}
 
 	jsonBytes, _ := json.Marshal(fieldList)
 	return md5.Sum(jsonBytes)
+}
+
+func stagesWithoutJobNotifyCtls(stages []*WorkflowStage) []*WorkflowStage {
+	stagesForHash := make([]*WorkflowStage, len(stages))
+	for stageIndex, stage := range stages {
+		if stage == nil {
+			continue
+		}
+
+		stageForHash := *stage
+		stageForHash.Jobs = make([]*Job, len(stage.Jobs))
+		for jobIndex, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
+
+			jobForHash := *job
+			jobForHash.NotifyCtls = nil
+			stageForHash.Jobs[jobIndex] = &jobForHash
+		}
+		stagesForHash[stageIndex] = &stageForHash
+	}
+	return stagesForHash
 }
 
 // FindJob finds a job in a workflow, note that jobType is an optional parameter, simply pass empty string if you don't need to filter by type

@@ -996,6 +996,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
+				jobTask.NotifyCtls = job.NotifyCtls
 				jobTaskMap[jobTask.Name] = jobTask
 			}
 		}
@@ -1042,6 +1043,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
 				}
 				jobTask.Spec = t.Spec
+				jobTask.NotifyCtls = t.NotifyCtls
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
 			}
@@ -1219,6 +1221,9 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				jobTasks, err := ctrl.ToTask(taskID)
 				if err != nil {
 					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
+				}
+				for _, jobTask := range jobTasks {
+					jobTask.NotifyCtls = job.NotifyCtls
 				}
 
 				job.Spec = ctrl.GetSpec()

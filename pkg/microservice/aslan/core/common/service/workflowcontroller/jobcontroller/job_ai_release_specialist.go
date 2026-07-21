@@ -128,8 +128,8 @@ var (
 		flatUsers, _ := commonutil.GeneFlatUsersWithCaller(users, taskCreatorUserID)
 		return flatUsers
 	}
-	sendAIReleaseSpecialistTaskWaitNotifications = func(input *instantmessage.TaskWaitNotifyInput) error {
-		return instantmessage.NewWeChatClient().SendTaskWaitNotifications(input)
+	sendAIReleaseSpecialistTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
+		return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 	}
 )
 
@@ -428,18 +428,20 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 		return
 	}
 
-	if !instantmessage.HasTaskWaitNotifyCtls(c.job.NotifyCtls, config.StatusWaitingApprove) {
+	if !instantmessage.HasTaskNotifyCtls(c.job.NotifyCtls, config.StatusWaitingApprove) {
 		return
 	}
 
-	if err := sendAIReleaseSpecialistTaskWaitNotifications(&instantmessage.TaskWaitNotifyInput{
-		Task:         task,
-		WorkflowName: c.workflowCtx.WorkflowName,
-		TaskID:       c.workflowCtx.TaskID,
-		NotifyCtls:   c.job.NotifyCtls,
-		WaitStatus:   config.StatusWaitingApprove,
+	if err := sendAIReleaseSpecialistTaskNotifications(&instantmessage.TaskNotifyInput{
+		Task:                  task,
+		Job:                   c.job,
+		WorkflowName:          c.workflowCtx.WorkflowName,
+		TaskID:                c.workflowCtx.TaskID,
+		NotifyCtls:            c.job.NotifyCtls,
+		Status:                config.StatusWaitingApprove,
+		StatusTextKeyOverride: "taskStatusManualApproval",
 	}); err != nil {
-		c.logger.Warnf("send ai release specialist task wait notification failed: %v", err)
+		c.logger.Warnf("send ai release specialist task notification failed: %v", err)
 		return
 	}
 
