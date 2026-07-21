@@ -432,13 +432,14 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 	for _, imageAndModule := range c.jobTaskSpec.ImageAndModules {
 		selectedImages[imageAndModule.Image] = struct{}{}
 	}
-	filterByImage := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedImages) > 0
+	filterReadyPods := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedImages) > 0
+	readyPodResourceKeys := make(map[string]struct{})
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
 		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
-			if filterByImage && !workloadContainsImage(u, selectedImages) {
-				continue
+			if !filterReadyPods || workloadContainsImage(u, selectedImages) {
+				readyPodResourceKeys[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = struct{}{}
 			}
 			resources = append(resources, commonmodels.Resource{
 				Kind: u.GetKind(),
@@ -456,8 +457,14 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 	if err != nil {
 		return config.StatusFailed, fmt.Errorf("failed to get resources pod owner uid, err: %v", err)
 	}
+	readyPodResources := make([]commonmodels.Resource, 0, len(resources))
+	for _, resource := range resources {
+		if _, ok := readyPodResourceKeys[fmt.Sprintf("%s/%s", resource.Kind, resource.Name)]; ok {
+			readyPodResources = append(readyPodResources, resource)
+		}
+	}
 
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, jobLogCtx, timeout, c.logger)
+	status, err := checkDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, readyPodResources, jobLogCtx, timeout, c.logger)
 	if err != nil {
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}

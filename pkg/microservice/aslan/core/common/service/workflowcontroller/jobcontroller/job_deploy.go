@@ -864,6 +864,10 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 }
 
 func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, jobLogCtx *joblog.JobLogContext, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
+	return checkDeployStatus(ctx, kubeClient, namespace, relatedPodLabels, replaceResources, replaceResources, jobLogCtx, timeout, logger)
+}
+
+func checkDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources, readyPodResources []commonmodels.Resource, jobLogCtx *joblog.JobLogContext, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
 	jobLogManager := joblog.NewJobLogManager(jobLogCtx)
 	jobLogManager.SaveJobLog("Checking workloads' pod status ...")
 
@@ -909,9 +913,9 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 				readyPods int
 				totalPods int
 			}
-			readyPodCounts := make([]readyPodCount, 0, len(replaceResources))
+			readyPodCounts := make([]readyPodCount, 0, len(readyPodResources))
 			countErr := false
-			for _, resource := range replaceResources {
+			for _, resource := range readyPodResources {
 				podCount := readyPodCount{resource: resource}
 				switch resource.Kind {
 				case setting.Deployment:
