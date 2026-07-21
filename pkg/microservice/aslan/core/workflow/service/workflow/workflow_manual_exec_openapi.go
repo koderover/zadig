@@ -42,7 +42,7 @@ type OpenAPIManualExecExecutor struct {
 	GroupName string `json:"group_name,omitempty"`
 }
 
-type OpenAPIManualExecWorkflowTaskV4Context struct {
+type OpenAPIManualExecWorkflowTaskV4Response struct {
 	ProjectKey  string                       `json:"project_key"`
 	WorkflowKey string                       `json:"workflow_key"`
 	TaskID      int64                        `json:"task_id"`
@@ -52,7 +52,7 @@ type OpenAPIManualExecWorkflowTaskV4Context struct {
 	Executors   []*OpenAPIManualExecExecutor `json:"executors"`
 }
 
-func GetOpenAPIManualExecWorkflowTaskV4Context(workflowName, projectKey string, taskID int64, executorID string, isSystemAdmin bool, logger *zap.SugaredLogger) (*OpenAPIManualExecWorkflowTaskV4Context, error) {
+func GetOpenAPIManualExecWorkflowTaskV4Context(workflowName, projectKey string, taskID int64, executorID string, isSystemAdmin bool, logger *zap.SugaredLogger) (*OpenAPIManualExecWorkflowTaskV4Response, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -90,7 +90,7 @@ func OpenAPIManualExecWorkflowTaskV4(workflowName, projectKey string, taskID int
 	return ManualExecWorkflowTaskV4(workflowName, taskID, stageName, stage.Jobs, executorID, "", executorName, isSystemAdmin, logger)
 }
 
-func buildManualExecContext(task *commonmodels.WorkflowTask, executorID string, isSystemAdmin bool) (*OpenAPIManualExecWorkflowTaskV4Context, error) {
+func buildManualExecContext(task *commonmodels.WorkflowTask, executorID string, isSystemAdmin bool) (*OpenAPIManualExecWorkflowTaskV4Response, error) {
 	if task == nil {
 		return nil, errors.New("workflow task is required")
 	}
@@ -106,7 +106,7 @@ func buildManualExecContext(task *commonmodels.WorkflowTask, executorID string, 
 		return nil, errors.New("workflow task has no stage waiting for manual execution")
 	}
 
-	return &OpenAPIManualExecWorkflowTaskV4Context{
+	return &OpenAPIManualExecWorkflowTaskV4Response{
 		ProjectKey:  task.ProjectName,
 		WorkflowKey: task.WorkflowName,
 		TaskID:      task.TaskID,
