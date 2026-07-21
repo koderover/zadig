@@ -55,7 +55,7 @@ const (
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
 	aiReleaseSpecialistRulePlanMaxTokens        = 64 * 1024
-	aiReleaseSpecialistRulePlanVersion          = 2
+	aiReleaseSpecialistRulePlanVersion          = 3
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
 
@@ -190,7 +190,6 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.Input = input
-	c.jobTaskSpec.SystemPrompt = GetEffectiveAIReleaseSpecialistSystemPrompt(c.jobTaskSpec.SystemPrompt)
 
 	prompt, err := BuildAIReleaseSpecialistEvaluationPrompt(rulePlan, c.jobTaskSpec.SystemPrompt, input)
 	if err != nil {
@@ -396,9 +395,10 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 
 func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
 	sourceRule := strings.TrimSpace(c.jobTaskSpec.PromptTemplate)
+	sourceRuleHash := hashAIReleaseSpecialistRuleSource(sourceRule)
 	if c.jobTaskSpec.RulePlan != nil &&
 		c.jobTaskSpec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion &&
-		(sourceRule == "" || c.jobTaskSpec.RulePlan.SourceRule == sourceRule) {
+		(sourceRule == "" || c.jobTaskSpec.RulePlan.SourceRuleHash == sourceRuleHash) {
 		if err := normalizeAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan); err != nil {
 			return nil, err
 		}
@@ -408,7 +408,7 @@ func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context) (*commonmod
 		return c.jobTaskSpec.RulePlan, nil
 	}
 
-	// Workflows saved before rule plans were introduced still carry only the source rule.
+	// Workflows saved with an older rule-plan format are recompiled on first run.
 	rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, sourceRule)
 	if err != nil {
 		return nil, err
@@ -1995,6 +1995,14 @@ func GetEffectiveAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
 	return buildAIReleaseSpecialistSystemPrompt(systemPrompt)
 }
 
+func NormalizeAIReleaseSpecialistSystemPromptForStorage(systemPrompt string) string {
+	systemPrompt = normalizeAIReleaseSpecialistSystemPrompt(systemPrompt)
+	if systemPrompt == defaultAIReleaseSpecialistSystemPrompt {
+		return ""
+	}
+	return systemPrompt
+}
+
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
 	systemPrompt := normalizeAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	if systemPrompt == "" {
@@ -2107,6 +2115,7 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 			if err := commonmodels.IToi(job.Spec, spec); err != nil {
 				return fmt.Errorf("decode ai release specialist job %s: %w", job.Name, err)
 			}
+			spec.SystemPrompt = NormalizeAIReleaseSpecialistSystemPromptForStorage(spec.SystemPrompt)
 
 			sourceRule := strings.TrimSpace(spec.PromptTemplate)
 			if sourceRule == "" {
@@ -2114,13 +2123,14 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 				job.Spec = spec
 				continue
 			}
-			if spec.RulePlan != nil && spec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion && spec.RulePlan.SourceRule == sourceRule {
+			sourceRuleHash := hashAIReleaseSpecialistRuleSource(sourceRule)
+			if spec.RulePlan != nil && spec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion && spec.RulePlan.SourceRuleHash == sourceRuleHash {
 				if err := normalizeAIReleaseSpecialistRulePlan(spec.RulePlan); err == nil {
 					job.Spec = spec
 					continue
 				}
 			}
-			if existingPlan, ok := existingPlans[job.Name]; ok && existingPlan.Version == aiReleaseSpecialistRulePlanVersion && existingPlan.SourceRule == sourceRule {
+			if existingPlan, ok := existingPlans[job.Name]; ok && existingPlan.Version == aiReleaseSpecialistRulePlanVersion && existingPlan.SourceRuleHash == sourceRuleHash {
 				if err := normalizeAIReleaseSpecialistRulePlan(existingPlan); err == nil {
 					spec.RulePlan = existingPlan
 					job.Spec = spec
@@ -2161,7 +2171,7 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 		return nil, nil
 	}
 
-	compileKey := fmt.Sprintf("%x", sha256.Sum256([]byte(sourceRule)))
+	compileKey := hashAIReleaseSpecialistRuleSource(sourceRule)
 	result, err, _ := aiReleaseSpecialistRulePlanCompileGroup.Do(compileKey, func() (interface{}, error) {
 		client, err := getAIReleaseSpecialistLLMClient(ctx)
 		if err != nil {
@@ -2180,7 +2190,7 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 		if err != nil {
 			return nil, err
 		}
-		rulePlan.SourceRule = sourceRule
+		rulePlan.SourceRuleHash = compileKey
 		return rulePlan, nil
 	})
 	if err != nil {
@@ -2191,6 +2201,10 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string) 
 		return nil, fmt.Errorf("invalid compiled rule plan result")
 	}
 	return rulePlan, nil
+}
+
+func hashAIReleaseSpecialistRuleSource(sourceRule string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.TrimSpace(sourceRule))))
 }
 
 func buildAIReleaseSpecialistRulePlanPrompt(sourceRule string) string {

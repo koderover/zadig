@@ -32,7 +32,7 @@ func CreateAIReleaseSpecialistJobController(job *commonmodels.Job, workflow *com
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return nil, fmt.Errorf("failed to create ai release specialist job controller, error: %s", err)
 	}
-	spec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(spec.SystemPrompt)
+	spec.SystemPrompt = runtimeJobController.NormalizeAIReleaseSpecialistSystemPromptForStorage(spec.SystemPrompt)
 
 	basicInfo := &BasicInfo{
 		name:          job.Name,
@@ -53,7 +53,6 @@ func (j AIReleaseSpecialistJobController) SetWorkflow(wf *commonmodels.WorkflowV
 }
 
 func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
-	j.jobSpec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(j.jobSpec.SystemPrompt)
 	return j.jobSpec
 }
 
@@ -103,7 +102,7 @@ func (j AIReleaseSpecialistJobController) Update(useUserInput bool, ticket *comm
 	j.jobSpec.RulePlan = currJobSpec.RulePlan
 	j.jobSpec.RequireManualConfirm = currJobSpec.RequireManualConfirm
 	j.jobSpec.ConfirmUsers = currJobSpec.ConfirmUsers
-	j.jobSpec.SystemPrompt = runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(currJobSpec.SystemPrompt)
+	j.jobSpec.SystemPrompt = runtimeJobController.NormalizeAIReleaseSpecialistSystemPromptForStorage(currJobSpec.SystemPrompt)
 	return nil
 }
 
@@ -123,7 +122,7 @@ func (j AIReleaseSpecialistJobController) ToTask(taskID int64) ([]*commonmodels.
 		RulePlan:             j.jobSpec.RulePlan,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
-		SystemPrompt:         runtimeJobController.GetEffectiveAIReleaseSpecialistSystemPrompt(j.jobSpec.SystemPrompt),
+		SystemPrompt:         j.jobSpec.SystemPrompt,
 	}
 	if j.jobSpec.RequireManualConfirm {
 		spec.NativeApproval = &commonmodels.NativeApproval{

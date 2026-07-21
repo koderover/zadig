@@ -1234,10 +1234,10 @@ type AIReleaseSpecialistJobSpec struct {
 }
 
 type AIReleaseSpecialistRulePlan struct {
-	Version    int                                `bson:"version" json:"version" yaml:"version"`
-	SourceRule string                             `bson:"source_rule" json:"source_rule" yaml:"source_rule"`
-	Contexts   []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
-	Rules      []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+	Version        int                                `bson:"version" json:"version" yaml:"version"`
+	SourceRuleHash string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
+	Contexts       []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
+	Rules          []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
 }
 
 type AIReleaseSpecialistRulePlanRule struct {
