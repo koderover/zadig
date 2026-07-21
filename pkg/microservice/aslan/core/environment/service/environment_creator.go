@@ -36,7 +36,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -321,13 +320,6 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 		parsedYaml, err := kube.RenderEnvService(args.Product, svc.GetServiceRender(), svc)
 		if err != nil {
 			return fmt.Errorf("failed to render env service yaml for service: %s, err: %s", svc.ServiceName, err)
-		}
-		if commonutil.ServiceIsDeployed(svc.ServiceName, args.Product.ServiceDeployStrategy) {
-			err = kube.CheckResourceConflicts(parsedYaml, args.Product, svc.ServiceName, kubeClient)
-			if err != nil {
-				return e.ErrCreateEnv.AddErr(err)
-			}
-			continue
 		}
 		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, args.Product, svc.ServiceName)
 		if err != nil {

@@ -19,7 +19,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -406,24 +405,47 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 		return nil
 	}
 
-	sharedNSEnvList := make(map[string]*commonmodels.Product)
-	insertEnvData := func(resource string, env *commonmodels.Product) {
-		sharedNSEnvList[resource] = env
+	resources := UnstructuredToResources(unstructuredRes)
+	hasClusterScopedResource := false
+	for _, resource := range resources {
+		if isClusterScopedK8sServiceResource(resource.GroupVersionKind.Kind) {
+			hasClusterScopedResource = true
+			break
+		}
+	}
+
+	var envs []*commonmodels.Product
+	var err error
+	if hasClusterScopedResource {
+		envs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ClusterID: productInfo.ClusterID})
+	} else {
+		envs, err = commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	}
+	if err != nil {
+		log.Errorf("Failed to list environments for resource ownership check, error: %s", err)
+		return err
 	}
 
 	resSet := sets.NewString()
-	resources := UnstructuredToResources(unstructuredRes)
-
 	for _, res := range resources {
 		resSet.Insert(res.String())
 	}
 	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s, resource: %v ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace, resSet.List())
+	return checkResourcesAppliedByOtherEnvs(resources, productInfo, serviceName, envs)
+}
 
-	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if err != nil {
-		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-		return err
+func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource, productInfo *commonmodels.Product, serviceName string, envs []*commonmodels.Product) error {
+	namespacedResSet := sets.NewString()
+	clusterResSet := sets.NewString()
+	for _, res := range resources {
+		if isClusterScopedK8sServiceResource(res.GroupVersionKind.Kind) {
+			clusterResSet.Insert(res.String())
+		} else {
+			namespacedResSet.Insert(res.String())
+		}
 	}
+
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
 
 	for _, env := range envs {
 		for _, svc := range env.GetServiceMap() {
@@ -431,8 +453,9 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 				continue
 			}
 			for _, res := range svc.Resources {
-				if resSet.Has(res.String()) {
-					insertEnvData(res.String(), env)
+				resourceKey := res.String()
+				if clusterResSet.Has(resourceKey) || env.Namespace == productInfo.Namespace && namespacedResSet.Has(resourceKey) {
+					sharedNSEnvList[res.String()] = env
 					break
 				}
 			}
@@ -450,62 +473,8 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
-func CheckResourceConflicts(serviceYaml string, productInfo *commonmodels.Product, serviceName string, kubeClient client.Client) error {
-	unstructuredRes, _, err := ManifestToUnstructured(serviceYaml)
-	if err != nil {
-		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
-	}
-
-	if err := checkResourceAppliedByOtherEnv(unstructuredRes, productInfo, serviceName); err != nil {
-		return err
-	}
-	if kubeClient == nil {
-		return nil
-	}
-
-	return checkResourceConflictsInCluster(unstructuredRes, productInfo, serviceName, kubeClient)
-}
-
-func checkResourceConflictsInClusterFromYaml(serviceYaml string, productInfo *commonmodels.Product, serviceName string, kubeClient client.Client) error {
-	unstructuredRes, _, err := ManifestToUnstructured(serviceYaml)
-	if err != nil {
-		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
-	}
-
-	return checkResourceConflictsInCluster(unstructuredRes, productInfo, serviceName, kubeClient)
-}
-
-func checkResourceConflictsInCluster(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product, serviceName string, kubeClient client.Client) error {
-	conflictedResources := make([]string, 0)
-	for _, resource := range unstructuredRes {
-		if resource == nil {
-			continue
-		}
-
-		key := client.ObjectKey{Name: resource.GetName()}
-		if !isClusterScopedK8sServiceResource(resource.GetKind()) {
-			key.Namespace = productInfo.Namespace
-		}
-
-		liveResource := &unstructured.Unstructured{}
-		liveResource.SetGroupVersionKind(resource.GroupVersionKind())
-		err := kubeClient.Get(context.TODO(), key, liveResource)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("failed to check whether resource %s already exists in cluster, err: %v", formatK8sServiceResourceID(resource), err)
-		}
-
-		conflictedResources = append(conflictedResources, formatK8sServiceResourceID(resource))
-	}
-
-	if len(conflictedResources) == 0 {
-		return nil
-	}
-
-	sort.Strings(conflictedResources)
-	return fmt.Errorf("resource already exists in cluster and conflicts with service %s in namespace %s: %s", serviceName, productInfo.Namespace, strings.Join(conflictedResources, ", "))
+func FormatK8sResourceKey(apiVersion, kind, name string) string {
+	return fmt.Sprintf("%s/%s/%s", apiVersion, kind, name)
 }
 
 func isClusterScopedK8sServiceResource(kind string) bool {
@@ -515,14 +484,6 @@ func isClusterScopedK8sServiceResource(kind string) bool {
 	default:
 		return false
 	}
-}
-
-func FormatK8sResourceKey(apiVersion, kind, name string) string {
-	return fmt.Sprintf("%s/%s/%s", apiVersion, kind, name)
-}
-
-func formatK8sServiceResourceID(resource *unstructured.Unstructured) string {
-	return FormatK8sResourceKey(resource.GetAPIVersion(), resource.GetKind(), resource.GetName())
 }
 
 func IsStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger) bool {
