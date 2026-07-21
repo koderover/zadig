@@ -164,6 +164,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:name/helm/releases", ListReleases)
+		environments.GET("/:name/helm/releases/diffs", ListHelmReleaseDiffSummaries)
 		environments.GET("/:name/helm/releases/:serviceOrReleaseName/diff", GetHelmReleaseDiff)
 		environments.PUT("/:name/helm/releases/:serviceOrReleaseName/values-source", UpdateHelmValuesSource)
 		environments.DELETE("/:name/helm/releases", DeleteHelmReleases)

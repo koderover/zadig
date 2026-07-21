@@ -77,7 +77,6 @@ type HelmReleaseResp struct {
 	IsHelmChartDeploy bool                          `json:"isHelmChartDeploy"`
 	DeployStrategy    setting.ServiceDeployStrategy `json:"deployStrategy"`
 	Error             string                        `json:"error"`
-	Diff              *HelmServiceDiffSummary       `json:"diff,omitempty"`
 }
 
 type HelmServiceDiffSummary struct {
@@ -106,6 +105,13 @@ type HelmServiceDiffResp struct {
 	Diff        *HelmServiceDiffSummary `json:"diff"`
 	VersionDiff *HelmServiceVersionDiff `json:"versionDiff,omitempty"`
 	ValuesDiff  *HelmServiceValuesDiff  `json:"valuesDiff,omitempty"`
+}
+
+type HelmReleaseDiffSummaryResp struct {
+	ServiceName       string                  `json:"serviceName"`
+	ReleaseName       string                  `json:"releaseName"`
+	IsHelmChartDeploy bool                    `json:"isHelmChartDeploy"`
+	Diff              *HelmServiceDiffSummary `json:"diff"`
 }
 
 type UpdateHelmValuesSourceArgs struct {
@@ -138,11 +144,6 @@ const (
 
 	helmServiceDiffSummaryConcurrency = 5
 )
-
-type helmServiceDiffResult struct {
-	diff *HelmServiceDiffSummary
-	err  error
-}
 
 func listReleaseInNamespace(helmClient *helmtool.HelmClient, filter *ReleaseFilter) ([]*release.Release, error) {
 	listClient := action.NewList(helmClient.ActionConfig)
@@ -442,29 +443,9 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	}
 
 	ret := make([]*HelmReleaseResp, 0)
-	diffResults := make([]helmServiceDiffResult, len(svcDataList))
-	diffSemaphore := make(chan struct{}, helmServiceDiffSummaryConcurrency)
-	var diffWaitGroup sync.WaitGroup
-	for index, svcDataSet := range svcDataList {
-		if !filterFunc(svcDataSet) {
-			continue
-		}
-		index, svcDataSet := index, svcDataSet
-		diffWaitGroup.Add(1)
-		util.Go(func() {
-			defer diffWaitGroup.Done()
-			diffSemaphore <- struct{}{}
-			defer func() { <-diffSemaphore }()
-
-			diff, _, _, err := getHelmServiceDiffSummary(svcDataSet.ProdSvc, svcDataSet.TmplSvc)
-			diffResults[index] = helmServiceDiffResult{diff: diff, err: err}
-		})
-	}
-	diffWaitGroup.Wait()
-
 	chartInfoMap := prod.GetChartRenderMap()
 	chartDeployInfoMap := prod.GetChartDeployRenderMap()
-	for index, svcDataSet := range svcDataList {
+	for _, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
 			continue
 		}
@@ -523,20 +504,83 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.Status = HelmReleaseStatusFailed
 		}
 
-		diff, err := diffResults[index].diff, diffResults[index].err
-		if err != nil {
-			log.Warnf("failed to get helm service diff summary, project: %s, env: %s, service: %s, err: %s", projectName, envName, svcDataSet.ProdSvc.ServiceName, err)
-			if diff == nil {
-				diff = &HelmServiceDiffSummary{}
-			}
-			diff.Error = err.Error()
-		}
-		respObj.Diff = diff
-
 		ret = append(ret, respObj)
 	}
 
 	return ret, nil
+}
+
+func ListHelmReleaseDiffSummaries(productName, envName string, production bool, log *zap.SugaredLogger) ([]*HelmReleaseDiffSummaryResp, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", productName, err)
+	}
+
+	serviceTmpls, err := repository.ListMaxRevisionsServices(productName, production, false)
+	if err != nil {
+		return nil, errors.Errorf("failed to list service templates for project: %s", productName)
+	}
+	serviceTmplMap := make(map[string]*models.Service)
+	for _, tmplSvc := range serviceTmpls {
+		serviceTmplMap[tmplSvc.ServiceName] = tmplSvc
+	}
+
+	serviceToReleaseName, err := commonutil.GetServiceNameToReleaseNameMap(prod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build release-service map: %s", err)
+	}
+
+	prodSvcs := make([]*models.ProductService, 0)
+	for _, prodSvc := range prod.GetServiceMap() {
+		prodSvcs = append(prodSvcs, prodSvc)
+	}
+	for _, prodSvc := range prod.GetChartServiceMap() {
+		prodSvcs = append(prodSvcs, prodSvc)
+	}
+
+	resp := make([]*HelmReleaseDiffSummaryResp, len(prodSvcs))
+	diffSemaphore := make(chan struct{}, helmServiceDiffSummaryConcurrency)
+	var diffWaitGroup sync.WaitGroup
+	for index, prodSvc := range prodSvcs {
+		index, prodSvc := index, prodSvc
+		diffWaitGroup.Add(1)
+		util.Go(func() {
+			defer diffWaitGroup.Done()
+			diffSemaphore <- struct{}{}
+			defer func() { <-diffSemaphore }()
+
+			isHelmChartDeploy := !prodSvc.FromZadig()
+			releaseName := serviceToReleaseName[prodSvc.ServiceName]
+			var latestTmplSvc *models.Service
+			if isHelmChartDeploy {
+				releaseName = prodSvc.ReleaseName
+			} else {
+				latestTmplSvc = serviceTmplMap[prodSvc.ServiceName]
+			}
+
+			diff, _, _, diffErr := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
+			if diffErr != nil {
+				log.Warnf("failed to get helm service diff summary, project: %s, env: %s, service: %s, err: %s", productName, envName, prodSvc.ServiceName, diffErr)
+				if diff == nil {
+					diff = &HelmServiceDiffSummary{}
+				}
+				diff.Error = diffErr.Error()
+			}
+			resp[index] = &HelmReleaseDiffSummaryResp{
+				ServiceName:       prodSvc.ServiceName,
+				ReleaseName:       releaseName,
+				IsHelmChartDeploy: isHelmChartDeploy,
+				Diff:              diff,
+			}
+		})
+	}
+	diffWaitGroup.Wait()
+
+	return resp, nil
 }
 
 func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, production, isHelmChartDeploy bool, log *zap.SugaredLogger) (*HelmServiceDiffResp, error) {
