@@ -347,13 +347,11 @@ type ImageAndServiceModule struct {
 type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
-	Events     *Events       `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskPluginSpec struct {
 	Properties JobProperties   `bson:"properties"          json:"properties"        yaml:"properties"`
 	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"            yaml:"plugin"`
-	Events     *Events         `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskBlueGreenDeploySpec struct {

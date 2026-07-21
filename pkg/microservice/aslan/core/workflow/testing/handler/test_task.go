@@ -232,6 +232,42 @@ func GetTestTaskInfo(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetTestTaskDetail(projectKey, testName, taskID, ctx.Logger)
 }
 
+func GetTestTaskEvents(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	testName := c.Query("testName")
+	taskIDStr := c.Query("taskID")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetTestTaskEvents(projectKey, testName, taskID, ctx.Logger)
+}
+
 func GetTestTaskJUnitReportInfo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

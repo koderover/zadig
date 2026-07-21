@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,6 +68,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/nacos"
@@ -135,7 +140,6 @@ type JobTaskPreview struct {
 	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
-	Events               *commonmodels.Events         `bson:" - "         json:"events"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -2535,21 +2539,135 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	return nil
 }
 
-// extractRuntimeJobEvents extracts the runtime job events from the job task spec.
-func extractRuntimeJobEvents(job *commonmodels.JobTask) *commonmodels.Events {
+func ListRuntimeJobEventsFromKube(job *commonmodels.JobTask, logger *zap.SugaredLogger) *commonmodels.Events {
+	if job.K8sJobName == "" {
+		return nil
+	}
+	if job.Infrastructure == setting.JobVMInfrastructure {
+		return nil
+	}
+
+	var clusterID, namespace string
 	switch job.JobType {
 	case string(config.JobFreestyle), string(config.JobZadigBuild), string(config.JobZadigTesting), string(config.JobZadigScanning), string(config.JobZadigDistributeImage):
 		taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
-			return taskJobSpec.Events
+			clusterID = taskJobSpec.Properties.ClusterID
+			namespace = taskJobSpec.Properties.Namespace
 		}
 	case string(config.JobPlugin):
 		taskJobSpec := &commonmodels.JobTaskPluginSpec{}
 		if err := commonmodels.IToi(job.Spec, taskJobSpec); err == nil {
-			return taskJobSpec.Events
+			clusterID = taskJobSpec.Properties.ClusterID
+			namespace = taskJobSpec.Properties.Namespace
+		}
+	default:
+		return nil
+	}
+	if clusterID == "" {
+		clusterID = setting.LocalClusterID
+	}
+	if namespace == "" {
+		if clusterID == setting.LocalClusterID {
+			namespace = config2.Namespace()
+		} else {
+			namespace = setting.AttachedClusterNamespace
 		}
 	}
-	return nil
+	kubeManager := clientmanager.NewKubeClientManager()
+	kubeClient, err := kubeManager.GetControllerRuntimeClient(clusterID)
+	if err != nil {
+		logger.Errorf("get kube client failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
+		return nil
+	}
+	apiReader, err := kubeManager.GetControllerRuntimeAPIReader(clusterID)
+	if err != nil {
+		logger.Errorf("get kube api reader failed for job %s, clusterID:%s, err:%v", job.Name, clusterID, err)
+		return nil
+	}
+
+	k8sJobName := strings.Replace(job.K8sJobName, "_", "-", -1)
+	podSelector := k8slabels.Set{setting.JobLabelNameKey: k8sJobName}.AsSelector()
+	pods, err := getter.ListPods(namespace, podSelector, kubeClient)
+	if err != nil {
+		logger.Errorf("list pods failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+		return nil
+	}
+	if len(pods) == 0 {
+		pods, err = getter.ListPods(namespace, k8slabels.Set{"job-name": k8sJobName}.AsSelector(), kubeClient)
+		if err != nil {
+			logger.Errorf("list pods by job-name failed for job %s/%s, namespace:%s, err:%v", job.Name, job.K8sJobName, namespace, err)
+			return nil
+		}
+	}
+	kubeEvents := make([]*corev1.Event, 0)
+	for _, pod := range pods {
+		selector := fields.Set{"involvedObject.name": pod.Name, "involvedObject.kind": setting.Pod}.AsSelector()
+		podEvents, err := getter.ListEvents(namespace, selector, apiReader)
+		if err != nil {
+			logger.Errorf("list events failed for pod %s/%s: %s", namespace, pod.Name, err)
+			continue
+		}
+		kubeEvents = append(kubeEvents, podEvents...)
+	}
+	if len(kubeEvents) == 0 {
+		return nil
+	}
+
+	sort.SliceStable(kubeEvents, func(i, j int) bool {
+		return kubeEvents[i].CreationTimestamp.Unix() < kubeEvents[j].CreationTimestamp.Unix()
+	})
+
+	events := &commonmodels.Events{}
+	for _, kubeEvent := range kubeEvents {
+		eventType := "info"
+		if kubeEvent.Type == corev1.EventTypeWarning {
+			eventType = "error"
+		}
+
+		eventTime := kubeEvent.LastTimestamp.Time
+		if kubeEvent.LastTimestamp.IsZero() {
+			eventTime = kubeEvent.FirstTimestamp.Time
+		}
+		if eventTime.IsZero() && !kubeEvent.EventTime.IsZero() {
+			eventTime = kubeEvent.EventTime.Time
+		}
+		if eventTime.IsZero() {
+			eventTime = time.Now()
+		}
+
+		*events = append(*events, &commonmodels.Event{
+			EventType: eventType,
+			Time:      eventTime.Format("2006-01-02 15:04:05"),
+			Message:   fmt.Sprintf("Pod event [%s/%s]: %s", kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message),
+		})
+	}
+	if len(*events) == 0 {
+		return nil
+	}
+	return events
+}
+
+func GetWorkflowTaskV4JobEvents(workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.Events, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("failed to find workflow task %d for workflow: %s, error: %s", taskID, workflowName, err)
+		return nil, e.ErrGetTask.AddErr(err)
+	}
+
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if events := ListRuntimeJobEventsFromKube(job, logger); events != nil {
+				return events, nil
+			}
+			return &commonmodels.Events{}, nil
+		}
+	}
+
+	return nil, e.ErrGetTask.AddDesc(fmt.Sprintf("job %s not found", jobName))
 }
 
 func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
@@ -2583,7 +2701,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			ErrorHandlerUserID:   job.ErrorHandlerUserID,
 			ErrorHandlerUserName: job.ErrorHandlerUserName,
 			RetryCount:           job.RetryCount,
-			Events:               extractRuntimeJobEvents(job),
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

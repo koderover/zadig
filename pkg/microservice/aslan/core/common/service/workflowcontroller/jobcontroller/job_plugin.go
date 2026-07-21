@@ -48,9 +48,6 @@ func NewPluginsJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workf
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
-	if jobTaskSpec.Events == nil {
-		jobTaskSpec.Events = &commonmodels.Events{}
-	}
 	job.Spec = jobTaskSpec
 	return &PluginJobCtl{
 		job:         job,
@@ -74,6 +71,14 @@ func (c *PluginJobCtl) prepare(ctx context.Context) {
 	if c.jobTaskSpec.Properties.ClusterID == "" {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
+	if c.jobTaskSpec.Properties.Namespace == "" {
+		if c.jobTaskSpec.Properties.ClusterID == setting.LocalClusterID {
+			c.jobTaskSpec.Properties.Namespace = zadigconfig.Namespace()
+		} else {
+			c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
+		}
+	}
+	c.ack()
 }
 
 func (c *PluginJobCtl) Clean(ctx context.Context) {}
@@ -153,10 +158,7 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 func (c *PluginJobCtl) wait(ctx context.Context) {
 	var err error
 	timeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, timeout, c.logger, func(events *commonmodels.Events) {
-		c.jobTaskSpec.Events = events
-		c.ack()
-	})
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, timeout, c.logger)
 	if err != nil {
 		c.logger.Errorf("wait job start error: %v", err)
 	}

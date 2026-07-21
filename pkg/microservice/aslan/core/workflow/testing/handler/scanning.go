@@ -479,6 +479,48 @@ func GetScanningTask(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetScanningTaskInfo(scanningID, taskID, ctx.Logger)
 }
 
+func GetScanningTaskEvents(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetScanningTaskEvents(scanningID, taskID, ctx.Logger)
+}
+
 func CancelScanningTask(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
