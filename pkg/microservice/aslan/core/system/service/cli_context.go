@@ -25,7 +25,7 @@ import (
 )
 
 type CLIContextResponse struct {
-	User          CLIUser  `json:"principal"`
+	User          CLIUser  `json:"user"`
 	Edition       string   `json:"edition"`
 	LicenseStatus string   `json:"license_status"`
 	Features      []string `json:"features"`
