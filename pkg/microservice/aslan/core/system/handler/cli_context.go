@@ -18,13 +18,10 @@ package handler
 
 import (
 	"fmt"
-	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
@@ -38,17 +35,6 @@ import (
 // @Failure 403
 // @Router /openapi/system/cli-context [get]
 func OpenAPIGetCLIContext(c *gin.Context) {
-	if strings.TrimSpace(c.GetHeader(setting.AuthorizationHeader)) == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	identityContext := internalhandler.NewContext(c)
-	if strings.TrimSpace(identityContext.UserID) == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -57,5 +43,5 @@ func OpenAPIGetCLIContext(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetCLIContext(ctx.GenUserBriefInfo(), ctx.RequestID)
+	ctx.Resp, ctx.RespErr = service.GetCLIContext(ctx.GenUserBriefInfo(), ctx.RequestID, ctx.Logger)
 }
