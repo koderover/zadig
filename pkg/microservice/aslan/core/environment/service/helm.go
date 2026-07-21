@@ -81,21 +81,17 @@ type HelmReleaseResp struct {
 }
 
 type HelmServiceDiffSummary struct {
-	HasDiff             bool   `json:"hasDiff"`
-	VersionChanged      bool   `json:"versionChanged"`
-	ValuesChanged       bool   `json:"valuesChanged"`
-	CurrentRevision     int64  `json:"currentRevision"`
-	LatestRevision      int64  `json:"latestRevision"`
-	CurrentChartVersion string `json:"currentChartVersion"`
-	LatestChartVersion  string `json:"latestChartVersion"`
-	Error               string `json:"error,omitempty"`
+	HasDiff         bool   `json:"hasDiff"`
+	VersionChanged  bool   `json:"versionChanged"`
+	ValuesChanged   bool   `json:"valuesChanged"`
+	CurrentRevision int64  `json:"currentRevision"`
+	LatestRevision  int64  `json:"latestRevision"`
+	Error           string `json:"error,omitempty"`
 }
 
 type HelmServiceVersionDiff struct {
-	CurrentRevision     int64  `json:"currentRevision"`
-	LatestRevision      int64  `json:"latestRevision"`
-	CurrentChartVersion string `json:"currentChartVersion"`
-	LatestChartVersion  string `json:"latestChartVersion"`
+	CurrentRevision int64 `json:"currentRevision"`
+	LatestRevision  int64 `json:"latestRevision"`
 }
 
 type HelmServiceValuesDiff struct {
@@ -179,19 +175,7 @@ func getReleaseStatus(re *release.Release) ReleaseStatus {
 	}
 }
 
-func getCurrentTemplateService(productName string, prodSvc *models.ProductService, production bool) (*models.Service, error) {
-	if prodSvc == nil || !prodSvc.FromZadig() {
-		return nil, nil
-	}
-	return repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: prodSvc.ServiceName,
-		ProductName: productName,
-		Type:        setting.HelmDeployType,
-		Revision:    prodSvc.Revision,
-	}, production)
-}
-
-func getHelmServiceDiffSummary(productName string, prodSvc *models.ProductService, latestTmplSvc *models.Service, production bool) (*HelmServiceDiffSummary, string, bool, error) {
+func getHelmServiceDiffSummary(prodSvc *models.ProductService, latestTmplSvc *models.Service) (*HelmServiceDiffSummary, string, bool, error) {
 	summary := &HelmServiceDiffSummary{}
 	if prodSvc == nil {
 		return summary, "", false, nil
@@ -201,27 +185,10 @@ func getHelmServiceDiffSummary(productName string, prodSvc *models.ProductServic
 	summary.LatestRevision = prodSvc.Revision
 
 	render := prodSvc.GetServiceRender()
-	summary.CurrentChartVersion = render.ChartVersion
-	summary.LatestChartVersion = render.ChartVersion
 
 	if prodSvc.FromZadig() && latestTmplSvc != nil {
 		summary.LatestRevision = latestTmplSvc.Revision
-		if latestTmplSvc.HelmChart != nil {
-			summary.LatestChartVersion = latestTmplSvc.HelmChart.Version
-		}
 		summary.VersionChanged = prodSvc.Revision != latestTmplSvc.Revision
-
-		if !summary.VersionChanged {
-			summary.CurrentChartVersion = summary.LatestChartVersion
-		} else {
-			currentTmplSvc, err := getCurrentTemplateService(productName, prodSvc, production)
-			if err != nil {
-				return summary, "", false, err
-			}
-			if currentTmplSvc != nil && currentTmplSvc.HelmChart != nil {
-				summary.CurrentChartVersion = currentTmplSvc.HelmChart.Version
-			}
-		}
 	}
 	summary.HasDiff = summary.VersionChanged
 
@@ -489,7 +456,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			diffSemaphore <- struct{}{}
 			defer func() { <-diffSemaphore }()
 
-			diff, _, _, err := getHelmServiceDiffSummary(projectName, svcDataSet.ProdSvc, svcDataSet.TmplSvc, production)
+			diff, _, _, err := getHelmServiceDiffSummary(svcDataSet.ProdSvc, svcDataSet.TmplSvc)
 			diffResults[index] = helmServiceDiffResult{diff: diff, err: err}
 		})
 	}
@@ -602,7 +569,7 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 		}
 	}
 
-	diff, sourceValues, hasSource, err := getHelmServiceDiffSummary(productName, prodSvc, latestTmplSvc, production)
+	diff, sourceValues, hasSource, err := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -615,10 +582,8 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 	}
 	if diff.VersionChanged {
 		resp.VersionDiff = &HelmServiceVersionDiff{
-			CurrentRevision:     diff.CurrentRevision,
-			LatestRevision:      diff.LatestRevision,
-			CurrentChartVersion: diff.CurrentChartVersion,
-			LatestChartVersion:  diff.LatestChartVersion,
+			CurrentRevision: diff.CurrentRevision,
+			LatestRevision:  diff.LatestRevision,
 		}
 	}
 	if !diff.HasDiff {
