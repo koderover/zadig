@@ -29,11 +29,14 @@ import (
 )
 
 type CreateLLMIntegrationRequest struct {
+	Name         string       `json:"name"`
 	ProviderName llm.Provider `json:"provider_name"`
+	Protocol     llm.Protocol `json:"protocol"`
 	Token        string       `json:"token"`
 	BaseURL      string       `json:"base_url"`
 	Model        string       `json:"model"`
 	EnableProxy  bool         `json:"enable_proxy"`
+	IsDefault    bool         `json:"is_default"`
 }
 
 // @Summary Create a llm integration
@@ -196,11 +199,13 @@ func DeleteLLMIntegration(c *gin.Context) {
 
 func convertLLMArgToModel(args *CreateLLMIntegrationRequest) *commonmodels.LLMIntegration {
 	return &commonmodels.LLMIntegration{
+		Name:         args.Name,
 		ProviderName: args.ProviderName,
+		Protocol:     args.Protocol,
 		Token:        args.Token,
 		BaseURL:      args.BaseURL,
 		EnableProxy:  args.EnableProxy,
 		Model:        args.Model,
-		IsDefault:    true,
+		IsDefault:    args.IsDefault,
 	}
 }
