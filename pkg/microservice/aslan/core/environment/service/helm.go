@@ -98,13 +98,24 @@ type HelmServiceValuesDiff struct {
 	Latest  string `json:"latest"`
 }
 
+type HelmValuesSourceCommit struct {
+	ID      string `json:"id"`
+	Message string `json:"message"`
+}
+
+type HelmValuesSourceDiff struct {
+	CurrentCommit *HelmValuesSourceCommit `json:"currentCommit,omitempty"`
+	LatestCommit  *HelmValuesSourceCommit `json:"latestCommit,omitempty"`
+}
+
 type HelmServiceDiffResp struct {
-	ServiceName string                  `json:"serviceName"`
-	ReleaseName string                  `json:"releaseName"`
-	HasDiff     bool                    `json:"hasDiff"`
-	Diff        *HelmServiceDiffSummary `json:"diff"`
-	VersionDiff *HelmServiceVersionDiff `json:"versionDiff,omitempty"`
-	ValuesDiff  *HelmServiceValuesDiff  `json:"valuesDiff,omitempty"`
+	ServiceName      string                  `json:"serviceName"`
+	ReleaseName      string                  `json:"releaseName"`
+	HasDiff          bool                    `json:"hasDiff"`
+	Diff             *HelmServiceDiffSummary `json:"diff"`
+	VersionDiff      *HelmServiceVersionDiff `json:"versionDiff,omitempty"`
+	ValuesDiff       *HelmServiceValuesDiff  `json:"valuesDiff,omitempty"`
+	ValuesSourceDiff *HelmValuesSourceDiff   `json:"valuesSourceDiff,omitempty"`
 }
 
 type HelmReleaseDiffSummaryResp struct {
@@ -315,6 +326,44 @@ func prepareHelmValuesSourceForSave(current, target *template.CustomYaml) {
 	}
 	if sameHelmValuesSource(current, target) {
 		target.AutoSyncYaml = current.AutoSyncYaml
+		currentDetail, currentErr := commonservice.UnMarshalSourceDetail(current.SourceDetail)
+		targetDetail, targetErr := commonservice.UnMarshalSourceDetail(target.SourceDetail)
+		if currentErr == nil && targetErr == nil && currentDetail != nil && targetDetail != nil {
+			targetDetail.Commit = currentDetail.Commit
+			target.SourceDetail = targetDetail
+		}
+	}
+}
+
+func toHelmValuesSourceCommit(commit *models.Commit) *HelmValuesSourceCommit {
+	if commit == nil {
+		return nil
+	}
+	return &HelmValuesSourceCommit{ID: commit.SHA, Message: commit.Message}
+}
+
+func getHelmValuesSourceDiff(yamlData *template.CustomYaml, log *zap.SugaredLogger) *HelmValuesSourceDiff {
+	if yamlData == nil || helmValuesSourceType(yamlData) != setting.SourceFromGitRepo || yamlData.SourceDetail == nil {
+		return nil
+	}
+	sourceDetail, err := commonservice.UnMarshalSourceDetail(yamlData.SourceDetail)
+	if err != nil || sourceDetail == nil || sourceDetail.GitRepoConfig == nil {
+		return nil
+	}
+	repoConfig := sourceDetail.GitRepoConfig
+	latestCommit, err := commonservice.GetLatestValuesSourceCommit(&commonservice.RepoConfig{
+		CodehostID: repoConfig.CodehostID,
+		Owner:      repoConfig.Owner,
+		Namespace:  repoConfig.Namespace,
+		Repo:       repoConfig.Repo,
+		Branch:     repoConfig.Branch,
+	}, log)
+	if err != nil {
+		log.Warnf("failed to get latest Helm Values source commit, repo: %s, branch: %s, err: %s", repoConfig.Repo, repoConfig.Branch, err)
+	}
+	return &HelmValuesSourceDiff{
+		CurrentCommit: toHelmValuesSourceCommit(sourceDetail.Commit),
+		LatestCommit:  toHelmValuesSourceCommit(latestCommit),
 	}
 }
 
@@ -619,10 +668,11 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 	}
 
 	resp := &HelmServiceDiffResp{
-		ServiceName: prodSvc.ServiceName,
-		ReleaseName: prodSvc.ReleaseName,
-		HasDiff:     diff.HasDiff,
-		Diff:        diff,
+		ServiceName:      prodSvc.ServiceName,
+		ReleaseName:      prodSvc.ReleaseName,
+		HasDiff:          diff.HasDiff,
+		Diff:             diff,
+		ValuesSourceDiff: getHelmValuesSourceDiff(prodSvc.GetServiceRender().OverrideYaml, log),
 	}
 	if diff.VersionChanged {
 		resp.VersionDiff = &HelmServiceVersionDiff{
