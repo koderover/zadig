@@ -57,7 +57,7 @@ func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
 }
 
 func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
-	if err := util.CheckZadigProfessionalLicense(); err != nil {
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if j.jobSpec.RequireManualConfirm && len(j.jobSpec.ConfirmUsers) == 0 {
