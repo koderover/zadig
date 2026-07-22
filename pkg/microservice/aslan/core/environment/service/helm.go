@@ -715,6 +715,9 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 	if err != nil {
 		return nil, err
 	}
+	diff.ValuesChanged = !equal
+	diff.HasDiff = diff.VersionChanged || diff.ValuesChanged
+	resp.HasDiff = diff.HasDiff
 	if !equal {
 		resp.ValuesDiff = &HelmServiceValuesDiff{
 			Current: valuesResp.Current,
