@@ -204,16 +204,20 @@ func getHelmServiceDiffSummary(prodSvc *models.ProductService, latestTmplSvc *mo
 	}
 	summary.HasDiff = summary.VersionChanged
 
-	sourceValues, hasSource, err := commonservice.LoadYamlFromSource(render.OverrideYaml)
-	if err != nil {
-		return summary, "", false, err
-	}
-	if hasSource {
-		equal, err := yamlutil.Equal(sourceValues, render.GetOverrideYaml())
+	sourceValues, hasSource := "", false
+	if hasConfiguredHelmValuesSource(render.OverrideYaml) {
+		var err error
+		sourceValues, hasSource, err = commonservice.LoadYamlFromSource(render.OverrideYaml)
 		if err != nil {
 			return summary, "", false, err
 		}
-		summary.ValuesChanged = !equal
+		if hasSource {
+			equal, err := yamlutil.Equal(sourceValues, render.GetOverrideYaml())
+			if err != nil {
+				return summary, "", false, err
+			}
+			summary.ValuesChanged = !equal
+		}
 	}
 
 	summary.HasDiff = summary.VersionChanged || summary.ValuesChanged
@@ -318,6 +322,13 @@ func helmValuesSourceType(source *template.CustomYaml) string {
 		return setting.SourceFromGitRepo
 	}
 	return ""
+}
+
+func hasConfiguredHelmValuesSource(source *template.CustomYaml) bool {
+	if source == nil {
+		return false
+	}
+	return source.Source == setting.SourceFromGitRepo || source.Source == setting.SourceFromVariableSet
 }
 
 func prepareHelmValuesSourceForSave(current, target *template.CustomYaml) {
