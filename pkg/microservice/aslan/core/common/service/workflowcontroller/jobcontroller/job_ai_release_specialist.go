@@ -1987,16 +1987,16 @@ func BuildAIReleaseSpecialistEvaluationPrompt(rulePlan *commonmodels.AIReleaseSp
 	return prompt, nil
 }
 
-func GetDefaultAIReleaseSpecialistSystemPrompt() string {
-	return buildAIReleaseSpecialistSystemPrompt("")
-}
-
-func GetEffectiveAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
-	return buildAIReleaseSpecialistSystemPrompt(systemPrompt)
+func GetEditableAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
+	systemPrompt = strings.TrimSpace(systemPrompt)
+	if systemPrompt == "" {
+		return defaultAIReleaseSpecialistSystemPrompt
+	}
+	return systemPrompt
 }
 
 func NormalizeAIReleaseSpecialistSystemPromptForStorage(systemPrompt string) string {
-	systemPrompt = normalizeAIReleaseSpecialistSystemPrompt(systemPrompt)
+	systemPrompt = strings.TrimSpace(systemPrompt)
 	if systemPrompt == defaultAIReleaseSpecialistSystemPrompt {
 		return ""
 	}
@@ -2004,19 +2004,8 @@ func NormalizeAIReleaseSpecialistSystemPromptForStorage(systemPrompt string) str
 }
 
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
-	systemPrompt := normalizeAIReleaseSpecialistSystemPrompt(systemPromptOverride)
-	if systemPrompt == "" {
-		systemPrompt = defaultAIReleaseSpecialistSystemPrompt
-	}
+	systemPrompt := GetEditableAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints)
-}
-
-func normalizeAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
-	systemPrompt = strings.TrimSpace(systemPrompt)
-	for strings.HasSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints) {
-		systemPrompt = strings.TrimSpace(strings.TrimSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints))
-	}
-	return systemPrompt
 }
 
 func getAIReleaseSpecialistPromptTokens(prompt string) int {
