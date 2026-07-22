@@ -720,8 +720,8 @@ type AIReleaseSpecialistInput struct {
 	ReleaseTargets       *AIReleaseTargetsSummary  `bson:"release_targets,omitempty" json:"release_targets,omitempty" yaml:"release_targets,omitempty"`
 	ChangeSummary        *AIChangeSummary          `bson:"change_summary,omitempty" json:"change_summary,omitempty" yaml:"change_summary,omitempty"`
 	BuildSummary         *AIJobSummary             `bson:"build_summary,omitempty" json:"build_summary,omitempty" yaml:"build_summary,omitempty"`
-	ScanSummary          *AIScanSummary            `bson:"scan_summary,omitempty" json:"scan_summary,omitempty" yaml:"scan_summary,omitempty"`
-	TestSummary          *AITestSummary            `bson:"test_summary,omitempty" json:"test_summary,omitempty" yaml:"test_summary,omitempty"`
+	ScanSummary          *AIJobSummary             `bson:"scan_summary,omitempty" json:"scan_summary,omitempty" yaml:"scan_summary,omitempty"`
+	TestSummary          *AIJobSummary             `bson:"test_summary,omitempty" json:"test_summary,omitempty" yaml:"test_summary,omitempty"`
 	ApprovalSummary      *AIJobSummary             `bson:"approval_summary,omitempty" json:"approval_summary,omitempty" yaml:"approval_summary,omitempty"`
 	OtherTaskSummary     *AIJobSummary             `bson:"other_task_summary,omitempty" json:"other_task_summary,omitempty" yaml:"other_task_summary,omitempty"`
 	ObservabilitySummary *AIObservabilitySummary   `bson:"observability_summary,omitempty" json:"observability_summary,omitempty" yaml:"observability_summary,omitempty"`
@@ -813,18 +813,6 @@ type AIChangeSummary struct {
 	CommitMessages []string                  `bson:"commit_messages,omitempty" json:"commit_messages,omitempty" yaml:"commit_messages,omitempty"`
 	Services       []string                  `bson:"services,omitempty" json:"services,omitempty" yaml:"services,omitempty"`
 	Sources        []*AIReleaseContextSource `bson:"sources,omitempty" json:"sources,omitempty" yaml:"sources,omitempty"`
-}
-
-type AIScanSummary struct {
-	JobStatuses []string                `bson:"job_statuses,omitempty" json:"job_statuses,omitempty" yaml:"job_statuses,omitempty"`
-	Summaries   []string                `bson:"summaries,omitempty" json:"summaries,omitempty" yaml:"summaries,omitempty"`
-	Items       []*AIReleaseSummaryItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
-}
-
-type AITestSummary struct {
-	JobStatuses []string                `bson:"job_statuses,omitempty" json:"job_statuses,omitempty" yaml:"job_statuses,omitempty"`
-	Summaries   []string                `bson:"summaries,omitempty" json:"summaries,omitempty" yaml:"summaries,omitempty"`
-	Items       []*AIReleaseSummaryItem `bson:"items,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 type AIObservabilitySummary struct {

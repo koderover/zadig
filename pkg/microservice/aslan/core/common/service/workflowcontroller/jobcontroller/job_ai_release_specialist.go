@@ -104,13 +104,6 @@ const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
 - 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的 pod_count 和 ready_pods，不能只写“Pod 已就绪”或“数量一致”。`
 
-type AIReleaseSpecialistPromptDebugResult struct {
-	SystemPrompt   string
-	Prompt         string
-	PromptTokens   int
-	PromptTooLarge bool
-}
-
 type AIReleaseSpecialistJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
@@ -447,14 +440,6 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 
 	c.jobTaskSpec.NotificationSent = true
 	c.ack()
-}
-
-func BuildAIReleaseSpecialistInputFromTask(task *commonmodels.WorkflowTask, currentJobName string) (*commonmodels.AIReleaseSpecialistInput, error) {
-	return BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task, currentJobName, nil)
-}
-
-func BuildAIReleaseSpecialistInputFromTaskWithContexts(task *commonmodels.WorkflowTask, currentJobName string, contexts []string) (*commonmodels.AIReleaseSpecialistInput, error) {
-	return BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task, currentJobName, &commonmodels.AIReleaseSpecialistRulePlan{Contexts: contexts})
 }
 
 func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.WorkflowTask, currentJobName string, rulePlan *commonmodels.AIReleaseSpecialistRulePlan) (*commonmodels.AIReleaseSpecialistInput, error) {
@@ -848,18 +833,10 @@ func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AI
 		input.BuildSummary = buildAIJobSummary(collector.buildStatuses, collector.buildSummaries, collector.buildItems)
 	}
 	if len(collector.scanStatuses) > 0 || len(collector.scanSummaries) > 0 || len(collector.scanItems) > 0 {
-		input.ScanSummary = &commonmodels.AIScanSummary{
-			JobStatuses: uniqueSortedStrings(collector.scanStatuses),
-			Summaries:   uniquePreserveOrder(collector.scanSummaries),
-			Items:       uniqueReleaseSummaryItems(collector.scanItems),
-		}
+		input.ScanSummary = buildAIJobSummary(collector.scanStatuses, collector.scanSummaries, collector.scanItems)
 	}
 	if len(collector.testStatuses) > 0 || len(collector.testSummaries) > 0 || len(collector.testItems) > 0 {
-		input.TestSummary = &commonmodels.AITestSummary{
-			JobStatuses: uniqueSortedStrings(collector.testStatuses),
-			Summaries:   uniquePreserveOrder(collector.testSummaries),
-			Items:       uniqueReleaseSummaryItems(collector.testItems),
-		}
+		input.TestSummary = buildAIJobSummary(collector.testStatuses, collector.testSummaries, collector.testItems)
 	}
 	if len(collector.approvalStatuses) > 0 || len(collector.approvalSummaries) > 0 || len(collector.approvalItems) > 0 {
 		input.ApprovalSummary = buildAIJobSummary(collector.approvalStatuses, collector.approvalSummaries, collector.approvalItems)
@@ -1927,37 +1904,6 @@ func getJobInfoString(jobInfo interface{}, key string) string {
 		}
 	}
 	return ""
-}
-
-func BuildAIReleaseSpecialistPrompt(promptTemplate, systemPrompt string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {
-	debugResult, err := BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPrompt, input)
-	if err != nil {
-		return "", err
-	}
-	if debugResult.PromptTooLarge {
-		return "", fmt.Errorf("prompt too large: %d tokens", debugResult.PromptTokens)
-	}
-	return debugResult.Prompt, nil
-}
-
-func BuildAIReleaseSpecialistPromptForDebug(promptTemplate, systemPromptOverride string, input *commonmodels.AIReleaseSpecialistInput) (*AIReleaseSpecialistPromptDebugResult, error) {
-	inputJSON, err := json.MarshalIndent(input, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	systemPrompt := buildAIReleaseSpecialistSystemPrompt(systemPromptOverride)
-	prompt := systemPrompt
-	if strings.TrimSpace(promptTemplate) != "" {
-		prompt = fmt.Sprintf("%s\n\n额外关注点：\n%s", prompt, strings.TrimSpace(promptTemplate))
-	}
-	prompt = fmt.Sprintf("%s\n\n发布上下文:\n```json\n%s\n```", prompt, string(inputJSON))
-	promptTokens := getAIReleaseSpecialistPromptTokens(prompt)
-	return &AIReleaseSpecialistPromptDebugResult{
-		SystemPrompt:   systemPrompt,
-		Prompt:         prompt,
-		PromptTokens:   promptTokens,
-		PromptTooLarge: promptTokens > aiReleaseSpecialistMaxPromptTokens,
-	}, nil
 }
 
 func BuildAIReleaseSpecialistEvaluationPrompt(rulePlan *commonmodels.AIReleaseSpecialistRulePlan, systemPromptOverride string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {
