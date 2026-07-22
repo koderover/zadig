@@ -982,14 +982,13 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 				productSvc.Containers = append(productSvc.Containers, tmplContainer)
 				continue
 			}
-			containerMap[tmplContainer.Name].ImagePath = tmplContainer.ImagePath
+			if tmplContainer.ImagePath != nil {
+				containerMap[tmplContainer.Name].ImagePath = tmplContainer.ImagePath
+			}
 			containerMap[tmplContainer.Name].Type = tmplContainer.Type
 			if containerMap[tmplContainer.Name].ImageName == "" {
 				containerMap[tmplContainer.Name].ImageName = tmplContainer.ImageName
 			}
-		}
-		if err := helmservice.EnsureHelmImagePaths(productSvc, templateSvc); err != nil {
-			return ret, err
 		}
 		ret.ServiceObj = templateSvc
 		ret.ReleaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), templateSvc.ProductName, namespace, envName, templateSvc.ServiceName)

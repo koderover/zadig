@@ -52,7 +52,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
@@ -190,20 +189,6 @@ func ResolveServiceTemplateContainers(svc *commonmodels.Service, production bool
 	containers, _, err := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, production, svc.Revision)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve service modules for %s/%s rev %d: %w", svc.ProductName, svc.ServiceName, svc.Revision, err)
-	}
-
-	if svc.Type == setting.HelmDeployType {
-		prodSvc := &commonmodels.ProductService{
-			ServiceName: svc.ServiceName,
-			ProductName: svc.ProductName,
-			Type:        svc.Type,
-			Revision:    svc.Revision,
-			Containers:  containers,
-		}
-		if err := helmservice.EnsureHelmImagePaths(prodSvc, svc); err != nil {
-			return nil, err
-		}
-		containers = prodSvc.Containers
 	}
 
 	return containers, nil

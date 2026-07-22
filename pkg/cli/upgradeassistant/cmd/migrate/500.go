@@ -161,10 +161,6 @@ func ensureAction500(tx *gorm.DB, seed permissionActionSeed500) (uint, error) {
 }
 
 func V500ToV430() error {
-	// Rollback: the new collection is additive - leaving the data in place
-	// is safe because the legacy Service.Containers field is still populated
-	// and authoritative on the 4.3.0 code path. Deferring an actual cleanup
-	// to avoid wiping records a re-roll-forward would rebuild.
 	return nil
 }
 
@@ -172,9 +168,6 @@ func V500ToV430() error {
 // production_template_service collections, mirroring each Service's
 // Containers slice into service_module / production_service_module as
 // auto records bound to the corresponding revision.
-//
-// Skipped when the migration flag is already set; backfill is otherwise
-// idempotent and safe to re-run on partial completion.
 func migrateServiceModule500(migrationInfo *internalmodels.Migration) error {
 	if migrationInfo.Migration500ServiceModule {
 		log.Infof("migration 5.0.0: service_module backfill already completed, skipping")
@@ -184,47 +177,52 @@ func migrateServiceModule500(migrationInfo *internalmodels.Migration) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	testCount, err := backfillServiceModulesForCollection500(ctx, commonrepo.NewServiceColl().Collection, "template_service", false)
+	testCount, testSkipped, testErrors, err := backfillServiceModulesForCollection500(ctx, commonrepo.NewServiceColl().Collection, "template_service", false)
 	if err != nil {
 		return fmt.Errorf("failed to backfill service modules from template_service, err: %s", err)
 	}
 
-	prodCount, err := backfillServiceModulesForCollection500(ctx, commonrepo.NewProductionServiceColl().Collection, "production_template_service", true)
+	prodCount, prodSkipped, prodErrors, err := backfillServiceModulesForCollection500(ctx, commonrepo.NewProductionServiceColl().Collection, "production_template_service", true)
 	if err != nil {
 		return fmt.Errorf("failed to backfill service modules from production_template_service, err: %s", err)
 	}
 
+	allErrors := make([]string, 0, len(testErrors)+len(prodErrors))
+	allErrors = append(allErrors, testErrors...)
+	allErrors = append(allErrors, prodErrors...)
+
 	log.Infof("migration 5.0.0: backfilled %d test + %d production service revisions into service_module", testCount, prodCount)
 
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
-		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModule): true,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModule):        true,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModuleSkipped): testSkipped + prodSkipped,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModuleErrors):  allErrors,
 	})
 }
 
 // backfillServiceModulesForCollection500 streams every document in the given
 // service-template collection and mirrors its Containers slice into the new
 // service_module collection (production-side picked by `production`).
-//
-// Per-document failures are logged and skipped so a single bad record
-// (corrupt yaml, dead project) doesn't halt the whole migration. The
-// returned count is the number of revisions successfully mirrored.
-func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Collection, label string, production bool) (int, error) {
+func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Collection, label string, production bool) (int, int, []string, error) {
 	cursor, err := coll.Find(ctx, bson.M{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to open cursor over %s: %s", label, err)
+		return 0, 0, nil, fmt.Errorf("failed to open cursor over %s: %s", label, err)
 	}
 	defer cursor.Close(ctx)
 
 	migrated := 0
 	skipped := 0
+	errors := make([]string, 0)
 	for cursor.Next(ctx) {
 		// Decode into the local legacy view (see legacyServiceForMigration500
 		// above) - commonmodels.Service has bson:"-" on Containers and would
 		// silently drop the legacy field on decode.
 		var legacy legacyServiceForMigration500
 		if decodeErr := cursor.Decode(&legacy); decodeErr != nil {
-			log.Warnf("migration 5.0.0: failed to decode %s document, skipping: %s", label, decodeErr)
+			message := fmt.Sprintf("failed to decode %s document: %s", label, decodeErr)
+			log.Warnf("migration 5.0.0: %s, skipping", message)
 			skipped++
+			errors = append(errors, message)
 			continue
 		}
 		svc := &commonmodels.Service{
@@ -238,9 +236,11 @@ func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Col
 		// validates required fields itself. Errors here are logged but not
 		// fatal - one corrupt service shouldn't block the rest.
 		if syncErr := servicerepo.SyncAutoServiceModules(ctx, svc, production); syncErr != nil {
-			log.Warnf("migration 5.0.0: failed to sync %s %s/%s rev %d: %s",
+			message := fmt.Sprintf("failed to sync %s %s/%s rev %d: %s",
 				label, svc.ProductName, svc.ServiceName, svc.Revision, syncErr)
+			log.Warnf("migration 5.0.0: %s", message)
 			skipped++
+			errors = append(errors, message)
 			continue
 		}
 		migrated++
@@ -249,10 +249,10 @@ func backfillServiceModulesForCollection500(ctx context.Context, coll *mongo.Col
 		}
 	}
 	if err := cursor.Err(); err != nil {
-		return migrated, fmt.Errorf("cursor over %s ended in error: %s", label, err)
+		return migrated, skipped, errors, fmt.Errorf("cursor over %s ended in error: %s", label, err)
 	}
 	if skipped > 0 {
-		log.Warnf("migration 5.0.0: %s complete - %d mirrored, %d skipped (inspect warn logs above)", label, migrated, skipped)
+		log.Warnf("migration 5.0.0: %s complete - %d mirrored, %d skipped (inspect migration table or warn logs)", label, migrated, skipped)
 	}
-	return migrated, nil
+	return migrated, skipped, errors, nil
 }

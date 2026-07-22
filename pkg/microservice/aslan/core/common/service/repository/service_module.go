@@ -177,6 +177,7 @@ func containersToAutoRecords(projectName, serviceName string, revision int64, co
 			Type:          c.Type,
 			Image:         c.Image,
 			ImageName:     normalizeImageName(c.ImageName, c.Name),
+			ImagePath:     c.ImagePath,
 		})
 	}
 	return records
@@ -232,6 +233,7 @@ func mergeServiceModules(records []*models.ServiceModule) []*models.Container {
 			Type:      r.Type,
 			Image:     r.Image,
 			ImageName: r.ImageName,
+			ImagePath: r.ImagePath,
 		})
 	}
 	return winners

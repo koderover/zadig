@@ -73,7 +73,8 @@ type ServiceModule struct {
 	// image webhook matching. Required for manual records (enforced at the
 	// service layer); for auto records it is derived from Image via
 	// ExtractImageName, falling back to Name.
-	ImageName string `bson:"image_name,omitempty"      json:"image_name,omitempty"`
+	ImageName string         `bson:"image_name,omitempty"      json:"image_name,omitempty"`
+	ImagePath *ImagePathSpec `bson:"image_path,omitempty"      json:"image_path,omitempty"`
 
 	// Ignored marks an auto-discovered module as hidden for this revision.
 	// It is used as a tombstone when users delete an auto module, so later YAML
