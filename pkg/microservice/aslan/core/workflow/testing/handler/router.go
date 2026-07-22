@@ -64,6 +64,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	scanner := router.Group("scanning")
 	{
+
+		scanner.GET("/repo", ListCodeRepoScannings)
+
 		// code scan config apis
 		scanner.POST("", GetScanningProductName, CreateScanningModule)
 		scanner.PUT("/:id", GetScanningProductName, UpdateScanningModule)
