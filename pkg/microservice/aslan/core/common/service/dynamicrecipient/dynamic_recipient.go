@@ -121,37 +121,17 @@ func NewResolver(keyMap map[string]string) *Resolver {
 }
 
 func (r *Resolver) ResolveEmails(recipients []string) ([]string, error) {
-	resp := make([]string, 0)
-	for _, recipient := range recipients {
-		spec, value, ok, err := r.resolveRecipient(recipient)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			continue
-		}
-
-		switch spec.kind {
-		case dynamicRecipientKindEmail:
-			resp = append(resp, value)
-		case dynamicRecipientKindMobile:
-			users, err := r.getUsersByPhone(value)
-			if err != nil {
-				return nil, err
-			}
-			for _, user := range users {
-				if user != nil && user.Email != "" {
-					resp = append(resp, user.Email)
-				}
-			}
-		default:
-			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to email", recipient)
-		}
-	}
-	return UniqStrings(resp), nil
+	return r.resolveContacts(recipients, dynamicRecipientKindEmail)
 }
 
 func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
+	return r.resolveContacts(recipients, dynamicRecipientKindMobile)
+}
+
+// resolveContacts resolves recipients into the contact of the given target kind.
+// A recipient already matching target is collected directly; a recipient of the
+// opposite kind is looked up in the user table and its target contact is collected.
+func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientKind) ([]string, error) {
 	resp := make([]string, 0)
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
@@ -163,20 +143,22 @@ func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
 		}
 
 		switch spec.kind {
-		case dynamicRecipientKindMobile:
-			resp = append(resp, value)
-		case dynamicRecipientKindEmail:
-			users, err := r.getUsersByEmail(value)
+		case dynamicRecipientKindEmail, dynamicRecipientKindMobile:
+			if spec.kind == target {
+				resp = append(resp, value)
+				continue
+			}
+			users, err := r.getUsersByKind(spec.kind, value)
 			if err != nil {
 				return nil, err
 			}
 			for _, user := range users {
-				if user != nil && user.Phone != "" {
-					resp = append(resp, user.Phone)
+				if contact := userContact(user, target); contact != "" {
+					resp = append(resp, contact)
 				}
 			}
 		default:
-			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to mobile", recipient)
+			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to %s", recipient, target)
 		}
 	}
 	return UniqStrings(resp), nil
@@ -366,6 +348,33 @@ func (r *Resolver) getUsersByPhone(phone string) ([]*userclient.User, error) {
 	}
 	r.phoneUsersCache[phone] = users
 	return users, nil
+}
+
+// getUsersByKind looks up users by the contact value of the given kind.
+func (r *Resolver) getUsersByKind(kind dynamicRecipientKind, value string) ([]*userclient.User, error) {
+	switch kind {
+	case dynamicRecipientKindEmail:
+		return r.getUsersByEmail(value)
+	case dynamicRecipientKindMobile:
+		return r.getUsersByPhone(value)
+	default:
+		return nil, fmt.Errorf("unsupported dynamic recipient kind %s", kind)
+	}
+}
+
+// userContact returns the user's contact of the given kind, or "" if unavailable.
+func userContact(user *userclient.User, kind dynamicRecipientKind) string {
+	if user == nil {
+		return ""
+	}
+	switch kind {
+	case dynamicRecipientKindEmail:
+		return user.Email
+	case dynamicRecipientKindMobile:
+		return user.Phone
+	default:
+		return ""
+	}
 }
 
 func (r *Resolver) getLarkClient(appID string) (*larktool.Client, error) {

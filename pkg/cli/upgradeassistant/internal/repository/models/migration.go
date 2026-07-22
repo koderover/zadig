@@ -41,11 +41,11 @@ type Migration struct {
 	Migration421CollaborationRollbackPermission bool               `bson:"migration_421_collaboration_rollback_permission"`
 	Migration421WorkflowDeploySpec              bool               `bson:"migration_421_workflow_deploy_spec"`
 	Migration430UserAPITokenEnabled             bool               `bson:"migration_430_user_api_token_enabled"`
-	Migration430UserContactIndexes              bool               `bson:"migration_430_user_contact_indexes"`
 	Migration430GlobalReadOnlyRole              bool               `bson:"migration_430_global_read_only_role"`
 	Migration430ScalePermission                 bool               `bson:"migration_430_scale_permission"`
 	Migration430CollaborationScalePermission    bool               `bson:"migration_430_collaboration_scale_permission"`
 	Migration500LogOperationPermission          bool               `bson:"migration_500_log_operation_permission"`
+	Migration500UserContactIndexes              bool               `bson:"migration_500_user_contact_indexes"`
 	Error                                       string             `bson:"error"`
 }
 

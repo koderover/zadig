@@ -65,6 +65,11 @@ func V430ToV500() error {
 		return err
 	}
 
+	err = migrateUserContactIndexes500(migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -96,6 +101,29 @@ func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) e
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500LogOperationPermission): true,
 	})
+}
+
+// migrateUserContactIndexes500 adds indexes for dynamic notification recipient lookups.
+func migrateUserContactIndexes500(migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration500UserContactIndexes {
+		if !repository.DB.Migrator().HasIndex(&usermodels.User{}, "idx_email") {
+			if err := repository.DB.Migrator().CreateIndex(&usermodels.User{}, "idx_email"); err != nil {
+				return fmt.Errorf("failed to add idx_email index for user table, err: %s", err)
+			}
+		}
+
+		if !repository.DB.Migrator().HasIndex(&usermodels.User{}, "idx_phone") {
+			if err := repository.DB.Migrator().CreateIndex(&usermodels.User{}, "idx_phone"); err != nil {
+				return fmt.Errorf("failed to add idx_phone index for user table, err: %s", err)
+			}
+		}
+	}
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500UserContactIndexes): true,
+	})
+
+	return nil
 }
 
 // ensureAction500 guarantees the target action exists and supports repeated execution.
