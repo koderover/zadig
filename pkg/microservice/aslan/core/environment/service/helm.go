@@ -694,6 +694,9 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 	if !diff.HasDiff {
 		return resp, nil
 	}
+	if !diff.ValuesChanged {
+		return resp, nil
+	}
 
 	render := prodSvc.GetServiceRender()
 	overrideYaml := render.GetOverrideYaml()
