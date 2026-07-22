@@ -77,7 +77,7 @@ func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration
 			return fmt.Errorf("count llm integration: %w", err)
 		}
 
-		setDefault := shouldSetDefault(count, args.IsDefault)
+		setDefault := count == 0 || args.IsDefault
 		args.IsDefault = false
 		if err := repo.Create(txCtx, args); err != nil {
 			return fmt.Errorf("create llm integration: %w", err)
@@ -169,8 +169,8 @@ func DeleteLLMIntegration(ctx context.Context, ID string) error {
 	if err != nil {
 		return e.ErrDeleteLLMIntegration.AddErr(fmt.Errorf("count llm integrations: %w", err))
 	}
-	if err := validateLLMIntegrationDeletion(integration, count); err != nil {
-		return e.ErrDeleteLLMIntegration.AddErr(err)
+	if integration.IsDefault && count > 1 {
+		return e.ErrDeleteLLMIntegration.AddErr(fmt.Errorf("set another model as default before deleting the current default model"))
 	}
 	if err := repo.Delete(ctx, ID); err != nil {
 		fmtErr := fmt.Errorf("DeleteLLMIntegration err: %w", err)

@@ -57,10 +57,20 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}
+	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderDeepSeek)) {
+		c.apiType = string(openai.APITypeOpenAI)
+		defaultConfig = openai.DefaultConfig(token)
+		defaultConfig.BaseURL = config.GetBaseURL()
+	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderAliyunBailian)) ||
+		strings.HasPrefix(string(config.GetProviderName()), string(ProviderVolcengineArk)) ||
+		strings.HasPrefix(string(config.GetProviderName()), string(ProviderHuaweiMaas)) {
+		c.apiType = string(openai.APITypeOpenAI)
+		defaultConfig = openai.DefaultConfig(token)
+		defaultConfig.BaseURL = config.GetBaseURL()
 	} else {
 		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
-		if config.GetBaseURL() != "" {
+		if config.GetProviderName() == ProviderOther && config.GetBaseURL() != "" {
 			defaultConfig.BaseURL = config.GetBaseURL()
 		}
 	}
@@ -168,7 +178,15 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 
 func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {
 	// Check for cached data
-	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolOpenAI, a.integrationName, Provider(a.GetName())), a.GetModel(), prompt)
+	model := a.GetModel()
+	opts := ParamOptions{}
+	for _, opt := range options {
+		opt(&opts)
+	}
+	if opts.Model != "" {
+		model = opts.Model
+	}
+	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolOpenAI, a.integrationName, Provider(a.GetName())), model, prompt)
 
 	if !cache.IsCacheDisabled() && cache.Exists(cacheKey) {
 		response, err := cache.Load(cacheKey)

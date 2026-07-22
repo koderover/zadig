@@ -54,24 +54,6 @@ type ILLM interface {
 	GetModel() string
 }
 
-// NewClient keeps the legacy OpenAI-protocol constructor for compatibility.
-func NewClient(provider Provider) (ILLM, error) {
-	switch provider {
-	case ProviderOpenAI,
-		ProviderDeepSeek,
-		ProviderDeepSeekSiliconCloud,
-		ProviderAzure,
-		ProviderAzureAD,
-		ProviderAliyunBailian,
-		ProviderVolcengineArk,
-		ProviderHuaweiMaas,
-		ProviderOther:
-		return &OpenAIClient{}, nil
-	default:
-		return nil, fmt.Errorf("provider %s not supported", provider)
-	}
-}
-
 func NewClientByProtocol(protocol Protocol) (ILLM, error) {
 	switch protocol {
 	case "", ProtocolOpenAI:
@@ -97,10 +79,6 @@ func (p *LLMConfig) GetIntegrationName() string {
 	return p.Name
 }
 
-func (p *LLMConfig) GetProtocol() Protocol {
-	return p.Protocol
-}
-
 func (p *LLMConfig) GetProviderName() Provider {
 	return p.ProviderName
 }
@@ -119,12 +97,6 @@ func (p *LLMConfig) GetModel() string {
 
 func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
-}
-
-func GetCacheKey(provider, sEnc string) string {
-	data := fmt.Sprintf("%s-%s", provider, sEnc)
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:])
 }
 
 func GetCacheKeyWithModel(provider, model, sEnc string) string {

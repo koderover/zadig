@@ -170,7 +170,15 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 }
 
 func (c *AnthropicClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {
-	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolAnthropic, c.integrationName, Provider(c.GetName())), c.GetModel(), prompt)
+	model := c.GetModel()
+	opts := ParamOptions{}
+	for _, opt := range options {
+		opt(&opts)
+	}
+	if opts.Model != "" {
+		model = opts.Model
+	}
+	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolAnthropic, c.integrationName, Provider(c.GetName())), model, prompt)
 	if !cache.IsCacheDisabled() && cache.Exists(cacheKey) {
 		response, err := cache.Load(cacheKey)
 		if err != nil {

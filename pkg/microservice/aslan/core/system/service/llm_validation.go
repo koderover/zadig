@@ -87,14 +87,3 @@ func supportedLLMProvider(provider llm.Provider) bool {
 		return false
 	}
 }
-
-func shouldSetDefault(existingCount int64, requested bool) bool {
-	return existingCount == 0 || requested
-}
-
-func validateLLMIntegrationDeletion(integration *commonmodels.LLMIntegration, count int64) error {
-	if integration.IsDefault && count > 1 {
-		return fmt.Errorf("set another model as default before deleting the current default model")
-	}
-	return nil
-}
