@@ -97,9 +97,6 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
-	if jobTaskSpec.Events == nil {
-		jobTaskSpec.Events = &commonmodels.Events{}
-	}
 	job.Spec = jobTaskSpec
 	return &FreestyleJobCtl{
 		job:             job,
@@ -155,6 +152,13 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 	// set default resource
 	if c.jobTaskSpec.Properties.ClusterID == "" {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
+	}
+	if c.job.Infrastructure != setting.JobVMInfrastructure && c.jobTaskSpec.Properties.Namespace == "" {
+		if c.jobTaskSpec.Properties.ClusterID == setting.LocalClusterID {
+			c.jobTaskSpec.Properties.Namespace = zadigconfig.Namespace()
+		} else {
+			c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
+		}
 	}
 
 	// Check if there are file type environment variables
@@ -1167,10 +1171,7 @@ func (c *FreestyleJobCtl) cleanupHelperPod(ctx context.Context, client crClient.
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger, func(events *commonmodels.Events) {
-		c.jobTaskSpec.Events = events
-		c.ack()
-	})
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger)
 	if err != nil {
 		c.job.Error = err.Error()
 	}

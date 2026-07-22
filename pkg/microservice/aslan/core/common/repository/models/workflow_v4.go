@@ -251,6 +251,16 @@ func (l LarkApproval) GetNodeTypeKey() string {
 	return strings.Join(keys, "-")
 }
 
+func (l LarkApproval) GetNodeTypeTitleKey(title string) string {
+	nodeTypeKey := l.GetNodeTypeKey()
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nodeTypeKey
+	}
+
+	return fmt.Sprintf("%s-%s", nodeTypeKey, title)
+}
+
 // GetLarkApprovalNode convert approval node to lark sdk approval node
 func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 	for _, node := range l.ApprovalNodes {
@@ -1192,6 +1202,7 @@ type ApprovalJobSpec struct {
 	WorkWXApproval        *WorkWXApproval         `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"         json:"workwx_approval,omitempty"`
 	ApprovalMessage       string                  `bson:"approval_message"            yaml:"approval_message,omitempty"        json:"approval_message,omitempty"`
 	ApprovalMessageSource config.DeploySourceType `bson:"approval_message_source"     yaml:"approval_message_source,omitempty" json:"approval_message_source,omitempty"`
+	ApprovalTitle         string                  `bson:"approval_title"              yaml:"approval_title,omitempty"          json:"approval_title,omitempty"`
 }
 
 type NotificationJobSpec struct {

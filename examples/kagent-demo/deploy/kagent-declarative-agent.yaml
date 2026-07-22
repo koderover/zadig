@@ -1,0 +1,167 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hello-agent-declarative-model-secret
+  namespace: agent-env-dev
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "{{ .api_key }}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zadig-mcp-token
+  namespace: agent-env-dev
+type: Opaque
+stringData:
+  authorization: "Bearer {{ .zadig_mcp_token }}"
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: hello-agent-declarative-model-config
+  namespace: agent-env-dev
+spec:
+  provider: OpenAI
+  model: { { .model } }
+  apiKeySecret: hello-agent-declarative-model-secret
+  apiKeySecretKey: OPENAI_API_KEY
+  modelInfo:
+    family: "openai"
+    functionCalling: true
+    jsonOutput: true
+    structuredOutput: true
+    vision: false
+  openAI:
+    baseUrl: { { .api_base_url } }
+    maxTokens: 4096
+    temperature: "0.2"
+    timeout: 600
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: zadig-mcp
+  namespace: agent-env-dev
+spec:
+  description: Zadig MCP server for DevOps workflow and project operations.
+  protocol: STREAMABLE_HTTP
+  url: "http://mcp-uat.8slan.com/mcp"
+  timeout: 30s
+  headersFrom:
+    - name: Authorization
+      valueFrom:
+        type: Secret
+        name: zadig-mcp-token
+        key: authorization
+---
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: kagent-tool-server
+  namespace: agent-env-dev
+spec:
+  description: Official kagent tool server, referenced from this namespace to avoid cross-namespace tool refs.
+  protocol: STREAMABLE_HTTP
+  url: "http://kagent-tools.kagent:8084/mcp"
+  timeout: 600s
+  sseReadTimeout: 5m0s
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: hello-devops-declarative-agent
+  namespace: agent-env-dev
+spec:
+  description: DevOps runbook assistant defined as a kagent declarative agent.
+  type: Declarative
+  declarative:
+    runtime: go
+    modelConfig: hello-agent-declarative-model-config
+    stream: true
+    systemMessage: |
+      You are a DevOps incident triage assistant.
+
+      Help users investigate service incidents, symptoms, owners, metrics,
+      diagnostics, and escalation paths. Keep answers concise, actionable, and
+      ordered by immediate next steps.
+
+      When the user asks about runbooks, incidents, service ownership, metrics,
+      diagnostics, or escalation, call the connected DevOps runbook tool agent.
+      Base operational advice on tool output. If the service is unknown, ask for
+      a known service name such as payment-api, order-worker, or gateway.
+
+      You also have access to Zadig MCP tools, the official kagent tool server,
+      and kagent built-in Kubernetes, Helm, and Istio expert agents. Use Zadig
+      MCP for Zadig workflow, project, environment, service, pipeline,
+      deployment, and delivery operations. Use the Kubernetes, Helm, and Istio
+      agents for cluster, chart/release, and service mesh operations. Use
+      built-in shell or datetime tools only when they are available from the
+      connected kagent tool server. Ask for confirmation before destructive
+      changes.
+    tools:
+      - type: McpServer
+        mcpServer:
+          name: zadig-mcp
+          kind: RemoteMCPServer
+          apiGroup: kagent.dev
+      - type: McpServer
+        mcpServer:
+          name: kagent-tool-server
+          kind: RemoteMCPServer
+          apiGroup: kagent.dev
+          toolNames:
+            - k8s_check_service_connectivity
+            - k8s_create_resource
+            - k8s_create_resource_from_url
+            - k8s_describe_resource
+            - k8s_get_available_api_resources
+            - k8s_get_cluster_configuration
+            - k8s_get_events
+            - k8s_get_pod_logs
+            - k8s_get_resource_yaml
+            - k8s_get_resources
+            - k8s_apply_manifest
+            - k8s_delete_resource
+            - k8s_execute_command
+            - k8s_generate_resource
+            - k8s_patch_resource
+            - k8s_scale
+            - helm_get_release
+            - helm_list_releases
+            - helm_repo_add
+            - helm_repo_update
+            - helm_uninstall
+            - helm_upgrade
+            - istio_analyze_cluster_configuration
+            - istio_apply_waypoint
+            - istio_delete_waypoint
+            - istio_generate_manifest
+            - istio_generate_waypoint
+            - istio_install_istio
+            - istio_list_waypoints
+            - istio_proxy_config
+            - istio_proxy_status
+            - istio_remote_clusters
+            - istio_version
+            - istio_waypoint_status
+            - istio_ztunnel_config
+            - shell
+            - datetime
+          requireApproval:
+            - k8s_apply_manifest
+            - k8s_create_resource
+            - k8s_delete_resource
+            - k8s_execute_command
+            - k8s_patch_resource
+            - k8s_scale
+            - helm_repo_add
+            - helm_repo_update
+            - helm_uninstall
+            - helm_upgrade
+            - istio_apply_waypoint
+            - istio_delete_waypoint
+            - istio_generate_manifest
+            - istio_generate_waypoint
+            - istio_install_istio
+            - shell

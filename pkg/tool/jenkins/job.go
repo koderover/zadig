@@ -1,6 +1,15 @@
 package jenkins
 
-import "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+import (
+	"fmt"
+	"net/url"
+	"sort"
+	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+)
+
+const listJobsTree = "jobs[name,fullName,_class]"
 
 type ParameterType string
 
@@ -23,13 +32,84 @@ type ListJobsResp struct {
 	Jobs  []Jobs `json:"jobs"`
 }
 type Jobs struct {
-	Class string `json:"_class"`
-	Name  string `json:"name"`
+	Class    string `json:"_class"`
+	Name     string `json:"name"`
+	FullName string `json:"fullName"`
 }
 
 func (c *Client) ListJob() (resp *ListJobsResp, err error) {
 	_, err = c.R().SetSuccessResult(&resp).Get("/api/json?tree=jobs[name]")
 	return
+}
+
+func (c *Client) ListJobNames() ([]string, error) {
+	jobNames, err := c.listJobNames("")
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(jobNames)
+
+	return jobNames, nil
+}
+
+func (c *Client) listJobNames(parent string) ([]string, error) {
+	resp := new(ListJobsResp)
+	jobPath := JobPath(parent)
+	if parent != "" && jobPath == "" {
+		return nil, fmt.Errorf("jenkins job name is empty")
+	}
+
+	urlPath := jobPath + "/api/json?tree=" + listJobsTree
+	_, err := c.R().SetSuccessResult(resp).Get(urlPath)
+	if err != nil {
+		return nil, err
+	}
+
+	jobNames := make([]string, 0)
+	for _, job := range resp.Jobs {
+		fullName := job.FullName
+		if fullName == "" {
+			if parent == "" {
+				fullName = job.Name
+			} else {
+				fullName = parent + "/" + job.Name
+			}
+		}
+
+		if isFolderLikeJob(job.Class) {
+			childJobNames, err := c.listJobNames(fullName)
+			if err != nil {
+				return nil, err
+			}
+			jobNames = append(jobNames, childJobNames...)
+			continue
+		}
+
+		jobNames = append(jobNames, fullName)
+	}
+	return jobNames, nil
+}
+
+func isFolderLikeJob(class string) bool {
+	return strings.Contains(class, ".folder.") ||
+		strings.Contains(class, "Folder") ||
+		strings.Contains(class, "MultiBranchProject")
+}
+
+func JobPath(name string) string {
+	parts := strings.Split(strings.Trim(name, "/"), "/")
+	escapedParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		escapedParts = append(escapedParts, url.PathEscape(part))
+	}
+	if len(escapedParts) == 0 {
+		return ""
+	}
+
+	return "/job/" + strings.Join(escapedParts, "/job/")
 }
 
 type Job struct {
@@ -101,7 +181,11 @@ type Scm struct {
 }
 
 func (c *Client) GetJob(name string) (resp *Job, err error) {
-	_, err = c.R().SetPathParam("job", name).
-		SetSuccessResult(&resp).Get("/job/{job}/api/json")
+	jobPath := JobPath(name)
+	if jobPath == "" {
+		return nil, fmt.Errorf("jenkins job name is empty")
+	}
+
+	_, err = c.R().SetSuccessResult(&resp).Get(jobPath + "/api/json")
 	return
 }

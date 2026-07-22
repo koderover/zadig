@@ -150,6 +150,7 @@ func Scale(args *ScaleArgs, updateBy string, logger *zap.SugaredLogger) error {
 	}
 
 	productColl := commonrepo.NewProductCollWithSession(session)
+	prod.UpdateBy = updateBy
 	if err := productColl.Update(prod); err != nil {
 		mongotool.AbortTransaction(session)
 		return e.ErrScaleService.AddErr(err)

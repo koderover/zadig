@@ -85,7 +85,6 @@ type Task struct {
 	Features         []string                     `bson:"features"               json:"features"`
 	IsRestart        bool                         `bson:"is_restart"             json:"is_restart"`
 	StorageEndpoint  string                       `bson:"storage_endpoint"       json:"storage_endpoint"`
-	Events           *models.Events               `bson:"-"                         json:"events,omitempty"`
 }
 
 func (Task) TableName() string {

@@ -36,7 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
-func EnableIstioGrayscale(ctx context.Context, envName, productName string) error {
+func EnableIstioGrayscale(ctx context.Context, envName, productName, userName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -77,6 +77,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", setting.IstioNamespace, err))
 	}
 
+	prod.UpdateBy = userName
 	// 4. Update the environment configuration.
 	err = commonutil.EnsureIstioGrayConfig(ctx, prod)
 	if err != nil {
@@ -86,7 +87,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	return nil
 }
 
-func DisableIstioGrayscale(ctx context.Context, envName, productName string) error {
+func DisableIstioGrayscale(ctx context.Context, envName, productName, userName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -145,6 +146,7 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err))
 	}
 
+	prod.UpdateBy = userName
 	// 7. Update the environment configuration.
 	err = ensureDisableGrayscaleEnvConfig(ctx, prod)
 	if err != nil {
@@ -221,8 +223,8 @@ func GetIstioGrayscaleConfig(ctx context.Context, envName, productName string) (
 	return prod.IstioGrayscale, nil
 }
 
-func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req kube.SetIstioGrayscaleConfigRequest) error {
-	err := kube.SetIstioGrayscaleConfig(ctx, envName, productName, req)
+func SetIstioGrayscaleConfig(ctx context.Context, envName, productName, userName string, req kube.SetIstioGrayscaleConfigRequest) error {
+	err := kube.SetIstioGrayscaleConfig(ctx, envName, productName, userName, req)
 	if err != nil {
 		return e.ErrSetIstioGrayscaleConfig.AddErr(err)
 	}

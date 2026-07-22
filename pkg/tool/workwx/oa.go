@@ -119,3 +119,41 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 
 	return resp.ApprovalInstanceID, nil
 }
+
+func (c *Client) GetApprovalDetail(instanceID string) (*ApprovalDetail, error) {
+	if instanceID == "" {
+		return nil, fmt.Errorf("approval instance id cannot be empty")
+	}
+
+	url := fmt.Sprintf("%s/%s", c.Host, getApprovalDetailAPI)
+
+	accessToken, err := c.getAccessToken(false)
+	if err != nil {
+		return nil, err
+	}
+
+	requestQuery := map[string]string{
+		"access_token": accessToken,
+	}
+
+	resp := new(getApprovalDetailResp)
+
+	_, err = httpclient.Post(
+		url,
+		httpclient.SetQueryParams(requestQuery),
+		httpclient.SetBody(&getApprovalDetailReq{ApprovalInstanceID: instanceID}),
+		httpclient.SetResult(&resp),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if wxErr := resp.ToError(); wxErr != nil {
+		return nil, wxErr
+	}
+	if resp.Info == nil {
+		return nil, fmt.Errorf("approval detail is empty")
+	}
+
+	return resp.Info, nil
+}

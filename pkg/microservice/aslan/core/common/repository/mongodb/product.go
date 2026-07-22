@@ -391,11 +391,11 @@ func (c *ProductColl) Delete(owner, productName string) error {
 
 func (c *ProductColl) UpdateGlobalVariable(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
-	changePayload := bson.M{
+	change := bson.M{"$set": bson.M{
 		"update_time":      time.Now().Unix(),
+		"update_by":        args.UpdateBy,
 		"global_variables": args.GlobalVariables,
-	}
-	change := bson.M{"$set": changePayload}
+	}}
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
@@ -405,6 +405,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
 	changePayload := bson.M{
 		"update_time":      time.Now().Unix(),
+		"update_by":        args.UpdateBy,
 		"services":         args.Services,
 		"status":           args.Status,
 		"revision":         args.Revision,
@@ -445,7 +446,7 @@ func (c *ProductColl) Create(args *models.Product) error {
 
 // @todo UpdateGroup needs to be optimized
 // Service info may be override when updating multiple services in same group at the sametime
-func (c *ProductColl) UpdateServicesGroup(productName, envName string, groupIndex int, group []*models.ProductService) error {
+func (c *ProductColl) UpdateServicesGroup(productName, envName string, groupIndex int, group []*models.ProductService, updateBy string) error {
 	serviceGroup := fmt.Sprintf("services.%d", groupIndex)
 	query := bson.M{
 		"env_name":     envName,
@@ -453,6 +454,7 @@ func (c *ProductColl) UpdateServicesGroup(productName, envName string, groupInde
 	}
 	change := bson.M{
 		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
 		serviceGroup:  group,
 	}
 
@@ -463,13 +465,14 @@ func (c *ProductColl) UpdateServicesGroup(productName, envName string, groupInde
 
 // @todo UpdateServices needs to be optimized
 // Service info may be override when updating multiple services at the sametime
-func (c *ProductColl) UpdateAllServices(productName, envName string, services [][]*models.ProductService) error {
+func (c *ProductColl) UpdateAllServices(productName, envName string, services [][]*models.ProductService, updateBy string) error {
 	query := bson.M{
 		"env_name":     envName,
 		"product_name": productName,
 	}
 	change := bson.M{
 		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
 		"services":    services,
 	}
 
@@ -480,7 +483,7 @@ func (c *ProductColl) UpdateAllServices(productName, envName string, services []
 
 // Note: Only use for update a service
 // UpdateOneService updates a specific service in a group by its index
-func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService) error {
+func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService, updateBy string) error {
 	servicePath := fmt.Sprintf("services.%d.%d", groupIndex, serviceIndex)
 	query := bson.M{
 		"env_name":     envName,
@@ -488,12 +491,11 @@ func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, 
 		fmt.Sprintf("%s.service_name", servicePath): service.ServiceName, // ensure service_name equals
 		servicePath: bson.M{"$exists": true}, // ensure the service exists
 	}
-	change := bson.M{
-		"$set": bson.M{
-			servicePath:   service,
-			"update_time": time.Now().Unix(),
-		},
-	}
+	change := bson.M{"$set": bson.M{
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+		servicePath:   service,
+	}}
 
 	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	if err != nil {
@@ -509,19 +511,18 @@ func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, 
 
 // Note: Only use for add a service
 // AddOneService adds a specific service in a group by its index if it does not already exist
-func (c *ProductColl) AddOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService) error {
+func (c *ProductColl) AddOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService, updateBy string) error {
 	servicePath := fmt.Sprintf("services.%d.%d", groupIndex, serviceIndex)
 	query := bson.M{
 		"env_name":     envName,
 		"product_name": productName,
 		servicePath:    bson.M{"$exists": false}, // ensure the service does not exist
 	}
-	change := bson.M{
-		"$set": bson.M{
-			servicePath:   service,
-			"update_time": time.Now().Unix(),
-		},
-	}
+	change := bson.M{"$set": bson.M{
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+		servicePath:   service,
+	}}
 
 	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	if err != nil {
@@ -535,13 +536,14 @@ func (c *ProductColl) AddOneService(productName, envName string, groupIndex, ser
 	return nil
 }
 
-func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName string, deployStrategy map[string]setting.ServiceDeployStrategy, globalVariables []*types.GlobalVariableKV) error {
+func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName string, deployStrategy map[string]setting.ServiceDeployStrategy, globalVariables []*types.GlobalVariableKV, updateBy string) error {
 	query := bson.M{
 		"env_name":     envName,
 		"product_name": productName,
 	}
 	change := bson.M{
 		"update_time":             time.Now().Unix(),
+		"update_by":               updateBy,
 		"global_variables":        globalVariables,
 		"service_deploy_strategy": deployStrategy,
 	}
@@ -551,13 +553,14 @@ func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName
 	return err
 }
 
-func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deployStrategy map[string]setting.ServiceDeployStrategy) error {
+func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deployStrategy map[string]setting.ServiceDeployStrategy, updateBy string) error {
 	query := bson.M{
 		"env_name":     envName,
 		"product_name": productName,
 	}
 	change := bson.M{
 		"update_time":             time.Now().Unix(),
+		"update_by":               updateBy,
 		"service_deploy_strategy": deployStrategy,
 	}
 
@@ -600,10 +603,11 @@ func (c *ProductColl) UpdateProductAlias(envName, productName, alias string) err
 	return err
 }
 
-func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool) error {
+func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool, updateBy string) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
 		"is_public":   isPublic,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -611,10 +615,11 @@ func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool)
 	return err
 }
 
-func (c *ProductColl) UpdateIstioGrayscale(envName, productName string, istioGrayscale models.IstioGrayscale) error {
+func (c *ProductColl) UpdateIstioGrayscale(envName, productName string, istioGrayscale models.IstioGrayscale, updateBy string) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"update_time":     time.Now().Unix(),
+		"update_by":       updateBy,
 		"istio_grayscale": istioGrayscale,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -741,13 +746,14 @@ func (c *ProductColl) ListEnvByNamespace(clusterID, namespace string) ([]*models
 	return resp, nil
 }
 
-func (c *ProductColl) UpdateConfigs(envName, productName string, analysisConfig *models.AnalysisConfig, notificationConfigs []*models.NotificationConfig) error {
+func (c *ProductColl) UpdateConfigs(envName, productName string, analysisConfig *models.AnalysisConfig, notificationConfigs []*models.NotificationConfig, updateBy string) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 
 	change := bson.M{"$set": bson.M{
 		"analysis_config":      analysisConfig,
 		"notification_configs": notificationConfigs,
 		"update_time":          time.Now().Unix(),
+		"update_by":            updateBy,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 

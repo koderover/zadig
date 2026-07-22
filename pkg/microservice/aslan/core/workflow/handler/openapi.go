@@ -56,7 +56,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = workflowservice.CreateCustomWorkflowTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.CreateCustomWorkflowTask(ctx.UserName, ctx.UserID, args, ctx.Logger)
 }
 
 func OpenAPICreateWorkflowView(c *gin.Context) {

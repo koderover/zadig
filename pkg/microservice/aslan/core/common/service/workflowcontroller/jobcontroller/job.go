@@ -135,6 +135,15 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	setJobStartTimeContext(job, workflowCtx)
+
+	// Keep the original execution timestamps when a completed job is skipped
+	// during a workflow retry.
+	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
+		setJobFinalStatusContext(job, workflowCtx)
+		return
+	}
+
 	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
@@ -161,12 +170,6 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 	}(&jobCtl)
 
-	setJobStartTimeContext(job, workflowCtx)
-
-	// should skip passed job when workflow task be restarted
-	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
-		return
-	}
 	// @note render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)

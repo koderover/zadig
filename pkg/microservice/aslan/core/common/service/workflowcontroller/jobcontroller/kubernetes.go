@@ -933,7 +933,7 @@ func int64Ptr(i int64) *int64 { return &i }
 
 func WaitPlainJobEnd(ctx context.Context, taskTimeout int, namespace, jobName string, kubeClient crClient.Client, apiServer crClient.Reader, xl *zap.SugaredLogger) config.Status {
 	timeout := time.After(time.Duration(taskTimeout) * time.Minute)
-	status, err := waitJobStart(ctx, namespace, jobName, kubeClient, apiServer, timeout, xl, nil)
+	status, err := waitJobStart(ctx, namespace, jobName, kubeClient, apiServer, timeout, xl)
 	if err != nil {
 		xl.Errorf("wait job start error: %v", err)
 	}
@@ -973,67 +973,12 @@ func waitPlainJobEnd(ctx context.Context, taskTimeout int, timeout <-chan time.T
 	}
 }
 
-func appendPendingPodEvents(podName, namespace string, apiReader client.Reader, events *commonmodels.Events, reported map[string]struct{}, onUpdate func(*commonmodels.Events), xl *zap.SugaredLogger) {
-	if events == nil {
-		return
-	}
-
-	selector := fields.Set{"involvedObject.name": podName, "involvedObject.kind": setting.Pod}.AsSelector()
-	kubeEvents, err := getter.ListEvents(namespace, selector, apiReader)
-	if err != nil {
-		xl.Errorf("list events failed for pod %s/%s: %s", namespace, podName, err)
-		return
-	}
-
-	sort.SliceStable(kubeEvents, func(i, j int) bool {
-		return kubeEvents[i].CreationTimestamp.Unix() < kubeEvents[j].CreationTimestamp.Unix()
-	})
-
-	changed := false
-	for _, kubeEvent := range kubeEvents {
-		eventKey := fmt.Sprintf("%s|%s|%s", kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message)
-		if _, ok := reported[eventKey]; ok {
-			continue
-		}
-		reported[eventKey] = struct{}{}
-
-		eventType := "info"
-		if kubeEvent.Type == corev1.EventTypeWarning {
-			eventType = "error"
-		}
-
-		eventTime := kubeEvent.LastTimestamp
-		if eventTime.IsZero() {
-			eventTime = kubeEvent.FirstTimestamp
-		}
-		if eventTime.IsZero() && !kubeEvent.EventTime.IsZero() {
-			eventTime = metav1.NewTime(kubeEvent.EventTime.Time)
-		}
-		if eventTime.IsZero() {
-			eventTime = metav1.NewTime(time.Now())
-		}
-
-		*events = append(*events, &commonmodels.Event{
-			EventType: eventType,
-			Time:      eventTime.Format("2006-01-02 15:04:05"),
-			Message:   fmt.Sprintf("Pod event [%s/%s]: %s", kubeEvent.Type, kubeEvent.Reason, kubeEvent.Message),
-		})
-		changed = true
-	}
-
-	if changed && onUpdate != nil {
-		onUpdate(events)
-	}
-}
-
-func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crClient.Client, apiReader client.Reader, timeout <-chan time.Time, xl *zap.SugaredLogger, onEventsUpdate func(*commonmodels.Events)) (config.Status, error) {
+func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crClient.Client, apiReader client.Reader, timeout <-chan time.Time, xl *zap.SugaredLogger) (config.Status, error) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	xl.Infof("Timeout of preparing Pod: %s.", 120*time.Second)
 	waitPodReadyTimeout := time.After(120 * time.Second)
 
 	var podReadyTimeout bool
-	reportedEvents := make(map[string]struct{})
-	events := &commonmodels.Events{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -1058,8 +1003,6 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 					continue
 				}
 				for _, pod := range podList {
-					appendPendingPodEvents(pod.Name, namespace, apiReader, events, reportedEvents, onEventsUpdate, xl)
-
 					if pod.Status.Phase == corev1.PodFailed {
 						msg := ""
 						for _, condition := range pod.Status.Conditions {

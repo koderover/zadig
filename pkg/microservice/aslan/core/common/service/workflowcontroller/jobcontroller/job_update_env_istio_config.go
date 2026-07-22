@@ -62,7 +62,7 @@ func (c *UpdateEnvIstioConfigJobCtl) Run(ctx context.Context) {
 		WeightConfigs:      c.jobTaskSpec.WeightConfigs,
 		HeaderMatchConfigs: c.jobTaskSpec.HeaderMatchConfigs,
 	}
-	err := kube.SetIstioGrayscaleConfig(context.TODO(), c.jobTaskSpec.BaseEnv, c.workflowCtx.ProjectName, req)
+	err := kube.SetIstioGrayscaleConfig(context.TODO(), c.jobTaskSpec.BaseEnv, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowTaskCreatorUsername, req)
 	if err != nil {
 		c.Errorf("Failed to set istio config, error: %v", err)
 		return

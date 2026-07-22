@@ -24,6 +24,7 @@ const (
 	listDepartmentUserAPI           = "cgi-bin/user/simplelist"
 	getUserIDByPhoneAPI             = "cgi-bin/user/getuserid"
 	createApprovalInstanceAPI       = "cgi-bin/oa/applyevent"
+	getApprovalDetailAPI            = "cgi-bin/oa/getapprovaldetail"
 	createApprovalTemplateDetailAPI = "cgi-bin/oa/approval/create_template"
 )
 
@@ -231,6 +232,28 @@ type createApprovalInstanceResp struct {
 	generalResponse `json:",inline"`
 
 	ApprovalInstanceID string `json:"sp_no"`
+}
+
+type getApprovalDetailReq struct {
+	ApprovalInstanceID string `json:"sp_no"`
+}
+
+type getApprovalDetailResp struct {
+	generalResponse `json:",inline"`
+
+	Info *ApprovalDetail `json:"info"`
+}
+
+type ApprovalDetail struct {
+	ID           string         `json:"sp_no"`
+	TemplateName string         `json:"sp_name"`
+	TemplateID   string         `json:"template_id"`
+	Status       ApprovalStatus `json:"sp_status"`
+	ApplyTime    int64          `json:"apply_time"`
+	Applyer      struct {
+		UserID       string `json:"userid"`
+		DepartmentID string `json:"partyid"`
+	} `json:"applyer"`
 }
 
 type EncryptedWebhookMessage struct {

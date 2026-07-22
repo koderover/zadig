@@ -347,13 +347,11 @@ type ImageAndServiceModule struct {
 type JobTaskFreestyleSpec struct {
 	Properties JobProperties `bson:"properties"          json:"properties"        yaml:"properties"`
 	Steps      []*StepTask   `bson:"steps"               json:"steps"             yaml:"steps"`
-	Events     *Events       `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskPluginSpec struct {
 	Properties JobProperties   `bson:"properties"          json:"properties"        yaml:"properties"`
 	Plugin     *PluginTemplate `bson:"plugin"              json:"plugin"            yaml:"plugin"`
-	Events     *Events         `bson:"-"                   json:"events"            yaml:"events"`
 }
 
 type JobTaskBlueGreenDeploySpec struct {
@@ -701,6 +699,7 @@ type JobTaskApprovalSpec struct {
 	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
 	ApprovalMessage  string              `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
+	ApprovalTitle    string              `bson:"approval_title"              yaml:"approval_title,omitempty"      json:"approval_title,omitempty"`
 }
 
 type JobTaskAIReleaseSpecialistSpec struct {

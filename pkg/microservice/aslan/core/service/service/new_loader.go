@@ -31,9 +31,12 @@ import (
 )
 
 type LoadServicePath struct {
+	// 服务名称
 	ServiceName string `json:"service_name"`
-	Path        string `json:"path"`
-	IsDir       bool   `json:"is_dir"`
+	// 服务配置文件或目录在代码库中的相对路径
+	Path string `json:"path"`
+	// 是否为目录。true 表示从目录加载，false 表示从单个 YAML 文件加载
+	IsDir bool `json:"is_dir"`
 }
 
 func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths []PreLoadServicePath, logger *zap.SugaredLogger) ([]LoadServicePath, error) {

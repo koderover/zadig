@@ -38,7 +38,7 @@ import (
 
 // CreateCustomWorkflowTask creates a task for custom workflow with user-friendly inputs, this is currently
 // used for openAPI
-func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustomWorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	// first we generate a detailed workflow.
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(args.WorkflowName)
 	if err != nil {
@@ -101,6 +101,7 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 
 	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
 		Name:               username,
+		UserID:             userID,
 		SkipWorkflowUpdate: true,
 		NotifyInput:        args.NotifyInputs,
 	}, workflow, log)

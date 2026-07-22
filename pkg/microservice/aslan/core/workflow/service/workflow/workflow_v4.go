@@ -1592,8 +1592,13 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 					if larkInfo.LarkApprovalCodeList == nil {
 						larkInfo.LarkApprovalCodeList = make(map[string]string)
 					}
+					approvalTitle := strings.TrimSpace(spec.ApprovalTitle)
+					if approvalTitle == "" {
+						approvalTitle = "Zadig 工作流"
+					}
+					approvalNodeTypeKey := data.GetNodeTypeTitleKey(spec.ApprovalTitle)
 					// skip if this node type approval definition already created
-					if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
+					if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[approvalNodeTypeKey]; approvalNodeTypeID != "" {
 						log.Infof("lark approval definition %s already created", approvalNodeTypeID)
 						continue
 					}
@@ -1617,8 +1622,8 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 					}
 
 					approvalCode, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
-						Name:        "Zadig 工作流",
-						Description: "Zadig 工作流-" + data.GetNodeTypeKey(),
+						Name:        approvalTitle,
+						Description: approvalTitle + "-" + data.GetNodeTypeKey(),
 						Nodes:       nodesArgs,
 					})
 					if err != nil {
@@ -1630,11 +1635,11 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 					if err != nil {
 						return errors.Wrap(err, "subscribe lark approval definition")
 					}
-					larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()] = approvalCode
+					larkInfo.LarkApprovalCodeList[approvalNodeTypeKey] = approvalCode
 					if err := commonrepo.NewIMAppColl().Update(context.Background(), data.ID, larkInfo); err != nil {
 						return errors.Wrap(err, "update lark approval data")
 					}
-					log.Infof("create lark approval definition %s, key: %s", approvalCode, data.GetNodeTypeKey())
+					log.Infof("create lark approval definition %s, key: %s", approvalCode, approvalNodeTypeKey)
 				}
 			}
 		}
@@ -3277,6 +3282,9 @@ func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
 	jobInfo, err := cli.GetJob(jobName)
 	if err != nil {
 		return nil, errors.Errorf("get jenkins job error: %v", err)
+	}
+	if jobInfo == nil {
+		return nil, errors.Errorf("jenkins job not found: %s", jobName)
 	}
 
 	resp := make([]*JenkinsJobParams, 0)

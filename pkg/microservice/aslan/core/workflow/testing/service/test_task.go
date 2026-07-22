@@ -294,8 +294,27 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		Stages:              stages,
 		TestReports:         testResultMap,
 		IsRestart:           workflowTask.IsRestart,
-		Events:              jobSpec.Events,
 	}, nil
+}
+
+func GetTestTaskEvents(projectKey, testName string, taskID int64, log *zap.SugaredLogger) (*commonmodels.Events, error) {
+	workflowName := util.GenTestingWorkflowName(testName)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		log.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
+		return nil, err
+	}
+
+	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+		errMsg := "invalid test task!"
+		log.Errorf(errMsg)
+		return nil, errors.New(errMsg)
+	}
+
+	if events := workflowservice.ListRuntimeJobEventsFromKube(workflowTask.Stages[0].Jobs[0], log); events != nil {
+		return events, nil
+	}
+	return &commonmodels.Events{}, nil
 }
 
 func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) ([]*commonmodels.TestSuite, error) {

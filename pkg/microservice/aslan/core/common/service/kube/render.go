@@ -546,7 +546,7 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 		case setting.Secret:
 			bs, exist, err = getter.GetSecretYamlFormat(envInfo.Namespace, name, kubeClient)
 		case setting.Ingress:
-			bs, exist, err = getter.GetIngressYamlFormat(envInfo.Namespace, name, kubeClient, kubeclient.VersionLessThan121(versionInfo))
+			bs, exist, err = getter.GetIngressYamlFormat(envInfo.Namespace, name, kubeClient, kubeclient.VersionLessThan122(versionInfo))
 		case setting.PersistentVolumeClaim:
 			bs, exist, err = getter.GetPVCYamlFormat(envInfo.Namespace, name, kubeClient)
 		default:

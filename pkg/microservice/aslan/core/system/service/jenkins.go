@@ -25,6 +25,7 @@ import (
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	jenkinsclient "github.com/koderover/zadig/v2/pkg/tool/jenkins"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -65,42 +66,41 @@ func getJenkinsClient(id string, log *zap.SugaredLogger) (*gojenkins.Jenkins, co
 }
 
 func ListJobNames(id string, log *zap.SugaredLogger) ([]string, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(id, log)
+	jenkinsIntegration, err := commonrepo.NewCICDToolColl().Get(id)
 	if err != nil {
 		return []string{}, e.ErrListJobNames.AddErr(err)
 	}
-	innerJobs, err := jenkinsClient.GetAllJobNames(ctx)
+
+	jenkinsClient := jenkinsclient.NewClient(jenkinsIntegration.URL, jenkinsIntegration.Username, jenkinsIntegration.Password)
+	jobNames, err := jenkinsClient.ListJobNames()
 	if err != nil {
 		return []string{}, e.ErrListJobNames.AddErr(err)
-	}
-	jobNames := make([]string, 0)
-	for _, innerJob := range innerJobs {
-		jobNames = append(jobNames, innerJob.Name)
 	}
 	return jobNames, nil
 }
 
 func ListJobBuildArgs(id, jobName string, log *zap.SugaredLogger) ([]*JenkinsBuildArgs, error) {
-	jenkinsClient, ctx, err := getJenkinsClient(id, log)
+	jenkinsIntegration, err := commonrepo.NewCICDToolColl().Get(id)
 	if err != nil {
 		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
 	}
-	jenkinsJob, err := jenkinsClient.GetJob(ctx, jobName)
+
+	jenkinsClient := jenkinsclient.NewClient(jenkinsIntegration.URL, jenkinsIntegration.Username, jenkinsIntegration.Password)
+	jenkinsJob, err := jenkinsClient.GetJob(jobName)
 	if err != nil {
 		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
 	}
-	paramDefinitions, err := jenkinsJob.GetParameters(ctx)
-	if err != nil {
-		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(err)
+	if jenkinsJob == nil {
+		return []*JenkinsBuildArgs{}, e.ErrListJobBuildArgs.AddErr(fmt.Errorf("jenkins job not found: %s", jobName))
 	}
 	jenkinsBuildArgsResp := make([]*JenkinsBuildArgs, 0)
-	for _, paramDefinition := range paramDefinitions {
+	for _, paramDefinition := range jenkinsJob.GetParameters() {
 		arg := &JenkinsBuildArgs{
-			Name:  paramDefinition.DefaultParameterValue.Name,
+			Name:  paramDefinition.Name,
 			Value: paramDefinition.DefaultParameterValue.Value,
-			Type:  paramDefinition.Type,
+			Type:  string(paramDefinition.Type),
 		}
-		if paramDefinition.Type == "ChoiceParameterDefinition" {
+		if paramDefinition.Type == jenkinsclient.Choice {
 			arg.Type = string(types.Choice)
 		} else {
 			arg.Type = string(types.Str)

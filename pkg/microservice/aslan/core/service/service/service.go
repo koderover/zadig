@@ -493,6 +493,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		filteredSvcs = append(filteredSvcs, productSvc)
 	}
 	productInfo.Services = [][]*commonmodels.ProductService{filteredSvcs}
+	productInfo.UpdateBy = username
 	err = commonrepo.NewProductCollWithSession(session).Update(productInfo)
 	if err != nil {
 		log.Errorf("failed to update product: %s error: %s", productName, err)

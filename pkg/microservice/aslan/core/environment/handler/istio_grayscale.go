@@ -77,7 +77,7 @@ func EnableIstioGrayscale(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.EnableIstioGrayscale(c, envName, projectKey)
+	ctx.RespErr = service.EnableIstioGrayscale(c, envName, projectKey, ctx.UserName)
 }
 
 // @Summary Disable Istio Grayscale
@@ -126,7 +126,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.DisableIstioGrayscale(c, envName, projectKey)
+	ctx.RespErr = service.DisableIstioGrayscale(c, envName, projectKey, ctx.UserName)
 }
 
 // @Summary Check Istio Grayscale Ready
@@ -278,7 +278,7 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.SetIstioGrayscaleConfig(c, envName, projectKey, req)
+	ctx.RespErr = service.SetIstioGrayscaleConfig(c, envName, projectKey, ctx.UserName, req)
 }
 
 // @Summary Get Portal Service for Istio Grayscale

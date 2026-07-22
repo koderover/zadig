@@ -75,6 +75,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanner.POST("/:id/task", FindScanningProjectNameFromID, CreateScanningTask)
 		scanner.GET("/:id/task", FindScanningProjectNameFromID, ListScanningTask)
 		scanner.GET("/:id/task/:scan_id", FindScanningProjectNameFromID, GetScanningTask)
+		scanner.GET("/:id/task/:scan_id/events", FindScanningProjectNameFromID, GetScanningTaskEvents)
 		scanner.DELETE("/:id/task/:scan_id", FindScanningProjectNameFromID, CancelScanningTask)
 		scanner.GET("/:id/task/:scan_id/sse", FindScanningProjectNameFromID, GetScanningTaskSSE)
 
@@ -102,6 +103,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testTask.GET("", ListTestTask)
 		testTask.DELETE("", CancelTestTaskV3)
 		testTask.GET("/detail", GetTestTaskInfo)
+		testTask.GET("/events", GetTestTaskEvents)
 		testTask.GET("/report", GetTestTaskJUnitReportInfo)
 		testTask.POST("/restart", RestartTestTaskV2)
 		testTask.GET("/artifact", GetTestingTaskArtifact)

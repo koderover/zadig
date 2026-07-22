@@ -1121,7 +1121,7 @@ type SetIstioGrayscaleConfigRequest struct {
 	HeaderMatchConfigs []commonmodels.IstioHeaderMatchConfig `bson:"header_match_configs" json:"header_match_configs"`
 }
 
-func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req SetIstioGrayscaleConfigRequest) error {
+func SetIstioGrayscaleConfig(ctx context.Context, envName, productName, userName string, req SetIstioGrayscaleConfigRequest) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
 	baseEnv, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1179,7 +1179,7 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 	baseEnv.IstioGrayscale.WeightConfigs = req.WeightConfigs
 	baseEnv.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
 
-	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
+	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale, userName)
 	if err != nil {
 		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err)
 	}
