@@ -129,13 +129,12 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 
 	request := openai.ChatCompletionRequest{
-		Model:           model,
-		Messages:        messages,
-		MaxTokens:       opts.MaxTokens,
-		Temperature:     opts.Temperature,
-		Stop:            opts.StopWords,
-		LogitBias:       opts.LogitBias,
-		ReasoningEffort: c.resolveReasoningEffort(model, opts.ReasoningEffort),
+		Model:       model,
+		Messages:    messages,
+		MaxTokens:   opts.MaxTokens,
+		Temperature: opts.Temperature,
+		Stop:        opts.StopWords,
+		LogitBias:   opts.LogitBias,
 	}
 
 	now := time.Now()
@@ -173,25 +172,6 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 
 func isMaxTokensFinishReason(finishReason openai.FinishReason) bool {
 	return finishReason == openai.FinishReasonLength || string(finishReason) == "max_tokens"
-}
-
-func (c *OpenAIClient) resolveReasoningEffort(model string, reasoningEffort ReasoningEffort) string {
-	if reasoningEffort == "" {
-		return ""
-	}
-	// OpenAI-compatible providers may reject optional fields they do not support.
-	model = strings.ToLower(strings.TrimSpace(model))
-	switch Provider(c.name) {
-	case ProviderOpenAI:
-		if strings.HasPrefix(model, "o1") || strings.HasPrefix(model, "o3") || strings.HasPrefix(model, "o4") || strings.HasPrefix(model, "gpt-5") {
-			return string(reasoningEffort)
-		}
-	case ProviderVolcengineArk:
-		if strings.HasPrefix(model, "glm-5") {
-			return string(reasoningEffort)
-		}
-	}
-	return ""
 }
 
 func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {

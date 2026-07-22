@@ -331,7 +331,6 @@ func buildAIReleaseSpecialistRulePlanCompletionOptions(ctx context.Context, clie
 	options := []llm.ParamOption{
 		llm.WithTemperature(0),
 		llm.WithMaxTokens(maxTokens),
-		llm.WithReasoningEffort(llm.ReasoningEffortLow),
 		llm.WithErrorOnMaxTokens(),
 	}
 	if client != nil && client.GetModel() != "" {
@@ -416,6 +415,7 @@ func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context) (*commonmod
 	c.jobTaskSpec.RulePlan = rulePlan
 	c.ack()
 	if c.job.OriginName != "" {
+		// Persist the runtime-compiled plan so later workflow runs can reuse it.
 		if _, err := commonrepo.NewWorkflowV4Coll().UpdateAIReleaseSpecialistRulePlan(ctx, c.workflowCtx.WorkflowName, c.job.OriginName, c.jobTaskSpec.PromptTemplate, rulePlan); err != nil {
 			c.logger.Warnf("persist ai release specialist rule plan failed: %v", err)
 		}
@@ -2015,15 +2015,6 @@ func normalizeAIReleaseSpecialistSystemPrompt(systemPrompt string) string {
 	systemPrompt = strings.TrimSpace(systemPrompt)
 	for strings.HasSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints) {
 		systemPrompt = strings.TrimSpace(strings.TrimSuffix(systemPrompt, aiReleaseSpecialistOutputConstraints))
-	}
-	legacyDefaultSystemPrompt := strings.ReplaceAll(defaultAIReleaseSpecialistSystemPrompt,
-		"工作流中与当前 AI 节点相关的人工审批节点执行结果，节点可能位于当前 AI 节点之前或之后",
-		"工作流中当前 AI 节点之前已有人工审批节点的执行结果")
-	legacyDefaultSystemPrompt = strings.ReplaceAll(legacyDefaultSystemPrompt,
-		"工作流中其他 VM 部署、自定义任务等的执行状态，任务可能位于当前 AI 节点之前或之后",
-		"工作流中当前 AI 节点之前 VM 部署、自定义任务等的执行状态")
-	if systemPrompt == legacyDefaultSystemPrompt {
-		return defaultAIReleaseSpecialistSystemPrompt
 	}
 	return systemPrompt
 }
