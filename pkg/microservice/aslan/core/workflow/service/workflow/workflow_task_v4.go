@@ -1124,7 +1124,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.EndTime = 0
 			jobTask.Error = ""
 			if t, ok := jobTaskMap[jobTask.Name]; ok {
-				if err := workflowController.RenderJobTaskWithGlobalVariables(t, globalKeyMap); err != nil {
+				if err := workflowController.RenderJobTaskRuntimeVariables(t, globalKeyMap); err != nil {
 					return err
 				}
 				jobTask.Spec = t.Spec
@@ -1323,7 +1323,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 				job.Spec = ctrl.GetSpec()
 				for _, task := range jobTasks {
-					if err := workflowController.RenderJobTaskWithGlobalVariables(task, globalKeyMap); err != nil {
+					if err := workflowController.RenderJobTaskRuntimeVariables(task, globalKeyMap); err != nil {
 						return err
 					}
 				}

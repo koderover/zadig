@@ -48,8 +48,9 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 	return &Workflow{wf}
 }
 
-// RenderJobTaskWithGlobalVariables replays a task spec with persisted GlobalContext during retry/manual execution.
-func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
+// RenderJobTaskRuntimeVariables applies runtime variables consistently during
+// initial task creation, retry, and manual execution.
+func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
 	if task == nil {
 		return nil
 	}
@@ -65,9 +66,9 @@ func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap m
 		if err != nil {
 			return fmt.Errorf("failed to escape value for key %s: %w", k, err)
 		}
-		escapedValue := string(escapedValueBytes)
-		// Remove the surrounding quotes since we're replacing within a JSON string.
-		escapedValue = strings.Trim(escapedValue, `"`)
+		// Remove exactly the JSON string's outer quotes while preserving quotes
+		// that are part of the variable value.
+		escapedValue := string(escapedValueBytes[1 : len(escapedValueBytes)-1])
 
 		taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), escapedValue)
 	}
@@ -242,7 +243,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 			}
 
 			for _, task := range tasks {
-				if err := RenderJobTaskWithGlobalVariables(task, globalKeyMap); err != nil {
+				if err := RenderJobTaskRuntimeVariables(task, globalKeyMap); err != nil {
 					return nil, err
 				}
 			}
