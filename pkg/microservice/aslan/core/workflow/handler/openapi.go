@@ -323,6 +323,89 @@ func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
 	ctx.RespErr = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
 }
 
+func OpenAPIGetManualExecWorkflowTaskV4Context(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workflowName, taskID, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
+		return
+	}
+	if !authorizeOpenAPIWorkflowExecution(ctx, projectKey, workflowName) {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = workflowservice.GetOpenAPIManualExecWorkflowTaskV4Context(workflowName, projectKey, taskID, ctx.UserID, ctx.Resources.IsSystemAdmin, ctx.Logger)
+}
+
+func OpenAPIManualExecWorkflowTaskV4(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workflowName, taskID, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
+		return
+	}
+
+	args := new(workflowservice.OpenAPIManualExecWorkflowTaskV4Request)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if args.StageName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("stage_name is required")
+		return
+	}
+	if !authorizeOpenAPIWorkflowExecution(ctx, projectKey, workflowName) {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI手动执行", "工作流任务", workflowName, workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = workflowservice.OpenAPIManualExecWorkflowTaskV4(workflowName, projectKey, taskID, args.StageName, ctx.UserID, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
+}
+
+func authorizeOpenAPIWorkflowExecution(ctx *internalhandler.Context, projectKey, workflowName string) bool {
+	if ctx.Resources.IsSystemAdmin {
+		return true
+	}
+	projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+	if !ok {
+		return false
+	}
+	if projectAuth.IsProjectAdmin || projectAuth.Workflow.Execute {
+		return true
+	}
+	permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionRun)
+	return err == nil && permitted
+}
+
 func OpenAPIUpdateWorkflowV4TaskRemark(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

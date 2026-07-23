@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -45,7 +46,22 @@ func NewLLMIntegrationColl() *LLMIntegrationColl {
 }
 
 func (c *LLMIntegrationColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	indexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{{Key: "name", Value: 1}},
+			Options: options.Index().
+				SetUnique(true).
+				SetPartialFilterExpression(bson.M{"name": bson.M{"$type": "string"}}),
+		},
+		{
+			Keys: bson.D{{Key: "is_default", Value: 1}},
+			Options: options.Index().
+				SetUnique(true).
+				SetPartialFilterExpression(bson.M{"is_default": true}),
+		},
+	}
+	_, err := c.Indexes().CreateMany(ctx, indexes)
+	return err
 }
 
 func (c *LLMIntegrationColl) GetCollectionName() string {
@@ -95,6 +111,28 @@ func (c *LLMIntegrationColl) Update(ctx context.Context, id string, args *models
 	return err
 }
 
+func (c *LLMIntegrationColl) SetDefault(ctx context.Context, id string) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	if err := c.FindOne(ctx, bson.M{"_id": oid}).Err(); err != nil {
+		return err
+	}
+
+	if _, err := c.UpdateMany(ctx, bson.M{}, bson.M{"$set": bson.M{"is_default": false}}); err != nil {
+		return err
+	}
+	result, err := c.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": bson.M{"is_default": true}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
 func (c *LLMIntegrationColl) Delete(ctx context.Context, id string) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -111,6 +149,9 @@ func (c *LLMIntegrationColl) Create(ctx context.Context, args *models.LLMIntegra
 		return errors.New("nil llm provider args")
 	}
 
+	if args.ID.IsZero() {
+		args.ID = primitive.NewObjectID()
+	}
 	args.UpdateTime = time.Now().Unix()
 	_, err := c.InsertOne(ctx, args)
 	return err
