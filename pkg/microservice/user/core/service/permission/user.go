@@ -458,7 +458,7 @@ func SearchUsersByEmail(args *QueryArgs, logger *zap.SugaredLogger) (*types.User
 		logger.Errorf("SearchUsersByEmail ListUsersByEmail email:%s error, error msg:%s", args.Email, err.Error())
 		return nil, err
 	}
-	return buildUsersRespFromModels(users, logger)
+	return buildUsersRespFromContactModels(users), nil
 }
 
 func SearchUsersByPhone(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
@@ -467,7 +467,26 @@ func SearchUsersByPhone(args *QueryArgs, logger *zap.SugaredLogger) (*types.User
 		logger.Errorf("SearchUsersByPhone ListUsersByPhone phone:%s error, error msg:%s", args.Phone, err.Error())
 		return nil, err
 	}
-	return buildUsersRespFromModels(users, logger)
+	return buildUsersRespFromContactModels(users), nil
+}
+
+func buildUsersRespFromContactModels(users []models.User) *types.UsersResp {
+	usersInfo := make([]*types.UserInfo, 0, len(users))
+	for _, user := range users {
+		usersInfo = append(usersInfo, &types.UserInfo{
+			Uid:          user.UID,
+			Name:         user.Name,
+			Email:        user.Email,
+			Phone:        user.Phone,
+			IdentityType: user.IdentityType,
+			Account:      user.Account,
+		})
+	}
+
+	return &types.UsersResp{
+		Users:      usersInfo,
+		TotalCount: int64(len(usersInfo)),
+	}
 }
 
 func buildUsersRespFromModels(users []models.User, logger *zap.SugaredLogger) (*types.UsersResp, error) {

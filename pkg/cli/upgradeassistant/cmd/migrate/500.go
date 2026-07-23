@@ -104,6 +104,7 @@ func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) e
 }
 
 // migrateUserContactIndexes500 adds indexes for dynamic notification recipient lookups.
+// The index names are bound to User.Email/User.Phone through their GORM tags.
 func migrateUserContactIndexes500(migrationInfo *internalmodels.Migration) error {
 	if !migrationInfo.Migration500UserContactIndexes {
 		if !repository.DB.Migrator().HasIndex(&usermodels.User{}, "idx_email") {
@@ -119,9 +120,11 @@ func migrateUserContactIndexes500(migrationInfo *internalmodels.Migration) error
 		}
 	}
 
-	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+	if err := internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500UserContactIndexes): true,
-	})
+	}); err != nil {
+		return fmt.Errorf("failed to update migration 5.0.0 user contact indexes status, err: %s", err)
+	}
 
 	return nil
 }

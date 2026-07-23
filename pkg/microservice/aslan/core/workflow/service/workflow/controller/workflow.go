@@ -64,15 +64,6 @@ type workflowNotificationSpecBackup struct {
 	Recipients *notificationDynamicRecipients
 }
 
-func cloneDynamicRecipients(items commonmodels.DynamicRecipients) commonmodels.DynamicRecipients {
-	if items == nil {
-		return nil
-	}
-	resp := make(commonmodels.DynamicRecipients, len(items))
-	copy(resp, items)
-	return resp
-}
-
 func backupNotificationDynamicRecipients(
 	larkHook *commonmodels.LarkHookNotificationConfig,
 	larkGroup *commonmodels.LarkGroupNotificationConfig,
@@ -84,25 +75,25 @@ func backupNotificationDynamicRecipients(
 ) *notificationDynamicRecipients {
 	resp := &notificationDynamicRecipients{}
 	if larkHook != nil {
-		resp.LarkHook = cloneDynamicRecipients(larkHook.DynamicRecipients)
+		resp.LarkHook = commonmodels.CloneDynamicRecipients(larkHook.DynamicRecipients)
 	}
 	if larkGroup != nil {
-		resp.LarkGroup = cloneDynamicRecipients(larkGroup.DynamicRecipients)
+		resp.LarkGroup = commonmodels.CloneDynamicRecipients(larkGroup.DynamicRecipients)
 	}
 	if larkPerson != nil {
-		resp.LarkPerson = cloneDynamicRecipients(larkPerson.DynamicRecipients)
+		resp.LarkPerson = commonmodels.CloneDynamicRecipients(larkPerson.DynamicRecipients)
 	}
 	if wechat != nil {
-		resp.Wechat = cloneDynamicRecipients(wechat.DynamicRecipients)
+		resp.Wechat = commonmodels.CloneDynamicRecipients(wechat.DynamicRecipients)
 	}
 	if dingDing != nil {
-		resp.DingDing = cloneDynamicRecipients(dingDing.DynamicRecipients)
+		resp.DingDing = commonmodels.CloneDynamicRecipients(dingDing.DynamicRecipients)
 	}
 	if msTeams != nil {
-		resp.MSTeams = cloneDynamicRecipients(msTeams.DynamicRecipients)
+		resp.MSTeams = commonmodels.CloneDynamicRecipients(msTeams.DynamicRecipients)
 	}
 	if mail != nil {
-		resp.Mail = cloneDynamicRecipients(mail.DynamicRecipients)
+		resp.Mail = commonmodels.CloneDynamicRecipients(mail.DynamicRecipients)
 	}
 	return resp
 }
@@ -121,25 +112,25 @@ func restoreNotificationDynamicRecipients(
 		return
 	}
 	if larkHook != nil {
-		larkHook.DynamicRecipients = cloneDynamicRecipients(recipients.LarkHook)
+		larkHook.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkHook)
 	}
 	if larkGroup != nil {
-		larkGroup.DynamicRecipients = cloneDynamicRecipients(recipients.LarkGroup)
+		larkGroup.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkGroup)
 	}
 	if larkPerson != nil {
-		larkPerson.DynamicRecipients = cloneDynamicRecipients(recipients.LarkPerson)
+		larkPerson.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkPerson)
 	}
 	if wechat != nil {
-		wechat.DynamicRecipients = cloneDynamicRecipients(recipients.Wechat)
+		wechat.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.Wechat)
 	}
 	if dingDing != nil {
-		dingDing.DynamicRecipients = cloneDynamicRecipients(recipients.DingDing)
+		dingDing.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.DingDing)
 	}
 	if msTeams != nil {
-		msTeams.DynamicRecipients = cloneDynamicRecipients(recipients.MSTeams)
+		msTeams.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.MSTeams)
 	}
 	if mail != nil {
-		mail.DynamicRecipients = cloneDynamicRecipients(recipients.Mail)
+		mail.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.Mail)
 	}
 }
 
@@ -284,7 +275,10 @@ func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap m
 	taskString := string(taskBytes)
 	for k, v := range globalKeyMap {
 		// Use json.Marshal to properly escape the value as it would appear in JSON.
-		escapedValueBytes, _ := json.Marshal(v)
+		escapedValueBytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("failed to escape value for key %s: %w", k, err)
+		}
 		escapedValue := string(escapedValueBytes)
 		// Remove the surrounding quotes since we're replacing within a JSON string.
 		escapedValue = strings.Trim(escapedValue, `"`)
@@ -604,7 +598,10 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
-	replacedString := renderMultiLineString(string(b), globalParams)
+	replacedString, err := renderMultiLineString(string(b), globalParams)
+	if err != nil {
+		return err
+	}
 	if err := json.Unmarshal([]byte(replacedString), &w.WorkflowV4); err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func renderMultiLineString(body string, inputs []*commonmodels.Param) string {
+func renderMultiLineString(body string, inputs []*commonmodels.Param) (string, error) {
 	for _, input := range inputs {
 		var inputValue string
 		if input.ParamsType == string(commonmodels.MultiSelectType) {
@@ -25,10 +25,14 @@ func renderMultiLineString(body string, inputs []*commonmodels.Param) string {
 		} else {
 			inputValue = input.Value
 		}
-		inputValue = strings.ReplaceAll(inputValue, "\n", "\\n")
-		body = strings.ReplaceAll(body, fmt.Sprintf(setting.RenderValueTemplate, input.Name), inputValue)
+
+		escapedValue, err := util.JsonEscapeString(inputValue)
+		if err != nil {
+			return "", fmt.Errorf("failed to escape workflow parameter %s: %w", input.Name, err)
+		}
+		body = strings.ReplaceAll(body, fmt.Sprintf(setting.RenderValueTemplate, input.Name), escapedValue)
 	}
-	return body
+	return body, nil
 }
 
 type RepoIndex struct {

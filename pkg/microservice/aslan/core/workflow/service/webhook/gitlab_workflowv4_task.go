@@ -378,7 +378,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					CommitID:       commitID,
 					CommitSHA:      commitID,
 					CommitMessage:  ev.ObjectAttributes.LastCommit.Message,
-					Committer:      ev.User.Username,
+					Committer:      ev.ObjectAttributes.LastCommit.Author.Name,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
 					RawPayload:     rawPayload,

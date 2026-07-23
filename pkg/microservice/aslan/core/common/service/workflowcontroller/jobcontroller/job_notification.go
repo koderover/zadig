@@ -76,6 +76,16 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
+	runtimeSpec := new(commonmodels.JobTaskNotificationSpec)
+	if err := commonmodels.IToi(c.job.Spec, runtimeSpec); err != nil {
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		c.ack()
+		return
+	}
+	c.jobTaskSpec = runtimeSpec
+
 	if err := c.prepareRuntimeNotificationFields(); err != nil {
 		c.logger.Error(err)
 		c.job.Status = config.StatusFailed
@@ -589,6 +599,36 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 		return err
 	}
 
+	sentEmails := make(map[string]struct{})
+	respErr := new(multierror.Error)
+	sendEmail := func(to string) {
+		to = strings.TrimSpace(to)
+		if to == "" {
+			return
+		}
+		key := strings.ToLower(to)
+		if _, ok := sentEmails[key]; ok {
+			return
+		}
+		sentEmails[key] = struct{}{}
+
+		log.Infof("Sending Mail to email: %s", to)
+		if err := mail.SendEmail(&mail.EmailParams{
+			From:          emailSvc.Address,
+			To:            to,
+			Subject:       title,
+			Host:          email.Name,
+			UserName:      email.UserName,
+			Password:      email.Password,
+			Port:          email.Port,
+			TlsSkipVerify: email.TlsSkipVerify,
+			Body:          message,
+		}); err != nil {
+			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to send email to %s: %w", to, err))
+		}
+	}
+
 	directEmailUsers := make([]*commonmodels.User, 0)
 	lookupUsers := make([]*commonmodels.User, 0)
 	for _, u := range users {
@@ -601,56 +641,36 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 
 	users, userMap := util.GeneFlatUsersWithCaller(lookupUsers, callerID)
 	for _, u := range directEmailUsers {
-		log.Infof("Sending Mail to email: %s", u.UserName)
-		err = mail.SendEmail(&mail.EmailParams{
-			From:          emailSvc.Address,
-			To:            u.UserName,
-			Subject:       title,
-			Host:          email.Name,
-			UserName:      email.UserName,
-			Password:      email.Password,
-			Port:          email.Port,
-			TlsSkipVerify: email.TlsSkipVerify,
-			Body:          message,
-		})
-		if err != nil {
-			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
-		}
+		sendEmail(u.UserName)
 	}
 
 	for _, u := range users {
+		if u == nil {
+			continue
+		}
 		log.Infof("Sending Mail to user: %s", u.UserName)
 		info, ok := userMap[u.UserID]
 		if !ok {
 			info, err = user.New().GetUserByID(u.UserID)
 			if err != nil {
 				log.Warnf("sendMailMessage GetUserByUid error, error msg:%s", err)
+				respErr = multierror.Append(respErr, fmt.Errorf("failed to get user %s: %w", u.UserID, err))
 				continue
 			}
 		}
 
+		if info == nil {
+			log.Warnf("sendMailMessage user %s not found", u.UserID)
+			continue
+		}
 		if info.Email == "" {
 			log.Warnf("sendMailMessage user %s email is empty", info.Name)
 			continue
 		}
-		err = mail.SendEmail(&mail.EmailParams{
-			From:          emailSvc.Address,
-			To:            info.Email,
-			Subject:       title,
-			Host:          email.Name,
-			UserName:      email.UserName,
-			Password:      email.Password,
-			Port:          email.Port,
-			TlsSkipVerify: email.TlsSkipVerify,
-			Body:          message,
-		})
-		if err != nil {
-			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
-			continue
-		}
+		sendEmail(info.Email)
 	}
 
-	return err
+	return respErr.ErrorOrNil()
 }
 
 func generateDingDingNotificationMessage(title, content string, idList []string) string {

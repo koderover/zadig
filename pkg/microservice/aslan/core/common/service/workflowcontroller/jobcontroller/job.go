@@ -68,24 +68,8 @@ type notificationRuntimeRenderFields struct {
 	MailDynamic       commonmodels.DynamicRecipients
 }
 
-func cloneNotificationStrings(items []string) []string {
-	if items == nil {
-		return nil
-	}
-	resp := make([]string, len(items))
-	copy(resp, items)
-	return resp
-}
-
-func cloneNotificationDynamicRecipients(items commonmodels.DynamicRecipients) commonmodels.DynamicRecipients {
-	if items == nil {
-		return nil
-	}
-	resp := make(commonmodels.DynamicRecipients, len(items))
-	copy(resp, items)
-	return resp
-}
-
+// Preserve notification templates while generic job rendering removes unresolved variables.
+// NotificationJobCtl resolves them later with the runtime webhook/task context.
 func backupNotificationRuntimeRenderFields(job *commonmodels.JobTask) (*notificationRuntimeRenderFields, error) {
 	if job == nil || job.JobType != string(config.JobNotification) {
 		return nil, nil
@@ -102,29 +86,29 @@ func backupNotificationRuntimeRenderFields(job *commonmodels.JobTask) (*notifica
 	}
 
 	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
-		resp.LarkHookAtUsers = cloneNotificationStrings(cfg.AtUsers)
-		resp.LarkHookDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.LarkHookAtUsers = commonmodels.CloneStrings(cfg.AtUsers)
+		resp.LarkHookDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
-		resp.LarkGroupDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.LarkGroupDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
-		resp.LarkPersonDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.LarkPersonDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.WechatNotificationConfig; cfg != nil {
-		resp.WechatAtUsers = cloneNotificationStrings(cfg.AtUsers)
-		resp.WechatDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.WechatAtUsers = commonmodels.CloneStrings(cfg.AtUsers)
+		resp.WechatDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.DingDingNotificationConfig; cfg != nil {
-		resp.DingDingMobiles = cloneNotificationStrings(cfg.AtMobiles)
-		resp.DingDingDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.DingDingMobiles = commonmodels.CloneStrings(cfg.AtMobiles)
+		resp.DingDingDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
-		resp.MSTeamsAtEmails = cloneNotificationStrings(cfg.AtEmails)
-		resp.MSTeamsDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.MSTeamsAtEmails = commonmodels.CloneStrings(cfg.AtEmails)
+		resp.MSTeamsDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 	if cfg := spec.MailNotificationConfig; cfg != nil {
-		resp.MailDynamic = cloneNotificationDynamicRecipients(cfg.DynamicRecipients)
+		resp.MailDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
 	}
 
 	return resp, nil
@@ -144,29 +128,29 @@ func restoreNotificationRuntimeRenderFields(job *commonmodels.JobTask, fields *n
 	spec.Content = fields.Content
 
 	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
-		cfg.AtUsers = cloneNotificationStrings(fields.LarkHookAtUsers)
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkHookDynamic)
+		cfg.AtUsers = commonmodels.CloneStrings(fields.LarkHookAtUsers)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkHookDynamic)
 	}
 	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkGroupDynamic)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkGroupDynamic)
 	}
 	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.LarkPersonDynamic)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkPersonDynamic)
 	}
 	if cfg := spec.WechatNotificationConfig; cfg != nil {
-		cfg.AtUsers = cloneNotificationStrings(fields.WechatAtUsers)
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.WechatDynamic)
+		cfg.AtUsers = commonmodels.CloneStrings(fields.WechatAtUsers)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.WechatDynamic)
 	}
 	if cfg := spec.DingDingNotificationConfig; cfg != nil {
-		cfg.AtMobiles = cloneNotificationStrings(fields.DingDingMobiles)
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.DingDingDynamic)
+		cfg.AtMobiles = commonmodels.CloneStrings(fields.DingDingMobiles)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.DingDingDynamic)
 	}
 	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
-		cfg.AtEmails = cloneNotificationStrings(fields.MSTeamsAtEmails)
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.MSTeamsDynamic)
+		cfg.AtEmails = commonmodels.CloneStrings(fields.MSTeamsAtEmails)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.MSTeamsDynamic)
 	}
 	if cfg := spec.MailNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = cloneNotificationDynamicRecipients(fields.MailDynamic)
+		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.MailDynamic)
 	}
 
 	job.Spec = spec

@@ -2,6 +2,7 @@ package dynamicrecipient
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/samber/lo"
@@ -51,9 +52,10 @@ var supportedDynamicRecipientKinds = map[setting.NotifyWebHookType]map[dynamicRe
 
 type dynamicRecipientSpec struct {
 	raw  string
-	key  string
 	kind dynamicRecipientKind
 }
+
+var dynamicRecipientTemplateRegexp = regexp.MustCompile(`^\{\{\.[^{}]+\}\}$`)
 
 type Resolver struct {
 	keyMap map[string]string
@@ -287,6 +289,8 @@ func (r *Resolver) resolveLarkUserIDsByPhone(client *larktool.Client, appID, pho
 		if user == nil || user.Email == "" {
 			continue
 		}
+		// The direct Lark mobile lookup may miss a Zadig phone number. Re-querying
+		// Lark with the user's Zadig email completes the cross-system mapping.
 		id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeEmail, user.Email)
 		if err != nil {
 			return nil, err
@@ -474,7 +478,7 @@ func renderNotificationString(input string, keyMap map[string]string) string {
 
 func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 	input = strings.TrimSpace(input)
-	if !strings.HasPrefix(input, "{{.") || !strings.HasSuffix(input, "}}") {
+	if !dynamicRecipientTemplateRegexp.MatchString(input) {
 		return nil, fmt.Errorf("dynamic recipient must be a single template variable, got %s", input)
 	}
 
@@ -498,7 +502,6 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 
 	return &dynamicRecipientSpec{
 		raw:  input,
-		key:  key,
 		kind: kind,
 	}, nil
 }

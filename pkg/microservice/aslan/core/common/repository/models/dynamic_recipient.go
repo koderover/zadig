@@ -12,6 +12,21 @@ import (
 // [{"value":"{{.payload.user.email}}","identity_type":"email"}].
 type DynamicRecipients []string
 
+var _ bson.ValueUnmarshaler = (*DynamicRecipients)(nil)
+
+func CloneStrings(items []string) []string {
+	if items == nil {
+		return nil
+	}
+	resp := make([]string, len(items))
+	copy(resp, items)
+	return resp
+}
+
+func CloneDynamicRecipients(items DynamicRecipients) DynamicRecipients {
+	return DynamicRecipients(CloneStrings(items))
+}
+
 type legacyDynamicRecipient struct {
 	Value        string `bson:"value"         json:"value"`
 	IdentityType string `bson:"identity_type" json:"identity_type"`
@@ -34,6 +49,8 @@ func (r *DynamicRecipients) UnmarshalJSON(data []byte) error {
 }
 
 func (r *DynamicRecipients) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
+	// Mongo's BSON decoder invokes this hook when reading the legacy recipient
+	// object array or the current string array from an existing task.
 	if t == bsontype.Null || t == bsontype.Undefined {
 		*r = nil
 		return nil

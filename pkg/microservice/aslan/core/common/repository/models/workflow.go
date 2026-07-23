@@ -366,6 +366,18 @@ type NotifyCtl struct {
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 }
 
+func CloneNotifyCtl(notify *NotifyCtl) (*NotifyCtl, error) {
+	if notify == nil {
+		return nil, nil
+	}
+
+	cloned := new(NotifyCtl)
+	if err := IToi(notify, cloned); err != nil {
+		return nil, fmt.Errorf("failed to clone notification config: %w", err)
+	}
+	return cloned, nil
+}
+
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
 func (n *NotifyCtl) GenerateNewNotifyConfigWithOldData() error {
 	switch n.WebHookType {
