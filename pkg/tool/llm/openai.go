@@ -57,20 +57,10 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}
-	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderDeepSeek)) {
-		c.apiType = string(openai.APITypeOpenAI)
-		defaultConfig = openai.DefaultConfig(token)
-		defaultConfig.BaseURL = config.GetBaseURL()
-	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderAliyunBailian)) ||
-		strings.HasPrefix(string(config.GetProviderName()), string(ProviderVolcengineArk)) ||
-		strings.HasPrefix(string(config.GetProviderName()), string(ProviderHuaweiMaas)) {
-		c.apiType = string(openai.APITypeOpenAI)
-		defaultConfig = openai.DefaultConfig(token)
-		defaultConfig.BaseURL = config.GetBaseURL()
 	} else {
 		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
-		if config.GetProviderName() == ProviderOther && config.GetBaseURL() != "" {
+		if config.GetBaseURL() != "" {
 			defaultConfig.BaseURL = config.GetBaseURL()
 		}
 	}
