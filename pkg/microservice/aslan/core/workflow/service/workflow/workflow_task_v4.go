@@ -1083,15 +1083,13 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return e.ErrGetTask.AddErr(err)
 	}
-	switch task.Status {
-	case config.StatusPause:
-	default:
-		return errors.New("工作流任务状态无法手动执行")
+	if err := validateManualExecRequest(task, stageName, executorID, isSystemAdmin); err != nil {
+		return err
 	}
+	return manualExecWorkflowTaskV4(task, workflowName, taskID, stageName, jobs, executorID, executorName, logger)
+}
 
-	if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
-		return errors.New("工作流任务数据异常, 无法手动执行")
-	}
+func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorName string, logger *zap.SugaredLogger) error {
 
 	originJobs := []*commonmodels.Job{}
 	if err := commonmodels.IToi(&jobs, &originJobs); err != nil {
@@ -1273,37 +1271,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				return errors.Errorf("previous stage %s status is not passed or skipped", preStage.Name)
 			}
 
-			if stage.ManualExec == nil || !stage.ManualExec.Enabled {
-				return errors.Errorf("stage %s is not enabled for manual execution", stage.Name)
-			}
 			stage.ManualExec.Excuted = true
-
-			approval := false
-			if isSystemAdmin {
-				approval = true
-			}
-
-			for _, user := range stage.ManualExec.ManualExecUsers {
-				if user.Type == setting.UserTypeTaskCreator {
-					if executorID == task.TaskCreatorID {
-						approval = true
-						break
-					}
-				}
-			}
-			if !approval {
-				users, _ := util.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
-				for _, user := range users {
-					if user.UserID == executorID {
-						approval = true
-						break
-					}
-				}
-			}
-
-			if !approval {
-				return errors.Errorf("user %s is not allowed to manually execute stage %s", executorID, stage.Name)
-			}
 
 			found = true
 			stage.ManualExec.ManualExectorID = executorID
