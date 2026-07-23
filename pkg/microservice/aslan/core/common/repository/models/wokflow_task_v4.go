@@ -332,6 +332,7 @@ func (j *JobTaskHelmDeploySpec) GetDeployImages() []string {
 
 type JobTaskHelmChartDeploySpec struct {
 	Env                string           `bson:"env"                              json:"env"                                 yaml:"env"`
+	Production         bool             `bson:"production"                      json:"production"                         yaml:"production"`
 	DeployHelmChart    *DeployHelmChart `bson:"deploy_helm_chart"       yaml:"deploy_helm_chart"          json:"deploy_helm_chart"`
 	SkipCheckRunStatus bool             `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ClusterID          string           `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`

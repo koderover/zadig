@@ -33,16 +33,19 @@ import (
 	"golang.org/x/sync/singleflight"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
@@ -74,6 +77,7 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - workloads[].replicas 仅表示对应工作负载的配置副本数；当评估规则未明确要求检查目标副本数时，不能仅因为 ready_pods != workloads[].replicas 给出 warning；service_ready 应根据同一环境、同一服务的 ready、pod_count 和 ready_pods 判断。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
 - 部署类任务：表示工作流中已配置的发布目标环境、服务和版本信息；你只能依据输入中已经给出的发布目标判断，不要假设未提供的发布动作。
+- 发布目标汇总：release_targets 顶层的 service_names、image_versions、target_count 是全部命中目标的汇总；只有所有目标属于同一环境且生产属性一致时，顶层才提供 env_name、env_alias、production。多环境发布必须依据 items 中的环境和生产标识分别判断。
 - 如果输入中带有 sources 或 items 字段，这些字段表示对应上下文来自哪个上游任务；应优先结合其中的 job_name、job_type、status、summary 判断每条信息的来源和含义。
 
 判断约束：
@@ -123,6 +127,17 @@ var (
 	}
 	sendAIReleaseSpecialistTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 		return instantmessage.NewWeChatClient().SendTaskNotifications(input)
+	}
+	getAIReleaseHelmReleaseManifest = func(product *commonmodels.Product, releaseName string) (string, error) {
+		helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
+		if err != nil {
+			return "", err
+		}
+		release, err := helmClient.GetRelease(releaseName)
+		if err != nil {
+			return "", err
+		}
+		return release.Manifest, nil
 	}
 )
 
@@ -499,9 +514,6 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				target := buildReleaseTargetFromHelmChartDeploy(job, spec)
 				collector.addReleaseTarget(task.ProjectName, job, target, requestedContexts, scopeFilter, envMap)
 			case string(config.JobZadigBuild):
-				if !hasAIReleaseSpecialistContext(requestedContexts, "build") || !scopeFilter.matchesJob("build", job) {
-					continue
-				}
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
@@ -915,7 +927,8 @@ func buildReleaseTargetFromHelmDeploy(job *commonmodels.JobTask, spec *commonmod
 
 func buildReleaseTargetFromHelmChartDeploy(job *commonmodels.JobTask, spec *commonmodels.JobTaskHelmChartDeploySpec) *commonmodels.AIReleaseTargetsSummary {
 	target := &commonmodels.AIReleaseTargetsSummary{
-		EnvName: spec.Env,
+		EnvName:    spec.Env,
+		Production: spec.Production,
 	}
 	if spec.DeployHelmChart != nil {
 		target.TargetCount = 1
@@ -934,23 +947,30 @@ func buildReleaseTargetFromHelmChartDeploy(job *commonmodels.JobTask, spec *comm
 
 func mergeReleaseTargets(targets []*commonmodels.AIReleaseTargetsSummary) *commonmodels.AIReleaseTargetsSummary {
 	merged := &commonmodels.AIReleaseTargetsSummary{}
+	var envName, envAlias string
+	var production, environmentSet bool
+	sameEnvironment := true
 	for _, target := range targets {
 		if target == nil {
 			continue
 		}
-		if merged.EnvName == "" {
-			merged.EnvName = target.EnvName
-		}
-		if merged.EnvAlias == "" {
-			merged.EnvAlias = target.EnvAlias
-		}
-		if target.Production {
-			merged.Production = true
+		if !environmentSet {
+			envName = target.EnvName
+			envAlias = target.EnvAlias
+			production = target.Production
+			environmentSet = true
+		} else if target.EnvName != envName || target.EnvAlias != envAlias || target.Production != production {
+			sameEnvironment = false
 		}
 		merged.ServiceNames = append(merged.ServiceNames, target.ServiceNames...)
 		merged.ImageVersions = append(merged.ImageVersions, target.ImageVersions...)
 		merged.TargetCount += target.TargetCount
 		merged.Items = append(merged.Items, target.Items...)
+	}
+	if environmentSet && sameEnvironment {
+		merged.EnvName = envName
+		merged.EnvAlias = envAlias
+		merged.Production = production
 	}
 	merged.ServiceNames = uniqueSortedStrings(merged.ServiceNames)
 	merged.ImageVersions = uniquePreserveOrder(merged.ImageVersions)
@@ -1285,19 +1305,18 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 			continue
 		}
 		var kubeClient client.Client
-		if hasK8SRuntimeServices(product, target.ServiceNames) {
+		if hasAIRuntimeServices(product, target.ServiceNames) {
 			kubeClient, err = getAIReleaseKubeClient(product.ClusterID)
 			if err != nil {
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("get env %s kube client failed: %v", target.EnvName, err))
 			}
 		}
-		serviceMap := product.GetServiceMap()
 		for _, serviceName := range target.ServiceNames {
 			serviceName = strings.TrimSpace(serviceName)
 			if serviceName == "" {
 				continue
 			}
-			service := serviceMap[serviceName]
+			service := findAIRuntimeService(product, serviceName)
 			if service == nil {
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("service %s not found in env %s", serviceName, target.EnvName))
 				continue
@@ -1358,14 +1377,32 @@ func getAIReleaseKubeClient(clusterID string) (client.Client, error) {
 	}
 }
 
-func hasK8SRuntimeServices(product *commonmodels.Product, serviceNames []string) bool {
+func findAIRuntimeService(product *commonmodels.Product, serviceName string) *commonmodels.ProductService {
+	if product == nil {
+		return nil
+	}
+	serviceName = strings.TrimSpace(serviceName)
+	if service := product.GetServiceMap()[serviceName]; service != nil {
+		return service
+	}
+	return product.GetChartServiceMap()[serviceName]
+}
+
+func hasAIRuntimeServices(product *commonmodels.Product, serviceNames []string) bool {
 	if product == nil || len(serviceNames) == 0 {
 		return false
 	}
-	serviceMap := product.GetServiceMap()
 	for _, serviceName := range serviceNames {
-		service := serviceMap[strings.TrimSpace(serviceName)]
-		if service != nil && service.Type == setting.K8SDeployType && len(service.WorkLoads) > 0 {
+		service := findAIRuntimeService(product, serviceName)
+		if service == nil {
+			continue
+		}
+		switch service.Type {
+		case setting.K8SDeployType:
+			if len(service.WorkLoads) > 0 {
+				return true
+			}
+		case setting.HelmDeployType, setting.HelmChartDeployType:
 			return true
 		}
 	}
@@ -1373,11 +1410,15 @@ func hasK8SRuntimeServices(product *commonmodels.Product, serviceNames []string)
 }
 
 func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmodels.ProductService) *commonmodels.AIRuntimeServiceItem {
+	serviceName := service.ServiceName
+	if service.Type == setting.HelmChartDeployType {
+		serviceName = service.ReleaseName
+	}
 	item := &commonmodels.AIRuntimeServiceItem{
 		EnvName:     product.EnvName,
 		EnvAlias:    commonutil.GetEnvAlias(product),
 		Production:  product.Production,
-		ServiceName: service.ServiceName,
+		ServiceName: serviceName,
 		ServiceType: service.Type,
 		Revision:    service.Revision,
 		Error:       compactSingleLine(service.Error),
@@ -1396,6 +1437,7 @@ func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmod
 		item.Workloads = append(item.Workloads, &commonmodels.AIRuntimeWorkload{
 			WorkloadType: workload.WorkloadType,
 			WorkloadName: workload.WorkloadName,
+			Replicas:     workload.Replicas,
 		})
 	}
 	for _, resource := range service.Resources {
@@ -1415,14 +1457,34 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	if product == nil || service == nil || item == nil || kubeClient == nil {
 		return nil
 	}
-	if service.Type != setting.K8SDeployType || len(service.WorkLoads) == 0 {
+	if service.Type != setting.K8SDeployType && service.Type != setting.HelmDeployType && service.Type != setting.HelmChartDeployType {
 		return nil
 	}
 	if strings.TrimSpace(product.Namespace) == "" {
-		return fmt.Errorf("query service %s pod status failed: env namespace is empty", service.ServiceName)
+		return fmt.Errorf("query service %s pod status failed: env namespace is empty", item.ServiceName)
+	}
+	workloads, err := getAIRuntimeServiceWorkloadsWithTimeout(product, service)
+	if err != nil {
+		return fmt.Errorf("query service %s workloads failed: %v", item.ServiceName, err)
+	}
+	if service.Type != setting.K8SDeployType {
+		item.Workloads = make([]*commonmodels.AIRuntimeWorkload, 0, len(workloads))
+		for _, workload := range workloads {
+			if workload == nil {
+				continue
+			}
+			item.Workloads = append(item.Workloads, &commonmodels.AIRuntimeWorkload{
+				WorkloadType: workload.WorkloadType,
+				WorkloadName: workload.WorkloadName,
+				Replicas:     workload.Replicas,
+			})
+		}
+	}
+	if len(workloads) == 0 {
+		return nil
 	}
 	var queryErrors []string
-	for _, workload := range service.WorkLoads {
+	for _, workload := range workloads {
 		if workload == nil || strings.TrimSpace(workload.WorkloadName) == "" {
 			continue
 		}
@@ -1454,9 +1516,80 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 		item.Ready = setting.PodNotReady
 	}
 	if len(queryErrors) > 0 {
-		return fmt.Errorf("query service %s pod status failed: %s", service.ServiceName, strings.Join(uniquePreserveOrder(queryErrors), "; "))
+		return fmt.Errorf("query service %s pod status failed: %s", item.ServiceName, strings.Join(uniquePreserveOrder(queryErrors), "; "))
 	}
 	return nil
+}
+
+func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *commonmodels.ProductService) ([]*commonmodels.WorkLoad, error) {
+	if product == nil || service == nil {
+		return nil, nil
+	}
+	if service.Type == setting.K8SDeployType {
+		return service.WorkLoads, nil
+	}
+	if service.Type != setting.HelmDeployType && service.Type != setting.HelmChartDeployType {
+		return nil, nil
+	}
+	releaseName := strings.TrimSpace(service.ReleaseName)
+	if releaseName == "" {
+		return nil, fmt.Errorf("release name is empty")
+	}
+	manifest, err := getAIReleaseHelmReleaseManifest(product, releaseName)
+	if err != nil {
+		return nil, fmt.Errorf("get release %s failed: %v", releaseName, err)
+	}
+	return parseAIRuntimeWorkloadsFromHelmManifest(manifest)
+}
+
+func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, service *commonmodels.ProductService) ([]*commonmodels.WorkLoad, error) {
+	if service == nil || service.Type == setting.K8SDeployType {
+		return getAIRuntimeServiceWorkloads(product, service)
+	}
+	type resp struct {
+		workloads []*commonmodels.WorkLoad
+		err       error
+	}
+	ch := make(chan resp, 1)
+	go func() {
+		workloads, err := getAIRuntimeServiceWorkloads(product, service)
+		ch <- resp{workloads: workloads, err: err}
+	}()
+	select {
+	case result := <-ch:
+		return result.workloads, result.err
+	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+		return nil, fmt.Errorf("query release %s workloads timeout after %s", service.ReleaseName, aiReleaseSpecialistKubeQueryTimeout)
+	}
+}
+
+func parseAIRuntimeWorkloadsFromHelmManifest(manifest string) ([]*commonmodels.WorkLoad, error) {
+	unstructuredList, _, err := kube.ManifestToUnstructured(manifest)
+	if err != nil {
+		return nil, err
+	}
+	workloads := make([]*commonmodels.WorkLoad, 0)
+	for _, resource := range unstructuredList {
+		if resource == nil {
+			continue
+		}
+		if resource.GetKind() != setting.Deployment && resource.GetKind() != setting.StatefulSet {
+			continue
+		}
+		replicas, found, err := unstructured.NestedInt64(resource.Object, "spec", "replicas")
+		if err != nil {
+			return nil, fmt.Errorf("get %s/%s replicas failed: %v", resource.GetKind(), resource.GetName(), err)
+		}
+		workload := &commonmodels.WorkLoad{
+			WorkloadType: resource.GetKind(),
+			WorkloadName: resource.GetName(),
+		}
+		if found {
+			workload.Replicas = int32(replicas)
+		}
+		workloads = append(workloads, workload)
+	}
+	return workloads, nil
 }
 
 func listAIRuntimeWorkloadPods(namespace string, workload *commonmodels.WorkLoad, kubeClient client.Client) ([]*corev1.Pod, error) {
@@ -1907,20 +2040,20 @@ func getJobInfoString(jobInfo interface{}, key string) string {
 }
 
 func BuildAIReleaseSpecialistEvaluationPrompt(rulePlan *commonmodels.AIReleaseSpecialistRulePlan, systemPromptOverride string, input *commonmodels.AIReleaseSpecialistInput) (string, error) {
-	inputJSON, err := json.MarshalIndent(input, "", "  ")
+	inputJSON, err := json.Marshal(input)
 	if err != nil {
 		return "", err
 	}
 
 	prompt := buildAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	if rulePlan != nil {
-		planJSON, err := json.MarshalIndent(struct {
+		planJSON, err := json.Marshal(struct {
 			Contexts []string                                        `json:"contexts"`
 			Rules    []*commonmodels.AIReleaseSpecialistRulePlanRule `json:"rules"`
 		}{
 			Contexts: rulePlan.Contexts,
 			Rules:    rulePlan.Rules,
-		}, "", "  ")
+		})
 		if err != nil {
 			return "", err
 		}
