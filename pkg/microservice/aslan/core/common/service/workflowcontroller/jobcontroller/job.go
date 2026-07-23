@@ -51,103 +51,32 @@ var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
-type notificationRuntimeRenderFields struct {
-	Title   string
-	Content string
-
-	LarkHookDynamic   commonmodels.DynamicRecipients
-	LarkGroupDynamic  commonmodels.DynamicRecipients
-	LarkPersonDynamic commonmodels.DynamicRecipients
-	DingDingDynamic   commonmodels.DynamicRecipients
-	MSTeamsDynamic    commonmodels.DynamicRecipients
-	MailDynamic       commonmodels.DynamicRecipients
-}
-
-// Preserve notification templates while generic job rendering removes unresolved variables.
-// NotificationJobCtl resolves them later with the runtime webhook/task context.
-func backupNotificationRuntimeRenderFields(job *commonmodels.JobTask) (*notificationRuntimeRenderFields, error) {
-	if job == nil || job.JobType != string(config.JobNotification) {
-		return nil, nil
+func removeUnrenderedVariables(job *commonmodels.JobTask) error {
+	if job == nil {
+		return nil
 	}
 
-	spec, err := decodeNotificationJobTaskSpec(job.Spec)
+	// NotificationJobCtl owns notification spec rendering because it has the
+	// webhook and task runtime context required by notification templates.
+	var notificationSpec interface{}
+	if job.JobType == string(config.JobNotification) {
+		notificationSpec = job.Spec
+		job.Spec = nil
+		defer func() {
+			job.Spec = notificationSpec
+		}()
+	}
+
+	b, err := json.Marshal(job)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to marshal job: %w", err)
 	}
-
-	resp := &notificationRuntimeRenderFields{
-		Title:   spec.Title,
-		Content: spec.Content,
+	variableRegexp := regexp.MustCompile(config.VariableRegEx)
+	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
+	if err := json.Unmarshal(replacedJob, job); err != nil {
+		return fmt.Errorf("failed to unmarshal job: %w", err)
 	}
-
-	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
-		resp.LarkHookDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
-		resp.LarkGroupDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
-		resp.LarkPersonDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-	if cfg := spec.DingDingNotificationConfig; cfg != nil {
-		resp.DingDingDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
-		resp.MSTeamsDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-	if cfg := spec.MailNotificationConfig; cfg != nil {
-		resp.MailDynamic = commonmodels.CloneDynamicRecipients(cfg.DynamicRecipients)
-	}
-
-	return resp, nil
-}
-
-func restoreNotificationRuntimeRenderFields(job *commonmodels.JobTask, fields *notificationRuntimeRenderFields) (*commonmodels.JobTaskNotificationSpec, error) {
-	if job == nil || fields == nil || job.JobType != string(config.JobNotification) {
-		return nil, nil
-	}
-
-	spec, err := decodeNotificationJobTaskSpec(job.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	spec.Title = fields.Title
-	spec.Content = fields.Content
-
-	if cfg := spec.LarkHookNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkHookDynamic)
-	}
-	if cfg := spec.LarkGroupNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkGroupDynamic)
-	}
-	if cfg := spec.LarkPersonNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.LarkPersonDynamic)
-	}
-	if cfg := spec.DingDingNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.DingDingDynamic)
-	}
-	if cfg := spec.MSTeamsNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.MSTeamsDynamic)
-	}
-	if cfg := spec.MailNotificationConfig; cfg != nil {
-		cfg.DynamicRecipients = commonmodels.CloneDynamicRecipients(fields.MailDynamic)
-	}
-
-	job.Spec = spec
-	return spec, nil
-}
-
-func decodeNotificationJobTaskSpec(raw interface{}) (*commonmodels.JobTaskNotificationSpec, error) {
-	if spec, ok := raw.(*commonmodels.JobTaskNotificationSpec); ok && spec != nil {
-		return spec, nil
-	}
-
-	spec := &commonmodels.JobTaskNotificationSpec{}
-	if err := commonmodels.IToi(raw, spec); err != nil {
-		return nil, err
-	}
-	return spec, nil
+	return nil
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -282,34 +211,12 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		return true
 	})
 
-	notificationFields, err := backupNotificationRuntimeRenderFields(job)
-	if err != nil {
-		logger.Errorf("backup notification runtime fields error: %v", err)
-		job.Status = config.StatusFailed
-		job.Error = err.Error()
-		return
-	}
-
 	// remove all the unrendered variable, replacing then with empty string
-	b, _ := json.Marshal(job)
-	variableRegexp := regexp.MustCompile(config.VariableRegEx)
-	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
-	if err := json.Unmarshal([]byte(replacedJob), &job); err != nil {
-		logger.Errorf("unmarshal job error: %v", err)
+	if err := removeUnrenderedVariables(job); err != nil {
+		logger.Errorf("remove unrendered job variables error: %v", err)
 		job.Status = config.StatusFailed
 		job.Error = err.Error()
 		return
-	}
-	if restoredSpec, err := restoreNotificationRuntimeRenderFields(job, notificationFields); err != nil {
-		logger.Errorf("restore notification runtime fields error: %v", err)
-		job.Status = config.StatusFailed
-		job.Error = err.Error()
-		return
-	} else if restoredSpec != nil {
-		if ctl, ok := jobCtl.(*NotificationJobCtl); ok {
-			ctl.jobTaskSpec = restoredSpec
-			ctl.job.Spec = restoredSpec
-		}
 	}
 
 	// Check execute policy before running the job

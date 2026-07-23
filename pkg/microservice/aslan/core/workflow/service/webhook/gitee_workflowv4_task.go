@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -219,6 +220,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 	}
 
 	mErr := &multierror.Error{}
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *gitee.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequestEvent(pullRequestEvent, codehostId)
 	}
@@ -287,7 +289,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					CommitSHA:      commitID,
 					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
-					RawPayload:     rawPayload,
 				}
 			case *gitee.PushEvent:
 				eventType = EventTypePush
@@ -309,7 +310,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					CommitMessage: eventRepo.CommitMessage,
 					Committer:     eventRepo.Committer,
 					EventType:     eventType,
-					RawPayload:    rawPayload,
 				}
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
@@ -318,9 +318,9 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					TargetBranch: eventRepo.TargetBranch,
 					Committer:    eventRepo.Committer,
 					EventType:    eventType,
-					RawPayload:   rawPayload,
 				}
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

@@ -503,67 +503,15 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 		return nil
 	}
 
-	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
-		workflowArgs,
-		task.ProjectName,
-		task.ProjectDisplayName,
-		task.TaskID,
-		task.TaskCreator,
-		task.TaskCreatorAccount,
-		task.TaskCreatorID,
-		time.Unix(task.StartTime, 0),
-	))
-	resolver := dynamicrecipient.NewResolver(keyMap)
-
-	if cfg := notify.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		for _, user := range users {
-			if user == nil || user.ID == "" {
-				continue
-			}
-			cfg.AtUsers = append(cfg.AtUsers, user.ID)
-		}
-		cfg.AtUsers = dynamicrecipient.UniqStrings(cfg.AtUsers)
-	}
-	if cfg := notify.LarkGroupNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
-	}
-	if cfg := notify.LarkPersonNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		cfg.TargetUsers = dynamicrecipient.UniqLarkUsers(append(cfg.TargetUsers, users...))
-	}
-	if cfg := notify.MSTeamsNotificationConfig; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtEmails = dynamicrecipient.UniqStrings(append(cfg.AtEmails, emails...))
-	}
-	if cfg := notify.MailNotificationConfig; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.TargetUsers = dynamicrecipient.UniqMailUsers(append(cfg.TargetUsers, dynamicrecipient.BuildMailUsersFromEmails(emails)...))
-	}
-	if cfg := notify.DingDingNotificationConfig; cfg != nil {
-		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtMobiles = dynamicrecipient.UniqStrings(append(cfg.AtMobiles, mobiles...))
-	}
-	return nil
+	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
+	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+		LarkHook:   notify.LarkHookNotificationConfig,
+		LarkGroup:  notify.LarkGroupNotificationConfig,
+		LarkPerson: notify.LarkPersonNotificationConfig,
+		DingDing:   notify.DingDingNotificationConfig,
+		MSTeams:    notify.MSTeamsNotificationConfig,
+		Mail:       notify.MailNotificationConfig,
+	})
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
@@ -54,6 +55,8 @@ type NotificationJobCtl struct {
 	jobTaskSpec *commonmodels.JobTaskNotificationSpec
 	ack         func()
 }
+
+var unresolvedNotificationVariableRegexp = regexp.MustCompile(config.VariableRegEx)
 
 func NewNotificationJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *NotificationJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskNotificationSpec{}
@@ -246,71 +249,22 @@ func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
-	keyMap := util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
-	for key := range keyMap {
-		if strings.HasPrefix(key, "payload.") {
-			delete(keyMap, key)
-		}
-	}
-	return keyMap
-}
-
-func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
 	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
 }
 
-func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
-	resolver := dynamicrecipient.NewResolver(keyMap)
+func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
+	return util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+}
 
-	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		for _, user := range users {
-			if user == nil || user.ID == "" {
-				continue
-			}
-			cfg.AtUsers = append(cfg.AtUsers, user.ID)
-		}
-		cfg.AtUsers = lo.Uniq(cfg.AtUsers)
-	}
-	if cfg := c.jobTaskSpec.LarkGroupNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		cfg.AtUsers = dynamicrecipient.UniqLarkUsers(append(cfg.AtUsers, users...))
-	}
-	if cfg := c.jobTaskSpec.LarkPersonNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
-		cfg.TargetUsers = dynamicrecipient.UniqLarkUsers(append(cfg.TargetUsers, users...))
-	}
-	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtEmails = lo.Uniq(append(cfg.AtEmails, emails...))
-	}
-	if cfg := c.jobTaskSpec.MailNotificationConfig; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.TargetUsers = dynamicrecipient.UniqMailUsers(append(cfg.TargetUsers, dynamicrecipient.BuildMailUsersFromEmails(emails)...))
-	}
-	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
-		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtMobiles = lo.Uniq(append(cfg.AtMobiles, mobiles...))
-	}
-	return nil
+func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
+	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+		LarkHook:   c.jobTaskSpec.LarkHookNotificationConfig,
+		LarkGroup:  c.jobTaskSpec.LarkGroupNotificationConfig,
+		LarkPerson: c.jobTaskSpec.LarkPersonNotificationConfig,
+		DingDing:   c.jobTaskSpec.DingDingNotificationConfig,
+		MSTeams:    c.jobTaskSpec.MSTeamsNotificationConfig,
+		Mail:       c.jobTaskSpec.MailNotificationConfig,
+	})
 }
 
 func buildLarkAtMessage(idList []string, isAtAll bool) string {
@@ -327,14 +281,17 @@ func buildLarkAtMessage(idList []string, isAtAll bool) string {
 }
 
 func renderNotificationString(input string, keyMap map[string]string) string {
-	if len(keyMap) == 0 || !strings.Contains(input, "{{.") {
+	if !strings.Contains(input, "{{.") {
 		return input
 	}
-	pairs := make([]string, 0, len(keyMap)*2)
-	for key, value := range keyMap {
-		pairs = append(pairs, "{{."+key+"}}", value)
+	if len(keyMap) > 0 {
+		pairs := make([]string, 0, len(keyMap)*2)
+		for key, value := range keyMap {
+			pairs = append(pairs, "{{."+key+"}}", value)
+		}
+		input = strings.NewReplacer(pairs...).Replace(input)
 	}
-	return strings.NewReplacer(pairs...).Replace(input)
+	return unresolvedNotificationVariableRegexp.ReplaceAllString(input, "")
 }
 
 func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDisplayName string, taskID int64, receiverType, receiverID, title, message string, idList []string, isAtAll bool) error {

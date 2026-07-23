@@ -509,7 +509,8 @@ type HookPayload struct {
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	EventType      string `bson:"event_type"       json:"event_type"`
-	RawPayload     string `bson:"raw_payload"      json:"raw_payload,omitempty"`
+	// PayloadVars only contains flattened email/mobile/phone leaves used for dynamic recipients.
+	PayloadVars []*KeyVal `bson:"payload_vars,omitempty" json:"payload_vars,omitempty"`
 }
 
 type TargetArgs struct {

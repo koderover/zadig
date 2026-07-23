@@ -31,6 +31,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -260,6 +261,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 	}
 	var errorList = &multierror.Error{}
 	var notification *commonmodels.Notification
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(string(body))
 	for _, workflow := range workflows {
 		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
 		if err != nil {
@@ -365,8 +367,8 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 				CommitMessage:  eventRepo.CommitMessage,
 				Committer:      eventRepo.Committer,
 				EventType:      event.Type,
-				RawPayload:     string(body),
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
 			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)

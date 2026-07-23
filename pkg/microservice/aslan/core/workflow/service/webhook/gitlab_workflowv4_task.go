@@ -32,6 +32,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -291,6 +292,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 	}
 
 	mErr := &multierror.Error{}
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -381,7 +383,6 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					Committer:      ev.ObjectAttributes.LastCommit.Author.Name,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
-					RawPayload:     rawPayload,
 				}
 			case *gitlab.PushEvent:
 				eventType = EventTypePush
@@ -403,7 +404,6 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					Committer:     eventRepo.Committer,
 					CodehostID:    eventRepo.CodehostID,
 					EventType:     eventType,
-					RawPayload:    rawPayload,
 				}
 			case *gitlab.TagEvent:
 				eventType = EventTypeTag
@@ -412,9 +412,9 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					TargetBranch: eventRepo.TargetBranch,
 					Committer:    eventRepo.Committer,
 					EventType:    eventType,
-					RawPayload:   rawPayload,
 				}
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

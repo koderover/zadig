@@ -13,7 +13,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
-func BuildPayloadVariables(rawPayload string) []*commonmodels.KeyVal {
+// BuildPayloadRecipientVariables keeps only payload leaves that can identify
+// notification recipients.
+func BuildPayloadRecipientVariables(rawPayload string) []*commonmodels.KeyVal {
 	if rawPayload == "" {
 		return nil
 	}
@@ -39,15 +41,40 @@ func flattenPayloadValue(prefix string, value interface{}, resp *[]*commonmodels
 			flattenPayloadValue(fmt.Sprintf("%s.%d", prefix, index), item, resp)
 		}
 	case string:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: val, IsCredential: false})
+		appendPayloadRecipientVariable(prefix, val, resp)
 	case float64:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatFloat(val, 'f', -1, 64), IsCredential: false})
+		appendPayloadRecipientVariable(prefix, strconv.FormatFloat(val, 'f', -1, 64), resp)
 	case bool:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatBool(val), IsCredential: false})
+		appendPayloadRecipientVariable(prefix, strconv.FormatBool(val), resp)
 	case nil:
 		return
 	default:
-		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: fmt.Sprint(val), IsCredential: false})
+		appendPayloadRecipientVariable(prefix, fmt.Sprint(val), resp)
+	}
+}
+
+func appendPayloadRecipientVariable(prefix, value string, resp *[]*commonmodels.KeyVal) {
+	if _, ok := ParsePayloadRecipientKind(prefix); !ok {
+		return
+	}
+	*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: value, IsCredential: false})
+}
+
+// ParsePayloadRecipientKind validates a flattened payload key and normalizes
+// phone/mobile fields to the mobile contact kind.
+func ParsePayloadRecipientKind(key string) (string, bool) {
+	if !strings.HasPrefix(key, "payload.") {
+		return "", false
+	}
+
+	parts := strings.Split(strings.ToLower(key), ".")
+	switch parts[len(parts)-1] {
+	case "email":
+		return "email", true
+	case "mobile", "phone":
+		return "mobile", true
+	default:
+		return "", false
 	}
 }
 
@@ -93,10 +120,18 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 	}
 	if workflow.HookPayload != nil {
 		resp = append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
-		resp = append(resp, BuildPayloadVariables(workflow.HookPayload.RawPayload)...)
 	}
 
 	return resp
+}
+
+// BuildWorkflowPayloadVariableKVs exposes webhook payload fields only to
+// dynamic notification recipient resolution.
+func BuildWorkflowPayloadVariableKVs(workflow *commonmodels.WorkflowV4) []*commonmodels.KeyVal {
+	if workflow == nil || workflow.HookPayload == nil {
+		return nil
+	}
+	return workflow.HookPayload.PayloadVars
 }
 
 func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*commonmodels.KeyVal {
@@ -135,29 +170,6 @@ func inferWorkflowTriggerCommitSHA(hookPayload *commonmodels.HookPayload) string
 	}
 	if commitSHARegex.MatchString(hookPayload.CommitID) {
 		return hookPayload.CommitID
-	}
-
-	type patchSetPayload struct {
-		Revision string `json:"revision"`
-	}
-	type gerritPayload struct {
-		NewRev   string          `json:"newRev"`
-		PatchSet patchSetPayload `json:"patchSet"`
-	}
-
-	if hookPayload.RawPayload == "" {
-		return ""
-	}
-
-	payload := new(gerritPayload)
-	if err := json.Unmarshal([]byte(hookPayload.RawPayload), payload); err != nil {
-		return ""
-	}
-	if commitSHARegex.MatchString(payload.NewRev) {
-		return payload.NewRev
-	}
-	if commitSHARegex.MatchString(payload.PatchSet.Revision) {
-		return payload.PatchSet.Revision
 	}
 	return ""
 }

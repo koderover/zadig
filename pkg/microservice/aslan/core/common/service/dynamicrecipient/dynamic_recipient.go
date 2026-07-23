@@ -9,6 +9,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -70,6 +71,15 @@ type Resolver struct {
 	larkUserMissCache map[string]bool
 }
 
+type NotificationConfigs struct {
+	LarkHook   *commonmodels.LarkHookNotificationConfig
+	LarkGroup  *commonmodels.LarkGroupNotificationConfig
+	LarkPerson *commonmodels.LarkPersonNotificationConfig
+	DingDing   *commonmodels.DingDingNotificationConfig
+	MSTeams    *commonmodels.MSTeamsNotificationConfig
+	Mail       *commonmodels.MailNotificationConfig
+}
+
 func ValidateDynamicRecipientsForNotifyType(notifyType setting.NotifyWebHookType, recipients []string) error {
 	if len(recipients) == 0 {
 		return nil
@@ -119,6 +129,60 @@ func NewResolver(keyMap map[string]string) *Resolver {
 		larkUserIDCache:   make(map[string]string),
 		larkUserMissCache: make(map[string]bool),
 	}
+}
+
+func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationConfigs) error {
+	resolver := NewResolver(keyMap)
+
+	if cfg := configs.LarkHook; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
+		if err != nil {
+			return err
+		}
+		for _, user := range users {
+			if user == nil || user.ID == "" {
+				continue
+			}
+			cfg.AtUsers = append(cfg.AtUsers, user.ID)
+		}
+		cfg.AtUsers = UniqStrings(cfg.AtUsers)
+	}
+	if cfg := configs.LarkGroup; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
+		if err != nil {
+			return err
+		}
+		cfg.AtUsers = UniqLarkUsers(append(cfg.AtUsers, users...))
+	}
+	if cfg := configs.LarkPerson; cfg != nil {
+		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = UniqLarkUsers(append(cfg.TargetUsers, users...))
+	}
+	if cfg := configs.MSTeams; cfg != nil {
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.AtEmails = UniqStrings(append(cfg.AtEmails, emails...))
+	}
+	if cfg := configs.Mail; cfg != nil {
+		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.TargetUsers = UniqMailUsers(append(cfg.TargetUsers, BuildMailUsersFromEmails(emails)...))
+	}
+	if cfg := configs.DingDing; cfg != nil {
+		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
+		if err != nil {
+			return err
+		}
+		cfg.AtMobiles = UniqStrings(append(cfg.AtMobiles, mobiles...))
+	}
+	return nil
 }
 
 func (r *Resolver) ResolveEmails(recipients []string) ([]string, error) {
@@ -471,23 +535,14 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 	if key == "" {
 		return nil, fmt.Errorf("dynamic recipient %s is invalid", input)
 	}
-
-	parts := strings.Split(strings.ToLower(key), ".")
-	suffix := parts[len(parts)-1]
-
-	var kind dynamicRecipientKind
-	switch suffix {
-	case "email":
-		kind = dynamicRecipientKindEmail
-	case "mobile", "phone":
-		kind = dynamicRecipientKindMobile
-	default:
-		return nil, fmt.Errorf("dynamic recipient %s is not supported, only email/mobile(phone) are allowed", input)
+	recipientKind, ok := commonutil.ParsePayloadRecipientKind(key)
+	if !ok {
+		return nil, fmt.Errorf("dynamic recipient %s is not supported, only payload fields ending in email/mobile(phone) are allowed", input)
 	}
 
 	return &dynamicRecipientSpec{
 		raw:  input,
-		kind: kind,
+		kind: dynamicRecipientKind(recipientKind),
 	}, nil
 }
 

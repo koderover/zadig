@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -222,6 +223,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 	}
 
 	mErr := &multierror.Error{}
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -285,7 +287,6 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					CommitSHA:      commitID,
 					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
-					RawPayload:     rawPayload,
 				}
 			case *github.PushEvent:
 				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
@@ -309,7 +310,6 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 						CommitMessage: ev.GetHeadCommit().GetMessage(),
 						Committer:     ev.GetPusher().GetName(),
 						EventType:     eventType,
-						RawPayload:    rawPayload,
 					}
 				}
 			case *github.CreateEvent:
@@ -319,9 +319,9 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					TargetBranch: item.MainRepo.Branch,
 					Committer:    item.MainRepo.Committer,
 					EventType:    eventType,
-					RawPayload:   rawPayload,
 				}
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

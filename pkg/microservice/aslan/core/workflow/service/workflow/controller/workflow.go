@@ -48,211 +48,10 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 	return &Workflow{wf}
 }
 
-type notificationDynamicRecipients struct {
-	LarkHook   commonmodels.DynamicRecipients
-	LarkGroup  commonmodels.DynamicRecipients
-	LarkPerson commonmodels.DynamicRecipients
-	DingDing   commonmodels.DynamicRecipients
-	MSTeams    commonmodels.DynamicRecipients
-	Mail       commonmodels.DynamicRecipients
-}
-
-type workflowNotificationSpecBackup struct {
-	StageIndex int
-	JobIndex   int
-	Recipients *notificationDynamicRecipients
-}
-
-func backupNotificationDynamicRecipients(
-	larkHook *commonmodels.LarkHookNotificationConfig,
-	larkGroup *commonmodels.LarkGroupNotificationConfig,
-	larkPerson *commonmodels.LarkPersonNotificationConfig,
-	dingDing *commonmodels.DingDingNotificationConfig,
-	msTeams *commonmodels.MSTeamsNotificationConfig,
-	mail *commonmodels.MailNotificationConfig,
-) *notificationDynamicRecipients {
-	resp := &notificationDynamicRecipients{}
-	if larkHook != nil {
-		resp.LarkHook = commonmodels.CloneDynamicRecipients(larkHook.DynamicRecipients)
-	}
-	if larkGroup != nil {
-		resp.LarkGroup = commonmodels.CloneDynamicRecipients(larkGroup.DynamicRecipients)
-	}
-	if larkPerson != nil {
-		resp.LarkPerson = commonmodels.CloneDynamicRecipients(larkPerson.DynamicRecipients)
-	}
-	if dingDing != nil {
-		resp.DingDing = commonmodels.CloneDynamicRecipients(dingDing.DynamicRecipients)
-	}
-	if msTeams != nil {
-		resp.MSTeams = commonmodels.CloneDynamicRecipients(msTeams.DynamicRecipients)
-	}
-	if mail != nil {
-		resp.Mail = commonmodels.CloneDynamicRecipients(mail.DynamicRecipients)
-	}
-	return resp
-}
-
-func restoreNotificationDynamicRecipients(
-	recipients *notificationDynamicRecipients,
-	larkHook *commonmodels.LarkHookNotificationConfig,
-	larkGroup *commonmodels.LarkGroupNotificationConfig,
-	larkPerson *commonmodels.LarkPersonNotificationConfig,
-	dingDing *commonmodels.DingDingNotificationConfig,
-	msTeams *commonmodels.MSTeamsNotificationConfig,
-	mail *commonmodels.MailNotificationConfig,
-) {
-	if recipients == nil {
-		return
-	}
-	if larkHook != nil {
-		larkHook.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkHook)
-	}
-	if larkGroup != nil {
-		larkGroup.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkGroup)
-	}
-	if larkPerson != nil {
-		larkPerson.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkPerson)
-	}
-	if dingDing != nil {
-		dingDing.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.DingDing)
-	}
-	if msTeams != nil {
-		msTeams.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.MSTeams)
-	}
-	if mail != nil {
-		mail.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.Mail)
-	}
-}
-
-func backupNotificationDynamicRecipientsFromWorkflowSpec(spec *commonmodels.NotificationJobSpec) *notificationDynamicRecipients {
-	if spec == nil {
-		return nil
-	}
-	return backupNotificationDynamicRecipients(
-		spec.LarkHookNotificationConfig,
-		spec.LarkGroupNotificationConfig,
-		spec.LarkPersonNotificationConfig,
-		spec.DingDingNotificationConfig,
-		spec.MSTeamsNotificationConfig,
-		spec.MailNotificationConfig,
-	)
-}
-
-func restoreNotificationDynamicRecipientsToWorkflowSpec(spec *commonmodels.NotificationJobSpec, recipients *notificationDynamicRecipients) {
-	if spec == nil || recipients == nil {
-		return
-	}
-	restoreNotificationDynamicRecipients(
-		recipients,
-		spec.LarkHookNotificationConfig,
-		spec.LarkGroupNotificationConfig,
-		spec.LarkPersonNotificationConfig,
-		spec.DingDingNotificationConfig,
-		spec.MSTeamsNotificationConfig,
-		spec.MailNotificationConfig,
-	)
-}
-
-func backupWorkflowNotificationRuntimeRenderFields(workflow *commonmodels.WorkflowV4) ([]*workflowNotificationSpecBackup, error) {
-	if workflow == nil {
-		return nil, nil
-	}
-
-	resp := make([]*workflowNotificationSpecBackup, 0)
-	for stageIndex, stage := range workflow.Stages {
-		if stage == nil {
-			continue
-		}
-		for jobIndex, job := range stage.Jobs {
-			if job == nil || job.JobType != config.JobNotification {
-				continue
-			}
-			spec := &commonmodels.NotificationJobSpec{}
-			if err := commonmodels.IToi(job.Spec, spec); err != nil {
-				return nil, fmt.Errorf("failed to decode notification job spec for job %s, error: %w", job.Name, err)
-			}
-			resp = append(resp, &workflowNotificationSpecBackup{
-				StageIndex: stageIndex,
-				JobIndex:   jobIndex,
-				Recipients: backupNotificationDynamicRecipientsFromWorkflowSpec(spec),
-			})
-		}
-	}
-	return resp, nil
-}
-
-func restoreWorkflowNotificationRuntimeRenderFields(workflow *commonmodels.WorkflowV4, backups []*workflowNotificationSpecBackup) error {
-	if workflow == nil {
-		return nil
-	}
-
-	for _, backup := range backups {
-		if backup == nil || backup.Recipients == nil {
-			continue
-		}
-		if backup.StageIndex >= len(workflow.Stages) || workflow.Stages[backup.StageIndex] == nil {
-			continue
-		}
-		stage := workflow.Stages[backup.StageIndex]
-		if backup.JobIndex >= len(stage.Jobs) || stage.Jobs[backup.JobIndex] == nil {
-			continue
-		}
-		job := stage.Jobs[backup.JobIndex]
-		spec := &commonmodels.NotificationJobSpec{}
-		if err := commonmodels.IToi(job.Spec, spec); err != nil {
-			return fmt.Errorf("failed to restore notification job spec for job %s, error: %w", job.Name, err)
-		}
-		restoreNotificationDynamicRecipientsToWorkflowSpec(spec, backup.Recipients)
-		job.Spec = spec
-	}
-	return nil
-}
-
-func backupNotificationDynamicRecipientsFromTaskSpec(spec *commonmodels.JobTaskNotificationSpec) *notificationDynamicRecipients {
-	if spec == nil {
-		return nil
-	}
-	return backupNotificationDynamicRecipients(
-		spec.LarkHookNotificationConfig,
-		spec.LarkGroupNotificationConfig,
-		spec.LarkPersonNotificationConfig,
-		spec.DingDingNotificationConfig,
-		spec.MSTeamsNotificationConfig,
-		spec.MailNotificationConfig,
-	)
-}
-
-func restoreNotificationDynamicRecipientsToTaskSpec(spec *commonmodels.JobTaskNotificationSpec, recipients *notificationDynamicRecipients) {
-	if spec == nil || recipients == nil {
-		return
-	}
-	restoreNotificationDynamicRecipients(
-		recipients,
-		spec.LarkHookNotificationConfig,
-		spec.LarkGroupNotificationConfig,
-		spec.LarkPersonNotificationConfig,
-		spec.DingDingNotificationConfig,
-		spec.MSTeamsNotificationConfig,
-		spec.MailNotificationConfig,
-	)
-}
-
 // RenderJobTaskWithGlobalVariables replays a task spec with persisted GlobalContext during retry/manual execution.
 func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
 	if task == nil {
 		return nil
-	}
-
-	var notificationRecipients *notificationDynamicRecipients
-	if task.JobType == string(config.JobNotification) {
-		// DynamicRecipients must stay as templates until NotificationJobCtl resolves them with payload/user mapping.
-		// Rendering them here would turn {{.payload.user.email}} into a raw value and lose the identity suffix.
-		spec := &commonmodels.JobTaskNotificationSpec{}
-		if err := commonmodels.IToi(task.Spec, spec); err != nil {
-			return fmt.Errorf("failed to decode notification task spec for task %s, error: %w", task.Name, err)
-		}
-		notificationRecipients = backupNotificationDynamicRecipientsFromTaskSpec(spec)
 	}
 
 	taskBytes, err := json.Marshal(task)
@@ -276,17 +75,6 @@ func RenderJobTaskWithGlobalVariables(task *commonmodels.JobTask, globalKeyMap m
 	if err := json.Unmarshal([]byte(taskString), task); err != nil {
 		return fmt.Errorf("failed to replace input variable for task: %s, error: %w", task.Name, err)
 	}
-
-	if notificationRecipients == nil {
-		return nil
-	}
-
-	spec := &commonmodels.JobTaskNotificationSpec{}
-	if err := commonmodels.IToi(task.Spec, spec); err != nil {
-		return fmt.Errorf("failed to restore notification task spec for task %s, error: %w", task.Name, err)
-	}
-	restoreNotificationDynamicRecipientsToTaskSpec(spec, notificationRecipients)
-	task.Spec = spec
 	return nil
 }
 
@@ -577,10 +365,6 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	notificationBackups, err := backupWorkflowNotificationRuntimeRenderFields(w.WorkflowV4)
-	if err != nil {
-		return err
-	}
 	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid, releasePlan)
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
@@ -592,7 +376,7 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 	if err := json.Unmarshal([]byte(replacedString), &w.WorkflowV4); err != nil {
 		return err
 	}
-	return restoreWorkflowNotificationRuntimeRenderFields(w.WorkflowV4, notificationBackups)
+	return nil
 }
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.Param, error) {
@@ -642,14 +426,6 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	}
 	if w.HookPayload != nil {
 		for _, kv := range commonutil.BuildWorkflowTriggerVariableKVs(w.HookPayload) {
-			resp = append(resp, &commonmodels.Param{
-				Name:         kv.Key,
-				Value:        kv.Value,
-				ParamsType:   "string",
-				IsCredential: kv.IsCredential,
-			})
-		}
-		for _, kv := range commonutil.BuildPayloadVariables(w.HookPayload.RawPayload) {
 			resp = append(resp, &commonmodels.Param{
 				Name:         kv.Key,
 				Value:        kv.Value,
