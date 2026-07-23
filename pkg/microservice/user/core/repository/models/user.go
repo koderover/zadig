@@ -24,6 +24,7 @@ type User struct {
 	Email           string `json:"email"`
 	Phone           string `json:"phone"`
 	Account         string `json:"account"`
+	MFAEnabled      bool   `gorm:"->;column:mfa_enabled;-:migration" json:"mfa_enabled"`
 	APIToken        string `gorm:"api_token" json:"api_token"`
 	APITokenEnabled bool   `gorm:"column:api_token_enabled;default:0" json:"api_token_enabled"`
 
