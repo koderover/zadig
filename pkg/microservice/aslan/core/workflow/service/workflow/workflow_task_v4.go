@@ -845,16 +845,11 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("wechat notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
-				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.WechatNotificationConfig.DynamicRecipients)
-				if err != nil {
-					return nil, err
-				}
 
 				config := &commonmodels.WechatNotificationConfig{
-					HookAddress:       notifyCtl.WechatNotificationConfig.HookAddress,
-					AtUsers:           notifyInput.WechatNotificationConfig.AtUsers,
-					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
-					IsAtAll:           notifyInput.WechatNotificationConfig.IsAtAll,
+					HookAddress: notifyCtl.WechatNotificationConfig.HookAddress,
+					AtUsers:     notifyInput.WechatNotificationConfig.AtUsers,
+					IsAtAll:     notifyInput.WechatNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.WechatNotificationConfig = config

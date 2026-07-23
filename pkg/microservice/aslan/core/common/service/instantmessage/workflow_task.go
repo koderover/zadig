@@ -563,14 +563,6 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 		}
 		cfg.AtMobiles = dynamicrecipient.UniqStrings(append(cfg.AtMobiles, mobiles...))
 	}
-	if cfg := notify.WechatNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveUserIDs([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtUsers = dynamicrecipient.UniqStrings(append(cfg.AtUsers, users...))
-	}
-
 	return nil
 }
 

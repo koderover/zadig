@@ -188,9 +188,8 @@ type CreateCustomTaskLarkHookNotificationConfig struct {
 }
 
 type CreateCustomTaskWechatNotificationConfig struct {
-	AtUsers           []string `json:"at_users"`
-	DynamicRecipients []string `json:"dynamic_recipients"`
-	IsAtAll           bool     `json:"is_at_all"`
+	AtUsers []string `json:"at_users"`
+	IsAtAll bool     `json:"is_at_all"`
 }
 
 type CreateCustomTaskDingDingNotificationConfig struct {

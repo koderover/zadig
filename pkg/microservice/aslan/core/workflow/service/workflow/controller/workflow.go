@@ -52,7 +52,6 @@ type notificationDynamicRecipients struct {
 	LarkHook   commonmodels.DynamicRecipients
 	LarkGroup  commonmodels.DynamicRecipients
 	LarkPerson commonmodels.DynamicRecipients
-	Wechat     commonmodels.DynamicRecipients
 	DingDing   commonmodels.DynamicRecipients
 	MSTeams    commonmodels.DynamicRecipients
 	Mail       commonmodels.DynamicRecipients
@@ -68,7 +67,6 @@ func backupNotificationDynamicRecipients(
 	larkHook *commonmodels.LarkHookNotificationConfig,
 	larkGroup *commonmodels.LarkGroupNotificationConfig,
 	larkPerson *commonmodels.LarkPersonNotificationConfig,
-	wechat *commonmodels.WechatNotificationConfig,
 	dingDing *commonmodels.DingDingNotificationConfig,
 	msTeams *commonmodels.MSTeamsNotificationConfig,
 	mail *commonmodels.MailNotificationConfig,
@@ -82,9 +80,6 @@ func backupNotificationDynamicRecipients(
 	}
 	if larkPerson != nil {
 		resp.LarkPerson = commonmodels.CloneDynamicRecipients(larkPerson.DynamicRecipients)
-	}
-	if wechat != nil {
-		resp.Wechat = commonmodels.CloneDynamicRecipients(wechat.DynamicRecipients)
 	}
 	if dingDing != nil {
 		resp.DingDing = commonmodels.CloneDynamicRecipients(dingDing.DynamicRecipients)
@@ -103,7 +98,6 @@ func restoreNotificationDynamicRecipients(
 	larkHook *commonmodels.LarkHookNotificationConfig,
 	larkGroup *commonmodels.LarkGroupNotificationConfig,
 	larkPerson *commonmodels.LarkPersonNotificationConfig,
-	wechat *commonmodels.WechatNotificationConfig,
 	dingDing *commonmodels.DingDingNotificationConfig,
 	msTeams *commonmodels.MSTeamsNotificationConfig,
 	mail *commonmodels.MailNotificationConfig,
@@ -119,9 +113,6 @@ func restoreNotificationDynamicRecipients(
 	}
 	if larkPerson != nil {
 		larkPerson.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.LarkPerson)
-	}
-	if wechat != nil {
-		wechat.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.Wechat)
 	}
 	if dingDing != nil {
 		dingDing.DynamicRecipients = commonmodels.CloneDynamicRecipients(recipients.DingDing)
@@ -142,7 +133,6 @@ func backupNotificationDynamicRecipientsFromWorkflowSpec(spec *commonmodels.Noti
 		spec.LarkHookNotificationConfig,
 		spec.LarkGroupNotificationConfig,
 		spec.LarkPersonNotificationConfig,
-		spec.WechatNotificationConfig,
 		spec.DingDingNotificationConfig,
 		spec.MSTeamsNotificationConfig,
 		spec.MailNotificationConfig,
@@ -158,7 +148,6 @@ func restoreNotificationDynamicRecipientsToWorkflowSpec(spec *commonmodels.Notif
 		spec.LarkHookNotificationConfig,
 		spec.LarkGroupNotificationConfig,
 		spec.LarkPersonNotificationConfig,
-		spec.WechatNotificationConfig,
 		spec.DingDingNotificationConfig,
 		spec.MSTeamsNotificationConfig,
 		spec.MailNotificationConfig,
@@ -228,7 +217,6 @@ func backupNotificationDynamicRecipientsFromTaskSpec(spec *commonmodels.JobTaskN
 		spec.LarkHookNotificationConfig,
 		spec.LarkGroupNotificationConfig,
 		spec.LarkPersonNotificationConfig,
-		spec.WechatNotificationConfig,
 		spec.DingDingNotificationConfig,
 		spec.MSTeamsNotificationConfig,
 		spec.MailNotificationConfig,
@@ -244,7 +232,6 @@ func restoreNotificationDynamicRecipientsToTaskSpec(spec *commonmodels.JobTaskNo
 		spec.LarkHookNotificationConfig,
 		spec.LarkGroupNotificationConfig,
 		spec.LarkPersonNotificationConfig,
-		spec.WechatNotificationConfig,
 		spec.DingDingNotificationConfig,
 		spec.MSTeamsNotificationConfig,
 		spec.MailNotificationConfig,

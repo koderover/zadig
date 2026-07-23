@@ -99,11 +99,6 @@ func validateNotificationJobDynamicRecipients(spec *commonmodels.NotificationJob
 			return nil
 		}
 		return validate(spec.LarkPersonNotificationConfig.AppID, spec.LarkPersonNotificationConfig.DynamicRecipients)
-	case setting.NotifyWebHookTypeWechatWork:
-		if spec.WechatNotificationConfig == nil {
-			return nil
-		}
-		return validate("", spec.WechatNotificationConfig.DynamicRecipients)
 	case setting.NotifyWebHookTypeDingDing:
 		if spec.DingDingNotificationConfig == nil {
 			return nil
@@ -157,7 +152,6 @@ func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodel
 		}
 		if currJobSpec.WechatNotificationConfig != nil && j.jobSpec.WechatNotificationConfig != nil {
 			currJobSpec.WechatNotificationConfig.AtUsers = j.jobSpec.WechatNotificationConfig.AtUsers
-			currJobSpec.WechatNotificationConfig.DynamicRecipients = j.jobSpec.WechatNotificationConfig.DynamicRecipients
 			currJobSpec.WechatNotificationConfig.IsAtAll = j.jobSpec.WechatNotificationConfig.IsAtAll
 		}
 		if currJobSpec.DingDingNotificationConfig != nil && j.jobSpec.DingDingNotificationConfig != nil {

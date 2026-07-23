@@ -35,7 +35,6 @@ var supportedDynamicRecipientKinds = map[setting.NotifyWebHookType]map[dynamicRe
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
 	},
-	setting.NotifyWebHookTypeWechatWork: {},
 	setting.NotifyWebHookTypeDingDing: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
@@ -78,7 +77,7 @@ func ValidateDynamicRecipientsForNotifyType(notifyType setting.NotifyWebHookType
 
 	supportedKinds, ok := supportedDynamicRecipientKinds[notifyType]
 	if !ok {
-		return nil
+		return fmt.Errorf("dynamic recipients are not supported for notification type %s", notifyType)
 	}
 
 	for _, recipient := range recipients {
@@ -164,20 +163,6 @@ func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientK
 		}
 	}
 	return UniqStrings(resp), nil
-}
-
-func (r *Resolver) ResolveUserIDs(recipients []string) ([]string, error) {
-	for _, recipient := range recipients {
-		_, _, ok, err := r.resolveRecipient(recipient)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			continue
-		}
-		return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to user_id", recipient)
-	}
-	return nil, nil
 }
 
 func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) ([]*larktool.UserInfo, error) {

@@ -242,18 +242,6 @@ func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
 	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
 	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
 
-	if cfg := c.jobTaskSpec.LarkHookNotificationConfig; cfg != nil {
-		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, recipientKeyMap)
-	}
-	if cfg := c.jobTaskSpec.DingDingNotificationConfig; cfg != nil {
-		cfg.AtMobiles = renderNotificationStrings(cfg.AtMobiles, recipientKeyMap)
-	}
-	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
-		cfg.AtUsers = renderNotificationStrings(cfg.AtUsers, recipientKeyMap)
-	}
-	if cfg := c.jobTaskSpec.MSTeamsNotificationConfig; cfg != nil {
-		cfg.AtEmails = renderNotificationStrings(cfg.AtEmails, recipientKeyMap)
-	}
 	return c.resolveDynamicRecipients(recipientKeyMap)
 }
 
@@ -269,23 +257,6 @@ func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string 
 
 func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
 	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
-}
-
-func renderNotificationStrings(inputs []string, keyMap map[string]string) []string {
-	if len(keyMap) == 0 {
-		return inputs
-	}
-	pairs := make([]string, 0, len(keyMap)*2)
-	for key, value := range keyMap {
-		pairs = append(pairs, "{{."+key+"}}", value)
-	}
-	replacer := strings.NewReplacer(pairs...)
-
-	resp := make([]string, 0, len(inputs))
-	for _, item := range inputs {
-		resp = append(resp, replacer.Replace(item))
-	}
-	return resp
 }
 
 func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
@@ -339,14 +310,6 @@ func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) 
 		}
 		cfg.AtMobiles = lo.Uniq(append(cfg.AtMobiles, mobiles...))
 	}
-	if cfg := c.jobTaskSpec.WechatNotificationConfig; cfg != nil {
-		users, err := resolver.ResolveUserIDs([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
-		cfg.AtUsers = lo.Uniq(append(cfg.AtUsers, users...))
-	}
-
 	return nil
 }
 

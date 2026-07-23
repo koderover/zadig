@@ -14,17 +14,13 @@ type DynamicRecipients []string
 
 var _ bson.ValueUnmarshaler = (*DynamicRecipients)(nil)
 
-func CloneStrings(items []string) []string {
+func CloneDynamicRecipients(items DynamicRecipients) DynamicRecipients {
 	if items == nil {
 		return nil
 	}
-	resp := make([]string, len(items))
+	resp := make(DynamicRecipients, len(items))
 	copy(resp, items)
 	return resp
-}
-
-func CloneDynamicRecipients(items DynamicRecipients) DynamicRecipients {
-	return DynamicRecipients(CloneStrings(items))
 }
 
 type legacyDynamicRecipient struct {
