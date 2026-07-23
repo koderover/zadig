@@ -50,6 +50,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -93,6 +94,10 @@ func CreateK8SDeliveryVersionV2(args *CreateDeliveryVersionRequest, logger *zap.
 
 	targetRegistry, err := checkDeliveryVersionRegistry(args, registryMap)
 	if err != nil {
+		return err
+	}
+
+	if err = fillK8SDeliveryVersionYamlContent(args); err != nil {
 		return err
 	}
 
@@ -207,109 +212,28 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 		return nil
 	}
 
-	newYamlContent := ""
-
-	yamls := util.SplitYaml(service.YamlContent)
-	for _, yamlContent := range yamls {
-		var manifest map[string]interface{}
-		if err := yaml.Unmarshal([]byte(yamlContent), &manifest); err != nil {
-			return fmt.Errorf("解析yaml失败: %w", err)
-		}
-
-		kind, ok := manifest["kind"].(string)
-		if !ok {
-			return fmt.Errorf("yaml缺少kind字段")
-		}
-
-		// 只处理workload类型
-		workloadKinds := map[string]bool{
-			"Deployment":  true,
-			"StatefulSet": true,
-			"DaemonSet":   true,
-			"Job":         true,
-			"CronJob":     true,
-			"ReplicaSet":  true,
-		}
-		if !workloadKinds[kind] {
-			continue
-		}
-
-		// 处理 CronJob 的特殊结构
-		if kind == "CronJob" {
-			spec, ok := manifest["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少spec字段")
-			}
-			jobTemplate, ok := spec["jobTemplate"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate字段")
-			}
-			jobSpec, ok := jobTemplate["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec字段")
-			}
-			template, ok := jobSpec["template"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec.template字段")
-			}
-			podSpec, ok := template["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少jobTemplate.spec.template.spec字段")
-			}
-			containers, ok := podSpec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少containers字段")
-			}
-			for _, img := range service.Images {
-				for _, c := range containers {
-					container, ok := c.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if container["name"] == img.ContainerName {
-						container["image"] = img.TargetImage
-					}
-				}
-			}
-		} else {
-			// 其它workload结构
-			spec, ok := manifest["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少spec字段")
-			}
-			template, ok := spec["template"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少template字段")
-			}
-			podSpec, ok := template["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少template.spec字段")
-			}
-			containers, ok := podSpec["containers"].([]interface{})
-			if !ok {
-				return fmt.Errorf("yaml缺少containers字段")
-			}
-			for _, img := range service.Images {
-				for _, c := range containers {
-					container, ok := c.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if container["name"] == img.ContainerName {
-						container["image"] = img.TargetImage
-					}
-				}
-			}
-		}
-
-		newYaml, err := yaml.Marshal(manifest)
-		if err != nil {
-			return fmt.Errorf("序列化yaml失败: %w", err)
-		}
-		newYamlContent += string(newYaml) + "\n"
+	containers := make([]*commonmodels.Container, 0, len(service.Images))
+	for _, image := range service.Images {
+		containers = append(containers, &commonmodels.Container{
+			Name:      image.ContainerName,
+			ImageName: image.ImageName,
+			Image:     image.TargetImage,
+		})
 	}
 
-	service.YamlContent = newYamlContent
+	replacedYaml, _, err := kube.ReplaceWorkloadImages(service.YamlContent, containers)
+	if err != nil {
+		return err
+	}
+
+	for _, image := range service.Images {
+		if image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
+			continue
+		}
+		replacedYaml = strings.ReplaceAll(replacedYaml, image.SourceImage, image.TargetImage)
+	}
+
+	service.YamlContent = replacedYaml
 	return nil
 }
 
@@ -1237,6 +1161,8 @@ func GetDeliveryVersionDetailV2(args *commonrepo.DeliveryVersionV2Args, log *zap
 		return nil, e.ErrGetDeliveryVersion
 	}
 
+	fillDeliveryVersionYamlContentForDetail(version, log)
+
 	// order deploys by service name
 	productTemplate, err := templaterepo.NewProductColl().Find(version.ProjectName)
 	if err != nil {
@@ -1262,6 +1188,82 @@ func GetDeliveryVersionDetailV2(args *commonrepo.DeliveryVersionV2Args, log *zap
 	})
 
 	return version, nil
+}
+
+func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest) error {
+	if args == nil || args.Source != setting.DeliveryVersionSourceFromEnv {
+		return nil
+	}
+
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       args.ProjectName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find env, projectName: %s, envName: %s, err: %v", args.ProjectName, args.EnvName, err)
+	}
+
+	return fillDeliveryVersionServicesYamlContent(env, args.Services)
+}
+
+func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersionV2, logger *zap.SugaredLogger) {
+	if version == nil ||
+		version.Type != setting.DeliveryVersionTypeYaml ||
+		version.Source != setting.DeliveryVersionSourceFromEnv ||
+		!hasEmptyDeliveryVersionYamlContent(version.Services) {
+		return
+	}
+
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       version.ProjectName,
+		EnvName:    version.EnvName,
+		Production: &version.Production,
+	})
+	if err != nil {
+		logger.Errorf("failed to find env to fill delivery version yaml content, projectName: %s, envName: %s, err: %v", version.ProjectName, version.EnvName, err)
+		return
+	}
+
+	if err = fillDeliveryVersionServicesYamlContent(env, version.Services); err != nil {
+		logger.Errorf("failed to fill delivery version yaml content, version: %s, projectName: %s, err: %v", version.Version, version.ProjectName, err)
+	}
+}
+
+func hasEmptyDeliveryVersionYamlContent(services []*commonmodels.DeliveryVersionService) bool {
+	for _, service := range services {
+		if service != nil && service.YamlContent == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService) error {
+	if env == nil {
+		return fmt.Errorf("env is nil")
+	}
+
+	serviceMap := env.GetServiceMap()
+	for _, service := range services {
+		if service == nil || service.YamlContent != "" {
+			continue
+		}
+
+		envSvc := serviceMap[service.ServiceName]
+		if envSvc == nil {
+			return fmt.Errorf("not found service %s in env %s", service.ServiceName, env.EnvName)
+		}
+
+		yamlContent, err := kube.RenderEnvService(env, envSvc.GetServiceRender(), envSvc)
+		if err != nil {
+			return fmt.Errorf("failed to render env service yaml, projectName: %s, envName: %s, serviceName: %s, err: %w",
+				env.ProductName, env.EnvName, service.ServiceName, err)
+		}
+		service.YamlContent = yamlContent
+	}
+
+	return nil
 }
 
 func CheckDeliveryImageStatus(version *commonmodels.DeliveryVersionV2, workflowTask *commonmodels.WorkflowTask, log *zap.SugaredLogger) (bool, error) {

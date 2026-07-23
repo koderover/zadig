@@ -17,6 +17,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -582,8 +583,14 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 				return fmt.Errorf("can't find service %s in project %s", service.ServiceName, openAPIReq.ProjectKey)
 			}
 
+			// Service.Containers no longer persisted — read modules from
+			// the service_module table.
 			containerMap := map[string]*commonmodels.Container{}
-			for _, c := range svcTmpl.Containers {
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), svcTmpl.ProductName, svcTmpl.ServiceName, openAPIReq.Production, svcTmpl.Revision)
+			if rerr != nil {
+				return fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", svcTmpl.ProductName, svcTmpl.ServiceName, svcTmpl.Revision, rerr)
+			}
+			for _, c := range resolved {
 				containerMap[c.Name] = c
 			}
 

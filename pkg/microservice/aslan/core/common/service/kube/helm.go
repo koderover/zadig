@@ -969,6 +969,27 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 			log.Errorf("failed to find service %s, err %s", productSvc.ServiceName, err.Error())
 			return nil, nil
 		}
+		tmplContainers, _, err := repository.ResolveServiceModules(context.Background(), templateSvc.ProductName, templateSvc.ServiceName, productInfo.Production, templateSvc.Revision)
+		if err != nil {
+			return ret, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", templateSvc.ProductName, templateSvc.ServiceName, templateSvc.Revision, err)
+		}
+		containerMap := make(map[string]*commonmodels.Container)
+		for _, container := range productSvc.Containers {
+			containerMap[container.Name] = container
+		}
+		for _, tmplContainer := range tmplContainers {
+			if containerMap[tmplContainer.Name] == nil {
+				productSvc.Containers = append(productSvc.Containers, tmplContainer)
+				continue
+			}
+			if tmplContainer.ImagePath != nil {
+				containerMap[tmplContainer.Name].ImagePath = tmplContainer.ImagePath
+			}
+			containerMap[tmplContainer.Name].Type = tmplContainer.Type
+			if containerMap[tmplContainer.Name].ImageName == "" {
+				containerMap[tmplContainer.Name].ImageName = tmplContainer.ImageName
+			}
+		}
 		ret.ServiceObj = templateSvc
 		ret.ReleaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), templateSvc.ProductName, namespace, envName, templateSvc.ServiceName)
 	} else {

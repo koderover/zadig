@@ -17,8 +17,12 @@ limitations under the License.
 package kube
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 )
 
 const (
@@ -31,6 +35,11 @@ const (
 	productRegexString   = `\$Product\$`
 	serviceRegexString   = `\$Service\$`
 	clusterRegexString   = `\$ClusterName\$`
+
+	// $<module>-image$ - per service-module image substitution.
+	// Module names follow the K8s container name spec; we allow the broader
+	// [A-Za-z0-9_-]+ to match what parseContainer already accepts.
+	moduleImageRegexString = `\$([A-Za-z0-9_-]+)-image\$`
 )
 
 var (
@@ -43,6 +52,8 @@ var (
 	envNameRegex   = regexp.MustCompile(envRegexString)
 	serviceRegex   = regexp.MustCompile(serviceRegexString)
 	clusterRegex   = regexp.MustCompile(clusterRegexString)
+
+	moduleImageRegex = regexp.MustCompile(moduleImageRegexString)
 )
 
 // ParseSysKeys 渲染系统变量键值
@@ -53,4 +64,56 @@ func ParseSysKeys(namespace, envName, productName, serviceName, clusterName, ori
 	ori = serviceRegex.ReplaceAllLiteralString(ori, strings.ToLower(serviceName))
 	ori = clusterRegex.ReplaceAllLiteralString(ori, strings.ToLower(clusterName))
 	return ori
+}
+
+// ParseModuleImageKeys substitutes $<module>-image$ placeholders in yaml using
+// the provided container list (container.Name -> container.Image). Containers
+// with an empty or placeholder-shaped Image are skipped — they cannot resolve
+// anything.
+//
+// If allowUnresolved is false, any $<module>-image$ placeholder still present
+// after substitution causes an error naming the offending module(s). Callers
+// on the initial-deploy path (no built image yet) should pass true.
+func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, allowUnresolved bool) (string, error) {
+	for _, c := range containers {
+		if c == nil || c.Name == "" || c.Image == "" {
+			continue
+		}
+		if commonutil.IsModuleImagePlaceholder(c.Image) {
+			continue
+		}
+		// Also skip the Zadig workflow-task-create placeholder convention
+		// (e.g. "{{ NOT BE RENDERED }}"). Substituting it into the YAML
+		// produces flow-style garbage that downstream YAML decoders choke
+		// on. For built-in workload kinds, ReplaceWorkloadImages still
+		// writes this placeholder into container.image structurally, so the
+		// preview yaml round-trips. For non-built-in kinds (CRDs, etc.),
+		// the $<name>-image$ placeholder stays as text — paired with
+		// AllowUnresolvedModuleImages on the caller, this is fine.
+		trimmedImage := strings.TrimSpace(c.Image)
+		if strings.HasPrefix(trimmedImage, "{{") && strings.HasSuffix(trimmedImage, "}}") {
+			continue
+		}
+		pattern := regexp.MustCompile(`\$` + regexp.QuoteMeta(c.Name) + `-image\$`)
+		yaml = pattern.ReplaceAllLiteralString(yaml, c.Image)
+	}
+
+	if allowUnresolved {
+		return yaml, nil
+	}
+
+	matches := moduleImageRegex.FindAllStringSubmatch(yaml, -1)
+	if len(matches) == 0 {
+		return yaml, nil
+	}
+	seen := make(map[string]struct{}, len(matches))
+	unresolved := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if _, ok := seen[m[1]]; ok {
+			continue
+		}
+		seen[m[1]] = struct{}{}
+		unresolved = append(unresolved, m[1])
+	}
+	return yaml, fmt.Errorf("unresolved $<module>-image$ placeholder(s): %s", strings.Join(unresolved, ", "))
 }

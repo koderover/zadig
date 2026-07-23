@@ -178,6 +178,22 @@ func FillContainerBuilds(source []*commonmodels.Container) []*ContainerWithBuild
 	return ret
 }
 
+func ResolveServiceTemplateContainers(svc *commonmodels.Service, production bool) ([]*commonmodels.Container, error) {
+	if svc == nil || svc.ProductName == "" || svc.ServiceName == "" || svc.Revision == 0 {
+		return nil, nil
+	}
+	if svc.Type != setting.K8SDeployType && svc.Type != setting.HelmDeployType {
+		return nil, nil
+	}
+
+	containers, _, err := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, production, svc.Revision)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve service modules for %s/%s rev %d: %w", svc.ProductName, svc.ServiceName, svc.Revision, err)
+	}
+
+	return containers, nil
+}
+
 func GetCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
 	bs, err := json.Marshal(createFrom)
 	if err != nil {
@@ -263,12 +279,16 @@ func ListServiceTemplate(productName string, production bool, removeApplicationL
 		if err != nil {
 			log.Warnf("faile to fill service creation info: %s", err)
 		}
+		containers, err := ResolveServiceTemplateContainers(serviceObject, production)
+		if err != nil {
+			return nil, e.ErrListTemplate.AddErr(err)
+		}
 		spmap := &ServiceProductMap{
 			Service:                    serviceObject.ServiceName,
 			Type:                       serviceObject.Type,
 			Source:                     serviceObject.Source,
 			ProductName:                serviceObject.ProductName,
-			Containers:                 FillContainerBuilds(serviceObject.Containers),
+			Containers:                 FillContainerBuilds(containers),
 			Product:                    []string{productName},
 			CodehostID:                 serviceObject.CodehostID,
 			RepoOwner:                  serviceObject.RepoOwner,
@@ -396,6 +416,10 @@ func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excl
 	}
 
 	resp.Resources = GeneSvcStructure(svcTemplate)
+	svcTemplate.Containers, err = ResolveServiceTemplateContainers(svcTemplate, production)
+	if err != nil {
+		return nil, e.ErrGetTemplate.AddErr(err)
+	}
 
 	if serviceType == setting.PMDeployType {
 		buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceName})
@@ -1107,11 +1131,13 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		templateSvcMap[svc.ServiceName] = svc
 
 		svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
-		for _, container := range svc.Containers {
-			// templateSvcs is default
-			if _, ok := svcModulesMap[svc.ServiceName]; !ok {
-				svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
-			}
+		// Service.Containers is no longer persisted — read modules from the
+		// service_module collection.
+		resolved, _, rerr := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, productInfo.Production, svc.Revision)
+		if rerr != nil {
+			return nil, e.ErrGetService.AddErr(errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", svc.ProductName, svc.ServiceName, svc.Revision))
+		}
+		for _, container := range resolved {
 			svcModulesMap[svc.ServiceName][container.Name] = container
 		}
 	}

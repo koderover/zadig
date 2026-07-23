@@ -975,7 +975,15 @@ func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductI
 		for _, svcTmpl := range services {
 			sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
 
-			for _, c := range svcTmpl.Containers {
+			// Service.Containers is no longer persisted — read modules from the
+			// service_module collection so manual entries (CRD/DaemonSet) also
+			// show up in the project info response.
+			containers, _, err := repository.ResolveServiceModules(context.Background(), svcTmpl.ProductName, svcTmpl.ServiceName, false, svcTmpl.Revision)
+			if err != nil {
+				log.Errorf("failed to resolve modules for %s/%s rev %d: %s", svcTmpl.ProductName, svcTmpl.ServiceName, svcTmpl.Revision, err)
+				return nil, e.ErrGetProduct.AddDesc(err.Error())
+			}
+			for _, c := range containers {
 				sInfo.ContainerInfo = append(sInfo.ContainerInfo, &ContainerInfo{Value: c.Name, Label: c.Name})
 			}
 
@@ -1113,7 +1121,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 				break
 			}
 
-			if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+			if err = repository.Create(serviceTmpl, production); err != nil {
 				log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
 				err = e.ErrUpdateTemplate.AddDesc(err.Error())
 				break
@@ -1124,7 +1132,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 				break
 			}
 
-			if err = commonrepo.NewProductionServiceColl().Create(serviceTmpl); err != nil {
+			if err = repository.Create(serviceTmpl, production); err != nil {
 				log.Errorf("helmService.update production service, serviceName:%s error:%v", serviceTmpl.ServiceName, err)
 				err = e.ErrUpdateTemplate.AddDesc(err.Error())
 				break

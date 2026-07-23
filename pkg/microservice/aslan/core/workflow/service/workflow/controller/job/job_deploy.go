@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -619,6 +620,15 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					VariableYaml:          varsYaml,
 					VariableKVs:           varKVs,
 					Containers:            containers,
+					// Workflow task creation may run before the build that
+					// produces a module's image — `containers` then carries
+					// "{{ NOT BE RENDERED }}" sentinel images. For
+					// $<name>-image$ placeholders targeting such modules,
+					// substitution is intentionally skipped (see parse.go),
+					// so the rendered yaml retains the literal placeholder.
+					// Tolerate that here; the real image is filled in at task
+					// execution time.
+					AllowUnresolvedModuleImages: true,
 				}
 
 				updatedYaml, _, _, err := kube.GenerateRenderedYaml(option)
@@ -985,12 +995,32 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 	if projectInfo.IsHostProduct() {
 		for _, service := range envServiceMap {
 			modules := make([]*commonmodels.DeployModuleInfo, 0)
+			modulesMap := make(map[string]struct{})
 			for _, module := range service.Containers {
+				modulesMap[module.Name] = struct{}{}
 				if approvalTicket.IsAllowedService(project, service.ServiceName, module.Name) {
 					modules = append(modules, &commonmodels.DeployModuleInfo{
 						ServiceModule: module.Name,
 						Image:         module.Image,
 						ImageName:     util.ExtractImageName(module.Image),
+					})
+				}
+			}
+
+			// Phase 4: append manual modules for host-product env case.
+			manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
+			if mErr != nil {
+				return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
+			}
+			for _, m := range manualMods {
+				if _, exists := modulesMap[m.Name]; exists {
+					continue
+				}
+				if approvalTicket.IsAllowedService(project, service.ServiceName, m.Name) {
+					modules = append(modules, &commonmodels.DeployModuleInfo{
+						ServiceModule: m.Name,
+						Image:         m.Image,
+						ImageName:     util.ExtractImageName(m.Image),
 					})
 				}
 			}
@@ -1077,6 +1107,28 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			}
 		}
 
+		// Phase 4: append manual modules (user-declared at the service level
+		// for CRD/DaemonSet workloads) and dedup against modulesMap so we
+		// don't double-count when a manual record shares a name with a
+		// container already pulled from ProductService via the env reconcile.
+		manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
+		if mErr != nil {
+			return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
+		}
+		for _, m := range manualMods {
+			if _, exists := modulesMap[m.Name]; exists {
+				continue
+			}
+			modulesMap[m.Name] = m.Image
+			if approvalTicket.IsAllowedService(project, service.ServiceName, m.Name) {
+				modules = append(modules, &commonmodels.DeployModuleInfo{
+					ServiceModule: m.Name,
+					Image:         m.Image,
+					ImageName:     util.ExtractImageName(m.Image),
+				})
+			}
+		}
+
 		currentReleaseName := ""
 		if service.Type == setting.HelmDeployType {
 			envService, err := repositoryCache.QueryTemplateServiceWithCache(&commonrepo.ServiceFindOption{
@@ -1093,7 +1145,13 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 
 		latestReleaseName := ""
 		if serviceDef, ok := serviceDefinitionMap[service.ServiceName]; ok {
-			for _, module := range serviceDef.Containers {
+			// Service.Containers no longer persisted — pull merged modules
+			// for the latest template revision.
+			defContainers, _, dErr := repository.ResolveServiceModules(context.Background(), serviceDef.ProductName, serviceDef.ServiceName, production, serviceDef.Revision)
+			if dErr != nil {
+				return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceDef.ProductName, serviceDef.ServiceName, serviceDef.Revision, dErr)
+			}
+			for _, module := range defContainers {
 				// if a container is newly created in the service, add it to the module list
 				if _, ok := modulesMap[module.Name]; !ok {
 					modules = append(modules, &commonmodels.DeployModuleInfo{
@@ -1160,12 +1218,39 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		}
 
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
-		for _, module := range service.Containers {
+		modulesMap := make(map[string]struct{})
+		// Service.Containers is no longer persisted; read modules from the
+		// normalized module store so services not deployed in the env still
+		// expose their selectable modules in workflow presets.
+		containers, _, rErr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, production, service.Revision)
+		if rErr != nil {
+			return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", service.ProductName, service.ServiceName, service.Revision, rErr)
+		}
+		for _, module := range containers {
+			modulesMap[module.Name] = struct{}{}
 			if approvalTicket.IsAllowedService(project, service.ServiceName, module.Name) {
 				modules = append(modules, &commonmodels.DeployModuleInfo{
 					ServiceModule: module.Name,
 					Image:         module.Image,
 					ImageName:     util.ExtractImageName(module.Image),
+				})
+			}
+		}
+
+		// Phase 4: append manual modules for services not yet deployed in env.
+		manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
+		if mErr != nil {
+			return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
+		}
+		for _, m := range manualMods {
+			if _, exists := modulesMap[m.Name]; exists {
+				continue
+			}
+			if approvalTicket.IsAllowedService(project, service.ServiceName, m.Name) {
+				modules = append(modules, &commonmodels.DeployModuleInfo{
+					ServiceModule: m.Name,
+					Image:         m.Image,
+					ImageName:     util.ExtractImageName(m.Image),
 				})
 			}
 		}

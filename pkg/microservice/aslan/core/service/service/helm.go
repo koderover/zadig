@@ -147,6 +147,14 @@ func ListHelmServices(productName string, production bool, removeApplicationLink
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
 	}
+	for _, svc := range services {
+		containers, err := commonservice.ResolveServiceTemplateContainers(svc, production)
+		if err != nil {
+			log.Errorf("[helmService.list] failed to resolve service modules for %s/%s: %v", productName, svc.ServiceName, err)
+			return nil, e.ErrListTemplate.AddErr(err)
+		}
+		svc.Containers = containers
+	}
 	helmService.ServiceInfos = services
 
 	if len(services) > 0 {
@@ -216,7 +224,11 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, isPro
 
 	helmServiceModule := new(HelmServiceModule)
 	serviceModules := make([]*ServiceModule, 0)
-	for _, container := range serviceTemplate.Containers {
+	resolvedContainers, err := commonservice.ResolveServiceTemplateContainers(serviceTemplate, isProduction)
+	if err != nil {
+		return nil, err
+	}
+	for _, container := range resolvedContainers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
 
@@ -243,6 +255,7 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, isPro
 	}
 
 	helmServiceModule.Service = serviceTemplate
+	serviceTemplate.Containers = resolvedContainers
 	serviceTemplate.ReleaseNaming = serviceTemplate.GetReleaseNaming()
 	helmServiceModule.ServiceModules = serviceModules
 	return helmServiceModule, err
@@ -1585,16 +1598,9 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	}
 
 	// create new service template
-	if !args.Production {
-		if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
-			log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
-			return nil, err
-		}
-	} else {
-		if err = commonrepo.NewProductionServiceColl().Create(serviceObj); err != nil {
-			log.Errorf("Failed to create production service %s error: %s", args.ServiceName, err)
-			return nil, err
-		}
+	if err = repository.Create(serviceObj, args.Production); err != nil {
+		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
+		return nil, err
 	}
 
 	// TODO: webhook process

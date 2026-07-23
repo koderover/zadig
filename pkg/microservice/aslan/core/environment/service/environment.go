@@ -790,7 +790,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]se
 							service.Error = errFetchImage.Error()
 							return
 						}
-						service.Containers = containers
+						// Same fold-merge as k8s.go imported path — preserve
+						// manual modules that fetchWorkloadImages can't see.
+						service.Containers = commonutil.FoldManualModulesInto(containers, service.Containers)
 
 						updateProd.ServiceDeployStrategy = deployStrategy
 						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", "", session, log)
@@ -1398,11 +1400,16 @@ func prepareEstimateDataForEnvCreation(projectName, serviceName string, producti
 			return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 		}
 
+		containers, err := commonservice.ResolveServiceTemplateContainers(templateService, production)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		prodSvc := &commonmodels.ProductService{
 			ServiceName: serviceName,
 			ProductName: projectName,
 			Revision:    templateService.Revision,
-			Containers:  templateService.Containers,
+			Containers:  containers,
 			Render: &templatemodels.ServiceRender{
 				ServiceName:  serviceName,
 				OverrideYaml: &templatemodels.CustomYaml{},
@@ -1486,11 +1493,15 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 		}
 
 		if prodSvc == nil {
+			containers, err := commonservice.ResolveServiceTemplateContainers(latestTmplSvc, production)
+			if err != nil {
+				return nil, nil, nil, nil, err
+			}
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceOrReleaseName,
 				ProductName: productName,
 				Revision:    latestTmplSvc.Revision,
-				Containers:  latestTmplSvc.Containers,
+				Containers:  containers,
 			}
 		}
 
@@ -2998,7 +3009,15 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	if prevSvc == nil {
 		fakeTemplateSvc := &commonmodels.Service{ServiceName: newService.ServiceName, ProductName: newService.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
-		newService.Containers = fakeTemplateSvc.Containers
+		// Merge instead of overwrite. fakeTemplateSvc.Containers is the
+		// auto set re-parsed from the just-rendered YAML — authoritative
+		// for env-resolved image values on Deployment/StatefulSet/etc.
+		// newService.Containers came in from the caller already carrying
+		// manual modules (CRD/DaemonSet declarations), so blindly clobbering
+		// it would drop those manuals — and for ConfigMap/CRD-only services
+		// fakeTemplateSvc.Containers is empty, which would persist an empty
+		// Containers slice into ProductService and break later renders.
+		newService.Containers = commonutil.FoldManualModulesInto(fakeTemplateSvc.Containers, newService.Containers)
 	}
 
 	preResourceYaml := ""

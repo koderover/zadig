@@ -76,7 +76,16 @@ func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, produ
 // queryWorkloadStatus query workload status
 // only supports Deployment and StatefulSet
 func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, informer informers.SharedInformerFactory) string {
-	if len(serviceTmpl.Containers) > 0 {
+	// Service.Containers no longer persisted — check workload count via the
+	// merged module list. Pure-CRD services (only manual modules) get an
+	// empty list here because GetServiceWorkloads only handles built-in
+	// workload kinds — intentional, CRDs have no native readiness signal.
+	resolved, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTmpl.ProductName, serviceTmpl.ServiceName, productInfo.Production, serviceTmpl.Revision)
+	if rerr != nil {
+		k.log.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.Revision, rerr)
+		return setting.PodUnstable
+	}
+	if len(resolved) > 0 {
 		workloads, err := GetServiceWorkloads(serviceTmpl, productInfo, informer, k.log)
 		if err != nil {
 			k.log.Errorf("failed to get service workloads, err: %s", err)
@@ -143,7 +152,41 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		if err != nil {
 			curUsedSvc = nil
 		}
-		newProductSvc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, prodinfo)
+		// Service.Containers is no longer persisted (Phase 4 moved
+		// authoritative storage to the service_module collection), so a
+		// freshly loaded curUsedSvc has empty Containers. Resolve the merged
+		// module list at the currently-deployed revision so CalculateContainer
+		// gets the default-image baseline that was in effect at deploy time.
+		// Without this the baseline is empty and CalculateContainer always
+		// falls back to the latest default image, rolling back any env-side
+		// image change (workflow/manual edit) on every service update.
+		if curUsedSvc != nil {
+			curUsedMerged, _, err := repository.ResolveServiceModules(
+				context.Background(),
+				curUsedSvc.ProductName,
+				curUsedSvc.ServiceName,
+				prodinfo.Production,
+				curUsedSvc.Revision,
+			)
+			if err != nil {
+				return e.ErrUpdateService.AddErr(fmt.Errorf("failed to resolve current service modules: %s", err))
+			}
+			curUsedSvc.Containers = curUsedMerged
+		}
+		// Phase 4: pull the merged (auto + manual) module list at the latest
+		// template revision so manual CRD/DaemonSet modules participate in
+		// the env override calc, not just legacy-field auto entries.
+		latestMerged, _, err := repository.ResolveServiceModules(
+			context.Background(),
+			latestSvcRevision.ProductName,
+			latestSvcRevision.ServiceName,
+			prodinfo.Production,
+			latestSvcRevision.Revision,
+		)
+		if err != nil {
+			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to resolve service modules: %s", err))
+		}
+		newProductSvc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestMerged, prodinfo)
 	}
 
 	switch prodinfo.Status {
@@ -697,7 +740,11 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			if err != nil {
 				return fmt.Errorf("failed to fetch related containers: %s", err)
 			}
-			group[i].Containers = containers
+			// Fold-merge instead of overwrite: fetchWorkloadImages only knows
+			// Deployment/StatefulSet/etc — it does NOT see manual modules
+			// (CRDs/DaemonSets the user declared). A blind overwrite drops
+			// those manuals from the env snapshot.
+			group[i].Containers = commonutil.FoldManualModulesInto(containers, group[i].Containers)
 
 			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", "", nil, k.log)
 			if err != nil {
