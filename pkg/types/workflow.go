@@ -27,6 +27,14 @@ const (
 	FileType        ParameterSettingType = "file"
 )
 
+type ScannerType string
+
+const (
+	ScannerTypeSonarQube ScannerType = "sonarQube"
+	ScannerTypeAIReview  ScannerType = "ai_review"
+	ScannerTypeOther     ScannerType = "other"
+)
+
 type ParameterSetting struct {
 	// 参数名称
 	Key string `json:"key" binding:"required"`

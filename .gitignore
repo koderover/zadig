@@ -20,6 +20,7 @@ out
 *.local.*
 *.out
 *.exe
+*_test.go
 
 node_modules
 bower_components

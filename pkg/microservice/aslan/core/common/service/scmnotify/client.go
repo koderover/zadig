@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	giteeClient "gitee.com/openeuler/go-gitee/gitee"
+	githubapi "github.com/google/go-github/v35/github"
 	"github.com/pkg/errors"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
+	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
@@ -44,6 +46,61 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{logger: log.SugaredLogger()}
+}
+
+func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
+	if prID <= 0 {
+		return fmt.Errorf("invalid pull/merge request ID %d", prID)
+	}
+	codeHostDetail, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
+	}
+
+	switch strings.ToLower(codeHostDetail.Type) {
+	case setting.SourceFromGitlab:
+		cli, err := gitlabtool.NewClient(
+			codeHostDetail.ID,
+			codeHostDetail.Address,
+			codeHostDetail.AccessToken,
+			config.ProxyHTTPSAddr(),
+			codeHostDetail.EnableProxy,
+			codeHostDetail.DisableSSL,
+		)
+		if err != nil {
+			return fmt.Errorf("create gitlab client: %w", err)
+		}
+		_, _, err = cli.Notes.CreateMergeRequestNote(
+			projectID,
+			prID,
+			&gitlab.CreateMergeRequestNoteOptions{Body: &comment},
+		)
+		if err != nil {
+			return fmt.Errorf("create gitlab merge request note: %w", err)
+		}
+		return nil
+	case setting.SourceFromGithub:
+		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
+		if err != nil {
+			return fmt.Errorf("create github app client: %w", err)
+		}
+		if cli == nil {
+			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
+		}
+		_, _, err = cli.Issues.CreateComment(
+			context.Background(),
+			repoOwner,
+			repoName,
+			prID,
+			&githubapi.IssueComment{Body: &comment},
+		)
+		if err != nil {
+			return fmt.Errorf("create github pull request comment: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
+	}
 }
 
 // Comment send comment to gitlab and set comment id in notify

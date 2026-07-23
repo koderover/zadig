@@ -26,6 +26,7 @@ const (
 	ENVSystemAddress              = "ADDRESS"
 	ENVImagePullPolicy            = "IMAGE_PULL_POLICY"
 	ENVBuildKitImage              = "BUILD_KIT_IMAGE"
+	ENVZadigReviewImage           = "ZADIG_REVIEW_IMAGE"
 	ENVMode                       = "MODE"
 	ENVMongoDBConnectionString    = "MONGODB_CONNECTION_STRING"
 	ENVIsDocumentDB               = "IS_DOCUMENT_DB"

@@ -29,7 +29,7 @@ type Scanning struct {
 	Name        string             `bson:"name"          json:"name"`
 	ProjectName string             `bson:"project_name"  json:"project_name"`
 	Description string             `bson:"description"   json:"description"`
-	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`
+	ScannerType types.ScannerType  `bson:"scanner_type"  json:"scanner_type"`
 	// EnableScanner indicates whether user uses sonar scanner instead of the script
 	EnableScanner bool                `bson:"enable_scanner" json:"enable_scanner"`
 	ImageID       string              `bson:"image_id"      json:"image_id"`

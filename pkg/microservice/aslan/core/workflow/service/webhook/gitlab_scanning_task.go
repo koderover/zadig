@@ -89,6 +89,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 							Owner:          eventRepo.RepoOwner,
 							Repo:           eventRepo.RepoName,
 							Branch:         eventRepo.Branch,
+							TargetBranch:   ev.ObjectAttributes.TargetBranch,
 							IsPr:           true,
 							MergeRequestID: strconv.Itoa(mergeRequestID),
 							CommitID:       commitID,
@@ -121,6 +122,11 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						hookPayload = &commonmodels.HookPayload{
 							EventType: eventType,
 						}
+					}
+
+					if scanning.ScannerType == types.ScannerTypeAIReview && prID <= 0 {
+						log.Debugf("skip non-MR event for AI review scanning %s", scanning.Name)
+						continue
 					}
 
 					if autoCancelOpt.Type != "" {
@@ -164,6 +170,9 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
 					repoInfo.PR = mergeRequestID
+					if scanning.ScannerType == types.ScannerTypeAIReview {
+						repoInfo.Branch = hookPayload.TargetBranch
+					}
 
 					notificationID := ""
 					if notification != nil {

@@ -1024,4 +1024,10 @@ var (
 	ErrDeleteApiGateway   = NewHTTPError(7182, "删除API网关集成失败")
 	ErrListApiGateway     = NewHTTPError(7183, "列出API网关集成失败")
 	ErrValidateApiGateway = NewHTTPError(7184, "校验API网关集成失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// ai review config releated errors: 7190 - 7199
+	//-----------------------------------------------------------------------------------------------
+	ErrGetAIReviewConfig    = NewHTTPError(7190, "获取AI审查配置失败")
+	ErrUpdateAIReviewConfig = NewHTTPError(7191, "更新AI审查配置失败")
 )

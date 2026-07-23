@@ -18,8 +18,11 @@ package job
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -500,6 +503,9 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	if err := fillScanningDetail(scanningInfo); err != nil {
 		return nil, err
 	}
+	if scanningInfo.ScannerType == types.ScannerTypeAIReview {
+		return j.toAIReviewJobTask(jobSubTaskID, scanning, scanningInfo, taskID, scanningType, serviceName, serviceModule, logger)
+	}
 
 	basicImage, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
 	if err != nil {
@@ -724,7 +730,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 	// init script step
-	if scanningInfo.ScannerType == types.ScanningTypeSonar {
+	if scanningInfo.ScannerType == types.ScannerTypeSonarQube {
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
 		}
@@ -965,6 +971,276 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	}
 
 	return renderedTask, nil
+}
+
+type aiReviewRuleFile struct {
+	Include []string             `json:"include,omitempty"`
+	Exclude []string             `json:"exclude,omitempty"`
+	Rules   []*aiReviewRuleEntry `json:"rules,omitempty"`
+}
+
+type aiReviewRuleEntry struct {
+	Path string `json:"path"`
+	Rule string `json:"rule"`
+}
+
+func (j ScanningJobController) toAIReviewJobTask(
+	jobSubTaskID int,
+	scanning *commonmodels.ScanningModule,
+	scanningInfo *commonmodels.Scanning,
+	taskID int64,
+	scanningType, serviceName, serviceModule string,
+	logger *zap.SugaredLogger,
+) (*commonmodels.JobTask, error) {
+	if scanningInfo.AdvancedSetting == nil {
+		return nil, fmt.Errorf("AI review scanning %q is missing advanced settings", scanning.Name)
+	}
+	if scanningInfo.Infrastructure != "" && scanningInfo.Infrastructure != setting.JobK8sInfrastructure {
+		return nil, fmt.Errorf("AI review scanning only supports Kubernetes infrastructure")
+	}
+	if len(scanning.Repos) != 1 || scanning.Repos[0] == nil {
+		return nil, fmt.Errorf("AI review scanning requires exactly one Git repository")
+	}
+	repo := scanning.Repos[0]
+	if repo.Source == types.ProviderPerforce {
+		return nil, fmt.Errorf("AI review scanning does not support Perforce repositories")
+	}
+	if repo.Tag != "" {
+		return nil, fmt.Errorf("AI review scanning does not support tag review")
+	}
+	if repo.EnableCommit {
+		return nil, fmt.Errorf("AI review scanning requires a source branch or pull request, not a commit")
+	}
+	if len(repo.PRs) > 1 || len(repo.MergeBranches) > 0 {
+		return nil, fmt.Errorf("AI review scanning does not support merged multi-PR or multi-branch inputs")
+	}
+	if len(repo.PRs) == 1 {
+		if repo.PR > 0 && repo.PR != repo.PRs[0] {
+			return nil, fmt.Errorf("AI review scanning pull or merge request IDs conflict: pr=%d, prs=%v", repo.PR, repo.PRs)
+		}
+		repo.PR = repo.PRs[0]
+	}
+	if repo.PR <= 0 {
+		return nil, fmt.Errorf("AI review scanning only supports pull or merge request tasks")
+	}
+	targetBranch := repo.Branch
+	if j.workflow.HookPayload != nil && j.workflow.HookPayload.IsPr {
+		if j.workflow.HookPayload.TargetBranch != "" {
+			targetBranch = j.workflow.HookPayload.TargetBranch
+		}
+	}
+	if targetBranch == "" {
+		return nil, fmt.Errorf("AI review scanning requires a target branch from repository branch or webhook payload")
+	}
+	if repo.RemoteName == "" {
+		repo.RemoteName = "origin"
+	}
+	if err := commonservice.ValidateReviewRules(scanningInfo.ReviewRules); err != nil {
+		return nil, fmt.Errorf("invalid AI review scanning rules: %w", err)
+	}
+
+	reviewImage := config.ZadigReviewImage()
+	if reviewImage == "" {
+		return nil, fmt.Errorf("AI review image is not configured: %s is empty", setting.ENVZadigReviewImage)
+	}
+	systemConfig, err := commonrepo.NewSystemSettingColl().GetAIReviewConfig()
+	if err != nil {
+		return nil, fmt.Errorf("get system AI review config: %w", err)
+	}
+	if systemConfig == nil || systemConfig.LLMIntegrationID == "" {
+		return nil, fmt.Errorf("system AI review config is missing LLM integration")
+	}
+	if systemConfig.OutputLanguage == "" {
+		return nil, fmt.Errorf("system AI review output language is not configured")
+	}
+	if err := commonservice.ValidateReviewRules(systemConfig.Rules); err != nil {
+		return nil, fmt.Errorf("invalid system AI review rules: %w", err)
+	}
+	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindByID(context.TODO(), systemConfig.LLMIntegrationID)
+	if err != nil {
+		return nil, fmt.Errorf("find AI review LLM integration %q: %w", systemConfig.LLMIntegrationID, err)
+	}
+
+	mergedRules := commonservice.MergeReviewRules(scanningInfo.ReviewRules, systemConfig.Rules)
+	ruleFile := &aiReviewRuleFile{
+		Include: scanningInfo.ReviewIncludePaths,
+		Exclude: scanningInfo.ReviewExcludePaths,
+		Rules:   make([]*aiReviewRuleEntry, 0, len(mergedRules)),
+	}
+	for _, rule := range mergedRules {
+		// A leading newline forces v0.1.1 to treat a one-token ".md" value as inline rule text.
+		ruleFile.Rules = append(ruleFile.Rules, &aiReviewRuleEntry{Path: rule.Path, Rule: "\n" + rule.Rule})
+	}
+	ruleJSON, err := json.Marshal(ruleFile)
+	if err != nil {
+		return nil, fmt.Errorf("marshal AI review rules: %w", err)
+	}
+
+	timeout := scanningInfo.AdvancedSetting.Timeout
+	infrastructure := scanningInfo.Infrastructure
+	if infrastructure == "" {
+		infrastructure = setting.JobK8sInfrastructure
+	}
+	jobInfo := map[string]string{
+		JobNameKey:      j.name,
+		"scanning_name": scanning.Name,
+		"scanning_type": scanningType,
+	}
+	if scanningType == string(config.ServiceScanningType) {
+		jobInfo["service_name"] = serviceName
+		jobInfo["service_module"] = serviceModule
+	}
+	jobName := GenJobName(j.workflow, j.name, jobSubTaskID)
+	jobKey := genJobKey(j.name, scanning.Name)
+	jobDisplayName := genJobDisplayName(j.name, scanning.Name)
+	if scanningType == string(config.ServiceScanningType) {
+		jobKey = genJobKey(j.name, serviceName, serviceModule)
+		jobDisplayName = genJobDisplayName(j.name, serviceName, serviceModule)
+	}
+	jobTaskSpec := new(commonmodels.JobTaskFreestyleSpec)
+	jobTask := &commonmodels.JobTask{
+		Key:            jobKey,
+		Name:           jobName,
+		DisplayName:    jobDisplayName,
+		OriginName:     j.name,
+		JobInfo:        jobInfo,
+		JobType:        string(config.JobZadigScanning),
+		Spec:           jobTaskSpec,
+		Timeout:        timeout,
+		Outputs:        ensureScanningOutputs(nil),
+		Infrastructure: infrastructure,
+		ErrorPolicy:    j.errorPolicy,
+		ExecutePolicy:  j.executePolicy,
+	}
+
+	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, infrastructure, scanningType, serviceName, serviceModule, scanning.Name)
+	envs = append(envs,
+		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_PROTOCOL", Value: string(llmIntegration.Protocol)},
+		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_NAME", Value: llmIntegration.Model},
+		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_ENDPOINT", Value: llmIntegration.BaseURL},
+		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_API_KEY", Value: llmIntegration.Token, IsCredential: true},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_RULES_B64", Value: base64.StdEncoding.EncodeToString(ruleJSON)},
+	)
+	if llmIntegration.EnableProxy {
+		httpProxy, httpsProxy := config.ProxyHTTPAddr(), config.ProxyHTTPSAddr()
+		if httpProxy != "" {
+			envs = append(envs,
+				&commonmodels.KeyVal{Key: "HTTP_PROXY", Value: httpProxy, IsCredential: true},
+				&commonmodels.KeyVal{Key: "http_proxy", Value: httpProxy, IsCredential: true},
+			)
+		}
+		if httpsProxy != "" {
+			envs = append(envs,
+				&commonmodels.KeyVal{Key: "HTTPS_PROXY", Value: httpsProxy, IsCredential: true},
+				&commonmodels.KeyVal{Key: "https_proxy", Value: httpsProxy, IsCredential: true},
+			)
+		}
+	}
+
+	jobTaskSpec.Properties = commonmodels.JobProperties{
+		Timeout:           timeout,
+		ResourceRequest:   scanningInfo.AdvancedSetting.ResReq,
+		ResReqSpec:        scanningInfo.AdvancedSetting.ResReqSpec,
+		ClusterID:         scanningInfo.AdvancedSetting.ClusterID,
+		ClusterSource:     scanningInfo.AdvancedSetting.ClusterSource,
+		StrategyID:        scanningInfo.AdvancedSetting.StrategyID,
+		BuildOS:           reviewImage,
+		ImageFrom:         setting.ImageFromCustom,
+		Envs:              envs,
+		CustomAnnotations: scanningInfo.AdvancedSetting.CustomAnnotations,
+		CustomLabels:      scanningInfo.AdvancedSetting.CustomLabels,
+	}
+
+	renderRepos(scanning.Repos, jobTaskSpec.Properties.Envs)
+	codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("find %s project codehost error: %w", j.workflow.Project, err)
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, &commonmodels.StepTask{
+		Name:     scanning.Name + "-git",
+		JobName:  jobTask.Name,
+		StepType: config.StepGit,
+		Spec:     step.StepGitSpec{Repos: scanning.Repos, CodeHosts: codehosts},
+	})
+
+	repoDir := repo.CheckoutPath
+	if repoDir == "" {
+		repoDir = repo.RepoName
+	}
+	repoDir = path.Clean(repoDir)
+	if repoDir == "." || path.IsAbs(repoDir) || repoDir == ".." || strings.HasPrefix(repoDir, "../") {
+		return nil, fmt.Errorf("AI review repository checkout path %q is invalid", repoDir)
+	}
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs,
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_REPO_DIR", Value: repoDir},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_REMOTE_NAME", Value: repo.RemoteName},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_TARGET_BRANCH", Value: targetBranch},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_PR", Value: strconv.Itoa(repo.PR)},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_OUTPUT_LANGUAGE", Value: systemConfig.OutputLanguage},
+	)
+	reportRelativePath := path.Join(repoDir, ".zadig-review", "zadig-review-report.json")
+	reviewScript := buildAIReviewScript()
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps,
+		&commonmodels.StepTask{
+			Name:     scanning.Name + "-review",
+			JobName:  jobTask.Name,
+			StepType: config.StepShell,
+			Spec: &step.StepShellSpec{
+				Scripts:     strings.Split(reviewScript, "\n"),
+				SkipPrepare: true,
+			},
+		},
+		&commonmodels.StepTask{
+			Name:      scanning.Name + "-ai-review-report",
+			JobName:   jobTask.Name,
+			JobKey:    jobTask.Key,
+			StepType:  config.StepAIReviewReport,
+			Onfailure: true,
+			Spec: &step.StepAIReviewReportSpec{
+				ReportPath: reportRelativePath,
+				CodehostID: repo.CodehostID,
+				RepoOwner:  repo.GetRepoNamespace(),
+				RepoName:   repo.RepoName,
+				PR:         repo.PR,
+			},
+		},
+	)
+
+	renderedTask, err := replaceServiceAndModulesForTask(jobTask, serviceName, serviceModule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render service variables: %w", err)
+	}
+	logger.Infof("generated AI review scanning task %s for %s/%s", jobTask.Name, repo.GetRepoNamespace(), repo.RepoName)
+	return renderedTask, nil
+}
+
+func buildAIReviewScript() string {
+	return `set -eu
+cd "$ZADIG_AI_REVIEW_REPO_DIR"
+mkdir -p .zadig-review
+RULE_FILE="$PWD/.zadig-review/zadig-review-rules.json"
+REPORT_PATH="$PWD/.zadig-review/zadig-review-report.json"
+printf '%s' "$ZADIG_AI_REVIEW_RULES_B64" | base64 -d > "$RULE_FILE"
+REMOTE_NAME="$ZADIG_AI_REVIEW_REMOTE_NAME"
+TARGET_BRANCH="$ZADIG_AI_REVIEW_TARGET_BRANCH"
+PR_BRANCH="pr$ZADIG_AI_REVIEW_PR"
+#if ! git rev-parse --verify "$PR_BRANCH^{commit}" >/dev/null 2>&1; then
+#  echo "AI review failed: pull or merge request branch $PR_BRANCH was not fetched" >&2
+#  exit 2
+#fi
+#git fetch --no-tags "$REMOTE_NAME" "refs/heads/$TARGET_BRANCH:refs/remotes/$REMOTE_NAME/$TARGET_BRANCH" --deepen=500
+#if ! git merge-base "$REMOTE_NAME/$TARGET_BRANCH" "$PR_BRANCH" >/dev/null 2>&1; then
+#  echo "AI review failed: no merge-base found within the fetched history (maximum deepen: 500 commits)" >&2
+#  exit 2
+#fi
+zadig-review-agent review \
+  --from "$REMOTE_NAME/$TARGET_BRANCH" \
+  --to "$PR_BRANCH" \
+  --rule "$RULE_FILE" \
+  --language "$ZADIG_AI_REVIEW_OUTPUT_LANGUAGE" \
+  --console summary \
+  --output-json "$REPORT_PATH" \
+  --output-md ""`
 }
 
 func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {

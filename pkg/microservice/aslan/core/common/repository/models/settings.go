@@ -31,6 +31,7 @@ type SystemSetting struct {
 	WorkflowHook        *WorkflowHookSettings    `bson:"workflow_hook" json:"workflow_hook"`
 	ReleasePlanHook     *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
 	DindTLSCerts        *DindTLSCerts            `bson:"dind_tls_certs,omitempty" json:"-"`
+	AIReviewConfig      *AIReviewConfig          `bson:"ai_review_config" json:"ai_review_config"`
 	UpdateTime          int64                    `bson:"update_time" json:"update_time"`
 }
 
@@ -82,6 +83,14 @@ type SecuritySettings struct {
 
 type PrivacySettings struct {
 	ImprovementPlan bool `json:"improvement_plan" bson:"improvement_plan"`
+}
+
+type AIReviewConfig struct {
+	LLMIntegrationID string        `json:"llm_integration_id" bson:"llm_integration_id"`
+	IncludePaths     []string      `json:"include_paths" bson:"include_paths"`
+	ExcludePaths     []string      `json:"exclude_paths" bson:"exclude_paths"`
+	OutputLanguage   string        `json:"output_language" bson:"output_language"`
+	Rules            []*ReviewRule `json:"rules" bson:"rules"`
 }
 
 type ReleasePlanHookSettings struct {

@@ -837,6 +837,26 @@ type ScanningModule struct {
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
+func (s *ScanningModule) GetReposWithoutCredentials() []*types.Repository {
+	if s == nil {
+		return []*types.Repository{}
+	}
+	resp := make([]*types.Repository, 0, len(s.Repos))
+	for _, repo := range s.Repos {
+		if repo == nil {
+			continue
+		}
+		sanitized := *repo
+		sanitized.OauthToken = ""
+		sanitized.Username = ""
+		sanitized.Password = ""
+		sanitized.SSHKey = ""
+		sanitized.PrivateAccessToken = ""
+		resp = append(resp, &sanitized)
+	}
+	return resp
+}
+
 type BlueGreenDeployJobSpec struct {
 	ClusterID        string             `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
 	Namespace        string             `bson:"namespace"              json:"namespace"             yaml:"namespace"`

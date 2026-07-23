@@ -97,6 +97,11 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "ai_review_report":
+		stepInstance, err = NewAIReviewReportStep(step.Spec, workspace, envs, secretEnvs, updater)
+		if err != nil {
+			return err
+		}
 	case "distribute_image":
 		stepInstance, err = NewDistributeImageStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {

@@ -23,7 +23,3 @@ const (
 	TestReaperType     ReaperType = "Test"
 	ScanningReaperType ReaperType = "Scanning"
 )
-
-const (
-	ScanningTypeSonar = "sonarQube"
-)

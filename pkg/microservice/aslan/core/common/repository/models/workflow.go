@@ -577,6 +577,12 @@ type BuildModuleArgs struct {
 	TaskType     string
 }
 
+type ReviewRule struct {
+	Name string `bson:"name" yaml:"name" json:"name"`
+	Path string `bson:"path" yaml:"path" json:"path"`
+	Rule string `bson:"rule" yaml:"rule" json:"rule"`
+}
+
 func (Workflow) TableName() string {
 	return "workflow"
 }

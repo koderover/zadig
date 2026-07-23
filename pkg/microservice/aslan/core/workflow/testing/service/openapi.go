@@ -85,7 +85,7 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 		CheckQualityGate: req.EnableQualityGate,
 	}
 	// since only one sonar system can be integrated, use that as the sonarID
-	if req.ScannerType == "sonarQube" {
+	if req.ScannerType == types.ScannerTypeSonarQube {
 		sonarInfo, _, err := mongodb.NewSonarIntegrationColl().List(context.TODO(), 1, 20)
 		if err != nil {
 			log.Errorf("failed to list sonar integration, err is: %s", err)

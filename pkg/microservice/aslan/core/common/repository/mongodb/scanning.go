@@ -77,7 +77,9 @@ func (c *ScanningColl) Create(scanning *models.Scanning) error {
 		return errors.New("nil scanning args")
 	}
 
-	scanning.CreatedAt = time.Now().Unix()
+	now := time.Now().Unix()
+	scanning.CreatedAt = now
+	scanning.UpdatedAt = now
 
 	_, err := c.InsertOne(context.TODO(), scanning)
 	return err
