@@ -33,7 +33,7 @@ import (
 // @Success 200 {object} service.CLIContextResponse
 // @Failure 401
 // @Failure 403
-// @Router /openapi/system/cli-context [get]
+// @Router /openapi/system/cli/context [get]
 func OpenAPIGetCLIContext(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

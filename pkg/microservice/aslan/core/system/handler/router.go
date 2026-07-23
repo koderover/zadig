@@ -607,7 +607,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
-	router.GET("/cli-context", OpenAPIGetCLIContext)
+	cli := router.Group("cli")
+	{
+		cli.GET("/context", OpenAPIGetCLIContext)
+	}
 
 	reg := router.Group("registry")
 	{
