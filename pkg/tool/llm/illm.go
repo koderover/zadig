@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
@@ -35,19 +36,14 @@ const (
 	ProviderAliyunBailian        Provider = "bailian"
 	ProviderVolcengineArk        Provider = "ark"
 	ProviderHuaweiMaas           Provider = "maas"
+	ProviderOther                Provider = "other"
 )
 
-var (
-	clients = map[Provider]ILLM{
-		ProviderOpenAI:               &OpenAIClient{},
-		ProviderDeepSeek:             &OpenAIClient{},
-		ProviderDeepSeekSiliconCloud: &OpenAIClient{},
-		ProviderAzure:                &OpenAIClient{},
-		ProviderAzureAD:              &OpenAIClient{},
-		ProviderAliyunBailian:        &OpenAIClient{},
-		ProviderVolcengineArk:        &OpenAIClient{},
-		ProviderHuaweiMaas:           &OpenAIClient{},
-	}
+type Protocol string
+
+const (
+	ProtocolOpenAI    Protocol = "openai"
+	ProtocolAnthropic Protocol = "anthropic"
 )
 
 type ILLM interface {
@@ -58,20 +54,29 @@ type ILLM interface {
 	GetModel() string
 }
 
-func NewClient(provider Provider) (ILLM, error) {
-	if c, ok := clients[provider]; !ok {
-		return nil, fmt.Errorf("provider %s not supported", provider)
-	} else {
-		return c, nil
+func NewClientByProtocol(protocol Protocol) (ILLM, error) {
+	switch protocol {
+	case "", ProtocolOpenAI:
+		return &OpenAIClient{}, nil
+	case ProtocolAnthropic:
+		return &AnthropicClient{}, nil
+	default:
+		return nil, fmt.Errorf("protocol %s is not supported", protocol)
 	}
 }
 
 type LLMConfig struct {
+	Name         string
+	Protocol     Protocol
 	ProviderName Provider
 	Model        string
 	Token        string
 	BaseURL      string
 	Proxy        string
+}
+
+func (p *LLMConfig) GetIntegrationName() string {
+	return p.Name
 }
 
 func (p *LLMConfig) GetProviderName() Provider {
@@ -94,10 +99,17 @@ func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
 }
 
-func GetCacheKey(provider string, sEnc string) string {
-	data := fmt.Sprintf("%s-%s", provider, sEnc)
+func GetCacheKeyWithModel(provider, model, sEnc string) string {
+	data := strings.Join([]string{provider, model, sEnc}, "\x00")
 
 	hash := sha256.Sum256([]byte(data))
 
 	return hex.EncodeToString(hash[:])
+}
+
+func cacheNamespace(protocol Protocol, integrationName string, provider Provider) string {
+	if integrationName == "" {
+		integrationName = string(provider)
+	}
+	return string(protocol) + ":" + integrationName
 }
