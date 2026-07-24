@@ -46,28 +46,23 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
-		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
-		if err != nil {
+		session := mongotool.Session()
+		defer session.EndSession(ctx)
+		if err := mongotool.StartTransaction(session); err != nil {
 			return errors.Wrap(err, "start release plan transaction")
 		}
 
-		var retErr error
-		defer func() {
-			deferSession(retErr)
-		}()
-
 		sessionCtx := mongotool.SessionContext(ctx, session)
 		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
-			retErr = errors.Wrap(err, "create release plan version")
-			return retErr
+			mongotool.AbortTransaction(session)
+			return errors.Wrap(err, "create release plan version")
 		}
 		if _, err := planColl.CreateWithCtx(sessionCtx, plan); err != nil {
-			retErr = errors.Wrap(err, "create release plan")
-			return retErr
+			mongotool.AbortTransaction(session)
+			return errors.Wrap(err, "create release plan")
 		}
 		if err := mongotool.CommitTransaction(session); err != nil {
-			retErr = errors.Wrap(err, "commit release plan transaction")
-			return retErr
+			return errors.Wrap(err, "commit release plan transaction")
 		}
 		return nil
 	}
@@ -113,28 +108,23 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
-		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
-		if err != nil {
+		session := mongotool.Session()
+		defer session.EndSession(ctx)
+		if err := mongotool.StartTransaction(session); err != nil {
 			return errors.Wrap(err, "start release plan transaction")
 		}
 
-		var retErr error
-		defer func() {
-			deferSession(retErr)
-		}()
-
 		sessionCtx := mongotool.SessionContext(ctx, session)
 		if err := planColl.UpdateByID(sessionCtx, planID, plan); err != nil {
-			retErr = errors.Wrap(err, "update plan")
-			return retErr
+			mongotool.AbortTransaction(session)
+			return errors.Wrap(err, "update plan")
 		}
 		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
-			retErr = errors.Wrap(err, "create release plan version")
-			return retErr
+			mongotool.AbortTransaction(session)
+			return errors.Wrap(err, "create release plan version")
 		}
 		if err := mongotool.CommitTransaction(session); err != nil {
-			retErr = errors.Wrap(err, "commit release plan transaction")
-			return retErr
+			return errors.Wrap(err, "commit release plan transaction")
 		}
 		return nil
 	}
