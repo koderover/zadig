@@ -95,6 +95,9 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := prepareTemplateBoundWorkflowForCreate(user, workflow, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	if !isTemplateBindingEnabled(workflow) {
+		clearWorkflowStageAndJobIDs(workflow.Stages)
+	}
 
 	workflowController := controller.CreateWorkflowController(workflow)
 	if err := workflowController.Validate(false); err != nil {
@@ -273,6 +276,9 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 
 	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if !isTemplateBindingEnabled(inputWorkflow) {
+		clearWorkflowStageAndJobIDs(inputWorkflow.Stages)
 	}
 
 	workflowController := controller.CreateWorkflowController(inputWorkflow)

@@ -35,16 +35,17 @@ import (
 )
 
 type WorkflowTemplateBindingStatusResponse struct {
-	Enabled        bool                               `json:"enabled"`
-	TemplateID     string                             `json:"template_id,omitempty"`
-	TemplateName   string                             `json:"template_name,omitempty"`
-	BaseVersion    int                                `json:"base_version,omitempty"`
-	LatestVersion  int                                `json:"latest_version,omitempty"`
-	HasDelta       bool                               `json:"has_workflow_delta"`
-	HasConflict    bool                               `json:"has_conflict"`
-	ConflictCount  int                                `json:"conflict_count"`
-	Conflicts      []*WorkflowTemplateBindingConflict `json:"conflicts,omitempty"`
-	InvalidPatches []*commonmodels.InvalidJSONPatch   `json:"invalid_patches,omitempty"`
+	Enabled             bool                               `json:"enabled"`
+	TemplateID          string                             `json:"template_id,omitempty"`
+	TemplateName        string                             `json:"template_name,omitempty"`
+	BaseVersion         int                                `json:"base_version,omitempty"`
+	LatestVersion       int                                `json:"latest_version,omitempty"`
+	HasDelta            bool                               `json:"has_workflow_delta"`
+	HasConflict         bool                               `json:"has_conflict"`
+	ConflictCount       int                                `json:"conflict_count"`
+	Conflicts           []*WorkflowTemplateBindingConflict `json:"conflicts,omitempty"`
+	InvalidPatches      []*commonmodels.InvalidJSONPatch   `json:"invalid_patches,omitempty"`
+	RebasedDeltaPatches []*commonmodels.JSONPatchOperation `json:"rebased_delta_patches"`
 }
 
 type WorkflowTemplateBindingPreviewResponse struct {
@@ -233,22 +234,40 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		return &WorkflowTemplateBindingStatusResponse{Enabled: false}, nil
 	}
 
-	conflicts, invalidPatches := calculateBindingState(workflow, 0)
 	latestVersion := workflow.TemplateBinding.BaseVersion
+	rebasedPatches := workflow.TemplateBinding.DeltaPatches
+	conflicts, invalidPatches := calculateBindingState(workflow, 0)
 	if latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(workflow.TemplateBinding.TemplateID); err == nil {
 		latestVersion = latest.Version
+		base, err := getTemplateVersion(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
+		if err != nil {
+			return nil, err
+		}
+		relocatedPatches, rebaseInvalid := rebaseTemplateBindingPatches(base.Snapshot, latest.Snapshot, workflow.TemplateBinding.DeltaPatches)
+		targetBase := workflowFromTemplateSnapshot(latest.Snapshot, workflow)
+		var applyInvalid []*commonmodels.InvalidJSONPatch
+		rebasedPatches, applyInvalid = filterApplicableWorkflowDeltaPatches(targetBase, relocatedPatches)
+
+		rebasedWorkflow := new(commonmodels.WorkflowV4)
+		if err := util.DeepCopy(rebasedWorkflow, workflow); err != nil {
+			return nil, err
+		}
+		rebasedWorkflow.TemplateBinding.DeltaPatches = rebasedPatches
+		conflicts = calculateBindingConflicts(rebasedWorkflow, latest.Version)
+		invalidPatches = append(rebaseInvalid, applyInvalid...)
 	}
 	return &WorkflowTemplateBindingStatusResponse{
-		Enabled:        true,
-		TemplateID:     workflow.TemplateBinding.TemplateID,
-		TemplateName:   workflow.TemplateBinding.TemplateName,
-		BaseVersion:    workflow.TemplateBinding.BaseVersion,
-		LatestVersion:  latestVersion,
-		HasDelta:       len(workflow.TemplateBinding.DeltaPatches) > 0,
-		HasConflict:    len(conflicts) > 0,
-		ConflictCount:  len(conflicts),
-		Conflicts:      conflicts,
-		InvalidPatches: invalidPatches,
+		Enabled:             true,
+		TemplateID:          workflow.TemplateBinding.TemplateID,
+		TemplateName:        workflow.TemplateBinding.TemplateName,
+		BaseVersion:         workflow.TemplateBinding.BaseVersion,
+		LatestVersion:       latestVersion,
+		HasDelta:            len(workflow.TemplateBinding.DeltaPatches) > 0,
+		HasConflict:         len(conflicts) > 0,
+		ConflictCount:       len(conflicts),
+		Conflicts:           conflicts,
+		InvalidPatches:      invalidPatches,
+		RebasedDeltaPatches: rebasedPatches,
 	}, nil
 }
 
@@ -307,6 +326,7 @@ func UnbindWorkflowTemplateBinding(workflowName, user string, req *UnbindWorkflo
 		return err
 	}
 	rendered.TemplateBinding = &commonmodels.WorkflowTemplateBinding{Enabled: false}
+	clearWorkflowStageAndJobIDs(rendered.Stages)
 	rendered.ID = workflow.ID
 	rendered.CustomField = workflow.CustomField
 	rendered.UpdatedBy = user
@@ -369,7 +389,8 @@ func calculateBindingConflicts(workflow *commonmodels.WorkflowV4, targetVersion 
 	if target.Version <= base.Version {
 		return nil
 	}
-	templatePatches, err := createJSONPatchOperations(base.Snapshot, target.Snapshot)
+	alignedBase := alignTemplateSnapshotForConflict(base.Snapshot, target.Snapshot)
+	templatePatches, err := createJSONPatchOperations(alignedBase, target.Snapshot)
 	if err != nil {
 		return nil
 	}
@@ -393,6 +414,82 @@ func calculateBindingConflicts(workflow *commonmodels.WorkflowV4, targetVersion 
 		}
 	}
 	return conflicts
+}
+
+func alignTemplateSnapshotForConflict(base, target *commonmodels.WorkflowV4Template) *commonmodels.WorkflowV4Template {
+	if base == nil || target == nil {
+		return base
+	}
+
+	aligned := new(commonmodels.WorkflowV4Template)
+	if err := util.DeepCopy(aligned, base); err != nil {
+		return base
+	}
+	aligned.Stages = make([]*commonmodels.WorkflowStage, 0, len(target.Stages))
+	for _, targetStage := range target.Stages {
+		if targetStage == nil {
+			aligned.Stages = append(aligned.Stages, nil)
+			continue
+		}
+
+		baseStage := findMatchingTemplateStage(base.Stages, targetStage)
+		if baseStage == nil {
+			aligned.Stages = append(aligned.Stages, targetStage)
+			continue
+		}
+
+		alignedStage := new(commonmodels.WorkflowStage)
+		if err := util.DeepCopy(alignedStage, baseStage); err != nil {
+			aligned.Stages = append(aligned.Stages, targetStage)
+			continue
+		}
+		if targetStage.Jobs == nil {
+			alignedStage.Jobs = nil
+			aligned.Stages = append(aligned.Stages, alignedStage)
+			continue
+		}
+		alignedStage.Jobs = make([]*commonmodels.Job, 0, len(targetStage.Jobs))
+		for _, targetJob := range targetStage.Jobs {
+			if targetJob == nil {
+				alignedStage.Jobs = append(alignedStage.Jobs, nil)
+				continue
+			}
+			if baseJob := findMatchingTemplateJob(base.Stages, targetJob); baseJob != nil {
+				alignedStage.Jobs = append(alignedStage.Jobs, baseJob)
+			} else {
+				alignedStage.Jobs = append(alignedStage.Jobs, targetJob)
+			}
+		}
+		aligned.Stages = append(aligned.Stages, alignedStage)
+	}
+	return aligned
+}
+
+func findMatchingTemplateStage(stages []*commonmodels.WorkflowStage, target *commonmodels.WorkflowStage) *commonmodels.WorkflowStage {
+	for _, stage := range stages {
+		if stage != nil && sameTemplateEntity(stage.ID, target.ID) {
+			return stage
+		}
+	}
+	return nil
+}
+
+func findMatchingTemplateJob(stages []*commonmodels.WorkflowStage, target *commonmodels.Job) *commonmodels.Job {
+	for _, stage := range stages {
+		if stage == nil {
+			continue
+		}
+		for _, job := range stage.Jobs {
+			if job != nil && sameTemplateEntity(job.ID, target.ID) {
+				return job
+			}
+		}
+	}
+	return nil
+}
+
+func sameTemplateEntity(aID, bID string) bool {
+	return aID != "" && bID != "" && aID == bID
 }
 
 func validateWorkflowDeltaPatches(workflow *commonmodels.WorkflowV4, targetVersion int) []*commonmodels.InvalidJSONPatch {
@@ -454,6 +551,20 @@ func workflowFromTemplateSnapshot(template *commonmodels.WorkflowV4Template, ins
 
 func isTemplateBindingEnabled(workflow *commonmodels.WorkflowV4) bool {
 	return workflow != nil && workflow.TemplateBinding != nil && workflow.TemplateBinding.Enabled
+}
+
+func clearWorkflowStageAndJobIDs(stages []*commonmodels.WorkflowStage) {
+	for _, stage := range stages {
+		if stage == nil {
+			continue
+		}
+		stage.ID = ""
+		for _, job := range stage.Jobs {
+			if job != nil {
+				job.ID = ""
+			}
+		}
+	}
 }
 
 func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*commonmodels.JSONPatchOperation) ([]*commonmodels.JSONPatchOperation, *commonmodels.WorkflowV4, error) {
@@ -566,6 +677,137 @@ func applySingleJSONPatch(workflow *commonmodels.WorkflowV4, patch *commonmodels
 		return nil, err
 	}
 	return rendered, nil
+}
+
+func rebaseTemplateBindingPatches(from, to *commonmodels.WorkflowV4Template, patches []*commonmodels.JSONPatchOperation) ([]*commonmodels.JSONPatchOperation, []*commonmodels.InvalidJSONPatch) {
+	rebased := make([]*commonmodels.JSONPatchOperation, 0, len(patches))
+	invalid := make([]*commonmodels.InvalidJSONPatch, 0)
+	for _, patch := range patches {
+		if patch == nil {
+			invalid = append(invalid, &commonmodels.InvalidJSONPatch{Patch: patch, Error: "nil json patch operation"})
+			continue
+		}
+
+		rebasedPatch := *patch
+		path, err := rebaseTemplateBindingJSONPointer(from, to, patch.Path)
+		if err != nil {
+			invalid = append(invalid, &commonmodels.InvalidJSONPatch{Patch: patch, Error: err.Error()})
+			continue
+		}
+		rebasedPatch.Path = path
+		if patch.From != "" {
+			fromPath, err := rebaseTemplateBindingJSONPointer(from, to, patch.From)
+			if err != nil {
+				invalid = append(invalid, &commonmodels.InvalidJSONPatch{Patch: patch, Error: err.Error()})
+				continue
+			}
+			rebasedPatch.From = fromPath
+		}
+		rebased = append(rebased, &rebasedPatch)
+	}
+	return rebased, invalid
+}
+
+func filterApplicableWorkflowDeltaPatches(base *commonmodels.WorkflowV4, patches []*commonmodels.JSONPatchOperation) ([]*commonmodels.JSONPatchOperation, []*commonmodels.InvalidJSONPatch) {
+	applicable := make([]*commonmodels.JSONPatchOperation, 0, len(patches))
+	invalid := make([]*commonmodels.InvalidJSONPatch, 0)
+	rendered := base
+	for _, patch := range patches {
+		next, err := applySingleJSONPatch(rendered, patch)
+		if err != nil {
+			invalid = append(invalid, &commonmodels.InvalidJSONPatch{Patch: patch, Error: err.Error()})
+			continue
+		}
+		applicable = append(applicable, patch)
+		rendered = next
+	}
+	return applicable, invalid
+}
+
+func rebaseTemplateBindingJSONPointer(from, to *commonmodels.WorkflowV4Template, path string) (string, error) {
+	if from == nil || to == nil || path == "" {
+		return path, nil
+	}
+
+	rawParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if !strings.HasPrefix(path, "/") || len(rawParts) < 2 || rawParts[0] != "stages" {
+		return path, nil
+	}
+	stageIndex, err := strconv.Atoi(rawParts[1])
+	if err != nil {
+		// Paths such as /stages/- add a new entity and do not refer to an
+		// existing template stage, so there is nothing to relocate.
+		return path, nil
+	}
+	if stageIndex < 0 || stageIndex >= len(from.Stages) || from.Stages[stageIndex] == nil {
+		return "", fmt.Errorf("stage at index %d does not exist in base template", stageIndex)
+	}
+
+	sourceStage := from.Stages[stageIndex]
+	if sourceStage.ID == "" {
+		return "", fmt.Errorf("stage %q has no id in base template", sourceStage.Name)
+	}
+	targetStageIndex := findTemplateStageIndex(to.Stages, sourceStage)
+	if targetStageIndex < 0 {
+		return "", fmt.Errorf("stage %q no longer exists in target template", templateEntityIdentity(sourceStage.ID, sourceStage.Name))
+	}
+	rawParts[1] = strconv.Itoa(targetStageIndex)
+
+	if len(rawParts) < 4 || rawParts[2] != "jobs" {
+		return "/" + strings.Join(rawParts, "/"), nil
+	}
+	jobIndex, err := strconv.Atoi(rawParts[3])
+	if err != nil {
+		return "/" + strings.Join(rawParts, "/"), nil
+	}
+	if jobIndex < 0 || jobIndex >= len(sourceStage.Jobs) || sourceStage.Jobs[jobIndex] == nil {
+		return "", fmt.Errorf("job at index %d does not exist in base template stage %q", jobIndex, templateEntityIdentity(sourceStage.ID, sourceStage.Name))
+	}
+
+	sourceJob := sourceStage.Jobs[jobIndex]
+	if sourceJob.ID == "" {
+		return "", fmt.Errorf("job %q has no id in base template", sourceJob.Name)
+	}
+	targetStageIndex, targetJobIndex := findTemplateJobIndex(to.Stages, sourceJob)
+	if targetJobIndex < 0 {
+		return "", fmt.Errorf("job %q no longer exists in target template", templateEntityIdentity(sourceJob.ID, sourceJob.Name))
+	}
+	rawParts[1] = strconv.Itoa(targetStageIndex)
+	rawParts[3] = strconv.Itoa(targetJobIndex)
+	return "/" + strings.Join(rawParts, "/"), nil
+}
+
+func findTemplateStageIndex(stages []*commonmodels.WorkflowStage, source *commonmodels.WorkflowStage) int {
+	for index, stage := range stages {
+		if stage == nil {
+			continue
+		}
+		if stage.ID == source.ID {
+			return index
+		}
+	}
+	return -1
+}
+
+func findTemplateJobIndex(stages []*commonmodels.WorkflowStage, source *commonmodels.Job) (int, int) {
+	for stageIndex, stage := range stages {
+		if stage == nil {
+			continue
+		}
+		for jobIndex, job := range stage.Jobs {
+			if job != nil && job.ID == source.ID {
+				return stageIndex, jobIndex
+			}
+		}
+	}
+	return -1, -1
+}
+
+func templateEntityIdentity(id, name string) string {
+	if id != "" {
+		return id
+	}
+	return name
 }
 
 func jsonPatchPathConflict(a, b string) bool {

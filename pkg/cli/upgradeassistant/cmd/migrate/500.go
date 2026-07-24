@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
@@ -144,12 +146,13 @@ func migrateWorkflowTemplateVersion500(migrationInfo *internalmodels.Migration) 
 		return nil
 	}
 
+	templateColl := commonrepo.NewWorkflowV4TemplateColl()
 	versionColl := commonrepo.NewWorkflowV4TemplateVersionColl()
 	if err := versionColl.EnsureIndex(context.Background()); err != nil {
 		return fmt.Errorf("failed to ensure workflow template version indexes, err: %s", err)
 	}
 
-	cursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
+	cursor, err := templateColl.ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
 	if err != nil {
 		return fmt.Errorf("failed to list workflow templates, err: %s", err)
 	}
@@ -159,6 +162,14 @@ func migrateWorkflowTemplateVersion500(migrationInfo *internalmodels.Migration) 
 		template := new(commonmodels.WorkflowV4Template)
 		if err := cursor.Decode(template); err != nil {
 			return fmt.Errorf("failed to decode workflow template, err: %s", err)
+		}
+
+		if backfillWorkflowTemplateEntityIDs500(template) {
+			if _, err := templateColl.UpdateOne(context.Background(), bson.M{"_id": template.ID}, bson.M{"$set": bson.M{
+				"stages": template.Stages,
+			}}); err != nil {
+				return fmt.Errorf("failed to backfill stage/job ids for workflow template %s, err: %s", template.TemplateName, err)
+			}
 		}
 
 		latest, err := versionColl.GetLatest(template.ID.Hex())
@@ -190,6 +201,46 @@ func migrateWorkflowTemplateVersion500(migrationInfo *internalmodels.Migration) 
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500WorkflowTemplateVersion): true,
 	})
+}
+
+func backfillWorkflowTemplateEntityIDs500(template *commonmodels.WorkflowV4Template) bool {
+	if template == nil {
+		return false
+	}
+
+	changed := false
+	usedStageIDs := make(map[string]struct{})
+	usedJobIDs := make(map[string]struct{})
+	for _, stage := range template.Stages {
+		if stage == nil {
+			continue
+		}
+		if stage.ID == "" {
+			stage.ID = uuid.NewString()
+			changed = true
+		}
+		if _, duplicated := usedStageIDs[stage.ID]; duplicated {
+			stage.ID = uuid.NewString()
+			changed = true
+		}
+		usedStageIDs[stage.ID] = struct{}{}
+
+		for _, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
+			if job.ID == "" {
+				job.ID = uuid.NewString()
+				changed = true
+			}
+			if _, duplicated := usedJobIDs[job.ID]; duplicated {
+				job.ID = uuid.NewString()
+				changed = true
+			}
+			usedJobIDs[job.ID] = struct{}{}
+		}
+	}
+	return changed
 }
 
 // ensureAction500 guarantees the target action exists and supports repeated execution.

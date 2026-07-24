@@ -180,6 +180,7 @@ const (
 )
 
 type WorkflowStage struct {
+	ID         string      `bson:"id,omitempty"         yaml:"id,omitempty"         json:"id,omitempty"`
 	Name       string      `bson:"name"               yaml:"name"              json:"name"`
 	Parallel   bool        `bson:"parallel"           yaml:"parallel"          json:"parallel"`
 	Approval   *Approval   `bson:"approval"           yaml:"approval"          json:"approval"`
@@ -358,8 +359,9 @@ type User struct {
 }
 
 type Job struct {
-	Name    string         `bson:"name"           yaml:"name"     json:"name"`
-	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
+	ID      string         `bson:"id,omitempty"   yaml:"id,omitempty" json:"id,omitempty"`
+	Name    string         `bson:"name"           yaml:"name"         json:"name"`
+	JobType config.JobType `bson:"type"           yaml:"type"         json:"type"`
 	// only for webhook workflow args to skip some tasks.
 	Skipped        bool                     `bson:"skipped"              yaml:"skipped"              json:"skipped"`
 	Spec           interface{}              `bson:"spec"                 yaml:"spec"                 json:"spec"`

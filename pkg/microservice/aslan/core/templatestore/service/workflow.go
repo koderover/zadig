@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -36,10 +37,16 @@ import (
 )
 
 func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
+	if template == nil {
+		return e.ErrCreateWorkflowTemplate.AddDesc("nil workflow template")
+	}
 	if _, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{Name: template.TemplateName}); err == nil {
 		errMsg := fmt.Sprintf("工作流模板名称: %s 已存在", template.TemplateName)
 		logger.Error(errMsg)
 		return e.ErrCreateWorkflowTemplate.AddDesc(errMsg)
+	}
+	if err := reconcileWorkflowTemplateIDs(nil, template); err != nil {
+		return e.ErrCreateWorkflowTemplate.AddDesc(err.Error())
 	}
 	if err := lintWorkflowTemplate(template, logger); err != nil {
 		return err
@@ -73,10 +80,17 @@ func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 }
 
 func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
-	if _, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{ID: template.ID.Hex()}); err != nil {
+	if template == nil {
+		return e.ErrUpdateWorkflowTemplate.AddDesc("nil workflow template")
+	}
+	existing, err := commonrepo.NewWorkflowV4TemplateColl().Find(&commonrepo.WorkflowTemplateQueryOption{ID: template.ID.Hex()})
+	if err != nil {
 		errMsg := fmt.Sprintf("workflow template %s not found: %v", template.TemplateName, err)
 		logger.Error(errMsg)
 		return e.ErrUpdateWorkflowTemplate.AddDesc(errMsg)
+	}
+	if err := reconcileWorkflowTemplateIDs(existing, template); err != nil {
+		return e.ErrUpdateWorkflowTemplate.AddDesc(err.Error())
 	}
 	if err := lintWorkflowTemplate(template, logger); err != nil {
 		return err
@@ -104,6 +118,67 @@ func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 		errMsg := fmt.Sprintf("Failed to update workflow template %s, err: %v", template.TemplateName, err)
 		logger.Error(errMsg)
 		return e.ErrUpdateWorkflowTemplate.AddDesc(errMsg)
+	}
+	return nil
+}
+
+func reconcileWorkflowTemplateIDs(existing, input *commonmodels.WorkflowV4Template) error {
+	if input == nil {
+		return fmt.Errorf("nil workflow template")
+	}
+
+	existingStageIDs := make(map[string]struct{})
+	existingJobIDs := make(map[string]struct{})
+	if existing != nil {
+		for _, stage := range existing.Stages {
+			if stage == nil {
+				continue
+			}
+			if stage.ID != "" {
+				existingStageIDs[stage.ID] = struct{}{}
+			}
+			for _, job := range stage.Jobs {
+				if job != nil && job.ID != "" {
+					existingJobIDs[job.ID] = struct{}{}
+				}
+			}
+		}
+	}
+
+	inputStageIDs := make(map[string]struct{})
+	inputJobIDs := make(map[string]struct{})
+	for stageIndex, stage := range input.Stages {
+		if stage == nil {
+			return fmt.Errorf("nil workflow template stage at index %d", stageIndex)
+		}
+		if existing == nil {
+			stage.ID = uuid.NewString()
+		} else if stage.ID == "" {
+			stage.ID = uuid.NewString()
+		} else if _, ok := existingStageIDs[stage.ID]; !ok {
+			return fmt.Errorf("unknown workflow template stage id %q", stage.ID)
+		}
+		if _, ok := inputStageIDs[stage.ID]; ok {
+			return fmt.Errorf("duplicated workflow template stage id %q", stage.ID)
+		}
+		inputStageIDs[stage.ID] = struct{}{}
+
+		for jobIndex, job := range stage.Jobs {
+			if job == nil {
+				return fmt.Errorf("nil workflow template job at stage %q index %d", stage.Name, jobIndex)
+			}
+			if existing == nil {
+				job.ID = uuid.NewString()
+			} else if job.ID == "" {
+				job.ID = uuid.NewString()
+			} else if _, ok := existingJobIDs[job.ID]; !ok {
+				return fmt.Errorf("unknown workflow template job id %q", job.ID)
+			}
+			if _, ok := inputJobIDs[job.ID]; ok {
+				return fmt.Errorf("duplicated workflow template job id %q", job.ID)
+			}
+			inputJobIDs[job.ID] = struct{}{}
+		}
 	}
 	return nil
 }
