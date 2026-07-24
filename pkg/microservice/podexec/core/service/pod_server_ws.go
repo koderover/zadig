@@ -80,13 +80,14 @@ func ServeWs(c *gin.Context) {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
 		return
 	}
-	defer func() {
-		_ = pty.Close()
-	}()
 	initialCols, initialRows := readTerminalSizeFromQuery(c)
 	finalStatus := commonmodels.TerminalSessionStatusFinished
 	var audit *terminalaudit.AuditSession
 	defer func() {
+		_ = pty.Close()
+		if audit == nil {
+			return
+		}
 		if err := audit.Close(finalStatus); err != nil {
 			log.Errorf("close terminal audit recorder failed: %v", err)
 		}
@@ -121,21 +122,16 @@ func ServeWs(c *gin.Context) {
 	}
 
 	meta := &terminalaudit.SessionMeta{
-		SessionType: commonmodels.TerminalSessionTypePodExec,
-		Protocol:    "k8s-exec",
-		UserID:      ctx.UserID,
-		Username:    ctx.UserName,
-		Account:     ctx.Account,
-		ProjectName: productName,
-		EnvName:     envName,
-		ServiceName: resolvePodServiceName(pod),
-		TargetName:  fmt.Sprintf("%s/%s", podName, containerName),
-		RemoteAddr: func() string {
-			if pod != nil {
-				return pod.Status.PodIP
-			}
-			return ""
-		}(),
+		SessionType:   commonmodels.TerminalSessionTypePodExec,
+		Protocol:      "k8s-exec",
+		UserID:        ctx.UserID,
+		Username:      ctx.UserName,
+		Account:       ctx.Account,
+		ProjectName:   productName,
+		EnvName:       envName,
+		ServiceName:   pod.Labels[setting.ServiceLabel],
+		TargetName:    fmt.Sprintf("%s/%s", podName, containerName),
+		RemoteAddr:    pod.Status.PodIP,
 		ClusterID:     clusterID,
 		Namespace:     namespace,
 		PodName:       podName,
@@ -150,8 +146,10 @@ func ServeWs(c *gin.Context) {
 		_ = pty.Close()
 	})
 	if err != nil {
+		msg := fmt.Sprintf("create terminal audit session failed: %v", err)
 		log.Errorf("create podexec terminal audit recorder failed: %v", err)
-		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("create terminal audit session failed: %v", err))
+		_, _ = pty.Write([]byte(msg))
+		ctx.RespErr = e.ErrInternalError.AddDesc(msg)
 		return
 	}
 	log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
@@ -235,10 +233,13 @@ FOR:
 	finalStatus := commonmodels.TerminalSessionStatusFinished
 	var audit *terminalaudit.AuditSession
 	defer func() {
+		_ = pty.Close()
+		if audit == nil {
+			return
+		}
 		if err := audit.Close(finalStatus); err != nil {
 			log.Errorf("close workflow terminal audit recorder failed: %v", err)
 		}
-		_ = pty.Close()
 	}()
 
 	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
@@ -302,11 +303,13 @@ FOR:
 		_ = pty.Close()
 	})
 	if err != nil {
+		msg := fmt.Sprintf("create terminal audit session failed: %v", err)
 		log.Errorf("create workflow terminal audit recorder failed: %v", err)
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("create terminal audit session failed: %v", err))
+		_, _ = pty.Write([]byte(msg))
+		return e.ErrGetDebugShell.AddDesc(msg)
 	}
 	pty.SetupAudit(audit)
-	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues, nil)
+	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues)
 
 	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err == nil || isExpectedTerminalClose(err) {
@@ -340,24 +343,17 @@ func isExpectedTerminalClose(err error) bool {
 	return strings.Contains(errText, "websocket: close") ||
 		strings.Contains(errText, "close sent") ||
 		strings.Contains(errText, "use of closed network connection") ||
-		strings.Contains(errText, "next reader") ||
-		strings.Contains(errText, "eof")
+		strings.Contains(errText, "next reader")
 }
 
 func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interface, pod *corev1.Pod, namespace, containerName string) ([]string, error) {
-	if kubeCli == nil || pod == nil {
-		return nil, nil
-	}
-	envFrom, envs, found := findContainerSecretRefs(pod, containerName)
-	if !found {
-		return nil, nil
-	}
+	envFrom, envs := findContainerSecretRefs(pod, containerName)
 
 	secretValues := make([]string, 0)
 	secretNames := make(map[string]bool)
 	for _, envFromSource := range envFrom {
 		if envFromSource.SecretRef != nil && envFromSource.SecretRef.Name != "" {
-			optional := optionalBool(envFromSource.SecretRef.Optional)
+			optional := envFromSource.SecretRef.Optional != nil && *envFromSource.SecretRef.Optional
 			if existedOptional, ok := secretNames[envFromSource.SecretRef.Name]; !ok || existedOptional {
 				secretNames[envFromSource.SecretRef.Name] = optional
 			}
@@ -388,7 +384,7 @@ func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interf
 		}
 		secret, err := kubeCli.CoreV1().Secrets(namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
-			if optionalBool(ref.Optional) && apierrors.IsNotFound(err) {
+			if ref.Optional != nil && *ref.Optional && apierrors.IsNotFound(err) {
 				continue
 			}
 			return nil, fmt.Errorf("get secret %s: %w", ref.Name, err)
@@ -401,27 +397,16 @@ func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interf
 	return secretValues, nil
 }
 
-func findContainerSecretRefs(pod *corev1.Pod, containerName string) ([]corev1.EnvFromSource, []corev1.EnvVar, bool) {
+func findContainerSecretRefs(pod *corev1.Pod, containerName string) ([]corev1.EnvFromSource, []corev1.EnvVar) {
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == containerName {
-			return pod.Spec.Containers[i].EnvFrom, pod.Spec.Containers[i].Env, true
+			return pod.Spec.Containers[i].EnvFrom, pod.Spec.Containers[i].Env
 		}
 	}
 	for i := range pod.Spec.EphemeralContainers {
 		if pod.Spec.EphemeralContainers[i].Name == containerName {
-			return pod.Spec.EphemeralContainers[i].EnvFrom, pod.Spec.EphemeralContainers[i].Env, true
+			return pod.Spec.EphemeralContainers[i].EnvFrom, pod.Spec.EphemeralContainers[i].Env
 		}
 	}
-	return nil, nil, false
-}
-
-func optionalBool(value *bool) bool {
-	return value != nil && *value
-}
-
-func resolvePodServiceName(pod *corev1.Pod) string {
-	if pod == nil || len(pod.Labels) == 0 {
-		return ""
-	}
-	return pod.Labels[setting.ServiceLabel]
+	return nil, nil
 }

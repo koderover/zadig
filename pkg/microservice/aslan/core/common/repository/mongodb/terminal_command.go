@@ -99,7 +99,7 @@ func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs) ([]*mod
 		}
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "seq", Value: -1}})
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "seq", Value: -1}, {Key: "_id", Value: -1}})
 	if args != nil && args.PageNum > 0 && args.PageSize > 0 {
 		opts.SetSkip((args.PageNum - 1) * args.PageSize).SetLimit(args.PageSize)
 	}

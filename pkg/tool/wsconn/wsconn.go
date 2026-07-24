@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math"
 	"sync"
 	"time"
 
@@ -54,24 +55,8 @@ type wsBufferWriter struct {
 func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.recorder != nil {
-		w.recorder.RecordOutput(string(p))
-	}
+	w.recorder.RecordOutput(string(p))
 	return w.buffer.Write(p)
-}
-
-func (w *wsBufferWriter) RecordInput(data string) {
-	if w == nil || w.recorder == nil {
-		return
-	}
-	w.recorder.RecordInput(data)
-}
-
-func (w *wsBufferWriter) RecordResize(cols, rows uint16) {
-	if w == nil || w.recorder == nil {
-		return
-	}
-	w.recorder.RecordResize(cols, rows)
 }
 
 type SshConn struct {
@@ -130,14 +115,15 @@ func (ssConn *SshConn) ReadWsMessage(wsConn *websocket.Conn, stopCh chan bool) {
 
 			switch wsMsgObj.Operation {
 			case wsMsgResize:
-				ssConn.WsWriter.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
-				if wsMsgObj.Cols > 0 && wsMsgObj.Rows > 0 {
-					if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
-						log.Error("resize windows err:", err)
-					}
+				if wsMsgObj.Cols <= 0 || wsMsgObj.Cols > math.MaxUint16 || wsMsgObj.Rows <= 0 || wsMsgObj.Rows > math.MaxUint16 {
+					continue
+				}
+				ssConn.WsWriter.recorder.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
+				if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
+					log.Error("resize windows err:", err)
 				}
 			case wsMsgStdin:
-				ssConn.WsWriter.RecordInput(wsMsgObj.Data)
+				ssConn.WsWriter.recorder.RecordInput(wsMsgObj.Data)
 				decodeBytes := []byte(wsMsgObj.Data)
 				if _, err := ssConn.Stdin.Write(decodeBytes); err != nil {
 					log.Error("ws stdin write to ssh.stdin err:", err)

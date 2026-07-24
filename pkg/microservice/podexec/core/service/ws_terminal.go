@@ -91,9 +91,6 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 }
 
 func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
-	if audit == nil {
-		return
-	}
 	t.SessionID = audit.SessionID
 	t.Recorder = audit.Recorder
 	log.Infof("terminal session audit attached, sessionID=%s", t.SessionID)
@@ -130,14 +127,10 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	}
 	switch msg.Operation {
 	case "stdin":
-		if t.Recorder != nil {
-			t.Recorder.RecordInput(msg.Data)
-		}
+		t.Recorder.RecordInput(msg.Data)
 		return copy(p, msg.Data), nil
 	case "resize":
-		if t.Recorder != nil {
-			t.Recorder.RecordResize(msg.Cols, msg.Rows)
-		}
+		t.Recorder.RecordResize(msg.Cols, msg.Rows)
 		t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}
 		return 0, nil
 	default:

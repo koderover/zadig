@@ -179,7 +179,7 @@ func (c *TerminalSessionColl) List(args *models.TerminalSessionListArgs) ([]*mod
 		}
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}})
+	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}, {Key: "_id", Value: -1}})
 	if args != nil && args.PageNum > 0 && args.PageSize > 0 {
 		opts.SetSkip((args.PageNum - 1) * args.PageSize).SetLimit(args.PageSize)
 	}

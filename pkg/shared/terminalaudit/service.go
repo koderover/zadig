@@ -63,9 +63,6 @@ func GetCastStream(sessionID string) (*CastFileStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	if object == nil {
-		return nil, e.ErrNotFound.AddDesc("cast file not found")
-	}
 	return &CastFileStream{Body: object.Body, FileSize: session.FileSize}, nil
 }
 
@@ -100,9 +97,6 @@ func WatchSession(sessionID string) (<-chan string, func(), error) {
 }
 
 func normalizePagination(pageNum, pageSize *int64) {
-	if pageNum == nil || pageSize == nil {
-		return
-	}
 	if *pageNum <= 0 {
 		*pageNum = 1
 	}

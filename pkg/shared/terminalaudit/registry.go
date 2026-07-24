@@ -11,10 +11,11 @@ import (
 type activeSession struct {
 	mu              sync.Mutex
 	finalStatus     models.TerminalSessionStatus
+	closing         bool
 	terminate       func()
 	terminateOnce   sync.Once
 	done            chan struct{}
-	terminateSub    liveSubscription
+	terminateSub    *redisLiveSubscription
 	terminateCancel context.CancelFunc
 	closeOnce       sync.Once
 }
@@ -69,21 +70,12 @@ func unregisterActiveSession(sessionID string) {
 	registry.sessions.Delete(sessionID)
 }
 
-func resolveSessionStatus(sessionID string, defaultStatus models.TerminalSessionStatus) models.TerminalSessionStatus {
-	session, ok := registry.load(sessionID)
-	if !ok {
-		return defaultStatus
-	}
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	if session.finalStatus != "" {
-		return session.finalStatus
-	}
-	return defaultStatus
-}
-
 func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus) {
 	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return
+	}
 	s.finalStatus = status
 	terminate := s.terminate
 	s.mu.Unlock()
@@ -92,6 +84,16 @@ func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus)
 			terminate()
 		}
 	})
+}
+
+func (s *activeSession) closeWithStatus(defaultStatus models.TerminalSessionStatus) models.TerminalSessionStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closing = true
+	if s.finalStatus != "" {
+		return s.finalStatus
+	}
+	return defaultStatus
 }
 
 func (s *activeSession) close() {

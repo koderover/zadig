@@ -98,7 +98,10 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 	defer sshCli.Close()
 
 	finalStatus := commonmodels.TerminalSessionStatusFinished
-	var audit *terminalaudit.AuditSession
+	hostName := ""
+	if resp.VMInfo != nil {
+		hostName = resp.VMInfo.HostName
+	}
 	meta := &terminalaudit.SessionMeta{
 		SessionType:  commonmodels.TerminalSessionTypeSSH,
 		Protocol:     "ssh",
@@ -110,7 +113,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		RemoteAddr:   resp.IP,
 		LoginAccount: resp.UserName,
 		HostID:       hostId,
-		HostName:     resolveHostName(resp),
+		HostName:     hostName,
 		HostIP:       resp.IP,
 		ClientIP:     c.ClientIP(),
 		UserAgent:    c.Request.UserAgent(),
@@ -119,7 +122,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		UserID:       userID,
 		Account:      account,
 	}
-	audit, err = terminalaudit.NewAuditSession(meta, func() {
+	audit, err := terminalaudit.NewAuditSession(meta, func() {
 		sshCli.Close()
 		_ = ws.Close()
 	})
@@ -155,9 +158,6 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 }
 
 func resolveHostTargetName(resp *commonmodels.PrivateKey) string {
-	if resp == nil {
-		return ""
-	}
 	if resp.Name != "" {
 		return resp.Name
 	}
@@ -165,13 +165,6 @@ func resolveHostTargetName(resp *commonmodels.PrivateKey) string {
 		return resp.VMInfo.HostName
 	}
 	return resp.IP
-}
-
-func resolveHostName(resp *commonmodels.PrivateKey) string {
-	if resp == nil || resp.VMInfo == nil {
-		return ""
-	}
-	return resp.VMInfo.HostName
 }
 
 type VmServiceCommandType string

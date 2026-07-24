@@ -39,8 +39,6 @@ type SessionMeta struct {
 	InitialRows   int
 	// Secrets stores raw secret values and is masked via util.MaskSecret.
 	Secrets []string
-	// SecretEnvs stores KEY=VALUE pairs and is masked via util.MaskSecretEnvs.
-	SecretEnvs []string
 }
 
 type SessionListResponse struct {
