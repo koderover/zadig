@@ -1,6 +1,7 @@
 package terminalaudit
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -8,12 +9,15 @@ import (
 )
 
 type activeSession struct {
-	mu            sync.Mutex
-	finalStatus   models.TerminalSessionStatus
-	terminate     func()
-	terminateOnce sync.Once
-	done          chan struct{}
-	doneOnce      sync.Once
+	mu              sync.Mutex
+	finalStatus     models.TerminalSessionStatus
+	terminate       func()
+	terminateOnce   sync.Once
+	done            chan struct{}
+	doneOnce        sync.Once
+	terminateSub    liveSubscription
+	terminateCancel context.CancelFunc
+	stopOnce        sync.Once
 }
 
 type activeSessionRegistry struct {
@@ -22,10 +26,18 @@ type activeSessionRegistry struct {
 
 var registry = &activeSessionRegistry{}
 
-func RegisterActiveSession(sessionID string, terminate func()) {
+func RegisterActiveSession(sessionID string, terminate func()) error {
+	sessionContext, cancel := context.WithCancel(ProcessContext())
+	terminateSub, err := subscribeToTermination(sessionContext, sessionID)
+	if err != nil {
+		cancel()
+		return fmt.Errorf("subscribe terminal session termination: %w", err)
+	}
 	session := &activeSession{
-		terminate: terminate,
-		done:      make(chan struct{}),
+		terminate:       terminate,
+		done:            make(chan struct{}),
+		terminateSub:    terminateSub,
+		terminateCancel: cancel,
 	}
 	registry.sessions.Store(sessionID, session)
 
@@ -36,11 +48,28 @@ func RegisterActiveSession(sessionID string, terminate func()) {
 		case <-session.done:
 		}
 	}()
+	go func() {
+		for {
+			select {
+			case <-session.done:
+				return
+			case message, ok := <-terminateSub.Messages():
+				if !ok {
+					return
+				}
+				if message == liveMessageTerminate {
+					session.terminateWithStatus(models.TerminalSessionStatusAborted)
+				}
+			}
+		}
+	}()
+	return nil
 }
 
 func UnregisterActiveSession(sessionID string) {
 	if session, ok := registry.load(sessionID); ok {
 		session.signalDone()
+		session.stopTermination()
 	}
 	registry.sessions.Delete(sessionID)
 }
@@ -58,15 +87,6 @@ func ResolveSessionStatus(sessionID string, defaultStatus models.TerminalSession
 	return defaultStatus
 }
 
-func TerminateActiveSession(sessionID string) error {
-	session, ok := registry.load(sessionID)
-	if !ok {
-		return fmt.Errorf("terminal session %s is not active", sessionID)
-	}
-	session.terminateWithStatus(models.TerminalSessionStatusAborted)
-	return nil
-}
-
 func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus) {
 	s.mu.Lock()
 	s.finalStatus = status
@@ -82,6 +102,17 @@ func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus)
 func (s *activeSession) signalDone() {
 	s.doneOnce.Do(func() {
 		close(s.done)
+	})
+}
+
+func (s *activeSession) stopTermination() {
+	s.stopOnce.Do(func() {
+		if s.terminateCancel != nil {
+			s.terminateCancel()
+		}
+		if s.terminateSub != nil {
+			_ = s.terminateSub.Close()
+		}
 	})
 }
 

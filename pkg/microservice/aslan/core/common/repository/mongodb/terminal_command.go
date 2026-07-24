@@ -44,20 +44,8 @@ func (c *TerminalCommandColl) EnsureIndex(ctx context.Context) error {
 			Keys:    bson.D{{Key: "username", Value: 1}, {Key: "created_at", Value: -1}},
 			Options: options.Index().SetUnique(false),
 		},
-		{
-			Keys:    bson.D{{Key: "command", Value: "text"}},
-			Options: options.Index().SetUnique(false),
-		},
 	}
 	_, err := c.Indexes().CreateMany(ctx, indexes, mongotool.CreateIndexOptions(ctx))
-	return err
-}
-
-func (c *TerminalCommandColl) Create(command *models.TerminalCommand) error {
-	if command == nil {
-		return nil
-	}
-	_, err := c.InsertOne(context.TODO(), command)
 	return err
 }
 

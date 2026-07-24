@@ -77,7 +77,32 @@ func TerminateSession(sessionID string) error {
 	if session.Status != models.TerminalSessionStatusRunning {
 		return fmt.Errorf("terminal session %s is not running", sessionID)
 	}
-	return TerminateActiveSession(sessionID)
+	subscribers, err := publishRemoteTermination(sessionID)
+	if err != nil {
+		return err
+	}
+	if subscribers == 0 {
+		return fmt.Errorf("terminal session %s is not active", sessionID)
+	}
+	return nil
+}
+
+// WatchSession subscribes to the live asciicast stream of an in-progress
+// terminal session. It returns a channel of already-encoded asciicast frame
+// lines (starting with the header and the current terminal size) and an
+// unsubscribe function that MUST be called by the caller when it stops reading.
+//
+// It returns an error if the session is not currently active (already finished,
+// never existed, or has no recorder attached).
+func WatchSession(sessionID string) (<-chan string, func(), error) {
+	session, err := GetSession(sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if session.Status != models.TerminalSessionStatusRunning {
+		return nil, nil, e.ErrNotFound.AddDesc("terminal session is not live")
+	}
+	return subscribeToLiveFrames(sessionID)
 }
 
 func normalizePagination(pageNum, pageSize *int64) {

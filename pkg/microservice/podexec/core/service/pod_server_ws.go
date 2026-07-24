@@ -155,9 +155,10 @@ func ServeWs(c *gin.Context) {
 	})
 	if err != nil {
 		log.Errorf("create podexec terminal audit recorder failed: %v", err)
-	} else {
-		log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("create terminal audit session failed: %v", err))
+		return
 	}
+	log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
 	pty.SetupAudit(audit)
 
 	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.SessionID, clusterID, namespace, podName, containerName)
@@ -307,8 +308,10 @@ FOR:
 	})
 	if err != nil {
 		log.Errorf("create workflow terminal audit recorder failed: %v", err)
+		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("create terminal audit session failed: %v", err))
 	}
 	pty.SetupAudit(audit)
+	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues, nil)
 
 	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err == nil || isExpectedTerminalClose(err) {

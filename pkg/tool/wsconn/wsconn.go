@@ -46,16 +46,15 @@ type wsMessage struct {
 }
 
 type wsBufferWriter struct {
-	buffer    bytes.Buffer
-	mu        sync.Mutex
-	recorder  terminalio.Recorder
-	sanitizer terminalio.Sanitizer
+	buffer   bytes.Buffer
+	mu       sync.Mutex
+	recorder terminalio.Recorder
 }
 
 func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	output := terminalio.ProcessOutput(string(p), w.recorder, w.sanitizer)
+	output := terminalio.ProcessOutput(string(p), w.recorder)
 	return w.buffer.Write([]byte(output))
 }
 
@@ -79,12 +78,7 @@ type SshConn struct {
 	SshSession *ssh.Session
 }
 
-type SshConnOption struct {
-	Recorder  terminalio.Recorder
-	Sanitizer terminalio.Sanitizer
-}
-
-func NewSshConn(cols, rows int, sshClient *ssh.Client, opt ...*SshConnOption) (*SshConn, error) {
+func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
@@ -95,11 +89,7 @@ func NewSshConn(cols, rows int, sshClient *ssh.Client, opt ...*SshConnOption) (*
 		return nil, err
 	}
 
-	wsWriter := new(wsBufferWriter)
-	if len(opt) > 0 {
-		wsWriter.recorder = opt[0].Recorder
-		wsWriter.sanitizer = opt[0].Sanitizer
-	}
+	wsWriter := &wsBufferWriter{recorder: recorder}
 	sshSession.Stdout = wsWriter
 	sshSession.Stderr = wsWriter
 

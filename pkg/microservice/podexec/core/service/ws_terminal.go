@@ -73,7 +73,8 @@ type TerminalSession struct {
 	closeErr  error
 	SessionID string
 	Recorder  terminalio.Recorder
-	Sanitizer terminalio.Sanitizer
+	// OutputSanitizer preserves workflow debug's existing display masking.
+	OutputSanitizer terminalio.Sanitizer
 }
 
 func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
@@ -82,10 +83,9 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		return nil, err
 	}
 	session := &TerminalSession{
-		wsConn:    conn,
-		sizeChan:  make(chan remotecommand.TerminalSize),
-		doneChan:  make(chan struct{}),
-		Sanitizer: terminalaudit.NewSanitizer(nil, nil),
+		wsConn:   conn,
+		sizeChan: make(chan remotecommand.TerminalSize),
+		doneChan: make(chan struct{}),
 	}
 	return session, nil
 }
@@ -95,7 +95,6 @@ func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
 		return
 	}
 	t.SessionID = audit.SessionID
-	t.Sanitizer = audit.Sanitizer
 	t.Recorder = audit.Recorder
 	log.Infof("terminal session audit attached, sessionID=%s", t.SessionID)
 }
@@ -150,7 +149,10 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
-	output := terminalio.ProcessOutput(string(p), t.Recorder, t.Sanitizer)
+	output := terminalio.ProcessOutput(string(p), t.Recorder)
+	if t.OutputSanitizer != nil {
+		output = t.OutputSanitizer.Mask(output)
+	}
 	msg, err := json.Marshal(TerminalMessage{
 		Operation: "stdout",
 		Data:      output,

@@ -89,6 +89,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		terminalAudit.GET("/sessions", ListTerminalSessions)
 		terminalAudit.GET("/sessions/:sessionID", GetTerminalSession)
 		terminalAudit.GET("/sessions/:sessionID/cast", GetTerminalCast)
+		terminalAudit.GET("/sessions/:sessionID/watch", WatchTerminalSession)
 		terminalAudit.POST("/sessions/:sessionID/terminate", TerminateTerminalSession)
 		terminalAudit.GET("/commands", ListTerminalCommands)
 	}
