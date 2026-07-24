@@ -54,8 +54,10 @@ type wsBufferWriter struct {
 func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	output := terminalio.ProcessOutput(string(p), w.recorder)
-	return w.buffer.Write([]byte(output))
+	if w.recorder != nil {
+		w.recorder.RecordOutput(string(p))
+	}
+	return w.buffer.Write(p)
 }
 
 func (w *wsBufferWriter) RecordInput(data string) {

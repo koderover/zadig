@@ -2,8 +2,10 @@ package terminalaudit
 
 import (
 	"bytes"
+	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -102,9 +104,7 @@ func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, comma
 	case '\r', '\n':
 		commands = e.flushCommand(offset, commands)
 	case 0x08, 0x7f:
-		if len(e.buffer) > 0 {
-			e.buffer = e.buffer[:len(e.buffer)-1]
-		}
+		e.buffer = removeLastRune(e.buffer)
 	default:
 		if ch >= 0x20 || ch == '\t' {
 			e.buffer = append(e.buffer, ch)
@@ -175,9 +175,7 @@ func (e *CommandExtractor) consumePastedByte(ch byte, offset time.Duration, comm
 	case '\r', '\n':
 		commands = e.flushCommand(offset, commands)
 	case 0x08, 0x7f:
-		if len(e.buffer) > 0 {
-			e.buffer = e.buffer[:len(e.buffer)-1]
-		}
+		e.buffer = removeLastRune(e.buffer)
 	default:
 		if ch >= 0x20 || ch == '\t' {
 			e.buffer = append(e.buffer, ch)
@@ -208,6 +206,14 @@ func (e *CommandExtractor) flushCommand(offset time.Duration, commands []Extract
 func (e *CommandExtractor) resetEscape() {
 	e.inEscape = false
 	e.escapeBuffer = e.escapeBuffer[:0]
+}
+
+func removeLastRune(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	_, size := utf8.DecodeLastRune(data)
+	return data[:len(data)-size]
 }
 
 func isEscapeTerminator(ch byte) bool {
@@ -262,7 +268,7 @@ func isInteractiveCommand(command string) bool {
 	}
 	// 这里只覆盖已知会切换全屏/交互界面的常见命令，用于避免命令列表被编辑器或 TUI 内部输入污染。
 	// 不在名单内的交互程序仍按输入流提取命令，后续如果需要再按真实场景补充。
-	switch fields[0] {
+	switch path.Base(fields[0]) {
 	case "vi", "vim", "nvim", "view", "vimdiff",
 		"nano", "pico", "emacs",
 		"less", "more", "most", "pg", "man",

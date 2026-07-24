@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -56,12 +57,9 @@ func (c *TerminalCommandColl) CreateMany(commands []*models.TerminalCommand) err
 	docs := make([]interface{}, 0, len(commands))
 	for _, command := range commands {
 		if command == nil {
-			continue
+			return fmt.Errorf("terminal command is nil")
 		}
 		docs = append(docs, command)
-	}
-	if len(docs) == 0 {
-		return nil
 	}
 	_, err := c.InsertMany(context.TODO(), docs)
 	return err

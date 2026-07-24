@@ -19,7 +19,7 @@ func SetProcessContext(ctx context.Context) {
 	processContextMu.Unlock()
 }
 
-func ProcessContext() context.Context {
+func processLifecycleContext() context.Context {
 	processContextMu.RLock()
 	defer processContextMu.RUnlock()
 	return processContext

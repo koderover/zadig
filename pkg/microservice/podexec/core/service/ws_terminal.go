@@ -61,7 +61,7 @@ type PtyHandler interface {
 	io.Reader
 	io.Writer
 	remotecommand.TerminalSizeQueue
-	Done() chan struct{}
+	Done() <-chan struct{}
 }
 
 // TerminalSession implements PtyHandler
@@ -100,7 +100,7 @@ func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
 }
 
 // Done done
-func (t *TerminalSession) Done() chan struct{} {
+func (t *TerminalSession) Done() <-chan struct{} {
 	return t.doneChan
 }
 
@@ -149,7 +149,10 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
-	output := terminalio.ProcessOutput(string(p), t.Recorder)
+	output := string(p)
+	if t.Recorder != nil {
+		t.Recorder.RecordOutput(output)
+	}
 	if t.OutputSanitizer != nil {
 		output = t.OutputSanitizer.Mask(output)
 	}
@@ -172,40 +175,38 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 // Close close session
 func (t *TerminalSession) Close() error {
 	t.closeOnce.Do(func() {
-		log.Infof("terminal session close start, sessionID=%s", t.SessionID)
-		log.Infof("terminal session close doneChan, sessionID=%s", t.SessionID)
 		close(t.doneChan)
 		t.closeErr = t.wsConn.Close()
-		log.Infof("terminal session close finish, sessionID=%s err=%v", t.SessionID, t.closeErr)
+		log.Infof("close terminal session, sessionID=%s err=%v", t.SessionID, t.closeErr)
 	})
 	return t.closeErr
 }
 
 // 验证是否存在
-func ValidatePod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (bool, error) {
+func ValidatePod(kubeClient kubernetes.Interface, namespace, podName, containerName string) (*corev1.Pod, error) {
 	pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-		return false, fmt.Errorf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
+		return nil, fmt.Errorf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
 	}
 
 	for _, c := range pod.Spec.Containers {
 		if containerName == c.Name {
-			return true, nil
+			return pod, nil
 		}
 	}
 
 	if wrapper.CheckEphemeralContainerFieldExist(&pod.Spec) {
 		for _, c := range pod.Spec.EphemeralContainers {
 			if containerName == c.Name {
-				return true, nil
+				return pod, nil
 			}
 		}
 	}
 
-	return false, fmt.Errorf("pod has no container '%s'", containerName)
+	return nil, fmt.Errorf("pod has no container '%s'", containerName)
 }
 
 // ExecPod do pod exec

@@ -270,12 +270,12 @@ func TestRegisteredSessionHandlesRemoteTermination(t *testing.T) {
 	defer restore()
 
 	terminated := make(chan struct{})
-	if err := RegisterActiveSession("session-3", func() {
+	if err := registerActiveSession("session-3", func() {
 		close(terminated)
 	}); err != nil {
 		t.Fatalf("register active session: %v", err)
 	}
-	defer UnregisterActiveSession("session-3")
+	defer unregisterActiveSession("session-3")
 
 	subscribers, err := publishRemoteTermination("session-3")
 	if err != nil {
@@ -289,7 +289,7 @@ func TestRegisteredSessionHandlesRemoteTermination(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("registered session did not terminate")
 	}
-	if got := ResolveSessionStatus("session-3", models.TerminalSessionStatusFinished); got != models.TerminalSessionStatusAborted {
+	if got := resolveSessionStatus("session-3", models.TerminalSessionStatusFinished); got != models.TerminalSessionStatusAborted {
 		t.Fatalf("resolved status = %q, want %q", got, models.TerminalSessionStatusAborted)
 	}
 }
@@ -300,7 +300,7 @@ func TestRegisterActiveSessionReturnsTerminationSubscriptionError(t *testing.T) 
 	restore := setLiveTransportForTest(transport)
 	defer restore()
 
-	if err := RegisterActiveSession("session-subscribe-error", func() {}); err == nil {
+	if err := registerActiveSession("session-subscribe-error", func() {}); err == nil {
 		t.Fatal("expected termination subscription error")
 	}
 	if _, ok := registry.load("session-subscribe-error"); ok {
