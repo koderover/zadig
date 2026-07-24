@@ -218,6 +218,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/version/:serviceName", ListEnvServiceVersions)
 		environments.GET("/:name/version/:serviceName/revision/:revision", GetEnvServiceVersionYaml)
 		environments.GET("/:name/version/:serviceName/diff", DiffEnvServiceVersions)
+		environments.GET("/:name/version/:serviceName/rollback/check", CheckRollbackEnvServiceVersion)
 		environments.POST("/:name/version/:serviceName/rollback", RollbackEnvServiceVersion)
 
 		environments.GET("sae", ListSAEEnvs)

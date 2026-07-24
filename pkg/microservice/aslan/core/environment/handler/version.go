@@ -291,6 +291,93 @@ type RollbackEnvServiceVersionRequest struct {
 	Detail string `json:"detail"`
 }
 
+// @Summary Check Environment Service Version Before Rollback
+// @Description Check whether images in an environment service version are available before rollback
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name			path		string							true	"env name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	revision	 	query		int								true	"revision"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	production		query		bool							false	"is production environment"
+// @Success 200 			{object}  	service.CheckRollbackEnvServiceVersionResponse
+// @Router /api/aslan/environment/environments/{name}/version/{serviceName}/rollback/check [get]
+func CheckRollbackEnvServiceVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	serviceName := c.Param("serviceName")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty projectName")
+		return
+	}
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
+		return
+	}
+	production := c.Query("production") == "true"
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRollback)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Rollback {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRollback)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
+
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
+		return
+	}
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = commonservice.CheckRollbackEnvServiceVersion(
+		projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger,
+	)
+}
+
 // @Summary Rollback Environment Service Version
 // @Description Rollback Environment Service Version
 // @Tags 	environment

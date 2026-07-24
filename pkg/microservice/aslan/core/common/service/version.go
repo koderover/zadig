@@ -19,7 +19,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/distribution/reference"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,6 +36,7 @@ import (
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	registryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -295,6 +298,167 @@ type RollbackEnvServiceVersionData struct {
 	ReplaceResources     []commonmodels.Resource
 	RelatedPodLabels     []map[string]string
 	HelmDeployStatusChan chan bool
+}
+
+type CheckRollbackEnvServiceVersionResponse struct {
+	Available         bool                         `json:"available"`
+	UnavailableImages []string                     `json:"unavailable_images"`
+	Warnings          []*RollbackImageCheckWarning `json:"warnings"`
+}
+
+type RollbackImageCheckWarning struct {
+	Image   string `json:"image"`
+	Reason  string `json:"reason"`
+	Message string `json:"message"`
+}
+
+func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredLogger) ([]string, []*RollbackImageCheckWarning, error) {
+	registryInfos, err := ListRegistryNamespaces("", false, log)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list registries for rollback image check: %w", err)
+	}
+
+	type rollbackImageRegistry struct {
+		info *commonmodels.RegistryNamespace
+		host string
+	}
+
+	registries := make([]*rollbackImageRegistry, 0, len(registryInfos))
+	for _, registryInfo := range registryInfos {
+		registryAddress, err := registryInfo.GetRegistryAddress()
+		if err != nil {
+			log.Warnf("skip invalid registry %s during rollback image check: %v", registryInfo.ID.Hex(), err)
+			continue
+		}
+
+		registries = append(registries, &rollbackImageRegistry{
+			info: registryInfo,
+			host: strings.Split(registryAddress, "/")[0],
+		})
+	}
+
+	missingImages := make([]string, 0)
+	warnings := make([]*RollbackImageCheckWarning, 0)
+	checkedImages := sets.NewString()
+	credentialRegistries := make(map[string]*commonmodels.RegistryNamespace)
+	for _, container := range containers {
+		if container == nil || container.Image == "" || checkedImages.Has(container.Image) {
+			continue
+		}
+		checkedImages.Insert(container.Image)
+
+		named, err := reference.ParseNormalizedNamed(container.Image)
+		if err != nil {
+			missingImages = append(missingImages, container.Image)
+			continue
+		}
+		imagePath := reference.Path(named)
+		var matchedRegistry *rollbackImageRegistry
+		for _, registry := range registries {
+			if !strings.EqualFold(reference.Domain(named), registry.host) {
+				continue
+			}
+			namespace := strings.Trim(registry.info.Namespace, "/")
+			if namespace != "" && imagePath != namespace && !strings.HasPrefix(imagePath, namespace+"/") {
+				continue
+			}
+			if matchedRegistry == nil || len(namespace) > len(strings.Trim(matchedRegistry.info.Namespace, "/")) {
+				matchedRegistry = registry
+			}
+		}
+		if matchedRegistry == nil {
+			warnings = append(warnings, &RollbackImageCheckWarning{
+				Image:   container.Image,
+				Reason:  "registry_not_configured",
+				Message: "未找到匹配的镜像仓库配置，无法确认镜像是否存在",
+			})
+			continue
+		}
+
+		registryID := matchedRegistry.info.ID.Hex()
+		registryInfo, ok := credentialRegistries[registryID]
+		if !ok {
+			registryInfo, err = FindRegistryById(registryID, true, log)
+			if err != nil {
+				log.Warnf("failed to get credentials for rollback image %s from registry %s: %v", container.Image, matchedRegistry.host, err)
+				warnings = append(warnings, &RollbackImageCheckWarning{
+					Image:   container.Image,
+					Reason:  "registry_credentials_unavailable",
+					Message: "获取镜像仓库凭证失败，无法确认镜像是否存在",
+				})
+				continue
+			}
+			credentialRegistries[registryID] = registryInfo
+		}
+
+		repositoryName := imagePath
+		namespace := strings.Trim(registryInfo.Namespace, "/")
+		if namespace != "" {
+			repositoryName = strings.TrimPrefix(repositoryName, namespace+"/")
+		}
+
+		tag, imageDigest := "", ""
+		if digested, ok := named.(reference.Digested); ok {
+			imageDigest = digested.Digest().String()
+		} else if tagged, ok := named.(reference.Tagged); ok {
+			tag = tagged.Tag()
+		} else {
+			tag = reference.TagNameOnly(named).(reference.Tagged).Tag()
+		}
+
+		tlsEnabled, tlsCert := true, ""
+		if registryInfo.AdvancedSetting != nil {
+			tlsEnabled = registryInfo.AdvancedSetting.TLSEnabled
+			tlsCert = registryInfo.AdvancedSetting.TLSCert
+		}
+		registrySvc := registryservice.NewV2Service(registryInfo.RegProvider, tlsEnabled, tlsCert)
+		exists, err := registrySvc.CheckImageExist(registryservice.CheckImageExistOption{
+			Endpoint: registryservice.Endpoint{
+				Addr:      registryInfo.RegAddr,
+				Ak:        registryInfo.AccessKey,
+				Sk:        registryInfo.SecretKey,
+				Region:    registryInfo.Region,
+				Namespace: registryInfo.Namespace,
+			},
+			Image:  repositoryName,
+			Tag:    tag,
+			Digest: imageDigest,
+		}, log)
+		if err != nil {
+			log.Warnf("failed to check whether rollback image %s exists: %v", container.Image, err)
+			warnings = append(warnings, &RollbackImageCheckWarning{
+				Image:   container.Image,
+				Reason:  "image_check_failed",
+				Message: "镜像仓库查询失败，无法确认镜像是否存在",
+			})
+			continue
+		}
+		if !exists {
+			missingImages = append(missingImages, container.Image)
+		}
+	}
+
+	return missingImages, warnings, nil
+}
+
+func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (*CheckRollbackEnvServiceVersionResponse, error) {
+	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
+	if err != nil {
+		if mongodb.IsErrNoDocuments(err) {
+			return nil, fmt.Errorf("历史版本 %d 不存在", revision)
+		}
+		return nil, fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %w", projectName, envName, serviceName, revision, isProduction, err)
+	}
+
+	unavailableImages, warnings, err := checkRollbackImages(envSvcVersion.Service.Containers, log)
+	if err != nil {
+		return nil, err
+	}
+	return &CheckRollbackEnvServiceVersionResponse{
+		Available:         len(unavailableImages) == 0,
+		UnavailableImages: unavailableImages,
+		Warnings:          warnings,
+	}, nil
 }
 
 func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
