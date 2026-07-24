@@ -74,6 +74,14 @@ func (c *GlobalApproveManager) DeleteApproval(key string) {
 }
 
 func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string, approve bool) (*commonmodels.NativeApproval, error) {
+	return c.doApproval(key, userName, userID, comment, approve, false)
+}
+
+func (c *GlobalApproveManager) DoApprovalAsAdmin(key, userName, userID, comment string, approve bool) (*commonmodels.NativeApproval, error) {
+	return c.doApproval(key, userName, userID, comment, approve, true)
+}
+
+func (c *GlobalApproveManager) doApproval(key, userName, userID, comment string, approve, allowUnlistedUser bool) (*commonmodels.NativeApproval, error) {
 	redisMutex := cache.NewRedisLock(approveLockKey(key))
 	redisMutex.Lock()
 	defer redisMutex.Unlock()
@@ -83,32 +91,48 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 		return nil, fmt.Errorf("not found approval")
 	}
 
-	meetUser := false
+	if err := applyApprovalDecision(approvalData, userName, userID, comment, approve, allowUnlistedUser); err != nil {
+		return nil, err
+	}
+
+	c.SetApproval(key, approvalData)
+	return approvalData, nil
+}
+
+func applyApprovalDecision(approvalData *commonmodels.NativeApproval, userName, userID, comment string, approve, allowUnlistedUser bool) error {
 	for _, user := range approvalData.ApproveUsers {
 		if user.UserID != userID {
 			continue
 		}
 		if user.RejectOrApprove != "" {
-			return nil, fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
+			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
 		}
 		user.Comment = comment
 		user.OperationTime = time.Now().Unix()
 		if approve {
 			user.RejectOrApprove = config.ApprovalStatusApprove
-			meetUser = true
-			break
 		} else {
 			user.RejectOrApprove = config.ApprovalStatusReject
-			meetUser = true
-			break
 		}
-	}
-	if !meetUser {
-		return nil, fmt.Errorf("user %s has no authority to Approve", userName)
+		return nil
 	}
 
-	c.SetApproval(key, approvalData)
-	return approvalData, nil
+	if !allowUnlistedUser {
+		return fmt.Errorf("user %s has no authority to Approve", userName)
+	}
+
+	decision := config.ApprovalStatusReject
+	if approve {
+		decision = config.ApprovalStatusApprove
+	}
+	approvalData.ApproveUsers = append(approvalData.ApproveUsers, &commonmodels.User{
+		UserID:          userID,
+		UserName:        userName,
+		RejectOrApprove: decision,
+		Comment:         comment,
+		OperationTime:   time.Now().Unix(),
+	})
+	return nil
 }
 
 // first return value is whether the approval is approved, second return value is whether the approval is rejected

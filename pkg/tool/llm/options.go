@@ -1,5 +1,12 @@
 package llm
 
+import (
+	"errors"
+	"time"
+)
+
+var ErrMaxTokensExceeded = errors.New("llm completion reached max tokens")
+
 // ParamOption is a function that configures a CallOptions.
 type ParamOption func(*ParamOptions)
 
@@ -9,6 +16,10 @@ type ParamOptions struct {
 	Model string `json:"model"`
 	// MaxTokens is the maximum number of tokens to generate.
 	MaxTokens int `json:"max_tokens"`
+	// ErrorOnMaxTokens returns ErrMaxTokensExceeded when generation reaches its token limit.
+	ErrorOnMaxTokens bool `json:"error_on_max_tokens"`
+	// RequestTimeout overrides the default timeout for this completion request.
+	RequestTimeout time.Duration `json:"-"`
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
@@ -27,6 +38,18 @@ func WithModel(model string) ParamOption {
 func WithMaxTokens(maxTokens int) ParamOption {
 	return func(o *ParamOptions) {
 		o.MaxTokens = maxTokens
+	}
+}
+
+func WithErrorOnMaxTokens() ParamOption {
+	return func(o *ParamOptions) {
+		o.ErrorOnMaxTokens = true
+	}
+}
+
+func WithRequestTimeout(timeout time.Duration) ParamOption {
+	return func(o *ParamOptions) {
+		o.RequestTimeout = timeout
 	}
 }
 

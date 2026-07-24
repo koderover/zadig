@@ -394,6 +394,29 @@ func (c *WorkflowV4Coll) Update(idString string, obj *models.WorkflowV4) error {
 	return err
 }
 
+func (c *WorkflowV4Coll) UpdateAIReleaseSpecialistRulePlan(ctx context.Context, workflowName, jobName, sourceRule string, rulePlan *models.AIReleaseSpecialistRulePlan) (bool, error) {
+	filter := bson.M{"name": workflowName}
+	update := bson.M{
+		"$set": bson.M{
+			"stages.$[].jobs.$[job].spec.rule_plan": rulePlan,
+		},
+	}
+	arrayFilters := options.ArrayFilters{
+		Filters: []interface{}{
+			bson.M{
+				"job.name":                 jobName,
+				"job.type":                 config.JobAIReleaseSpecialist,
+				"job.spec.prompt_template": sourceRule,
+			},
+		},
+	}
+	result, err := c.UpdateOne(ctx, filter, update, options.Update().SetArrayFilters(arrayFilters))
+	if err != nil {
+		return false, err
+	}
+	return result.ModifiedCount > 0, nil
+}
+
 func (c *WorkflowV4Coll) DeleteByID(idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {

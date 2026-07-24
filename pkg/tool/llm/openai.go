@@ -35,6 +35,7 @@ import (
 const (
 	DefaultOpenAIModel           = openai.O120241217
 	DefaultOpenAIModelTokenLimit = "128000"
+	defaultCompletionTimeout     = 5 * time.Minute
 )
 
 type OpenAIClient struct {
@@ -65,9 +66,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		}
 	}
 
-	httpClient := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	httpClient := &http.Client{}
 	if config.GetProxy() != "" {
 		proxyUrl, err := url.Parse(config.GetProxy())
 		if err != nil {
@@ -99,6 +98,12 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		opt(&opts)
 	}
 	opts = ValidOptions(opts)
+	requestTimeout := opts.RequestTimeout
+	if requestTimeout <= 0 {
+		requestTimeout = defaultCompletionTimeout
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 
 	model := opts.Model
 	if model == "" {
@@ -116,37 +121,26 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		},
 	}
 
-	var resp openai.ChatCompletionResponse
-	var err error
-	now := time.Now()
-	if opts.MaxTokens == 0 {
-		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
-			Temperature: opts.Temperature,
-			Stop:        opts.StopWords,
-			LogitBias:   opts.LogitBias,
-		})
-	} else {
-		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-			Model:       model,
-			Messages:    messages,
-			MaxTokens:   opts.MaxTokens,
-			Temperature: opts.Temperature,
-			Stop:        opts.StopWords,
-			LogitBias:   opts.LogitBias,
-		})
+	request := openai.ChatCompletionRequest{
+		Model:       model,
+		Messages:    messages,
+		MaxTokens:   opts.MaxTokens,
+		Temperature: opts.Temperature,
+		Stop:        opts.StopWords,
+		LogitBias:   opts.LogitBias,
 	}
+
+	now := time.Now()
+	resp, err := c.client.CreateChatCompletion(requestCtx, request)
 	if err != nil {
 		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
-		return "", fmt.Errorf("create chat completion failed: %v", err)
+		return "", fmt.Errorf("create chat completion failed: %w", err)
 	}
 	log.Debugf("ai completion took: %v", time.Since(now))
 
 	if len(resp.Choices) == 0 {
 		return "", errors.New("no completion choices")
 	}
-
 	thinkStartTag := "<think>"
 	thinkEndTag := "</think>"
 	message := resp.Choices[0].Message.Content
@@ -163,7 +157,14 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		message = strings.TrimSpace(message)
 	}
 
+	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(resp.Choices[0].FinishReason) {
+		return message, ErrMaxTokensExceeded
+	}
 	return message, nil
+}
+
+func isMaxTokensFinishReason(finishReason openai.FinishReason) bool {
+	return finishReason == openai.FinishReasonLength || string(finishReason) == "max_tokens"
 }
 
 func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {

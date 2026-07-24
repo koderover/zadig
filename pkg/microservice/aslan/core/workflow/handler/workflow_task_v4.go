@@ -793,8 +793,15 @@ func GetWorkflowTaskV4JobRevert(c *gin.Context) {
 }
 
 func ApproveStage(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &ApproveRequest{}
 
 	data, err := c.GetRawData()
@@ -812,7 +819,8 @@ func ApproveStage(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.ApproveStage(args.WorkflowName, args.JobName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
+	isSystemAdmin := ctx.Resources != nil && ctx.Resources.IsSystemAdmin
+	ctx.RespErr = workflow.ApproveStage(args.WorkflowName, args.JobName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, isSystemAdmin, ctx.Logger)
 }
 
 type HandleJobErrorRequest struct {
@@ -823,8 +831,15 @@ type HandleJobErrorRequest struct {
 }
 
 func HandleJobError(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &HandleJobErrorRequest{}
 
 	data, err := c.GetRawData()
@@ -842,7 +857,8 @@ func HandleJobError(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, ctx.Logger)
+	isSystemAdmin := ctx.Resources != nil && ctx.Resources.IsSystemAdmin
+	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, isSystemAdmin, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactFileContent(c *gin.Context) {

@@ -1235,6 +1235,37 @@ type NotificationJobSpec struct {
 	IsAtAll         bool                      `bson:"is_at_all"                     yaml:"is_at_all"                     json:"is_at_all"`
 }
 
+type AIReleaseSpecialistJobSpec struct {
+	Timeout              int64                        `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string                       `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RulePlan             *AIReleaseSpecialistRulePlan `bson:"rule_plan,omitempty" json:"rule_plan,omitempty" yaml:"rule_plan,omitempty"`
+	RequireManualConfirm bool                         `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User                      `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	SystemPrompt         string                       `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+}
+
+type AIReleaseSpecialistRulePlan struct {
+	Version        int                                `bson:"version" json:"version" yaml:"version"`
+	SourceRuleHash string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
+	Contexts       []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
+	Rules          []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+}
+
+type AIReleaseSpecialistRulePlanRule struct {
+	Dimension string                            `bson:"dimension" json:"dimension" yaml:"dimension"`
+	Metric    string                            `bson:"metric" json:"metric" yaml:"metric"`
+	Operator  string                            `bson:"operator" json:"operator" yaml:"operator"`
+	Value     string                            `bson:"value" json:"value" yaml:"value"`
+	Result    string                            `bson:"result" json:"result" yaml:"result"`
+	Scope     *AIReleaseSpecialistRulePlanScope `bson:"scope,omitempty" json:"scope,omitempty" yaml:"scope,omitempty"`
+}
+
+type AIReleaseSpecialistRulePlanScope struct {
+	EnvNames     []string `bson:"env_names,omitempty" json:"env_names,omitempty" yaml:"env_names,omitempty"`
+	ServiceNames []string `bson:"service_names,omitempty" json:"service_names,omitempty" yaml:"service_names,omitempty"`
+	JobNames     []string `bson:"job_names,omitempty" json:"job_names,omitempty" yaml:"job_names,omitempty"`
+}
+
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
 func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 	switch n.WebHookType {
