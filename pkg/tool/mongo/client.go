@@ -83,7 +83,7 @@ func SessionWithTransaction(ctx context.Context) (mongo.Session, func(*error), e
 			panic(recovered)
 		}
 
-		if *retErr != nil {
+		if retErr == nil || *retErr != nil {
 			if err := AbortTransaction(session); err != nil {
 				log.Errorf("Failed to abort transaction, err: %v", err)
 			}
