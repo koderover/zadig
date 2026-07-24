@@ -19,7 +19,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/distribution/reference"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,6 +36,7 @@ import (
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	registryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -297,6 +300,120 @@ type RollbackEnvServiceVersionData struct {
 	HelmDeployStatusChan chan bool
 }
 
+func checkRollbackImagesExist(containers []*commonmodels.Container, log *zap.SugaredLogger) error {
+	registryInfos, err := ListRegistryNamespaces("", false, log)
+	if err != nil {
+		return fmt.Errorf("failed to list registries for rollback image check: %w", err)
+	}
+
+	type rollbackImageRegistry struct {
+		info *commonmodels.RegistryNamespace
+		host string
+	}
+
+	registries := make([]*rollbackImageRegistry, 0, len(registryInfos))
+	for _, registryInfo := range registryInfos {
+		registryAddress, err := registryInfo.GetRegistryAddress()
+		if err != nil {
+			log.Warnf("skip invalid registry %s during rollback image check: %v", registryInfo.ID.Hex(), err)
+			continue
+		}
+
+		registries = append(registries, &rollbackImageRegistry{
+			info: registryInfo,
+			host: strings.Split(registryAddress, "/")[0],
+		})
+	}
+
+	missingImages := make([]string, 0)
+	checkedImages := sets.NewString()
+	credentialRegistries := make(map[string]*commonmodels.RegistryNamespace)
+	for _, container := range containers {
+		if container == nil || container.Image == "" || checkedImages.Has(container.Image) {
+			continue
+		}
+		checkedImages.Insert(container.Image)
+
+		named, err := reference.ParseNormalizedNamed(container.Image)
+		if err != nil {
+			missingImages = append(missingImages, container.Image)
+			continue
+		}
+		imagePath := reference.Path(named)
+		var matchedRegistry *rollbackImageRegistry
+		for _, registry := range registries {
+			if !strings.EqualFold(reference.Domain(named), registry.host) {
+				continue
+			}
+			namespace := strings.Trim(registry.info.Namespace, "/")
+			if namespace != "" && imagePath != namespace && !strings.HasPrefix(imagePath, namespace+"/") {
+				continue
+			}
+			if matchedRegistry == nil || len(namespace) > len(strings.Trim(matchedRegistry.info.Namespace, "/")) {
+				matchedRegistry = registry
+			}
+		}
+		if matchedRegistry == nil {
+			return fmt.Errorf("无法检查回滚镜像 %s：未找到匹配的镜像仓库配置", container.Image)
+		}
+
+		registryID := matchedRegistry.info.ID.Hex()
+		registryInfo, ok := credentialRegistries[registryID]
+		if !ok {
+			registryInfo, err = FindRegistryById(registryID, true, log)
+			if err != nil {
+				return fmt.Errorf("获取镜像仓库 %s 的凭证失败: %w", matchedRegistry.host, err)
+			}
+			credentialRegistries[registryID] = registryInfo
+		}
+
+		repositoryName := imagePath
+		namespace := strings.Trim(registryInfo.Namespace, "/")
+		if namespace != "" {
+			repositoryName = strings.TrimPrefix(repositoryName, namespace+"/")
+		}
+
+		tag, imageDigest := "", ""
+		if digested, ok := named.(reference.Digested); ok {
+			imageDigest = digested.Digest().String()
+		} else if tagged, ok := named.(reference.Tagged); ok {
+			tag = tagged.Tag()
+		} else {
+			tag = reference.TagNameOnly(named).(reference.Tagged).Tag()
+		}
+
+		tlsEnabled, tlsCert := true, ""
+		if registryInfo.AdvancedSetting != nil {
+			tlsEnabled = registryInfo.AdvancedSetting.TLSEnabled
+			tlsCert = registryInfo.AdvancedSetting.TLSCert
+		}
+		registrySvc := registryservice.NewV2Service(registryInfo.RegProvider, tlsEnabled, tlsCert)
+		exists, err := registrySvc.CheckImageExist(registryservice.CheckImageExistOption{
+			Endpoint: registryservice.Endpoint{
+				Addr:      registryInfo.RegAddr,
+				Ak:        registryInfo.AccessKey,
+				Sk:        registryInfo.SecretKey,
+				Region:    registryInfo.Region,
+				Namespace: registryInfo.Namespace,
+			},
+			Image:  repositoryName,
+			Tag:    tag,
+			Digest: imageDigest,
+		}, log)
+		if err != nil {
+			return fmt.Errorf("无法检查回滚镜像 %s 是否存在: %w", container.Image, err)
+		}
+		if !exists {
+			missingImages = append(missingImages, container.Image)
+		}
+	}
+
+	if len(missingImages) > 0 {
+		return fmt.Errorf("回滚镜像不存在：%s，请确认镜像可用后重试", strings.Join(missingImages, "、"))
+	}
+	return nil
+}
+
 func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
 	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
@@ -327,6 +444,10 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 	if env.ServiceDeployStrategy[serviceName] != envSvcVersion.DeployStrategy {
 		return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("服务 %s 的部署策略发生变化，不能回滚", envSvcVersion.Service.ServiceName))
+	}
+
+	if err := checkRollbackImagesExist(envSvcVersion.Service.Containers, log); err != nil {
+		return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
 	session := mongotool.Session()
