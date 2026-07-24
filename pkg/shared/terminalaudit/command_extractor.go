@@ -40,10 +40,6 @@ type CommandExtractor struct {
 	outputTail         string
 }
 
-func NewCommandExtractor() *CommandExtractor {
-	return &CommandExtractor{}
-}
-
 func (e *CommandExtractor) Consume(data string, offset time.Duration) []ExtractedCommand {
 	if e.interactiveMode {
 		return nil

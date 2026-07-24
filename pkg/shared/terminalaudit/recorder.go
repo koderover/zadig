@@ -3,11 +3,11 @@ package terminalaudit
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"path"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,17 +15,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-type TerminalRecorder interface {
-	terminalio.Recorder
-	SessionID() string
-	Close(status models.TerminalSessionStatus) error
-}
 
 const internalStorageID = "__internal_default__"
 
@@ -65,7 +58,7 @@ type castHeader struct {
 	Title     string            `json:"title,omitempty"`
 }
 
-func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) {
+func newRecorder(meta *SessionMeta, terminate func()) (*asciicastRecorder, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("terminal session meta is nil")
 	}
@@ -75,7 +68,10 @@ func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) 
 		return nil, err
 	}
 	sessionID := util.UUID()
-	storageID := resolveStorageID(storage)
+	storageID := internalStorageID
+	if !storage.ID.IsZero() {
+		storageID = storage.ID.Hex()
+	}
 	objectKey := storage.GetObjectPath(buildObjectKey(meta.SessionType, startedAt, sessionID))
 	session := &models.TerminalSession{
 		SessionID:       sessionID,
@@ -138,9 +134,9 @@ func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) 
 	recorder := &asciicastRecorder{
 		session:     session,
 		startedAt:   startedAt,
-		inputMask:   newStreamSanitizer(meta.Secrets, meta.SecretEnvs),
-		outputMask:  newStreamSanitizer(meta.Secrets, meta.SecretEnvs),
-		extractor:   NewCommandExtractor(),
+		inputMask:   newStreamSanitizer(meta.Secrets),
+		outputMask:  newStreamSanitizer(meta.Secrets),
+		extractor:   &CommandExtractor{},
 		pipeWriter:  pipeWriter,
 		uploadDone:  uploadDone,
 		storageID:   storageID,
@@ -148,7 +144,7 @@ func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) 
 		objectKey:   session.ObjectKey,
 		sessionColl: sessionColl,
 		commandColl: commonrepo.NewTerminalCommandColl(),
-		live:        newLivePublisher(session.SessionID, currentLiveTransport()),
+		live:        newLivePublisher(session.SessionID),
 		terminate:   terminate,
 	}
 	recorder.writer = bufio.NewWriter(&countingWriter{
@@ -157,6 +153,7 @@ func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) 
 	})
 	go func() {
 		defer close(uploadDone)
+		defer pipeReader.Close()
 		if err := client.UploadReader(storage.Bucket, pipeReader, session.ObjectKey, "application/octet-stream"); err != nil {
 			recorder.fail(err)
 		}
@@ -167,10 +164,6 @@ func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) 
 	}
 	log.Infof("create terminal audit recorder success, sessionID=%s storageID=%s bucket=%s objectKey=%s", session.SessionID, storageID, storage.Bucket, session.ObjectKey)
 	return recorder, nil
-}
-
-func (r *asciicastRecorder) SessionID() string {
-	return r.session.SessionID
 }
 
 func (r *asciicastRecorder) RecordInput(data string) {
@@ -283,16 +276,16 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 		if r.uploadDone != nil {
 			<-r.uploadDone
 		}
-		errorMessages := make([]string, 0)
-		if recordErr := r.getRecordErr(); recordErr != nil {
-			errorMessages = append(errorMessages, recordErr.Error())
-		}
-
+		recordErr := r.getRecordErr()
 		finalStatus := status
-		if len(errorMessages) > 0 && finalStatus == models.TerminalSessionStatusFinished {
+		if recordErr != nil && finalStatus == models.TerminalSessionStatusFinished {
 			finalStatus = models.TerminalSessionStatusFailed
 		}
-		r.closeErr = r.sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
+		errorMessage := ""
+		if recordErr != nil {
+			errorMessage = recordErr.Error()
+		}
+		r.closeErr = errors.Join(recordErr, r.sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
 			SessionID:       r.session.SessionID,
 			Status:          finalStatus,
 			EndedAt:         endedAt,
@@ -301,8 +294,8 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 			Bucket:          r.bucket,
 			ObjectKey:       r.objectKey,
 			FileSize:        r.fileSize.Load(),
-			ErrorMessage:    strings.Join(errorMessages, "; "),
-		})
+			ErrorMessage:    errorMessage,
+		}))
 		log.Infof("close terminal audit recorder, sessionID=%s status=%s fileSize=%d err=%v", r.session.SessionID, finalStatus, r.fileSize.Load(), r.closeErr)
 	})
 	return r.closeErr
@@ -404,11 +397,4 @@ func buildObjectKey(sessionType models.TerminalSessionType, startedAt time.Time,
 		startedAt.Format("02"),
 		sessionID+".cast",
 	)
-}
-
-func resolveStorageID(storage *s3service.S3) string {
-	if storage == nil || storage.ID.IsZero() {
-		return internalStorageID
-	}
-	return storage.ID.Hex()
 }

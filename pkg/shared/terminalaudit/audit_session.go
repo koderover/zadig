@@ -6,18 +6,16 @@ import (
 )
 
 type AuditSession struct {
-	Recorder  TerminalRecorder
+	Recorder  *asciicastRecorder
 	SessionID string
 }
 
 func NewAuditSession(meta *SessionMeta, terminate func()) (*AuditSession, error) {
-	audit := &AuditSession{}
 	recorder, err := newRecorder(meta, terminate)
 	if err != nil {
 		return nil, err
 	}
-	audit.Recorder = recorder
-	audit.SessionID = recorder.SessionID()
+	audit := &AuditSession{Recorder: recorder, SessionID: recorder.session.SessionID}
 	if err := registerActiveSession(audit.SessionID, terminate); err != nil {
 		if closeErr := recorder.Close(models.TerminalSessionStatusFailed); closeErr != nil {
 			log.Errorf("close terminal audit recorder after registration failure, sessionID=%s err=%v", audit.SessionID, closeErr)
@@ -29,11 +27,9 @@ func NewAuditSession(meta *SessionMeta, terminate func()) (*AuditSession, error)
 }
 
 func (a *AuditSession) Close(finalStatus models.TerminalSessionStatus) error {
-	if a == nil || a.Recorder == nil || a.SessionID == "" {
-		return nil
+	if session, ok := registry.load(a.SessionID); ok {
+		finalStatus = session.closeWithStatus(finalStatus)
+		unregisterActiveSession(a.SessionID)
 	}
-	resolvedStatus := resolveSessionStatus(a.SessionID, finalStatus)
-	err := a.Recorder.Close(resolvedStatus)
-	unregisterActiveSession(a.SessionID)
-	return err
+	return a.Recorder.Close(finalStatus)
 }

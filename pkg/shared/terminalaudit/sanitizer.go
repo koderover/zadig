@@ -9,35 +9,16 @@ import (
 
 const secretMask = "********"
 
-type Sanitizer = terminalio.Sanitizer
-
-type noopSanitizer struct{}
-
-func (n noopSanitizer) Mask(data string) string {
-	return data
-}
-
 type secretSanitizer struct {
-	secrets    []string
-	secretEnvs []string
+	secrets []string
 }
 
-func NewSanitizer(secrets, secretEnvs []string) Sanitizer {
-	if len(secrets) == 0 && len(secretEnvs) == 0 {
-		return noopSanitizer{}
-	}
-	return &secretSanitizer{secrets: secrets, secretEnvs: secretEnvs}
+func NewSanitizer(secrets []string) terminalio.Sanitizer {
+	return &secretSanitizer{secrets: secrets}
 }
 
 func (s *secretSanitizer) Mask(data string) string {
-	masked := data
-	if len(s.secretEnvs) > 0 {
-		masked = util.MaskSecretEnvs(masked, s.secretEnvs)
-	}
-	if len(s.secrets) > 0 {
-		masked = util.MaskSecret(s.secrets, masked)
-	}
-	return masked
+	return util.MaskSecret(s.secrets, data)
 }
 
 type streamSanitizer struct {
@@ -45,17 +26,11 @@ type streamSanitizer struct {
 	pending            string
 }
 
-func newStreamSanitizer(secrets, secretEnvs []string) *streamSanitizer {
-	unique := make(map[string]struct{}, len(secrets)+len(secretEnvs))
+func newStreamSanitizer(secrets []string) *streamSanitizer {
+	unique := make(map[string]struct{}, len(secrets))
 	for _, secret := range secrets {
 		if secret != "" {
 			unique[secret] = struct{}{}
-		}
-	}
-	for _, secretEnv := range secretEnvs {
-		separator := strings.IndexByte(secretEnv, '=')
-		if separator >= 0 && separator < len(secretEnv)-1 {
-			unique[secretEnv[separator+1:]] = struct{}{}
 		}
 	}
 
