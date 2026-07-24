@@ -145,22 +145,61 @@ func TestMergeReleaseTargetsKeepsTopLevelEnvironmentForSingleEnvironment(t *test
 	}
 }
 
-func TestFindAIRuntimeServiceSupportsHelmChartRelease(t *testing.T) {
+func TestFindAIRuntimeServiceUsesDeployJobType(t *testing.T) {
+	helmService := &commonmodels.ProductService{
+		ServiceName: "orders-release",
+		Type:        setting.HelmDeployType,
+	}
+	chartService := &commonmodels.ProductService{
+		ReleaseName: "orders-release",
+		Type:        setting.HelmChartDeployType,
+	}
 	product := &commonmodels.Product{
 		Services: [][]*commonmodels.ProductService{{
-			{
-				ReleaseName: "orders-release",
-				Type:        setting.HelmChartDeployType,
-			},
+			helmService,
+			chartService,
 		}},
 	}
 
-	service := findAIRuntimeService(product, "orders-release")
-	if service == nil {
-		t.Fatal("expected helm chart release to be found")
+	if got := findAIRuntimeService(product, "orders-release", string(config.JobZadigHelmChartDeploy)); got != chartService {
+		t.Fatalf("expected helm chart service, got %#v", got)
 	}
-	if got, want := service.ReleaseName, "orders-release"; got != want {
-		t.Fatalf("unexpected release name, got %q want %q", got, want)
+	if got := findAIRuntimeService(product, "orders-release", string(config.JobZadigHelmDeploy)); got != helmService {
+		t.Fatalf("expected zadig helm service, got %#v", got)
+	}
+}
+
+func TestResolveAIRuntimeServiceReleaseNameUsesTargetSemantics(t *testing.T) {
+	helmService := &commonmodels.ProductService{
+		ServiceName: "orders",
+		ReleaseName: "stale-release",
+		Type:        setting.HelmDeployType,
+	}
+	releaseName, err := resolveAIRuntimeServiceReleaseName(
+		string(config.JobZadigHelmDeploy),
+		"orders",
+		helmService,
+		map[string]string{"orders": "generated-orders-release"},
+	)
+	if err != nil {
+		t.Fatalf("resolve zadig helm release name failed: %v", err)
+	}
+	if got, want := releaseName, "generated-orders-release"; got != want {
+		t.Fatalf("unexpected zadig helm release name, got %q want %q", got, want)
+	}
+
+	chartService := &commonmodels.ProductService{Type: setting.HelmChartDeployType}
+	releaseName, err = resolveAIRuntimeServiceReleaseName(
+		string(config.JobZadigHelmChartDeploy),
+		"orders-chart-release",
+		chartService,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolve helm chart release name failed: %v", err)
+	}
+	if got, want := releaseName, "orders-chart-release"; got != want {
+		t.Fatalf("unexpected helm chart release name, got %q want %q", got, want)
 	}
 }
 
@@ -192,14 +231,15 @@ spec:
 	if len(workloads) != 2 {
 		t.Fatalf("expected two workloads, got %d", len(workloads))
 	}
-	if got, want := workloads[0].WorkloadType, setting.Deployment; got != want {
-		t.Fatalf("unexpected first workload type, got %q want %q", got, want)
+	workloadsByName := make(map[string]*commonmodels.WorkLoad, len(workloads))
+	for _, workload := range workloads {
+		workloadsByName[workload.WorkloadName] = workload
 	}
-	if got, want := workloads[0].Replicas, int32(3); got != want {
-		t.Fatalf("unexpected first workload replicas, got %d want %d", got, want)
+	if got := workloadsByName["orders"]; got == nil || got.WorkloadType != setting.Deployment || got.Replicas != 3 {
+		t.Fatalf("unexpected orders workload: %#v", got)
 	}
-	if got, want := workloads[1].WorkloadType, setting.StatefulSet; got != want {
-		t.Fatalf("unexpected second workload type, got %q want %q", got, want)
+	if got := workloadsByName["database"]; got == nil || got.WorkloadType != setting.StatefulSet || got.Replicas != 2 {
+		t.Fatalf("unexpected database workload: %#v", got)
 	}
 }
 
@@ -225,21 +265,27 @@ spec:
 		Services: [][]*commonmodels.ProductService{{
 			{
 				ServiceName: "orders",
-				ReleaseName: "orders-release",
+				ReleaseName: "stale-release",
 				Type:        setting.HelmDeployType,
 			},
 		}},
 	}
-	service := findAIRuntimeService(product, "orders")
-	if !hasAIRuntimeServices(product, []string{"orders"}) {
+	service := findAIRuntimeService(product, "orders", string(config.JobZadigHelmDeploy))
+	target := &commonmodels.AIReleaseTargetsSummary{
+		ServiceNames: []string{"orders"},
+		Items: []*commonmodels.AIReleaseTargetItem{{
+			JobType: string(config.JobZadigHelmDeploy),
+		}},
+	}
+	if !needsAIRuntimeKubeClient(product, target) {
 		t.Fatal("expected helm service to support runtime queries")
 	}
 
-	workloads, err := getAIRuntimeServiceWorkloads(product, service)
+	workloads, err := getAIRuntimeServiceWorkloads(product, service, "generated-orders-release")
 	if err != nil {
 		t.Fatalf("get helm runtime workloads failed: %v", err)
 	}
-	if got, want := requestedReleaseName, "orders-release"; got != want {
+	if got, want := requestedReleaseName, "generated-orders-release"; got != want {
 		t.Fatalf("unexpected requested release, got %q want %q", got, want)
 	}
 	if len(workloads) != 1 || workloads[0].WorkloadName != "orders" {
@@ -250,9 +296,9 @@ spec:
 func TestBuildAIRuntimeServiceItemUsesHelmChartReleaseName(t *testing.T) {
 	item := buildAIRuntimeServiceItem(
 		&commonmodels.Product{EnvName: "prod"},
+		"orders-release",
 		&commonmodels.ProductService{
-			ReleaseName: "orders-release",
-			Type:        setting.HelmChartDeployType,
+			Type: setting.HelmChartDeployType,
 		},
 	)
 	if got, want := item.ServiceName, "orders-release"; got != want {

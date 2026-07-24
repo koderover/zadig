@@ -1299,16 +1299,29 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 		if target == nil || strings.TrimSpace(target.EnvName) == "" {
 			continue
 		}
+		jobType := getAIRuntimeTargetJobType(target)
+		if jobType == "" {
+			summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("runtime target job type is empty for env %s", target.EnvName))
+			continue
+		}
 		product, err := getAIReleaseProduct(projectName, target.EnvName, target.Production, envMap)
 		if err != nil {
 			summary.QueryErrors = append(summary.QueryErrors, err.Error())
 			continue
 		}
 		var kubeClient client.Client
-		if hasAIRuntimeServices(product, target.ServiceNames) {
+		if needsAIRuntimeKubeClient(product, target) {
 			kubeClient, err = getAIReleaseKubeClient(product.ClusterID)
 			if err != nil {
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("get env %s kube client failed: %v", target.EnvName, err))
+			}
+		}
+		var serviceReleaseNames map[string]string
+		var serviceReleaseNamesErr error
+		if kubeClient != nil && jobType == string(config.JobZadigHelmDeploy) {
+			serviceReleaseNames, serviceReleaseNamesErr = commonutil.GetServiceNameToReleaseNameMap(product)
+			if serviceReleaseNamesErr != nil {
+				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("resolve env %s helm release names failed: %v", target.EnvName, serviceReleaseNamesErr))
 			}
 		}
 		for _, serviceName := range target.ServiceNames {
@@ -1316,14 +1329,17 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 			if serviceName == "" {
 				continue
 			}
-			service := findAIRuntimeService(product, serviceName)
+			service := findAIRuntimeService(product, serviceName, jobType)
 			if service == nil {
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("service %s not found in env %s", serviceName, target.EnvName))
 				continue
 			}
-			item := buildAIRuntimeServiceItem(product, service)
-			if kubeClient != nil {
-				if err := fillAIRuntimeServicePodReady(product, service, item, kubeClient); err != nil {
+			item := buildAIRuntimeServiceItem(product, serviceName, service)
+			if kubeClient != nil && serviceReleaseNamesErr == nil {
+				releaseName, err := resolveAIRuntimeServiceReleaseName(jobType, serviceName, service, serviceReleaseNames)
+				if err != nil {
+					summary.QueryErrors = append(summary.QueryErrors, err.Error())
+				} else if err := fillAIRuntimeServicePodReady(product, service, releaseName, item, kubeClient); err != nil {
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
 				}
 			}
@@ -1377,23 +1393,40 @@ func getAIReleaseKubeClient(clusterID string) (client.Client, error) {
 	}
 }
 
-func findAIRuntimeService(product *commonmodels.Product, serviceName string) *commonmodels.ProductService {
+func getAIRuntimeTargetJobType(target *commonmodels.AIReleaseTargetsSummary) string {
+	if target == nil {
+		return ""
+	}
+	for _, item := range target.Items {
+		if item != nil && strings.TrimSpace(item.JobType) != "" {
+			return item.JobType
+		}
+	}
+	return ""
+}
+
+func findAIRuntimeService(product *commonmodels.Product, serviceName, jobType string) *commonmodels.ProductService {
 	if product == nil {
 		return nil
 	}
 	serviceName = strings.TrimSpace(serviceName)
-	if service := product.GetServiceMap()[serviceName]; service != nil {
-		return service
+	switch jobType {
+	case string(config.JobZadigHelmChartDeploy):
+		return product.GetChartServiceMap()[serviceName]
+	case string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy):
+		return product.GetServiceMap()[serviceName]
+	default:
+		return nil
 	}
-	return product.GetChartServiceMap()[serviceName]
 }
 
-func hasAIRuntimeServices(product *commonmodels.Product, serviceNames []string) bool {
-	if product == nil || len(serviceNames) == 0 {
+func needsAIRuntimeKubeClient(product *commonmodels.Product, target *commonmodels.AIReleaseTargetsSummary) bool {
+	if product == nil || target == nil || len(target.ServiceNames) == 0 {
 		return false
 	}
-	for _, serviceName := range serviceNames {
-		service := findAIRuntimeService(product, serviceName)
+	jobType := getAIRuntimeTargetJobType(target)
+	for _, serviceName := range target.ServiceNames {
+		service := findAIRuntimeService(product, serviceName, jobType)
 		if service == nil {
 			continue
 		}
@@ -1409,16 +1442,12 @@ func hasAIRuntimeServices(product *commonmodels.Product, serviceNames []string) 
 	return false
 }
 
-func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmodels.ProductService) *commonmodels.AIRuntimeServiceItem {
-	serviceName := service.ServiceName
-	if service.Type == setting.HelmChartDeployType {
-		serviceName = service.ReleaseName
-	}
+func buildAIRuntimeServiceItem(product *commonmodels.Product, targetServiceName string, service *commonmodels.ProductService) *commonmodels.AIRuntimeServiceItem {
 	item := &commonmodels.AIRuntimeServiceItem{
 		EnvName:     product.EnvName,
 		EnvAlias:    commonutil.GetEnvAlias(product),
 		Production:  product.Production,
-		ServiceName: serviceName,
+		ServiceName: strings.TrimSpace(targetServiceName),
 		ServiceType: service.Type,
 		Revision:    service.Revision,
 		Error:       compactSingleLine(service.Error),
@@ -1453,7 +1482,7 @@ func buildAIRuntimeServiceItem(product *commonmodels.Product, service *commonmod
 	return item
 }
 
-func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *commonmodels.ProductService, item *commonmodels.AIRuntimeServiceItem, kubeClient client.Client) error {
+func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string, item *commonmodels.AIRuntimeServiceItem, kubeClient client.Client) error {
 	if product == nil || service == nil || item == nil || kubeClient == nil {
 		return nil
 	}
@@ -1463,7 +1492,7 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	if strings.TrimSpace(product.Namespace) == "" {
 		return fmt.Errorf("query service %s pod status failed: env namespace is empty", item.ServiceName)
 	}
-	workloads, err := getAIRuntimeServiceWorkloadsWithTimeout(product, service)
+	workloads, err := getAIRuntimeServiceWorkloadsWithTimeout(product, service, releaseName)
 	if err != nil {
 		return fmt.Errorf("query service %s workloads failed: %v", item.ServiceName, err)
 	}
@@ -1521,7 +1550,29 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	return nil
 }
 
-func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *commonmodels.ProductService) ([]*commonmodels.WorkLoad, error) {
+func resolveAIRuntimeServiceReleaseName(jobType, targetServiceName string, service *commonmodels.ProductService, serviceReleaseNames map[string]string) (string, error) {
+	if service == nil {
+		return "", fmt.Errorf("runtime service %s is nil", targetServiceName)
+	}
+	var releaseName string
+	switch jobType {
+	case string(config.JobZadigDeploy):
+		return "", nil
+	case string(config.JobZadigHelmDeploy):
+		releaseName = serviceReleaseNames[strings.TrimSpace(targetServiceName)]
+	case string(config.JobZadigHelmChartDeploy):
+		releaseName = targetServiceName
+	default:
+		return "", fmt.Errorf("unsupported runtime target job type %s", jobType)
+	}
+	releaseName = strings.TrimSpace(releaseName)
+	if releaseName == "" {
+		return "", fmt.Errorf("release name is empty for service %s", targetServiceName)
+	}
+	return releaseName, nil
+}
+
+func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string) ([]*commonmodels.WorkLoad, error) {
 	if product == nil || service == nil {
 		return nil, nil
 	}
@@ -1531,7 +1582,7 @@ func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *common
 	if service.Type != setting.HelmDeployType && service.Type != setting.HelmChartDeployType {
 		return nil, nil
 	}
-	releaseName := strings.TrimSpace(service.ReleaseName)
+	releaseName = strings.TrimSpace(releaseName)
 	if releaseName == "" {
 		return nil, fmt.Errorf("release name is empty")
 	}
@@ -1542,9 +1593,12 @@ func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *common
 	return parseAIRuntimeWorkloadsFromHelmManifest(manifest)
 }
 
-func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, service *commonmodels.ProductService) ([]*commonmodels.WorkLoad, error) {
-	if service == nil || service.Type == setting.K8SDeployType {
-		return getAIRuntimeServiceWorkloads(product, service)
+func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string) ([]*commonmodels.WorkLoad, error) {
+	if service == nil {
+		return nil, nil
+	}
+	if service.Type == setting.K8SDeployType {
+		return getAIRuntimeServiceWorkloads(product, service, "")
 	}
 	type resp struct {
 		workloads []*commonmodels.WorkLoad
@@ -1552,14 +1606,14 @@ func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, serv
 	}
 	ch := make(chan resp, 1)
 	go func() {
-		workloads, err := getAIRuntimeServiceWorkloads(product, service)
+		workloads, err := getAIRuntimeServiceWorkloads(product, service, releaseName)
 		ch <- resp{workloads: workloads, err: err}
 	}()
 	select {
 	case result := <-ch:
 		return result.workloads, result.err
 	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
-		return nil, fmt.Errorf("query release %s workloads timeout after %s", service.ReleaseName, aiReleaseSpecialistKubeQueryTimeout)
+		return nil, fmt.Errorf("query release %s workloads timeout after %s", releaseName, aiReleaseSpecialistKubeQueryTimeout)
 	}
 }
 
