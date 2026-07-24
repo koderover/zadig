@@ -52,6 +52,13 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	serviceDeployStrategy := make(map[string]setting.ServiceDeployStrategy)
 
 	// user custom chart values
+	chartValues := make([]*commonservice.HelmSvcRenderArg, 0, len(arg.ChartValues))
+	for _, chartValue := range arg.ChartValues {
+		if chartValue != nil {
+			chartValues = append(chartValues, chartValue.HelmSvcRenderArg)
+		}
+	}
+	populateHelmValuesSourceCommits(chartValues, log)
 	cvMap := make(map[string]*templatemodels.ServiceRender)
 	for _, singleCV := range arg.ChartValues {
 		tc, ok := templateChartInfoMap[singleCV.ServiceName]

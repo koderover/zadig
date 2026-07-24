@@ -43,11 +43,12 @@ type KVPair struct {
 }
 
 type ValuesDataArgs struct {
-	YamlSource    string      `json:"yamlSource"`
-	SourceID      string      `json:"source_id"`
-	AutoSync      bool        `json:"autoSync"`
-	AutoSyncYaml  string      `json:"autoSyncYaml"`
-	GitRepoConfig *RepoConfig `json:"gitRepoConfig"`
+	YamlSource    string         `json:"yamlSource"`
+	SourceID      string         `json:"source_id"`
+	AutoSync      bool           `json:"autoSync"`
+	AutoSyncYaml  string         `json:"autoSyncYaml"`
+	GitRepoConfig *RepoConfig    `json:"gitRepoConfig"`
+	Commit        *models.Commit `json:"-"`
 }
 
 type HelmSvcRenderArg struct {
@@ -127,6 +128,7 @@ func (args *HelmSvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 					Repo:       args.ValuesData.GitRepoConfig.Repo,
 					Branch:     args.ValuesData.GitRepoConfig.Branch,
 				},
+				Commit: args.ValuesData.Commit,
 			}
 			if len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
 				repoData.LoadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
