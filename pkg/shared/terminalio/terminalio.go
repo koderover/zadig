@@ -25,10 +25,3 @@ type Recorder interface {
 type Sanitizer interface {
 	Mask(data string) string
 }
-
-func ProcessOutput(raw string, recorder Recorder) string {
-	if recorder != nil {
-		recorder.RecordOutput(raw)
-	}
-	return raw
-}

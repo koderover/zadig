@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -77,7 +78,7 @@ func (c *TerminalSessionColl) EnsureIndex(ctx context.Context) error {
 
 func (c *TerminalSessionColl) Create(session *models.TerminalSession) error {
 	if session == nil {
-		return nil
+		return fmt.Errorf("terminal session is nil")
 	}
 	now := time.Now().Unix()
 	if session.CreatedAt == 0 {
@@ -118,7 +119,7 @@ func (c *TerminalSessionColl) UpdateActivity(sessionID string, commandCountDelta
 
 func (c *TerminalSessionColl) CloseSession(args *CloseSessionArgs) error {
 	if args == nil {
-		return nil
+		return fmt.Errorf("close terminal session arguments are nil")
 	}
 	update := bson.M{
 		"$set": bson.M{

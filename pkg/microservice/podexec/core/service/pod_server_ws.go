@@ -81,16 +81,12 @@ func ServeWs(c *gin.Context) {
 		return
 	}
 	defer func() {
-		log.Infof("serve ws defer close terminal session, sessionID=%s", pty.SessionID)
 		_ = pty.Close()
 	}()
 	initialCols, initialRows := readTerminalSizeFromQuery(c)
 	finalStatus := commonmodels.TerminalSessionStatusFinished
 	var audit *terminalaudit.AuditSession
 	defer func() {
-		if audit != nil {
-			log.Infof("serve ws defer close audit session, sessionID=%s finalStatus=%s", audit.SessionID, finalStatus)
-		}
 		if err := audit.Close(finalStatus); err != nil {
 			log.Errorf("close terminal audit recorder failed: %v", err)
 		}
@@ -106,8 +102,8 @@ func ServeWs(c *gin.Context) {
 		return
 	}
 
-	ok, err := ValidatePod(kubeCli, namespace, podName, containerName)
-	if !ok {
+	pod, err := ValidatePod(kubeCli, namespace, podName, containerName)
+	if err != nil {
 		msg := fmt.Sprintf("Validate pod error! err: %v", err)
 		log.Errorf(msg)
 		_, _ = pty.Write([]byte(msg))
@@ -115,13 +111,13 @@ func ServeWs(c *gin.Context) {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
-	pod, err := kubeCli.CoreV1().Pods(namespace).Get(c.Request.Context(), podName, metav1.GetOptions{})
-	if err != nil {
-		log.Warnf("failed to get pod %s/%s for terminal audit metadata: %v", namespace, podName, err)
-	}
 	secrets, err := collectContainerSecretValues(c.Request.Context(), kubeCli, pod, namespace, containerName)
 	if err != nil {
-		log.Warnf("failed to collect pod secret values for terminal audit masking: %v", err)
+		msg := fmt.Sprintf("collect pod secret values for terminal audit failed: %v", err)
+		log.Errorf(msg)
+		_, _ = pty.Write([]byte(msg))
+		ctx.RespErr = e.ErrInternalError.AddDesc(msg)
+		return
 	}
 
 	meta := &terminalaudit.SessionMeta{
@@ -242,7 +238,6 @@ FOR:
 		if err := audit.Close(finalStatus); err != nil {
 			log.Errorf("close workflow terminal audit recorder failed: %v", err)
 		}
-		log.Info("close session.")
 		_ = pty.Close()
 	}()
 
@@ -359,7 +354,6 @@ func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interf
 	}
 
 	secretValues := make([]string, 0)
-	var collectErr error
 	secretNames := make(map[string]bool)
 	for _, envFromSource := range envFrom {
 		if envFromSource.SecretRef != nil && envFromSource.SecretRef.Name != "" {
@@ -375,10 +369,7 @@ func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interf
 			if optional && apierrors.IsNotFound(err) {
 				continue
 			}
-			if collectErr == nil {
-				collectErr = err
-			}
-			continue
+			return nil, fmt.Errorf("get secret %s: %w", secretName, err)
 		}
 		for _, value := range secret.Data {
 			if len(value) > 0 {
@@ -400,17 +391,14 @@ func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interf
 			if optionalBool(ref.Optional) && apierrors.IsNotFound(err) {
 				continue
 			}
-			if collectErr == nil {
-				collectErr = err
-			}
-			continue
+			return nil, fmt.Errorf("get secret %s: %w", ref.Name, err)
 		}
 		value := secret.Data[ref.Key]
 		if len(value) > 0 {
 			secretValues = append(secretValues, string(value))
 		}
 	}
-	return secretValues, collectErr
+	return secretValues, nil
 }
 
 func findContainerSecretRefs(pod *corev1.Pod, containerName string) ([]corev1.EnvFromSource, []corev1.EnvVar, bool) {

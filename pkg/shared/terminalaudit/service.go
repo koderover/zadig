@@ -87,13 +87,7 @@ func TerminateSession(sessionID string) error {
 	return nil
 }
 
-// WatchSession subscribes to the live asciicast stream of an in-progress
-// terminal session. It returns a channel of already-encoded asciicast frame
-// lines (starting with the header and the current terminal size) and an
-// unsubscribe function that MUST be called by the caller when it stops reading.
-//
-// It returns an error if the session is not currently active (already finished,
-// never existed, or has no recorder attached).
+// WatchSession subscribes to encoded asciicast frames for a running session.
 func WatchSession(sessionID string) (<-chan string, func(), error) {
 	session, err := GetSession(sessionID)
 	if err != nil {

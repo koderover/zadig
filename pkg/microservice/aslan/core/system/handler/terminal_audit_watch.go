@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -40,44 +39,22 @@ var terminalWatchUpgrader = websocket.Upgrader{
 }
 
 const (
-	// terminalWatchWriteWait bounds a single frame write so a stuck spectator
-	// connection cannot leak a goroutine forever.
-	terminalWatchWriteWait = 10 * time.Second
-	// terminalWatchPingPeriod keeps the spectator connection alive through
-	// proxies during quiet periods. Must be shorter than the pong wait.
+	terminalWatchWriteWait  = 10 * time.Second
 	terminalWatchPingPeriod = 30 * time.Second
 	terminalWatchPongWait   = 60 * time.Second
 )
 
-// WatchTerminalSession streams the live asciicast of an in-progress terminal
-// session to a read-only spectator over WebSocket. It is a system-admin-only
-// audit capability: it lets an administrator watch, in real time, the commands
-// and output of an active SSH / pod exec / workflow debug session.
-//
-// The spectator connection is strictly read-only. Any inbound frames are
-// discarded and never forwarded to the real pty, so watching cannot interfere
-// with or inject into the session being observed.
-//
-// Authorization is enforced BEFORE the WebSocket upgrade, because once upgraded
-// the response is hijacked and the standard JSON error path is unavailable.
+// WatchTerminalSession streams an active session to a read-only administrator.
 func WatchTerminalSession(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		internalhandler.JSONResponse(c, ctx)
-		return
-	}
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	ctx, authorized := newTerminalAuditAdminContext(c)
+	if !authorized {
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	sessionID := c.Param("sessionID")
 
-	// Subscribe before the upgrade so a "not live" session can still be reported
-	// through the normal JSON error path.
+	// Subscribe before upgrading so lookup errors can still use the HTTP response.
 	frames, unsubscribe, err := terminalaudit.WatchSession(sessionID)
 	if err != nil {
 		ctx.RespErr = err
@@ -94,9 +71,7 @@ func WatchTerminalSession(c *gin.Context) {
 	defer conn.Close()
 	log.Infof("terminal watch attached, sessionID=%s user=%s", sessionID, ctx.UserName)
 
-	// Read pump: a spectator is read-only, so we only read to detect a closed
-	// connection (and to service control frames like pong/close). All payloads
-	// are discarded and never reach the real session.
+	// Drain inbound frames only to handle control messages and disconnection.
 	closed := make(chan struct{})
 	go func() {
 		defer close(closed)
@@ -127,7 +102,6 @@ func WatchTerminalSession(c *gin.Context) {
 			}
 		case line, ok := <-frames:
 			if !ok {
-				// Session ended: tell the spectator so it can switch to replay.
 				_ = conn.SetWriteDeadline(time.Now().Add(terminalWatchWriteWait))
 				_ = conn.WriteMessage(websocket.CloseMessage,
 					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "session ended"))

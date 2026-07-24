@@ -30,26 +30,30 @@ type TerminalRecorder interface {
 const internalStorageID = "__internal_default__"
 
 type asciicastRecorder struct {
-	mu          sync.Mutex
-	errMu       sync.Mutex
-	persistWG   sync.WaitGroup
-	session     *models.TerminalSession
-	startedAt   time.Time
-	sanitizer   Sanitizer
-	extractor   *CommandExtractor
-	writer      *bufio.Writer
-	pipeWriter  *io.PipeWriter
-	uploadDone  chan error
-	storageID   string
-	bucket      string
-	objectKey   string
-	fileSize    atomic.Int64
-	recordErr   error
-	closed      bool
-	closeOnce   sync.Once
-	sessionColl *commonrepo.TerminalSessionColl
-	commandColl *commonrepo.TerminalCommandColl
-	live        *livePublisher
+	mu            sync.Mutex
+	errMu         sync.Mutex
+	persistWG     sync.WaitGroup
+	session       *models.TerminalSession
+	startedAt     time.Time
+	inputMask     *streamSanitizer
+	outputMask    *streamSanitizer
+	extractor     *CommandExtractor
+	writer        *bufio.Writer
+	pipeWriter    *io.PipeWriter
+	uploadDone    chan struct{}
+	storageID     string
+	bucket        string
+	objectKey     string
+	fileSize      atomic.Int64
+	recordErr     error
+	closed        bool
+	closeOnce     sync.Once
+	closeErr      error
+	terminate     func()
+	terminateOnce sync.Once
+	sessionColl   *commonrepo.TerminalSessionColl
+	commandColl   *commonrepo.TerminalCommandColl
+	live          *livePublisher
 }
 
 type castHeader struct {
@@ -61,7 +65,7 @@ type castHeader struct {
 	Title     string            `json:"title,omitempty"`
 }
 
-func NewRecorder(meta *SessionMeta) (TerminalRecorder, error) {
+func newRecorder(meta *SessionMeta, terminate func()) (TerminalRecorder, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("terminal session meta is nil")
 	}
@@ -129,12 +133,13 @@ func NewRecorder(meta *SessionMeta) (TerminalRecorder, error) {
 		return nil, err
 	}
 	pipeReader, pipeWriter := io.Pipe()
-	uploadDone := make(chan error, 1)
+	uploadDone := make(chan struct{})
 
 	recorder := &asciicastRecorder{
 		session:     session,
 		startedAt:   startedAt,
-		sanitizer:   NewSanitizer(meta.Secrets, meta.SecretEnvs),
+		inputMask:   newStreamSanitizer(meta.Secrets, meta.SecretEnvs),
+		outputMask:  newStreamSanitizer(meta.Secrets, meta.SecretEnvs),
 		extractor:   NewCommandExtractor(),
 		pipeWriter:  pipeWriter,
 		uploadDone:  uploadDone,
@@ -144,14 +149,17 @@ func NewRecorder(meta *SessionMeta) (TerminalRecorder, error) {
 		sessionColl: sessionColl,
 		commandColl: commonrepo.NewTerminalCommandColl(),
 		live:        newLivePublisher(session.SessionID, currentLiveTransport()),
+		terminate:   terminate,
 	}
 	recorder.writer = bufio.NewWriter(&countingWriter{
 		writer: pipeWriter,
 		size:   &recorder.fileSize,
 	})
 	go func() {
-		uploadDone <- client.UploadReader(storage.Bucket, pipeReader, session.ObjectKey, "application/octet-stream")
-		close(uploadDone)
+		defer close(uploadDone)
+		if err := client.UploadReader(storage.Bucket, pipeReader, session.ObjectKey, "application/octet-stream"); err != nil {
+			recorder.fail(err)
+		}
 	}()
 	if err := recorder.writeHeader(normalizeDimension(meta.InitialCols, defaultCols), normalizeDimension(meta.InitialRows, defaultRows)); err != nil {
 		_ = recorder.Close(models.TerminalSessionStatusFailed)
@@ -166,31 +174,39 @@ func (r *asciicastRecorder) SessionID() string {
 }
 
 func (r *asciicastRecorder) RecordInput(data string) {
-	sanitized := r.sanitizer.Mask(data)
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.closed {
-		r.mu.Unlock()
 		return
 	}
-	if sanitized != "" {
-		r.writeEvent("i", sanitized)
-	}
-	commands := r.extractor.Consume(sanitized, time.Since(r.startedAt))
-	r.persistCommands(commands)
-	r.mu.Unlock()
+	r.recordInput(r.inputMask.Write(data))
 }
 
 func (r *asciicastRecorder) RecordOutput(data string) {
-	sanitized := r.sanitizer.Mask(data)
 	r.mu.Lock()
-	if r.closed || sanitized == "" {
-		r.mu.Unlock()
+	defer r.mu.Unlock()
+	if r.closed {
 		return
 	}
-	commands := r.extractor.ObserveOutput(sanitized)
-	r.writeEvent("o", sanitized)
+	r.recordOutput(r.outputMask.Write(data))
+}
+
+func (r *asciicastRecorder) recordInput(data string) {
+	if data == "" {
+		return
+	}
+	r.writeEvent("i", data)
+	commands := r.extractor.Consume(data, time.Since(r.startedAt))
 	r.persistCommands(commands)
-	r.mu.Unlock()
+}
+
+func (r *asciicastRecorder) recordOutput(data string) {
+	if data == "" {
+		return
+	}
+	commands := r.extractor.ObserveOutput(data)
+	r.writeEvent("o", data)
+	r.persistCommands(commands)
 }
 
 func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
@@ -233,21 +249,21 @@ func (r *asciicastRecorder) persistCommands(commands []ExtractedCommand) {
 	go func(commands []*models.TerminalCommand, commandCount int64, activityAt int64) {
 		defer r.persistWG.Done()
 		if err := r.commandColl.CreateMany(commands); err != nil {
-			r.setRecordErr(err)
+			r.fail(err)
 			return
 		}
 		if err := r.sessionColl.UpdateActivity(r.session.SessionID, commandCount, activityAt); err != nil {
-			r.setRecordErr(err)
+			r.fail(err)
 		}
 	}(commandModels, int64(len(commands)), now)
 }
 
 func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
-	var closeErr error
 	r.closeOnce.Do(func() {
-		log.Infof("terminal audit recorder close start, sessionID=%s status=%s", r.session.SessionID, status)
 		r.mu.Lock()
 		r.closed = true
+		r.recordInput(r.inputMask.Flush())
+		r.recordOutput(r.outputMask.Flush())
 		if r.writer != nil {
 			if err := r.writer.Flush(); err != nil {
 				r.setRecordErr(err)
@@ -260,31 +276,23 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 		}
 		r.mu.Unlock()
 		r.live.close()
-		log.Infof("terminal audit recorder close flushed stream, sessionID=%s", r.session.SessionID)
 		r.persistWG.Wait()
-		log.Infof("terminal audit recorder close persist done, sessionID=%s", r.session.SessionID)
 
 		endedAt := time.Now().Unix()
 		durationSeconds := int64(time.Since(r.startedAt).Seconds())
-		recordErr := r.getRecordErr()
-		errorMessages := make([]string, 0)
-		if recordErr != nil {
-			errorMessages = append(errorMessages, recordErr.Error())
-		}
 		if r.uploadDone != nil {
-			log.Infof("terminal audit recorder close wait upload, sessionID=%s", r.session.SessionID)
-			if err := <-r.uploadDone; err != nil {
-				errorMessages = append(errorMessages, err.Error())
-			}
-			log.Infof("terminal audit recorder close upload done, sessionID=%s fileSize=%d errors=%v", r.session.SessionID, r.fileSize.Load(), errorMessages)
+			<-r.uploadDone
+		}
+		errorMessages := make([]string, 0)
+		if recordErr := r.getRecordErr(); recordErr != nil {
+			errorMessages = append(errorMessages, recordErr.Error())
 		}
 
 		finalStatus := status
 		if len(errorMessages) > 0 && finalStatus == models.TerminalSessionStatusFinished {
 			finalStatus = models.TerminalSessionStatusFailed
 		}
-		log.Infof("terminal audit recorder close update session, sessionID=%s finalStatus=%s endedAt=%d duration=%d fileSize=%d", r.session.SessionID, finalStatus, endedAt, durationSeconds, r.fileSize.Load())
-		closeErr = r.sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
+		r.closeErr = r.sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
 			SessionID:       r.session.SessionID,
 			Status:          finalStatus,
 			EndedAt:         endedAt,
@@ -295,9 +303,9 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 			FileSize:        r.fileSize.Load(),
 			ErrorMessage:    strings.Join(errorMessages, "; "),
 		})
-		log.Infof("terminal audit recorder close finish, sessionID=%s err=%v", r.session.SessionID, closeErr)
+		log.Infof("close terminal audit recorder, sessionID=%s status=%s fileSize=%d err=%v", r.session.SessionID, finalStatus, r.fileSize.Load(), r.closeErr)
 	})
-	return closeErr
+	return r.closeErr
 }
 
 func (r *asciicastRecorder) writeHeader(cols, rows int) error {
@@ -328,14 +336,24 @@ func (r *asciicastRecorder) writeEvent(code, data string) {
 	offset := math.Round(time.Since(r.startedAt).Seconds()*1000) / 1000
 	line, err := json.Marshal([]interface{}{offset, code, data})
 	if err != nil {
-		r.setRecordErr(err)
+		r.fail(err)
 		return
 	}
 	if _, err := r.writer.Write(append(line, '\n')); err != nil {
-		r.setRecordErr(err)
+		r.fail(err)
 		return
 	}
 	r.live.publish(code, string(line))
+}
+
+func (r *asciicastRecorder) fail(err error) {
+	if err == nil {
+		return
+	}
+	r.setRecordErr(err)
+	if r.terminate != nil {
+		r.terminateOnce.Do(func() { go r.terminate() })
+	}
 }
 
 func (r *asciicastRecorder) setRecordErr(err error) {

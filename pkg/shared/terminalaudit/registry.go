@@ -14,10 +14,9 @@ type activeSession struct {
 	terminate       func()
 	terminateOnce   sync.Once
 	done            chan struct{}
-	doneOnce        sync.Once
 	terminateSub    liveSubscription
 	terminateCancel context.CancelFunc
-	stopOnce        sync.Once
+	closeOnce       sync.Once
 }
 
 type activeSessionRegistry struct {
@@ -26,8 +25,9 @@ type activeSessionRegistry struct {
 
 var registry = &activeSessionRegistry{}
 
-func RegisterActiveSession(sessionID string, terminate func()) error {
-	sessionContext, cancel := context.WithCancel(ProcessContext())
+func registerActiveSession(sessionID string, terminate func()) error {
+	processContext := processLifecycleContext()
+	sessionContext, cancel := context.WithCancel(processContext)
 	terminateSub, err := subscribeToTermination(sessionContext, sessionID)
 	if err != nil {
 		cancel()
@@ -42,15 +42,11 @@ func RegisterActiveSession(sessionID string, terminate func()) error {
 	registry.sessions.Store(sessionID, session)
 
 	go func() {
-		select {
-		case <-ProcessContext().Done():
-			session.terminateWithStatus(models.TerminalSessionStatusAborted)
-		case <-session.done:
-		}
-	}()
-	go func() {
 		for {
 			select {
+			case <-processContext.Done():
+				session.terminateWithStatus(models.TerminalSessionStatusAborted)
+				return
 			case <-session.done:
 				return
 			case message, ok := <-terminateSub.Messages():
@@ -66,15 +62,14 @@ func RegisterActiveSession(sessionID string, terminate func()) error {
 	return nil
 }
 
-func UnregisterActiveSession(sessionID string) {
+func unregisterActiveSession(sessionID string) {
 	if session, ok := registry.load(sessionID); ok {
-		session.signalDone()
-		session.stopTermination()
+		session.close()
 	}
 	registry.sessions.Delete(sessionID)
 }
 
-func ResolveSessionStatus(sessionID string, defaultStatus models.TerminalSessionStatus) models.TerminalSessionStatus {
+func resolveSessionStatus(sessionID string, defaultStatus models.TerminalSessionStatus) models.TerminalSessionStatus {
 	session, ok := registry.load(sessionID)
 	if !ok {
 		return defaultStatus
@@ -99,20 +94,11 @@ func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus)
 	})
 }
 
-func (s *activeSession) signalDone() {
-	s.doneOnce.Do(func() {
+func (s *activeSession) close() {
+	s.closeOnce.Do(func() {
 		close(s.done)
-	})
-}
-
-func (s *activeSession) stopTermination() {
-	s.stopOnce.Do(func() {
-		if s.terminateCancel != nil {
-			s.terminateCancel()
-		}
-		if s.terminateSub != nil {
-			_ = s.terminateSub.Close()
-		}
+		s.terminateCancel()
+		_ = s.terminateSub.Close()
 	})
 }
 
