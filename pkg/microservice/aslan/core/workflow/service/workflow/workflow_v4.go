@@ -64,6 +64,7 @@ import (
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
@@ -94,6 +95,9 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	workflowController := controller.CreateWorkflowController(workflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
+	}
+	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlans(workflow, nil); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
 	workflow.CreatedBy = user
@@ -266,6 +270,9 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	workflowController := controller.CreateWorkflowController(inputWorkflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
+	}
+	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlans(inputWorkflow, workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
 	inputWorkflow.UpdatedBy = user
@@ -1534,6 +1541,16 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			return e.ErrFindWorkflow.AddErr(err)
 		}
 
+		job.Spec = spec
+	}
+
+	if job.JobType == config.JobAIReleaseSpecialist {
+		spec := &commonmodels.AIReleaseSpecialistJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		spec.SystemPrompt = runtimeJobController.GetEditableAIReleaseSpecialistSystemPrompt(spec.SystemPrompt)
 		job.Spec = spec
 	}
 	return nil

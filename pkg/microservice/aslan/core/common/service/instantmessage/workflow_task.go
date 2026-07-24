@@ -284,41 +284,19 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
 			for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 				if target.IsExecutor {
-					if task.TaskCreatorID == "" {
-						errMsg := fmt.Errorf("executor id is empty, cannot send message")
-						log.Error(errMsg)
-						continue
-					}
-
-					userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
-					if err != nil {
-						log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
-						return fmt.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
-					}
-
-					if len(userInfo.Phone) == 0 {
-						return fmt.Errorf("executor phone not configured")
-					}
-
 					client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
 					if err != nil {
 						return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
 					}
-
-					larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+					resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
 					if err != nil {
-						return fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err)
+						log.Errorf("failed to resolve workflow executor lark target: %v", err)
+						return err
 					}
-
-					userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
-					if err != nil {
-						return fmt.Errorf("find lark user info for userID %s error: %v", util.GetStringFromPointer(larkUser.UserId), err)
-					}
-
-					target.ID = util.GetStringFromPointer(larkUser.UserId)
-					target.Name = userDetailedInfo.Name
-					target.Avatar = userDetailedInfo.Avatar
-					target.IDType = setting.LarkUserID
+					target.ID = resolvedTarget.ID
+					target.Name = resolvedTarget.Name
+					target.Avatar = resolvedTarget.Avatar
+					target.IDType = resolvedTarget.IDType
 				}
 			}
 		}
@@ -397,41 +375,19 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 
 				for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 					if target.IsExecutor {
-						if task.TaskCreatorID == "" {
-							errMsg := fmt.Errorf("executor id is empty, cannot send message")
-							log.Error(errMsg)
-							continue
-						}
-
-						userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
-						if err != nil {
-							log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
-							return fmt.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
-						}
-
-						if len(userInfo.Phone) == 0 {
-							return fmt.Errorf("executor phone not configured")
-						}
-
 						client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
 						if err != nil {
 							return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
 						}
-
-						larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+						resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
 						if err != nil {
-							return fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err)
+							log.Errorf("failed to resolve workflow executor lark target: %v", err)
+							return err
 						}
-
-						userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
-						if err != nil {
-							return fmt.Errorf("find lark user info for userID %s error: %v", util.GetStringFromPointer(larkUser.UserId), err)
-						}
-
-						target.ID = util.GetStringFromPointer(larkUser.UserId)
-						target.Name = userDetailedInfo.Name
-						target.Avatar = userDetailedInfo.Avatar
-						target.IDType = setting.LarkUserID
+						target.ID = resolvedTarget.ID
+						target.Name = resolvedTarget.Name
+						target.Avatar = resolvedTarget.Avatar
+						target.IDType = resolvedTarget.IDType
 					}
 				}
 			}
@@ -463,6 +419,22 @@ func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *
 	}
 
 	return false
+}
+
+func (w *Service) resolveWorkflowTaskExecutorLarkTarget(client *lark.Client, task *models.WorkflowTask) (*lark.UserInfo, error) {
+	if task == nil || task.TaskCreatorID == "" {
+		return nil, fmt.Errorf("executor id is empty, cannot send message")
+	}
+
+	resolvedTarget, _, err := w.resolveManualExecStageLarkTargetFromUser(client, task.TaskCreatorID, task.TaskCreator)
+	if err != nil {
+		return nil, err
+	}
+	if resolvedTarget == nil {
+		return nil, fmt.Errorf("executor lark target cannot be empty")
+	}
+
+	return resolvedTarget, nil
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {

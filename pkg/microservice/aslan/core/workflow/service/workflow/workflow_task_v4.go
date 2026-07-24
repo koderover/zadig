@@ -2440,20 +2440,44 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 	return resp, nil
 }
 
-func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
+func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve, isSystemAdmin bool, logger *zap.SugaredLogger) error {
 	if workflowName == "" || jobName == "" || taskID == 0 {
 		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,jobName: %s", workflowName, taskID, jobName)
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
-	if err := runtimeWorkflowController.ApproveStage(workflowName, jobName, userName, userID, comment, taskID, approve); err != nil {
+	allowUnlistedApprover := false
+	if isSystemAdmin {
+		workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+		if err != nil {
+			errMsg := fmt.Sprintf("can not find workflow task: %s, taskID: %d to approve job %s, err: %s", workflowName, taskID, jobName, err)
+			logger.Error(errMsg)
+			return e.ErrApproveTask.AddDesc(errMsg)
+		}
+		allowUnlistedApprover = canSystemAdminApproveJob(workflowTask, jobName)
+	}
+	if err := runtimeWorkflowController.ApproveStage(workflowName, jobName, userName, userID, comment, taskID, approve, allowUnlistedApprover); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
 	}
 	return nil
 }
 
-func HandleJobError(workflowName, jobName, userID, username string, taskID int64, decision workflowtool.JobErrorDecision, logger *zap.SugaredLogger) error {
+func canSystemAdminApproveJob(workflowTask *commonmodels.WorkflowTask, jobName string) bool {
+	if workflowTask == nil {
+		return false
+	}
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name == jobName {
+				return job.JobType == string(config.JobAIReleaseSpecialist)
+			}
+		}
+	}
+	return false
+}
+
+func HandleJobError(workflowName, jobName, userID, username string, taskID int64, decision workflowtool.JobErrorDecision, isSystemAdmin bool, logger *zap.SugaredLogger) error {
 	if workflowName == "" || jobName == "" || taskID == 0 {
 		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,jobName: %s", workflowName, taskID, jobName)
 		logger.Error(errMsg)
@@ -2488,17 +2512,19 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 	}
 
 	if errorJob.ErrorPolicy == nil || errorJob.ErrorPolicy.Policy != config.JobErrorPolicyManualCheck {
-		errMsg := fmt.Sprintf("error policy for job: %s is %s", jobName, errorJob.ErrorPolicy.Policy)
+		errMsg := fmt.Sprintf("job %s does not support manual error handling", jobName)
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
-	_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, userID)
+	if !isSystemAdmin {
+		_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, workflowTask.TaskCreatorID)
 
-	if _, ok := userMap[userID]; !ok {
-		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
-		logger.Error(errMsg)
-		return e.ErrApproveTask.AddDesc(errMsg)
+		if _, ok := userMap[userID]; !ok {
+			errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
+			logger.Error(errMsg)
+			return e.ErrApproveTask.AddDesc(errMsg)
+		}
 	}
 
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
@@ -3109,6 +3135,13 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				sepc.ClusterName = cluster.Name
 			}
 			jobPreview.Spec = sepc
+		case string(config.JobAIReleaseSpecialist):
+			spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+			if err := commonmodels.IToi(job.Spec, spec); err != nil {
+				continue
+			}
+			spec.SystemPrompt = runtimeJobController.GetEditableAIReleaseSpecialistSystemPrompt(spec.SystemPrompt)
+			jobPreview.Spec = spec
 		default:
 			jobPreview.Spec = job.Spec
 		}

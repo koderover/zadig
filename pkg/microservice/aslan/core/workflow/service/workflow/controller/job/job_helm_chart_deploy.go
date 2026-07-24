@@ -218,6 +218,7 @@ func (j HelmChartDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 	for subJobTaskID, deploy := range j.jobSpec.DeployHelmCharts {
 		jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
 			Env:                envName,
+			Production:         j.jobSpec.Production,
 			DeployHelmChart:    deploy,
 			SkipCheckRunStatus: j.jobSpec.SkipCheckRunStatus,
 			ClusterID:          product.ClusterID,

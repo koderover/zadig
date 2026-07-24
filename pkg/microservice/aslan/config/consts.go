@@ -38,6 +38,8 @@ const (
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
 	CVMNameRegexString     = "^[a-zA-Z_]\\w*$"
 
+	AIReleaseSpecialistDefaultTimeoutMinutes = 60
+
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
 	EnvRecyclePolicyNever      = "never"
@@ -259,6 +261,7 @@ const (
 	JobBlueKing             JobType = "blueking"
 	JobApproval             JobType = "approval"
 	JobNotification         JobType = "notification"
+	JobAIReleaseSpecialist  JobType = "ai-release-specialist"
 	JobSAEDeploy            JobType = "sae-deploy"
 	JobApisix               JobType = "apisix"
 )
