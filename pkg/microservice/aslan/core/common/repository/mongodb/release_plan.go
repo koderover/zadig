@@ -85,11 +85,7 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
-	return c.CreateWithCtx(context.Background(), args)
-}
-
-func (c *ReleasePlanColl) CreateWithCtx(ctx context.Context, args *models.ReleasePlan) (string, error) {
+func (c *ReleasePlanColl) Create(ctx context.Context, args *models.ReleasePlan) (string, error) {
 	if args == nil {
 		return "", errors.New("nil ReleasePlan")
 	}

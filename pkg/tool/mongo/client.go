@@ -64,25 +64,38 @@ func Session() mongo.Session {
 	return session
 }
 
-func SessionWithTransaction(ctx context.Context) (mongo.Session, func(error), error) {
+// SessionWithTransaction starts a transaction and returns a finalizer that must
+// be deferred with the caller's named return error.
+func SessionWithTransaction(ctx context.Context) (mongo.Session, func(*error), error) {
 	session := Session()
-	err := StartTransaction(session)
-	if err != nil {
-		return session, nil, errors.Wrap(err, "StartTransaction")
+	if err := StartTransaction(session); err != nil {
+		session.EndSession(ctx)
+		return nil, nil, errors.Wrap(err, "StartTransaction")
 	}
 
-	deferFunc := func(err error) {
-		if err != nil {
-			err = AbortTransaction(session)
-			if err != nil {
+	finishTransaction := func(retErr *error) {
+		defer session.EndSession(ctx)
+
+		if recovered := recover(); recovered != nil {
+			if err := AbortTransaction(session); err != nil {
 				log.Errorf("Failed to abort transaction, err: %v", err)
 			}
+			panic(recovered)
 		}
-		session.EndSession(ctx)
-		return
+
+		if *retErr != nil {
+			if err := AbortTransaction(session); err != nil {
+				log.Errorf("Failed to abort transaction, err: %v", err)
+			}
+			return
+		}
+
+		if err := CommitTransaction(session); err != nil {
+			*retErr = errors.Wrap(err, "CommitTransaction")
+		}
 	}
 
-	return session, deferFunc, nil
+	return session, finishTransaction, nil
 }
 
 func StartTransaction(session mongo.Session) error {

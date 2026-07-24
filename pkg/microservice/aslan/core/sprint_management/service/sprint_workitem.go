@@ -38,7 +38,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func CreateSprintWorkItem(ctx *handler.Context, args *models.SprintWorkItem) error {
+func CreateSprintWorkItem(ctx *handler.Context, args *models.SprintWorkItem) (retErr error) {
 	if args.Title == "" || args.SprintID == "" || args.StageID == "" {
 		return e.ErrCreateSprintWorkItem.AddErr(errors.New("Required parameters are missing"))
 	}
@@ -49,11 +49,11 @@ func CreateSprintWorkItem(ctx *handler.Context, args *models.SprintWorkItem) err
 	lock.Lock()
 	defer lock.Unlock()
 
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrCreateSprintWorkItem.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
 	id, err := mongodb.NewSprintWorkItemCollWithSession(session).Create(ctx, args)
 	if err != nil {
@@ -130,7 +130,7 @@ func GetSprintWorkItem(ctx *handler.Context, id string) (*SprintWorkItem, error)
 	return resp, nil
 }
 
-func DeleteSprintWorkItem(ctx *handler.Context, id string) error {
+func DeleteSprintWorkItem(ctx *handler.Context, id string) (retErr error) {
 	workitem, err := mongodb.NewSprintWorkItemColl().GetByID(ctx, id)
 	if err != nil {
 		return errors.Wrap(err, "Get sprint")
@@ -140,11 +140,11 @@ func DeleteSprintWorkItem(ctx *handler.Context, id string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrDeleteSprintWorkItem.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
 	sprint, err := mongodb.NewSprintCollWithSession(session).GetByID(ctx, workitem.SprintID)
 	if err != nil {
@@ -184,12 +184,12 @@ func DeleteSprintWorkItem(ctx *handler.Context, id string) error {
 	return nil
 }
 
-func UpdateSprintWorkItemTitle(ctx *handler.Context, id, title string) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func UpdateSprintWorkItemTitle(ctx *handler.Context, id, title string) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintWorkItemTitle.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
 	workitem, err := mongodb.NewSprintWorkItemCollWithSession(session).GetByID(ctx, id)
 	if err != nil {
@@ -240,16 +240,16 @@ func UpdateSprintWorkItemDescpition(ctx *handler.Context, id, description string
 	return nil
 }
 
-func MoveSprintWorkItem(ctx *handler.Context, sprintID, workitemID, stageID string, index int, sprintUpdateTime, workItemUpdateTime int64) error {
+func MoveSprintWorkItem(ctx *handler.Context, sprintID, workitemID, stageID string, index int, sprintUpdateTime, workItemUpdateTime int64) (retErr error) {
 	lock := getSprintLock(sprintID)
 	lock.Lock()
 	defer lock.Unlock()
 
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrMoveSprintWorkItem.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
 	workitem, err := mongodb.NewSprintWorkItemCollWithSession(session).GetByID(ctx, workitemID)
 	if err != nil {
@@ -501,12 +501,12 @@ const (
 	UpdateSprintWorkItemOwnersVerbRemove UpdateSprintWorkItemOwnersVerb = "remove"
 )
 
-func UpdateSprintWorkItemOwners(ctx *handler.Context, id, verb string, owners []types.UserBriefInfo) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func UpdateSprintWorkItemOwners(ctx *handler.Context, id, verb string, owners []types.UserBriefInfo) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintWorkItemOwner.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
 	workitem, err := mongodb.NewSprintWorkItemCollWithSession(session).GetByID(ctx, id)
 	if err != nil {

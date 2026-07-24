@@ -29,7 +29,7 @@ import (
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
-func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) error {
+func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) (retErr error) {
 	if plan == nil {
 		return errors.New("nil release plan")
 	}
@@ -46,23 +46,18 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
-		session := mongotool.Session()
-		defer session.EndSession(ctx)
-		if err := mongotool.StartTransaction(session); err != nil {
+		session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
+		if err != nil {
 			return errors.Wrap(err, "start release plan transaction")
 		}
+		defer finishTransaction(&retErr)
 
 		sessionCtx := mongotool.SessionContext(ctx, session)
 		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
-			mongotool.AbortTransaction(session)
 			return errors.Wrap(err, "create release plan version")
 		}
-		if _, err := planColl.CreateWithCtx(sessionCtx, plan); err != nil {
-			mongotool.AbortTransaction(session)
+		if _, err := planColl.Create(sessionCtx, plan); err != nil {
 			return errors.Wrap(err, "create release plan")
-		}
-		if err := mongotool.CommitTransaction(session); err != nil {
-			return errors.Wrap(err, "commit release plan transaction")
 		}
 		return nil
 	}
@@ -70,7 +65,7 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 	if err := versionColl.Upsert(ctx, versionDoc); err != nil {
 		return errors.Wrap(err, "create release plan version")
 	}
-	if _, err := planColl.CreateWithCtx(ctx, plan); err != nil {
+	if _, err := planColl.Create(ctx, plan); err != nil {
 		cleanupErr := versionColl.Delete(ctx, versionDoc.PlanID, versionDoc.Version)
 		if cleanupErr != nil {
 			return errors.Wrapf(err, "create release plan; cleanup release plan version error: %v", cleanupErr)
@@ -97,7 +92,7 @@ func newReleasePlanVersionDocument(planID string, version, previousVersion int64
 	}
 }
 
-func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) error {
+func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) (retErr error) {
 	if plan == nil {
 		return errors.New("nil release plan")
 	}
@@ -108,23 +103,18 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
-		session := mongotool.Session()
-		defer session.EndSession(ctx)
-		if err := mongotool.StartTransaction(session); err != nil {
+		session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
+		if err != nil {
 			return errors.Wrap(err, "start release plan transaction")
 		}
+		defer finishTransaction(&retErr)
 
 		sessionCtx := mongotool.SessionContext(ctx, session)
 		if err := planColl.UpdateByID(sessionCtx, planID, plan); err != nil {
-			mongotool.AbortTransaction(session)
 			return errors.Wrap(err, "update plan")
 		}
 		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
-			mongotool.AbortTransaction(session)
 			return errors.Wrap(err, "create release plan version")
-		}
-		if err := mongotool.CommitTransaction(session); err != nil {
-			return errors.Wrap(err, "commit release plan transaction")
 		}
 		return nil
 	}
