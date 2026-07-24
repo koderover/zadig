@@ -83,16 +83,13 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     checkReleasePlanCollaborationOrigin,
 }
 
-var (
-	storeReleasePlanEditingSession = func(session *ReleasePlanEditingSession, payload string) error {
-		redisCache := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB())
-		if err := redisCache.Write(releasePlanCollabSessionKey(session.SessionID), payload, releasePlanCollabSessionTTL); err != nil {
-			return err
-		}
-		return redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabSessionTTL)
+func storeReleasePlanEditingSession(session *ReleasePlanEditingSession, payload string) error {
+	redisCache := cache.NewRedisCache(configbase.RedisCommonCacheTokenDB())
+	if err := redisCache.Write(releasePlanCollabSessionKey(session.SessionID), payload, releasePlanCollabSessionTTL); err != nil {
+		return err
 	}
-	publishReleasePlanCollaboration = broadcastReleasePlanCollaboration
-)
+	return redisCache.AddElementsToSet(releasePlanCollabPlanSetKey(session.PlanID), []string{session.SessionID}, releasePlanCollabSessionTTL)
+}
 
 type ReleasePlanEditingSession struct {
 	PlanID           string `json:"plan_id"`
@@ -102,7 +99,6 @@ type ReleasePlanEditingSession struct {
 	UserName         string `json:"user_name"`
 	Account          string `json:"account"`
 	IdentityType     string `json:"identity_type,omitempty"`
-	Avatar           string `json:"avatar,omitempty"`
 	SectionKey       string `json:"section_key"`
 	SectionType      string `json:"section_type"`
 	SectionName      string `json:"section_name"`
@@ -417,13 +413,6 @@ func listCollaborationClientSessionIDs(client *collaborationClient) []string {
 	return resp
 }
 
-func shouldCleanupReleasePlanEditingSession(session *ReleasePlanEditingSession, connectionID string) bool {
-	if session == nil || connectionID == "" {
-		return false
-	}
-	return session.ConnectionID == connectionID
-}
-
 func cleanupReleasePlanEditingSessionsForClient(client *collaborationClient) {
 	if client == nil || client.planID == "" {
 		return
@@ -434,7 +423,7 @@ func cleanupReleasePlanEditingSessionsForClient(client *collaborationClient) {
 		if err != nil {
 			continue
 		}
-		if !shouldCleanupReleasePlanEditingSession(session, client.id) {
+		if session == nil || client.id == "" || session.ConnectionID != client.id {
 			continue
 		}
 		if err := removeReleasePlanEditingSession(client.planID, sessionID); err != nil {
@@ -640,7 +629,7 @@ func saveReleasePlanEditingSession(session *ReleasePlanEditingSession, broadcast
 	if !broadcast {
 		return nil
 	}
-	return publishReleasePlanCollaboration(session.PlanID)
+	return broadcastReleasePlanCollaboration(session.PlanID)
 }
 
 func removeReleasePlanEditingSession(planID, sessionID string) error {

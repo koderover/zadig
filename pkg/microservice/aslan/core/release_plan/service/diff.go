@@ -90,10 +90,6 @@ type releasePlanRawDiffEntry struct {
 	AfterOrder  []*ReleasePlanVersionDiffOrderItem
 }
 
-type releasePlanDiffContext struct {
-	GroupType string
-}
-
 type releasePlanMetadataDiffField struct {
 	Key       string
 	Label     string
@@ -103,8 +99,7 @@ type releasePlanMetadataDiffField struct {
 type releasePlanArrayDiffStrategy int
 
 const (
-	releasePlanArrayDiffStrategyIndex releasePlanArrayDiffStrategy = iota
-	releasePlanArrayDiffStrategyKeyedUnordered
+	releasePlanArrayDiffStrategyKeyedUnordered releasePlanArrayDiffStrategy = iota
 	releasePlanArrayDiffStrategyKeyedOrdered
 )
 
@@ -248,7 +243,7 @@ func appendReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDi
 	if shouldBuildReleasePlanPathDiff(displayMode) {
 		// Workflow release jobs are rendered from full preset specs on the frontend.
 		// Keep path-level diff for simple sections only.
-		diffReleasePlanValues(releasePlanDiffContext{GroupType: groupType}, "", fromData, toData, &rawEntries)
+		diffReleasePlanValues(groupType, "", fromData, toData, &rawEntries)
 	}
 
 	if shouldAddReleasePlanVersionDiffDisplaySpec(displayMode, beforeSpec, afterSpec) {
@@ -761,11 +756,11 @@ func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) 
 	return nil
 }
 
-func diffReleasePlanValues(ctx releasePlanDiffContext, path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
-	diffReleasePlanValuesWithDepth(ctx, path, 0, left, right, entries)
+func diffReleasePlanValues(groupType, path string, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
+	diffReleasePlanValuesWithDepth(groupType, path, 0, left, right, entries)
 }
 
-func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, depth int, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanValuesWithDepth(groupType, path string, depth int, left, right interface{}, entries *[]*releasePlanRawDiffEntry) {
 	if shouldIgnoreReleasePlanDiffPath(path) {
 		return
 	}
@@ -800,7 +795,7 @@ func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, dep
 		sort.Strings(keys)
 		for _, key := range keys {
 			nextPath := joinReleasePlanDiffPath(path, key)
-			diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftMap[key], rightMap[key], entries)
+			diffReleasePlanValuesWithDepth(groupType, nextPath, depth+1, leftMap[key], rightMap[key], entries)
 		}
 		return
 	}
@@ -808,7 +803,7 @@ func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, dep
 	leftList, leftIsList := left.([]interface{})
 	rightList, rightIsList := right.([]interface{})
 	if leftIsList || rightIsList {
-		diffReleasePlanArray(ctx, path, depth, leftList, rightList, entries)
+		diffReleasePlanArray(groupType, path, depth, leftList, rightList, entries)
 		return
 	}
 
@@ -819,52 +814,46 @@ func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, dep
 	})
 }
 
-func diffReleasePlanArray(ctx releasePlanDiffContext, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
-	rule := matchReleasePlanArrayDiffRule(ctx, path)
-	if rule == nil || rule.Strategy == releasePlanArrayDiffStrategyIndex {
-		diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
+func diffReleasePlanArray(groupType, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
+	rule := matchReleasePlanArrayDiffRule(groupType, path)
+	if rule == nil {
+		diffReleasePlanArrayByIndex(groupType, path, depth, left, right, entries)
 		return
 	}
 
 	leftMap, leftOrdered, leftMapped := buildReleasePlanArrayMap(left, rule.BuildKey)
 	rightMap, rightOrdered, rightMapped := buildReleasePlanArrayMap(right, rule.BuildKey)
 	if !leftMapped || !rightMapped {
-		diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
+		diffReleasePlanArrayByIndex(groupType, path, depth, left, right, entries)
 		return
 	}
 
-	strategy := rule.Strategy
-	if strategy == releasePlanArrayDiffStrategyKeyedOrdered {
+	if rule.Strategy == releasePlanArrayDiffStrategyKeyedOrdered {
 		if entry := buildReleasePlanArrayOrderChange(path, left, right, leftMap, leftOrdered, rightMap, rightOrdered); entry != nil {
 			*entries = append(*entries, entry)
 		}
 	}
-	if strategy == releasePlanArrayDiffStrategyKeyedOrdered || strategy == releasePlanArrayDiffStrategyKeyedUnordered {
-		keySet := map[string]struct{}{}
-		keys := make([]string, 0)
-		for _, key := range leftOrdered {
-			if _, exists := keySet[key]; !exists {
-				keySet[key] = struct{}{}
-				keys = append(keys, key)
-			}
+	keySet := map[string]struct{}{}
+	keys := make([]string, 0)
+	for _, key := range leftOrdered {
+		if _, exists := keySet[key]; !exists {
+			keySet[key] = struct{}{}
+			keys = append(keys, key)
 		}
-		for _, key := range rightOrdered {
-			if _, exists := keySet[key]; !exists {
-				keySet[key] = struct{}{}
-				keys = append(keys, key)
-			}
-		}
-		for _, key := range keys {
-			if shouldSkipReleasePlanWorkflowTaskPresenceChange(path, leftMap[key], rightMap[key]) {
-				continue
-			}
-			nextPath := fmt.Sprintf("%s[%s]", path, key)
-			diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftMap[key], rightMap[key], entries)
-		}
-		return
 	}
-
-	diffReleasePlanArrayByIndex(ctx, path, depth, left, right, entries)
+	for _, key := range rightOrdered {
+		if _, exists := keySet[key]; !exists {
+			keySet[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	for _, key := range keys {
+		if shouldSkipReleasePlanWorkflowTaskPresenceChange(path, leftMap[key], rightMap[key]) {
+			continue
+		}
+		nextPath := fmt.Sprintf("%s[%s]", path, key)
+		diffReleasePlanValuesWithDepth(groupType, nextPath, depth+1, leftMap[key], rightMap[key], entries)
+	}
 }
 
 func shouldSkipReleasePlanWorkflowTaskPresenceChange(path string, left, right interface{}) bool {
@@ -875,7 +864,7 @@ func shouldSkipReleasePlanWorkflowTaskPresenceChange(path string, left, right in
 	return normalizedPath == "spec.workflow.jobs" || strings.HasSuffix(normalizedPath, ".spec.workflow.jobs")
 }
 
-func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
+func diffReleasePlanArrayByIndex(groupType, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
 	maxLen := len(left)
 	if len(right) > maxLen {
 		maxLen = len(right)
@@ -889,7 +878,7 @@ func diffReleasePlanArrayByIndex(ctx releasePlanDiffContext, path string, depth 
 		if i < len(right) {
 			rightVal = right[i]
 		}
-		diffReleasePlanValuesWithDepth(ctx, nextPath, depth+1, leftVal, rightVal, entries)
+		diffReleasePlanValuesWithDepth(groupType, nextPath, depth+1, leftVal, rightVal, entries)
 	}
 }
 
@@ -898,8 +887,8 @@ type releasePlanArrayRuleLookupContext struct {
 	Path      string
 }
 
-func matchReleasePlanArrayDiffRule(ctx releasePlanDiffContext, path string) *releasePlanArrayDiffRule {
-	lookupContexts := buildReleasePlanArrayRuleLookupContexts(ctx, path)
+func matchReleasePlanArrayDiffRule(groupType, path string) *releasePlanArrayDiffRule {
+	lookupContexts := buildReleasePlanArrayRuleLookupContexts(groupType, path)
 	for _, lookup := range lookupContexts {
 		for idx := range releasePlanArrayExactRules {
 			rule := &releasePlanArrayExactRules[idx]
@@ -914,14 +903,14 @@ func matchReleasePlanArrayDiffRule(ctx releasePlanDiffContext, path string) *rel
 	return nil
 }
 
-func buildReleasePlanArrayRuleLookupContexts(ctx releasePlanDiffContext, path string) []releasePlanArrayRuleLookupContext {
+func buildReleasePlanArrayRuleLookupContexts(groupType, path string) []releasePlanArrayRuleLookupContext {
 	normalizedPath := normalizeReleasePlanDiffPath(path)
 	resp := []releasePlanArrayRuleLookupContext{{
-		GroupType: ctx.GroupType,
+		GroupType: groupType,
 		Path:      normalizedPath,
 	}}
 
-	if ctx.GroupType != "plan" {
+	if groupType != "plan" {
 		return resp
 	}
 

@@ -44,9 +44,8 @@ var releasePlanWorkflowControllerBSONRegistry = func() *bsoncodec.Registry {
 }()
 
 var (
-	releasePlanWorkflowLatestSnapshotGroup  singleflight.Group
-	releasePlanWorkflowLatestSnapshotCache  = cache.New(releasePlanWorkflowLatestSnapshotCacheTTL, releasePlanWorkflowLatestSnapshotCacheTTL)
-	releasePlanWorkflowLatestSnapshotLoader = lookupReleasePlanWorkflowLatestSnapshot
+	releasePlanWorkflowLatestSnapshotGroup singleflight.Group
+	releasePlanWorkflowLatestSnapshotCache = cache.New(releasePlanWorkflowLatestSnapshotCacheTTL, releasePlanWorkflowLatestSnapshotCacheTTL)
 
 	errReleasePlanWorkflowLatestSnapshotUnavailable = errors.New("release plan workflow latest snapshot unavailable")
 
@@ -464,7 +463,7 @@ func buildReleasePlanWorkflowVersionSnapshot(spec, rawWorkflow interface{}) (int
 func loadReleasePlanWorkflowLatestSnapshotWithCache(spec interface{}) (_ interface{}, ok bool) {
 	cacheKey, cacheable := releasePlanWorkflowLatestSnapshotCacheKey(spec)
 	if !cacheable {
-		return releasePlanWorkflowLatestSnapshotLoader(spec)
+		return lookupReleasePlanWorkflowLatestSnapshot(spec)
 	}
 
 	if snapshot, exists := getReleasePlanWorkflowLatestSnapshotCache(cacheKey); exists {
@@ -478,7 +477,7 @@ func loadReleasePlanWorkflowLatestSnapshotWithCache(spec interface{}) (_ interfa
 			return snapshot, nil
 		}
 
-		snapshot, ok := releasePlanWorkflowLatestSnapshotLoader(spec)
+		snapshot, ok := lookupReleasePlanWorkflowLatestSnapshot(spec)
 		if !ok {
 			return nil, errReleasePlanWorkflowLatestSnapshotUnavailable
 		}
@@ -515,7 +514,7 @@ func releasePlanWorkflowLatestSnapshotCacheKey(spec interface{}) (string, bool) 
 		return "", false
 	}
 
-	return joinReleasePlanWorkflowLatestSnapshotCacheKey(projectName, workflowName, specHash), true
+	return strings.Join([]string{projectName, workflowName, specHash}, releasePlanWorkflowLatestSnapshotCacheKeySeparator), true
 }
 
 func releasePlanWorkflowLatestSnapshotIdentity(spec interface{}) (projectName, workflowName string, ok bool) {
@@ -524,7 +523,7 @@ func releasePlanWorkflowLatestSnapshotIdentity(spec interface{}) (projectName, w
 		return "", "", false
 	}
 
-	workflowMap := releasePlanWorkflowLatestSnapshotLookupMap(specMap)
+	workflowMap, _ := getMapField(specMap["workflow"])
 	workflowName = firstReleasePlanWorkflowLookupString(workflowMap, "name")
 	if workflowName == "" {
 		workflowName = firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyNameKeys...)
@@ -538,15 +537,6 @@ func releasePlanWorkflowLatestSnapshotIdentity(spec interface{}) (projectName, w
 		projectName = firstReleasePlanWorkflowLookupString(specMap, releasePlanWorkflowLegacyProjectKeys...)
 	}
 	return projectName, workflowName, true
-}
-
-func releasePlanWorkflowLatestSnapshotLookupMap(specMap map[string]interface{}) map[string]interface{} {
-	workflowMap, _ := getMapField(specMap["workflow"])
-	return workflowMap
-}
-
-func joinReleasePlanWorkflowLatestSnapshotCacheKey(parts ...string) string {
-	return strings.Join(parts, releasePlanWorkflowLatestSnapshotCacheKeySeparator)
 }
 
 func getReleasePlanWorkflowLatestSnapshotCache(cacheKey string) (_ interface{}, ok bool) {
@@ -949,33 +939,33 @@ func stabilizeReleasePlanWorkflowInputArray(path string, items []interface{}) {
 	// workflow stages/jobs are intentionally left untouched for display fidelity.
 	switch {
 	case path == "env_options" || strings.HasSuffix(path, ".env_options"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByEnv)
+		sortReleasePlanWorkflowInputArray(items, "env", "env_name", "env_alias")
 	case path == "services" || strings.HasSuffix(path, ".services"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByService)
+		sortReleasePlanWorkflowInputArray(items, "service_name", "service_module", "image_name")
 	case path == "service_modules" || strings.HasSuffix(path, ".service_modules"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByServiceModule)
+		sortReleasePlanWorkflowInputArray(items, "service_name", "service_module")
 	case path == "modules" || strings.HasSuffix(path, ".modules"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByModule)
+		sortReleasePlanWorkflowInputArray(items, "service_module", "image_name", "image")
 	case path == "variable_kvs" || strings.HasSuffix(path, ".variable_kvs"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByVariable)
+		sortReleasePlanWorkflowInputArray(items, "key")
 	case path == "target_services" || strings.HasSuffix(path, ".target_services"):
 		sortReleasePlanWorkflowInputStringArray(items)
 	case path == "service_and_builds" || strings.HasSuffix(path, ".service_and_builds"),
 		path == "default_service_and_builds" || strings.HasSuffix(path, ".default_service_and_builds"),
 		path == "service_and_builds_options" || strings.HasSuffix(path, ".service_and_builds_options"),
 		path == "service_and_images" || strings.HasSuffix(path, ".service_and_images"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByServiceBuild)
+		sortReleasePlanWorkflowInputArray(items, "service_name", "service_module", "image_name", "build_name", "name")
 	case path == "service_and_scannings" || strings.HasSuffix(path, ".service_and_scannings"),
 		path == "service_scanning_options" || strings.HasSuffix(path, ".service_scanning_options"),
 		path == "scannings" || strings.HasSuffix(path, ".scannings"),
 		path == "scanning_options" || strings.HasSuffix(path, ".scanning_options"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByScanning)
+		sortReleasePlanWorkflowInputArray(items, "service_name", "service_module", "name", "project_name")
 	case path == "nacos_filtered_data" || strings.HasSuffix(path, ".nacos_filtered_data"):
-		sortReleasePlanWorkflowInputArray(items, releasePlanWorkflowInputArrayKeyByNacosData)
+		sortReleasePlanWorkflowInputArray(items, "namespace_id", "group", "data_id")
 	}
 }
 
-func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interface{}) (string, bool)) {
+func sortReleasePlanWorkflowInputArray(items []interface{}, keyFields ...string) {
 	type sortableItem struct {
 		item       interface{}
 		primaryKey string
@@ -984,7 +974,7 @@ func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interf
 
 	sortableItems := make([]sortableItem, 0, len(items))
 	for _, item := range items {
-		primaryKey, ok := buildKey(item)
+		primaryKey, ok := releasePlanWorkflowInputArrayKeyByFields(item, keyFields...)
 		if !ok {
 			return
 		}
@@ -1038,38 +1028,6 @@ func sortReleasePlanWorkflowInputStringArray(items []interface{}) {
 	sort.SliceStable(items, func(i, j int) bool {
 		return items[i].(string) < items[j].(string)
 	})
-}
-
-func releasePlanWorkflowInputArrayKeyByEnv(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "env", "env_name", "env_alias")
-}
-
-func releasePlanWorkflowInputArrayKeyByService(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "image_name")
-}
-
-func releasePlanWorkflowInputArrayKeyByServiceModule(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module")
-}
-
-func releasePlanWorkflowInputArrayKeyByModule(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "service_module", "image_name", "image")
-}
-
-func releasePlanWorkflowInputArrayKeyByVariable(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "key")
-}
-
-func releasePlanWorkflowInputArrayKeyByServiceBuild(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "image_name", "build_name", "name")
-}
-
-func releasePlanWorkflowInputArrayKeyByScanning(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "service_name", "service_module", "name", "project_name")
-}
-
-func releasePlanWorkflowInputArrayKeyByNacosData(item interface{}) (string, bool) {
-	return releasePlanWorkflowInputArrayKeyByFields(item, "namespace_id", "group", "data_id")
 }
 
 func releasePlanWorkflowInputArrayKeyByFields(item interface{}, keys ...string) (string, bool) {

@@ -365,190 +365,6 @@ func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
 	}, nil
 }
 
-func resolveReleasePlanLogBaseSnapshot(baseSnapshot interface{}, originalPlan *models.ReleasePlan, sectionKey string) (interface{}, error) {
-	if baseSnapshot != nil {
-		return baseSnapshot, nil
-	}
-	return buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
-}
-
-func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bool {
-	beforeComparable := normalizeReleasePlanSnapshotComparableValue("", beforeSnapshot)
-	afterComparable := normalizeReleasePlanSnapshotComparableValue("", afterSnapshot)
-	return !releasePlanSnapshotValuesEqual(beforeComparable, afterComparable)
-}
-
-func hasReleasePlanPersistedSectionChanges(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) (bool, error) {
-	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
-	if err != nil {
-		return false, err
-	}
-	return hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot), nil
-}
-
-func releasePlanSnapshotValuesEqual(left, right interface{}) bool {
-	switch leftValue := left.(type) {
-	case map[string]interface{}:
-		rightValue, ok := right.(map[string]interface{})
-		if !ok {
-			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
-		}
-		return releasePlanSnapshotMapsEqual(leftValue, rightValue)
-	case []interface{}:
-		rightValue, ok := right.([]interface{})
-		if !ok {
-			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
-		}
-		return releasePlanSnapshotListsEqual(leftValue, rightValue)
-	default:
-		switch right.(type) {
-		case map[string]interface{}, []interface{}:
-			return isEmptyReleasePlanSnapshotValue(left) && isEmptyReleasePlanSnapshotValue(right)
-		}
-	}
-
-	if isEmptyReleasePlanSnapshotScalarValue(left) && isEmptyReleasePlanSnapshotScalarValue(right) {
-		return true
-	}
-	leftNumber, leftIsNumber := releasePlanSnapshotNumber(left)
-	rightNumber, rightIsNumber := releasePlanSnapshotNumber(right)
-	if leftIsNumber || rightIsNumber {
-		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
-	}
-
-	return left == right
-}
-
-func releasePlanSnapshotMapsEqual(left, right map[string]interface{}) bool {
-	for key, leftValue := range left {
-		rightValue, exists := right[key]
-		if !exists {
-			if !isEmptyReleasePlanSnapshotValue(leftValue) {
-				return false
-			}
-			continue
-		}
-		if !releasePlanSnapshotValuesEqual(leftValue, rightValue) {
-			return false
-		}
-	}
-
-	for key, rightValue := range right {
-		if _, exists := left[key]; exists {
-			continue
-		}
-		if !isEmptyReleasePlanSnapshotValue(rightValue) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func releasePlanSnapshotListsEqual(left, right []interface{}) bool {
-	leftIdx, rightIdx := 0, 0
-	for {
-		for leftIdx < len(left) && isEmptyReleasePlanSnapshotValue(left[leftIdx]) {
-			leftIdx++
-		}
-		for rightIdx < len(right) && isEmptyReleasePlanSnapshotValue(right[rightIdx]) {
-			rightIdx++
-		}
-		if leftIdx == len(left) || rightIdx == len(right) {
-			break
-		}
-		if !releasePlanSnapshotValuesEqual(left[leftIdx], right[rightIdx]) {
-			return false
-		}
-		leftIdx++
-		rightIdx++
-	}
-
-	for leftIdx < len(left) {
-		if !isEmptyReleasePlanSnapshotValue(left[leftIdx]) {
-			return false
-		}
-		leftIdx++
-	}
-	for rightIdx < len(right) {
-		if !isEmptyReleasePlanSnapshotValue(right[rightIdx]) {
-			return false
-		}
-		rightIdx++
-	}
-
-	return true
-}
-
-func isEmptyReleasePlanSnapshotValue(value interface{}) bool {
-	switch typedValue := value.(type) {
-	case map[string]interface{}:
-		for _, item := range typedValue {
-			if !isEmptyReleasePlanSnapshotValue(item) {
-				return false
-			}
-		}
-		return true
-	case []interface{}:
-		for _, item := range typedValue {
-			if !isEmptyReleasePlanSnapshotValue(item) {
-				return false
-			}
-		}
-		return true
-	default:
-		return isEmptyReleasePlanSnapshotScalarValue(value)
-	}
-}
-
-func isEmptyReleasePlanSnapshotScalarValue(value interface{}) bool {
-	switch typedValue := value.(type) {
-	case nil:
-		return true
-	case string:
-		return typedValue == ""
-	case bool:
-		return !typedValue
-	default:
-		number, ok := releasePlanSnapshotNumber(value)
-		return ok && number == 0
-	}
-}
-
-func releasePlanSnapshotNumber(value interface{}) (float64, bool) {
-	switch typedValue := value.(type) {
-	case int:
-		return float64(typedValue), true
-	case int8:
-		return float64(typedValue), true
-	case int16:
-		return float64(typedValue), true
-	case int32:
-		return float64(typedValue), true
-	case int64:
-		return float64(typedValue), true
-	case uint:
-		return float64(typedValue), true
-	case uint8:
-		return float64(typedValue), true
-	case uint16:
-		return float64(typedValue), true
-	case uint32:
-		return float64(typedValue), true
-	case uint64:
-		return float64(typedValue), true
-	case float32:
-		return float64(typedValue), true
-	case float64:
-		return typedValue, true
-	case json.Number:
-		number, err := typedValue.Float64()
-		return number, err == nil
-	default:
-		return 0, false
-	}
-}
-
 func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	info, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
@@ -639,11 +455,11 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
-	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, sectionKey, currentSnapshot)
+	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
 	if err != nil {
 		return errors.Wrap(err, "build release plan persisted snapshot")
 	}
-	if !hasChanges {
+	if !hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot) {
 		return nil
 	}
 	var baseSnapshot interface{}
@@ -659,16 +475,8 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		}
 	}
 	if needBaseSnapshot {
-		baseSnapshot, err = buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
-		if err != nil {
-			return errors.Wrap(err, "build release plan base snapshot")
-		}
+		baseSnapshot = persistedSnapshot
 	}
-	logBaseSnapshot, err := resolveReleasePlanLogBaseSnapshot(baseSnapshot, originalPlan, sectionKey)
-	if err != nil {
-		return errors.Wrap(err, "build release plan log base snapshot")
-	}
-	shouldCreateLog := hasReleasePlanSnapshotChanges(logBaseSnapshot, currentSnapshot)
 
 	plan.Version = nextVersion
 
@@ -708,10 +516,8 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err := persistReleasePlanWithVersion(ctx, planID, plan, versionDoc); err != nil {
 		return err
 	}
-	if shouldCreateLog {
-		if err := createReleasePlanLog(logItem); err != nil {
-			log.Errorf("create release plan log error: %v", err)
-		}
+	if err := createReleasePlanLog(logItem); err != nil {
+		log.Errorf("create release plan log error: %v", err)
 	}
 	if err := broadcastReleasePlanCollaboration(planID); err != nil {
 		log.Errorf("broadcast release plan collaboration error: %v", err)
