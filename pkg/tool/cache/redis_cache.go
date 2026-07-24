@@ -120,9 +120,24 @@ func (c *RedisCache) Publish(channel, message string) error {
 	return c.redisClient.Publish(context.Background(), channel, message).Err()
 }
 
+func (c *RedisCache) PublishCount(channel, message string) (int64, error) {
+	return c.redisClient.Publish(context.Background(), channel, message).Result()
+}
+
 func (c *RedisCache) Subscribe(channel string) (<-chan *redis.Message, func() error) {
 	sub := c.redisClient.Subscribe(context.Background(), channel)
 	return sub.Channel(), sub.Close
+}
+
+func (c *RedisCache) SubscribeContext(ctx context.Context, channel string) (<-chan *redis.Message, func() error, error) {
+	sub := c.redisClient.Subscribe(ctx, channel)
+	readyCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if _, err := sub.Receive(readyCtx); err != nil {
+		_ = sub.Close()
+		return nil, nil, err
+	}
+	return sub.Channel(), sub.Close, nil
 }
 
 func (c *RedisCache) FlushDBAsync() error {

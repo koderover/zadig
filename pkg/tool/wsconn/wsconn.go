@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -45,13 +47,15 @@ type wsMessage struct {
 }
 
 type wsBufferWriter struct {
-	buffer bytes.Buffer
-	mu     sync.Mutex
+	buffer   bytes.Buffer
+	mu       sync.Mutex
+	recorder terminalio.Recorder
 }
 
 func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.recorder.RecordOutput(string(p))
 	return w.buffer.Write(p)
 }
 
@@ -61,7 +65,7 @@ type SshConn struct {
 	SshSession *ssh.Session
 }
 
-func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
+func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
@@ -72,7 +76,7 @@ func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
 		return nil, err
 	}
 
-	wsWriter := new(wsBufferWriter)
+	wsWriter := &wsBufferWriter{recorder: recorder}
 	sshSession.Stdout = wsWriter
 	sshSession.Stderr = wsWriter
 
@@ -111,12 +115,15 @@ func (ssConn *SshConn) ReadWsMessage(wsConn *websocket.Conn, stopCh chan bool) {
 
 			switch wsMsgObj.Operation {
 			case wsMsgResize:
-				if wsMsgObj.Cols > 0 && wsMsgObj.Rows > 0 {
-					if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
-						log.Error("resize windows err:", err)
-					}
+				if wsMsgObj.Cols <= 0 || wsMsgObj.Cols > math.MaxUint16 || wsMsgObj.Rows <= 0 || wsMsgObj.Rows > math.MaxUint16 {
+					continue
+				}
+				ssConn.WsWriter.recorder.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
+				if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
+					log.Error("resize windows err:", err)
 				}
 			case wsMsgStdin:
+				ssConn.WsWriter.recorder.RecordInput(wsMsgObj.Data)
 				decodeBytes := []byte(wsMsgObj.Data)
 				if _, err := ssConn.Stdin.Write(decodeBytes); err != nil {
 					log.Error("ws stdin write to ssh.stdin err:", err)

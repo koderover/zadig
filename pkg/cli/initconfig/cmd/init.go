@@ -202,6 +202,8 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewEnvInfoColl(),
 		commonrepo.NewApprovalTicketColl(),
 		commonrepo.NewWorkflowTaskRevertColl(),
+		commonrepo.NewTerminalSessionColl(),
+		commonrepo.NewTerminalCommandColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
@@ -306,7 +308,7 @@ func createBuiltinApplicationFieldDefinitions() error {
 		{Key: "update_time", Name: "更新时间", Type: aslanconfig.ApplicationCustomFieldTypeDatetime, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的更新时间"},
 	}
 
-	// Upsert per key to be idempotent. Keep user-changed attributes for custom fields; for built-ins we only enforce Source="builtin" and Type.
+	// Upsert per key to be idempotent. Keep user-changed attributes for custom fields; for built-ins we only enforce Source="builtin", Type, Name, Description, and Required.
 	for i := range builtin {
 		b := builtin[i]
 		existing, err := coll.GetByKey(ctx, b.Key)
