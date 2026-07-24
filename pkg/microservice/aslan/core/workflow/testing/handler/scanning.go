@@ -190,6 +190,63 @@ func UpdateScanningModule(c *gin.Context) {
 	ctx.RespErr = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary 获取代码审查列表
+// @Description
+// @Tags 	testing
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string								true	"项目标识"
+// @Success 200 			{array} 	service.ListCodeRepoScanningRespItem
+// @Router /api/aslan/testing/scanning/repo [get]
+func ListCodeRepoScannings(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	permitted := false
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		} else if projectAuthInfo.Scanning.View {
+			// then check if user has edit workflow permission
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	resp, _, err := service.ListCodeRepoScannings(ctx, projectKey)
+	ctx.Resp = resp
+	ctx.RespErr = err
+}
+
 // @Summary 获取代码扫描列表
 // @Description
 // @Tags 	testing

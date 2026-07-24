@@ -36,6 +36,7 @@ import (
 	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -118,6 +119,92 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 	}
 
 	return nil
+}
+
+type ListCodeRepoScanningRespItem struct {
+	CodehostID        int                 `json:"codehost_id"`
+	Source            string              `json:"source"`
+	RepoNamespace     string              `json:"repo_namespace"`
+	RepoName          string              `json:"repo_name"`
+	CodeRepoScannings []*CodeRepoScanning `json:"code_repo_scannings"`
+}
+
+type CodeRepoScanning struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	ScannerType    string `json:"scanner_type"`
+	Description    string `json:"description"`
+	TimesRun       int64  `json:"times_run"`
+	AverageRuntime int64  `json:"run_time_average"`
+	CreatedAt      int64  `json:"created_at"`
+	UpdatedAt      int64  `json:"updated_at"`
+	UpdateBy       string `json:"update_by"`
+	// Repos          []*types.Repository `json:"repos"`
+	// ClusterID   string                 `json:"cluster_id"`
+	// Envs        []*commonmodels.KeyVal `json:"key_vals"`
+}
+
+func ListCodeRepoScannings(ctx *internalhandler.Context, projectName string) ([]*ListCodeRepoScanningRespItem, int64, error) {
+	scanningList, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ProjectName: projectName}, 0, 0)
+	if err != nil {
+		ctx.Logger.Errorf("failed to list scanning list from mongodb, the error is: %s", err)
+		return nil, 0, err
+	}
+
+	repoItemMap := make(map[string]*ListCodeRepoScanningRespItem)
+	repoKeys := make([]string, 0)
+
+	for _, scanning := range scanningList {
+		res, err := ListScanningTask(scanning.ID.Hex(), 0, 0, ctx.Logger)
+		if err != nil {
+			ctx.Logger.Errorf("failed to get scanning task statistics, error is: %s", err)
+			return nil, 0, err
+		}
+		var timesTaken int64
+		for _, scanTask := range res.ScanTasks {
+			timesTaken += scanTask.RunTime
+		}
+		var avgRuntime int64
+		if len(res.ScanTasks) > 0 {
+			avgRuntime = timesTaken / int64(len(res.ScanTasks))
+		}
+
+		item := &CodeRepoScanning{
+			ID:             scanning.ID.Hex(),
+			Name:           scanning.Name,
+			ScannerType:    scanning.ScannerType,
+			Description:    scanning.Description,
+			TimesRun:       res.TotalTasks,
+			AverageRuntime: avgRuntime,
+			CreatedAt:      scanning.CreatedAt,
+			UpdatedAt:      scanning.UpdatedAt,
+			UpdateBy:       scanning.UpdatedBy,
+		}
+
+		if len(scanning.Repos) == 0 {
+			continue
+		}
+		repo := scanning.Repos[0]
+		namespace := repo.GetRepoNamespace()
+		key := fmt.Sprintf("%d/%s/%s", repo.CodehostID, namespace, repo.RepoName)
+		if _, ok := repoItemMap[key]; !ok {
+			repoItemMap[key] = &ListCodeRepoScanningRespItem{
+				CodehostID:        repo.CodehostID,
+				Source:            repo.Source,
+				RepoNamespace:     namespace,
+				RepoName:          repo.RepoName,
+				CodeRepoScannings: make([]*CodeRepoScanning, 0),
+			}
+			repoKeys = append(repoKeys, key)
+		}
+		repoItemMap[key].CodeRepoScannings = append(repoItemMap[key].CodeRepoScannings, item)
+	}
+
+	resp := make([]*ListCodeRepoScanningRespItem, 0, len(repoKeys))
+	for _, key := range repoKeys {
+		resp = append(resp, repoItemMap[key])
+	}
+	return resp, int64(len(resp)), nil
 }
 
 func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScanningRespItem, int64, error) {
