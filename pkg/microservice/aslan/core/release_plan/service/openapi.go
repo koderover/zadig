@@ -387,19 +387,16 @@ func OpenAPIUpdateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
-	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, releasePlanVersionSectionPlan)
-	if err != nil {
-		return errors.Wrap(err, "build release plan persisted snapshot")
-	}
-	if !hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot) {
-		return nil
-	}
 	var baseSnapshot interface{}
 	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(plan.ID.Hex(), releasePlanVersionSectionPlan, plan.Version, VerbUpdate)
 	if err != nil {
 		return errors.Wrap(err, "check release plan base snapshot")
 	}
 	if needBaseSnapshot {
+		persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, releasePlanVersionSectionPlan)
+		if err != nil {
+			return errors.Wrap(err, "build release plan persisted snapshot")
+		}
 		baseSnapshot = persistedSnapshot
 	}
 
