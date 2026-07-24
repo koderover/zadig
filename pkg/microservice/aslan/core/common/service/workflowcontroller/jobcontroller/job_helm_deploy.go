@@ -428,15 +428,27 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 
 	relatedPodLabels := make([]map[string]string, 0)
 	resources := []commonmodels.Resource{}
+	selectedImages := make(map[string]struct{}, len(c.jobTaskSpec.ImageAndModules))
+	for _, imageAndModule := range c.jobTaskSpec.ImageAndModules {
+		selectedImages[imageAndModule.Image] = struct{}{}
+	}
+	filterReadyPods := len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage && len(selectedImages) > 0
+	readyPodResourceKeys := make(map[string]struct{})
 
 	for _, u := range unstructuredList {
 		switch u.GetKind() {
-		case setting.Deployment, setting.StatefulSet:
+		case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
+			if !filterReadyPods || workloadContainsImage(u, selectedImages) {
+				readyPodResourceKeys[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = struct{}{}
+			}
 			resources = append(resources, commonmodels.Resource{
 				Kind: u.GetKind(),
 				Name: u.GetName(),
 			})
-			relatedPodLabels = append(relatedPodLabels, u.GetLabels())
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
+			if err == nil {
+				relatedPodLabels = append(relatedPodLabels, podLabels)
+			}
 		}
 	}
 
@@ -445,12 +457,38 @@ func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo 
 	if err != nil {
 		return config.StatusFailed, fmt.Errorf("failed to get resources pod owner uid, err: %v", err)
 	}
+	readyPodResources := make([]commonmodels.Resource, 0, len(resources))
+	for _, resource := range resources {
+		if _, ok := readyPodResourceKeys[fmt.Sprintf("%s/%s", resource.Kind, resource.Name)]; ok {
+			readyPodResources = append(readyPodResources, resource)
+		}
+	}
 
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, jobLogCtx, timeout, c.logger)
+	status, err := checkDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, readyPodResources, jobLogCtx, timeout, c.logger)
 	if err != nil {
 		return status, fmt.Errorf("failed to check workload status, err: %v", err)
 	}
 	return status, nil
+}
+
+func workloadContainsImage(workload *unstructured.Unstructured, selectedImages map[string]struct{}) bool {
+	for _, containerField := range []string{"containers", "initContainers"} {
+		containers, found, err := unstructured.NestedSlice(workload.Object, "spec", "template", "spec", containerField)
+		if err != nil || !found {
+			continue
+		}
+		for _, container := range containers {
+			containerMap, ok := container.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			image, _, _ := unstructured.NestedString(containerMap, "image")
+			if _, ok := selectedImages[image]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *HelmDeployJobCtl) timeout() int {

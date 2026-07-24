@@ -14,6 +14,8 @@ type ParamOptions struct {
 	// StopWords is a list of words to stop on.
 	StopWords []string       `json:"stop_words"`
 	LogitBias map[string]int `json:"logit_bias"`
+
+	temperatureSet bool
 }
 
 func WithModel(model string) ParamOption {
@@ -31,6 +33,7 @@ func WithMaxTokens(maxTokens int) ParamOption {
 func WithTemperature(temperature float32) ParamOption {
 	return func(o *ParamOptions) {
 		o.Temperature = temperature
+		o.temperatureSet = true
 	}
 }
 
@@ -57,4 +60,8 @@ func ValidOptions(options ParamOptions) ParamOptions {
 		options.StopWords = nil
 	}
 	return options
+}
+
+func (o ParamOptions) hasTemperature() bool {
+	return o.temperatureSet || o.Temperature != 0
 }

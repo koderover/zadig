@@ -121,15 +121,27 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, p
 		return nil, err
 	}
 
-	serviceOption, err := GetServiceOption(service, log)
+	serviceOption, err := GetServiceOption(service, production, log)
 	if serviceOption != nil {
+		service.Containers = containersFromServiceModules(serviceOption.ServiceModules)
 		serviceOption.Service = service
 	}
 
 	return serviceOption, err
 }
 
-func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+func containersFromServiceModules(modules []*ServiceModule) []*commonmodels.Container {
+	containers := make([]*commonmodels.Container, 0, len(modules))
+	for _, module := range modules {
+		if module == nil || module.Container == nil {
+			continue
+		}
+		containers = append(containers, module.Container)
+	}
+	return containers
+}
+
+func GetServiceOption(args *commonmodels.Service, production bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	serviceOption := new(ServiceOption)
 
 	serviceModules := make([]*ServiceModule, 0)
@@ -150,9 +162,18 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 
 		serviceModules = append(serviceModules, serviceModule)
 	} else {
-		for _, container := range args.Containers {
+		// Phase 4: module list comes from service_module table (merged auto +
+		// manual). Manual modules for CRD/DaemonSet workloads now show up in
+		// the build-config dropdown alongside parsed containers.
+		containers, _, err := repository.ResolveServiceModules(context.Background(), args.ProductName, args.ServiceName, production, args.Revision)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve service modules for %s/%s rev %d: %s", args.ProductName, args.ServiceName, args.Revision, err)
+		}
+		for _, container := range containers {
 			serviceModule := new(ServiceModule)
 			serviceModule.Container = container
+			// ImageName was normalized at write time; the fallback here is
+			// belt-and-suspenders for legacy data not yet migrated.
 			serviceModule.ImageName = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 			buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
 			if err != nil {
@@ -168,23 +189,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		}
 	}
 	serviceOption.ServiceModules = serviceModules
-	serviceOption.SystemVariable = []*Variable{
-		{
-			Key:   "$Product$",
-			Value: args.ProductName},
-		{
-			Key:   "$Service$",
-			Value: args.ServiceName},
-		{
-			Key:   "$Namespace$",
-			Value: ""},
-		{
-			Key:   "$EnvName$",
-			Value: ""},
-		{
-			Key:   "$ClusterName$",
-			Value: ""},
-	}
+	serviceOption.SystemVariable = buildServiceSystemVariables(args, serviceModules)
 
 	serviceOption.VariableYaml = args.VariableYaml
 	serviceOption.ServiceVariableKVs = args.ServiceVariableKVs
@@ -195,6 +200,53 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	}
 
 	return serviceOption, nil
+}
+
+func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*ServiceModule) []*Variable {
+	systemVariables := []*Variable{
+		{
+			Key:   "$Product$",
+			Value: args.ProductName,
+		},
+		{
+			Key:   "$Service$",
+			Value: args.ServiceName,
+		},
+		{
+			Key:   "$Namespace$",
+			Value: "",
+		},
+		{
+			Key:   "$EnvName$",
+			Value: "",
+		},
+		{
+			Key:   "$ClusterName$",
+			Value: "",
+		},
+	}
+
+	seen := make(map[string]struct{}, len(systemVariables)+len(serviceModules))
+	for _, variable := range systemVariables {
+		seen[variable.Key] = struct{}{}
+	}
+
+	for _, module := range serviceModules {
+		if module == nil || module.Container == nil || module.Name == "" {
+			continue
+		}
+		key := fmt.Sprintf("$%s-image$", module.Name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		systemVariables = append(systemVariables, &Variable{
+			Key:   key,
+			Value: module.Image,
+		})
+	}
+
+	return systemVariables
 }
 
 type K8sWorkloadsArgs struct {
@@ -275,8 +327,13 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
-				productSvc.Containers = templateSvcs[tempWorkload.Name].Containers
-				productSvc.Resources, _ = kube.ManifestToResource(templateSvcs[tempWorkload.Name].Yaml)
+				templateSvc := templateSvcs[tempWorkload.Name]
+				containers, err := commonservice.ResolveServiceTemplateContainers(templateSvc, production)
+				if err != nil {
+					return err
+				}
+				productSvc.Containers = containers
+				productSvc.Resources, _ = kube.ManifestToResource(templateSvc.Yaml)
 				return nil
 			}
 
@@ -517,6 +574,9 @@ func CreateWorkloadTemplate(args *commonmodels.Service, production bool, session
 		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
 		return nil, err
 	}
+	if unresolved := ValidatePlaceholderResolution(args, production); len(unresolved) > 0 {
+		log.Warnf("service %s/%s has unresolved $<name>-image$ placeholder(s): %v", args.ProductName, args.ServiceName, unresolved)
+	}
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		ProductName:   args.ProductName,
@@ -657,7 +717,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		return nil, e.ErrCreateTemplate.AddErr(err)
 	}
 
-	return GetServiceOption(args, log)
+	return GetServiceOption(args, production, log)
 }
 
 func UpdateServiceEnvStatus(args *commonservice.ServiceTmplObject) error {
@@ -1072,6 +1132,14 @@ func DeleteServiceTemplate(serviceName, serviceType, productName string, product
 		}
 	}
 	commonservice.DeleteServiceWebhookByName(serviceName, productName, production, log)
+
+	// Cascade service_module records (manual + auto, all revisions). The
+	// service template itself is soft-deleted (status=Deleting) above, but
+	// from the module perspective the service is gone — a future re-create
+	// will repopulate auto records and the user can re-add manual ones.
+	if err := repository.DeleteAllServiceModulesForService(context.Background(), productName, serviceName, production); err != nil {
+		log.Warnf("service_module: failed to cascade-delete records for %s/%s: %s", productName, serviceName, err)
+	}
 	return nil
 }
 
@@ -1155,6 +1223,9 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			log.Errorf("failed to ser set container images, err: %s", err)
 			//return err
+		}
+		if unresolved := ValidatePlaceholderResolution(args, args.Production); len(unresolved) > 0 {
+			log.Warnf("service %s/%s has unresolved $<name>-image$ placeholder(s): %v", args.ProductName, args.ServiceName, unresolved)
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}

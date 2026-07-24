@@ -31,6 +31,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -199,6 +200,10 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			continue
 		}
 		if err := updater.DeleteUnstructured(item, kubeClient); err != nil {
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+				log.Infof("skip removing old item %s/%v from %s, resource is already absent: %v", item.GetName(), item.GroupVersionKind(), namespace, err)
+				continue
+			}
 			item.SetGroupVersionKind(GetValidGVK(item.GroupVersionKind(), version))
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue

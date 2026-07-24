@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -141,7 +142,13 @@ func (j DistributeImageJobController) SetOptions(ticket *commonmodels.ApprovalTi
 
 	options := make([]*commonmodels.DistributeTarget, 0)
 	for _, svc := range servicesMap {
-		for _, module := range svc.Containers {
+		// Service.Containers no longer persisted — list modules from the
+		// service_module table for this revision.
+		modules, _, rerr := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, false, svc.Revision)
+		if rerr != nil {
+			return fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", svc.ProductName, svc.ServiceName, svc.Revision, rerr)
+		}
+		for _, module := range modules {
 			if ticket.IsAllowedService(j.workflow.Project, svc.ServiceName, module.Name) {
 				options = append(options, &commonmodels.DistributeTarget{
 					ServiceName:   svc.ServiceName,

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -195,7 +197,14 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				ModuleBuilds: resp,
 			})
 		} else {
-			for _, container := range serviceTmpl.Containers {
+			// Service.Containers no longer persisted — pull merged modules
+			// (non-production: this function targets the test service path
+			// per its NewServiceColl().ListMaxRevisionsByProduct call above).
+			resolved, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTmpl.ProductName, serviceTmpl.ServiceName, false, serviceTmpl.Revision)
+			if rerr != nil {
+				return nil, e.ErrListBuildModule.AddErr(rerr)
+			}
+			for _, container := range resolved {
 				opt := &commonrepo.BuildListOption{
 					ServiceName: serviceTmpl.ServiceName,
 					Targets:     []string{container.Name},

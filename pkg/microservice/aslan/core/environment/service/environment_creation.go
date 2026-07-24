@@ -95,8 +95,12 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				Revision:    serviceTmpl.Revision,
 				Render:      rc,
 			}
+			serviceContainers, err := commonservice.ResolveServiceTemplateContainers(serviceTmpl, productObj.Production)
+			if err != nil {
+				return e.ErrCreateEnv.AddErr(err)
+			}
 			serviceResp.Containers = make([]*commonmodels.Container, 0)
-			for _, c := range serviceTmpl.Containers {
+			for _, c := range serviceContainers {
 				image, err := genImageFromYaml(c, serviceTmpl.HelmChart.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
 				if err != nil {
 					errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)

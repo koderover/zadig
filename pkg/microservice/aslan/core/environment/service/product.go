@@ -181,7 +181,14 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 			}
 			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
-				for _, c := range serviceTmpl.Containers {
+				// Service.Containers no longer persisted — read modules from
+				// the service_module table.
+				resolved, _, rerr := repository.ResolveServiceModules(context.Background(), serviceTmpl.ProductName, serviceTmpl.ServiceName, production, serviceTmpl.Revision)
+				if rerr != nil {
+					log.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.Revision, rerr)
+					continue
+				}
+				for _, c := range resolved {
 					container := &commonmodels.Container{
 						Name:      c.Name,
 						Image:     c.Image,

@@ -128,6 +128,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.GET("/filter/workflow/:name", GetWorkflowTaskFilters)
 		taskV4.GET("", ListWorkflowTaskV4ByFilter)
 		taskV4.GET("/workflow/:workflowName/task/:taskID", GetWorkflowTaskV4)
+		taskV4.GET("/workflow/:workflowName/task/:taskID/job/:jobName/events", GetWorkflowTaskV4JobEvents)
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)
 		taskV4.GET("/view/workflow/:workflowName/task/:taskID", ViewWorkflowTaskV4)
@@ -183,14 +184,18 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	// custom workflow apis
 	custom := router.Group("custom")
 	{
+		custom.POST("", CreateWorkflowV4)
 		custom.POST("/task", CreateCustomWorkflowTask)
 		custom.GET("/task", OpenAPIGetWorkflowTaskV4)
 		custom.DELETE("/task", OpenAPICancelWorkflowTaskV4)
 		custom.POST("/task/approve", OpenAPIApproveStage)
 		custom.DELETE("", OpenAPIDeleteCustomWorkflowV4)
+		custom.PUT("/:name", UpdateWorkflowV4)
 		custom.GET("/:name/detail", OpenAPIGetCustomWorkflowV4)
 		custom.POST("/:name/task/:taskID", OpenAPIRetryCustomWorkflowTaskV4)
 		custom.PUT("/:name/task/:taskID", OpenAPIUpdateWorkflowV4TaskRemark)
+		custom.GET("/:name/task/:taskID/manual-exec", OpenAPIGetManualExecWorkflowTaskV4Context)
+		custom.POST("/:name/task/:taskID/manual-exec", OpenAPIManualExecWorkflowTaskV4)
 		custom.GET("/:name/tasks", OpenAPIGetCustomWorkflowTaskV4)
 
 	}

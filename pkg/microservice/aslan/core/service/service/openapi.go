@@ -243,7 +243,10 @@ func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLo
 		CreatedTime:        service.CreateTime,
 		Yaml:               service.Yaml,
 		ServiceVariableKvs: service.ServiceVariableKVs,
-		Containers:         service.Containers,
+	}
+	resp.Containers, err = commonservice.ResolveServiceTemplateContainers(service, false)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
 	}
 
 	return resp, nil
@@ -297,7 +300,10 @@ func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap
 		CreatedTime:        service.CreateTime,
 		Yaml:               service.Yaml,
 		ServiceVariableKvs: service.ServiceVariableKVs,
-		Containers:         service.Containers,
+	}
+	resp.Containers, err = commonservice.ResolveServiceTemplateContainers(service, true)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
 	}
 
 	if service.Source == setting.ServiceSourceTemplate && service.TemplateID != "" {

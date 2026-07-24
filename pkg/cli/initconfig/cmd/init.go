@@ -154,6 +154,8 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewS3StorageColl(),
 		commonrepo.NewServiceColl(),
 		commonrepo.NewProductionServiceColl(),
+		commonrepo.NewServiceModuleColl(),
+		commonrepo.NewProductionServiceModuleColl(),
 		commonrepo.NewStrategyColl(),
 		commonrepo.NewStatsColl(),
 		commonrepo.NewSubscriptionColl(),

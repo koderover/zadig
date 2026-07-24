@@ -541,6 +541,12 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 			return nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
 		}
 
+		// Service.Containers no longer persisted — pull modules for the
+		// loaded template revision from the service_module table.
+		tmplContainers, _, rerr := repository.ResolveServiceModules(context.Background(), tmplSvc.ProductName, tmplSvc.ServiceName, prod.Production, tmplSvc.Revision)
+		if rerr != nil {
+			return nil, nil, errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", tmplSvc.ProductName, tmplSvc.ServiceName, tmplSvc.Revision)
+		}
 		if prodSvc == nil {
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceName,
@@ -548,7 +554,7 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 				ProductName: prod.ProductName,
 				Type:        tmplSvc.Type,
 				Revision:    tmplSvc.Revision,
-				Containers:  tmplSvc.Containers,
+				Containers:  tmplContainers,
 			}
 		} else {
 			prodSvc.Revision = tmplSvc.Revision
@@ -558,11 +564,13 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 				containerMap[container.Name] = container
 			}
 
-			for _, templateContainer := range tmplSvc.Containers {
+			for _, templateContainer := range tmplContainers {
 				if containerMap[templateContainer.Name] == nil {
 					prodSvc.Containers = append(prodSvc.Containers, templateContainer)
 				} else {
-					containerMap[templateContainer.Name].ImagePath = templateContainer.ImagePath
+					if templateContainer.ImagePath != nil {
+						containerMap[templateContainer.Name].ImagePath = templateContainer.ImagePath
+					}
 					containerMap[templateContainer.Name].Type = templateContainer.Type
 				}
 			}

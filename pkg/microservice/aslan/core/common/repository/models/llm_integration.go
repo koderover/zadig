@@ -24,7 +24,9 @@ import (
 
 type LLMIntegration struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty"  json:"id"`
+	Name         string             `bson:"name"           json:"name"`
 	ProviderName llm.Provider       `bson:"provider_name"  json:"provider_name"`
+	Protocol     llm.Protocol       `bson:"protocol"       json:"protocol"`
 	Token        string             `bson:"token"          json:"token"`
 	BaseURL      string             `bson:"base_url"       json:"base_url"`
 	Model        string             `bson:"model"          json:"model"`
