@@ -190,6 +190,7 @@ func (j NacosJobController) SetOptions(ticket *commonmodels.ApprovalTicket) erro
 		config.NamespaceID = j.jobSpec.NamespaceID
 		config.NamespaceName = namespaceName
 		config.OriginalContent = config.Content
+		config.NormalizeLineEndings()
 
 		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
 	}
@@ -302,6 +303,8 @@ func (j NacosJobController) IsServiceTypeJob() bool {
 func transNacosDatas(confs []*types.NacosConfig) []*commonmodels.NacosData {
 	resp := make([]*commonmodels.NacosData, 0)
 	for _, conf := range confs {
+		// normalize nacos config yaml
+		conf.NormalizeLineEndings()
 		resp = append(resp, &commonmodels.NacosData{
 			NacosConfig: *conf,
 		})
