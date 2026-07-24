@@ -17,7 +17,7 @@ RUN go mod download
 RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /aslan ./cmd/aslan/main.go
 
-FROM alpine/git:v2.36.3
+FROM alpine/git:v2.54.0
 
 ENV VERSION=1.4.0
 
