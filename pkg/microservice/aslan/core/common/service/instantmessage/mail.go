@@ -42,6 +42,39 @@ func (w *Service) sendMailMessage(title, content string, users []*models.User) e
 		log.Errorf("sendMailMessage GetEmailService error, error msg:%s", err)
 	}
 
+	sentEmails := make(map[string]struct{})
+	sendToEmail := func(to string) {
+		if to == "" {
+			return
+		}
+		if _, ok := sentEmails[to]; ok {
+			return
+		}
+		sentEmails[to] = struct{}{}
+		sendErr := mail.SendEmail(&mail.EmailParams{
+			From:          emailSvc.Address,
+			To:            to,
+			Subject:       title,
+			Host:          email.Name,
+			UserName:      email.UserName,
+			Password:      email.Password,
+			Port:          email.Port,
+			TlsSkipVerify: email.TlsSkipVerify,
+			Body:          content,
+		})
+		if sendErr != nil {
+			err = sendErr
+			log.Errorf("sendMailMessage SendEmail error, error msg:%s", sendErr)
+		}
+	}
+
+	for _, u := range users {
+		if u == nil || u.Type != "email" {
+			continue
+		}
+		sendToEmail(u.UserName)
+	}
+
 	users, userMap := util.GeneFlatUsers(users)
 	for _, u := range users {
 		info, ok := userMap[u.UserID]
@@ -57,21 +90,7 @@ func (w *Service) sendMailMessage(title, content string, users []*models.User) e
 			log.Warnf("sendMailMessage user %s email is empty", info.Name)
 			continue
 		}
-		err = mail.SendEmail(&mail.EmailParams{
-			From:          emailSvc.Address,
-			To:            info.Email,
-			Subject:       title,
-			Host:          email.Name,
-			UserName:      email.UserName,
-			Password:      email.Password,
-			Port:          email.Port,
-			TlsSkipVerify: email.TlsSkipVerify,
-			Body:          content,
-		})
-		if err != nil {
-			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
-			continue
-		}
+		sendToEmail(info.Email)
 	}
 
 	return err

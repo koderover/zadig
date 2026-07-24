@@ -2641,6 +2641,14 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.timestamp"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.datetime"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.id"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.branch"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.target_branch"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.pr"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.commit_id"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.commit_sha"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.commit_message"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.committer"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.trigger.event"))
 	for _, param := range workflow.Params {
 		if param.ParamsType == "repo" || param.ParamsType == "file" {
 			continue

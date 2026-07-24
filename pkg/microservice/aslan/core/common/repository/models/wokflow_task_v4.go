@@ -984,6 +984,7 @@ type LarkChat struct {
 type JobTaskNotificationSpec struct {
 	WebHookType setting.NotifyWebHookType `bson:"webhook_type"                    yaml:"webhook_type"                     json:"webhook_type"`
 
+	LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
 	LarkGroupNotificationConfig  *LarkGroupNotificationConfig  `bson:"lark_group_notification_config,omitempty"  yaml:"lark_group_notification_config,omitempty"  json:"lark_group_notification_config,omitempty"`
 	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
 	WechatNotificationConfig     *WechatNotificationConfig     `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
@@ -1056,28 +1057,29 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName                string
-	WorkflowDisplayName         string
-	ProjectName                 string
-	ProjectDisplayName          string
-	IsDebug                     bool
-	TaskID                      int64
-	Remark                      string
-	RetryNum                    int
-	DockerHost                  string
-	Workspace                   string
-	DistDir                     string
-	DockerMountDir              string
-	ConfigMapMountDir           string
-	WorkflowTaskCreatorUsername string
-	WorkflowTaskCreatorUserID   string
-	WorkflowTaskCreatorEmail    string
-	WorkflowTaskCreatorMobile   string
-	WorkflowKeyVals             []*KeyVal
-	GlobalContextGetAll         func() map[string]string
-	GlobalContextGet            func(key string) (string, bool)
-	GlobalContextSet            func(key, value string)
-	GlobalContextEach           func(f func(k, v string) bool)
-	ClusterIDAdd                func(clusterID string)
-	StartTime                   time.Time
+	WorkflowName                 string
+	WorkflowDisplayName          string
+	ProjectName                  string
+	ProjectDisplayName           string
+	IsDebug                      bool
+	TaskID                       int64
+	Remark                       string
+	RetryNum                     int
+	DockerHost                   string
+	Workspace                    string
+	DistDir                      string
+	DockerMountDir               string
+	ConfigMapMountDir            string
+	WorkflowTaskCreatorUsername  string
+	WorkflowTaskCreatorUserID    string
+	WorkflowTaskCreatorEmail     string
+	WorkflowTaskCreatorMobile    string
+	WorkflowKeyVals              []*KeyVal
+	NotificationRecipientKeyVals []*KeyVal
+	GlobalContextGetAll          func() map[string]string
+	GlobalContextGet             func(key string) (string, bool)
+	GlobalContextSet             func(key, value string)
+	GlobalContextEach            func(f func(k, v string) bool)
+	ClusterIDAdd                 func(clusterID string)
+	StartTime                    time.Time
 }

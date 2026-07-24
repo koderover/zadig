@@ -49,6 +49,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
@@ -604,7 +605,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			// use the latest workflow's notification settings
 			workflow.NotifyCtls = originalWorkflow.NotifyCtls
 		} else {
-			workflow.NotifyCtls = updateNotifyCtls(workflow.NotifyCtls, args.NotifyInput)
+			workflow.NotifyCtls, err = updateNotifyCtls(workflow.NotifyCtls, args.NotifyInput)
+			if err != nil {
+				return resp, e.ErrCreateTask.AddDesc(err.Error())
+			}
 		}
 		workflowTask.Hash = originalWorkflow.Hash
 	} else {
@@ -714,6 +718,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("fill serviceModules to jobs error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+	workflowTask.GlobalContext = buildWorkflowTaskRuntimeContext(workflowTask)
 
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
@@ -737,10 +742,25 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	return resp, nil
 }
 
-func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*CreateCustomTaskNotifyInput) []*commonmodels.NotifyCtl {
+func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*CreateCustomTaskNotifyInput) ([]*commonmodels.NotifyCtl, error) {
 	notifyInputsMap := make(map[int]*CreateCustomTaskNotifyInput)
 	for _, notifyInput := range notifyInputs {
 		notifyInputsMap[notifyInput.ID] = notifyInput
+	}
+
+	toDynamicRecipients := func(notifyType setting.NotifyWebHookType, appID string, inputs []string) ([]string, error) {
+		resp := make([]string, 0, len(inputs))
+		for _, input := range inputs {
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
+			resp = append(resp, input)
+		}
+		if err := dynamicrecipient.ValidateDynamicRecipientsForNotifyConfig(notifyType, appID, resp); err != nil {
+			return nil, err
+		}
+		return resp, nil
 	}
 
 	for i, notifyCtl := range notifyCtls {
@@ -756,11 +776,17 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark hook notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkHookNotificationConfig.AppID, notifyInput.LarkHookNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkHookNotificationConfig{
-					HookAddress: notifyCtl.LarkHookNotificationConfig.HookAddress,
-					AtUsers:     notifyInput.LarkHookNotificationConfig.AtUsers,
-					IsAtAll:     notifyInput.LarkHookNotificationConfig.IsAtAll,
+					AppID:             notifyCtl.LarkHookNotificationConfig.AppID,
+					HookAddress:       notifyCtl.LarkHookNotificationConfig.HookAddress,
+					AtUsers:           notifyInput.LarkHookNotificationConfig.AtUsers,
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
+					IsAtAll:           notifyInput.LarkHookNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.LarkHookNotificationConfig = config
@@ -769,9 +795,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark person notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkPersonNotificationConfig.AppID, notifyInput.LarkPersonNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkPersonNotificationConfig{
-					AppID: notifyCtl.LarkPersonNotificationConfig.AppID,
+					AppID:             notifyCtl.LarkPersonNotificationConfig.AppID,
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				targetUsers := make([]*larktool.UserInfo, 0)
@@ -791,9 +822,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("lark group notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, notifyCtl.LarkGroupNotificationConfig.AppID, notifyInput.LarkGroupNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.LarkGroupNotificationConfig{
-					AppID: notifyCtl.LarkGroupNotificationConfig.AppID,
+					AppID:             notifyCtl.LarkGroupNotificationConfig.AppID,
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 					Chat: &commonmodels.LarkChat{
 						ChatID: notifyInput.LarkGroupNotificationConfig.ChatID,
 					},
@@ -827,11 +863,16 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("dingding notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.DingDingNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.DingDingNotificationConfig{
-					HookAddress: notifyCtl.DingDingNotificationConfig.HookAddress,
-					AtMobiles:   notifyInput.DingDingNotificationConfig.AtMobiles,
-					IsAtAll:     notifyInput.DingDingNotificationConfig.IsAtAll,
+					HookAddress:       notifyCtl.DingDingNotificationConfig.HookAddress,
+					AtMobiles:         notifyInput.DingDingNotificationConfig.AtMobiles,
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
+					IsAtAll:           notifyInput.DingDingNotificationConfig.IsAtAll,
 				}
 
 				notifyCtl.DingDingNotificationConfig = config
@@ -840,10 +881,15 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("msteams notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.MSTeamsNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.MSTeamsNotificationConfig{
-					HookAddress: notifyCtl.MSTeamsNotificationConfig.HookAddress,
-					AtEmails:    notifyInput.MSTeamsNotificationConfig.AtEmails,
+					HookAddress:       notifyCtl.MSTeamsNotificationConfig.HookAddress,
+					AtEmails:          notifyInput.MSTeamsNotificationConfig.AtEmails,
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				notifyCtl.MSTeamsNotificationConfig = config
@@ -852,9 +898,14 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 					log.Errorf("mail notification config is nil for notify type: %s", notifyCtl.WebHookType)
 					continue
 				}
+				dynamicRecipients, err := toDynamicRecipients(notifyCtl.WebHookType, "", notifyInput.MailNotificationConfig.DynamicRecipients)
+				if err != nil {
+					return nil, err
+				}
 
 				config := &commonmodels.MailNotificationConfig{
-					TargetUsers: make([]*commonmodels.User, 0),
+					TargetUsers:       make([]*commonmodels.User, 0),
+					DynamicRecipients: commonmodels.DynamicRecipients(dynamicRecipients),
 				}
 
 				if len(notifyInput.MailNotificationConfig.Users) > 0 {
@@ -885,7 +936,38 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 			}
 		}
 	}
-	return notifyCtls
+	return notifyCtls, nil
+}
+
+func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {
+	if task == nil {
+		return nil
+	}
+
+	resp := make(map[string]string)
+	for key, value := range task.GlobalContext {
+		resp[key] = value
+	}
+
+	if task.WorkflowArgs == nil {
+		return resp
+	}
+
+	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
+
+	for key, value := range keyMap {
+		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
+	}
+	return resp
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -965,7 +1047,16 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 
 	task.RetryNum++
 
-	globalKeyMap := make(map[string]string)
+	globalKeyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
@@ -1018,6 +1109,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			globalKeyMap[key] = item.Value
 		}
 	}
+	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
 
 	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
@@ -1037,15 +1129,8 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.EndTime = 0
 			jobTask.Error = ""
 			if t, ok := jobTaskMap[jobTask.Name]; ok {
-				taskBytes, _ := json.Marshal(t)
-				taskString := string(taskBytes)
-				for k, v := range globalKeyMap {
-					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-				}
-				err := json.Unmarshal([]byte(taskString), &t)
-				if err != nil {
-					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
+				if err := workflowController.RenderJobTaskRuntimeVariables(t, globalKeyMap); err != nil {
+					return err
 				}
 				jobTask.Spec = t.Spec
 				jobTask.NotifyCtls = t.NotifyCtls
@@ -1098,7 +1183,16 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 		return e.ErrCreateTask.AddErr(fmt.Errorf("save original jobs error: %v", err))
 	}
 
-	globalKeyMap := make(map[string]string)
+	globalKeyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
+		task.WorkflowArgs,
+		task.ProjectName,
+		task.ProjectDisplayName,
+		task.TaskID,
+		task.TaskCreator,
+		task.TaskCreatorAccount,
+		task.TaskCreatorID,
+		time.Unix(task.StartTime, 0),
+	))
 
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
@@ -1171,6 +1265,7 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 			globalKeyMap[key] = item.Value
 		}
 	}
+	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
 
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {
@@ -1231,15 +1326,8 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 
 				job.Spec = ctrl.GetSpec()
 				for _, task := range jobTasks {
-					taskBytes, _ := json.Marshal(task)
-					taskString := string(taskBytes)
-					for k, v := range globalKeyMap {
-						taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-						log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-					}
-					err := json.Unmarshal([]byte(taskString), &task)
-					if err != nil {
-						return fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
+					if err := workflowController.RenderJobTaskRuntimeVariables(task, globalKeyMap); err != nil {
+						return err
 					}
 				}
 

@@ -95,6 +95,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							CodehostID:     mainRepo.CodehostID,
 							MergeRequestID: strconv.Itoa(mergeRequestID),
 							CommitID:       commitID,
+							CommitSHA:      commitID,
 							EventType:      eventType,
 						}
 					case *github.PushEvent:
@@ -112,6 +113,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 								Ref:        ref,
 								IsPr:       false,
 								CommitID:   commitID,
+								CommitSHA:  commitID,
 								EventType:  eventType,
 								CodehostID: mainRepo.CodehostID,
 							}

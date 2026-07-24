@@ -48,6 +48,37 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 	return &Workflow{wf}
 }
 
+// RenderJobTaskRuntimeVariables applies runtime variables consistently during
+// initial task creation, retry, and manual execution.
+func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
+	if task == nil {
+		return nil
+	}
+
+	taskBytes, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to marshal task %s, error: %w", task.Name, err)
+	}
+	taskString := string(taskBytes)
+	for k, v := range globalKeyMap {
+		// Use json.Marshal to properly escape the value as it would appear in JSON.
+		escapedValueBytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("failed to escape value for key %s: %w", k, err)
+		}
+		// Remove exactly the JSON string's outer quotes while preserving quotes
+		// that are part of the variable value.
+		escapedValue := string(escapedValueBytes[1 : len(escapedValueBytes)-1])
+
+		taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), escapedValue)
+	}
+
+	if err := json.Unmarshal([]byte(taskString), task); err != nil {
+		return fmt.Errorf("failed to replace input variable for task: %s, error: %w", task.Name, err)
+	}
+	return nil
+}
+
 func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
@@ -212,22 +243,8 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 			}
 
 			for _, task := range tasks {
-				taskBytes, _ := json.Marshal(task)
-				taskString := string(taskBytes)
-				for k, v := range globalKeyMap {
-					// Use json.Marshal to properly escape the value as it would appear in JSON
-					escapedValueBytes, _ := json.Marshal(v)
-					escapedValue := string(escapedValueBytes)
-					// Remove the surrounding quotes since we're replacing within a JSON string
-					escapedValue = strings.Trim(escapedValue, `"`)
-
-					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), escapedValue)
-					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
-				}
-
-				err := json.Unmarshal([]byte(taskString), &task)
-				if err != nil {
-					return nil, fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
+				if err := RenderJobTaskRuntimeVariables(task, globalKeyMap); err != nil {
+					return nil, err
 				}
 			}
 
@@ -353,8 +370,14 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
-	replacedString := renderMultiLineString(string(b), globalParams)
-	return json.Unmarshal([]byte(replacedString), &w.WorkflowV4)
+	replacedString, err := renderMultiLineString(string(b), globalParams)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(replacedString), &w.WorkflowV4); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) ([]*commonmodels.Param, error) {
@@ -401,6 +424,16 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 			continue
 		}
 		resp = append(resp, newParam)
+	}
+	if w.HookPayload != nil {
+		for _, kv := range commonutil.BuildWorkflowTriggerVariableKVs(w.HookPayload) {
+			resp = append(resp, &commonmodels.Param{
+				Name:         kv.Key,
+				Value:        kv.Value,
+				ParamsType:   "string",
+				IsCredential: kv.IsCredential,
+			})
+		}
 	}
 	return resp, nil
 }
@@ -518,6 +551,67 @@ func (w *Workflow) GetWorkflowParamDynamicValues(taskID int64, creator, account,
 	}
 
 	return nil, fmt.Errorf("workflow param %s not found", key)
+}
+
+func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*commonmodels.KeyVal {
+	resp := make([]*commonmodels.KeyVal, 0)
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator.id",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.creator.userId",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.is_release_plan_trigger",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.timestamp",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.datetime",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.id",
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.task.url",
+		Value:        workflow.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.branch", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.target_branch", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.pr", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_id", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_sha", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_message", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.committer", Type: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.event", Type: "string", IsCredential: false})
+	return resp
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
@@ -805,61 +899,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 	})
 
 	if option.GetRuntimeVariables {
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator.id",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.creator.userId",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.is_release_plan_trigger",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.timestamp",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.datetime",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.id",
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          "workflow.task.url",
-			Value:        w.workflowID(),
-			Type:         "string",
-			IsCredential: false,
-		})
+		resp = append(resp, buildRuntimeReferableVariables(w.WorkflowV4)...)
 	}
 
 	for _, param := range w.Params {

@@ -25,11 +25,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -39,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowstat"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -47,6 +43,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 const (
@@ -249,28 +249,30 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}()
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
-		WorkflowName:                c.workflowTask.WorkflowName,
-		WorkflowDisplayName:         c.workflowTask.WorkflowDisplayName,
-		ProjectName:                 c.workflowTask.ProjectName,
-		ProjectDisplayName:          c.workflowTask.ProjectDisplayName,
-		IsDebug:                     c.workflowTask.IsDebug,
-		Remark:                      c.workflowTask.Remark,
-		TaskID:                      c.workflowTask.TaskID,
-		RetryNum:                    c.workflowTask.RetryNum,
-		WorkflowTaskCreatorUsername: c.workflowTask.TaskCreator,
-		WorkflowTaskCreatorUserID:   c.workflowTask.TaskCreatorID,
-		WorkflowTaskCreatorMobile:   c.workflowTask.TaskCreatorPhone,
-		WorkflowTaskCreatorEmail:    c.workflowTask.TaskCreatorEmail,
-		Workspace:                   "/workspace",
-		DistDir:                     fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
-		DockerMountDir:              fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
-		ConfigMapMountDir:           fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
-		GlobalContextGetAll:         c.getGlobalContextAll,
-		GlobalContextGet:            c.getGlobalContext,
-		GlobalContextSet:            c.setGlobalContext,
-		GlobalContextEach:           c.globalContextEach,
-		ClusterIDAdd:                c.addClusterID,
-		StartTime:                   time.Now(),
+		WorkflowName:                 c.workflowTask.WorkflowName,
+		WorkflowDisplayName:          c.workflowTask.WorkflowDisplayName,
+		ProjectName:                  c.workflowTask.ProjectName,
+		ProjectDisplayName:           c.workflowTask.ProjectDisplayName,
+		IsDebug:                      c.workflowTask.IsDebug,
+		Remark:                       c.workflowTask.Remark,
+		TaskID:                       c.workflowTask.TaskID,
+		RetryNum:                     c.workflowTask.RetryNum,
+		WorkflowTaskCreatorUsername:  c.workflowTask.TaskCreator,
+		WorkflowTaskCreatorUserID:    c.workflowTask.TaskCreatorID,
+		WorkflowTaskCreatorMobile:    c.workflowTask.TaskCreatorPhone,
+		WorkflowTaskCreatorEmail:     c.workflowTask.TaskCreatorEmail,
+		WorkflowKeyVals:              commonutil.BuildWorkflowRuntimeVariableKVs(c.workflowTask.WorkflowArgs, c.workflowTask.ProjectName, c.workflowTask.ProjectDisplayName, c.workflowTask.TaskID, c.workflowTask.TaskCreator, c.workflowTask.TaskCreatorAccount, c.workflowTask.TaskCreatorID, time.Unix(c.workflowTask.StartTime, 0)),
+		NotificationRecipientKeyVals: commonutil.BuildWorkflowPayloadVariableKVs(c.workflowTask.WorkflowArgs),
+		Workspace:                    "/workspace",
+		DistDir:                      fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
+		DockerMountDir:               fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+		ConfigMapMountDir:            fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
+		GlobalContextGetAll:          c.getGlobalContextAll,
+		GlobalContextGet:             c.getGlobalContext,
+		GlobalContextSet:             c.setGlobalContext,
+		GlobalContextEach:            c.globalContextEach,
+		ClusterIDAdd:                 c.addClusterID,
+		StartTime:                    time.Now(),
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {

@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -79,8 +80,10 @@ func (gpem *githubPushEventMatcheForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		CommitID:      *gpem.event.HeadCommit.ID,
 		CommitMessage: *gpem.event.HeadCommit.Message,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -131,9 +134,10 @@ func (gmem *githubMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  *gmem.event.PullRequest.Base.Ref,
 		PR:            *gmem.event.PullRequest.Number,
 		CommitID:      *gmem.event.PullRequest.Head.SHA,
-		CommitMessage: *gmem.event.PullRequest.Title,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -175,7 +179,9 @@ func (gtem *githubTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -208,7 +214,7 @@ func createGithubEventMatcherForWorkflowV4(
 	return nil
 }
 
-func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deliveryID, requestID string, log *zap.SugaredLogger) error {
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
 	if err != nil {
 		errMsg := fmt.Sprintf("list workflow v4 error: %v", err)
@@ -217,6 +223,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 	}
 
 	mErr := &multierror.Error{}
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -270,12 +277,15 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					Owner:          *ev.Repo.Owner.Login,
 					Repo:           *ev.Repo.Name,
 					Branch:         *ev.PullRequest.Base.Ref,
+					TargetBranch:   *ev.PullRequest.Base.Ref,
 					Ref:            *ev.PullRequest.Head.SHA,
 					IsPr:           true,
 					CodehostID:     item.MainRepo.CodehostID,
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
+					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
 				}
 			case *github.PushEvent:
@@ -287,22 +297,31 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					autoCancelOpt.Ref = ref
 					autoCancelOpt.CommitID = commitID
 					hookPayload = &commonmodels.HookPayload{
-						Owner:      *ev.Repo.Owner.Login,
-						Repo:       *ev.Repo.Name,
-						Ref:        ref,
-						IsPr:       false,
-						CodehostID: item.MainRepo.CodehostID,
-						DeliveryID: deliveryID,
-						CommitID:   commitID,
-						EventType:  eventType,
+						Owner:         *ev.Repo.Owner.Login,
+						Repo:          *ev.Repo.Name,
+						Branch:        getBranchFromRef(ref),
+						TargetBranch:  getBranchFromRef(ref),
+						Ref:           ref,
+						IsPr:          false,
+						CodehostID:    item.MainRepo.CodehostID,
+						DeliveryID:    deliveryID,
+						CommitID:      commitID,
+						CommitSHA:     commitID,
+						CommitMessage: ev.GetHeadCommit().GetMessage(),
+						Committer:     ev.GetPusher().GetName(),
+						EventType:     eventType,
 					}
 				}
 			case *github.CreateEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					Branch:       item.MainRepo.Branch,
+					TargetBranch: item.MainRepo.Branch,
+					Committer:    item.MainRepo.Committer,
+					EventType:    eventType,
 				}
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

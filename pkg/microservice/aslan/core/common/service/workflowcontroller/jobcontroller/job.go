@@ -51,6 +51,34 @@ var sendTaskNotifications = func(input *instantmessage.TaskNotifyInput) error {
 	return instantmessage.NewWeChatClient().SendTaskNotifications(input)
 }
 
+func removeUnrenderedVariables(job *commonmodels.JobTask) error {
+	if job == nil {
+		return nil
+	}
+
+	// NotificationJobCtl owns notification spec rendering because it has the
+	// webhook and task runtime context required by notification templates.
+	var notificationSpec interface{}
+	if job.JobType == string(config.JobNotification) {
+		notificationSpec = job.Spec
+		job.Spec = nil
+		defer func() {
+			job.Spec = notificationSpec
+		}()
+	}
+
+	b, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job: %w", err)
+	}
+	variableRegexp := regexp.MustCompile(config.VariableRegEx)
+	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
+	if err := json.Unmarshal(replacedJob, job); err != nil {
+		return fmt.Errorf("failed to unmarshal job: %w", err)
+	}
+	return nil
+}
+
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
 	var jobCtl JobCtl
 	switch job.JobType {
@@ -189,11 +217,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	})
 
 	// remove all the unrendered variable, replacing then with empty string
-	b, _ := json.Marshal(job)
-	variableRegexp := regexp.MustCompile(config.VariableRegEx)
-	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
-	if err := json.Unmarshal([]byte(replacedJob), &job); err != nil {
-		logger.Errorf("unmarshal job error: %v", err)
+	if err := removeUnrenderedVariables(job); err != nil {
+		logger.Errorf("remove unrendered job variables error: %v", err)
 		job.Status = config.StatusFailed
 		job.Error = err.Error()
 		return

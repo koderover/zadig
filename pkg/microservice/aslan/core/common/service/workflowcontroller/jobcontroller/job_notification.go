@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -54,6 +56,8 @@ type NotificationJobCtl struct {
 	ack         func()
 }
 
+var unresolvedNotificationVariableRegexp = regexp.MustCompile(config.VariableRegEx)
+
 func NewNotificationJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *NotificationJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskNotificationSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -74,6 +78,24 @@ func (c *NotificationJobCtl) Clean(ctx context.Context) {}
 func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
+
+	runtimeSpec := new(commonmodels.JobTaskNotificationSpec)
+	if err := commonmodels.IToi(c.job.Spec, runtimeSpec); err != nil {
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		c.ack()
+		return
+	}
+	c.jobTaskSpec = runtimeSpec
+
+	if err := c.prepareRuntimeNotificationFields(); err != nil {
+		c.logger.Error(err)
+		c.job.Status = config.StatusFailed
+		c.job.Error = err.Error()
+		c.ack()
+		return
+	}
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
@@ -102,6 +124,15 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeDingDing {
 		err := sendDingDingMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.DingDingNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.DingDingNotificationConfig.AtMobiles, c.jobTaskSpec.DingDingNotificationConfig.IsAtAll)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
+		err := sendLarkHookMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.LarkHookNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.LarkHookNotificationConfig.AtUsers, c.jobTaskSpec.LarkHookNotificationConfig.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -207,6 +238,62 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
+func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
+	keyMap := c.buildRuntimeNotificationKeyMap()
+	recipientKeyMap := c.buildRuntimeNotificationRecipientKeyMap()
+
+	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
+	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
+
+	return c.resolveDynamicRecipients(recipientKeyMap)
+}
+
+func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
+	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
+}
+
+func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
+	return util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+}
+
+func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
+	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+		LarkHook:   c.jobTaskSpec.LarkHookNotificationConfig,
+		LarkGroup:  c.jobTaskSpec.LarkGroupNotificationConfig,
+		LarkPerson: c.jobTaskSpec.LarkPersonNotificationConfig,
+		DingDing:   c.jobTaskSpec.DingDingNotificationConfig,
+		MSTeams:    c.jobTaskSpec.MSTeamsNotificationConfig,
+		Mail:       c.jobTaskSpec.MailNotificationConfig,
+	})
+}
+
+func buildLarkAtMessage(idList []string, isAtAll bool) string {
+	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+	atUserList := make([]string, 0, len(idList))
+	for _, userID := range idList {
+		atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+	}
+	atMessage := strings.Join(atUserList, " ")
+	if isAtAll {
+		atMessage += "<at user_id=\"all\"></at>"
+	}
+	return atMessage
+}
+
+func renderNotificationString(input string, keyMap map[string]string) string {
+	if !strings.Contains(input, "{{.") {
+		return input
+	}
+	if len(keyMap) > 0 {
+		pairs := make([]string, 0, len(keyMap)*2)
+		for key, value := range keyMap {
+			pairs = append(pairs, "{{."+key+"}}", value)
+		}
+		input = strings.NewReplacer(pairs...).Replace(input)
+	}
+	return unresolvedNotificationVariableRegexp.ReplaceAllString(input, "")
+}
+
 func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDisplayName string, taskID int64, receiverType, receiverID, title, message string, idList []string, isAtAll bool) error {
 	// first generate lark card
 	card := instantmessage.NewLarkCard()
@@ -223,7 +310,7 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 		productName,
 		workflowName,
 		taskID,
-		workflowDisplayName,
+		url.QueryEscape(workflowDisplayName),
 	)
 	card.AddI18NElementsZhcnAction("点击查看更多信息", url)
 
@@ -240,18 +327,8 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 
 	// then send @ message
 	if len(idList) > 0 || isAtAll {
-		atUserList := []string{}
-		idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range idList {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
-		}
-		atMessage := strings.Join(atUserList, " ")
-		if isAtAll {
-			atMessage += "<at user_id=\"all\"></at>"
-		}
-
 		larkAtMessage := &instantmessage.FeiShuMessage{
-			Text: atMessage,
+			Text: buildLarkAtMessage(idList, isAtAll),
 		}
 
 		atMessageContent, err := json.Marshal(larkAtMessage)
@@ -268,6 +345,34 @@ func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDis
 	return nil
 }
 
+func sendLarkHookMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
+	card := instantmessage.NewLarkCard()
+	card.SetConfig(true)
+	card.SetHeader("blue", title, "plain_text")
+	card.AddI18NElementsZhcnFeild(message, true)
+
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		productName,
+		workflowName,
+		taskID,
+		url.QueryEscape(workflowDisplayName),
+	)
+	card.AddI18NElementsZhcnAction("点击查看更多信息", detailURL)
+
+	imService := instantmessage.NewWeChatClient()
+	if err := imService.SendFeishuHookCard(uri, card); err != nil {
+		return err
+	}
+
+	if len(idList) == 0 && !isAtAll {
+		return nil
+	}
+
+	atMessage := buildLarkAtMessage(idList, isAtAll)
+	return imService.SendFeishuHookText(uri, atMessage)
+}
+
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
 	processedMessage := generateDingDingNotificationMessage(title, message, idList)
 
@@ -279,31 +384,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 		url.PathEscape(workflowDisplayName),
 	)
 
-	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
-	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=false",
-		url.QueryEscape(actionURL),
-	)
-
-	messageReq := instantmessage.DingDingMessage{
-		MsgType: instantmessage.DingDingMsgType,
-		ActionCard: &instantmessage.DingDingActionCard{
-			HideAvatar:        "0",
-			ButtonOrientation: "0",
-			Text:              processedMessage,
-			Title:             title,
-			Buttons: []*instantmessage.DingDingButton{
-				{
-					Title:     "点击查看更多信息",
-					ActionURL: dingtalkRedirectURL,
-				},
-			},
-		},
-	}
-
-	messageReq.At = &instantmessage.DingDingAt{
-		AtMobiles: idList,
-		IsAtAll:   isAtAll,
-	}
+	messageReq := instantmessage.BuildDingDingMessage(title, processedMessage, actionURL, idList, isAtAll)
 
 	// TODO: if required, add proxy to it
 	c := httpclient.New()
@@ -438,25 +519,23 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 		return err
 	}
 
-	users, userMap := util.GeneFlatUsersWithCaller(users, callerID)
-	for _, u := range users {
-		log.Infof("Sending Mail to user: %s", u.UserName)
-		info, ok := userMap[u.UserID]
-		if !ok {
-			info, err = user.New().GetUserByID(u.UserID)
-			if err != nil {
-				log.Warnf("sendMailMessage GetUserByUid error, error msg:%s", err)
-				continue
-			}
+	sentEmails := make(map[string]struct{})
+	respErr := new(multierror.Error)
+	sendEmail := func(to string) {
+		to = strings.TrimSpace(to)
+		if to == "" {
+			return
 		}
+		key := strings.ToLower(to)
+		if _, ok := sentEmails[key]; ok {
+			return
+		}
+		sentEmails[key] = struct{}{}
 
-		if info.Email == "" {
-			log.Warnf("sendMailMessage user %s email is empty", info.Name)
-			continue
-		}
-		err = mail.SendEmail(&mail.EmailParams{
+		log.Infof("Sending Mail to email: %s", to)
+		if err := mail.SendEmail(&mail.EmailParams{
 			From:          emailSvc.Address,
-			To:            info.Email,
+			To:            to,
 			Subject:       title,
 			Host:          email.Name,
 			UserName:      email.UserName,
@@ -464,14 +543,54 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 			Port:          email.Port,
 			TlsSkipVerify: email.TlsSkipVerify,
 			Body:          message,
-		})
-		if err != nil {
+		}); err != nil {
 			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
-			continue
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to send email to %s: %w", to, err))
 		}
 	}
 
-	return err
+	directEmailUsers := make([]*commonmodels.User, 0)
+	lookupUsers := make([]*commonmodels.User, 0)
+	for _, u := range users {
+		if u != nil && u.Type == "email" {
+			directEmailUsers = append(directEmailUsers, u)
+			continue
+		}
+		lookupUsers = append(lookupUsers, u)
+	}
+
+	users, userMap := util.GeneFlatUsersWithCaller(lookupUsers, callerID)
+	for _, u := range directEmailUsers {
+		sendEmail(u.UserName)
+	}
+
+	for _, u := range users {
+		if u == nil {
+			continue
+		}
+		log.Infof("Sending Mail to user: %s", u.UserName)
+		info, ok := userMap[u.UserID]
+		if !ok {
+			info, err = user.New().GetUserByID(u.UserID)
+			if err != nil {
+				log.Warnf("sendMailMessage GetUserByUid error, error msg:%s", err)
+				respErr = multierror.Append(respErr, fmt.Errorf("failed to get user %s: %w", u.UserID, err))
+				continue
+			}
+		}
+
+		if info == nil {
+			log.Warnf("sendMailMessage user %s not found", u.UserID)
+			continue
+		}
+		if info.Email == "" {
+			log.Warnf("sendMailMessage user %s email is empty", info.Name)
+			continue
+		}
+		sendEmail(info.Email)
+	}
+
+	return respErr.ErrorOrNil()
 }
 
 func generateDingDingNotificationMessage(title, content string, idList []string) string {

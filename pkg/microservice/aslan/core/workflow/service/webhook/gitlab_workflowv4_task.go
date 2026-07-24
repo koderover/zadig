@@ -32,6 +32,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -102,7 +103,11 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  gmem.event.ObjectAttributes.TargetBranch,
 		PR:            gmem.event.ObjectAttributes.IID,
+		CommitID:      gmem.event.ObjectAttributes.LastCommit.ID,
+		CommitMessage: gmem.event.ObjectAttributes.LastCommit.Message,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -213,12 +218,20 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Ma
 }
 
 func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	commitMessage := ""
+	if len(gpem.event.Commits) > 0 {
+		commitMessage = gpem.event.Commits[len(gpem.event.Commits)-1].Message
+	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
+		CommitID:      gpem.event.After,
+		CommitMessage: commitMessage,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -261,12 +274,14 @@ func (gpem *gitlabTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
 
-func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// TODO: cache workflow
 	// 1. find configured workflow
 	workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
@@ -277,6 +292,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 	}
 
 	mErr := &multierror.Error{}
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -358,9 +374,13 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
 					Branch:         eventRepo.Branch,
+					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
+					CommitMessage:  ev.ObjectAttributes.LastCommit.Message,
+					Committer:      ev.ObjectAttributes.LastCommit.Author.Name,
 					CodehostID:     eventRepo.CodehostID,
 					EventType:      eventType,
 				}
@@ -372,21 +392,29 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				autoCancelOpt.Ref = ref
 				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
-					Owner:      eventRepo.RepoOwner,
-					Repo:       eventRepo.RepoName,
-					Branch:     eventRepo.Branch,
-					Ref:        ref,
-					IsPr:       false,
-					CommitID:   commitID,
-					CodehostID: eventRepo.CodehostID,
-					EventType:  eventType,
+					Owner:         eventRepo.RepoOwner,
+					Repo:          eventRepo.RepoName,
+					Branch:        eventRepo.Branch,
+					TargetBranch:  eventRepo.TargetBranch,
+					Ref:           ref,
+					IsPr:          false,
+					CommitID:      commitID,
+					CommitSHA:     commitID,
+					CommitMessage: eventRepo.CommitMessage,
+					Committer:     eventRepo.Committer,
+					CodehostID:    eventRepo.CodehostID,
+					EventType:     eventType,
 				}
 			case *gitlab.TagEvent:
 				eventType = EventTypeTag
 				hookPayload = &commonmodels.HookPayload{
-					EventType: eventType,
+					Branch:       eventRepo.Branch,
+					TargetBranch: eventRepo.TargetBranch,
+					Committer:    eventRepo.Committer,
+					EventType:    eventType,
 				}
 			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

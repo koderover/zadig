@@ -366,6 +366,18 @@ type NotifyCtl struct {
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 }
 
+func CloneNotifyCtl(notify *NotifyCtl) (*NotifyCtl, error) {
+	if notify == nil {
+		return nil, nil
+	}
+
+	cloned := new(NotifyCtl)
+	if err := IToi(notify, cloned); err != nil {
+		return nil, fmt.Errorf("failed to clone notification config: %w", err)
+	}
+	return cloned, nil
+}
+
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
 func (n *NotifyCtl) GenerateNewNotifyConfigWithOldData() error {
 	switch n.WebHookType {
@@ -485,14 +497,20 @@ type HookPayload struct {
 	Owner          string `bson:"owner"            json:"owner,omitempty"`
 	Repo           string `bson:"repo"             json:"repo,omitempty"`
 	Branch         string `bson:"branch"           json:"branch,omitempty"`
+	TargetBranch   string `bson:"target_branch"    json:"target_branch,omitempty"`
 	Ref            string `bson:"ref"              json:"ref,omitempty"`
 	IsPr           bool   `bson:"is_pr"            json:"is_pr,omitempty"`
 	CheckRunID     int64  `bson:"check_run_id"     json:"check_run_id,omitempty"`
 	MergeRequestID string `bson:"merge_request_id" json:"merge_request_id,omitempty"`
 	CommitID       string `bson:"commit_id"        json:"commit_id,omitempty"`
+	CommitSHA      string `bson:"commit_sha"       json:"commit_sha,omitempty"`
+	CommitMessage  string `bson:"commit_message"   json:"commit_message,omitempty"`
+	Committer      string `bson:"committer"        json:"committer,omitempty"`
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	EventType      string `bson:"event_type"       json:"event_type"`
+	// PayloadVars only contains flattened email/mobile/phone leaves used for dynamic recipients.
+	PayloadVars []*KeyVal `bson:"payload_vars,omitempty" json:"payload_vars,omitempty"`
 }
 
 type TargetArgs struct {

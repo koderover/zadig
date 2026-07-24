@@ -31,6 +31,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -164,6 +165,11 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) GetHookRepo(hookRepo *
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
+		PR:            gruem.Event.Change.Number,
+		CommitID:      gruem.Event.NewRev,
+		CommitMessage: gruem.Event.Change.CommitMessage,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -206,7 +212,11 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) GetHookRepo(hookRep
 		RepoOwner:     hookRepo.RepoOwner,
 		RepoNamespace: hookRepo.GetRepoNamespace(),
 		Branch:        hookRepo.Branch,
+		TargetBranch:  hookRepo.Branch,
 		PR:            gpcem.Event.Change.Number,
+		CommitID:      gpcem.Event.PatchSet.Revision,
+		CommitMessage: gpcem.Event.Change.CommitMessage,
+		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
 }
@@ -250,8 +260,8 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 		return fmt.Errorf(errMsg)
 	}
 	var errorList = &multierror.Error{}
-	var hookPayload *commonmodels.HookPayload
 	var notification *commonmodels.Notification
+	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(string(body))
 	for _, workflow := range workflows {
 		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
 		if err != nil {
@@ -273,6 +283,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			continue
 		}
 		for _, item := range gitHooks {
+			var hookPayload *commonmodels.HookPayload
 			if !item.Enabled {
 				continue
 			}
@@ -304,7 +315,9 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 
 			var mergeRequestID, commitID string
-			if m, ok := matcher.(*gerritPatchsetCreatedEventMatcherForWorkflowV4); ok {
+			var commitSHA string
+			switch m := matcher.(type) {
+			case *gerritPatchsetCreatedEventMatcherForWorkflowV4:
 				if item.CheckPatchSetChange {
 					// for different patch sets under the same pr, if the updated contents of the two patch sets are exactly the same, and the task triggered by the previous patch set is executed successfully, the new patch set will no longer trigger the task.
 					// TODO THE OLD IMPLEMENTATION DOES NOT WORK FOR A LONG TIME, SO I DELETED THEM. REWITE IT WHEN NECESSARY.
@@ -312,6 +325,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 
 				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
 				commitID = strconv.Itoa(m.Event.PatchSet.Number)
+				commitSHA = m.Event.PatchSet.Revision
 				autoCancelOpt := &AutoCancelOpt{
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
@@ -335,17 +349,26 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 						mainRepo, m.Event.Change.Number, baseURI, false, false, false, true, log,
 					)
 				}
-
-				hookPayload = &commonmodels.HookPayload{
-					Owner:          eventRepo.RepoOwner,
-					Repo:           eventRepo.RepoName,
-					Branch:         eventRepo.Branch,
-					IsPr:           true,
-					CodehostID:     item.MainRepo.CodehostID,
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-				}
+			case *gerritChangeMergedEventMatcherForWorkflowV4:
+				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
+				commitID = eventRepo.CommitID
+				commitSHA = m.Event.NewRev
 			}
+			hookPayload = &commonmodels.HookPayload{
+				Owner:          eventRepo.RepoOwner,
+				Repo:           eventRepo.RepoName,
+				Branch:         eventRepo.Branch,
+				TargetBranch:   eventRepo.TargetBranch,
+				IsPr:           true,
+				CodehostID:     item.MainRepo.CodehostID,
+				MergeRequestID: mergeRequestID,
+				CommitID:       commitID,
+				CommitSHA:      commitSHA,
+				CommitMessage:  eventRepo.CommitMessage,
+				Committer:      eventRepo.Committer,
+				EventType:      event.Type,
+			}
+			hookPayload.PayloadVars = recipientPayloadVariables
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
 			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)

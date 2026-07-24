@@ -1137,6 +1137,10 @@ func mergeRepos(targetRepos, sourceRepos []*types.Repository) []*types.Repositor
 			targetRepo.PRs = sourceRepo.PRs
 			targetRepo.CommitID = sourceRepo.CommitID
 			targetRepo.CommitMessage = sourceRepo.CommitMessage
+			targetRepo.AuthorName = sourceRepo.AuthorName
+			targetRepo.Committer = sourceRepo.Committer
+			targetRepo.TargetBranch = sourceRepo.TargetBranch
+			targetRepo.CheckoutRef = sourceRepo.CheckoutRef
 		} else {
 			// Add new repo from source repos
 			targetRepos = append(targetRepos, sourceRepo)

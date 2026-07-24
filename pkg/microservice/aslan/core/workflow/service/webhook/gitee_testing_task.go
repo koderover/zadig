@@ -280,6 +280,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							IsPr:           true,
 							MergeRequestID: mergeRequestID,
 							CommitID:       commitID,
+							CommitSHA:      commitID,
 							EventType:      eventType,
 						}
 					case *gitee.PushEvent:
@@ -298,6 +299,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							Ref:        ref,
 							IsPr:       false,
 							CommitID:   commitID,
+							CommitSHA:  commitID,
 							EventType:  eventType,
 						}
 					case *gitee.TagPushEvent:

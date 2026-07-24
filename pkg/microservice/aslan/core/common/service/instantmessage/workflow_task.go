@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -240,7 +241,14 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		}
 	}
 
-	for _, notify := range resp.NotifyCtls {
+	for _, sourceNotify := range resp.NotifyCtls {
+		notify, err := models.CloneNotifyCtl(sourceNotify)
+		if err != nil {
+			return err
+		}
+		if notify == nil {
+			continue
+		}
 		statusSets := sets.NewString(notify.NotifyTypes...)
 		if !isTaskWaitingApproveNotifyType(statusSets) {
 			continue
@@ -249,7 +257,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			continue
 		}
 
-		err := notify.GenerateNewNotifyConfigWithOldData()
+		err = notify.GenerateNewNotifyConfigWithOldData()
 		if err != nil {
 			return err
 		}
@@ -259,6 +267,11 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
 			log.Error(errMsg)
 			return errors.New(errMsg)
+		}
+
+		if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+			log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
+			continue
 		}
 
 		if notify.WebHookType == setting.NotifyWebHookTypeMail {
@@ -330,12 +343,19 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	if task.Status == config.StatusCreated {
 		statusChanged = false
 	}
-	for _, notify := range task.OriginWorkflowArgs.NotifyCtls {
+	for _, sourceNotify := range task.OriginWorkflowArgs.NotifyCtls {
+		notify, err := models.CloneNotifyCtl(sourceNotify)
+		if err != nil {
+			return err
+		}
+		if notify == nil {
+			continue
+		}
 		if !notify.Enabled {
 			continue
 		}
 
-		err := notify.GenerateNewNotifyConfigWithOldData()
+		err = notify.GenerateNewNotifyConfigWithOldData()
 		if err != nil {
 			return err
 		}
@@ -351,6 +371,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
 				log.Error(errMsg)
 				return errors.New(errMsg)
+			}
+
+			if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+				log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
+				continue
 			}
 
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
@@ -421,6 +446,30 @@ func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *
 	return false
 }
 
+func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl) error {
+	if task == nil || notify == nil {
+		return nil
+	}
+
+	workflowArgs := task.WorkflowArgs
+	if workflowArgs == nil {
+		workflowArgs = task.OriginWorkflowArgs
+	}
+	if workflowArgs == nil {
+		return nil
+	}
+
+	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
+	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+		LarkHook:   notify.LarkHookNotificationConfig,
+		LarkGroup:  notify.LarkGroupNotificationConfig,
+		LarkPerson: notify.LarkPersonNotificationConfig,
+		DingDing:   notify.DingDingNotificationConfig,
+		MSTeams:    notify.MSTeamsNotificationConfig,
+		Mail:       notify.MailNotificationConfig,
+	})
+}
+
 func (w *Service) resolveWorkflowTaskExecutorLarkTarget(client *lark.Client, task *models.WorkflowTask) (*lark.UserInfo, error) {
 	if task == nil || task.TaskCreatorID == "" {
 		return nil, fmt.Errorf("executor id is empty, cannot send message")
@@ -477,9 +526,26 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 
 func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string) error {
 	respErr := new(multierror.Error)
-	for _, notify := range notifyCtls {
+	for _, sourceNotify := range notifyCtls {
+		notify, err := models.CloneNotifyCtl(sourceNotify)
+		if err != nil {
+			respErr = multierror.Append(respErr, err)
+			continue
+		}
+		if notify == nil {
+			continue
+		}
+		if err := notify.GenerateNewNotifyConfigWithOldData(); err != nil {
+			respErr = multierror.Append(respErr, err)
+			continue
+		}
+
 		switch notify.WebHookType {
 		case setting.NotifyWebHookTypeFeishuPerson:
+			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
 			resolvedTargets, err := w.resolveManualExecStageLarkTargets(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -508,6 +574,10 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 			}
 
 		case setting.NotifyWebHookTypeMail:
+			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
+				respErr = multierror.Append(respErr, err)
+				continue
+			}
 			resolvedUsers, err := w.resolveManualExecStageMailUsers(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -564,10 +634,6 @@ func getManualExecStageNotifyCtls(task *models.WorkflowTask) []*models.NotifyCtl
 	ret := make([]*models.NotifyCtl, 0, len(notifyCtls))
 	for _, notify := range notifyCtls {
 		if notify == nil || !notify.Enabled {
-			continue
-		}
-		if err := notify.GenerateNewNotifyConfigWithOldData(); err != nil {
-			log.Errorf("failed to parse notification config for workflow %s task %d: %v", task.WorkflowName, task.TaskID, err)
 			continue
 		}
 		if !sets.NewString(notify.NotifyTypes...).Has(string(config.StatusPause)) {
@@ -819,7 +885,12 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 	statusTextKey := input.StatusTextKeyOverride
 
 	respErr := new(multierror.Error)
-	for _, notify := range input.NotifyCtls {
+	for _, sourceNotify := range input.NotifyCtls {
+		notify, err := models.CloneNotifyCtl(sourceNotify)
+		if err != nil {
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to clone notify config: %w", err))
+			continue
+		}
 		if notify == nil || !notify.Enabled {
 			continue
 		}
@@ -839,13 +910,16 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 			continue
 		}
 
-		// Shallow-copy the notify so we can override per-channel configs without
-		// mutating the original.
 		notifyToSend := *notify
+
+		if err := resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend); err != nil {
+			respErr = multierror.Append(respErr, err)
+			continue
+		}
 
 		// Resolve feishu_person targets (e.g. executor placeholders).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
-			resolvedTargets, err := w.resolveManualExecStageLarkTargets(task, stageForNotification, notify)
+			resolvedTargets, err := w.resolveManualExecStageLarkTargets(task, stageForNotification, &notifyToSend)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -853,15 +927,16 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 			if len(resolvedTargets) == 0 {
 				continue
 			}
+			appID := notifyToSend.LarkPersonNotificationConfig.AppID
 			notifyToSend.LarkPersonNotificationConfig = &models.LarkPersonNotificationConfig{
-				AppID:       notify.LarkPersonNotificationConfig.AppID,
+				AppID:       appID,
 				TargetUsers: resolvedTargets,
 			}
 		}
 
 		// Resolve mail targets (e.g. executor placeholders and user groups).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeMail && notifyToSend.MailNotificationConfig != nil {
-			resolvedUsers, err := w.resolveManualExecStageMailUsers(task, stageForNotification, notify)
+			resolvedUsers, err := w.resolveManualExecStageMailUsers(task, stageForNotification, &notifyToSend)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -1132,7 +1207,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
-		tplcontent = tplcontent + getNotifyAtContent(notify)
+		tplcontent = appendInlineNotifyAtContent(tplcontent, notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		if notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
 			tplcontent = fmt.Sprintf("%s%s", tplcontent, moreInformation)
@@ -1392,7 +1467,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
-		tplcontent = tplcontent + getNotifyAtContent(notify)
+		tplcontent = appendInlineNotifyAtContent(tplcontent, notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		if notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
 			tplcontent = fmt.Sprintf("%s%s", tplcontent, moreInformation)
@@ -1717,6 +1792,13 @@ func genSonartMetricsText(jobSpec *models.JobTaskFreestyleSpec, language string)
 	}
 
 	return result, mailResult, nil
+}
+
+func appendInlineNotifyAtContent(content string, notify *models.NotifyCtl) string {
+	if notify == nil || notify.WebHookType == setting.NotifyWebHookTypeDingDing {
+		return content
+	}
+	return content + getNotifyAtContent(notify)
 }
 
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify, taskStatus config.Status) error {
