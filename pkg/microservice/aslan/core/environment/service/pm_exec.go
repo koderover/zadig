@@ -125,6 +125,9 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 	})
 	if err != nil {
 		log.Errorf("create ssh terminal audit recorder failed: %v", err)
+		e.ErrLoginPm.AddErr(err)
+		_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
 	}
 	defer func() {
 		if err := audit.Close(finalStatus); err != nil {
@@ -132,10 +135,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		}
 	}()
 
-	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, &wsconn.SshConnOption{
-		Recorder:  audit.Recorder,
-		Sanitizer: audit.Sanitizer,
-	})
+	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, audit.Recorder)
 	if err != nil {
 		log.Errorf("NewSshConn err:%s", err)
 		e.ErrLoginPm.AddErr(err)
