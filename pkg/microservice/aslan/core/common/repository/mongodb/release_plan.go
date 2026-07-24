@@ -90,12 +90,23 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
+	return c.CreateWithCtx(context.Background(), args)
+}
+
+func (c *ReleasePlanColl) CreateWithCtx(ctx context.Context, args *models.ReleasePlan) (string, error) {
 	if args == nil {
 		return "", errors.New("nil ReleasePlan")
 	}
 
-	res, err := c.InsertOne(context.Background(), args)
-	return res.InsertedID.(primitive.ObjectID).Hex(), err
+	res, err := c.InsertOne(ctx, args)
+	if err != nil {
+		return "", err
+	}
+	id, ok := res.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return "", errors.New("invalid ReleasePlan inserted id")
+	}
+	return id.Hex(), nil
 }
 
 func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {
@@ -123,35 +134,6 @@ func (c *ReleasePlanColl) UpdateByID(ctx context.Context, idString string, args 
 	change := bson.M{"$set": args}
 	_, err = c.UpdateOne(ctx, query, change)
 	return err
-}
-
-func (c *ReleasePlanColl) UpdateVersionByID(ctx context.Context, idString string, version int64) error {
-	id, err := primitive.ObjectIDFromHex(idString)
-	if err != nil {
-		return fmt.Errorf("invalid id")
-	}
-
-	query := bson.M{"_id": id}
-	change := bson.M{"$set": bson.M{"version": version}}
-	_, err = c.UpdateOne(ctx, query, change)
-	return err
-}
-
-func (c *ReleasePlanColl) IncrementVersionByID(ctx context.Context, idString string) (int64, error) {
-	id, err := primitive.ObjectIDFromHex(idString)
-	if err != nil {
-		return 0, fmt.Errorf("invalid id")
-	}
-
-	query := bson.M{"_id": id}
-	change := bson.M{"$inc": bson.M{"version": 1}}
-	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-
-	result := new(models.ReleasePlan)
-	if err := c.FindOneAndUpdate(ctx, query, change, opts).Decode(result); err != nil {
-		return 0, err
-	}
-	return result.Version, nil
 }
 
 func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error {

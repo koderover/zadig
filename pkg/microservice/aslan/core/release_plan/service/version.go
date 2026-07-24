@@ -30,27 +30,76 @@ import (
 )
 
 var (
+	createReleasePlanDocument = func(ctx context.Context, plan *models.ReleasePlan) error {
+		_, err := mongodb.NewReleasePlanColl().CreateWithCtx(ctx, plan)
+		return err
+	}
 	updateReleasePlanDocument = func(ctx context.Context, planID string, plan *models.ReleasePlan) error {
 		return mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan)
 	}
 	createReleasePlanVersionDocument = func(ctx context.Context, version *models.ReleasePlanVersion) error {
 		return mongodb.NewReleasePlanVersionColl().CreateWithCtx(ctx, version)
 	}
+	upsertReleasePlanVersionDocument = func(ctx context.Context, version *models.ReleasePlanVersion) error {
+		return mongodb.NewReleasePlanVersionColl().UpsertWithCtx(ctx, version)
+	}
 	deleteReleasePlanVersionDocument = func(ctx context.Context, planID string, version int64) error {
 		return mongodb.NewReleasePlanVersionColl().DeleteWithCtx(ctx, planID, version)
 	}
 )
 
-func createReleasePlanVersion(planID string, version int64, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	return createReleasePlanVersionWithBaseSnapshotCtx(context.Background(), planID, version, 0, nil, snapshot, operator, account, sectionKey, sectionName, verb)
-}
+func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) error {
+	if plan == nil {
+		return errors.New("nil release plan")
+	}
+	if plan.ID.IsZero() {
+		return errors.New("missing release plan id")
+	}
+	if versionDoc == nil {
+		return errors.New("nil release plan version")
+	}
+	if versionDoc.PlanID != plan.ID.Hex() || versionDoc.Version != plan.Version {
+		return errors.New("release plan version does not match plan")
+	}
 
-func createReleasePlanVersionWithBaseSnapshot(planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	return createReleasePlanVersionWithBaseSnapshotCtx(context.Background(), planID, version, previousVersion, baseSnapshot, snapshot, operator, account, sectionKey, sectionName, verb)
-}
+	if config.EnableTransaction() {
+		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
+		if err != nil {
+			return errors.Wrap(err, "start release plan transaction")
+		}
 
-func createReleasePlanVersionWithBaseSnapshotCtx(ctx context.Context, planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) error {
-	return createReleasePlanVersionDocument(ctx, newReleasePlanVersionDocument(planID, version, previousVersion, baseSnapshot, snapshot, operator, account, sectionKey, sectionName, verb))
+		var retErr error
+		defer func() {
+			deferSession(retErr)
+		}()
+
+		sessionCtx := mongotool.SessionContext(ctx, session)
+		if err := createReleasePlanVersionDocument(sessionCtx, versionDoc); err != nil {
+			retErr = errors.Wrap(err, "create release plan version")
+			return retErr
+		}
+		if err := createReleasePlanDocument(sessionCtx, plan); err != nil {
+			retErr = errors.Wrap(err, "create release plan")
+			return retErr
+		}
+		if err := mongotool.CommitTransaction(session); err != nil {
+			retErr = errors.Wrap(err, "commit release plan transaction")
+			return retErr
+		}
+		return nil
+	}
+
+	if err := upsertReleasePlanVersionDocument(ctx, versionDoc); err != nil {
+		return errors.Wrap(err, "create release plan version")
+	}
+	if err := createReleasePlanDocument(ctx, plan); err != nil {
+		cleanupErr := deleteReleasePlanVersionDocument(ctx, versionDoc.PlanID, versionDoc.Version)
+		if cleanupErr != nil {
+			return errors.Wrapf(err, "create release plan; cleanup release plan version error: %v", cleanupErr)
+		}
+		return errors.Wrap(err, "create release plan")
+	}
+	return nil
 }
 
 func newReleasePlanVersionDocument(planID string, version, previousVersion int64, baseSnapshot, snapshot interface{}, operator, account, sectionKey, sectionName, verb string) *models.ReleasePlanVersion {
@@ -105,7 +154,7 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 		return nil
 	}
 
-	if err := createReleasePlanVersionDocument(ctx, versionDoc); err != nil {
+	if err := upsertReleasePlanVersionDocument(ctx, versionDoc); err != nil {
 		return errors.Wrap(err, "create release plan version")
 	}
 	if err := updateReleasePlanDocument(ctx, planID, plan); err != nil {

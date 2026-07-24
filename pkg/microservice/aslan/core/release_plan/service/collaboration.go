@@ -213,6 +213,10 @@ func checkReleasePlanCollaborationOrigin(r *http.Request) bool {
 		return false
 	}
 
+	originScheme := strings.ToLower(originURL.Scheme)
+	if originScheme != "http" && originScheme != "https" {
+		return false
+	}
 	originHost, originPort := splitReleasePlanHostPort(originURL.Host)
 	requestHost, requestPort := splitReleasePlanHostPort(expectedHost)
 	if originHost == "" || requestHost == "" {
@@ -221,11 +225,37 @@ func checkReleasePlanCollaborationOrigin(r *http.Request) bool {
 	if !strings.EqualFold(originHost, requestHost) {
 		return false
 	}
-	if originPort != "" && requestPort != "" && originPort != requestPort {
+	if releasePlanEffectivePort(originScheme, originPort) != releasePlanEffectivePort(releasePlanRequestScheme(r), requestPort) {
 		return false
 	}
 
 	return true
+}
+
+func releasePlanRequestScheme(r *http.Request) string {
+	if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
+		if idx := strings.Index(forwardedProto, ","); idx >= 0 {
+			forwardedProto = forwardedProto[:idx]
+		}
+		return strings.ToLower(strings.TrimSpace(forwardedProto))
+	}
+	if r.URL != nil && r.URL.Scheme != "" {
+		return strings.ToLower(r.URL.Scheme)
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func releasePlanEffectivePort(scheme, port string) string {
+	if port != "" {
+		return port
+	}
+	if scheme == "https" {
+		return "443"
+	}
+	return "80"
 }
 
 func normalizeReleasePlanCollaborationSection(sectionKey, sectionType, sectionName string) (string, string, string) {
@@ -481,10 +511,6 @@ func broadcastReleasePlanCollaborationSnapshot(planID string) {
 	sendSnapshotToLocalClients(planID, snapshot)
 }
 
-func GetReleasePlanCollaborationEditors(planID string) (*ReleasePlanCollaborationSnapshot, error) {
-	return GetReleasePlanCollaborationSnapshot(planID)
-}
-
 func GetReleasePlanCollaborationSnapshot(planID string) (*ReleasePlanCollaborationSnapshot, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -684,10 +710,6 @@ func canManageReleasePlanEditingSession(session *ReleasePlanEditingSession, user
 }
 
 func OpenReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, planID string) error {
-	return openReleasePlanCollaborationWS(gCtx, ctx, planID)
-}
-
-func openReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, planID string) error {
 	ws, err := upgrader.Upgrade(gCtx.Writer, gCtx.Request, nil)
 	if err != nil {
 		return e.ErrInvalidParam.AddErr(err)

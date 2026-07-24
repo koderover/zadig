@@ -62,10 +62,6 @@ func (c *ReleasePlanVersionColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ReleasePlanVersionColl) Create(args *models.ReleasePlanVersion) error {
-	return c.CreateWithCtx(context.Background(), args)
-}
-
 func (c *ReleasePlanVersionColl) CreateWithCtx(ctx context.Context, args *models.ReleasePlanVersion) error {
 	if args == nil {
 		return errors.New("nil ReleasePlanVersion")
@@ -75,8 +71,16 @@ func (c *ReleasePlanVersionColl) CreateWithCtx(ctx context.Context, args *models
 	return err
 }
 
-func (c *ReleasePlanVersionColl) Delete(planID string, version int64) error {
-	return c.DeleteWithCtx(context.Background(), planID, version)
+func (c *ReleasePlanVersionColl) UpsertWithCtx(ctx context.Context, args *models.ReleasePlanVersion) error {
+	if args == nil {
+		return errors.New("nil ReleasePlanVersion")
+	}
+
+	_, err := c.ReplaceOne(ctx, bson.M{
+		"plan_id": args.PlanID,
+		"version": args.Version,
+	}, args, options.Replace().SetUpsert(true))
+	return err
 }
 
 func (c *ReleasePlanVersionColl) DeleteWithCtx(ctx context.Context, planID string, version int64) error {
@@ -93,14 +97,6 @@ func (c *ReleasePlanVersionColl) Get(planID string, version int64) (*models.Rele
 		"plan_id": planID,
 		"version": version,
 	}).Decode(resp)
-	return resp, err
-}
-
-func (c *ReleasePlanVersionColl) GetLatest(planID string) (*models.ReleasePlanVersion, error) {
-	resp := new(models.ReleasePlanVersion)
-	err := c.FindOne(context.Background(), bson.M{
-		"plan_id": planID,
-	}, options.FindOne().SetSort(bson.D{{Key: "version", Value: -1}})).Decode(resp)
 	return resp, err
 }
 

@@ -17,8 +17,6 @@
 package service
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -34,8 +32,6 @@ import (
 )
 
 const (
-	releasePlanHashPruneMinMapKeys     = 4
-	releasePlanHashPruneMinArrayItems  = 4
 	releasePlanDiffMaxDepth            = 50
 	releasePlanDiffChangeTypeOrder     = "order_changed"
 	releasePlanDiffDisplayApprovalSpec = "approval_spec"
@@ -275,7 +271,7 @@ func appendReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDi
 		if entry.ChangeType == releasePlanDiffChangeTypeOrder {
 			change.BeforeOrder = entry.BeforeOrder
 			change.AfterOrder = entry.AfterOrder
-		} else if isMaskedReleasePlanDiffValue(entry.Before) || isMaskedReleasePlanDiffValue(entry.After) {
+		} else if isReleasePlanMaskedStorageValue(entry.Before) || isReleasePlanMaskedStorageValue(entry.After) {
 			change.Masked = true
 		} else if isLargeTextReleasePlanDiffPath(entry.Path, entry.Before, entry.After) {
 			change.LargeText = true
@@ -774,11 +770,7 @@ func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, dep
 		return
 	}
 
-	if equal, hashed := equalReleasePlanSubtreeByHash(left, right); hashed {
-		if equal {
-			return
-		}
-	} else if reflect.DeepEqual(left, right) {
+	if reflect.DeepEqual(left, right) {
 		return
 	}
 
@@ -825,50 +817,6 @@ func diffReleasePlanValuesWithDepth(ctx releasePlanDiffContext, path string, dep
 		Before: left,
 		After:  right,
 	})
-}
-
-func equalReleasePlanSubtreeByHash(left, right interface{}) (equal bool, hashed bool) {
-	if !shouldUseReleasePlanSubtreeHash(left, right) {
-		return false, false
-	}
-
-	leftHash, err := hashReleasePlanSubtree(left)
-	if err != nil {
-		return false, false
-	}
-	rightHash, err := hashReleasePlanSubtree(right)
-	if err != nil {
-		return false, false
-	}
-	return leftHash == rightHash, true
-}
-
-func shouldUseReleasePlanSubtreeHash(left, right interface{}) bool {
-	switch leftValue := left.(type) {
-	case map[string]interface{}:
-		rightValue, ok := right.(map[string]interface{})
-		if !ok {
-			return false
-		}
-		return len(leftValue) >= releasePlanHashPruneMinMapKeys || len(rightValue) >= releasePlanHashPruneMinMapKeys
-	case []interface{}:
-		rightValue, ok := right.([]interface{})
-		if !ok {
-			return false
-		}
-		return len(leftValue) >= releasePlanHashPruneMinArrayItems || len(rightValue) >= releasePlanHashPruneMinArrayItems
-	default:
-		return false
-	}
-}
-
-func hashReleasePlanSubtree(value interface{}) (string, error) {
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:]), nil
 }
 
 func diffReleasePlanArray(ctx releasePlanDiffContext, path string, depth int, left, right []interface{}, entries *[]*releasePlanRawDiffEntry) {
@@ -1499,10 +1447,6 @@ func translateReleasePlanFieldLabel(name string) string {
 		return label
 	}
 	return strings.ReplaceAll(name, "_", " ")
-}
-
-func isMaskedReleasePlanDiffValue(value interface{}) bool {
-	return isReleasePlanMaskedStorageValue(value)
 }
 
 func isLargeTextReleasePlanDiffPath(path string, before, after interface{}) bool {

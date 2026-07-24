@@ -161,19 +161,18 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	args.Version = 1
 	args.Status = config.ReleasePlanStatusPlanning
 
-	planID, err := mongodb.NewReleasePlanColl().Create(args)
+	args.ID = primitive.NewObjectID()
+	sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
 	if err != nil {
-		return nil, errors.Wrap(err, "create release plan error")
+		return nil, errors.Wrap(err, "build release plan initial snapshot")
+	}
+	planID := args.ID.Hex()
+	versionDoc := newReleasePlanVersionDocument(planID, 1, 0, nil, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+	if err := persistNewReleasePlanWithVersion(context.Background(), args, versionDoc); err != nil {
+		return nil, errors.Wrap(err, "create release plan")
 	}
 
 	go func() {
-		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
-		if err == nil {
-			err = createReleasePlanVersion(planID, 1, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
-		}
-		if err != nil {
-			log.Errorf("create release plan version error: %v", err)
-		}
 		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:      planID,
 			Username:    c.UserName,
@@ -227,10 +226,12 @@ type OpenAPIWorkflowReleaseJobSpec struct {
 	Remark      string                                      `bson:"remark"              yaml:"remark"                          json:"remark"`
 }
 
-func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *OpenAPIUpdateReleasePlanWithJobsArgs) error {
-	approveLock := getLock(id)
-	approveLock.Lock()
-	defer approveLock.Unlock()
+func OpenAPIUpdateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *OpenAPIUpdateReleasePlanWithJobsArgs) error {
+	planLock := getLock(id)
+	if err := planLock.Lock(); err != nil {
+		return errors.Wrap(err, "lock release plan")
+	}
+	defer planLock.Unlock()
 
 	plan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
@@ -305,7 +306,6 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 			}
 
 			newJobs = append(newJobs, &models.ReleaseJob{
-				ID:   uuid.New().String(),
 				Name: job.Name,
 				Type: job.Type,
 				Spec: models.TextReleaseJobSpec{
@@ -369,7 +369,6 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 			}
 
 			newJobs = append(newJobs, &models.ReleaseJob{
-				ID:   uuid.New().String(),
 				Name: job.Name,
 				Type: job.Type,
 				Spec: models.WorkflowReleaseJobSpec{
@@ -380,6 +379,7 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 		}
 	}
 
+	reuseOpenAPIReleaseJobIDs(originalPlan.Jobs, newJobs)
 	plan.Jobs = newJobs
 	plan.Version = originalPlan.Version + 1
 
@@ -437,4 +437,32 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 	}
 
 	return nil
+}
+
+func reuseOpenAPIReleaseJobIDs(existingJobs, updatedJobs []*models.ReleaseJob) {
+	existingIDs := make(map[string][]string, len(existingJobs))
+	for _, job := range existingJobs {
+		if job == nil || job.ID == "" {
+			continue
+		}
+		key := openAPIReleaseJobIdentity(job)
+		existingIDs[key] = append(existingIDs[key], job.ID)
+	}
+
+	for _, job := range updatedJobs {
+		if job == nil {
+			continue
+		}
+		key := openAPIReleaseJobIdentity(job)
+		if ids := existingIDs[key]; len(ids) > 0 {
+			job.ID = ids[0]
+			existingIDs[key] = ids[1:]
+			continue
+		}
+		job.ID = uuid.NewString()
+	}
+}
+
+func openAPIReleaseJobIdentity(job *models.ReleaseJob) string {
+	return fmt.Sprintf("%s\x00%s", job.Type, job.Name)
 }

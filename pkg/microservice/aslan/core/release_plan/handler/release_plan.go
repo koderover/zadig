@@ -18,8 +18,8 @@ package handler
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -79,7 +79,7 @@ func GetReleasePlanLogs(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetReleasePlanLogs(c.Param("id"))
 }
 
-func GetReleasePlanCollaborationEditors(c *gin.Context) {
+func GetReleasePlanCollaborationSnapshot(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -101,7 +101,7 @@ func GetReleasePlanCollaborationEditors(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetReleasePlanCollaborationEditors(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanCollaborationSnapshot(c.Param("id"))
 }
 
 func ReleasePlanCollaborationWS(c *gin.Context) {

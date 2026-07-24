@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"reflect"
 	"sort"
@@ -42,10 +44,9 @@ var releasePlanWorkflowControllerBSONRegistry = func() *bsoncodec.Registry {
 }()
 
 var (
-	releasePlanWorkflowLatestSnapshotGroup         singleflight.Group
-	releasePlanWorkflowLatestSnapshotCacheTTLValue = releasePlanWorkflowLatestSnapshotCacheTTL
-	releasePlanWorkflowLatestSnapshotCache         = cache.New(releasePlanWorkflowLatestSnapshotCacheTTLValue, releasePlanWorkflowLatestSnapshotCacheTTLValue)
-	releasePlanWorkflowLatestSnapshotLoader        = lookupReleasePlanWorkflowLatestSnapshot
+	releasePlanWorkflowLatestSnapshotGroup  singleflight.Group
+	releasePlanWorkflowLatestSnapshotCache  = cache.New(releasePlanWorkflowLatestSnapshotCacheTTL, releasePlanWorkflowLatestSnapshotCacheTTL)
+	releasePlanWorkflowLatestSnapshotLoader = lookupReleasePlanWorkflowLatestSnapshot
 
 	errReleasePlanWorkflowLatestSnapshotUnavailable = errors.New("release plan workflow latest snapshot unavailable")
 
@@ -564,17 +565,13 @@ func setReleasePlanWorkflowLatestSnapshotCache(cacheKey string, snapshot interfa
 	if cacheKey == "" || snapshot == nil {
 		return
 	}
-	releasePlanWorkflowLatestSnapshotCache.Set(cacheKey, snapshot, releasePlanWorkflowLatestSnapshotCacheTTLValue)
-}
-
-func resetReleasePlanWorkflowLatestSnapshotCache() {
-	releasePlanWorkflowLatestSnapshotCache.Flush()
+	releasePlanWorkflowLatestSnapshotCache.Set(cacheKey, snapshot, releasePlanWorkflowLatestSnapshotCacheTTL)
 }
 
 func enrichReleasePlanWorkflowWithLatest(spec interface{}) (_ interface{}, ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			warnReleasePlanWorkflowRecover(r)
+			log.Warnf("enrich release plan workflow panic: %v", r)
 			ok = false
 		}
 	}()
@@ -790,13 +787,6 @@ func normalizeReleasePlanWorkflowForController(workflow *models.WorkflowV4) (*mo
 	return resp, nil
 }
 
-func warnReleasePlanWorkflowRecover(recovered interface{}) {
-	defer func() {
-		_ = recover()
-	}()
-	log.Warnf("enrich release plan workflow panic: %v", recovered)
-}
-
 func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, error) {
 	if workflow == nil {
 		return nil, nil
@@ -831,7 +821,7 @@ func buildReleasePlanWorkflowInputSnapshot(workflow interface{}) (interface{}, e
 	if jobs, exists := workflowMap["jobs"]; exists {
 		resp["jobs"] = buildReleasePlanWorkflowJobsInputSnapshot("jobs", jobs)
 	}
-	return sanitizeReleasePlanGenericValue("", resp), nil
+	return sanitizeReleasePlanGenericValue(resp), nil
 }
 
 func buildReleasePlanWorkflowStagesInputSnapshot(path string, value interface{}) interface{} {
@@ -893,10 +883,6 @@ func buildReleasePlanWorkflowJobsInputSnapshot(path string, value interface{}) i
 	return resp
 }
 
-func filterReleasePlanWorkflowInputValue(value interface{}) interface{} {
-	return filterReleasePlanWorkflowInputValueAtPath("", value)
-}
-
 func filterReleasePlanWorkflowInputValueAtPath(path string, value interface{}) interface{} {
 	switch typedValue := value.(type) {
 	case map[string]interface{}:
@@ -928,10 +914,6 @@ func filterReleasePlanWorkflowInputValueAtPath(path string, value interface{}) i
 	default:
 		return value
 	}
-}
-
-func filterReleasePlanPluginTemplateInputValue(value interface{}) interface{} {
-	return filterReleasePlanPluginTemplateInputValueAtPath("plugin", value)
 }
 
 func filterReleasePlanPluginTemplateInputValueAtPath(path string, value interface{}) interface{} {
@@ -1036,6 +1018,15 @@ func sortReleasePlanWorkflowInputArray(items []interface{}, buildKey func(interf
 	for i := range sortableItems {
 		items[i] = sortableItems[i].item
 	}
+}
+
+func hashReleasePlanSubtree(value interface{}) (string, error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func sortReleasePlanWorkflowInputStringArray(items []interface{}) {

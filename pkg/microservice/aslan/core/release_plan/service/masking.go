@@ -39,7 +39,7 @@ func sanitizeReleasePlanValue(value interface{}) interface{} {
 		return value
 	}
 
-	return sanitizeReleasePlanGenericValue("", genericValue)
+	return sanitizeReleasePlanGenericValue(genericValue)
 }
 
 func sanitizeReleasePlanValueForDisplay(value interface{}) interface{} {
@@ -56,17 +56,17 @@ func sanitizeReleasePlanValueForDisplay(value interface{}) interface{} {
 	}
 
 	if hasReleasePlanRawSensitiveValue(genericValue) {
-		genericValue = sanitizeReleasePlanGenericValue("", genericValue)
+		genericValue = sanitizeReleasePlanGenericValue(genericValue)
 	}
 	return sanitizeReleasePlanDisplayGenericValue(genericValue)
 }
 
-func sanitizeReleasePlanGenericValue(path string, value interface{}) interface{} {
+func sanitizeReleasePlanGenericValue(value interface{}) interface{} {
 	switch typedValue := value.(type) {
 	case map[string]interface{}:
 		resp := make(map[string]interface{}, len(typedValue))
 		for key, item := range typedValue {
-			resp[key] = sanitizeReleasePlanGenericValue(joinReleasePlanMaskPath(path, key), item)
+			resp[key] = sanitizeReleasePlanGenericValue(item)
 		}
 		if isReleasePlanSensitiveValueNode(resp) {
 			maskReleasePlanSensitiveValueNode(resp)
@@ -74,8 +74,8 @@ func sanitizeReleasePlanGenericValue(path string, value interface{}) interface{}
 		return resp
 	case []interface{}:
 		resp := make([]interface{}, 0, len(typedValue))
-		for idx, item := range typedValue {
-			resp = append(resp, sanitizeReleasePlanGenericValue(fmt.Sprintf("%s[%d]", path, idx), item))
+		for _, item := range typedValue {
+			resp = append(resp, sanitizeReleasePlanGenericValue(item))
 		}
 		return resp
 	default:
@@ -189,11 +189,4 @@ func maskReleasePlanSensitiveValueNode(value map[string]interface{}) {
 			value[key] = maskReleasePlanValue(item)
 		}
 	}
-}
-
-func joinReleasePlanMaskPath(path, key string) string {
-	if path == "" {
-		return key
-	}
-	return path + "." + key
 }

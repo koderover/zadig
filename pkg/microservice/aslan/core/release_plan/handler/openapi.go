@@ -159,5 +159,5 @@ func OpenAPIUpdateReleasePlanWithJobs(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.OpenAPICreateReleasePlanWithJobs(ctx, c.Param("id"), opt)
+	ctx.RespErr = service.OpenAPIUpdateReleasePlanWithJobs(ctx, c.Param("id"), opt)
 }

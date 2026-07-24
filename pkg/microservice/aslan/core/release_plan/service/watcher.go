@@ -165,7 +165,6 @@ func WatchApproval() {
 		})
 		if err != nil {
 			log.Errorf("list approval workflow error: %v", err)
-			releasePlanApprovalLock.Unlock()
 			continue
 		}
 		for _, plan := range list {
@@ -236,7 +235,6 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		planLog = &models.ReleasePlanLog{
 			PlanID:     plan.ID.Hex(),
 			Username:   UserNameSystem,
-			Account:    "",
 			Verb:       VerbUpdate,
 			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
@@ -268,7 +266,6 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		planLog = &models.ReleasePlanLog{
 			PlanID:     plan.ID.Hex(),
 			Username:   UserNameSystem,
-			Account:    "",
 			Verb:       VerbUpdate,
 			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,

@@ -126,19 +126,18 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	}
 	args.HookSettings = hookSetting.ToHookSettings()
 
-	planID, err := mongodb.NewReleasePlanColl().Create(args)
+	args.ID = primitive.NewObjectID()
+	sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
 	if err != nil {
-		return errors.Wrap(err, "create release plan error")
+		return errors.Wrap(err, "build release plan initial snapshot")
+	}
+	planID := args.ID.Hex()
+	versionDoc := newReleasePlanVersionDocument(planID, 1, 0, nil, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
+	if err := persistNewReleasePlanWithVersion(context.Background(), args, versionDoc); err != nil {
+		return errors.Wrap(err, "create release plan")
 	}
 
 	go func() {
-		sectionSnapshot, err := buildReleasePlanInputSnapshot(args)
-		if err == nil {
-			err = createReleasePlanVersion(planID, 1, sectionSnapshot, c.UserName, c.Account, releasePlanVersionSectionPlan, releasePlanVersionSectionName(releasePlanVersionSectionPlan, args.Name), VerbCreate)
-		}
-		if err != nil {
-			log.Errorf("create release plan version error: %v", err)
-		}
 		if err := createReleasePlanLog(&models.ReleasePlanLog{
 			PlanID:      planID,
 			Username:    c.UserName,
@@ -599,9 +598,11 @@ type UpdateReleasePlanArgs struct {
 }
 
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
-	approveLock := getLock(planID)
-	approveLock.Lock()
-	defer approveLock.Unlock()
+	planLock := getLock(planID)
+	if err := planLock.Lock(); err != nil {
+		return errors.Wrap(err, "lock release plan")
+	}
+	defer planLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
