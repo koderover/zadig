@@ -206,7 +206,9 @@ func buildReleasePlanVersionDiffGroups(current *models.ReleasePlanVersion, fromD
 		return buildReleasePlanCreateVersionDiffGroups(current, fromData, toData)
 	}
 
-	groupKey, groupName, groupType := releasePlanVersionDiffGroup(current.SectionKey, current.SectionName)
+	groupKey := current.SectionKey
+	groupName := releasePlanVersionSectionName(current.SectionKey, current.SectionName)
+	groupType := releasePlanVersionSectionGroupType(current.SectionKey)
 	groups := buildReleasePlanSectionVersionDiffGroups(groupKey, groupName, groupType, current.SectionKey, current.Verb, fromData, toData)
 	sort.Slice(groups, func(i, j int) bool {
 		return groups[i].GroupKey < groups[j].GroupKey
@@ -240,7 +242,7 @@ func appendReleasePlanVersionDiffGroup(groupMap map[string]*ReleasePlanVersionDi
 	displayMode, beforeSpec, afterSpec := releasePlanVersionDiffDisplaySpec(sectionKey, groupType, verb, fromData, toData)
 
 	rawEntries := make([]*releasePlanRawDiffEntry, 0)
-	if shouldBuildReleasePlanPathDiff(displayMode) {
+	if displayMode == "" || displayMode == releasePlanDiffDisplayApprovalSpec {
 		// Workflow release jobs are rendered from full preset specs on the frontend.
 		// Keep path-level diff for simple sections only.
 		diffReleasePlanValues(groupType, "", fromData, toData, &rawEntries)
@@ -452,10 +454,6 @@ func releasePlanVersionDiffDisplaySpec(sectionKey, groupType, verb string, fromD
 		}
 		return "", nil, nil
 	}
-}
-
-func shouldBuildReleasePlanPathDiff(displayMode string) bool {
-	return displayMode == "" || displayMode == releasePlanDiffDisplayApprovalSpec
 }
 
 func isReleasePlanWorkflowJobSnapshot(value interface{}) bool {

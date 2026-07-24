@@ -29,25 +29,6 @@ import (
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
-var (
-	createReleasePlanDocument = func(ctx context.Context, plan *models.ReleasePlan) error {
-		_, err := mongodb.NewReleasePlanColl().CreateWithCtx(ctx, plan)
-		return err
-	}
-	updateReleasePlanDocument = func(ctx context.Context, planID string, plan *models.ReleasePlan) error {
-		return mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan)
-	}
-	createReleasePlanVersionDocument = func(ctx context.Context, version *models.ReleasePlanVersion) error {
-		return mongodb.NewReleasePlanVersionColl().CreateWithCtx(ctx, version)
-	}
-	upsertReleasePlanVersionDocument = func(ctx context.Context, version *models.ReleasePlanVersion) error {
-		return mongodb.NewReleasePlanVersionColl().UpsertWithCtx(ctx, version)
-	}
-	deleteReleasePlanVersionDocument = func(ctx context.Context, planID string, version int64) error {
-		return mongodb.NewReleasePlanVersionColl().DeleteWithCtx(ctx, planID, version)
-	}
-)
-
 func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleasePlan, versionDoc *models.ReleasePlanVersion) error {
 	if plan == nil {
 		return errors.New("nil release plan")
@@ -61,6 +42,8 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 	if versionDoc.PlanID != plan.ID.Hex() || versionDoc.Version != plan.Version {
 		return errors.New("release plan version does not match plan")
 	}
+	planColl := mongodb.NewReleasePlanColl()
+	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
 		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
@@ -74,11 +57,11 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 		}()
 
 		sessionCtx := mongotool.SessionContext(ctx, session)
-		if err := createReleasePlanVersionDocument(sessionCtx, versionDoc); err != nil {
+		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
 			retErr = errors.Wrap(err, "create release plan version")
 			return retErr
 		}
-		if err := createReleasePlanDocument(sessionCtx, plan); err != nil {
+		if _, err := planColl.CreateWithCtx(sessionCtx, plan); err != nil {
 			retErr = errors.Wrap(err, "create release plan")
 			return retErr
 		}
@@ -89,11 +72,11 @@ func persistNewReleasePlanWithVersion(ctx context.Context, plan *models.ReleaseP
 		return nil
 	}
 
-	if err := upsertReleasePlanVersionDocument(ctx, versionDoc); err != nil {
+	if err := versionColl.Upsert(ctx, versionDoc); err != nil {
 		return errors.Wrap(err, "create release plan version")
 	}
-	if err := createReleasePlanDocument(ctx, plan); err != nil {
-		cleanupErr := deleteReleasePlanVersionDocument(ctx, versionDoc.PlanID, versionDoc.Version)
+	if _, err := planColl.CreateWithCtx(ctx, plan); err != nil {
+		cleanupErr := versionColl.Delete(ctx, versionDoc.PlanID, versionDoc.Version)
 		if cleanupErr != nil {
 			return errors.Wrapf(err, "create release plan; cleanup release plan version error: %v", cleanupErr)
 		}
@@ -126,6 +109,8 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 	if versionDoc == nil {
 		return errors.New("nil release plan version")
 	}
+	planColl := mongodb.NewReleasePlanColl()
+	versionColl := mongodb.NewReleasePlanVersionColl()
 
 	if config.EnableTransaction() {
 		session, deferSession, err := mongotool.SessionWithTransaction(ctx)
@@ -139,11 +124,11 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 		}()
 
 		sessionCtx := mongotool.SessionContext(ctx, session)
-		if err := updateReleasePlanDocument(sessionCtx, planID, plan); err != nil {
+		if err := planColl.UpdateByID(sessionCtx, planID, plan); err != nil {
 			retErr = errors.Wrap(err, "update plan")
 			return retErr
 		}
-		if err := createReleasePlanVersionDocument(sessionCtx, versionDoc); err != nil {
+		if err := versionColl.Create(sessionCtx, versionDoc); err != nil {
 			retErr = errors.Wrap(err, "create release plan version")
 			return retErr
 		}
@@ -154,11 +139,11 @@ func persistReleasePlanWithVersion(ctx context.Context, planID string, plan *mod
 		return nil
 	}
 
-	if err := upsertReleasePlanVersionDocument(ctx, versionDoc); err != nil {
+	if err := versionColl.Upsert(ctx, versionDoc); err != nil {
 		return errors.Wrap(err, "create release plan version")
 	}
-	if err := updateReleasePlanDocument(ctx, planID, plan); err != nil {
-		cleanupErr := deleteReleasePlanVersionDocument(ctx, planID, versionDoc.Version)
+	if err := planColl.UpdateByID(ctx, planID, plan); err != nil {
+		cleanupErr := versionColl.Delete(ctx, planID, versionDoc.Version)
 		if cleanupErr != nil {
 			return errors.Wrapf(err, "update plan; cleanup release plan version error: %v", cleanupErr)
 		}

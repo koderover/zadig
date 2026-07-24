@@ -62,7 +62,7 @@ func (c *ReleasePlanVersionColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ReleasePlanVersionColl) CreateWithCtx(ctx context.Context, args *models.ReleasePlanVersion) error {
+func (c *ReleasePlanVersionColl) Create(ctx context.Context, args *models.ReleasePlanVersion) error {
 	if args == nil {
 		return errors.New("nil ReleasePlanVersion")
 	}
@@ -71,7 +71,7 @@ func (c *ReleasePlanVersionColl) CreateWithCtx(ctx context.Context, args *models
 	return err
 }
 
-func (c *ReleasePlanVersionColl) UpsertWithCtx(ctx context.Context, args *models.ReleasePlanVersion) error {
+func (c *ReleasePlanVersionColl) Upsert(ctx context.Context, args *models.ReleasePlanVersion) error {
 	if args == nil {
 		return errors.New("nil ReleasePlanVersion")
 	}
@@ -83,7 +83,7 @@ func (c *ReleasePlanVersionColl) UpsertWithCtx(ctx context.Context, args *models
 	return err
 }
 
-func (c *ReleasePlanVersionColl) DeleteWithCtx(ctx context.Context, planID string, version int64) error {
+func (c *ReleasePlanVersionColl) Delete(ctx context.Context, planID string, version int64) error {
 	_, err := c.DeleteOne(ctx, bson.M{
 		"plan_id": planID,
 		"version": version,

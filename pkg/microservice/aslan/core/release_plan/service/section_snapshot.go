@@ -1103,7 +1103,3 @@ func shouldDropReleasePlanWorkflowInputField(key string) bool {
 
 	return false
 }
-
-func releasePlanVersionDiffGroup(sectionKey, sectionName string) (string, string, string) {
-	return sectionKey, releasePlanVersionSectionName(sectionKey, sectionName), releasePlanVersionSectionGroupType(sectionKey)
-}

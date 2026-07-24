@@ -598,14 +598,6 @@ func decodeReleasePlanEditingSessions(planID string, values []interface{}) []*Re
 	return resp
 }
 
-func persistReleasePlanEditingSession(session *ReleasePlanEditingSession) error {
-	return saveReleasePlanEditingSession(session, true)
-}
-
-func refreshReleasePlanEditingSession(session *ReleasePlanEditingSession) error {
-	return saveReleasePlanEditingSession(session, false)
-}
-
 func saveReleasePlanEditingSession(session *ReleasePlanEditingSession, broadcast bool) error {
 	if session == nil {
 		return errors.New("nil editing session")
@@ -785,7 +777,7 @@ func OpenReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 				if session.BaseVersion == 0 {
 					session.BaseVersion = plan.Version
 				}
-				if err := persistReleasePlanEditingSession(session); err != nil {
+				if err := saveReleasePlanEditingSession(session, true); err != nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
 					continue
 				}
@@ -808,7 +800,7 @@ func OpenReleasePlanCollaborationWS(gCtx *gin.Context, ctx *handler.Context, pla
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: "permission denied"})
 					continue
 				}
-				if err := refreshReleasePlanEditingSession(session); err != nil {
+				if err := saveReleasePlanEditingSession(session, false); err != nil {
 					queueCollaborationClientMessage(client, &releasePlanCollabWSOutbound{Type: "error", Error: err.Error()})
 					continue
 				}

@@ -79,10 +79,6 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 			Keys:    bson.M{"update_time": 1},
 			Options: options.Index().SetUnique(false),
 		},
-		{
-			Keys:    bson.M{"version": 1},
-			Options: options.Index().SetUnique(false),
-		},
 	}
 
 	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
