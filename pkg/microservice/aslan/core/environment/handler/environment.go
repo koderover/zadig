@@ -49,7 +49,8 @@ import (
 )
 
 type DeleteProductServicesRequest struct {
-	ServiceNames []string `json:"service_names"`
+	ServiceNames    []string                                 `json:"service_names"`
+	DeleteResources map[string][]*service.K8sServiceResource `json:"delete_resources,omitempty"`
 }
 
 type DeleteProductHelmReleaseRequest struct {
@@ -1743,7 +1744,7 @@ func DeleteProductServices(c *gin.Context) {
 
 	detail := fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ","))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, isDelete, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, isDelete, args.DeleteResources, ctx.Logger)
 }
 
 // @Summary Delete helm release from envrionment

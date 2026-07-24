@@ -222,6 +222,10 @@ type FetchServiceYamlResponse struct {
 	Yaml string `json:"yaml"`
 }
 
+type ListServiceResourcesResponse struct {
+	Resources []*service.K8sServiceResource `json:"resources"`
+}
+
 // @Summary Fetch Service Yaml
 // @Description  Fetch Service Yaml
 // @Tags 	environment
@@ -281,6 +285,68 @@ func FetchServiceYaml(c *gin.Context) {
 
 	resp := new(FetchServiceYamlResponse)
 	resp.Yaml, ctx.RespErr = service.FetchServiceYaml(projectKey, envName, serviceName, ctx.Logger)
+	ctx.Resp = resp
+}
+
+// @Summary List service resources
+// @Description List k8s yaml service resources
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name			path		string								true	"env name"
+// @Param 	serviceName		path		string								true	"service name"
+// @Success 200 			{object}    ListServiceResourcesResponse
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName}/resources [get]
+func ListServiceResources(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	serviceName := c.Param("serviceName")
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
+
+	resp := new(ListServiceResourcesResponse)
+	resp.Resources, ctx.RespErr = service.ListK8sServiceResources(projectKey, envName, serviceName, production, ctx.Logger)
 	ctx.Resp = resp
 }
 

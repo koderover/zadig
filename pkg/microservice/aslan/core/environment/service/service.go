@@ -20,12 +20,15 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -354,6 +357,95 @@ func FetchServiceYaml(productName, envName, serviceName string, _ *zap.SugaredLo
 	}
 
 	return curYaml, nil
+}
+
+func ListK8sServiceResources(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) ([]*K8sServiceResource, error) {
+	if getProjectType(productName) != setting.K8SDeployType {
+		return nil, e.ErrInvalidParam.AddDesc("only k8s yaml service resources are supported")
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(production),
+	})
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	if productInfo.GetServiceMap()[serviceName] == nil {
+		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found in environment", serviceName))
+	}
+
+	serviceYaml, err := FetchServiceYaml(productName, envName, serviceName, log)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseK8sServiceResources(serviceYaml)
+}
+
+func parseK8sServiceResources(serviceYaml string) ([]*K8sServiceResource, error) {
+	resources, _, err := kube.ManifestToUnstructured(serviceYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*K8sServiceResource, 0, len(resources))
+	for _, resource := range resources {
+		ret = append(ret, &K8sServiceResource{
+			APIVersion: resource.GetAPIVersion(),
+			Kind:       resource.GetKind(),
+			Name:       resource.GetName(),
+		})
+	}
+	return ret, nil
+}
+
+func filterSelectedServiceResourceYaml(serviceYaml string, selectedResources []*K8sServiceResource) (string, error) {
+	if len(selectedResources) == 0 {
+		return "", nil
+	}
+
+	selectedResourceMap := make(map[string]struct{}, len(selectedResources))
+	for _, resource := range selectedResources {
+		if resource == nil || resource.APIVersion == "" || resource.Kind == "" || resource.Name == "" {
+			return "", fmt.Errorf("selected resource api_version, kind and name cannot be empty")
+		}
+		gvk := schema.FromAPIVersionAndKind(resource.APIVersion, resource.Kind)
+		selectedResourceMap[fmt.Sprintf("%s-%s", gvk, resource.Name)] = struct{}{}
+	}
+
+	resources, resourceMap, err := kube.ManifestToUnstructured(serviceYaml)
+	if err != nil {
+		return "", err
+	}
+
+	filteredManifests := make([]string, 0, len(selectedResourceMap))
+	foundResourceMap := make(map[string]struct{}, len(selectedResourceMap))
+	for _, resource := range resources {
+		gvkn := fmt.Sprintf("%s-%s", resource.GetObjectKind().GroupVersionKind(), resource.GetName())
+		if _, ok := selectedResourceMap[gvkn]; !ok {
+			continue
+		}
+
+		if resourceInfo, ok := resourceMap[gvkn]; ok {
+			filteredManifests = append(filteredManifests, resourceInfo.Manifest)
+			foundResourceMap[gvkn] = struct{}{}
+		}
+	}
+
+	if len(foundResourceMap) != len(selectedResourceMap) {
+		missingResources := make([]string, 0, len(selectedResourceMap)-len(foundResourceMap))
+		for key := range selectedResourceMap {
+			if _, ok := foundResourceMap[key]; !ok {
+				missingResources = append(missingResources, key)
+			}
+		}
+		sort.Strings(missingResources)
+		return "", fmt.Errorf("selected resources not found in service yaml: %s", strings.Join(missingResources, ", "))
+	}
+
+	return util.JoinYamls(filteredManifests), nil
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {

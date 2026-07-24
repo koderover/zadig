@@ -402,24 +402,55 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
 	}
 
-	sharedNSEnvList := make(map[string]*commonmodels.Product)
-	insertEnvData := func(resource string, env *commonmodels.Product) {
-		sharedNSEnvList[resource] = env
+	return checkResourceAppliedByOtherEnv(unstructuredRes, productInfo, serviceName)
+}
+
+func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product, serviceName string) error {
+	if len(unstructuredRes) == 0 {
+		return nil
+	}
+
+	resources := UnstructuredToResources(unstructuredRes)
+	hasClusterScopedResource := false
+	for _, resource := range resources {
+		if isClusterScopedK8sServiceResource(resource.GroupVersionKind.Kind) {
+			hasClusterScopedResource = true
+			break
+		}
+	}
+
+	var envs []*commonmodels.Product
+	var err error
+	if hasClusterScopedResource {
+		envs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ClusterID: productInfo.ClusterID})
+	} else {
+		envs, err = commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	}
+	if err != nil {
+		log.Errorf("Failed to list environments for resource ownership check, error: %s", err)
+		return err
 	}
 
 	resSet := sets.NewString()
-	resources := UnstructuredToResources(unstructuredRes)
-
 	for _, res := range resources {
 		resSet.Insert(res.String())
 	}
 	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s, resource: %v ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace, resSet.List())
+	return checkResourcesAppliedByOtherEnvs(resources, productInfo, serviceName, envs)
+}
 
-	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
-	if err != nil {
-		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-		return err
+func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource, productInfo *commonmodels.Product, serviceName string, envs []*commonmodels.Product) error {
+	namespacedResSet := sets.NewString()
+	clusterResSet := sets.NewString()
+	for _, res := range resources {
+		if isClusterScopedK8sServiceResource(res.GroupVersionKind.Kind) {
+			clusterResSet.Insert(res.String())
+		} else {
+			namespacedResSet.Insert(res.String())
+		}
 	}
+
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
 
 	for _, env := range envs {
 		for _, svc := range env.GetServiceMap() {
@@ -427,8 +458,9 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 				continue
 			}
 			for _, res := range svc.Resources {
-				if resSet.Has(res.String()) {
-					insertEnvData(res.String(), env)
+				resourceKey := res.String()
+				if clusterResSet.Has(resourceKey) || env.Namespace == productInfo.Namespace && namespacedResSet.Has(resourceKey) {
+					sharedNSEnvList[res.String()] = env
 					break
 				}
 			}
@@ -444,6 +476,15 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", resource, env.ProductName, env.EnvName))
 	}
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
+}
+
+func isClusterScopedK8sServiceResource(kind string) bool {
+	switch kind {
+	case setting.ClusterRole, setting.ClusterRoleBinding:
+		return true
+	default:
+		return false
+	}
 }
 
 func IsStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger) bool {
