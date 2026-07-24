@@ -17,7 +17,7 @@ func normalizeReleasePlanSnapshotComparableValue(path string, value interface{})
 	case map[string]interface{}:
 		resp := make(map[string]interface{}, len(typedValue))
 		for key, item := range typedValue {
-			resp[key] = normalizeReleasePlanSnapshotComparableValue(strings.TrimPrefix(strings.Join([]string{path, key}, "."), "."), item)
+			resp[key] = normalizeReleasePlanSnapshotComparableValue(strings.Join([]string{path, key}, "."), item)
 		}
 		return resp
 	case []interface{}:
