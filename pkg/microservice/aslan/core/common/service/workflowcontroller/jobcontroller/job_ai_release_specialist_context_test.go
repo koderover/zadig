@@ -169,14 +169,13 @@ func TestFindAIRuntimeServiceUsesDeployJobType(t *testing.T) {
 	}
 }
 
-func TestResolveAIRuntimeServiceReleaseNameUsesTargetSemantics(t *testing.T) {
+func TestResolveAIRuntimeServiceReleaseNameUsesServiceType(t *testing.T) {
 	helmService := &commonmodels.ProductService{
 		ServiceName: "orders",
 		ReleaseName: "stale-release",
 		Type:        setting.HelmDeployType,
 	}
 	releaseName, err := resolveAIRuntimeServiceReleaseName(
-		string(config.JobZadigHelmDeploy),
 		"orders",
 		helmService,
 		map[string]string{"orders": "generated-orders-release"},
@@ -188,17 +187,19 @@ func TestResolveAIRuntimeServiceReleaseNameUsesTargetSemantics(t *testing.T) {
 		t.Fatalf("unexpected zadig helm release name, got %q want %q", got, want)
 	}
 
-	chartService := &commonmodels.ProductService{Type: setting.HelmChartDeployType}
+	chartService := &commonmodels.ProductService{
+		ReleaseName: "stored-chart-release",
+		Type:        setting.HelmChartDeployType,
+	}
 	releaseName, err = resolveAIRuntimeServiceReleaseName(
-		string(config.JobZadigHelmChartDeploy),
-		"orders-chart-release",
+		"target-chart-release",
 		chartService,
 		nil,
 	)
 	if err != nil {
 		t.Fatalf("resolve helm chart release name failed: %v", err)
 	}
-	if got, want := releaseName, "orders-chart-release"; got != want {
+	if got, want := releaseName, "stored-chart-release"; got != want {
 		t.Fatalf("unexpected helm chart release name, got %q want %q", got, want)
 	}
 }

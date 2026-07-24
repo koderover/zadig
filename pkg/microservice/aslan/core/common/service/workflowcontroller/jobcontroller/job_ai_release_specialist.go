@@ -1336,7 +1336,7 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 			}
 			item := buildAIRuntimeServiceItem(product, serviceName, service)
 			if kubeClient != nil && serviceReleaseNamesErr == nil {
-				releaseName, err := resolveAIRuntimeServiceReleaseName(jobType, serviceName, service, serviceReleaseNames)
+				releaseName, err := resolveAIRuntimeServiceReleaseName(serviceName, service, serviceReleaseNames)
 				if err != nil {
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
 				} else if err := fillAIRuntimeServicePodReady(product, service, releaseName, item, kubeClient); err != nil {
@@ -1550,20 +1550,20 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	return nil
 }
 
-func resolveAIRuntimeServiceReleaseName(jobType, targetServiceName string, service *commonmodels.ProductService, serviceReleaseNames map[string]string) (string, error) {
+func resolveAIRuntimeServiceReleaseName(targetServiceName string, service *commonmodels.ProductService, serviceReleaseNames map[string]string) (string, error) {
 	if service == nil {
 		return "", fmt.Errorf("runtime service %s is nil", targetServiceName)
 	}
 	var releaseName string
-	switch jobType {
-	case string(config.JobZadigDeploy):
+	switch service.Type {
+	case setting.K8SDeployType:
 		return "", nil
-	case string(config.JobZadigHelmDeploy):
-		releaseName = serviceReleaseNames[strings.TrimSpace(targetServiceName)]
-	case string(config.JobZadigHelmChartDeploy):
-		releaseName = targetServiceName
+	case setting.HelmDeployType:
+		releaseName = serviceReleaseNames[strings.TrimSpace(service.ServiceName)]
+	case setting.HelmChartDeployType:
+		releaseName = service.ReleaseName
 	default:
-		return "", fmt.Errorf("unsupported runtime target job type %s", jobType)
+		return "", fmt.Errorf("unsupported runtime service type %s", service.Type)
 	}
 	releaseName = strings.TrimSpace(releaseName)
 	if releaseName == "" {
