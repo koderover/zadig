@@ -27,8 +27,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -391,32 +391,12 @@ func parseK8sServiceResources(serviceYaml string) ([]*K8sServiceResource, error)
 	}
 
 	ret := make([]*K8sServiceResource, 0, len(resources))
-	resourceMap := make(map[string]*K8sServiceResource, len(resources))
-	serviceSelectorTargets := make([]*serviceSelectorTarget, 0, len(resources))
 	for _, resource := range resources {
-		serviceResource := &K8sServiceResource{
+		ret = append(ret, &K8sServiceResource{
 			APIVersion: resource.GetAPIVersion(),
 			Kind:       resource.GetKind(),
 			Name:       resource.GetName(),
-		}
-		ret = append(ret, serviceResource)
-		resourceMap[k8sServiceResourceKindNameKey(resource.GetKind(), resource.GetName())] = serviceResource
-		if labels := getK8sServiceSelectorTargetLabels(resource); len(labels) > 0 {
-			serviceSelectorTargets = append(serviceSelectorTargets, &serviceSelectorTarget{
-				Kind:   resource.GetKind(),
-				Name:   resource.GetName(),
-				Labels: labels,
-			})
-		}
-	}
-
-	for _, resource := range resources {
-		key := k8sServiceResourceKindNameKey(resource.GetKind(), resource.GetName())
-		serviceResource := resourceMap[key]
-		if serviceResource == nil {
-			continue
-		}
-		serviceResource.Dependencies = collectK8sServiceResourceDependencies(resource, resourceMap, serviceSelectorTargets)
+		})
 	}
 	return ret, nil
 }
@@ -431,7 +411,8 @@ func filterSelectedServiceResourceYaml(serviceYaml string, selectedResources []*
 		if resource == nil || resource.APIVersion == "" || resource.Kind == "" || resource.Name == "" {
 			return "", fmt.Errorf("selected resource api_version, kind and name cannot be empty")
 		}
-		selectedResourceMap[kube.FormatK8sResourceKey(resource.APIVersion, resource.Kind, resource.Name)] = struct{}{}
+		gvk := schema.FromAPIVersionAndKind(resource.APIVersion, resource.Kind)
+		selectedResourceMap[fmt.Sprintf("%s-%s", gvk, resource.Name)] = struct{}{}
 	}
 
 	resources, resourceMap, err := kube.ManifestToUnstructured(serviceYaml)
@@ -442,15 +423,14 @@ func filterSelectedServiceResourceYaml(serviceYaml string, selectedResources []*
 	filteredManifests := make([]string, 0, len(selectedResourceMap))
 	foundResourceMap := make(map[string]struct{}, len(selectedResourceMap))
 	for _, resource := range resources {
-		key := kube.FormatK8sResourceKey(resource.GetAPIVersion(), resource.GetKind(), resource.GetName())
-		if _, ok := selectedResourceMap[key]; !ok {
+		gvkn := fmt.Sprintf("%s-%s", resource.GetObjectKind().GroupVersionKind(), resource.GetName())
+		if _, ok := selectedResourceMap[gvkn]; !ok {
 			continue
 		}
 
-		gvkn := fmt.Sprintf("%s-%s", resource.GetObjectKind().GroupVersionKind(), resource.GetName())
 		if resourceInfo, ok := resourceMap[gvkn]; ok {
 			filteredManifests = append(filteredManifests, resourceInfo.Manifest)
-			foundResourceMap[key] = struct{}{}
+			foundResourceMap[gvkn] = struct{}{}
 		}
 	}
 
@@ -466,282 +446,6 @@ func filterSelectedServiceResourceYaml(serviceYaml string, selectedResources []*
 	}
 
 	return util.JoinYamls(filteredManifests), nil
-}
-
-func k8sServiceResourceKindNameKey(kind, name string) string {
-	return fmt.Sprintf("%s/%s", kind, name)
-}
-
-type serviceSelectorTarget struct {
-	Kind   string
-	Name   string
-	Labels map[string]string
-}
-
-func collectK8sServiceResourceDependencies(resource *unstructured.Unstructured, resourceMap map[string]*K8sServiceResource, serviceSelectorTargets []*serviceSelectorTarget) []*K8sServiceResourceDependency {
-	dependencyMap := make(map[string]*K8sServiceResourceDependency)
-	addDependency := func(kind, name, referencePath string) {
-		if kind == "" || name == "" {
-			return
-		}
-
-		targetResource, ok := resourceMap[k8sServiceResourceKindNameKey(kind, name)]
-		if !ok {
-			return
-		}
-
-		dependencyKey := k8sServiceResourceKindNameKey(kind, name)
-		if _, exists := dependencyMap[dependencyKey]; exists {
-			return
-		}
-
-		dependencyMap[dependencyKey] = &K8sServiceResourceDependency{
-			APIVersion:    targetResource.APIVersion,
-			Kind:          targetResource.Kind,
-			Name:          targetResource.Name,
-			ReferencePath: referencePath,
-		}
-	}
-
-	switch resource.GetKind() {
-	case setting.Ingress:
-		collectIngressDependencies(resource, addDependency)
-	case setting.StatefulSet:
-		serviceName, _, _ := unstructured.NestedString(resource.Object, "spec", "serviceName")
-		addDependency(setting.Service, serviceName, "spec.serviceName")
-	}
-
-	if podSpec, basePath, found := getK8sServiceResourcePodSpec(resource); found {
-		collectPodSpecDependencies(podSpec, basePath, addDependency)
-	}
-
-	if resource.GetKind() == setting.Service {
-		collectServiceSelectorDependencies(resource, serviceSelectorTargets, addDependency)
-	}
-	if resource.GetKind() == setting.RoleBinding || resource.GetKind() == setting.ClusterRoleBinding {
-		collectRBACDependencies(resource, addDependency)
-	}
-
-	ret := make([]*K8sServiceResourceDependency, 0, len(dependencyMap))
-	for _, dependency := range dependencyMap {
-		ret = append(ret, dependency)
-	}
-	sort.Slice(ret, func(i, j int) bool {
-		if ret[i].Kind != ret[j].Kind {
-			return ret[i].Kind < ret[j].Kind
-		}
-		if ret[i].Name != ret[j].Name {
-			return ret[i].Name < ret[j].Name
-		}
-		if ret[i].APIVersion != ret[j].APIVersion {
-			return ret[i].APIVersion < ret[j].APIVersion
-		}
-		return ret[i].ReferencePath < ret[j].ReferencePath
-	})
-	return ret
-}
-
-func collectIngressDependencies(resource *unstructured.Unstructured, addDependency func(kind, name, referencePath string)) {
-	serviceName, _, _ := unstructured.NestedString(resource.Object, "spec", "defaultBackend", "service", "name")
-	addDependency(setting.Service, serviceName, "spec.defaultBackend.service.name")
-
-	serviceName, _, _ = unstructured.NestedString(resource.Object, "spec", "backend", "serviceName")
-	addDependency(setting.Service, serviceName, "spec.backend.serviceName")
-
-	paths, _, _ := unstructured.NestedSlice(resource.Object, "spec", "rules")
-	for _, rule := range paths {
-		ruleMap, ok := rule.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		httpPaths, _, _ := unstructured.NestedSlice(ruleMap, "http", "paths")
-		for _, path := range httpPaths {
-			pathMap, ok := path.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			serviceName, _, _ = unstructured.NestedString(pathMap, "backend", "service", "name")
-			addDependency(setting.Service, serviceName, "spec.rules[].http.paths[].backend.service.name")
-
-			serviceName, _, _ = unstructured.NestedString(pathMap, "backend", "serviceName")
-			addDependency(setting.Service, serviceName, "spec.rules[].http.paths[].backend.serviceName")
-		}
-	}
-
-	tlsList, _, _ := unstructured.NestedSlice(resource.Object, "spec", "tls")
-	for _, item := range tlsList {
-		tlsMap, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		secretName, _, _ := unstructured.NestedString(tlsMap, "secretName")
-		addDependency(setting.Secret, secretName, "spec.tls[].secretName")
-	}
-}
-
-func getK8sServiceResourcePodSpec(resource *unstructured.Unstructured) (map[string]interface{}, string, bool) {
-	switch resource.GetKind() {
-	case setting.Deployment, setting.StatefulSet, setting.ReplicaSet, setting.Job:
-		podSpec, found, _ := unstructured.NestedMap(resource.Object, "spec", "template", "spec")
-		return podSpec, "spec.template.spec", found
-	case setting.CronJob:
-		podSpec, found, _ := unstructured.NestedMap(resource.Object, "spec", "jobTemplate", "spec", "template", "spec")
-		return podSpec, "spec.jobTemplate.spec.template.spec", found
-	case setting.Pod:
-		podSpec, found, _ := unstructured.NestedMap(resource.Object, "spec")
-		return podSpec, "spec", found
-	default:
-		return nil, "", false
-	}
-}
-
-func collectPodSpecDependencies(podSpec map[string]interface{}, basePath string, addDependency func(kind, name, referencePath string)) {
-	serviceAccountName, _, _ := unstructured.NestedString(podSpec, "serviceAccountName")
-	addDependency(setting.ServiceAccount, serviceAccountName, basePath+".serviceAccountName")
-
-	imagePullSecrets, _, _ := unstructured.NestedSlice(podSpec, "imagePullSecrets")
-	for _, item := range imagePullSecrets {
-		secretMap, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		secretName, _, _ := unstructured.NestedString(secretMap, "name")
-		addDependency(setting.Secret, secretName, basePath+".imagePullSecrets[].name")
-	}
-
-	volumes, _, _ := unstructured.NestedSlice(podSpec, "volumes")
-	for _, item := range volumes {
-		volumeMap, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		configMapName, _, _ := unstructured.NestedString(volumeMap, "configMap", "name")
-		addDependency(setting.ConfigMap, configMapName, basePath+".volumes[].configMap.name")
-
-		secretName, _, _ := unstructured.NestedString(volumeMap, "secret", "secretName")
-		addDependency(setting.Secret, secretName, basePath+".volumes[].secret.secretName")
-
-		claimName, _, _ := unstructured.NestedString(volumeMap, "persistentVolumeClaim", "claimName")
-		addDependency(setting.PersistentVolumeClaim, claimName, basePath+".volumes[].persistentVolumeClaim.claimName")
-
-		projectedSources, _, _ := unstructured.NestedSlice(volumeMap, "projected", "sources")
-		for _, source := range projectedSources {
-			sourceMap, ok := source.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			configMapName, _, _ = unstructured.NestedString(sourceMap, "configMap", "name")
-			addDependency(setting.ConfigMap, configMapName, basePath+".volumes[].projected.sources[].configMap.name")
-
-			secretName, _, _ = unstructured.NestedString(sourceMap, "secret", "name")
-			addDependency(setting.Secret, secretName, basePath+".volumes[].projected.sources[].secret.name")
-		}
-	}
-
-	collectContainerDependencies(podSpec, "containers", basePath+".containers[]", addDependency)
-	collectContainerDependencies(podSpec, "initContainers", basePath+".initContainers[]", addDependency)
-	collectContainerDependencies(podSpec, "ephemeralContainers", basePath+".ephemeralContainers[]", addDependency)
-}
-
-func collectContainerDependencies(podSpec map[string]interface{}, fieldName, basePath string, addDependency func(kind, name, referencePath string)) {
-	containers, _, _ := unstructured.NestedSlice(podSpec, fieldName)
-	for _, item := range containers {
-		containerMap, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		envs, _, _ := unstructured.NestedSlice(containerMap, "env")
-		for _, env := range envs {
-			envMap, ok := env.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			configMapName, _, _ := unstructured.NestedString(envMap, "valueFrom", "configMapKeyRef", "name")
-			addDependency(setting.ConfigMap, configMapName, basePath+".env[].valueFrom.configMapKeyRef.name")
-
-			secretName, _, _ := unstructured.NestedString(envMap, "valueFrom", "secretKeyRef", "name")
-			addDependency(setting.Secret, secretName, basePath+".env[].valueFrom.secretKeyRef.name")
-		}
-
-		envFromList, _, _ := unstructured.NestedSlice(containerMap, "envFrom")
-		for _, envFrom := range envFromList {
-			envFromMap, ok := envFrom.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			configMapName, _, _ := unstructured.NestedString(envFromMap, "configMapRef", "name")
-			addDependency(setting.ConfigMap, configMapName, basePath+".envFrom[].configMapRef.name")
-
-			secretName, _, _ := unstructured.NestedString(envFromMap, "secretRef", "name")
-			addDependency(setting.Secret, secretName, basePath+".envFrom[].secretRef.name")
-		}
-	}
-}
-
-func collectServiceSelectorDependencies(resource *unstructured.Unstructured, serviceSelectorTargets []*serviceSelectorTarget, addDependency func(kind, name, referencePath string)) {
-	selector, _, _ := unstructured.NestedStringMap(resource.Object, "spec", "selector")
-	if len(selector) == 0 {
-		return
-	}
-
-	for _, target := range serviceSelectorTargets {
-		if len(target.Labels) == 0 || !isSelectorSubset(selector, target.Labels) {
-			continue
-		}
-
-		addDependency(target.Kind, target.Name, "spec.selector")
-	}
-}
-
-func getK8sServiceSelectorTargetLabels(resource *unstructured.Unstructured) map[string]string {
-	switch resource.GetKind() {
-	case setting.Deployment, setting.StatefulSet, setting.ReplicaSet:
-		labels, _, _ := unstructured.NestedStringMap(resource.Object, "spec", "template", "metadata", "labels")
-		return labels
-	case setting.Pod:
-		labels, _, _ := unstructured.NestedStringMap(resource.Object, "metadata", "labels")
-		return labels
-	default:
-		return nil
-	}
-}
-
-func isSelectorSubset(selector, labels map[string]string) bool {
-	if len(selector) == 0 || len(labels) == 0 {
-		return false
-	}
-
-	for key, value := range selector {
-		if labels[key] != value {
-			return false
-		}
-	}
-	return true
-}
-
-func collectRBACDependencies(resource *unstructured.Unstructured, addDependency func(kind, name, referencePath string)) {
-	roleKind, _, _ := unstructured.NestedString(resource.Object, "roleRef", "kind")
-	roleName, _, _ := unstructured.NestedString(resource.Object, "roleRef", "name")
-	addDependency(roleKind, roleName, "roleRef.name")
-
-	subjects, _, _ := unstructured.NestedSlice(resource.Object, "subjects")
-	for _, subject := range subjects {
-		subjectMap, ok := subject.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		subjectKind, _, _ := unstructured.NestedString(subjectMap, "kind")
-		subjectName, _, _ := unstructured.NestedString(subjectMap, "name")
-		addDependency(subjectKind, subjectName, "subjects[].name")
-	}
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {

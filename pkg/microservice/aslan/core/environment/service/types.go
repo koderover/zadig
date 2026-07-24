@@ -87,17 +87,9 @@ type PreviewServiceArgs struct {
 }
 
 type K8sServiceResource struct {
-	APIVersion   string                          `json:"api_version"`
-	Kind         string                          `json:"kind"`
-	Name         string                          `json:"name"`
-	Dependencies []*K8sServiceResourceDependency `json:"dependencies,omitempty"`
-}
-
-type K8sServiceResourceDependency struct {
-	APIVersion    string `json:"api_version"`
-	Kind          string `json:"kind"`
-	Name          string `json:"name"`
-	ReferencePath string `json:"reference_path,omitempty"`
+	APIVersion string `json:"api_version"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
 }
 
 type RestartScaleArgs struct {

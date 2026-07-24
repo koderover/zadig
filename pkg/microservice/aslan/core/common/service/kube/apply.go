@@ -473,10 +473,6 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
-func FormatK8sResourceKey(apiVersion, kind, name string) string {
-	return fmt.Sprintf("%s/%s/%s", apiVersion, kind, name)
-}
-
 func isClusterScopedK8sServiceResource(kind string) bool {
 	switch kind {
 	case setting.ClusterRole, setting.ClusterRoleBinding:
