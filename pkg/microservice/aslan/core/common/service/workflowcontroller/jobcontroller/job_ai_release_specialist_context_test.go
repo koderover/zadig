@@ -293,6 +293,26 @@ spec:
 	}
 }
 
+func TestGetAIRuntimeServiceWorkloadsReturnsK8SWorkloadsDirectly(t *testing.T) {
+	want := []*commonmodels.WorkLoad{{
+		WorkloadType: setting.Deployment,
+		WorkloadName: "orders",
+		Replicas:     2,
+	}}
+	service := &commonmodels.ProductService{
+		Type:      setting.K8SDeployType,
+		WorkLoads: want,
+	}
+
+	got, err := getAIRuntimeServiceWorkloads(&commonmodels.Product{}, service, "")
+	if err != nil {
+		t.Fatalf("get k8s runtime workloads failed: %v", err)
+	}
+	if len(got) != 1 || got[0] != want[0] {
+		t.Fatalf("unexpected k8s workloads: %#v", got)
+	}
+}
+
 func TestBuildAIRuntimeServiceItemUsesHelmChartReleaseName(t *testing.T) {
 	item := buildAIRuntimeServiceItem(
 		&commonmodels.Product{EnvName: "prod"},

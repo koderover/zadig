@@ -1492,7 +1492,7 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	if strings.TrimSpace(product.Namespace) == "" {
 		return fmt.Errorf("query service %s pod status failed: env namespace is empty", item.ServiceName)
 	}
-	workloads, err := getAIRuntimeServiceWorkloadsWithTimeout(product, service, releaseName)
+	workloads, err := getAIRuntimeServiceWorkloads(product, service, releaseName)
 	if err != nil {
 		return fmt.Errorf("query service %s workloads failed: %v", item.ServiceName, err)
 	}
@@ -1576,29 +1576,20 @@ func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *common
 	if product == nil || service == nil {
 		return nil, nil
 	}
-	if service.Type == setting.K8SDeployType {
+	switch service.Type {
+	case setting.K8SDeployType:
 		return service.WorkLoads, nil
-	}
-	if service.Type != setting.HelmDeployType && service.Type != setting.HelmChartDeployType {
+	case setting.HelmDeployType, setting.HelmChartDeployType:
+		return getAIRuntimeHelmServiceWorkloadsWithTimeout(product, releaseName)
+	default:
 		return nil, nil
 	}
+}
+
+func getAIRuntimeHelmServiceWorkloadsWithTimeout(product *commonmodels.Product, releaseName string) ([]*commonmodels.WorkLoad, error) {
 	releaseName = strings.TrimSpace(releaseName)
 	if releaseName == "" {
 		return nil, fmt.Errorf("release name is empty")
-	}
-	manifest, err := getAIReleaseHelmReleaseManifest(product, releaseName)
-	if err != nil {
-		return nil, fmt.Errorf("get release %s failed: %v", releaseName, err)
-	}
-	return parseAIRuntimeWorkloadsFromHelmManifest(manifest)
-}
-
-func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string) ([]*commonmodels.WorkLoad, error) {
-	if service == nil {
-		return nil, nil
-	}
-	if service.Type == setting.K8SDeployType {
-		return getAIRuntimeServiceWorkloads(product, service, "")
 	}
 	type resp struct {
 		workloads []*commonmodels.WorkLoad
@@ -1606,7 +1597,12 @@ func getAIRuntimeServiceWorkloadsWithTimeout(product *commonmodels.Product, serv
 	}
 	ch := make(chan resp, 1)
 	go func() {
-		workloads, err := getAIRuntimeServiceWorkloads(product, service, releaseName)
+		manifest, err := getAIReleaseHelmReleaseManifest(product, releaseName)
+		if err != nil {
+			ch <- resp{err: fmt.Errorf("get release %s failed: %v", releaseName, err)}
+			return
+		}
+		workloads, err := parseAIRuntimeWorkloadsFromHelmManifest(manifest)
 		ch <- resp{workloads: workloads, err: err}
 	}()
 	select {
