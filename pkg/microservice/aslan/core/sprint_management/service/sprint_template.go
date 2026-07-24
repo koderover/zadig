@@ -204,14 +204,14 @@ func genSprintTemplate(ctx *handler.Context, sprintTemplate *commonmodels.Sprint
 	return nil
 }
 
-func UpdateSprintTemplateStageName(ctx *handler.Context, sprintTemplateID, stageID, stageName string) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func UpdateSprintTemplateStageName(ctx *handler.Context, sprintTemplateID, stageID, stageName string) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
-	template, err := mongodb.NewSprintTemplateColl().GetByID(ctx, sprintTemplateID)
+	template, err := mongodb.NewSprintTemplateCollWithSession(session).GetByID(ctx, sprintTemplateID)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "Get sprint template"))
 	}
@@ -251,14 +251,14 @@ func UpdateSprintTemplateStageName(ctx *handler.Context, sprintTemplateID, stage
 	return nil
 }
 
-func UpdateSprintTemplateStageWorkflows(ctx *handler.Context, sprintTemplateID, stageID string, workflowTemplates []*models.SprintWorkflow, updateTime int64) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func UpdateSprintTemplateStageWorkflows(ctx *handler.Context, sprintTemplateID, stageID string, workflowTemplates []*models.SprintWorkflow, updateTime int64) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
-	template, err := mongodb.NewSprintTemplateColl().GetByID(ctx, sprintTemplateID)
+	template, err := mongodb.NewSprintTemplateCollWithSession(session).GetByID(ctx, sprintTemplateID)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "Get sprint template"))
 	}
@@ -291,14 +291,14 @@ func UpdateSprintTemplateStageWorkflows(ctx *handler.Context, sprintTemplateID, 
 	return nil
 }
 
-func AddSprintTemplateStage(ctx *handler.Context, sprintTemplateID, stageName string) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func AddSprintTemplateStage(ctx *handler.Context, sprintTemplateID, stageName string) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
-	template, err := mongodb.NewSprintTemplateColl().GetByID(ctx, sprintTemplateID)
+	template, err := mongodb.NewSprintTemplateCollWithSession(session).GetByID(ctx, sprintTemplateID)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "Get sprint template"))
 	}
@@ -339,14 +339,14 @@ func AddSprintTemplateStage(ctx *handler.Context, sprintTemplateID, stageName st
 	return nil
 }
 
-func DeleteSprintTemplateStage(ctx *handler.Context, sprintTemplateID, stageID string) error {
-	session, deferFunc, err := mongotool.SessionWithTransaction(ctx)
-	defer func() { deferFunc(err) }()
+func DeleteSprintTemplateStage(ctx *handler.Context, sprintTemplateID, stageID string) (retErr error) {
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "SessionWithTransaction"))
 	}
+	defer finishTransaction(&retErr)
 
-	template, err := mongodb.NewSprintTemplateColl().GetByID(ctx, sprintTemplateID)
+	template, err := mongodb.NewSprintTemplateCollWithSession(session).GetByID(ctx, sprintTemplateID)
 	if err != nil {
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrap(err, "Get sprint template"))
 	}

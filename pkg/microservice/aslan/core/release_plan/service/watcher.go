@@ -229,16 +229,17 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		return errors.Errorf("update plan %s approval error: %v", plan.Name, err)
 	}
 	var planLog *models.ReleasePlanLog
+	beforeStatus := config.ReleasePlanStatusWaitForApprove
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
 			PlanID:     plan.ID.Hex(),
 			Username:   UserNameSystem,
 			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     DetailApprovalPass,
-			After:      config.ReleasePlanStatusExecuting,
+			Before:     beforeStatus,
 			CreatedAt:  time.Now().Unix(),
 		}
 
@@ -260,11 +261,18 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		sendWebhook = true
 
 		setReleaseJobsForExecuting(plan)
+		planLog.After = plan.Status
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
-			PlanID:    plan.ID.Hex(),
-			Detail:    DetailApprovalReject,
-			CreatedAt: time.Now().Unix(),
+			PlanID:     plan.ID.Hex(),
+			Username:   UserNameSystem,
+			Verb:       VerbUpdate,
+			TargetName: releasePlanTargetTypeDisplayName(TargetTypeReleasePlanStatus),
+			TargetType: TargetTypeReleasePlanStatus,
+			Detail:     DetailApprovalReject,
+			Before:     beforeStatus,
+			After:      config.ReleasePlanStatusApprovalDenied,
+			CreatedAt:  time.Now().Unix(),
 		}
 		plan.Status = config.ReleasePlanStatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
@@ -285,7 +293,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			return
 		}
 
-		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+		if err := createReleasePlanLog(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
 	}()

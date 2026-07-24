@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -76,6 +77,56 @@ func GetReleasePlanLogs(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetReleasePlanLogs(c.Param("id"))
+}
+
+func GetReleasePlanCollaborationSnapshot(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanCollaborationSnapshot(c.Param("id"))
+}
+
+func ReleasePlanCollaborationWS(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.OpenReleasePlanCollaborationWS(c, ctx, c.Param("id"))
 }
 
 func CreateReleasePlan(c *gin.Context) {
@@ -187,6 +238,36 @@ func UpdateReleasePlan(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), req)
+}
+
+func GetReleasePlanVersionDiff(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	version, err := strconv.ParseInt(c.Param("version"), 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanVersionDiff(c.Param("id"), version)
 }
 
 func GetReleasePlanJobDetail(c *gin.Context) {
