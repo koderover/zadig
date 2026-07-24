@@ -301,14 +301,21 @@ type RollbackEnvServiceVersionData struct {
 }
 
 type CheckRollbackEnvServiceVersionResponse struct {
-	Available         bool     `json:"available"`
-	UnavailableImages []string `json:"unavailable_images"`
+	Available         bool                         `json:"available"`
+	UnavailableImages []string                     `json:"unavailable_images"`
+	Warnings          []*RollbackImageCheckWarning `json:"warnings"`
 }
 
-func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredLogger) ([]string, error) {
+type RollbackImageCheckWarning struct {
+	Image   string `json:"image"`
+	Reason  string `json:"reason"`
+	Message string `json:"message"`
+}
+
+func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredLogger) ([]string, []*RollbackImageCheckWarning, error) {
 	registryInfos, err := ListRegistryNamespaces("", false, log)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list registries for rollback image check: %w", err)
+		return nil, nil, fmt.Errorf("failed to list registries for rollback image check: %w", err)
 	}
 
 	type rollbackImageRegistry struct {
@@ -331,6 +338,7 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 	}
 
 	missingImages := make([]string, 0)
+	warnings := make([]*RollbackImageCheckWarning, 0)
 	checkedImages := sets.NewString()
 	credentialRegistries := make(map[string]*commonmodels.RegistryNamespace)
 	for _, container := range containers {
@@ -359,7 +367,12 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			}
 		}
 		if matchedRegistry == nil {
-			return nil, fmt.Errorf("无法检查回滚镜像 %s：未找到匹配的镜像仓库配置", container.Image)
+			warnings = append(warnings, &RollbackImageCheckWarning{
+				Image:   container.Image,
+				Reason:  "registry_not_configured",
+				Message: "未找到匹配的镜像仓库配置，无法确认镜像是否存在",
+			})
+			continue
 		}
 
 		registryID := matchedRegistry.info.ID.Hex()
@@ -367,7 +380,13 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 		if !ok {
 			registryInfo, err = FindRegistryById(registryID, true, log)
 			if err != nil {
-				return nil, fmt.Errorf("获取镜像仓库 %s 的凭证失败: %w", matchedRegistry.host, err)
+				log.Warnf("failed to get credentials for rollback image %s from registry %s: %v", container.Image, matchedRegistry.host, err)
+				warnings = append(warnings, &RollbackImageCheckWarning{
+					Image:   container.Image,
+					Reason:  "registry_credentials_unavailable",
+					Message: "获取镜像仓库凭证失败，无法确认镜像是否存在",
+				})
+				continue
 			}
 			credentialRegistries[registryID] = registryInfo
 		}
@@ -406,14 +425,20 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			Digest: imageDigest,
 		}, log)
 		if err != nil {
-			return nil, fmt.Errorf("无法检查回滚镜像 %s 是否存在: %w", container.Image, err)
+			log.Warnf("failed to check whether rollback image %s exists: %v", container.Image, err)
+			warnings = append(warnings, &RollbackImageCheckWarning{
+				Image:   container.Image,
+				Reason:  "image_check_failed",
+				Message: "镜像仓库查询失败，无法确认镜像是否存在",
+			})
+			continue
 		}
 		if !exists {
 			missingImages = append(missingImages, container.Image)
 		}
 	}
 
-	return missingImages, nil
+	return missingImages, warnings, nil
 }
 
 func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (*CheckRollbackEnvServiceVersionResponse, error) {
@@ -425,13 +450,14 @@ func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, re
 		return nil, fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %w", projectName, envName, serviceName, revision, isProduction, err)
 	}
 
-	unavailableImages, err := checkRollbackImages(envSvcVersion.Service.Containers, log)
+	unavailableImages, warnings, err := checkRollbackImages(envSvcVersion.Service.Containers, log)
 	if err != nil {
 		return nil, err
 	}
 	return &CheckRollbackEnvServiceVersionResponse{
 		Available:         len(unavailableImages) == 0,
 		UnavailableImages: unavailableImages,
+		Warnings:          warnings,
 	}, nil
 }
 
