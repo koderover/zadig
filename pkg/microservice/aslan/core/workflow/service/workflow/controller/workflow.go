@@ -280,10 +280,14 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 		return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 	}
 
+	return w.UpdateWithWorkflowSettings(latestWorkflowSettings, ticket)
+}
+
+func (w *Workflow) UpdateWithWorkflowSettings(latestWorkflowSettings *commonmodels.WorkflowV4, ticket *commonmodels.ApprovalTicket) error {
 	w.Params = renderParams(latestWorkflowSettings.Params, w.Params)
 
 	newStage := make([]*commonmodels.WorkflowStage, 0)
-	err = util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
+	err := util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
 	if err != nil {
 		return err
 	}
@@ -615,6 +619,10 @@ func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*common
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
+	return w.ValidateWithWorkflowSettings(isExecution, nil)
+}
+
+func (w *Workflow) ValidateWithWorkflowSettings(isExecution bool, latestWorkflowSettings *commonmodels.WorkflowV4) error {
 	if w.Project == "" {
 		err := fmt.Errorf("project should not be empty")
 		return e.ErrLintWorkflow.AddErr(err)
@@ -657,11 +665,12 @@ func (w *Workflow) Validate(isExecution bool) error {
 		return e.ErrLintWorkflow.AddErr(err)
 	}
 
-	var latestWorkflowSettings *commonmodels.WorkflowV4
 	if isExecution {
-		latestWorkflowSettings, err = commonrepo.NewWorkflowV4Coll().Find(w.Name)
-		if err != nil {
-			return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+		if latestWorkflowSettings == nil {
+			latestWorkflowSettings, err = commonrepo.NewWorkflowV4Coll().Find(w.Name)
+			if err != nil {
+				return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+			}
 		}
 		w.RemarkRequired = latestWorkflowSettings.RemarkRequired
 		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {

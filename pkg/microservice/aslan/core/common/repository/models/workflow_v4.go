@@ -68,16 +68,40 @@ type WorkflowV4 struct {
 	Hash           string                   `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
 	// -1 means no limit
-	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
-	CustomField          *CustomField `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
-	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
-	ApprovalTicketID     string       `bson:"approval_ticket_id"     yaml:"approval_ticket_id"     json:"approval_ticket_id"`
+	ConcurrencyLimit     int                      `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
+	CustomField          *CustomField             `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
+	EnableApprovalTicket bool                     `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
+	ApprovalTicketID     string                   `bson:"approval_ticket_id"     yaml:"approval_ticket_id"     json:"approval_ticket_id"`
+	TemplateBinding      *WorkflowTemplateBinding `bson:"template_binding,omitempty" yaml:"template_binding,omitempty" json:"template_binding,omitempty"`
 
 	// all hookCtls are deprecated
 	HookCtls        []*WorkflowV4Hook `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
 	JiraHookCtls    []*JiraHook       `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
 	MeegoHookCtls   []*MeegoHook      `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
 	GeneralHookCtls []*GeneralHook    `bson:"general_hook_ctls"   yaml:"-"                   json:"general_hook_ctls"`
+}
+
+type WorkflowTemplateBinding struct {
+	Enabled        bool                  `bson:"enabled"                         yaml:"enabled"                         json:"enabled"`
+	TemplateID     string                `bson:"template_id"                     yaml:"template_id"                     json:"template_id"`
+	TemplateName   string                `bson:"template_name"                   yaml:"template_name"                   json:"template_name"`
+	BaseVersion    int                   `bson:"base_version"                    yaml:"base_version"                    json:"base_version"`
+	BaseVersionID  string                `bson:"base_version_id"                 yaml:"base_version_id"                 json:"base_version_id"`
+	DeltaPatches   []*JSONPatchOperation `bson:"delta_patches"                   yaml:"delta_patches"                   json:"delta_patches"`
+	ConflictCount  int                   `bson:"conflict_count"                  yaml:"conflict_count"                  json:"conflict_count"`
+	InvalidPatches []*InvalidJSONPatch   `bson:"invalid_patches,omitempty"       yaml:"invalid_patches,omitempty"       json:"invalid_patches,omitempty"`
+}
+
+type JSONPatchOperation struct {
+	Operation string      `bson:"op"              yaml:"op"              json:"op"`
+	Path      string      `bson:"path"            yaml:"path"            json:"path"`
+	From      string      `bson:"from,omitempty"  yaml:"from,omitempty"  json:"from,omitempty"`
+	Value     interface{} `bson:"value,omitempty" yaml:"value,omitempty" json:"value"`
+}
+
+type InvalidJSONPatch struct {
+	Patch *JSONPatchOperation `bson:"patch" json:"patch" yaml:"patch"`
+	Error string              `bson:"error" json:"error" yaml:"error"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
@@ -156,6 +180,7 @@ const (
 )
 
 type WorkflowStage struct {
+	ID         string      `bson:"id,omitempty"         yaml:"id,omitempty"         json:"id,omitempty"`
 	Name       string      `bson:"name"               yaml:"name"              json:"name"`
 	Parallel   bool        `bson:"parallel"           yaml:"parallel"          json:"parallel"`
 	Approval   *Approval   `bson:"approval"           yaml:"approval"          json:"approval"`
@@ -334,8 +359,9 @@ type User struct {
 }
 
 type Job struct {
-	Name    string         `bson:"name"           yaml:"name"     json:"name"`
-	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
+	ID      string         `bson:"id,omitempty"   yaml:"id,omitempty" json:"id,omitempty"`
+	Name    string         `bson:"name"           yaml:"name"         json:"name"`
+	JobType config.JobType `bson:"type"           yaml:"type"         json:"type"`
 	// only for webhook workflow args to skip some tasks.
 	Skipped        bool                     `bson:"skipped"              yaml:"skipped"              json:"skipped"`
 	Spec           interface{}              `bson:"spec"                 yaml:"spec"                 json:"spec"`
