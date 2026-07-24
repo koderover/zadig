@@ -300,10 +300,15 @@ type RollbackEnvServiceVersionData struct {
 	HelmDeployStatusChan chan bool
 }
 
-func checkRollbackImagesExist(containers []*commonmodels.Container, log *zap.SugaredLogger) error {
+type CheckRollbackEnvServiceVersionResponse struct {
+	Available         bool     `json:"available"`
+	UnavailableImages []string `json:"unavailable_images"`
+}
+
+func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredLogger) ([]string, error) {
 	registryInfos, err := ListRegistryNamespaces("", false, log)
 	if err != nil {
-		return fmt.Errorf("failed to list registries for rollback image check: %w", err)
+		return nil, fmt.Errorf("failed to list registries for rollback image check: %w", err)
 	}
 
 	type rollbackImageRegistry struct {
@@ -354,7 +359,7 @@ func checkRollbackImagesExist(containers []*commonmodels.Container, log *zap.Sug
 			}
 		}
 		if matchedRegistry == nil {
-			return fmt.Errorf("无法检查回滚镜像 %s：未找到匹配的镜像仓库配置", container.Image)
+			return nil, fmt.Errorf("无法检查回滚镜像 %s：未找到匹配的镜像仓库配置", container.Image)
 		}
 
 		registryID := matchedRegistry.info.ID.Hex()
@@ -362,7 +367,7 @@ func checkRollbackImagesExist(containers []*commonmodels.Container, log *zap.Sug
 		if !ok {
 			registryInfo, err = FindRegistryById(registryID, true, log)
 			if err != nil {
-				return fmt.Errorf("获取镜像仓库 %s 的凭证失败: %w", matchedRegistry.host, err)
+				return nil, fmt.Errorf("获取镜像仓库 %s 的凭证失败: %w", matchedRegistry.host, err)
 			}
 			credentialRegistries[registryID] = registryInfo
 		}
@@ -401,17 +406,33 @@ func checkRollbackImagesExist(containers []*commonmodels.Container, log *zap.Sug
 			Digest: imageDigest,
 		}, log)
 		if err != nil {
-			return fmt.Errorf("无法检查回滚镜像 %s 是否存在: %w", container.Image, err)
+			return nil, fmt.Errorf("无法检查回滚镜像 %s 是否存在: %w", container.Image, err)
 		}
 		if !exists {
 			missingImages = append(missingImages, container.Image)
 		}
 	}
 
-	if len(missingImages) > 0 {
-		return fmt.Errorf("回滚镜像不存在：%s，请确认镜像可用后重试", strings.Join(missingImages, "、"))
+	return missingImages, nil
+}
+
+func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (*CheckRollbackEnvServiceVersionResponse, error) {
+	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
+	if err != nil {
+		if mongodb.IsErrNoDocuments(err) {
+			return nil, fmt.Errorf("历史版本 %d 不存在", revision)
+		}
+		return nil, fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %w", projectName, envName, serviceName, revision, isProduction, err)
 	}
-	return nil
+
+	unavailableImages, err := checkRollbackImages(envSvcVersion.Service.Containers, log)
+	if err != nil {
+		return nil, err
+	}
+	return &CheckRollbackEnvServiceVersionResponse{
+		Available:         len(unavailableImages) == 0,
+		UnavailableImages: unavailableImages,
+	}, nil
 }
 
 func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
@@ -444,10 +465,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 	if env.ServiceDeployStrategy[serviceName] != envSvcVersion.DeployStrategy {
 		return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("服务 %s 的部署策略发生变化，不能回滚", envSvcVersion.Service.ServiceName))
-	}
-
-	if err := checkRollbackImagesExist(envSvcVersion.Service.Containers, log); err != nil {
-		return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
 	session := mongotool.Session()
