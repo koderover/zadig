@@ -55,6 +55,14 @@ func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[
 		return nil
 	}
 
+	// Task notification recipients are resolved when the notification is sent.
+	// Rendering them here would replace typed templates with plain values.
+	notifyCtls := task.NotifyCtls
+	task.NotifyCtls = nil
+	defer func() {
+		task.NotifyCtls = notifyCtls
+	}()
+
 	taskBytes, err := json.Marshal(task)
 	if err != nil {
 		return fmt.Errorf("failed to marshal task %s, error: %w", task.Name, err)

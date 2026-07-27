@@ -122,7 +122,7 @@ func ParseDynamicRecipientKind(key string) (string, bool) {
 		if !validInput && !validOutput {
 			return "", false
 		}
-	} else if !strings.HasPrefix(key, "payload.") {
+	} else if !strings.HasPrefix(key, "payload.") && !strings.HasPrefix(key, "workflow.") {
 		return "", false
 	}
 	if strings.HasSuffix(key, ".output.") {
@@ -137,6 +137,10 @@ func ParseDynamicRecipientKind(key string) (string, bool) {
 	case field == "mobile" || strings.HasSuffix(field, "_mobile"),
 		field == "phone" || strings.HasSuffix(field, "_phone"):
 		return "mobile", true
+	case field == "user_id" || strings.HasSuffix(field, "_user_id"),
+		field == "userid" || strings.HasSuffix(field, "_userid"),
+		field == "uid" || strings.HasSuffix(field, "_uid"):
+		return "user_id", true
 	default:
 		return "", false
 	}

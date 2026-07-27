@@ -454,6 +454,11 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
+	for _, kv := range commonutil.BuildWorkflowSystemVariableKVs(workflowArgs, task.ProjectName, task.ProjectDisplayName, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID, time.Unix(task.StartTime, 0)) {
+		if kv != nil {
+			keyMap[kv.Key] = kv.Value
+		}
+	}
 	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(task.GlobalContext) {
 		keyMap[key] = value
 	}

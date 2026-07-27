@@ -248,6 +248,11 @@ func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string 
 
 func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
 	keyMap := util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+	for _, kv := range c.workflowCtx.WorkflowKeyVals {
+		if kv != nil {
+			keyMap[kv.Key] = kv.Value
+		}
+	}
 	for key, value := range util.WorkflowGlobalContextToKeyMap(c.workflowCtx.GlobalContextGetAll()) {
 		keyMap[key] = value
 	}
