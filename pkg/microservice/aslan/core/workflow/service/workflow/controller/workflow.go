@@ -260,6 +260,36 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 	return resp, nil
 }
 
+func (w *Workflow) GetDynamicRecipientJobInputVariables() ([]*commonmodels.KeyVal, error) {
+	resp := make([]*commonmodels.KeyVal, 0)
+	for _, stage := range w.Stages {
+		for _, workflowJob := range stage.Jobs {
+			if workflowJob.Skipped || workflowJob.JobType != config.JobFreestyle {
+				continue
+			}
+			spec := new(commonmodels.FreestyleJobSpec)
+			if err := commonmodels.IToiYaml(workflowJob.Spec, spec); err != nil {
+				return nil, err
+			}
+			for _, env := range spec.Envs {
+				if env == nil || env.KeyVal == nil || env.IsCredential || env.GetValue() == "" || strings.HasPrefix(env.GetValue(), "{{.") {
+					continue
+				}
+				variable := &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", workflowJob.Name, env.Key}, "."),
+					Value:        env.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				}
+				if _, ok := commonutil.ParseDynamicRecipientKind(variable.Key); ok {
+					resp = append(resp, variable)
+				}
+			}
+		}
+	}
+	return resp, nil
+}
+
 func (w *Workflow) SetParameterRepoCommitInfo() {
 	for _, param := range w.Params {
 		if param.ParamsType != "repo" {
@@ -424,6 +454,16 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 			continue
 		}
 		resp = append(resp, newParam)
+	}
+	if w.HookPayload != nil {
+		for _, kv := range commonutil.BuildWorkflowTriggerVariableKVs(w.HookPayload) {
+			resp = append(resp, &commonmodels.Param{
+				Name:         kv.Key,
+				Value:        kv.Value,
+				ParamsType:   "string",
+				IsCredential: kv.IsCredential,
+			})
+		}
 	}
 	return resp, nil
 }
@@ -593,6 +633,9 @@ func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*common
 		Type:         "string",
 		IsCredential: false,
 	})
+	for _, key := range commonutil.WorkflowTriggerVariableKeys() {
+		resp = append(resp, &commonmodels.KeyVal{Key: key, Type: "string", IsCredential: false})
+	}
 	return resp
 }
 

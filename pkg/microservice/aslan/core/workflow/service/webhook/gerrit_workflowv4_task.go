@@ -314,7 +314,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 
-			var mergeRequestID, commitID string
+			var mergeRequestID, commitID, commitSHA string
 			switch m := matcher.(type) {
 			case *gerritPatchsetCreatedEventMatcherForWorkflowV4:
 				if item.CheckPatchSetChange {
@@ -324,6 +324,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 
 				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
 				commitID = strconv.Itoa(m.Event.PatchSet.Number)
+				commitSHA = m.Event.PatchSet.Revision
 				autoCancelOpt := &AutoCancelOpt{
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
@@ -350,6 +351,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			case *gerritChangeMergedEventMatcherForWorkflowV4:
 				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
 				commitID = eventRepo.CommitID
+				commitSHA = m.Event.NewRev
 			}
 			hookPayload = &commonmodels.HookPayload{
 				Owner:          eventRepo.RepoOwner,
@@ -360,6 +362,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 				CodehostID:     item.MainRepo.CodehostID,
 				MergeRequestID: mergeRequestID,
 				CommitID:       commitID,
+				CommitSHA:      commitSHA,
 				CommitMessage:  eventRepo.CommitMessage,
 				Committer:      eventRepo.Committer,
 				EventType:      event.Type,

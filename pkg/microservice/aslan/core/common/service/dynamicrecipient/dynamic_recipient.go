@@ -571,7 +571,7 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 	}
 	recipientKind, ok := commonutil.ParseDynamicRecipientKind(key)
 	if !ok {
-		return nil, fmt.Errorf("dynamic recipient %s is not supported, only payload or job output fields named or suffixed with email, mobile, or phone are allowed", input)
+		return nil, fmt.Errorf("dynamic recipient %s is not supported, only payload or job input/output fields named or suffixed with email, mobile, or phone are allowed", input)
 	}
 
 	return &dynamicRecipientSpec{

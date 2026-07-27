@@ -731,7 +731,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("fill serviceModules to jobs error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	workflowTask.GlobalContext = buildWorkflowTaskRuntimeContext(workflowTask)
+	workflowTask.GlobalContext, err = buildWorkflowTaskRuntimeContext(workflowTask)
+	if err != nil {
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
 	if workflowTask.WorkflowArgs.HookPayload != nil {
 		workflowTask.WorkflowArgs.HookPayload.PayloadVars = nil
 	}
@@ -955,9 +958,9 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 	return notifyCtls, nil
 }
 
-func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {
+func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) (map[string]string, error) {
 	if task == nil {
-		return nil
+		return nil, nil
 	}
 
 	resp := make(map[string]string)
@@ -966,7 +969,7 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	}
 
 	if task.WorkflowArgs == nil {
-		return resp
+		return resp, nil
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
@@ -983,7 +986,15 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	for key, value := range keyMap {
 		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
 	}
-	return resp
+
+	jobInputVariables, err := workflowController.CreateWorkflowController(task.WorkflowArgs).GetDynamicRecipientJobInputVariables()
+	if err != nil {
+		return nil, err
+	}
+	for _, variable := range jobInputVariables {
+		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", variable.Key))] = variable.GetValue()
+	}
+	return resp, nil
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -1125,7 +1136,10 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			globalKeyMap[key] = item.Value
 		}
 	}
-	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
+	task.GlobalContext, err = buildWorkflowTaskRuntimeContext(task)
+	if err != nil {
+		return err
+	}
 
 	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
@@ -1281,7 +1295,10 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 			globalKeyMap[key] = item.Value
 		}
 	}
-	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
+	task.GlobalContext, err = buildWorkflowTaskRuntimeContext(task)
+	if err != nil {
+		return err
+	}
 
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {

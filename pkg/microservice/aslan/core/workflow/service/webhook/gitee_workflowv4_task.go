@@ -285,6 +285,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
 					Committer:      ev.PullRequest.User.Login,
 					EventType:      eventType,
 				}
@@ -304,6 +305,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					Ref:           ref,
 					IsPr:          false,
 					CommitID:      commitID,
+					CommitSHA:     commitID,
 					CommitMessage: eventRepo.CommitMessage,
 					Committer:     eventRepo.Committer,
 					EventType:     eventType,

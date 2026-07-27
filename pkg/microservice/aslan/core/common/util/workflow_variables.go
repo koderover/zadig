@@ -113,12 +113,17 @@ func FilterWorkflowPayloadVariables(workflow *commonmodels.WorkflowV4) error {
 // normalizes phone/mobile fields to the mobile contact kind.
 func ParseDynamicRecipientKind(key string) (string, bool) {
 	key = strings.ToLower(key)
-	if !strings.HasPrefix(key, "payload.") {
+	if strings.HasPrefix(key, "job.") {
+		parts := strings.Split(key, ".")
 		outputMarkerIndex := strings.LastIndex(key, ".output.")
-		if !strings.HasPrefix(key, "job.") || outputMarkerIndex <= len("job.") ||
-			strings.Contains(key[outputMarkerIndex+len(".output."):], ".") {
+		validInput := len(parts) == 3 && parts[1] != "" && parts[2] != ""
+		validOutput := outputMarkerIndex > len("job.") &&
+			!strings.Contains(key[outputMarkerIndex+len(".output."):], ".")
+		if !validInput && !validOutput {
 			return "", false
 		}
+	} else if !strings.HasPrefix(key, "payload.") {
+		return "", false
 	}
 	if strings.HasSuffix(key, ".output.") {
 		return "", false
@@ -204,12 +209,66 @@ func BuildWorkflowPayloadVariableKVs(workflow *commonmodels.WorkflowV4) []*commo
 	return workflow.HookPayload.PayloadVars
 }
 
+func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*commonmodels.KeyVal {
+	if hookPayload == nil {
+		return nil
+	}
+
+	resp := make([]*commonmodels.KeyVal, 0, 8)
+	appendIfNotEmpty := func(key, value string) {
+		if value != "" {
+			resp = append(resp, &commonmodels.KeyVal{Key: key, Value: value, IsCredential: false})
+		}
+	}
+
+	values := map[string]string{
+		"payload.trigger.branch":         hookPayload.Branch,
+		"payload.trigger.target_branch":  hookPayload.TargetBranch,
+		"payload.trigger.pr":             hookPayload.MergeRequestID,
+		"payload.trigger.commit_id":      hookPayload.CommitID,
+		"payload.trigger.commit_sha":     inferWorkflowTriggerCommitSHA(hookPayload),
+		"payload.trigger.commit_message": hookPayload.CommitMessage,
+		"payload.trigger.committer":      hookPayload.Committer,
+		"payload.trigger.event":          hookPayload.EventType,
+	}
+	for _, key := range WorkflowTriggerVariableKeys() {
+		appendIfNotEmpty(key, values[key])
+	}
+	return resp
+}
+
+func WorkflowTriggerVariableKeys() []string {
+	return []string{
+		"payload.trigger.branch",
+		"payload.trigger.target_branch",
+		"payload.trigger.pr",
+		"payload.trigger.commit_id",
+		"payload.trigger.commit_sha",
+		"payload.trigger.commit_message",
+		"payload.trigger.committer",
+		"payload.trigger.event",
+	}
+}
+
+var commitSHARegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
+func inferWorkflowTriggerCommitSHA(hookPayload *commonmodels.HookPayload) string {
+	if hookPayload.CommitSHA != "" {
+		return hookPayload.CommitSHA
+	}
+	if commitSHARegex.MatchString(hookPayload.CommitID) {
+		return hookPayload.CommitID
+	}
+	return ""
+}
+
 func BuildWorkflowRuntimeVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
 	resp := BuildWorkflowSystemVariableKVs(workflow, projectName, projectDisplayName, taskID, creator, account, uid, now)
 	if workflow == nil || workflow.HookPayload == nil {
 		return resp
 	}
-	return append(resp, workflow.HookPayload.PayloadVars...)
+	resp = append(resp, workflow.HookPayload.PayloadVars...)
+	return append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
 }
 
 func KeyValsToMap(kvs []*commonmodels.KeyVal) map[string]string {

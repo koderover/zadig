@@ -284,6 +284,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					CommitSHA:      commitID,
 					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
 				}
@@ -305,6 +306,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 						CodehostID:    item.MainRepo.CodehostID,
 						DeliveryID:    deliveryID,
 						CommitID:      commitID,
+						CommitSHA:     commitID,
 						CommitMessage: ev.GetHeadCommit().GetMessage(),
 						Committer:     ev.GetPusher().GetName(),
 						EventType:     eventType,
