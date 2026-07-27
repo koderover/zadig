@@ -253,7 +253,11 @@ func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string 
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
-	return util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+	keyMap := util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+	for key, value := range util.WorkflowGlobalContextToKeyMap(c.workflowCtx.GlobalContextGetAll()) {
+		keyMap[key] = value
+	}
+	return keyMap
 }
 
 func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {

@@ -223,7 +223,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 	}
 
 	mErr := &multierror.Error{}
-	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -284,7 +284,6 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
-					CommitSHA:      commitID,
 					Committer:      *ev.PullRequest.User.Login,
 					EventType:      eventType,
 				}
@@ -306,7 +305,6 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 						CodehostID:    item.MainRepo.CodehostID,
 						DeliveryID:    deliveryID,
 						CommitID:      commitID,
-						CommitSHA:     commitID,
 						CommitMessage: ev.GetHeadCommit().GetMessage(),
 						Committer:     ev.GetPusher().GetName(),
 						EventType:     eventType,
@@ -321,7 +319,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					EventType:    eventType,
 				}
 			}
-			hookPayload.PayloadVars = recipientPayloadVariables
+			hookPayload.PayloadVars = payloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

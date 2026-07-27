@@ -32,7 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
+func TriggerTestByGithubEvent(event interface{}, rawPayload, requestID string, log *zap.SugaredLogger) error {
 	//1.find configured testing
 	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 	if err != nil {
@@ -40,6 +40,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 		return err
 	}
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -86,7 +87,6 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 							CodehostID:     item.MainRepo.CodehostID,
 							MergeRequestID: mergeRequestID,
 							CommitID:       commitID,
-							CommitSHA:      commitID,
 							EventType:      eventType,
 						}
 					case *github.PushEvent:
@@ -104,7 +104,6 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 								Ref:        ref,
 								IsPr:       false,
 								CommitID:   commitID,
-								CommitSHA:  commitID,
 								EventType:  eventType,
 								CodehostID: item.MainRepo.CodehostID,
 							}
@@ -115,6 +114,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {

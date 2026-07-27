@@ -271,12 +271,13 @@ func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *common
 	}
 
 	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
-		WorkflowName:          workflowCtx.WorkflowName,
-		TaskID:                workflowCtx.TaskID,
-		Job:                   job,
-		NotifyCtls:            job.NotifyCtls,
-		Status:                status,
-		StatusTextKeyOverride: statusTextKeyOverride,
+		WorkflowName:            workflowCtx.WorkflowName,
+		TaskID:                  workflowCtx.TaskID,
+		Job:                     job,
+		NotifyCtls:              job.NotifyCtls,
+		Status:                  status,
+		StatusTextKeyOverride:   statusTextKeyOverride,
+		RecipientRuntimeContext: workflowCtx.GlobalContextGetAll(),
 	}); err != nil {
 		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", job.Name, status, err)
 	}

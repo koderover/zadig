@@ -216,7 +216,7 @@ func createGiteeEventMatcherForTesting(event interface{}, diffSrv giteePullReque
 	return nil
 }
 
-func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerTestByGiteeEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// 1. find configured testing
 	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 	if err != nil {
@@ -225,6 +225,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := buildGiteePayloadVariables(rawPayload)
 	diffSrv := func(PullRequestEvent *gitee.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequestEvent(PullRequestEvent, codehostId)
 	}
@@ -280,7 +281,6 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							IsPr:           true,
 							MergeRequestID: mergeRequestID,
 							CommitID:       commitID,
-							CommitSHA:      commitID,
 							EventType:      eventType,
 						}
 					case *gitee.PushEvent:
@@ -299,7 +299,6 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							Ref:        ref,
 							IsPr:       false,
 							CommitID:   commitID,
-							CommitSHA:  commitID,
 							EventType:  eventType,
 						}
 					case *gitee.TagPushEvent:
@@ -308,6 +307,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
 
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)

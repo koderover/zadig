@@ -269,7 +269,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			return errors.New(errMsg)
 		}
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+		if err := resolveWorkflowNotifyDynamicRecipients(task, notify, nil); err != nil {
 			log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
 			continue
 		}
@@ -373,7 +373,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				return errors.New(errMsg)
 			}
 
-			if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
+			if err := resolveWorkflowNotifyDynamicRecipients(task, notify, nil); err != nil {
 				log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
 				continue
 			}
@@ -446,7 +446,7 @@ func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *
 	return false
 }
 
-func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl) error {
+func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl, runtimeContext map[string]string) error {
 	if task == nil || notify == nil {
 		return nil
 	}
@@ -460,6 +460,12 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
+	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(task.GlobalContext) {
+		keyMap[key] = value
+	}
+	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(runtimeContext) {
+		keyMap[key] = value
+	}
 	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
 		LarkHook:   notify.LarkHookNotificationConfig,
 		LarkGroup:  notify.LarkGroupNotificationConfig,
@@ -521,10 +527,10 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 		return nil
 	}
 
-	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusPause, "taskStatusWaitingManualExec")
+	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusPause, "taskStatusWaitingManualExec", workflowCtx.GlobalContextGetAll())
 }
 
-func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string) error {
+func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string, runtimeContext map[string]string) error {
 	respErr := new(multierror.Error)
 	for _, sourceNotify := range notifyCtls {
 		notify, err := models.CloneNotifyCtl(sourceNotify)
@@ -542,7 +548,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 
 		switch notify.WebHookType {
 		case setting.NotifyWebHookTypeFeishuPerson:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
+			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext); err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
 			}
@@ -574,7 +580,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 			}
 
 		case setting.NotifyWebHookTypeMail:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
+			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext); err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
 			}
@@ -789,6 +795,9 @@ type TaskNotifyInput struct {
 	// StatusTextKeyOverride allows the caller to customise the status text shown in the
 	// notification. If empty, the normal status text is used.
 	StatusTextKeyOverride string
+	// RecipientRuntimeContext contains the live workflow context so job outputs
+	// are available before the job task is persisted.
+	RecipientRuntimeContext map[string]string
 }
 
 // HasTaskNotifyCtls reports whether there is at least one enabled task-level
@@ -912,7 +921,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 		notifyToSend := *notify
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend); err != nil {
+		if err := resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend, input.RecipientRuntimeContext); err != nil {
 			respErr = multierror.Append(respErr, err)
 			continue
 		}
