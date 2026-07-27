@@ -222,7 +222,7 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 }
 
 func RenderWorkflowV4WithTemplateBinding(workflow *commonmodels.WorkflowV4) (*commonmodels.WorkflowV4, *WorkflowTemplateBindingPreviewResponse, error) {
-	return renderWorkflowWithTemplateBinding(workflow, 0)
+	return renderWorkflowWithTemplateBinding(workflow, workflow.TemplateBinding.BaseVersion)
 }
 
 func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBindingStatusResponse, error) {
