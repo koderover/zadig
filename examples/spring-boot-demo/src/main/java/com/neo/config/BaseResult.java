@@ -1,23 +1,22 @@
 package com.neo.config;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * 通用响应对象
  */
-@ApiModel(description = "响应对象")
+@Schema(description = "响应对象")
 public class BaseResult<T> {
     private static final int SUCCESS_CODE = 0;
     private static final String SUCCESS_MESSAGE = "成功";
 
-    @ApiModelProperty(value = "响应码", name = "code", required = true, example = "" + SUCCESS_CODE)
+    @Schema(description = "响应码", requiredMode = Schema.RequiredMode.REQUIRED, example = "" + SUCCESS_CODE)
     private int code;
 
-    @ApiModelProperty(value = "响应消息", name = "msg", required = true, example = SUCCESS_MESSAGE)
+    @Schema(description = "响应消息", requiredMode = Schema.RequiredMode.REQUIRED, example = SUCCESS_MESSAGE)
     private String msg;
 
-    @ApiModelProperty(value = "响应数据", name = "data")
+    @Schema(description = "响应数据")
     private T data;
 
     private BaseResult(int code, String msg, T data) {

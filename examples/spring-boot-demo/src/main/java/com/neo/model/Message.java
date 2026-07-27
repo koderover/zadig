@@ -1,18 +1,14 @@
 package com.neo.model;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.util.Calendar;
 import java.util.Date;
-
-import javax.validation.constraints.NotEmpty;
-
 
 public class Message {
 	private Long id;
-	@ApiModelProperty(value = "消息体")
+	@Schema(description = "消息体")
 	private String text;
-	@ApiModelProperty(value = "消息总结")
+	@Schema(description = "消息总结")
 	private String summary;
 	private Date createDate;
 
