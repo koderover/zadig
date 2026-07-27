@@ -281,7 +281,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
 					CodehostID:     item.MainRepo.CodehostID,
-					Branch:         ev.PullRequest.Head.Ref,
+					Branch:         ev.SourceBranch,
 					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
