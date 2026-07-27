@@ -302,6 +302,7 @@ type RollbackEnvServiceVersionRequest struct {
 // @Param 	revision	 	query		int								true	"revision"
 // @Param 	isHelmChart		query		bool							true	"is helm chart type"
 // @Param 	production		query		bool							false	"is production environment"
+// @Param 	workflowName	query		string							false	"workflow name; when provided, check workflow rollback permission instead of environment rollback permission"
 // @Success 200 			{object}  	service.CheckRollbackEnvServiceVersionResponse
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/rollback/check [get]
 func CheckRollbackEnvServiceVersion(c *gin.Context) {
@@ -330,25 +331,33 @@ func CheckRollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 	production := c.Query("production") == "true"
+	workflowName := c.Query("workflowName")
 
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+		projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+		if !ok {
 			ctx.UnAuthorized = true
 			return
 		}
 
-		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Rollback {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRollback)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+		if !projectAuth.IsProjectAdmin {
+			if workflowName != "" {
+				if !projectAuth.Workflow.Rollback {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionRollback)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
-			}
-		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Rollback {
+			} else if production {
+				if !projectAuth.ProductionEnv.Rollback {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionRollback)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+			} else if !projectAuth.Env.Rollback {
 				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionRollback)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
