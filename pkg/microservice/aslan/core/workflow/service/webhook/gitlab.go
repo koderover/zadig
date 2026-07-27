@@ -622,13 +622,19 @@ func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWith
 
 			createFrom, err := service.GetHelmCreateFrom()
 			if err != nil {
-				log.Errorf("Failed to get helm create from, error: %v", err)
+				log.Errorf(
+					"Failed to get helm create from for service, project: %s, service: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, production, err,
+				)
 				continue
 			}
 
 			sourceRepo, err := createFrom.GetSourceDetail()
 			if err != nil {
-				log.Errorf("Failed to get source detail, error: %v", err)
+				log.Errorf(
+					"Failed to get source detail for helm chart template service, project: %s, service: %s, template: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, createFrom.TemplateName, production, err,
+				)
 				continue
 			}
 
