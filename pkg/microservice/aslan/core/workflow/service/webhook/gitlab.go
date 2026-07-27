@@ -629,6 +629,10 @@ func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWith
 				continue
 			}
 
+			if createFrom.YamlData == nil || createFrom.YamlData.SourceDetail == nil {
+				continue
+			}
+
 			sourceRepo, err := createFrom.GetSourceDetail()
 			if err != nil {
 				log.Errorf(

@@ -591,6 +591,10 @@ func updateServiceTemplateHelmValuesByGithubPush(pushEvent *github.PushEvent, lo
 				continue
 			}
 
+			if createFrom.YamlData == nil || createFrom.YamlData.SourceDetail == nil {
+				continue
+			}
+
 			sourceRepo, err := createFrom.GetSourceDetail()
 			if err != nil {
 				log.Errorf(
