@@ -184,5 +184,6 @@ func DeleteWorkflowTemplateByID(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = templateservice.DeleteWorkflowTemplateByID(c.Param("id"), ctx.Logger)
+	force := c.Query("force") == "true"
+	ctx.Resp, ctx.RespErr = templateservice.DeleteWorkflowTemplateByID(ctx.UserName, c.Param("id"), force, ctx.Logger)
 }

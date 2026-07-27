@@ -181,6 +181,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewPluginRepoColl(),
 		commonrepo.NewWorkflowViewColl(),
 		commonrepo.NewWorkflowV4TemplateColl(),
+		commonrepo.NewWorkflowV4TemplateVersionColl(),
 		commonrepo.NewVariableSetColl(),
 		commonrepo.NewJobInfoColl(),
 		commonrepo.NewStatDashboardConfigColl(),

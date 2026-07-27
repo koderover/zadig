@@ -82,15 +82,39 @@ func (c *WorkflowV4TemplateColl) Create(obj *models.WorkflowV4Template) error {
 	obj.ID = primitive.NilObjectID
 	obj.CreateTime = time.Now().Unix()
 	obj.UpdateTime = time.Now().Unix()
-	_, err := c.InsertOne(context.TODO(), obj)
+	res, err := c.InsertOne(context.TODO(), obj)
+	if err != nil {
+		return err
+	}
+	id, ok := res.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return fmt.Errorf("failed to get object id from create")
+	}
+	obj.ID = id
+	version, err := NewWorkflowV4TemplateVersionColl().CreateNext(obj, obj.CreatedBy)
+	if err != nil {
+		return err
+	}
+	obj.LatestVersion = version.Version
+	obj.LatestVersionID = version.ID.Hex()
+	_, err = c.UpdateOne(context.TODO(), bson.M{"_id": obj.ID}, bson.M{"$set": bson.M{
+		"latest_version":    obj.LatestVersion,
+		"latest_version_id": obj.LatestVersionID,
+	}})
 	return err
 }
 
 func (c *WorkflowV4TemplateColl) Update(obj *models.WorkflowV4Template) error {
 	query := bson.M{"_id": obj.ID}
-	change := bson.M{"$set": obj}
 	obj.UpdateTime = time.Now().Unix()
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	version, err := NewWorkflowV4TemplateVersionColl().CreateNext(obj, obj.UpdatedBy)
+	if err != nil {
+		return err
+	}
+	obj.LatestVersion = version.Version
+	obj.LatestVersionID = version.ID.Hex()
+	change := bson.M{"$set": obj}
+	_, err = c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
@@ -164,6 +188,14 @@ func (c *WorkflowV4TemplateColl) DeleteByID(idStr string) error {
 	}
 	query := bson.M{"_id": id}
 	_, err = c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *WorkflowV4TemplateColl) UpdateVersionInfo(id primitive.ObjectID, latestVersion int, latestVersionID string) error {
+	_, err := c.UpdateOne(context.TODO(), bson.M{"_id": id}, bson.M{"$set": bson.M{
+		"latest_version":    latestVersion,
+		"latest_version_id": latestVersionID,
+	}})
 	return err
 }
 

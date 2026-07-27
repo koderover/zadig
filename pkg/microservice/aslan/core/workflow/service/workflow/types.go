@@ -59,6 +59,8 @@ type Workflow struct {
 	NeverRun             bool                       `json:"never_run"`
 	RemarkRequired       bool                       `json:"remark_required"`
 	EnableApprovalTicket bool                       `json:"enable_approval_ticket"`
+	TemplateBound        bool                       `json:"template_bound"`
+	TemplateName         string                     `json:"template_name,omitempty"`
 }
 
 type TaskInfo struct {

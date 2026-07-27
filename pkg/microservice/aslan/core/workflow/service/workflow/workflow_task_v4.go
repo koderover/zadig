@@ -257,7 +257,7 @@ type DistributeImageJobSpec struct {
 
 // GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, log)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -512,7 +512,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(args)
-	if err := workflowCtrl.UpdateWithLatestWorkflow(nil); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, log); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err)
 		return resp, e.ErrCreateTask.AddDesc(fmt.Sprintf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err))
 	}
@@ -671,13 +671,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
-		err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+		err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, log)
 		if err != nil {
 			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 
-		err = workflowCtrl.Validate(true)
+		err = ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, log)
 		if err != nil {
 			log.Errorf("failed to validate workflow task args, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
@@ -993,7 +993,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
-	err = workflowCtrl.UpdateWithLatestWorkflow(approvalTicket)
+	err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, approvalTicket, logger)
 	if err != nil {
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -1019,7 +1019,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
-	err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+	err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, logger)
 	if err != nil {
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())

@@ -92,6 +92,13 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 
+	if err := prepareTemplateBoundWorkflowForCreate(user, workflow, logger); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if !isTemplateBindingEnabled(workflow) {
+		clearWorkflowStageAndJobIDs(workflow.Stages)
+	}
+
 	workflowController := controller.CreateWorkflowController(workflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
@@ -267,6 +274,13 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		}
 	}
 
+	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if !isTemplateBindingEnabled(inputWorkflow) {
+		clearWorkflowStageAndJobIDs(inputWorkflow.Stages)
+	}
+
 	workflowController := controller.CreateWorkflowController(inputWorkflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
@@ -278,6 +292,8 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.UpdatedBy = user
 	inputWorkflow.UpdateTime = time.Now().Unix()
 	inputWorkflow.ID = workflow.ID
+	inputWorkflow.CreatedBy = workflow.CreatedBy
+	inputWorkflow.CreateTime = workflow.CreateTime
 	inputWorkflow.CustomField = workflow.CustomField
 
 	if err := commonrepo.NewWorkflowV4Coll().Update(
@@ -297,11 +313,70 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
 
+	if isTemplateBindingEnabled(workflow) {
+		rendered, _, err := RenderWorkflowV4WithTemplateBinding(workflow)
+		if err != nil {
+			return workflow, e.ErrFindWorkflow.AddErr(err)
+		}
+		workflow = rendered
+	}
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
 
 	return workflow, err
+}
+
+func FindWorkflowV4RenderedForExecution(name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
+	if err != nil {
+		if logger != nil {
+			logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
+		}
+		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+
+	if isTemplateBindingEnabled(workflow) {
+		rendered, _, err := RenderWorkflowV4WithTemplateBinding(workflow)
+		if err != nil {
+			return workflow, e.ErrFindWorkflow.AddErr(err)
+		}
+		return rendered, nil
+	}
+
+	return workflow, nil
+}
+
+func UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController *controller.Workflow, ticket *commonmodels.ApprovalTicket, logger *zap.SugaredLogger) error {
+	latestWorkflowSettings, err := FindWorkflowV4RenderedForExecution(workflowController.Name, logger)
+	if err != nil {
+		return err
+	}
+	return workflowController.UpdateWithWorkflowSettings(latestWorkflowSettings, ticket)
+}
+
+func ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowController *controller.Workflow, logger *zap.SugaredLogger) error {
+	latestWorkflowSettings, err := FindWorkflowV4RenderedForExecution(workflowController.Name, logger)
+	if err != nil {
+		return err
+	}
+	return workflowController.ValidateWithWorkflowSettings(true, latestWorkflowSettings)
+}
+
+func prepareWorkflowTriggerArgWithLatestRenderedWorkflow(workflowArg *commonmodels.WorkflowV4, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflowController := controller.CreateWorkflowController(workflowArg)
+	latestWorkflowSettings, err := FindWorkflowV4RenderedForExecution(workflowController.Name, logger)
+	if err != nil {
+		return nil, err
+	}
+	if err := workflowController.UpdateWithWorkflowSettings(latestWorkflowSettings, nil); err != nil {
+		return nil, err
+	}
+	if err := workflowController.ValidateWithWorkflowSettings(true, latestWorkflowSettings); err != nil {
+		return nil, err
+	}
+	return workflowController.WorkflowV4, nil
 }
 
 func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -437,6 +512,10 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			BaseName:             workflowModel.BaseName,
 			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
+		}
+		if isTemplateBindingEnabled(workflowModel) {
+			workflow.TemplateBound = true
+			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
 			workflow.WorkflowType = string(setting.ReleaseWorkflow)
@@ -592,6 +671,10 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 			BaseName:             workflowModel.BaseName,
 			RemarkRequired:       workflowModel.RemarkRequired,
 			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
+		}
+		if isTemplateBindingEnabled(workflowModel) {
+			workflow.TemplateBound = true
+			workflow.TemplateName = workflowModel.TemplateBinding.TemplateName
 		}
 
 		setRecentTaskV4Info(workflow, workflowTasks)
@@ -1647,13 +1730,14 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	return nil
 }
 func CreateGithookForWorkflowV4(ctx *internalhandler.Context, workflowName string, input *commonmodels.WorkflowV4GitHook) error {
-	workflowController := controller.CreateWorkflowController(input.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(input.WorkflowArg, ctx.Logger)
+	if err != nil {
 		ctx.Logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	input.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		ctx.Logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrCreateWebhook.AddErr(err)
@@ -1697,11 +1781,12 @@ func CreateGithookForWorkflowV4(ctx *internalhandler.Context, workflowName strin
 }
 
 func UpdateGithookForWorkflowV4(ctx *internalhandler.Context, workflowName string, input *commonmodels.WorkflowV4GitHook) error {
-	workflowController := controller.CreateWorkflowController(input.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(input.WorkflowArg, ctx.Logger)
+	if err != nil {
 		ctx.Logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	input.WorkflowArg = workflowArg
 
 	existHook, err := commonrepo.NewWorkflowV4GitHookColl().Get(ctx, workflowName, input.Name)
 	if err != nil {
@@ -1758,7 +1843,7 @@ func ListGithookForWorkflowV4(ctx *internalhandler.Context, workflowName string)
 }
 
 func GetWebhookForWorkflowV4Preset(workflowName, triggerName, ticketID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4GitHook, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrGetWebhook.AddErr(err)
@@ -1800,7 +1885,7 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName, ticketID string, l
 	}
 
 	workflowController = controller.CreateWorkflowController(workflowHook.WorkflowArg)
-	if err := workflowController.UpdateWithLatestWorkflow(approvalTicket); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, approvalTicket, logger); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -1839,13 +1924,14 @@ func DeleteGithookForWorkflowV4(ctx *internalhandler.Context, workflowName, trig
 }
 
 func CreateGeneralHookForWorkflowV4(workflowName string, arg *models.WorkflowV4GeneralHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrCreateGeneralHook.AddErr(err)
@@ -1878,7 +1964,7 @@ func CreateGeneralHookForWorkflowV4(workflowName string, arg *models.WorkflowV4G
 }
 
 func GetGeneralHookForWorkflowV4Preset(workflowName, hookName, ticketID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4GeneralHook, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrGetWebhook.AddErr(err)
@@ -1914,7 +2000,7 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName, ticketID string, 
 	}
 
 	workflowController := controller.CreateWorkflowController(workflowHook.WorkflowArg)
-	if err := workflowController.UpdateWithLatestWorkflow(approvalTicket); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, approvalTicket, logger); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -1939,13 +2025,14 @@ func ListGeneralHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger
 }
 
 func UpdateGeneralHookForWorkflowV4(workflowName string, arg *commonmodels.WorkflowV4GeneralHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrUpdateGeneralHook.AddErr(err)
@@ -2022,13 +2109,14 @@ func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredL
 }
 
 func CreateJiraHookForWorkflowV4(workflowName string, arg *models.WorkflowV4JiraHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrCreateJiraHook.AddErr(err)
@@ -2058,7 +2146,7 @@ func CreateJiraHookForWorkflowV4(workflowName string, arg *models.WorkflowV4Jira
 }
 
 func GetJiraHookForWorkflowV4Preset(workflowName, hookName, ticketID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4JiraHook, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrGetWebhook.AddErr(err)
@@ -2094,7 +2182,7 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName, ticketID string, log
 	}
 
 	workflowController := controller.CreateWorkflowController(jiraHook.WorkflowArg)
-	if err := workflowController.UpdateWithLatestWorkflow(approvalTicket); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, approvalTicket, logger); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -2124,13 +2212,14 @@ func ListJiraHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) (
 }
 
 func UpdateJiraHookForWorkflowV4(workflowName string, arg *models.WorkflowV4JiraHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrUpdateJiraHook.AddErr(err)
@@ -2183,13 +2272,14 @@ func DeleteJiraHookForWorkflowV4(workflowName, hookName string, logger *zap.Suga
 }
 
 func CreateMeegoHookForWorkflowV4(workflowName string, arg *models.WorkflowV4MeegoHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrCreateMeegoHook.AddErr(err)
@@ -2216,7 +2306,7 @@ func CreateMeegoHookForWorkflowV4(workflowName string, arg *models.WorkflowV4Mee
 }
 
 func GetMeegoHookForWorkflowV4Preset(workflowName, hookName, ticketID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4MeegoHook, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrGetWebhook.AddErr(err)
@@ -2252,7 +2342,7 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName, ticketID string, lo
 	}
 
 	workflowController := controller.CreateWorkflowController(meegoHook.WorkflowArg)
-	if err := workflowController.UpdateWithLatestWorkflow(approvalTicket); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, approvalTicket, logger); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -2282,13 +2372,14 @@ func ListMeegoHookForWorkflowV4(workflowName string, logger *zap.SugaredLogger) 
 }
 
 func UpdateMeegoHookForWorkflowV4(workflowName string, arg *models.WorkflowV4MeegoHook, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(arg.WorkflowArg)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(arg.WorkflowArg, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	arg.WorkflowArg = workflowArg
 
-	_, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	_, err = commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return e.ErrUpdateMeegoHook.AddErr(err)
@@ -2384,18 +2475,19 @@ func BulkCopyWorkflowV4(args BulkCopyWorkflowArgs, username string, log *zap.Sug
 }
 
 func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(input.WorkflowV4Args)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(input.WorkflowV4Args, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	input.WorkflowV4Args = workflowArg
 
 	if !input.ID.IsZero() {
 		return e.ErrUpsertCronjob.AddDesc("cronjob id is not empty")
 	}
 	input.Name = workflowName
 	input.Type = setting.WorkflowV4Cronjob
-	err := commonrepo.NewCronjobColl().Create(input)
+	err = commonrepo.NewCronjobColl().Create(input)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to create cron job, error: %v", err)
 		log.Error(msg)
@@ -2425,19 +2517,20 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 }
 
 func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLogger) error {
-	workflowController := controller.CreateWorkflowController(input.WorkflowV4Args)
-	if err := workflowController.Validate(true); err != nil {
+	workflowArg, err := prepareWorkflowTriggerArgWithLatestRenderedWorkflow(input.WorkflowV4Args, logger)
+	if err != nil {
 		logger.Errorf("validate workflow error: %s", err)
 		return e.ErrCreateWebhook.AddErr(err)
 	}
+	input.WorkflowV4Args = workflowArg
 
-	_, err := commonrepo.NewCronjobColl().GetByID(input.ID)
+	_, err = commonrepo.NewCronjobColl().GetByID(input.ID)
 	if err != nil {
 		msg := fmt.Sprintf("cron job not exist, error: %v", err)
 		log.Error(msg)
 		return errors.New(msg)
 	}
-	if err := commonrepo.NewCronjobColl().Update(input); err != nil {
+	if err = commonrepo.NewCronjobColl().Update(input); err != nil {
 		msg := fmt.Sprintf("Failed to update cron job, error: %v", err)
 		log.Error(msg)
 		return errors.New(msg)
@@ -2478,7 +2571,7 @@ func ListCronForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*c
 }
 
 func GetCronForWorkflowV4Preset(workflowName, cronID, ticketID string, logger *zap.SugaredLogger) (*commonmodels.Cronjob, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrUpsertCronjob.AddErr(err)
@@ -2518,7 +2611,7 @@ func GetCronForWorkflowV4Preset(workflowName, cronID, ticketID string, logger *z
 	}
 
 	workflowController := controller.CreateWorkflowController(cronJob.WorkflowV4Args)
-	if err := workflowController.UpdateWithLatestWorkflow(approvalTicket); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, approvalTicket, logger); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
@@ -2759,6 +2852,10 @@ func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Wo
 			Description:  customWorkflow.Description,
 			BaseName:     customWorkflow.BaseName,
 		})
+		if isTemplateBindingEnabled(customWorkflow) {
+			resp[len(resp)-1].TemplateBound = true
+			resp[len(resp)-1].TemplateName = customWorkflow.TemplateBinding.TemplateName
+		}
 	}
 
 	return resp, nil

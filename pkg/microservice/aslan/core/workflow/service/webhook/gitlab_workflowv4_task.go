@@ -429,7 +429,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 			}
 
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
-			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))

@@ -77,6 +77,12 @@ func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "template_binding.template_id", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
@@ -143,6 +149,28 @@ func (c *WorkflowV4Coll) ListByProjectNames(projects []string) ([]*models.Workfl
 		return nil, err
 	}
 
+	return resp, nil
+}
+
+func (c *WorkflowV4Coll) ListTemplateBoundByTemplateID(templateID string) ([]*models.WorkflowV4, error) {
+	resp := make([]*models.WorkflowV4, 0)
+	if templateID == "" {
+		return resp, nil
+	}
+	query := bson.M{
+		"template_binding.enabled":     true,
+		"template_binding.template_id": templateID,
+	}
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return resp, nil
+		}
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &resp); err != nil {
+		return nil, err
+	}
 	return resp, nil
 }
 

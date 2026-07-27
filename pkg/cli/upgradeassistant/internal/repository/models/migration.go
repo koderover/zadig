@@ -46,6 +46,7 @@ type Migration struct {
 	Migration430CollaborationScalePermission    bool               `bson:"migration_430_collaboration_scale_permission"`
 	Migration500LogOperationPermission          bool               `bson:"migration_500_log_operation_permission"`
 	Migration500UserContactIndexes              bool               `bson:"migration_500_user_contact_indexes"`
+	Migration500WorkflowTemplateVersion         bool               `bson:"migration_500_workflow_template_version"`
 	Error                                       string             `bson:"error"`
 }
 
