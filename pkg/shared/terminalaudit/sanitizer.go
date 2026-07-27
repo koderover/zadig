@@ -2,26 +2,19 @@ package terminalaudit
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const secretMask = "********"
 
-type secretSanitizer struct {
-	secrets []string
-}
-
 func NewSanitizer(secrets []string) terminalio.Sanitizer {
-	return &secretSanitizer{secrets: secrets}
-}
-
-func (s *secretSanitizer) Mask(data string) string {
-	return util.MaskSecret(s.secrets, data)
+	return newStreamSanitizer(secrets)
 }
 
 type streamSanitizer struct {
+	mu                 sync.Mutex
 	secretsByFirstByte map[byte][]string
 	pending            string
 }
@@ -41,15 +34,25 @@ func newStreamSanitizer(secrets []string) *streamSanitizer {
 	return &streamSanitizer{secretsByFirstByte: byFirstByte}
 }
 
-func (s *streamSanitizer) Write(data string) string {
+func (s *streamSanitizer) Mask(data string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if len(s.secretsByFirstByte) == 0 {
 		return data
 	}
 	s.pending += data
-	return s.drain(false)
+	output := s.drain(false)
+	if s.pending != "" {
+		s.pending = strings.Clone(s.pending)
+	}
+	return output
 }
 
 func (s *streamSanitizer) Flush() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if len(s.secretsByFirstByte) == 0 {
 		return ""
 	}

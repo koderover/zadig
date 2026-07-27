@@ -53,22 +53,8 @@ type liveMessage struct {
 	Frame string `json:"frame,omitempty"`
 }
 
-type redisLiveTransport struct {
-	cache *cache.RedisCache
-}
-
-func newRedisLiveTransport() *redisLiveTransport {
-	return &redisLiveTransport{
-		cache: cache.NewRedisCache(config.RedisCommonCacheTokenDB()),
-	}
-}
-
-func (t *redisLiveTransport) Publish(channel, message string) (int64, error) {
-	return t.cache.PublishCount(channel, message)
-}
-
-func (t *redisLiveTransport) Subscribe(ctx context.Context, channel string) (*redisLiveSubscription, error) {
-	messages, closeSubscription, err := t.cache.SubscribeContext(ctx, channel)
+func subscribeRedis(ctx context.Context, redis *cache.RedisCache, channel string) (*redisLiveSubscription, error) {
+	messages, closeSubscription, err := redis.SubscribeContext(ctx, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -94,30 +80,6 @@ func (t *redisLiveTransport) Subscribe(ctx context.Context, channel string) (*re
 		}
 	}()
 	return subscription, nil
-}
-
-func (t *redisLiveTransport) SaveState(key string, state liveState) error {
-	data, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return t.cache.Write(key, string(data), liveStateTTL)
-}
-
-func (t *redisLiveTransport) LoadState(key string) (liveState, error) {
-	data, err := t.cache.GetString(key)
-	if err != nil {
-		return liveState{}, err
-	}
-	state := liveState{}
-	if err := json.Unmarshal([]byte(data), &state); err != nil {
-		return liveState{}, err
-	}
-	return state, nil
-}
-
-func (t *redisLiveTransport) DeleteState(key string) error {
-	return t.cache.Delete(key)
 }
 
 type redisLiveSubscription struct {
@@ -169,7 +131,7 @@ func decodeLiveMessage(payload string) (liveMessage, error) {
 }
 
 type livePublisher struct {
-	transport *redisLiveTransport
+	redis     *cache.RedisCache
 	sessionID string
 	events    chan livePublishEvent
 	stop      chan struct{}
@@ -187,7 +149,7 @@ type livePublishEvent struct {
 
 func newLivePublisher(sessionID string) *livePublisher {
 	publisher := &livePublisher{
-		transport: newRedisLiveTransport(),
+		redis:     cache.NewRedisCache(config.RedisCommonCacheTokenDB()),
 		sessionID: sessionID,
 		events:    make(chan livePublishEvent, livePublishBufferSize),
 		stop:      make(chan struct{}),
@@ -200,7 +162,15 @@ func (p *livePublisher) setHeader(header string) error {
 	p.stateMu.Lock()
 	defer p.stateMu.Unlock()
 	p.state.Header = header
-	return p.transport.SaveState(liveStateKey(p.sessionID), p.state)
+	return p.saveStateLocked()
+}
+
+func (p *livePublisher) saveStateLocked() error {
+	data, err := json.Marshal(p.state)
+	if err != nil {
+		return err
+	}
+	return p.redis.Write(liveStateKey(p.sessionID), string(data), liveStateTTL)
 }
 
 func (p *livePublisher) publish(code, frame string) {
@@ -237,12 +207,12 @@ func (p *livePublisher) run() {
 		case <-ticker.C:
 			p.stateMu.Lock()
 			if p.state.Header != "" {
-				_ = p.transport.SaveState(liveStateKey(p.sessionID), p.state)
+				_ = p.saveStateLocked()
 			}
 			p.stateMu.Unlock()
 			heartbeat, err := encodeLiveMessage(liveMessage{Type: liveMessageHeartbeat})
 			if err == nil {
-				_, _ = p.transport.Publish(liveFrameChannel(p.sessionID), heartbeat)
+				_, _ = p.redis.PublishCount(liveFrameChannel(p.sessionID), heartbeat)
 			}
 		}
 	}
@@ -252,22 +222,22 @@ func (p *livePublisher) publishEvent(event livePublishEvent) {
 	if event.code == "r" {
 		p.stateMu.Lock()
 		p.state.Resize = event.frame
-		_ = p.transport.SaveState(liveStateKey(p.sessionID), p.state)
+		_ = p.saveStateLocked()
 		p.stateMu.Unlock()
 	}
 	payload, err := encodeLiveMessage(liveMessage{Type: liveMessageFrame, Frame: event.frame})
 	if err != nil {
 		return
 	}
-	_, _ = p.transport.Publish(liveFrameChannel(p.sessionID), payload)
+	_, _ = p.redis.PublishCount(liveFrameChannel(p.sessionID), payload)
 }
 
 func (p *livePublisher) finish() {
 	end, err := encodeLiveMessage(liveMessage{Type: liveMessageEnd})
 	if err == nil {
-		_, _ = p.transport.Publish(liveFrameChannel(p.sessionID), end)
+		_, _ = p.redis.PublishCount(liveFrameChannel(p.sessionID), end)
 	}
-	_ = p.transport.DeleteState(liveStateKey(p.sessionID))
+	_ = p.redis.Delete(liveStateKey(p.sessionID))
 }
 
 func (p *livePublisher) close() {
@@ -280,18 +250,24 @@ func (p *livePublisher) close() {
 }
 
 func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {
-	transport := newRedisLiveTransport()
+	redis := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 	ctx, cancel := context.WithCancel(context.Background())
-	subscription, err := transport.Subscribe(ctx, liveFrameChannel(sessionID))
+	subscription, err := subscribeRedis(ctx, redis, liveFrameChannel(sessionID))
 	if err != nil {
 		cancel()
 		return nil, nil, err
 	}
-	state, err := transport.LoadState(liveStateKey(sessionID))
+	data, err := redis.GetString(liveStateKey(sessionID))
 	if err != nil {
 		_ = subscription.Close()
 		cancel()
 		return nil, nil, fmt.Errorf("load live terminal state: %w", err)
+	}
+	state := liveState{}
+	if err := json.Unmarshal([]byte(data), &state); err != nil {
+		_ = subscription.Close()
+		cancel()
+		return nil, nil, fmt.Errorf("decode live terminal state: %w", err)
 	}
 	if state.Header == "" {
 		_ = subscription.Close()
@@ -374,9 +350,9 @@ func resetTimer(timer *time.Timer, timeout time.Duration) {
 }
 
 func publishRemoteTermination(sessionID string) (int64, error) {
-	return newRedisLiveTransport().Publish(liveTerminateChannel(sessionID), liveMessageTerminate)
+	return cache.NewRedisCache(config.RedisCommonCacheTokenDB()).PublishCount(liveTerminateChannel(sessionID), liveMessageTerminate)
 }
 
 func subscribeToTermination(ctx context.Context, sessionID string) (*redisLiveSubscription, error) {
-	return newRedisLiveTransport().Subscribe(ctx, liveTerminateChannel(sessionID))
+	return subscribeRedis(ctx, cache.NewRedisCache(config.RedisCommonCacheTokenDB()), liveTerminateChannel(sessionID))
 }

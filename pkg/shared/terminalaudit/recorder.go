@@ -2,6 +2,7 @@ package terminalaudit
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,31 +23,50 @@ import (
 
 const internalStorageID = "__internal_default__"
 
+const (
+	// writeQueueCapacity bounds the async write buffer so that terminal I/O is
+	// never blocked by slow object-storage uploads. When the queue overflows we
+	// degrade the recording rather than applying backpressure to the terminal.
+	writeQueueCapacity = 8192
+	// closeWriterTimeout bounds how long Close waits for the writer goroutine to
+	// flush buffered events and close the upload pipe.
+	closeWriterTimeout = 5 * time.Second
+	// closePersistTimeout bounds how long Close waits for pending command
+	// persistence goroutines.
+	closePersistTimeout = 5 * time.Second
+	// closeUploadTimeout bounds how long Close waits for the object-storage
+	// upload to finish before abandoning it.
+	closeUploadTimeout = 10 * time.Second
+	// auditStorageLookupTimeout bounds the default storage lookup during audit initialization.
+	auditStorageLookupTimeout = 5 * time.Second
+)
+
 type asciicastRecorder struct {
-	mu            sync.Mutex
-	errMu         sync.Mutex
-	persistWG     sync.WaitGroup
-	session       *models.TerminalSession
-	startedAt     time.Time
-	inputMask     *streamSanitizer
-	outputMask    *streamSanitizer
-	extractor     *CommandExtractor
-	writer        *bufio.Writer
-	pipeWriter    *io.PipeWriter
-	uploadDone    chan struct{}
-	storageID     string
-	bucket        string
-	objectKey     string
-	fileSize      atomic.Int64
-	recordErr     error
-	closed        bool
-	closeOnce     sync.Once
-	closeErr      error
-	terminate     func()
-	terminateOnce sync.Once
-	sessionColl   *commonrepo.TerminalSessionColl
-	commandColl   *commonrepo.TerminalCommandColl
-	live          *livePublisher
+	mu          sync.Mutex
+	errMu       sync.Mutex
+	persistWG   sync.WaitGroup
+	session     *models.TerminalSession
+	startedAt   time.Time
+	inputMask   *streamSanitizer
+	outputMask  *streamSanitizer
+	extractor   *CommandExtractor
+	writer      *bufio.Writer
+	pipeWriter  *io.PipeWriter
+	writeCh     chan []byte
+	writerDone  chan struct{}
+	uploadDone  chan struct{}
+	storageID   string
+	bucket      string
+	objectKey   string
+	fileSize    atomic.Int64
+	recordErr   error
+	degraded    atomic.Bool
+	closed      bool
+	closeOnce   sync.Once
+	closeErr    error
+	sessionColl *commonrepo.TerminalSessionColl
+	commandColl *commonrepo.TerminalCommandColl
+	live        *livePublisher
 }
 
 type castHeader struct {
@@ -58,12 +78,14 @@ type castHeader struct {
 	Title     string            `json:"title,omitempty"`
 }
 
-func newRecorder(meta *SessionMeta, terminate func()) (*asciicastRecorder, error) {
+func newRecorder(meta *SessionMeta) (*asciicastRecorder, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("terminal session meta is nil")
 	}
 	startedAt := time.Now()
-	storage, err := s3service.FindDefaultS3()
+	ctx, cancel := context.WithTimeout(context.Background(), auditStorageLookupTimeout)
+	defer cancel()
+	storage, err := s3service.FindDefaultS3WithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +160,8 @@ func newRecorder(meta *SessionMeta, terminate func()) (*asciicastRecorder, error
 		outputMask:  newStreamSanitizer(meta.Secrets),
 		extractor:   &CommandExtractor{},
 		pipeWriter:  pipeWriter,
+		writeCh:     make(chan []byte, writeQueueCapacity),
+		writerDone:  make(chan struct{}),
 		uploadDone:  uploadDone,
 		storageID:   storageID,
 		bucket:      storage.Bucket,
@@ -145,7 +169,6 @@ func newRecorder(meta *SessionMeta, terminate func()) (*asciicastRecorder, error
 		sessionColl: sessionColl,
 		commandColl: commonrepo.NewTerminalCommandColl(),
 		live:        newLivePublisher(session.SessionID),
-		terminate:   terminate,
 	}
 	recorder.writer = bufio.NewWriter(&countingWriter{
 		writer: pipeWriter,
@@ -155,33 +178,71 @@ func newRecorder(meta *SessionMeta, terminate func()) (*asciicastRecorder, error
 		defer close(uploadDone)
 		defer pipeReader.Close()
 		if err := client.UploadReader(storage.Bucket, pipeReader, session.ObjectKey, "application/octet-stream"); err != nil {
-			recorder.fail(err)
+			recorder.degrade(err)
 		}
 	}()
+	// Write the header synchronously before the writer goroutine starts so that
+	// there is only ever a single writer touching bufio.Writer.
 	if err := recorder.writeHeader(normalizeDimension(meta.InitialCols, defaultCols), normalizeDimension(meta.InitialRows, defaultRows)); err != nil {
-		_ = recorder.Close(models.TerminalSessionStatusFailed)
+		recorder.live.close()
+		_ = pipeWriter.CloseWithError(err)
+		_ = sessionColl.CloseSession(&commonrepo.CloseSessionArgs{
+			SessionID:       session.SessionID,
+			Status:          models.TerminalSessionStatusFailed,
+			EndedAt:         time.Now().Unix(),
+			DurationSeconds: 0,
+			StorageID:       storageID,
+			Bucket:          storage.Bucket,
+			ObjectKey:       session.ObjectKey,
+			FileSize:        recorder.fileSize.Load(),
+			ErrorMessage:    err.Error(),
+		})
 		return nil, err
 	}
+	go recorder.runWriter()
 	log.Infof("create terminal audit recorder success, sessionID=%s storageID=%s bucket=%s objectKey=%s", session.SessionID, storageID, storage.Bucket, session.ObjectKey)
 	return recorder, nil
+}
+
+// runWriter is the sole writer to bufio.Writer after startup. It drains the
+// bounded queue into object storage and flushes/closes the upload pipe when the
+// queue is closed by Close.
+func (r *asciicastRecorder) runWriter() {
+	defer close(r.writerDone)
+	for line := range r.writeCh {
+		if r.degraded.Load() {
+			continue
+		}
+		if _, err := r.writer.Write(line); err != nil {
+			r.degrade(err)
+		}
+	}
+	if !r.degraded.Load() {
+		if err := r.writer.Flush(); err != nil {
+			r.degrade(err)
+		}
+	}
+	if err := r.pipeWriter.Close(); err != nil {
+		r.setRecordErr(err)
+	}
 }
 
 func (r *asciicastRecorder) RecordInput(data string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.closed {
+	if r.closed || r.degraded.Load() {
 		return
 	}
-	r.recordInput(r.inputMask.Write(data))
+	r.recordInput(r.inputMask.Mask(data))
 }
 
 func (r *asciicastRecorder) RecordOutput(data string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.closed {
+	if r.closed || r.degraded.Load() {
 		return
 	}
-	r.recordOutput(r.outputMask.Write(data))
+	r.recordOutput(r.outputMask.Mask(data))
 }
 
 func (r *asciicastRecorder) recordInput(data string) {
@@ -208,7 +269,7 @@ func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.closed {
+	if r.closed || r.degraded.Load() {
 		return
 	}
 	r.writeEvent("r", fmt.Sprintf("%dx%d", cols, rows))
@@ -242,11 +303,11 @@ func (r *asciicastRecorder) persistCommands(commands []ExtractedCommand) {
 	go func(commands []*models.TerminalCommand, commandCount int64, activityAt int64) {
 		defer r.persistWG.Done()
 		if err := r.commandColl.CreateMany(commands); err != nil {
-			r.fail(err)
+			r.degrade(err)
 			return
 		}
 		if err := r.sessionColl.UpdateActivity(r.session.SessionID, commandCount, activityAt); err != nil {
-			r.fail(err)
+			r.degrade(err)
 		}
 	}(commandModels, int64(len(commands)), now)
 }
@@ -255,26 +316,45 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 	r.closeOnce.Do(func() {
 		r.mu.Lock()
 		r.closed = true
-		r.recordInput(r.inputMask.Flush())
-		r.recordOutput(r.outputMask.Flush())
-		if r.writer != nil {
-			if err := r.writer.Flush(); err != nil {
-				r.setRecordErr(err)
-			}
+		if !r.degraded.Load() {
+			r.recordInput(r.inputMask.Flush())
+			r.recordOutput(r.outputMask.Flush())
+			r.persistCommands(r.extractor.flush())
 		}
-		if r.pipeWriter != nil {
-			if err := r.pipeWriter.Close(); err != nil {
-				r.setRecordErr(err)
-			}
-		}
+		close(r.writeCh)
 		r.mu.Unlock()
+
+		// Bounded wait for the writer goroutine to flush buffered events and
+		// close the upload pipe. Terminal shutdown must never block on storage.
+		select {
+		case <-r.writerDone:
+		case <-time.After(closeWriterTimeout):
+			r.degrade(fmt.Errorf("terminal audit writer flush timed out for session %s", r.session.SessionID))
+			_ = r.pipeWriter.CloseWithError(fmt.Errorf("terminal audit writer flush deadline exceeded"))
+		}
+
 		r.live.close()
-		r.persistWG.Wait()
+
+		persistDone := make(chan struct{})
+		go func() {
+			r.persistWG.Wait()
+			close(persistDone)
+		}()
+		select {
+		case <-persistDone:
+		case <-time.After(closePersistTimeout):
+			r.degrade(fmt.Errorf("terminal audit command persistence timed out for session %s", r.session.SessionID))
+		}
 
 		endedAt := time.Now().Unix()
 		durationSeconds := int64(time.Since(r.startedAt).Seconds())
 		if r.uploadDone != nil {
-			<-r.uploadDone
+			select {
+			case <-r.uploadDone:
+			case <-time.After(closeUploadTimeout):
+				r.degrade(fmt.Errorf("terminal audit upload timed out for session %s", r.session.SessionID))
+				_ = r.pipeWriter.CloseWithError(fmt.Errorf("terminal audit upload deadline exceeded"))
+			}
 		}
 		recordErr := r.getRecordErr()
 		finalStatus := status
@@ -329,24 +409,23 @@ func (r *asciicastRecorder) writeEvent(code, data string) {
 	offset := math.Round(time.Since(r.startedAt).Seconds()*1000) / 1000
 	line, err := json.Marshal([]interface{}{offset, code, data})
 	if err != nil {
-		r.fail(err)
+		r.degrade(err)
 		return
 	}
-	if _, err := r.writer.Write(append(line, '\n')); err != nil {
-		r.fail(err)
-		return
+	select {
+	case r.writeCh <- append(line, '\n'):
+		r.live.publish(code, string(line))
+	default:
+		r.degrade(fmt.Errorf("terminal audit write buffer full for session %s, dropping recording", r.session.SessionID))
 	}
-	r.live.publish(code, string(line))
 }
 
-func (r *asciicastRecorder) fail(err error) {
+func (r *asciicastRecorder) degrade(err error) {
 	if err == nil {
 		return
 	}
 	r.setRecordErr(err)
-	if r.terminate != nil {
-		r.terminateOnce.Do(func() { go r.terminate() })
-	}
+	r.degraded.Store(true)
 }
 
 func (r *asciicastRecorder) setRecordErr(err error) {

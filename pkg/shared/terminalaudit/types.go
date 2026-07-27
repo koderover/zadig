@@ -37,7 +37,7 @@ type SessionMeta struct {
 	UserAgent     string
 	InitialCols   int
 	InitialRows   int
-	// Secrets stores raw secret values and is masked via util.MaskSecret.
+	// Secrets stores raw secret values to be masked from recordings.
 	Secrets []string
 }
 

@@ -38,11 +38,31 @@ func (c *TerminalCommandColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(true),
 		},
 		{
+			Keys:    bson.D{{Key: "created_at", Value: -1}, {Key: "seq", Value: -1}, {Key: "_id", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "session_id", Value: 1}, {Key: "created_at", Value: -1}, {Key: "seq", Value: -1}, {Key: "_id", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
 			Keys:    bson.D{{Key: "project_name", Value: 1}, {Key: "created_at", Value: -1}},
 			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys:    bson.D{{Key: "username", Value: 1}, {Key: "created_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "target_name", Value: 1}, {Key: "created_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "remote_addr", Value: 1}, {Key: "created_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "command", Value: "hashed"}},
 			Options: options.Index().SetUnique(false),
 		},
 	}
@@ -61,7 +81,9 @@ func (c *TerminalCommandColl) CreateMany(commands []*models.TerminalCommand) err
 		}
 		docs = append(docs, command)
 	}
-	_, err := c.InsertMany(context.TODO(), docs)
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	_, err := c.InsertMany(ctx, docs)
 	return err
 }
 
@@ -73,19 +95,19 @@ func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs) ([]*mod
 			query["session_id"] = args.SessionID
 		}
 		if args.ProjectName != "" {
-			query["project_name"] = buildRegexQuery(args.ProjectName)
+			query["project_name"] = args.ProjectName
 		}
 		if args.Username != "" {
-			query["username"] = buildRegexQuery(args.Username)
+			query["username"] = args.Username
 		}
 		if args.TargetName != "" {
-			query["target_name"] = buildRegexQuery(args.TargetName)
+			query["target_name"] = args.TargetName
 		}
 		if args.RemoteAddr != "" {
-			query["remote_addr"] = buildRegexQuery(args.RemoteAddr)
+			query["remote_addr"] = args.RemoteAddr
 		}
 		if args.Command != "" {
-			query["command"] = buildRegexQuery(args.Command)
+			query["command"] = args.Command
 		}
 		if args.StartTime > 0 || args.EndTime > 0 {
 			timeQuery := bson.M{}

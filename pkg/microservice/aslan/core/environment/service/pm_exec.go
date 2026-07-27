@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/websocket"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
@@ -122,23 +123,27 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		UserID:       userID,
 		Account:      account,
 	}
-	audit, err := terminalaudit.NewAuditSession(meta, func() {
+	audit, auditErr := terminalaudit.NewAuditSession(meta, func() {
 		sshCli.Close()
 		_ = ws.Close()
 	})
-	if err != nil {
-		log.Errorf("create ssh terminal audit recorder failed: %v", err)
-		e.ErrLoginPm.AddErr(err)
-		_ = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
-		return e.ErrLoginPm
+	if auditErr != nil {
+		log.Errorf("create ssh terminal audit recorder failed, continuing without audit: %v", auditErr)
 	}
 	defer func() {
-		if err := audit.Close(finalStatus); err != nil {
-			log.Errorf("close ssh terminal audit recorder failed: %v", err)
+		_ = ws.Close()
+		if audit != nil {
+			if err := audit.Close(finalStatus); err != nil {
+				log.Errorf("close ssh terminal audit recorder failed: %v", err)
+			}
 		}
 	}()
 
-	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, audit.Recorder)
+	var recorder terminalio.Recorder
+	if audit != nil {
+		recorder = audit.Recorder
+	}
+	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, recorder)
 	if err != nil {
 		log.Errorf("NewSshConn err:%s", err)
 		e.ErrLoginPm.AddErr(err)

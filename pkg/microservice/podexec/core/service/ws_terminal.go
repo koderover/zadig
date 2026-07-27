@@ -70,6 +70,7 @@ type TerminalSession struct {
 	sizeChan  chan remotecommand.TerminalSize
 	doneChan  chan struct{}
 	closeOnce sync.Once
+	writeMu   sync.Mutex
 	closeErr  error
 	SessionID string
 	Recorder  terminalio.Recorder
@@ -86,6 +87,7 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		wsConn:   conn,
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
+		Recorder: terminalio.NopRecorder{},
 	}
 	return session, nil
 }
@@ -143,33 +145,49 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
 	output := string(p)
-	if t.Recorder != nil {
-		t.Recorder.RecordOutput(output)
-	}
+	t.Recorder.RecordOutput(output)
 	if t.OutputSanitizer != nil {
 		output = t.OutputSanitizer.Mask(output)
 	}
-	msg, err := json.Marshal(TerminalMessage{
-		Operation: "stdout",
-		Data:      output,
-	})
-	if err != nil {
-		log.Errorf("write parse message err: %v", err)
-		return 0, err
-	}
-	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
+	if err := t.writeOutput(output); err != nil {
 		_ = t.Close()
 		return 0, err
 	}
 	return len(p), nil
 }
 
+func (t *TerminalSession) writeOutput(output string) error {
+	if output == "" {
+		return nil
+	}
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+
+	msg, err := json.Marshal(TerminalMessage{
+		Operation: "stdout",
+		Data:      output,
+	})
+	if err != nil {
+		log.Errorf("write parse message err: %v", err)
+		return err
+	}
+	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
+		return err
+	}
+	return nil
+}
+
 // Close close session
 func (t *TerminalSession) Close() error {
 	t.closeOnce.Do(func() {
 		close(t.doneChan)
+		if t.OutputSanitizer != nil {
+			_ = t.writeOutput(t.OutputSanitizer.Flush())
+		}
+		t.writeMu.Lock()
 		t.closeErr = t.wsConn.Close()
+		t.writeMu.Unlock()
 		log.Infof("close terminal session, sessionID=%s err=%v", t.SessionID, t.closeErr)
 	})
 	return t.closeErr

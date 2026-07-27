@@ -22,6 +22,15 @@ type Recorder interface {
 	RecordResize(cols, rows uint16)
 }
 
+// NopRecorder is a Recorder that discards all events. It lets call sites treat
+// the recorder as always non-nil instead of guarding every call.
+type NopRecorder struct{}
+
+func (NopRecorder) RecordInput(string)          {}
+func (NopRecorder) RecordOutput(string)         {}
+func (NopRecorder) RecordResize(uint16, uint16) {}
+
 type Sanitizer interface {
 	Mask(data string) string
+	Flush() string
 }

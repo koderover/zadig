@@ -66,6 +66,9 @@ type SshConn struct {
 }
 
 func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
+	if recorder == nil {
+		recorder = terminalio.NopRecorder{}
+	}
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err

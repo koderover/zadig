@@ -14,6 +14,8 @@ import (
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
+const terminalAuditMongoTimeout = 5 * time.Second
+
 type TerminalSessionColl struct {
 	*mongo.Collection
 
@@ -51,11 +53,19 @@ func (c *TerminalSessionColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(true),
 		},
 		{
+			Keys:    bson.D{{Key: "started_at", Value: -1}, {Key: "_id", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
 			Keys:    bson.D{{Key: "status", Value: 1}, {Key: "started_at", Value: -1}},
 			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys:    bson.D{{Key: "project_name", Value: 1}, {Key: "env_name", Value: 1}, {Key: "started_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "env_name", Value: 1}, {Key: "started_at", Value: -1}},
 			Options: options.Index().SetUnique(false),
 		},
 		{
@@ -68,6 +78,14 @@ func (c *TerminalSessionColl) EnsureIndex(ctx context.Context) error {
 		},
 		{
 			Keys:    bson.D{{Key: "target_name", Value: 1}, {Key: "started_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "service_name", Value: 1}, {Key: "started_at", Value: -1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "remote_addr", Value: 1}, {Key: "started_at", Value: -1}},
 			Options: options.Index().SetUnique(false),
 		},
 	}
@@ -90,7 +108,9 @@ func (c *TerminalSessionColl) Create(session *models.TerminalSession) error {
 	if session.LastActivityAt == 0 {
 		session.LastActivityAt = session.StartedAt
 	}
-	_, err := c.InsertOne(context.TODO(), session)
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	_, err := c.InsertOne(ctx, session)
 	return err
 }
 
@@ -113,7 +133,9 @@ func (c *TerminalSessionColl) UpdateActivity(sessionID string, commandCountDelta
 	if commandCountDelta != 0 {
 		update["$inc"] = bson.M{"command_count": commandCountDelta}
 	}
-	_, err := c.UpdateOne(context.TODO(), bson.M{"session_id": sessionID}, update)
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	_, err := c.UpdateOne(ctx, bson.M{"session_id": sessionID}, update)
 	return err
 }
 
@@ -135,7 +157,9 @@ func (c *TerminalSessionColl) CloseSession(args *CloseSessionArgs) error {
 			"updated_at":       time.Now().Unix(),
 		},
 	}
-	_, err := c.UpdateOne(context.TODO(), bson.M{"session_id": args.SessionID}, update)
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	_, err := c.UpdateOne(ctx, bson.M{"session_id": args.SessionID}, update)
 	return err
 }
 
@@ -150,22 +174,22 @@ func (c *TerminalSessionColl) List(args *models.TerminalSessionListArgs) ([]*mod
 			query["session_type"] = args.SessionType
 		}
 		if args.ProjectName != "" {
-			query["project_name"] = buildRegexQuery(args.ProjectName)
+			query["project_name"] = args.ProjectName
 		}
 		if args.EnvName != "" {
-			query["env_name"] = buildRegexQuery(args.EnvName)
+			query["env_name"] = args.EnvName
 		}
 		if args.ServiceName != "" {
-			query["service_name"] = buildRegexQuery(args.ServiceName)
+			query["service_name"] = args.ServiceName
 		}
 		if args.Username != "" {
-			query["username"] = buildRegexQuery(args.Username)
+			query["username"] = args.Username
 		}
 		if args.TargetName != "" {
-			query["target_name"] = buildRegexQuery(args.TargetName)
+			query["target_name"] = args.TargetName
 		}
 		if args.RemoteAddr != "" {
-			query["remote_addr"] = buildRegexQuery(args.RemoteAddr)
+			query["remote_addr"] = args.RemoteAddr
 		}
 		if args.StartTime > 0 || args.EndTime > 0 {
 			timeQuery := bson.M{}

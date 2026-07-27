@@ -13,7 +13,14 @@ var (
 	bracketedPasteEnd      = []byte{0x1b, '[', '2', '0', '1', '~'}
 	interactiveEnterSeq    = []string{"\x1b[?1049h", "\x1b[?1047h", "\x1b[?47h"}
 	interactiveExitSeq     = []string{"\x1b[?1049l", "\x1b[?1047l", "\x1b[?47l"}
-	interactiveRejectHints = []string{"not found", "command not found", "No such file or directory"}
+	interactiveRejectHints = []string{"not found", "No such file or directory"}
+)
+
+const (
+	// maxDeferredInputBytes bounds input retained while interactive mode is still undetermined.
+	maxDeferredInputBytes = 64 * 1024
+	// maxCommandBytes bounds a single command before it is discarded from audit extraction.
+	maxCommandBytes = 64 * 1024
 )
 
 type ExtractedCommand struct {
@@ -28,16 +35,19 @@ type deferredInputChunk struct {
 }
 
 type CommandExtractor struct {
-	buffer             []byte
-	seq                int64
-	inEscape           bool
-	escapeBuffer       []byte
-	inBracketedPaste   bool
-	pasteEscapeBuffer  []byte
-	pendingInteractive bool
-	interactiveMode    bool
-	pendingInputs      []deferredInputChunk
-	outputTail         string
+	buffer                 []byte
+	seq                    int64
+	inEscape               bool
+	escapeBuffer           []byte
+	inBracketedPaste       bool
+	pasteEscapeBuffer      []byte
+	pendingInteractive     bool
+	interactiveMode        bool
+	pendingInputs          []deferredInputChunk
+	pendingInputBytes      int
+	discardingPendingInput bool
+	discardingCommand      bool
+	outputTail             string
 }
 
 func (e *CommandExtractor) Consume(data string, offset time.Duration) []ExtractedCommand {
@@ -45,9 +55,16 @@ func (e *CommandExtractor) Consume(data string, offset time.Duration) []Extracte
 		return nil
 	}
 	if e.pendingInteractive {
-		if data != "" {
-			e.pendingInputs = append(e.pendingInputs, deferredInputChunk{data: data, offset: offset})
+		if data == "" || e.discardingPendingInput {
+			return nil
 		}
+		if len(data) > maxDeferredInputBytes-e.pendingInputBytes {
+			// Keep the already-buffered prefix for replay; only drop the overflow tail.
+			e.discardingPendingInput = true
+			return nil
+		}
+		e.pendingInputs = append(e.pendingInputs, deferredInputChunk{data: data, offset: offset})
+		e.pendingInputBytes += len(data)
 		return nil
 	}
 	commands := make([]ExtractedCommand, 0)
@@ -76,6 +93,8 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 	if e.pendingInteractive && containsAny(e.outputTail, interactiveEnterSeq) {
 		e.pendingInteractive = false
 		e.pendingInputs = nil
+		e.pendingInputBytes = 0
+		e.discardingPendingInput = false
 		e.interactiveMode = true
 		return nil
 	}
@@ -83,6 +102,8 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		pendingInputs := e.pendingInputs
 		e.pendingInteractive = false
 		e.pendingInputs = nil
+		e.pendingInputBytes = 0
+		e.discardingPendingInput = false
 		e.outputTail = ""
 		return e.replayDeferredInputs(pendingInputs)
 	}
@@ -90,6 +111,20 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		e.interactiveMode = false
 	}
 	return nil
+}
+
+func (e *CommandExtractor) flush() []ExtractedCommand {
+	commands := make([]ExtractedCommand, 0)
+	for len(e.pendingInputs) > 0 {
+		pendingInputs := e.pendingInputs
+		e.pendingInteractive = false
+		e.pendingInputs = nil
+		e.pendingInputBytes = 0
+		e.discardingPendingInput = false
+		e.outputTail = ""
+		commands = append(commands, e.replayDeferredInputs(pendingInputs)...)
+	}
+	return commands
 }
 
 func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
@@ -103,7 +138,7 @@ func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, comma
 		e.buffer = removeLastRune(e.buffer)
 	default:
 		if ch >= 0x20 || ch == '\t' {
-			e.buffer = append(e.buffer, ch)
+			e.appendCommandByte(ch)
 		}
 	}
 	return commands
@@ -115,25 +150,53 @@ func (e *CommandExtractor) consumeEscapeByte(ch byte, offset time.Duration, comm
 		return commands
 	}
 
-	second := e.escapeBuffer[1]
-	if second != '[' && second != ']' && second != 'O' && second != 'P' {
+	switch e.escapeBuffer[1] {
+	case '[': // CSI: terminated by a final byte in 0x40-0x7e.
+		if len(e.escapeBuffer) == 2 {
+			return commands
+		}
+		if !isEscapeTerminator(ch) {
+			if len(e.escapeBuffer) > len(bracketedPasteStart) {
+				e.escapeBuffer = e.escapeBuffer[:len(bracketedPasteStart)]
+			}
+			return commands
+		}
+		if bytes.Equal(e.escapeBuffer, bracketedPasteStart) {
+			e.inBracketedPaste = true
+			e.pasteEscapeBuffer = e.pasteEscapeBuffer[:0]
+		}
 		e.resetEscape()
 		return commands
-	}
-	if len(e.escapeBuffer) == 2 {
+	case ']': // OSC: terminated by BEL or ST (ESC \). Payload is not a command.
+		if ch == 0x07 || e.escapeEndsWithST() {
+			e.resetEscape()
+			return commands
+		}
+		if len(e.escapeBuffer) > 3 {
+			e.escapeBuffer = append(e.escapeBuffer[:2], e.escapeBuffer[len(e.escapeBuffer)-1])
+		}
 		return commands
-	}
-
-	if !isEscapeTerminator(ch) {
+	case 'P': // DCS: terminated by ST (ESC \). Payload is not a command.
+		if e.escapeEndsWithST() {
+			e.resetEscape()
+			return commands
+		}
+		if len(e.escapeBuffer) > 3 {
+			e.escapeBuffer = append(e.escapeBuffer[:2], e.escapeBuffer[len(e.escapeBuffer)-1])
+		}
 		return commands
+	case 'O': // SS3: consumes exactly one following payload byte.
+		if len(e.escapeBuffer) < 3 {
+			return commands
+		}
+		e.resetEscape()
+		return commands
+	default:
+		// Not a recognized escape introducer: drop the lone ESC and reprocess
+		// the current byte as plain text rather than swallowing it.
+		e.resetEscape()
+		return e.consumePlainByte(ch, offset, commands)
 	}
-
-	if bytes.Equal(e.escapeBuffer, bracketedPasteStart) {
-		e.inBracketedPaste = true
-		e.pasteEscapeBuffer = e.pasteEscapeBuffer[:0]
-	}
-	e.resetEscape()
-	return commands
 }
 
 func (e *CommandExtractor) consumeBracketedPasteByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
@@ -167,28 +230,35 @@ func (e *CommandExtractor) consumePasteEscapeByte(ch byte, offset time.Duration,
 func (e *CommandExtractor) consumePastedByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
 	switch ch {
 	case 0x1b:
-		e.buffer = append(e.buffer, ch)
+		e.appendCommandByte(ch)
 	case '\r', '\n':
 		commands = e.flushCommand(offset, commands)
 	case 0x08, 0x7f:
 		e.buffer = removeLastRune(e.buffer)
 	default:
 		if ch >= 0x20 || ch == '\t' {
-			e.buffer = append(e.buffer, ch)
+			e.appendCommandByte(ch)
 		}
 	}
 	return commands
 }
 
 func (e *CommandExtractor) flushCommand(offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
+	if e.discardingCommand {
+		e.buffer = nil
+		e.discardingCommand = false
+		return commands
+	}
 	command := strings.TrimSpace(string(e.buffer))
-	e.buffer = e.buffer[:0]
+	e.buffer = nil
 	if command == "" {
 		return commands
 	}
 	e.pendingInteractive = isInteractiveCommand(command)
 	if e.pendingInteractive {
 		e.pendingInputs = nil
+		e.pendingInputBytes = 0
+		e.discardingPendingInput = false
 		e.outputTail = ""
 	}
 	e.seq++
@@ -199,9 +269,28 @@ func (e *CommandExtractor) flushCommand(offset time.Duration, commands []Extract
 	})
 }
 
+func (e *CommandExtractor) appendCommandByte(ch byte) {
+	if e.discardingCommand {
+		return
+	}
+	if len(e.buffer) >= maxCommandBytes {
+		e.buffer = nil
+		e.discardingCommand = true
+		return
+	}
+	e.buffer = append(e.buffer, ch)
+}
+
 func (e *CommandExtractor) resetEscape() {
 	e.inEscape = false
-	e.escapeBuffer = e.escapeBuffer[:0]
+	e.escapeBuffer = nil
+}
+
+// escapeEndsWithST reports whether the escape buffer ends with the two-byte
+// String Terminator (ESC \), used to close OSC and DCS sequences.
+func (e *CommandExtractor) escapeEndsWithST() bool {
+	n := len(e.escapeBuffer)
+	return n >= 2 && e.escapeBuffer[n-2] == 0x1b && e.escapeBuffer[n-1] == '\\'
 }
 
 func removeLastRune(data []byte) []byte {
@@ -245,7 +334,7 @@ func (e *CommandExtractor) appendOutputTail(data string) {
 	const maxTailLen = 256
 	e.outputTail += data
 	if len(e.outputTail) > maxTailLen {
-		e.outputTail = e.outputTail[len(e.outputTail)-maxTailLen:]
+		e.outputTail = strings.Clone(e.outputTail[len(e.outputTail)-maxTailLen:])
 	}
 }
 
