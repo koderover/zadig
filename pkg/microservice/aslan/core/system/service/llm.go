@@ -145,18 +145,17 @@ func UpdateLLMIntegration(ctx context.Context, ID string, args *commonmodels.LLM
 }
 
 func runLLMIntegrationTransaction(ctx context.Context, fn func(context.Context, *commonrepo.LLMIntegrationColl) error) (err error) {
-	session, cleanup, err := mongotool.SessionWithTransaction(ctx)
+	session, finishTransaction, err := mongotool.SessionWithTransaction(ctx)
 	if err != nil {
-		session.EndSession(ctx)
 		return err
 	}
-	defer func() { cleanup(err) }()
+	defer finishTransaction(&err)
 
 	txCtx := mongotool.SessionContext(ctx, session)
 	if err = fn(txCtx, commonrepo.NewLLMIntegrationColl()); err != nil {
 		return err
 	}
-	return mongotool.CommitTransaction(session)
+	return nil
 }
 
 func DeleteLLMIntegration(ctx context.Context, ID string) error {
