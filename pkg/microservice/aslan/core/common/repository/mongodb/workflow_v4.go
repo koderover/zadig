@@ -77,6 +77,12 @@ func (c *WorkflowV4Coll) EnsureIndex(ctx context.Context) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "template_binding.template_id", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
 
