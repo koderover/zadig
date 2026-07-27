@@ -60,7 +60,7 @@ var stopContext = ctrl.SetupSignalHandler()
 // TODO: Implement a Zadig-Kubernetes client interface, forbid business code to access these clients directly
 
 const (
-	defaultInformerIdleTimeout = 60 * time.Minute
+	defaultInformerIdleTimeout = 72 * time.Hour
 	informerReaperInterval     = 5 * time.Minute
 	informerSyncTimeout        = 10 * time.Second
 )
