@@ -13,6 +13,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -131,13 +132,42 @@ func NewResolver(keyMap map[string]string) *Resolver {
 	}
 }
 
+// splitDynamicRecipientTemplates separates template variables typed into a
+// static recipient list from the concrete entries, so both storage styles
+// resolve dynamic recipients. Invalid template variables are dropped: they can
+// never address a real user, and failing would skip the whole notification.
+func splitDynamicRecipientTemplates(entries []string) ([]string, []string) {
+	static := make([]string, 0, len(entries))
+	templates := make([]string, 0)
+	for _, entry := range entries {
+		trimmed := strings.TrimSpace(entry)
+		if dynamicRecipientTemplateRegexp.MatchString(trimmed) {
+			if _, err := parseDynamicRecipient(trimmed); err != nil {
+				log.Warnf("drop invalid dynamic recipient %s: %v", trimmed, err)
+				continue
+			}
+			templates = append(templates, trimmed)
+			continue
+		}
+		static = append(static, entry)
+	}
+	return static, templates
+}
+
 func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationConfigs) error {
 	resolver := NewResolver(keyMap)
 
 	if cfg := configs.LarkHook; cfg != nil {
+		staticAtUsers, templates := splitDynamicRecipientTemplates(cfg.AtUsers)
+		cfg.AtUsers = staticAtUsers
 		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		if err != nil {
 			return err
+		}
+		if templateUsers, err := resolver.ResolveLarkUsers(templates, cfg.AppID); err != nil {
+			log.Warnf("failed to resolve @ member variables %v: %v", templates, err)
+		} else {
+			users = append(users, templateUsers...)
 		}
 		for _, user := range users {
 			if user == nil || user.ID == "" {
@@ -162,7 +192,9 @@ func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationCo
 		cfg.TargetUsers = UniqLarkUsers(append(cfg.TargetUsers, users...))
 	}
 	if cfg := configs.MSTeams; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
+		staticAtEmails, templates := splitDynamicRecipientTemplates(cfg.AtEmails)
+		cfg.AtEmails = staticAtEmails
+		emails, err := resolver.ResolveEmails(append([]string(cfg.DynamicRecipients), templates...))
 		if err != nil {
 			return err
 		}
@@ -176,7 +208,9 @@ func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationCo
 		cfg.TargetUsers = UniqMailUsers(append(cfg.TargetUsers, BuildMailUsersFromEmails(emails)...))
 	}
 	if cfg := configs.DingDing; cfg != nil {
-		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
+		staticAtMobiles, templates := splitDynamicRecipientTemplates(cfg.AtMobiles)
+		cfg.AtMobiles = staticAtMobiles
+		mobiles, err := resolver.ResolveMobiles(append([]string(cfg.DynamicRecipients), templates...))
 		if err != nil {
 			return err
 		}
