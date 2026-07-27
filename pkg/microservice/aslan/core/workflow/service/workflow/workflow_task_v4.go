@@ -291,7 +291,7 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 	return workflow, nil
 }
 
-func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
+func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string, includeRuntime bool) ([]string, error) {
 	resp := make([]string, 0)
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
@@ -313,7 +313,7 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
-		GetRuntimeVariables:         false,
+		GetRuntimeVariables:         includeRuntime,
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: false,
 		UseUserInput:                true,

@@ -148,6 +148,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewApprovalJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobAIReleaseSpecialist):
 		jobCtl = NewAIReleaseSpecialistJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobAI):
+		jobCtl = NewAIJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobNotification):
 		jobCtl = NewNotificationJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobSAEDeploy):

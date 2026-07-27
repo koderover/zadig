@@ -20,8 +20,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -66,16 +64,9 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		}
 	}
 
-	httpClient := &http.Client{}
-	if config.GetProxy() != "" {
-		proxyUrl, err := url.Parse(config.GetProxy())
-		if err != nil {
-			return fmt.Errorf("invalid proxy url %s", config.GetProxy())
-		}
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxyUrl),
-		}
-		httpClient.Transport = transport
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled())
+	if err != nil {
+		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
 	}
 	defaultConfig.HTTPClient = httpClient
 

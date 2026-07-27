@@ -50,7 +50,6 @@ func GetLLMIntegration(ctx context.Context, id string) (*commonmodels.LLMIntegra
 		log.Error(fmtErr)
 		return nil, e.ErrGetLLMIntegration.AddErr(fmtErr)
 	}
-
 	return llmIntegration, nil
 }
 
@@ -61,7 +60,6 @@ func ListLLMIntegration(ctx context.Context) ([]*commonmodels.LLMIntegration, er
 		log.Error(fmtErr)
 		return nil, e.ErrListLLMIntegration.AddErr(fmtErr)
 	}
-
 	return llmIntegrations, nil
 }
 

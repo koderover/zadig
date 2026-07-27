@@ -502,6 +502,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		llm.DELETE("/integration/:id", DeleteLLMIntegration)
 	}
 
+	agent := router.Group("agent")
+	{
+		agent.POST("/integration", CreateAgentIntegration)
+		agent.GET("/integration", ListAgentIntegrations)
+		agent.POST("/integration/validate", ValidateAgentIntegration)
+		agent.GET("/integration/:id", GetAgentIntegration)
+		agent.PUT("/integration/:id", UpdateAgentIntegration)
+		agent.DELETE("/integration/:id", DeleteAgentIntegration)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// webhook config
 	// ---------------------------------------------------------------------------------------

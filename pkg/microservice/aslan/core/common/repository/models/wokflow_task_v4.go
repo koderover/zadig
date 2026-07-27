@@ -890,6 +890,16 @@ type AIReleaseSpecialistCheckItem struct {
 	Suggestion string `bson:"suggestion" json:"suggestion" yaml:"suggestion"`
 }
 
+type JobTaskAISpec struct {
+	TargetType           string          `bson:"target_type" json:"target_type"`
+	TargetID             string          `bson:"target_id" json:"target_id"`
+	Prompt               string          `bson:"prompt" json:"prompt"`
+	Result               string          `bson:"result,omitempty" json:"result,omitempty"`
+	RequireManualConfirm bool            `bson:"require_manual_confirm" json:"require_manual_confirm"`
+	ConfirmUsers         []*User         `bson:"confirm_users" json:"confirm_users"`
+	NativeApproval       *NativeApproval `bson:"native_approval,omitempty" json:"native_approval,omitempty"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`

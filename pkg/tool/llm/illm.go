@@ -73,6 +73,8 @@ type LLMConfig struct {
 	Token        string
 	BaseURL      string
 	Proxy        string
+	Headers      map[string]string
+	DisableAuth  bool
 }
 
 func (p *LLMConfig) GetIntegrationName() string {
@@ -97,6 +99,14 @@ func (p *LLMConfig) GetModel() string {
 
 func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
+}
+
+func (p *LLMConfig) GetHeaders() map[string]string {
+	return p.Headers
+}
+
+func (p *LLMConfig) IsAuthDisabled() bool {
+	return p.DisableAuth
 }
 
 func GetCacheKeyWithModel(provider, model, sEnc string) string {
