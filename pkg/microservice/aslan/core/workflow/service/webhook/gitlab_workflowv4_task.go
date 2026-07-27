@@ -373,7 +373,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
-					Branch:         eventRepo.Branch,
+					Branch:         ev.ObjectAttributes.SourceBranch,
 					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,

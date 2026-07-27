@@ -276,7 +276,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          *ev.Repo.Owner.Login,
 					Repo:           *ev.Repo.Name,
-					Branch:         *ev.PullRequest.Base.Ref,
+					Branch:         *ev.PullRequest.Head.Ref,
 					TargetBranch:   *ev.PullRequest.Base.Ref,
 					Ref:            *ev.PullRequest.Head.SHA,
 					IsPr:           true,
