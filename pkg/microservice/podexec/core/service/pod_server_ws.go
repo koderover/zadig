@@ -112,48 +112,42 @@ func ServeWs(c *gin.Context) {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
-	secrets, err := collectContainerSecretValues(c.Request.Context(), kubeCli, pod, namespace, containerName)
-	if err != nil {
-		msg := fmt.Sprintf("collect pod secret values for terminal audit failed: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		ctx.RespErr = e.ErrInternalError.AddDesc(msg)
-		return
+	secrets, secretErr := collectContainerSecretValues(c.Request.Context(), kubeCli, pod, namespace, containerName)
+	if secretErr != nil {
+		log.Warnf("collect pod secret values for terminal audit failed, continuing without audit: %v", secretErr)
+	} else {
+		meta := &terminalaudit.SessionMeta{
+			SessionType:   commonmodels.TerminalSessionTypePodExec,
+			Protocol:      "k8s-exec",
+			UserID:        ctx.UserID,
+			Username:      ctx.UserName,
+			Account:       ctx.Account,
+			ProjectName:   productName,
+			EnvName:       envName,
+			ServiceName:   pod.Labels[setting.ServiceLabel],
+			TargetName:    fmt.Sprintf("%s/%s", podName, containerName),
+			RemoteAddr:    pod.Status.PodIP,
+			ClusterID:     clusterID,
+			Namespace:     namespace,
+			PodName:       podName,
+			ContainerName: containerName,
+			ClientIP:      c.ClientIP(),
+			UserAgent:     c.Request.UserAgent(),
+			InitialCols:   initialCols,
+			InitialRows:   initialRows,
+			Secrets:       secrets,
+		}
+		session, auditErr := terminalaudit.NewAuditSession(meta, func() {
+			_ = pty.Close()
+		})
+		if auditErr != nil {
+			log.Errorf("create podexec terminal audit recorder failed, continuing without audit: %v", auditErr)
+		} else {
+			audit = session
+			log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
+			pty.SetupAudit(audit)
+		}
 	}
-
-	meta := &terminalaudit.SessionMeta{
-		SessionType:   commonmodels.TerminalSessionTypePodExec,
-		Protocol:      "k8s-exec",
-		UserID:        ctx.UserID,
-		Username:      ctx.UserName,
-		Account:       ctx.Account,
-		ProjectName:   productName,
-		EnvName:       envName,
-		ServiceName:   pod.Labels[setting.ServiceLabel],
-		TargetName:    fmt.Sprintf("%s/%s", podName, containerName),
-		RemoteAddr:    pod.Status.PodIP,
-		ClusterID:     clusterID,
-		Namespace:     namespace,
-		PodName:       podName,
-		ContainerName: containerName,
-		ClientIP:      c.ClientIP(),
-		UserAgent:     c.Request.UserAgent(),
-		InitialCols:   initialCols,
-		InitialRows:   initialRows,
-		Secrets:       secrets,
-	}
-	audit, err = terminalaudit.NewAuditSession(meta, func() {
-		_ = pty.Close()
-	})
-	if err != nil {
-		msg := fmt.Sprintf("create terminal audit session failed: %v", err)
-		log.Errorf("create podexec terminal audit recorder failed: %v", err)
-		_, _ = pty.Write([]byte(msg))
-		ctx.RespErr = e.ErrInternalError.AddDesc(msg)
-		return
-	}
-	log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
-	pty.SetupAudit(audit)
 
 	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.SessionID, clusterID, namespace, podName, containerName)
 	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
@@ -277,6 +271,10 @@ FOR:
 	}
 	script += "bash\n"
 
+	// Browser-side credential masking must apply regardless of whether audit
+	// recording is available.
+	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues)
+
 	meta := &terminalaudit.SessionMeta{
 		SessionType:   commonmodels.TerminalSessionTypeWorkflowDebug,
 		Protocol:      "k8s-exec",
@@ -299,17 +297,15 @@ FOR:
 		InitialRows:   initialRows,
 		Secrets:       credValues,
 	}
-	audit, err = terminalaudit.NewAuditSession(meta, func() {
+	session, auditErr := terminalaudit.NewAuditSession(meta, func() {
 		_ = pty.Close()
 	})
-	if err != nil {
-		msg := fmt.Sprintf("create terminal audit session failed: %v", err)
-		log.Errorf("create workflow terminal audit recorder failed: %v", err)
-		_, _ = pty.Write([]byte(msg))
-		return e.ErrGetDebugShell.AddDesc(msg)
+	if auditErr != nil {
+		log.Errorf("create workflow terminal audit recorder failed, continuing without audit: %v", auditErr)
+	} else {
+		audit = session
+		pty.SetupAudit(audit)
 	}
-	pty.SetupAudit(audit)
-	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues)
 
 	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err == nil || isExpectedTerminalClose(err) {

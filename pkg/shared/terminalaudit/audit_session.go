@@ -11,16 +11,16 @@ type AuditSession struct {
 }
 
 func NewAuditSession(meta *SessionMeta, terminate func()) (*AuditSession, error) {
-	recorder, err := newRecorder(meta, terminate)
+	recorder, err := newRecorder(meta)
 	if err != nil {
 		return nil, err
 	}
 	audit := &AuditSession{Recorder: recorder, SessionID: recorder.session.SessionID}
 	if err := registerActiveSession(audit.SessionID, terminate); err != nil {
-		if closeErr := recorder.Close(models.TerminalSessionStatusFailed); closeErr != nil {
-			log.Errorf("close terminal audit recorder after registration failure, sessionID=%s err=%v", audit.SessionID, closeErr)
-		}
-		return nil, err
+		// Live-watch/remote-terminate registration is best-effort. If it fails we
+		// keep recording; only this session's live spectating is unavailable.
+		log.Warnf("register terminal live session failed, recording continues, sessionID=%s err=%v", audit.SessionID, err)
+		return audit, nil
 	}
 	log.Infof("register terminal audit session, sessionID=%s type=%s target=%s", audit.SessionID, meta.SessionType, meta.TargetName)
 	return audit, nil

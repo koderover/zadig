@@ -39,14 +39,15 @@ func GetTerminalSession(c *gin.Context) {
 
 func GetTerminalCast(c *gin.Context) {
 	ctx, authorized := newTerminalAuditAdminContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	stream, err := terminalaudit.GetCastStream(c.Param("sessionID"))
 	if err != nil {
 		ctx.RespErr = err
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 	defer stream.Body.Close()
@@ -56,7 +57,10 @@ func GetTerminalCast(c *gin.Context) {
 		c.Header("Content-Length", strconv.FormatInt(stream.FileSize, 10))
 	}
 	c.Status(200)
-	_, ctx.RespErr = io.Copy(c.Writer, stream.Body)
+	c.Writer.WriteHeaderNow()
+	if _, err := io.Copy(c.Writer, stream.Body); err != nil {
+		ctx.Logger.Errorf("stream terminal cast failed, sessionID=%s err=%v", c.Param("sessionID"), err)
+	}
 }
 
 func ListTerminalCommands(c *gin.Context) {
