@@ -16,6 +16,7 @@
 
   <properties>
     <java.version>17</java.version>
+    <logback.version>1.5.38</logback.version>
   </properties>
 
   <dependencies>
@@ -27,7 +28,7 @@
     <dependency>
       <groupId>org.json</groupId>
       <artifactId>json</artifactId>
-      <version>20140107</version>
+      <version>20260719</version>
     </dependency>
 
     <dependency>
@@ -41,7 +42,7 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>9.4-1200-jdbc41</version>
+      <version>42.7.13</version>
     </dependency>
   </dependencies>
 

@@ -19,6 +19,8 @@
     <properties>
         <maven.compiler.source>22</maven.compiler.source>
         <maven.compiler.target>22</maven.compiler.target>
+        <httpcore5.version>5.5-beta2</httpcore5.version>
+        <logback.version>1.5.38</logback.version>
         <tomcat.version>10.1.56</tomcat.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -50,6 +52,11 @@
                 <version>2025.0.3</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.85</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -44,6 +44,7 @@
 
 	<properties>
 		<java.version>17</java.version>
+		<logback.version>1.5.38</logback.version>
 		<tomcat.version>10.1.56</tomcat.version>
 	</properties>
 

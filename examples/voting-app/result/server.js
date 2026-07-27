@@ -4,13 +4,10 @@ var express = require('express'),
     { Pool } = require('pg'),
     path = require('path'),
     cookieParser = require('cookie-parser'),
-    bodyParser = require('body-parser'),
     methodOverride = require('method-override'),
     app = express(),
     server = require('http').Server(app),
-    io = require('socket.io')(server);
-
-io.set('transports', ['polling']);
+    io = require('socket.io')(server, { transports: ['polling'] });
 
 var port = process.env.PORT || 4000;
 
@@ -70,7 +67,8 @@ function collectVotesFromResult(result) {
 }
 
 app.use(cookieParser());
-app.use(bodyParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(methodOverride('X-HTTP-Method-Override'));
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");

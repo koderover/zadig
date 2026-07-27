@@ -1,10 +1,15 @@
-FROM koderover.tencentcloudcr.com/koderover-demo/frontend-base:0.1  As builder
+FROM node:22-alpine AS builder
 
 WORKDIR /frontend
 
+COPY package.json yarn.lock ./
+
+RUN corepack enable \
+ && yarn install --frozen-lockfile
+
 COPY . /frontend
 
-RUN make install-frontend-dep build-frontend
+RUN yarn run build
 
 
 FROM koderover.tencentcloudcr.com/koderover-demo/nginx:1.16.0
