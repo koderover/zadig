@@ -1,13 +1,18 @@
 <template>
   <div id="app">
     <img src="./assets/logo.png" width="100" height="100">
-    <router-view/>
+    <HelloWorld />
   </div>
 </template>
 
 <script>
+import HelloWorld from './components/HelloWorld.vue'
+
 export default {
-  name: 'App'
+  name: 'App',
+  components: {
+    HelloWorld
+  }
 }
 </script>
 
