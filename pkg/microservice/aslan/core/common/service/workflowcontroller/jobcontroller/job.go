@@ -24,6 +24,7 @@ import (
 	"os"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -75,6 +76,45 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
 	if err := json.Unmarshal(replacedJob, job); err != nil {
 		return fmt.Errorf("failed to unmarshal job: %w", err)
+	}
+	return nil
+}
+
+func renderJobGlobalVariables(job *commonmodels.JobTask, variables map[string]string) error {
+	if job == nil || len(variables) == 0 {
+		return nil
+	}
+
+	jobBytes, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job: %w", err)
+	}
+
+	jobJSON := string(jobBytes)
+	keys := make([]string, 0, len(variables))
+	for key := range variables {
+		if strings.Contains(jobJSON, key) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+
+	replacements := make([]string, 0, len(keys)*2)
+	for _, key := range keys {
+		value := strings.Trim(variables[key], "\n")
+		escapedValue, err := util.JsonEscapeString(value)
+		if err != nil {
+			return fmt.Errorf("failed to escape global variable %s: %w", key, err)
+		}
+		replacements = append(replacements, key, escapedValue)
+	}
+	if len(replacements) == 0 {
+		return nil
+	}
+
+	replacedJob := strings.NewReplacer(replacements...).Replace(jobJSON)
+	if err := json.Unmarshal([]byte(replacedJob), job); err != nil {
+		return fmt.Errorf("failed to unmarshal rendered job: %w", err)
 	}
 	return nil
 }
@@ -198,23 +238,12 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 	}(&jobCtl)
 
-	// @note render global variables for every job.
-	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		b, _ := json.Marshal(job)
-		v = strings.Trim(v, "\n")
-
-		jsonEscapeValue, err := util.JsonEscapeString(string(v))
-		if err != nil {
-			logger.Errorf("failed to escape value %s, error: %v", string(v), err)
-			jsonEscapeValue = string(v)
-		}
-
-		replacedString := strings.ReplaceAll(string(b), k, jsonEscapeValue)
-		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
-			logger.Errorf("unmarshal job error: %v", err)
-		}
-		return true
-	})
+	if err := renderJobGlobalVariables(job, workflowCtx.GlobalContextGetAll()); err != nil {
+		logger.Errorf("render job global variables error: %v", err)
+		job.Status = config.StatusFailed
+		job.Error = err.Error()
+		return
+	}
 
 	// remove all the unrendered variable, replacing then with empty string
 	if err := removeUnrenderedVariables(job); err != nil {

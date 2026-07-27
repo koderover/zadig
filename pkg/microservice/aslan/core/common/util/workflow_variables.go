@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +13,8 @@ import (
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
+
+var payloadVariableRegexp = regexp.MustCompile(`{{\.(payload(\.[\p{L}\d_-]+)+)}}`)
 
 // BuildPayloadVariables flattens webhook payload leaves into workflow variables.
 func BuildPayloadVariables(rawPayload string) []*commonmodels.KeyVal {
@@ -49,6 +53,60 @@ func flattenPayloadValue(prefix string, value interface{}, resp *[]*commonmodels
 	default:
 		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: fmt.Sprint(val), IsCredential: false})
 	}
+}
+
+// FilterWorkflowPayloadVariables keeps only payload variables referenced by
+// runtime-rendered workflow fields.
+func FilterWorkflowPayloadVariables(workflow *commonmodels.WorkflowV4) error {
+	if workflow == nil || workflow.HookPayload == nil || len(workflow.HookPayload.PayloadVars) == 0 {
+		return nil
+	}
+
+	runtimeFields := struct {
+		Params     []*commonmodels.Param         `json:"params"`
+		Stages     []*commonmodels.WorkflowStage `json:"stages"`
+		NotifyCtls []*commonmodels.NotifyCtl     `json:"notify_ctls"`
+	}{
+		Params:     workflow.Params,
+		Stages:     workflow.Stages,
+		NotifyCtls: workflow.NotifyCtls,
+	}
+	data, err := json.Marshal(runtimeFields)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflow runtime fields: %w", err)
+	}
+
+	referencedKeys := make(map[string]struct{})
+	for _, match := range payloadVariableRegexp.FindAllSubmatch(data, -1) {
+		if len(match) > 1 {
+			referencedKeys[string(match[1])] = struct{}{}
+		}
+	}
+
+	variablesByKey := make(map[string]*commonmodels.KeyVal, len(workflow.HookPayload.PayloadVars))
+	for _, variable := range workflow.HookPayload.PayloadVars {
+		if variable == nil {
+			continue
+		}
+		if _, referenced := referencedKeys[variable.Key]; !referenced {
+			continue
+		}
+		if _, exists := variablesByKey[variable.Key]; !exists {
+			variablesByKey[variable.Key] = variable
+		}
+	}
+
+	keys := make([]string, 0, len(variablesByKey))
+	for key := range variablesByKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	workflow.HookPayload.PayloadVars = make([]*commonmodels.KeyVal, 0, len(keys))
+	for _, key := range keys {
+		workflow.HookPayload.PayloadVars = append(workflow.HookPayload.PayloadVars, variablesByKey[key])
+	}
+	return nil
 }
 
 // ParseDynamicRecipientKind validates notification recipient variables and

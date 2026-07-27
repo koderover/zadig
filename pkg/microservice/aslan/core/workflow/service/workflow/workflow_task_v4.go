@@ -47,11 +47,11 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
@@ -622,9 +622,18 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		args.Account = args.Name
 	}
 
+	// Payload variables are persisted in GlobalContext, not duplicated in the
+	// original and rendered workflow arguments.
+	workflowForOrigin := *workflow
+	if workflow.HookPayload != nil {
+		hookPayloadForOrigin := *workflow.HookPayload
+		hookPayloadForOrigin.PayloadVars = nil
+		workflowForOrigin.HookPayload = &hookPayloadForOrigin
+	}
+
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
-	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
+	if err := commonmodels.IToi(&workflowForOrigin, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -683,6 +692,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 	}
+	if err := commonutil.FilterWorkflowPayloadVariables(workflow); err != nil {
+		log.Errorf("filter workflow payload variables error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
 
 	workflowCtrl.SetParameterRepoCommitInfo()
 	stageTasks, err := workflowCtrl.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID, args.ReleasePlan)
@@ -719,6 +732,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 	workflowTask.GlobalContext = buildWorkflowTaskRuntimeContext(workflowTask)
+	if workflowTask.WorkflowArgs.HookPayload != nil {
+		workflowTask.WorkflowArgs.HookPayload.PayloadVars = nil
+	}
 
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
