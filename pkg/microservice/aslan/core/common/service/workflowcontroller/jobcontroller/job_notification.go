@@ -89,13 +89,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec = runtimeSpec
 
-	if err := c.prepareRuntimeNotificationFields(); err != nil {
-		c.logger.Error(err)
-		c.job.Status = config.StatusFailed
-		c.job.Error = err.Error()
-		c.ack()
-		return
-	}
+	c.prepareRuntimeNotificationFields()
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
@@ -238,14 +232,14 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
+func (c *NotificationJobCtl) prepareRuntimeNotificationFields() {
 	keyMap := c.buildRuntimeNotificationKeyMap()
 	recipientKeyMap := c.buildRuntimeNotificationRecipientKeyMap()
 
 	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
 	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
 
-	return c.resolveDynamicRecipients(recipientKeyMap)
+	c.resolveDynamicRecipients(recipientKeyMap)
 }
 
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
@@ -260,8 +254,8 @@ func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[strin
 	return keyMap
 }
 
-func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
-	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) {
+	dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
 		LarkHook:   c.jobTaskSpec.LarkHookNotificationConfig,
 		LarkGroup:  c.jobTaskSpec.LarkGroupNotificationConfig,
 		LarkPerson: c.jobTaskSpec.LarkPersonNotificationConfig,

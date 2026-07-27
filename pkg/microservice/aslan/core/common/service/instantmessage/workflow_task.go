@@ -269,10 +269,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			return errors.New(errMsg)
 		}
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, notify, nil); err != nil {
-			log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
-			continue
-		}
+		resolveWorkflowNotifyDynamicRecipients(task, notify, nil)
 
 		if notify.WebHookType == setting.NotifyWebHookTypeMail {
 			if task.TaskCreatorID != "" {
@@ -373,10 +370,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				return errors.New(errMsg)
 			}
 
-			if err := resolveWorkflowNotifyDynamicRecipients(task, notify, nil); err != nil {
-				log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(task, notify, nil)
 
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
 				if task.TaskCreatorID != "" {
@@ -446,9 +440,9 @@ func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *
 	return false
 }
 
-func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl, runtimeContext map[string]string) error {
+func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl, runtimeContext map[string]string) {
 	if task == nil || notify == nil {
-		return nil
+		return
 	}
 
 	workflowArgs := task.WorkflowArgs
@@ -456,7 +450,7 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 		workflowArgs = task.OriginWorkflowArgs
 	}
 	if workflowArgs == nil {
-		return nil
+		return
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
@@ -466,7 +460,7 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(runtimeContext) {
 		keyMap[key] = value
 	}
-	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+	dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
 		LarkHook:   notify.LarkHookNotificationConfig,
 		LarkGroup:  notify.LarkGroupNotificationConfig,
 		LarkPerson: notify.LarkPersonNotificationConfig,
@@ -548,10 +542,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 
 		switch notify.WebHookType {
 		case setting.NotifyWebHookTypeFeishuPerson:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext); err != nil {
-				respErr = multierror.Append(respErr, err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext)
 			resolvedTargets, err := w.resolveManualExecStageLarkTargets(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -580,10 +571,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 			}
 
 		case setting.NotifyWebHookTypeMail:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext); err != nil {
-				respErr = multierror.Append(respErr, err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext)
 			resolvedUsers, err := w.resolveManualExecStageMailUsers(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -921,10 +909,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 		notifyToSend := *notify
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend, input.RecipientRuntimeContext); err != nil {
-			respErr = multierror.Append(respErr, err)
-			continue
-		}
+		resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend, input.RecipientRuntimeContext)
 
 		// Resolve feishu_person targets (e.g. executor placeholders).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
