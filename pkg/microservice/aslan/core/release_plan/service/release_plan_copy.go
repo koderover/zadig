@@ -39,8 +39,7 @@ func CopyReleasePlan(c *handler.Context, planID string, args *CopyReleasePlanArg
 		return errors.New("copy release plan args is nil")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 
 	sourcePlan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {

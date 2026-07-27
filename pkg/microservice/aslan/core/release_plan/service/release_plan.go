@@ -58,10 +58,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-var (
-	defaultTimeout = time.Second * 30
-)
-
 func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
@@ -420,8 +416,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 	defer planLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
@@ -614,8 +609,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
@@ -726,8 +720,7 @@ func RetryReleaseJob(c *handler.Context, planID string, args *RetryReleaseJobArg
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
@@ -1002,8 +995,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
@@ -1101,8 +1093,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
@@ -1317,8 +1308,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
