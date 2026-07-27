@@ -501,8 +501,7 @@ func broadcastReleasePlanCollaborationSnapshot(planID string) {
 }
 
 func GetReleasePlanCollaborationSnapshot(planID string) (*ReleasePlanCollaborationSnapshot, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get plan")

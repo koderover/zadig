@@ -70,8 +70,7 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 	}
 	defer releaseLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, plan.ID.Hex())
 	if err != nil {
 		log.Errorf("get plan %s error: %v", plan.ID.Hex(), err)
@@ -188,8 +187,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	}
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, plan.ID.Hex())
 	if err != nil {
 		return errors.Errorf("get plan %s error: %v", plan.ID.Hex(), err)
