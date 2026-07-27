@@ -1960,6 +1960,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 	if len(args.ChartValues) == 0 {
 		return nil
 	}
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
@@ -2069,6 +2070,17 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	return ret
 }
 
+func populateHelmValuesSourceCommits(chartValues []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) {
+	for _, chartValue := range chartValues {
+		if chartValue == nil {
+			continue
+		}
+		if err := commonservice.PopulateValuesSourceCommit(chartValue.ValuesData, log); err != nil {
+			log.Warnf("failed to get current Helm Values source commit, service: %s, release: %s, err: %s", chartValue.ServiceName, chartValue.ReleaseName, err)
+		}
+	}
+}
+
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
@@ -2125,6 +2137,9 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 			}
 
 			if changed {
+				if err := commonservice.RefreshYamlSourceCommit(chartInfo.OverrideYaml, log); err != nil {
+					log.Warnf("failed to refresh Helm Values source commit, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				}
 				updatedRcMapLock.Lock()
 				chartInfo.OverrideYaml.YamlContent = values
 				chartInfo.OverrideYaml.AutoSyncYaml = values
@@ -2288,6 +2303,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 }
 
 func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 	mutexAutoUpdate := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
@@ -2365,6 +2381,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 }
 
 func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 	mutexUpdateMultiHelm := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 
 	err := mutexUpdateMultiHelm.Lock()
