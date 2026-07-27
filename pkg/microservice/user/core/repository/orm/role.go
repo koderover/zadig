@@ -107,6 +107,50 @@ func ListRoleByUIDAndNamespace(uid, namespace string, db *gorm.DB) ([]*models.Ne
 	return resp, nil
 }
 
+// ListRoleByUIDsAndNamespace lists roles for the given users in a namespace with a single query.
+func ListRoleByUIDsAndNamespace(uids []string, namespace string, db *gorm.DB) (map[string][]*models.NewRole, error) {
+	if len(uids) == 0 {
+		return map[string][]*models.NewRole{}, nil
+	}
+
+	type uidRole struct {
+		UID            string `gorm:"column:uid"`
+		ID             uint   `gorm:"column:id"`
+		Name           string `gorm:"column:name"`
+		Description    string `gorm:"column:description"`
+		Type           int64  `gorm:"column:type"`
+		Namespace      string `gorm:"column:namespace"`
+		GlobalReadOnly bool   `gorm:"column:global_read_only"`
+	}
+
+	rows := make([]*uidRole, 0)
+	err := db.Table("role").
+		Select("role_binding.uid, role.id, role.name, role.description, role.type, role.namespace, role.global_read_only").
+		Joins("INNER JOIN role_binding ON role.id = role_binding.role_id").
+		Where("role.namespace = ?", namespace).
+		Where("role_binding.uid IN ?", uids).
+		Order("role_binding.uid ASC").
+		Order("role.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make(map[string][]*models.NewRole, len(rows))
+	for _, row := range rows {
+		resp[row.UID] = append(resp[row.UID], &models.NewRole{
+			ID:             row.ID,
+			Name:           row.Name,
+			Description:    row.Description,
+			Type:           row.Type,
+			Namespace:      row.Namespace,
+			GlobalReadOnly: row.GlobalReadOnly,
+		})
+	}
+
+	return resp, nil
+}
+
 // ListRoleByUID list a set of roles that is used by specific user in ALL namespace
 func ListRoleByUID(uid string, db *gorm.DB) ([]*models.NewRole, error) {
 	resp := make([]*models.NewRole, 0)
