@@ -48,6 +48,68 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 	return &Workflow{wf}
 }
 
+type workflowJobNotificationFields struct {
+	stageIndex int
+	jobIndex   int
+	notifyCtls []*commonmodels.NotifyCtl
+	spec       interface{}
+	hasSpec    bool
+}
+
+type workflowNotificationFields struct {
+	notifyCtls []*commonmodels.NotifyCtl
+	jobs       []*workflowJobNotificationFields
+}
+
+func detachWorkflowNotificationFields(workflow *commonmodels.WorkflowV4) *workflowNotificationFields {
+	backup := &workflowNotificationFields{notifyCtls: workflow.NotifyCtls}
+	workflow.NotifyCtls = nil
+	for stageIndex, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		for jobIndex, job := range stage.Jobs {
+			if job == nil || (len(job.NotifyCtls) == 0 && job.JobType != config.JobNotification) {
+				continue
+			}
+			fields := &workflowJobNotificationFields{
+				stageIndex: stageIndex,
+				jobIndex:   jobIndex,
+				notifyCtls: job.NotifyCtls,
+			}
+			job.NotifyCtls = nil
+			if job.JobType == config.JobNotification {
+				fields.spec = job.Spec
+				fields.hasSpec = true
+				job.Spec = nil
+			}
+			backup.jobs = append(backup.jobs, fields)
+		}
+	}
+	return backup
+}
+
+func (backup *workflowNotificationFields) restore(workflow *commonmodels.WorkflowV4) {
+	if workflow == nil {
+		return
+	}
+	workflow.NotifyCtls = backup.notifyCtls
+	for _, fields := range backup.jobs {
+		if fields.stageIndex >= len(workflow.Stages) || workflow.Stages[fields.stageIndex] == nil {
+			continue
+		}
+		stage := workflow.Stages[fields.stageIndex]
+		if fields.jobIndex >= len(stage.Jobs) || stage.Jobs[fields.jobIndex] == nil {
+			continue
+		}
+		job := stage.Jobs[fields.jobIndex]
+		job.NotifyCtls = fields.notifyCtls
+		if fields.hasSpec {
+			job.Spec = fields.spec
+		}
+	}
+}
+
 // RenderJobTaskRuntimeVariables applies runtime variables consistently during
 // initial task creation, retry, and manual execution.
 func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
@@ -55,12 +117,20 @@ func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[
 		return nil
 	}
 
-	// Task notification recipients are resolved when the notification is sent.
-	// Rendering them here would replace typed templates with plain values.
+	// Notification configs are rendered and resolved by their send path. Generic
+	// rendering here would replace typed recipient templates with plain values.
 	notifyCtls := task.NotifyCtls
 	task.NotifyCtls = nil
+	var notificationSpec interface{}
+	if task.JobType == string(config.JobNotification) {
+		notificationSpec = task.Spec
+		task.Spec = nil
+	}
 	defer func() {
 		task.NotifyCtls = notifyCtls
+		if notificationSpec != nil {
+			task.Spec = notificationSpec
+		}
 	}()
 
 	taskBytes, err := json.Marshal(task)
@@ -401,7 +471,9 @@ func (w *Workflow) ClearOptions() error {
 }
 
 func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
+	notificationFields := detachWorkflowNotificationFields(w.WorkflowV4)
 	b, err := json.Marshal(w.WorkflowV4)
+	notificationFields.restore(w.WorkflowV4)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
@@ -414,8 +486,10 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 		return err
 	}
 	if err := json.Unmarshal([]byte(replacedString), &w.WorkflowV4); err != nil {
+		notificationFields.restore(w.WorkflowV4)
 		return err
 	}
+	notificationFields.restore(w.WorkflowV4)
 	return nil
 }
 
