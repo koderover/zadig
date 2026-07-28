@@ -56,6 +56,11 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	if job == nil {
 		return nil
 	}
+	notifyCtls := job.NotifyCtls
+	job.NotifyCtls = nil
+	defer func() {
+		job.NotifyCtls = notifyCtls
+	}()
 
 	// NotificationJobCtl owns notification spec rendering because it has the
 	// webhook and task runtime context required by notification templates.
@@ -84,6 +89,11 @@ func renderJobGlobalVariables(job *commonmodels.JobTask, variables map[string]st
 	if job == nil || len(variables) == 0 {
 		return nil
 	}
+	notifyCtls := job.NotifyCtls
+	job.NotifyCtls = nil
+	defer func() {
+		job.NotifyCtls = notifyCtls
+	}()
 
 	jobBytes, err := json.Marshal(job)
 	if err != nil {
