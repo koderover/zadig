@@ -119,19 +119,7 @@ func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[
 
 	// Notification configs are rendered and resolved by their send path. Generic
 	// rendering here would replace typed recipient templates with plain values.
-	notifyCtls := task.NotifyCtls
-	task.NotifyCtls = nil
-	var notificationSpec interface{}
-	if task.JobType == string(config.JobNotification) {
-		notificationSpec = task.Spec
-		task.Spec = nil
-	}
-	defer func() {
-		task.NotifyCtls = notifyCtls
-		if notificationSpec != nil {
-			task.Spec = notificationSpec
-		}
-	}()
+	defer commonutil.DetachJobTaskNotificationFields(task)()
 
 	taskBytes, err := json.Marshal(task)
 	if err != nil {
@@ -472,8 +460,8 @@ func (w *Workflow) ClearOptions() error {
 
 func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
 	notificationFields := detachWorkflowNotificationFields(w.WorkflowV4)
+	defer notificationFields.restore(w.WorkflowV4)
 	b, err := json.Marshal(w.WorkflowV4)
-	notificationFields.restore(w.WorkflowV4)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
@@ -486,10 +474,8 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 		return err
 	}
 	if err := json.Unmarshal([]byte(replacedString), &w.WorkflowV4); err != nil {
-		notificationFields.restore(w.WorkflowV4)
 		return err
 	}
-	notificationFields.restore(w.WorkflowV4)
 	return nil
 }
 

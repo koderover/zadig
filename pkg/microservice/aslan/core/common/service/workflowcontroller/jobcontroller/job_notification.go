@@ -234,19 +234,17 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 
 func (c *NotificationJobCtl) prepareRuntimeNotificationFields() {
 	keyMap := c.buildRuntimeNotificationKeyMap()
-	recipientKeyMap := c.buildRuntimeNotificationRecipientKeyMap()
 
 	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
 	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
 
-	c.resolveDynamicRecipients(recipientKeyMap)
+	c.resolveDynamicRecipients(keyMap)
 }
 
+// buildRuntimeNotificationKeyMap merges system variables, webhook payload
+// variables and the live global context, because the notification spec is
+// rendered here at send time rather than by the generic job rendering.
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
-	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
-}
-
-func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
 	keyMap := util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
 	for _, kv := range c.workflowCtx.WorkflowKeyVals {
 		if kv != nil {

@@ -11,8 +11,30 @@ import (
 	"time"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
+
+// DetachJobTaskNotificationFields temporarily removes the notification fields
+// from a job task so JSON-based variable rendering cannot replace typed
+// recipient templates, which are resolved by the notification send path. The
+// returned function restores the detached fields.
+func DetachJobTaskNotificationFields(task *commonmodels.JobTask) func() {
+	notifyCtls := task.NotifyCtls
+	task.NotifyCtls = nil
+	isNotificationJob := task.JobType == string(config.JobNotification)
+	var notificationSpec interface{}
+	if isNotificationJob {
+		notificationSpec = task.Spec
+		task.Spec = nil
+	}
+	return func() {
+		task.NotifyCtls = notifyCtls
+		if isNotificationJob {
+			task.Spec = notificationSpec
+		}
+	}
+}
 
 var payloadVariableRegexp = regexp.MustCompile(`{{\.(payload(\.[\p{L}\d_-]+)+)}}`)
 

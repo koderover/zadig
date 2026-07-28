@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -56,22 +57,9 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	if job == nil {
 		return nil
 	}
-	notifyCtls := job.NotifyCtls
-	job.NotifyCtls = nil
-	defer func() {
-		job.NotifyCtls = notifyCtls
-	}()
-
 	// NotificationJobCtl owns notification spec rendering because it has the
 	// webhook and task runtime context required by notification templates.
-	var notificationSpec interface{}
-	if job.JobType == string(config.JobNotification) {
-		notificationSpec = job.Spec
-		job.Spec = nil
-		defer func() {
-			job.Spec = notificationSpec
-		}()
-	}
+	defer commonutil.DetachJobTaskNotificationFields(job)()
 
 	b, err := json.Marshal(job)
 	if err != nil {
@@ -89,11 +77,9 @@ func renderJobGlobalVariables(job *commonmodels.JobTask, variables map[string]st
 	if job == nil || len(variables) == 0 {
 		return nil
 	}
-	notifyCtls := job.NotifyCtls
-	job.NotifyCtls = nil
-	defer func() {
-		job.NotifyCtls = notifyCtls
-	}()
+	// NotificationJobCtl renders its own spec at send time so typed recipient
+	// templates survive until dynamic recipient resolution.
+	defer commonutil.DetachJobTaskNotificationFields(job)()
 
 	jobBytes, err := json.Marshal(job)
 	if err != nil {
@@ -248,11 +234,10 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 	}(&jobCtl)
 
+	// Rendering is best-effort to keep the historical behavior: a failure keeps
+	// the job running with unrendered variables instead of failing it.
 	if err := renderJobGlobalVariables(job, workflowCtx.GlobalContextGetAll()); err != nil {
 		logger.Errorf("render job global variables error: %v", err)
-		job.Status = config.StatusFailed
-		job.Error = err.Error()
-		return
 	}
 
 	// remove all the unrendered variable, replacing then with empty string
