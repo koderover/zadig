@@ -147,7 +147,7 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		}
 
 		workflowController := controller.CreateWorkflowController(spec.Workflow)
-		if err := workflow.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log.SugaredLogger()); err != nil {
+		if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
 			log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
 			return fmt.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
 		}

@@ -824,38 +824,12 @@ func jsonPatchValueConflict(base, rendered *commonmodels.WorkflowV4, templatePat
 	baseValue, baseOK := workflowJSONPointerValue(base, comparePath)
 	renderedValue, renderedOK := workflowJSONPointerValue(rendered, comparePath)
 	if baseOK != renderedOK {
-		if baseOK {
-			return !isSemanticEmptyJSONValue(baseValue)
-		}
-		return !isSemanticEmptyJSONValue(renderedValue)
+		return true
 	}
 	if !baseOK && !renderedOK {
 		return false
 	}
-	if isSemanticEmptyJSONValue(baseValue) && isSemanticEmptyJSONValue(renderedValue) {
-		return false
-	}
 	return !reflect.DeepEqual(baseValue, renderedValue)
-}
-
-func isSemanticEmptyJSONValue(value interface{}) bool {
-	switch typed := value.(type) {
-	case nil:
-		return true
-	case string:
-		return typed == ""
-	case []interface{}:
-		return len(typed) == 0
-	case map[string]interface{}:
-		for _, item := range typed {
-			if !isSemanticEmptyJSONValue(item) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
 }
 
 func moreSpecificJSONPatchPath(a, b string) string {
