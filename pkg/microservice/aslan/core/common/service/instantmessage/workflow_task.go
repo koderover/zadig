@@ -1863,9 +1863,15 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification by lark app: failed to send lark card, error: %s", err)
 		}
 
-		err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeText, getNotifyAtContent(notify))
-		if err != nil {
-			return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
+		atMessage := getNotifyAtContent(notify)
+		if atMessage != "" {
+			atMessageContent, err := marshalLarkTextContent(atMessage)
+			if err != nil {
+				return fmt.Errorf("failed to send notification by lark app: failed to parse lark at message, error: %s", err)
+			}
+			if err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeText, atMessageContent); err != nil {
+				return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
+			}
 		}
 	case setting.NotifyWebHookTypeFeishuPerson:
 		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)

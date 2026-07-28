@@ -342,20 +342,15 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeCard, notifyCtl.FeishuChat.ChatID, string(messageContent))
 
 			atMessage := getNotifyAtContent(notifyCtl)
+			if atMessage != "" {
+				atMessageContent, err := marshalLarkTextContent(atMessage)
+				if err != nil {
+					return err
+				}
 
-			larkAtMessage := &FeiShuMessage{
-				Text: atMessage,
-			}
-
-			atMessageContent, err := json.Marshal(larkAtMessage)
-			if err != nil {
-				return err
-			}
-
-			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChat.ChatID, string(atMessageContent))
-
-			if err != nil {
-				return err
+				if err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChat.ChatID, atMessageContent); err != nil {
+					return err
+				}
 			}
 
 		} else {
@@ -834,16 +829,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			msg += "<at user_id=\"all\"></at>"
 		}
 
-		larkAtMessage := &FeiShuMessage{
-			Text: msg,
-		}
-
-		atMessageContent, err := json.Marshal(larkAtMessage)
-		if err != nil {
-			log.Errorf("failed to generate lark at info, error: %s", err)
-			return ""
-		}
-		return string(atMessageContent)
+		return msg
 	}
 	return resp
 }
