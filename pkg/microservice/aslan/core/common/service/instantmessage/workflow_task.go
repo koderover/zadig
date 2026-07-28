@@ -730,9 +730,14 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 		return nil, nil
 	}
 
+	directUsers := make([]*models.User, 0)
 	usersToExpand := make([]*models.User, 0, len(notify.MailNotificationConfig.TargetUsers))
 	for _, user := range notify.MailNotificationConfig.TargetUsers {
 		if user == nil {
+			continue
+		}
+		if user.Type == "email" {
+			directUsers = append(directUsers, user)
 			continue
 		}
 		if user.Type == setting.UserTypeStageExecutor {
@@ -747,11 +752,11 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 
 	if task.TaskCreatorID != "" {
 		users, _ := commonutil.GeneFlatUsersWithCaller(usersToExpand, task.TaskCreatorID)
-		return users, nil
+		return dynamicrecipient.UniqMailUsers(append(directUsers, users...)), nil
 	}
 
 	users, _ := commonutil.GeneFlatUsers(usersToExpand)
-	return users, nil
+	return dynamicrecipient.UniqMailUsers(append(directUsers, users...)), nil
 }
 
 func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) ([]*models.User, map[string]*types.UserInfo) {
