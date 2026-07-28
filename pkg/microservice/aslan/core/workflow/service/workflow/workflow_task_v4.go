@@ -2558,7 +2558,7 @@ func canSystemAdminApproveJob(workflowTask *commonmodels.WorkflowTask, jobName s
 	for _, stage := range workflowTask.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name == jobName {
-				return job.JobType == string(config.JobAIReleaseSpecialist)
+				return job.JobType == string(config.JobAIReleaseSpecialist) || job.JobType == string(config.JobAI)
 			}
 		}
 	}
