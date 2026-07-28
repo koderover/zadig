@@ -31,7 +31,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
-	jobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -237,7 +236,6 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 
 	latestVersion := workflow.TemplateBinding.BaseVersion
 	rebasedPatches := workflow.TemplateBinding.DeltaPatches
-	effectiveDeltaPatches := workflow.TemplateBinding.DeltaPatches
 	conflicts, invalidPatches := calculateBindingState(workflow, 0)
 	if latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(workflow.TemplateBinding.TemplateID); err == nil {
 		latestVersion = latest.Version
@@ -245,11 +243,7 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		if err != nil {
 			return nil, err
 		}
-		baseWorkflow := workflowFromTemplateSnapshot(base.Snapshot, workflow)
-		if normalizedPatches, _, err := validateFrontendWorkflowDelta(baseWorkflow, effectiveDeltaPatches); err == nil {
-			effectiveDeltaPatches = normalizedPatches
-		}
-		relocatedPatches, rebaseInvalid := rebaseTemplateBindingPatches(base.Snapshot, latest.Snapshot, effectiveDeltaPatches)
+		relocatedPatches, rebaseInvalid := rebaseTemplateBindingPatches(base.Snapshot, latest.Snapshot, workflow.TemplateBinding.DeltaPatches)
 		targetBase := workflowFromTemplateSnapshot(latest.Snapshot, workflow)
 		var applyInvalid []*commonmodels.InvalidJSONPatch
 		rebasedPatches, applyInvalid = filterApplicableWorkflowDeltaPatches(targetBase, relocatedPatches)
@@ -268,7 +262,7 @@ func GetWorkflowTemplateBindingStatus(workflowName string) (*WorkflowTemplateBin
 		TemplateName:        workflow.TemplateBinding.TemplateName,
 		BaseVersion:         workflow.TemplateBinding.BaseVersion,
 		LatestVersion:       latestVersion,
-		HasDelta:            len(effectiveDeltaPatches) > 0,
+		HasDelta:            len(workflow.TemplateBinding.DeltaPatches) > 0,
 		HasConflict:         len(conflicts) > 0,
 		ConflictCount:       len(conflicts),
 		Conflicts:           conflicts,
@@ -591,43 +585,7 @@ func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*com
 	if err := validateJobExecutePolicies(base, rendered); err != nil {
 		return nil, nil, err
 	}
-
-	normalizedBase, err := normalizeWorkflowJobSpecs(base)
-	if err != nil {
-		return nil, nil, err
-	}
-	normalizedRendered, err := normalizeWorkflowJobSpecs(rendered)
-	if err != nil {
-		return nil, nil, err
-	}
-	normalizedPatches, err := createJSONPatchOperations(normalizedBase, normalizedRendered)
-	if err != nil {
-		return nil, nil, err
-	}
-	return filterTemplateBindingPatches(normalizedPatches), normalizedRendered, nil
-}
-
-func normalizeWorkflowJobSpecs(workflow *commonmodels.WorkflowV4) (*commonmodels.WorkflowV4, error) {
-	normalized := new(commonmodels.WorkflowV4)
-	if err := util.DeepCopy(normalized, workflow); err != nil {
-		return nil, err
-	}
-	for _, stage := range normalized.Stages {
-		if stage == nil {
-			continue
-		}
-		for _, job := range stage.Jobs {
-			if job == nil {
-				continue
-			}
-			ctrl, err := jobcontroller.CreateJobController(job, normalized)
-			if err != nil {
-				return nil, err
-			}
-			job.Spec = ctrl.GetSpec()
-		}
-	}
-	return normalized, nil
+	return patches, rendered, nil
 }
 
 func validateJobExecutePolicies(template, rendered *commonmodels.WorkflowV4) error {
@@ -866,12 +824,38 @@ func jsonPatchValueConflict(base, rendered *commonmodels.WorkflowV4, templatePat
 	baseValue, baseOK := workflowJSONPointerValue(base, comparePath)
 	renderedValue, renderedOK := workflowJSONPointerValue(rendered, comparePath)
 	if baseOK != renderedOK {
-		return true
+		if baseOK {
+			return !isSemanticEmptyJSONValue(baseValue)
+		}
+		return !isSemanticEmptyJSONValue(renderedValue)
 	}
 	if !baseOK && !renderedOK {
 		return false
 	}
+	if isSemanticEmptyJSONValue(baseValue) && isSemanticEmptyJSONValue(renderedValue) {
+		return false
+	}
 	return !reflect.DeepEqual(baseValue, renderedValue)
+}
+
+func isSemanticEmptyJSONValue(value interface{}) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case string:
+		return typed == ""
+	case []interface{}:
+		return len(typed) == 0
+	case map[string]interface{}:
+		for _, item := range typed {
+			if !isSemanticEmptyJSONValue(item) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func moreSpecificJSONPatchPath(a, b string) string {
