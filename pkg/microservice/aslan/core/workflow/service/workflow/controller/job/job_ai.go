@@ -58,7 +58,7 @@ func (j AIJobController) SetWorkflow(wf *commonmodels.WorkflowV4) { j.workflow =
 func (j AIJobController) GetSpec() interface{} { return j.jobSpec }
 
 func (j AIJobController) Validate(isExecution bool) error {
-	if err := util.CheckZadigProfessionalLicense(); err != nil {
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	return validateAIJobSpec(j.jobSpec)
