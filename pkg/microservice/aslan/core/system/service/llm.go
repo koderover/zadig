@@ -22,7 +22,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -50,6 +51,10 @@ func GetLLMIntegration(ctx context.Context, id string) (*commonmodels.LLMIntegra
 		log.Error(fmtErr)
 		return nil, e.ErrGetLLMIntegration.AddErr(fmtErr)
 	}
+
+	if llmIntegration.Token != "" {
+		llmIntegration.Token = setting.MaskValue
+	}
 	return llmIntegration, nil
 }
 
@@ -59,6 +64,12 @@ func ListLLMIntegration(ctx context.Context) ([]*commonmodels.LLMIntegration, er
 		fmtErr := fmt.Errorf("ListLLMIntegration err: %w", err)
 		log.Error(fmtErr)
 		return nil, e.ErrListLLMIntegration.AddErr(fmtErr)
+	}
+
+	for _, integration := range llmIntegrations {
+		if integration.Token != "" {
+			integration.Token = setting.MaskValue
+		}
 	}
 	return llmIntegrations, nil
 }
@@ -94,12 +105,22 @@ func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration
 	return nil
 }
 
-func ValidateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration) error {
+func ValidateLLMIntegration(ctx context.Context, id string, args *commonmodels.LLMIntegration) error {
 	normalizeLLMIntegration(args)
+	if args == nil {
+		return fmt.Errorf("验证 LLM 集成失败: llm integration is required")
+	}
+	if id != "" {
+		current, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
+		if err != nil {
+			return fmt.Errorf("验证 LLM 集成失败: find llm integration: %s", err)
+		}
+		restoreLLMIntegrationToken(args, current)
+	}
 	if err := validateLLMIntegration(args); err != nil {
 		return fmt.Errorf("验证 LLM 集成失败: %s", err)
 	}
-	llmClient, err := commonservice.NewLLMClient(args)
+	llmClient, err := llmservice.NewLLMClient(args)
 	if err != nil {
 		return fmt.Errorf("验证 LLM 集成失败: %s", err)
 	}
@@ -114,14 +135,18 @@ func ValidateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegrati
 
 func UpdateLLMIntegration(ctx context.Context, ID string, args *commonmodels.LLMIntegration) error {
 	normalizeLLMIntegration(args)
-	if err := validateLLMIntegration(args); err != nil {
-		return e.ErrUpdateLLMIntegration.AddErr(err)
+	if args == nil {
+		return e.ErrUpdateLLMIntegration.AddErr(fmt.Errorf("llm integration is required"))
 	}
 
 	err := runLLMIntegrationTransaction(ctx, func(txCtx context.Context, repo *commonrepo.LLMIntegrationColl) error {
 		current, err := repo.FindByID(txCtx, ID)
 		if err != nil {
 			return fmt.Errorf("find llm integration: %w", err)
+		}
+		restoreLLMIntegrationToken(args, current)
+		if err := validateLLMIntegration(args); err != nil {
+			return err
 		}
 		setDefault := args.IsDefault || current.IsDefault
 		args.IsDefault = false
@@ -140,6 +165,12 @@ func UpdateLLMIntegration(ctx context.Context, ID string, args *commonmodels.LLM
 		return e.ErrUpdateLLMIntegration.AddErr(err)
 	}
 	return nil
+}
+
+func restoreLLMIntegrationToken(args, current *commonmodels.LLMIntegration) {
+	if args.Token == "" || args.Token == setting.MaskValue {
+		args.Token = current.Token
+	}
 }
 
 func runLLMIntegrationTransaction(ctx context.Context, fn func(context.Context, *commonrepo.LLMIntegrationColl) error) (err error) {

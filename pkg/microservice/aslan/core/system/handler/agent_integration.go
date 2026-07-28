@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,6 +30,7 @@ import (
 )
 
 type AgentIntegrationRequest struct {
+	ID          string                     `json:"id"`
 	Name        string                     `json:"name"`
 	Description string                     `json:"description"`
 	BaseURL     string                     `json:"base_url"`
@@ -40,9 +42,28 @@ type AgentIntegrationRequest struct {
 	SecretKey   string                     `json:"secret_key"`
 }
 
+// @Summary Create a agent integration
+// @Description Create a agent integration
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
+// @Success 200
+// @Router /api/aslan/system/agent/integration [post]
 func CreateAgentIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
@@ -54,21 +75,57 @@ func CreateAgentIntegration(c *gin.Context) {
 	ctx.RespErr = service.CreateAgentIntegration(context.TODO(), integration)
 }
 
+// @Summary 验证 Agent 集成
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
+// @Success 200
+// @Router /api/aslan/system/agent/integration/validate [post]
 func ValidateAgentIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// this API sends an outbound request to a user supplied endpoint, only system
+	// admins are allowed to trigger it.
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate agent integration json args")
 		return
 	}
-	ctx.RespErr = service.ValidateAgentIntegration(context.TODO(), convertAgentIntegrationRequest(request))
+	ctx.RespErr = service.ValidateAgentIntegration(context.TODO(), request.ID, convertAgentIntegrationRequest(request))
 }
 
+// @Summary Get a agent integration
+// @Description Get a agent integration
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id			path		string								true	"id"
+// @Success 200 		{object} 	commonmodels.AgentIntegration
+// @Router /api/aslan/system/agent/integration/{id} [get]
 func GetAgentIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
@@ -76,15 +133,50 @@ func GetAgentIntegration(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), c.Param("id"))
 }
 
+// @Summary List agent integrations
+// @Description List agent integrations
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	commonmodels.AgentIntegration
+// @Router /api/aslan/system/agent/integration [get]
 func ListAgentIntegrations(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO())
 }
 
+// @Summary Update a agent integration
+// @Description Update a agent integration
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"id"
+// @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
+// @Success 200
+// @Router /api/aslan/system/agent/integration/{id} [put]
 func UpdateAgentIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
@@ -99,9 +191,29 @@ func UpdateAgentIntegration(c *gin.Context) {
 	ctx.RespErr = service.UpdateAgentIntegration(context.TODO(), c.Param("id"), integration)
 }
 
+// @Summary Delete a agent integration
+// @Description Delete a agent integration
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id			path		string								true	"id"
+// @Success 200
+// @Router /api/aslan/system/agent/integration/{id} [delete]
 func DeleteAgentIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return

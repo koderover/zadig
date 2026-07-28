@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 )
 
@@ -59,7 +60,7 @@ func validateLLMIntegration(args *commonmodels.LLMIntegration) error {
 	if args.Protocol == llm.ProtocolAnthropic && args.Model == "" {
 		return fmt.Errorf("model is required for anthropic protocol")
 	}
-	if args.Token == "" {
+	if args.Token == "" || args.Token == setting.MaskValue {
 		return fmt.Errorf("token is required")
 	}
 	if args.BaseURL != "" {

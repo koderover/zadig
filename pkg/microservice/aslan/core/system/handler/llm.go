@@ -29,6 +29,7 @@ import (
 )
 
 type CreateLLMIntegrationRequest struct {
+	ID           string       `json:"id"`
 	Name         string       `json:"name"`
 	ProviderName llm.Provider `json:"provider_name"`
 	Protocol     llm.Protocol `json:"protocol"`
@@ -82,7 +83,7 @@ func ValidateLLMIntegration(c *gin.Context) {
 
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
-	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), llmProvider)
+	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), args.ID, llmProvider)
 }
 
 type GetLLMIntegrationRespone struct {

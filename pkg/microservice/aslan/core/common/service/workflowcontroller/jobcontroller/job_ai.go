@@ -31,7 +31,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	runtimejob "github.com/koderover/zadig/v2/pkg/types/job"
 )
@@ -145,7 +144,6 @@ func (c *AIJobCtl) Run(ctx context.Context) {
 		c.job.Error = err.Error()
 	} else if status == config.StatusPassed {
 		c.publishResult()
-		c.job.Error = ""
 	}
 	c.ack()
 }
@@ -190,15 +188,10 @@ func (c *AIJobCtl) getRemainingTimeout(start time.Time) int64 {
 }
 
 func (c *AIJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.User, error) {
+	// GeneFlatUsersWithCaller flattens groups and the task creator into plain users.
 	users, _ := commonutil.GeneFlatUsersWithCaller(c.jobTaskSpec.ConfirmUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
 	if len(users) == 0 {
 		return nil, errors.New("confirm users are empty")
-	}
-	for _, user := range users {
-		if user == nil || user.UserID == "" {
-			return nil, errors.New("confirm user id cannot be empty")
-		}
-		user.Type = setting.UserTypeUser
 	}
 	return users, nil
 }

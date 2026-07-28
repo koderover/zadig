@@ -46,16 +46,7 @@ func NewLLMClient(llmIntegration *models.LLMIntegration) (llm.ILLM, error) {
 		llmConfig.Proxy = config.ProxyHTTPSAddr()
 	}
 
-	llmClient, err := llm.NewClientByProtocol(llmConfig.Protocol)
-	if err != nil {
-		return nil, fmt.Errorf("could not create the llm client for protocol %s: %w", llmConfig.Protocol, err)
-	}
-
-	if err := llmClient.Configure(llmConfig); err != nil {
-		return nil, fmt.Errorf("could not configure the llm client for %s: %w", llmConfig.ProviderName, err)
-	}
-
-	return llmClient, nil
+	return newClient(llmConfig)
 }
 
 func NewAgentClient(integration *models.AgentIntegration) (llm.ILLM, error) {
@@ -83,6 +74,10 @@ func NewAgentClient(integration *models.AgentIntegration) (llm.ILLM, error) {
 		return nil, fmt.Errorf("agent auth type %s is not supported", integration.AuthType)
 	}
 
+	return newClient(llmConfig)
+}
+
+func newClient(llmConfig llm.LLMConfig) (llm.ILLM, error) {
 	client, err := llm.NewClientByProtocol(llmConfig.Protocol)
 	if err != nil {
 		return nil, fmt.Errorf("could not create the llm client for protocol %s: %w", llmConfig.Protocol, err)

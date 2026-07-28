@@ -48,7 +48,6 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.disableAuth {
 		cloned.Header.Del("Authorization")
 		cloned.Header.Del("x-api-key")
-		cloned.Header.Del("api-key")
 	}
 	for key, value := range t.headers {
 		cloned.Header.Set(key, value)

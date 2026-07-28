@@ -52,6 +52,7 @@ import (
 	airepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/imnotify"
@@ -3879,7 +3880,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 
 	ctx := context.TODO()
-	llmClient, err := commonservice.GetDefaultLLMClient(ctx)
+	llmClient, err := llmservice.GetDefaultLLMClient(ctx)
 	if err != nil {
 		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
 	}

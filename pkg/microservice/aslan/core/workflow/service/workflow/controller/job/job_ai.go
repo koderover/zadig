@@ -17,14 +17,17 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -98,6 +101,8 @@ func validateAIJobSpec(spec *commonmodels.AIJobSpec) error {
 	return nil
 }
 
+// Update always takes the saved workflow settings. useUserInput is ignored because
+// none of the AI job fields are editable at execution time.
 func (j AIJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	current, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
@@ -109,12 +114,7 @@ func (j AIJobController) Update(useUserInput bool, ticket *commonmodels.Approval
 	}
 	j.errorPolicy = current.ErrorPolicy
 	j.executePolicy = current.ExecutePolicy
-	j.jobSpec.TargetType = currentSpec.TargetType
-	j.jobSpec.TargetID = currentSpec.TargetID
-	j.jobSpec.Prompt = currentSpec.Prompt
-	j.jobSpec.RequireManualConfirm = currentSpec.RequireManualConfirm
-	j.jobSpec.ConfirmUsers = currentSpec.ConfirmUsers
-	j.jobSpec.Timeout = currentSpec.Timeout
+	*j.jobSpec = *currentSpec
 	return nil
 }
 
@@ -133,6 +133,7 @@ func (j AIJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	spec := &commonmodels.JobTaskAISpec{
 		TargetType:           j.jobSpec.TargetType,
 		TargetID:             j.jobSpec.TargetID,
+		TargetName:           getAITargetName(j.jobSpec.TargetType, j.jobSpec.TargetID),
 		Prompt:               j.jobSpec.Prompt,
 		RequireManualConfirm: j.jobSpec.RequireManualConfirm,
 		ConfirmUsers:         j.jobSpec.ConfirmUsers,
@@ -152,6 +153,30 @@ func (j AIJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name: config.AIOutputResult, Description: "AI 任务输出结果",
 		}},
 	}}, nil
+}
+
+// getAITargetName resolves the display name of the configured model or agent so
+// the task detail does not depend on the integration still existing afterwards.
+func getAITargetName(targetType, targetID string) string {
+	ctx := context.Background()
+	switch targetType {
+	case config.AITargetTypeModel:
+		integration, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, targetID)
+		if err != nil {
+			log.Warnf("failed to find model integration %s, error: %s", targetID, err)
+			return ""
+		}
+		return integration.Name
+	case config.AITargetTypeAgent:
+		integration, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, targetID)
+		if err != nil {
+			log.Warnf("failed to find agent integration %s, error: %s", targetID, err)
+			return ""
+		}
+		return integration.Name
+	default:
+		return ""
+	}
 }
 
 func (j AIJobController) SetRepo(repo *types.Repository) error { return nil }

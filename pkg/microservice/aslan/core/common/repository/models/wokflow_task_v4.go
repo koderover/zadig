@@ -891,8 +891,12 @@ type AIReleaseSpecialistCheckItem struct {
 }
 
 type JobTaskAISpec struct {
-	TargetType           string          `bson:"target_type" json:"target_type"`
-	TargetID             string          `bson:"target_id" json:"target_id"`
+	TargetType string `bson:"target_type" json:"target_type"`
+	TargetID   string `bson:"target_id" json:"target_id"`
+	// TargetName is a snapshot of the agent/model name taken when the task is
+	// created, so the task detail still shows it after the integration is renamed
+	// or deleted.
+	TargetName           string          `bson:"target_name,omitempty" json:"target_name,omitempty"`
 	Prompt               string          `bson:"prompt" json:"prompt"`
 	Result               string          `bson:"result,omitempty" json:"result,omitempty"`
 	RequireManualConfirm bool            `bson:"require_manual_confirm" json:"require_manual_confirm"`
