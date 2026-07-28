@@ -291,6 +291,19 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) []*larkto
 		}
 		return client, nil
 	}
+	buildUserInfo := func(client *larktool.Client, id, fallbackName string) *larktool.UserInfo {
+		userInfo, err := client.GetUserInfoByIDWithCache(id, setting.LarkUserID)
+		if err != nil {
+			log.Warnf("failed to resolve lark user name for %s: %v", id, err)
+			userInfo = &larktool.UserInfo{ID: id, Name: fallbackName}
+		}
+		userInfo.ID = id
+		userInfo.IDType = setting.LarkUserID
+		if userInfo.Name == "" {
+			userInfo.Name = fallbackName
+		}
+		return userInfo
+	}
 
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
@@ -315,7 +328,7 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) []*larkto
 				continue
 			}
 			for _, id := range ids {
-				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
+				resp = append(resp, buildUserInfo(client, id, value))
 			}
 		case dynamicRecipientKindMobile:
 			client, err := getClient()
@@ -329,7 +342,7 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) []*larkto
 				continue
 			}
 			for _, id := range ids {
-				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
+				resp = append(resp, buildUserInfo(client, id, value))
 			}
 		case dynamicRecipientKindUserID:
 			client, err := getClient()
@@ -349,7 +362,7 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) []*larkto
 					continue
 				}
 				if found {
-					resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
+					resp = append(resp, buildUserInfo(client, id, user.Name))
 				}
 			}
 		default:
