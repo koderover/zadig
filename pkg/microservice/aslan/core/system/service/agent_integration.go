@@ -26,9 +26,12 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func CreateAgentIntegration(ctx context.Context, integration *commonmodels.AgentIntegration) error {
@@ -59,37 +62,61 @@ func UpdateAgentIntegration(ctx context.Context, id string, integration *commonm
 	return nil
 }
 
-func GetAgentIntegration(ctx context.Context, id string) (*commonmodels.AgentIntegration, error) {
+func GetAgentIntegration(ctx context.Context, id, encryptedKey string) (*commonmodels.AgentIntegration, error) {
 	integration, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, id)
 	if err != nil {
 		return nil, e.ErrGetAgentIntegration.AddErr(err)
 	}
-	return newAgentIntegrationResponse(integration), nil
+	if err := protectAgentIntegrationCredentials([]*commonmodels.AgentIntegration{integration}, encryptedKey); err != nil {
+		return nil, e.ErrGetAgentIntegration.AddErr(err)
+	}
+	return integration, nil
 }
 
-func ListAgentIntegrations(ctx context.Context) ([]*commonmodels.AgentIntegration, error) {
+func ListAgentIntegrations(ctx context.Context, encryptedKey string) ([]*commonmodels.AgentIntegration, error) {
 	integrations, err := commonrepo.NewAgentIntegrationColl().FindAll(ctx)
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
-	for i, integration := range integrations {
-		integrations[i] = newAgentIntegrationResponse(integration)
+	if err := protectAgentIntegrationCredentials(integrations, encryptedKey); err != nil {
+		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
 	return integrations, nil
 }
 
-func newAgentIntegrationResponse(integration *commonmodels.AgentIntegration) *commonmodels.AgentIntegration {
-	response := *integration
-	if response.APIKey != "" {
-		response.APIKey = setting.MaskValue
+func protectAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegration, encryptedKey string) error {
+	if encryptedKey == "" {
+		for _, integration := range integrations {
+			if integration.APIKey != "" {
+				integration.APIKey = setting.MaskValue
+			}
+			if integration.AccessKey != "" {
+				integration.AccessKey = setting.MaskValue
+			}
+			if integration.SecretKey != "" {
+				integration.SecretKey = setting.MaskValue
+			}
+		}
+		return nil
 	}
-	if response.AccessKey != "" {
-		response.AccessKey = setting.MaskValue
+
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("get aes key from encrypted key: %w", err)
 	}
-	if response.SecretKey != "" {
-		response.SecretKey = setting.MaskValue
+	for _, integration := range integrations {
+		for _, credential := range []*string{&integration.APIKey, &integration.AccessKey, &integration.SecretKey} {
+			if *credential == "" {
+				continue
+			}
+			encrypted, err := crypto.AesEncryptByKey(*credential, aesKey.PlainText)
+			if err != nil {
+				return fmt.Errorf("encrypt credential: %w", err)
+			}
+			*credential = encrypted
+		}
 	}
-	return &response
+	return nil
 }
 
 func DeleteAgentIntegration(ctx context.Context, id string) error {

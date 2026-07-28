@@ -113,7 +113,8 @@ func ValidateAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	id			path		string								true	"id"
+// @Param 	id				path		string								true	"id"
+// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{object} 	commonmodels.AgentIntegration
 // @Router /api/aslan/system/agent/integration/{id} [get]
 func GetAgentIntegration(c *gin.Context) {
@@ -130,7 +131,13 @@ func GetAgentIntegration(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), c.Param("id"))
+	// encrypted credential echo is for the admin edit dialog only; everyone else
+	// always gets masked values.
+	encryptedKey := c.Query("encryptedKey")
+	if !ctx.Resources.IsSystemAdmin {
+		encryptedKey = ""
+	}
+	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), c.Param("id"), encryptedKey)
 }
 
 // @Summary List agent integrations
@@ -138,6 +145,7 @@ func GetAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{array} 	commonmodels.AgentIntegration
 // @Router /api/aslan/system/agent/integration [get]
 func ListAgentIntegrations(c *gin.Context) {
@@ -150,7 +158,11 @@ func ListAgentIntegrations(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO())
+	encryptedKey := c.Query("encryptedKey")
+	if !ctx.Resources.IsSystemAdmin {
+		encryptedKey = ""
+	}
+	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), encryptedKey)
 }
 
 // @Summary Update a agent integration

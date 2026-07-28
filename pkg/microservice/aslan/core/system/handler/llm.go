@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -97,12 +98,19 @@ type GetLLMIntegrationRespone struct {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	id			path		string								true	"id"
+// @Param 	id				path		string								true	"id"
+// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{object} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration/{id} [get]
 func GetLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -110,7 +118,13 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id)
+	// encrypted token echo is for the admin edit dialog only; everyone else
+	// always gets masked values.
+	encryptedKey := c.Query("encryptedKey")
+	if !ctx.Resources.IsSystemAdmin {
+		encryptedKey = ""
+	}
+	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id, encryptedKey)
 }
 
 // @Summary List llm integrations
@@ -118,13 +132,24 @@ func GetLLMIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{array} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration [get]
 func ListLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	encryptedKey := c.Query("encryptedKey")
+	if !ctx.Resources.IsSystemAdmin {
+		encryptedKey = ""
+	}
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO(), encryptedKey)
 }
 
 type checkLLMIntegrationResponse struct {
