@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/url"
 	"sort"
 	"strconv"
@@ -822,11 +823,14 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	}
 	if notify.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		atUserList := []string{}
-		for _, userID := range notify.LarkGroupNotificationConfig.AtUsers {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID.ID))
+		for _, user := range notify.LarkGroupNotificationConfig.AtUsers {
+			if user == nil || user.ID == "" {
+				continue
+			}
+			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\">%s</at>", user.ID, html.EscapeString(user.Name)))
 		}
 		msg := strings.Join(atUserList, " ")
-		if notify.LarkHookNotificationConfig.IsAtAll {
+		if notify.LarkGroupNotificationConfig.IsAtAll {
 			msg += "<at user_id=\"all\"></at>"
 		}
 
