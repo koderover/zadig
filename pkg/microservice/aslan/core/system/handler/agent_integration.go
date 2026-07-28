@@ -60,11 +60,6 @@ func CreateAgentIntegration(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid create agent integration json args")
@@ -89,13 +84,6 @@ func ValidateAgentIntegration(c *gin.Context) {
 
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	// this API sends an outbound request to a user supplied endpoint, only system
-	// admins are allowed to trigger it.
-	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,11 +172,6 @@ func UpdateAgentIntegration(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
@@ -217,11 +200,6 @@ func DeleteAgentIntegration(c *gin.Context) {
 
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return
 	}
