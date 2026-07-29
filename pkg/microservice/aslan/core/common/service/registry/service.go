@@ -41,6 +41,8 @@ import (
 	"github.com/distribution/reference"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/docker/distribution/registry/api/errcode"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -231,6 +233,36 @@ func (c *authClient) listTags(repoName string) (tags []string, err error) {
 	}
 
 	return
+}
+
+func (c *authClient) tagExists(repoName, tag string) (bool, error) {
+	repo, err := c.getRepository(repoName)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = repo.Tags(c.ctx).Get(c.ctx, tag)
+	if err == nil {
+		return true, nil
+	}
+	if isRegistryImageNotFound(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func isRegistryImageNotFound(err error) bool {
+	switch registryErr := err.(type) {
+	case errcode.Error:
+		return registryErr.Code == v2.ErrorCodeManifestUnknown || registryErr.Code == v2.ErrorCodeNameUnknown
+	case errcode.Errors:
+		for _, item := range registryErr {
+			if isRegistryImageNotFound(item) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type containerInfo struct {
@@ -514,16 +546,7 @@ func (s *v2RegistryService) CheckImageExist(option CheckImageExistOption, log *z
 
 	repoName := strings.Trim(strings.Join([]string{option.Namespace, option.Image}, "/"), "/")
 	if option.Digest == "" {
-		tags, err := cli.listTags(repoName)
-		if err != nil {
-			return false, err
-		}
-		for _, tag := range tags {
-			if tag == option.Tag {
-				return true, nil
-			}
-		}
-		return false, nil
+		return cli.tagExists(repoName, option.Tag)
 	}
 
 	dgst, err := digest.Parse(option.Digest)
