@@ -826,7 +826,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID.ID))
 		}
 		msg := strings.Join(atUserList, " ")
-		if notify.LarkHookNotificationConfig.IsAtAll {
+		if notify.LarkGroupNotificationConfig.IsAtAll {
 			msg += "<at user_id=\"all\"></at>"
 		}
 
