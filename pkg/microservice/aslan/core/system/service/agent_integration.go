@@ -45,14 +45,17 @@ func CreateAgentIntegration(ctx context.Context, integration *commonmodels.Agent
 	return nil
 }
 
-func UpdateAgentIntegration(ctx context.Context, id string, integration *commonmodels.AgentIntegration) error {
-	normalizeAgentIntegration(integration)
+func UpdateAgentIntegration(ctx context.Context, projectName, id string, integration *commonmodels.AgentIntegration) error {
 	if integration == nil {
 		return e.ErrUpdateAgentIntegration.AddErr(fmt.Errorf("agent integration is required"))
 	}
-	if err := restoreAgentIntegrationCredentials(ctx, id, integration); err != nil {
+	normalizeAgentIntegration(integration)
+	current, err := findProjectAgentIntegration(ctx, projectName, id)
+	if err != nil {
 		return e.ErrUpdateAgentIntegration.AddErr(err)
 	}
+	integration.ProjectName = current.ProjectName
+	restoreAgentIntegrationCredentials(current, integration)
 	if err := validateAgentIntegration(integration); err != nil {
 		return e.ErrUpdateAgentIntegration.AddErr(err)
 	}
@@ -62,8 +65,8 @@ func UpdateAgentIntegration(ctx context.Context, id string, integration *commonm
 	return nil
 }
 
-func GetAgentIntegration(ctx context.Context, id, encryptedKey string) (*commonmodels.AgentIntegration, error) {
-	integration, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, id)
+func GetAgentIntegration(ctx context.Context, projectName, id, encryptedKey string) (*commonmodels.AgentIntegration, error) {
+	integration, err := findProjectAgentIntegration(ctx, projectName, id)
 	if err != nil {
 		return nil, e.ErrGetAgentIntegration.AddErr(err)
 	}
@@ -73,8 +76,8 @@ func GetAgentIntegration(ctx context.Context, id, encryptedKey string) (*commonm
 	return integration, nil
 }
 
-func ListAgentIntegrations(ctx context.Context, encryptedKey string) ([]*commonmodels.AgentIntegration, error) {
-	integrations, err := commonrepo.NewAgentIntegrationColl().FindAll(ctx)
+func ListAgentIntegrations(ctx context.Context, projectName, encryptedKey string) ([]*commonmodels.AgentIntegration, error) {
+	integrations, err := commonrepo.NewAgentIntegrationColl().ListByProject(ctx, projectName)
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
@@ -119,7 +122,10 @@ func protectAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegr
 	return nil
 }
 
-func DeleteAgentIntegration(ctx context.Context, id string) error {
+func DeleteAgentIntegration(ctx context.Context, projectName, id string) error {
+	if _, err := findProjectAgentIntegration(ctx, projectName, id); err != nil {
+		return e.ErrDeleteAgentIntegration.AddErr(err)
+	}
 	workflowNames, err := commonrepo.NewWorkflowV4Coll().ListNamesByAITarget(ctx, config.AITargetTypeAgent, id)
 	if err != nil {
 		return e.ErrDeleteAgentIntegration.AddErr(fmt.Errorf("find workflows referencing the agent: %w", err))
@@ -133,15 +139,17 @@ func DeleteAgentIntegration(ctx context.Context, id string) error {
 	return nil
 }
 
-func ValidateAgentIntegration(ctx context.Context, id string, integration *commonmodels.AgentIntegration) error {
-	normalizeAgentIntegration(integration)
+func ValidateAgentIntegration(ctx context.Context, projectName, id string, integration *commonmodels.AgentIntegration) error {
 	if integration == nil {
 		return fmt.Errorf("验证 Agent 集成失败: agent integration is required")
 	}
+	normalizeAgentIntegration(integration)
 	if id != "" {
-		if err := restoreAgentIntegrationCredentials(ctx, id, integration); err != nil {
+		current, err := findProjectAgentIntegration(ctx, projectName, id)
+		if err != nil {
 			return fmt.Errorf("验证 Agent 集成失败: %s", err)
 		}
+		restoreAgentIntegrationCredentials(current, integration)
 	}
 	if err := validateAgentIntegration(integration); err != nil {
 		return fmt.Errorf("验证 Agent 集成失败: %s", err)
@@ -156,13 +164,20 @@ func ValidateAgentIntegration(ctx context.Context, id string, integration *commo
 	return nil
 }
 
-func restoreAgentIntegrationCredentials(ctx context.Context, id string, integration *commonmodels.AgentIntegration) error {
-	current, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, id)
+func findProjectAgentIntegration(ctx context.Context, projectName, id string) (*commonmodels.AgentIntegration, error) {
+	integration, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("find agent integration: %w", err)
+		return nil, fmt.Errorf("find agent integration: %w", err)
 	}
+	if integration.ProjectName != projectName {
+		return nil, fmt.Errorf("agent integration %s does not belong to project %s", id, projectName)
+	}
+	return integration, nil
+}
+
+func restoreAgentIntegrationCredentials(current, integration *commonmodels.AgentIntegration) {
 	if integration.AuthType != current.AuthType {
-		return nil
+		return
 	}
 
 	switch integration.AuthType {
@@ -178,7 +193,6 @@ func restoreAgentIntegrationCredentials(ctx context.Context, id string, integrat
 			integration.SecretKey = current.SecretKey
 		}
 	}
-	return nil
 }
 
 func normalizeAgentIntegration(integration *commonmodels.AgentIntegration) {
@@ -197,6 +211,9 @@ func normalizeAgentIntegration(integration *commonmodels.AgentIntegration) {
 func validateAgentIntegration(integration *commonmodels.AgentIntegration) error {
 	if integration == nil {
 		return fmt.Errorf("agent integration is required")
+	}
+	if integration.ProjectName == "" {
+		return fmt.Errorf("project name is required")
 	}
 	if integration.Name == "" {
 		return fmt.Errorf("name is required")

@@ -61,7 +61,19 @@ func (j AIJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigEnterpriseLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
-	return validateAIJobSpec(j.jobSpec)
+	if err := validateAIJobSpec(j.jobSpec); err != nil {
+		return err
+	}
+	if j.jobSpec.TargetType == config.AITargetTypeAgent {
+		integration, err := commonrepo.NewAgentIntegrationColl().FindByID(context.Background(), j.jobSpec.TargetID)
+		if err != nil {
+			return fmt.Errorf("failed to find agent integration %s, error: %s", j.jobSpec.TargetID, err)
+		}
+		if integration.ProjectName != j.workflow.Project {
+			return fmt.Errorf("agent %s does not belong to project %s", integration.Name, j.workflow.Project)
+		}
+	}
+	return nil
 }
 
 func validateAIJobSpec(spec *commonmodels.AIJobSpec) error {

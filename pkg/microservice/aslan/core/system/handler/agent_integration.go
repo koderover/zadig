@@ -42,11 +42,41 @@ type AgentIntegrationRequest struct {
 	SecretKey   string                     `json:"secret_key"`
 }
 
+// checkAgentIntegrationPermission requires the user to be a system admin or a
+// member of the project that owns the agent integrations.
+func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName string) bool {
+	if projectName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName is required")
+		return false
+	}
+	if ctx.Resources.IsSystemAdmin {
+		return true
+	}
+	if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+		ctx.UnAuthorized = true
+		return false
+	}
+	return true
+}
+
+// canEchoAgentCredential decides whether encrypted credential echo is allowed;
+// it is for the edit dialog only, so system admins and project admins qualify.
+func canEchoAgentCredential(ctx *internalhandler.Context, projectName string) bool {
+	if ctx.Resources.IsSystemAdmin {
+		return true
+	}
+	if authInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		return authInfo.IsProjectAdmin
+	}
+	return false
+}
+
 // @Summary Create a agent integration
 // @Description Create a agent integration
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
 // @Success 200
 // @Router /api/aslan/system/agent/integration [post]
@@ -60,12 +90,17 @@ func CreateAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid create agent integration json args")
 		return
 	}
-	integration := convertAgentIntegrationRequest(request)
+	integration := convertAgentIntegrationRequest(projectName, request)
 	integration.UpdatedBy = ctx.UserName
 	ctx.RespErr = service.CreateAgentIntegration(context.TODO(), integration)
 }
@@ -75,6 +110,7 @@ func CreateAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
 // @Success 200
 // @Router /api/aslan/system/agent/integration/validate [post]
@@ -88,12 +124,17 @@ func ValidateAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate agent integration json args")
 		return
 	}
-	ctx.RespErr = service.ValidateAgentIntegration(context.TODO(), request.ID, convertAgentIntegrationRequest(request))
+	ctx.RespErr = service.ValidateAgentIntegration(context.TODO(), projectName, request.ID, convertAgentIntegrationRequest(projectName, request))
 }
 
 // @Summary Get a agent integration
@@ -101,6 +142,7 @@ func ValidateAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	id				path		string								true	"id"
 // @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{object} 	commonmodels.AgentIntegration
@@ -115,17 +157,20 @@ func GetAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
 	}
-	// encrypted credential echo is for the admin edit dialog only; everyone else
-	// always gets masked values.
 	encryptedKey := c.Query("encryptedKey")
-	if !ctx.Resources.IsSystemAdmin {
+	if !canEchoAgentCredential(ctx, projectName) {
 		encryptedKey = ""
 	}
-	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), c.Param("id"), encryptedKey)
+	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), projectName, c.Param("id"), encryptedKey)
 }
 
 // @Summary List agent integrations
@@ -133,6 +178,7 @@ func GetAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{array} 	commonmodels.AgentIntegration
 // @Router /api/aslan/system/agent/integration [get]
@@ -146,11 +192,16 @@ func ListAgentIntegrations(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	encryptedKey := c.Query("encryptedKey")
-	if !ctx.Resources.IsSystemAdmin {
+	if !canEchoAgentCredential(ctx, projectName) {
 		encryptedKey = ""
 	}
-	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), encryptedKey)
+	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), projectName, encryptedKey)
 }
 
 // @Summary Update a agent integration
@@ -158,6 +209,7 @@ func ListAgentIntegrations(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	id				path		string								true	"id"
 // @Param 	body 			body 		AgentIntegrationRequest 			true 	"body"
 // @Success 200
@@ -172,6 +224,11 @@ func UpdateAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
@@ -181,9 +238,9 @@ func UpdateAgentIntegration(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update agent integration json args")
 		return
 	}
-	integration := convertAgentIntegrationRequest(request)
+	integration := convertAgentIntegrationRequest(projectName, request)
 	integration.UpdatedBy = ctx.UserName
-	ctx.RespErr = service.UpdateAgentIntegration(context.TODO(), c.Param("id"), integration)
+	ctx.RespErr = service.UpdateAgentIntegration(context.TODO(), projectName, c.Param("id"), integration)
 }
 
 // @Summary Delete a agent integration
@@ -191,6 +248,7 @@ func UpdateAgentIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
 // @Param 	id			path		string								true	"id"
 // @Success 200
 // @Router /api/aslan/system/agent/integration/{id} [delete]
@@ -204,16 +262,22 @@ func DeleteAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	if c.Param("id") == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
 	}
-	ctx.RespErr = service.DeleteAgentIntegration(context.TODO(), c.Param("id"))
+	ctx.RespErr = service.DeleteAgentIntegration(context.TODO(), projectName, c.Param("id"))
 }
 
-func convertAgentIntegrationRequest(request *AgentIntegrationRequest) *commonmodels.AgentIntegration {
+func convertAgentIntegrationRequest(projectName string, request *AgentIntegrationRequest) *commonmodels.AgentIntegration {
 	return &commonmodels.AgentIntegration{
-		Name: request.Name, Description: request.Description, BaseURL: request.BaseURL,
+		ProjectName: projectName,
+		Name:        request.Name, Description: request.Description, BaseURL: request.BaseURL,
 		Protocol: request.Protocol, Model: request.Model, AuthType: request.AuthType,
 		APIKey: request.APIKey, AccessKey: request.AccessKey, SecretKey: request.SecretKey,
 	}

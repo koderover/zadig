@@ -184,10 +184,16 @@ func (p *ProductFeature) GetDeployType() string {
 		deployType = setting.SourceFromExternal
 	} else if p.BasicFacility == "cloud_host" {
 		deployType = "cloud_host"
+	} else if p.BasicFacility == setting.BasicFacilityAgent {
+		deployType = setting.BasicFacilityAgent
 	} else {
 		deployType = p.DeployType
 	}
 	return deployType
+}
+
+func (p *ProductFeature) IsAgentProduct() bool {
+	return p != nil && p.BasicFacility == setting.BasicFacilityAgent
 }
 
 func (p *ProductFeature) IsHostProduct() bool {
@@ -311,6 +317,10 @@ func (p *Product) IsCVMProduct() bool {
 
 func (p *Product) IsHostProduct() bool {
 	return p.ProductFeature != nil && p.ProductFeature.IsHostProduct()
+}
+
+func (p *Product) IsAgentProduct() bool {
+	return p.ProductFeature != nil && p.ProductFeature.IsAgentProduct()
 }
 
 func (r *RenderKV) SetAlias() {

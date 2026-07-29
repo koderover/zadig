@@ -31,6 +31,7 @@ const (
 
 type AgentIntegration struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ProjectName string             `bson:"project_name" json:"project_name"`
 	Name        string             `bson:"name" json:"name"`
 	Description string             `bson:"description" json:"description"`
 	BaseURL     string             `bson:"base_url" json:"base_url"`

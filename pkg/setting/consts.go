@@ -248,6 +248,8 @@ const (
 	BasicFacilityK8S = "kubernetes"
 	// Infrastructure Cloud Hosting
 	BasicFacilityCVM = "cloud_host"
+	// Infrastructure for agent projects
+	BasicFacilityAgent = "agent"
 
 	// SourceFromZadig Configuration sources are managed by the platform
 	SourceFromZadig = "spock"

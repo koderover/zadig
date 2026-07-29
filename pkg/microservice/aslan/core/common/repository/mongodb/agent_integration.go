@@ -47,8 +47,13 @@ func NewAgentIntegrationColl() *AgentIntegrationColl {
 func (c *AgentIntegrationColl) GetCollectionName() string { return c.coll }
 
 func (c *AgentIntegrationColl) EnsureIndex(ctx context.Context) error {
+	// drop the legacy global unique index on name; uniqueness is now per project
+	_, _ = c.Indexes().DropOne(ctx, "name_1")
 	_, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "name", Value: 1}},
+		Keys: bson.D{
+			{Key: "project_name", Value: 1},
+			{Key: "name", Value: 1},
+		},
 		Options: options.Index().SetUnique(true),
 	})
 	return err
@@ -95,9 +100,9 @@ func (c *AgentIntegrationColl) FindByID(ctx context.Context, id string) (*models
 	return result, c.FindOne(ctx, bson.M{"_id": oid}).Decode(result)
 }
 
-func (c *AgentIntegrationColl) FindAll(ctx context.Context) ([]*models.AgentIntegration, error) {
+func (c *AgentIntegrationColl) ListByProject(ctx context.Context, projectName string) ([]*models.AgentIntegration, error) {
 	result := make([]*models.AgentIntegration, 0)
-	cursor, err := c.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
+	cursor, err := c.Find(ctx, bson.M{"project_name": projectName}, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
 	if err != nil {
 		return nil, err
 	}
