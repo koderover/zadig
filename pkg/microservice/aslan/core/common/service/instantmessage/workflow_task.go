@@ -358,7 +358,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
+		if notifyStatusMatch(statusSets, task.Status) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
 			if shouldSkipFeishuPersonPauseNotification(task, notify) {
 				continue
 			}
@@ -741,10 +741,7 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 			continue
 		}
 		if user.Type == setting.UserTypeStageExecutor {
-			if stage == nil || stage.ManualExec == nil {
-				continue
-			}
-			usersToExpand = append(usersToExpand, stage.ManualExec.ManualExecUsers...)
+			usersToExpand = append(usersToExpand, manualExecStageUsers(stage)...)
 			continue
 		}
 		usersToExpand = append(usersToExpand, user)
@@ -759,16 +756,34 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 	return dynamicrecipient.UniqMailUsers(append(directUsers, users...)), nil
 }
 
+// manualExecStageUsers returns the stage executors for notifications: the user
+// who actually executed the stage once it has been executed, otherwise the
+// configured candidate executors.
+func manualExecStageUsers(stage *models.StageTask) []*models.User {
+	if stage == nil || stage.ManualExec == nil {
+		return nil
+	}
+	if stage.ManualExec.ManualExectorID != "" {
+		return []*models.User{{
+			Type:     setting.UserTypeUser,
+			UserID:   stage.ManualExec.ManualExectorID,
+			UserName: stage.ManualExec.ManualExectorName,
+		}}
+	}
+	return stage.ManualExec.ManualExecUsers
+}
+
 func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) ([]*models.User, map[string]*types.UserInfo) {
-	if stage == nil || stage.ManualExec == nil || len(stage.ManualExec.ManualExecUsers) == 0 {
+	stageUsers := manualExecStageUsers(stage)
+	if len(stageUsers) == 0 {
 		return nil, map[string]*types.UserInfo{}
 	}
 
 	if taskCreatorID != "" {
-		return commonutil.GeneFlatUsersWithCaller(stage.ManualExec.ManualExecUsers, taskCreatorID)
+		return commonutil.GeneFlatUsersWithCaller(stageUsers, taskCreatorID)
 	}
 
-	return commonutil.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
+	return commonutil.GeneFlatUsers(stageUsers)
 }
 
 // ---------------------------------------------------------------------------
@@ -782,6 +797,9 @@ type TaskNotifyInput struct {
 	Task *models.WorkflowTask
 	// Job is the current job that triggered the notification.
 	Job *models.JobTask
+	// Jobs optionally holds all split JobTasks of the original workflow job so
+	// they are rendered in a single notification. When empty, only Job is used.
+	Jobs []*models.JobTask
 	// WorkflowName is the name of the workflow, used to fetch the task if Task is nil.
 	WorkflowName string
 	// TaskID is the ID of the workflow task, used to fetch the task if Task is nil.
@@ -819,12 +837,22 @@ func HasTaskNotifyCtls(notifyCtls []*models.NotifyCtl, status config.Status) boo
 		if status == config.StatusWaitingApprove && isTaskWaitingApproveNotifyType(statusSets) {
 			return true
 		}
-		if statusSets.Has(string(status)) {
+		if notifyStatusMatch(statusSets, status) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// notifyStatusMatch reports whether a notify config subscribes to the given
+// status. A rejected approval is a failure outcome, so configs that subscribe
+// to failed also receive reject notifications.
+func notifyStatusMatch(statusSets sets.String, status config.Status) bool {
+	if statusSets.Has(string(status)) {
+		return true
+	}
+	return status == config.StatusReject && statusSets.Has(string(config.StatusFailed))
 }
 
 func isTaskWaitingApproveNotifyType(statusSets sets.String) bool {
@@ -875,17 +903,38 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 	stageForNotification := findTaskNotifyStage(task.Stages, input.Job)
 	taskCopy := *task
 	taskCopy.Status = input.Status
-	if input.Job != nil {
-		taskCopy.Stages = []*models.StageTask{
-			{
-				Name:      input.Job.DisplayName,
-				Status:    input.Job.Status,
-				StartTime: input.Job.StartTime,
-				EndTime:   input.Job.EndTime,
-				Error:     input.Job.Error,
-				Jobs:      []*models.JobTask{input.Job},
-			},
+	notifyJobs := input.Jobs
+	if len(notifyJobs) == 0 && input.Job != nil {
+		notifyJobs = []*models.JobTask{input.Job}
+	}
+	if len(notifyJobs) > 0 {
+		stageName := notifyJobs[0].DisplayName
+		if len(notifyJobs) > 1 && notifyJobs[0].OriginName != "" {
+			stageName = notifyJobs[0].OriginName
 		}
+		syntheticStage := &models.StageTask{
+			Name:      stageName,
+			Status:    notifyJobs[0].Status,
+			StartTime: notifyJobs[0].StartTime,
+			EndTime:   notifyJobs[0].EndTime,
+			Error:     notifyJobs[0].Error,
+			Jobs:      notifyJobs,
+		}
+		for _, job := range notifyJobs[1:] {
+			if job.StartTime != 0 && (syntheticStage.StartTime == 0 || job.StartTime < syntheticStage.StartTime) {
+				syntheticStage.StartTime = job.StartTime
+			}
+			if job.EndTime > syntheticStage.EndTime {
+				syntheticStage.EndTime = job.EndTime
+			}
+			if syntheticStage.Error == "" {
+				syntheticStage.Error = job.Error
+			}
+		}
+		if len(notifyJobs) > 1 {
+			syntheticStage.Status = input.Status
+		}
+		taskCopy.Stages = []*models.StageTask{syntheticStage}
 	}
 	task = &taskCopy
 
@@ -913,7 +962,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 			if !isTaskWaitingApproveNotifyType(statusSets) {
 				continue
 			}
-		} else if !statusSets.Has(string(input.Status)) {
+		} else if !notifyStatusMatch(statusSets, input.Status) {
 			continue
 		}
 
@@ -1538,6 +1587,8 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 		"getColor": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated || status == config.StatusPrepare {
 				return textColorGreen
+			} else if status == config.StatusWaitingApprove || status == config.StatusPause {
+				return textColorOrange
 			} else {
 				return textColorRed
 			}
@@ -1556,7 +1607,7 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusRejected", language)
 			} else if status == config.StatusCreated || status == config.StatusPrepare {
 				return getText("taskStatusExecutionStarted", language)
-			} else if status == config.StatusManualApproval {
+			} else if status == config.StatusManualApproval || status == config.StatusWaitingApprove {
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
@@ -1616,7 +1667,7 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("taskStatusRejected", language)
 			} else if status == config.StatusCreated || status == config.StatusPrepare {
 				return getText("taskStatusExecutionStarted", language)
-			} else if status == config.StatusManualApproval {
+			} else if status == config.StatusManualApproval || status == config.StatusWaitingApprove {
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)

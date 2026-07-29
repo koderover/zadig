@@ -247,10 +247,10 @@ func (w *Service) SendFeishuHookText(uri, content string) error {
 }
 
 func getColorTemplateWithStatus(status config.Status) string {
-	if status == config.StatusPassed || status == config.StatusCreated {
+	if status == config.StatusPassed || status == config.StatusCreated || status == config.StatusPrepare {
 		return feishuHeaderTemplateGreen
 	}
-	if status == config.StatusPause {
+	if status == config.StatusPause || status == config.StatusWaitingApprove {
 		return feishuHeaderTemplateOrange
 	}
 	return feishuHeaderTemplateRed

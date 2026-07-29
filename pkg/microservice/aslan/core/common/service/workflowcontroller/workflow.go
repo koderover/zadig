@@ -89,7 +89,7 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 
 func SendWorkflowNotifyMessage(task *commonmodels.WorkflowTask, receiver string, status config.Status, log *zap.SugaredLogger) {
 	if status != config.StatusFailed && status != config.StatusPassed && status != config.StatusCancelled &&
-		status != config.StatusWaitingApprove && status != config.StatusTimeout {
+		status != config.StatusWaitingApprove && status != config.StatusTimeout && status != config.StatusReject {
 		return
 	}
 	ctx := &commonmodels.WorkflowTaskStatusCtx{
