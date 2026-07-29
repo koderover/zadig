@@ -344,14 +344,20 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			missingImages = append(missingImages, container.Image)
 			continue
 		}
-		imagePath := reference.Path(named)
+		imageRegistry, err := ExtractImageRegistry(container.Image)
+		if err != nil {
+			missingImages = append(missingImages, container.Image)
+			continue
+		}
+		imageRegistry = strings.Split(strings.Trim(imageRegistry, "/"), "/")[0]
+		imageNamespace := strings.Trim(ExtractRegistryNamespace(container.Image), "/")
 		var matchedRegistry *rollbackImageRegistry
 		for _, registry := range registries {
-			if !strings.EqualFold(reference.Domain(named), registry.host) {
+			if !strings.EqualFold(imageRegistry, registry.host) {
 				continue
 			}
 			namespace := strings.Trim(registry.info.Namespace, "/")
-			if namespace != "" && imagePath != namespace && !strings.HasPrefix(imagePath, namespace+"/") {
+			if namespace != "" && imageNamespace != namespace && !strings.HasPrefix(imageNamespace, namespace+"/") {
 				continue
 			}
 			if matchedRegistry == nil || len(namespace) > len(strings.Trim(matchedRegistry.info.Namespace, "/")) {
@@ -374,19 +380,15 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			credentialRegistries[registryID] = registryInfo
 		}
 
-		repositoryName := imagePath
+		repositoryName := reference.Path(named)
 		namespace := strings.Trim(registryInfo.Namespace, "/")
 		if namespace != "" {
 			repositoryName = strings.TrimPrefix(repositoryName, namespace+"/")
 		}
 
-		tag, imageDigest := "", ""
-		if digested, ok := named.(reference.Digested); ok {
-			imageDigest = digested.Digest().String()
-		} else if tagged, ok := named.(reference.Tagged); ok {
-			tag = tagged.Tag()
-		} else {
-			tag = reference.TagNameOnly(named).(reference.Tagged).Tag()
+		tag := ExtractImageTag(container.Image)
+		if tag == "" {
+			tag = "latest"
 		}
 
 		tlsEnabled, tlsCert := true, ""
@@ -403,9 +405,8 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 				Region:    registryInfo.Region,
 				Namespace: registryInfo.Namespace,
 			},
-			Image:  repositoryName,
-			Tag:    tag,
-			Digest: imageDigest,
+			Image: repositoryName,
+			Tag:   tag,
 		}, log)
 		if err != nil {
 			log.Warnf("failed to check whether rollback image %s exists: %v", container.Image, err)
