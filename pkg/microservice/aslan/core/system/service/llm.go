@@ -159,10 +159,10 @@ func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration
 }
 
 func ValidateLLMIntegration(ctx context.Context, id string, args *commonmodels.LLMIntegration) error {
-	normalizeLLMIntegration(args)
 	if args == nil {
 		return fmt.Errorf("验证 LLM 集成失败: llm integration is required")
 	}
+	normalizeLLMIntegration(args)
 	if id != "" {
 		current, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
 		if err != nil {
@@ -187,10 +187,10 @@ func ValidateLLMIntegration(ctx context.Context, id string, args *commonmodels.L
 }
 
 func UpdateLLMIntegration(ctx context.Context, ID string, args *commonmodels.LLMIntegration) error {
-	normalizeLLMIntegration(args)
 	if args == nil {
 		return e.ErrUpdateLLMIntegration.AddErr(fmt.Errorf("llm integration is required"))
 	}
+	normalizeLLMIntegration(args)
 
 	err := runLLMIntegrationTransaction(ctx, func(txCtx context.Context, repo *commonrepo.LLMIntegrationColl) error {
 		current, err := repo.FindByID(txCtx, ID)

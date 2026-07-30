@@ -376,11 +376,7 @@ func (c *AIReleaseSpecialistJobCtl) getJobTimeout() int64 {
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRemainingTimeout(jobStartTime time.Time) int64 {
-	remainingDuration := time.Duration(c.getJobTimeout())*time.Minute - time.Since(jobStartTime)
-	if remainingDuration <= 0 {
-		return 0
-	}
-	return int64(math.Ceil(remainingDuration.Minutes()))
+	return remainingApprovalTimeout(c.getJobTimeout(), jobStartTime)
 }
 
 func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.User, error) {

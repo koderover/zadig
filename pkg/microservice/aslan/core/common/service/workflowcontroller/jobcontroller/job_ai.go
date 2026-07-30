@@ -180,7 +180,13 @@ func (c *AIJobCtl) getJobTimeout() int64 {
 }
 
 func (c *AIJobCtl) getRemainingTimeout(start time.Time) int64 {
-	remaining := time.Duration(c.getJobTimeout())*time.Minute - time.Since(start)
+	return remainingApprovalTimeout(c.getJobTimeout(), start)
+}
+
+// remainingApprovalTimeout returns the whole minutes left before an AI job's
+// total timeout elapses, rounded up, or 0 once it is already exhausted.
+func remainingApprovalTimeout(totalTimeoutMinutes int64, start time.Time) int64 {
+	remaining := time.Duration(totalTimeoutMinutes)*time.Minute - time.Since(start)
 	if remaining <= 0 {
 		return 0
 	}
