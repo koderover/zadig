@@ -47,6 +47,9 @@ type Migration struct {
 	Migration500LogOperationPermission          bool               `bson:"migration_500_log_operation_permission"`
 	Migration500UserContactIndexes              bool               `bson:"migration_500_user_contact_indexes"`
 	Migration500WorkflowTemplateVersion         bool               `bson:"migration_500_workflow_template_version"`
+	Migration500ServiceModule                   bool               `bson:"migration_500_service_module"`
+	Migration500ServiceModuleSkipped            int                `bson:"migration_500_service_module_skipped"`
+	Migration500ServiceModuleErrors             []string           `bson:"migration_500_service_module_errors"`
 	Error                                       string             `bson:"error"`
 }
 

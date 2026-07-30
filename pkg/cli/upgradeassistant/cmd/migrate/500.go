@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	servicerepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	userorm "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
@@ -37,6 +38,8 @@ import (
 	pkgtypes "github.com/koderover/zadig/v2/pkg/types"
 	"gorm.io/gorm"
 )
+
+const migration500ProgressEvery = 200
 
 type permissionActionSeed500 struct {
 	Name     string
@@ -51,12 +54,23 @@ var permissionActionSeeds500 = []permissionActionSeed500{
 	{Name: "查看", Action: permissionservice.VerbGetLogOperation, Resource: "LogOperation", Scope: pkgtypes.DBSystemScope},
 }
 
+// legacyServiceForMigration500 is a local view of a pre-5.0.0 service
+// template document. commonmodels.Service cannot be used for decoding here
+// because its Containers field is no longer persisted to MongoDB.
+type legacyServiceForMigration500 struct {
+	ServiceName string                    `bson:"service_name"`
+	ProductName string                    `bson:"product_name"`
+	Revision    int64                     `bson:"revision"`
+	Type        string                    `bson:"type"`
+	Containers  []*commonmodels.Container `bson:"containers,omitempty"`
+}
+
 func init() {
 	upgradepath.RegisterHandler("4.3.0", "5.0.0", V430ToV500)
 	upgradepath.RegisterHandler("5.0.0", "4.3.0", V500ToV430)
 }
 
-// V430ToV500 executes 5.0.0 upgrade steps for permission metadata.
+// V430ToV500 executes 5.0.0 upgrade steps.
 func V430ToV500() error {
 	migrationInfo, err := getMigrationInfo()
 	if err != nil {
@@ -78,6 +92,11 @@ func V430ToV500() error {
 	}
 
 	err = migrateWorkflowTemplateVersion500(migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateServiceModule500(migrationInfo)
 	if err != nil {
 		return err
 	}
@@ -275,4 +294,128 @@ func ensureAction500(tx *gorm.DB, seed permissionActionSeed500) (uint, error) {
 
 func V500ToV430() error {
 	return nil
+}
+
+// migrateServiceModule500 mirrors legacy service containers into the
+// service_module collections. The migration is idempotent and can safely be
+// retried after a partial run.
+func migrateServiceModule500(migrationInfo *internalmodels.Migration) error {
+	if migrationInfo.Migration500ServiceModule {
+		log.Infof("migration 5.0.0: service_module backfill already completed, skipping")
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	testCount, testSkipped, testErrors, err := backfillServiceModulesForCollection500(
+		ctx,
+		commonrepo.NewServiceColl().Collection,
+		"template_service",
+		false,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to backfill service modules from template_service, err: %s", err)
+	}
+
+	prodCount, prodSkipped, prodErrors, err := backfillServiceModulesForCollection500(
+		ctx,
+		commonrepo.NewProductionServiceColl().Collection,
+		"production_template_service",
+		true,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to backfill service modules from production_template_service, err: %s", err)
+	}
+
+	allErrors := make([]string, 0, len(testErrors)+len(prodErrors))
+	allErrors = append(allErrors, testErrors...)
+	allErrors = append(allErrors, prodErrors...)
+
+	log.Infof(
+		"migration 5.0.0: backfilled %d test + %d production service revisions into service_module",
+		testCount,
+		prodCount,
+	)
+
+	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModule):        true,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModuleSkipped): testSkipped + prodSkipped,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500ServiceModuleErrors):  allErrors,
+	})
+}
+
+// backfillServiceModulesForCollection500 streams all revisions in one legacy
+// service collection. Individual malformed records are retained in the
+// migration diagnostics without blocking the remaining records.
+func backfillServiceModulesForCollection500(
+	ctx context.Context,
+	coll *mongo.Collection,
+	label string,
+	production bool,
+) (int, int, []string, error) {
+	cursor, err := coll.Find(ctx, bson.M{})
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to open cursor over %s: %s", label, err)
+	}
+	defer cursor.Close(ctx)
+
+	migrated := 0
+	skipped := 0
+	errors := make([]string, 0)
+	for cursor.Next(ctx) {
+		var legacy legacyServiceForMigration500
+		if err := cursor.Decode(&legacy); err != nil {
+			message := fmt.Sprintf("failed to decode %s document: %s", label, err)
+			log.Warnf("migration 5.0.0: %s, skipping", message)
+			skipped++
+			errors = append(errors, message)
+			continue
+		}
+
+		svc := &commonmodels.Service{
+			ServiceName: legacy.ServiceName,
+			ProductName: legacy.ProductName,
+			Revision:    legacy.Revision,
+			Type:        legacy.Type,
+			Containers:  legacy.Containers,
+		}
+		if err := servicerepo.SyncAutoServiceModules(ctx, svc, production); err != nil {
+			message := fmt.Sprintf(
+				"failed to sync %s %s/%s rev %d: %s",
+				label,
+				svc.ProductName,
+				svc.ServiceName,
+				svc.Revision,
+				err,
+			)
+			log.Warnf("migration 5.0.0: %s", message)
+			skipped++
+			errors = append(errors, message)
+			continue
+		}
+
+		migrated++
+		if migrated%migration500ProgressEvery == 0 {
+			log.Infof(
+				"migration 5.0.0: %s progress - %d revisions mirrored, %d skipped",
+				label,
+				migrated,
+				skipped,
+			)
+		}
+	}
+
+	if err := cursor.Err(); err != nil {
+		return migrated, skipped, errors, fmt.Errorf("cursor over %s ended in error: %s", label, err)
+	}
+	if skipped > 0 {
+		log.Warnf(
+			"migration 5.0.0: %s complete - %d mirrored, %d skipped (inspect migration table or warn logs)",
+			label,
+			migrated,
+			skipped,
+		)
+	}
+	return migrated, skipped, errors, nil
 }
