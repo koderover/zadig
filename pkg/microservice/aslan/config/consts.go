@@ -267,12 +267,15 @@ const (
 	JobApisix               JobType = "apisix"
 )
 
-const AIDefaultTimeoutMinutes int64 = 60
-
 const (
+	AIDefaultTimeoutMinutes int64 = 60
+
+	// the supported targets an AI job can call
 	AITargetTypeModel = "model"
 	AITargetTypeAgent = "agent"
-	AIOutputResult    = "result"
+
+	// the job output key holding the AI response
+	AIOutputResult = "result"
 )
 
 const (

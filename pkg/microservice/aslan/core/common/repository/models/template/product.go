@@ -184,8 +184,6 @@ func (p *ProductFeature) GetDeployType() string {
 		deployType = setting.SourceFromExternal
 	} else if p.BasicFacility == "cloud_host" {
 		deployType = "cloud_host"
-	} else if p.BasicFacility == setting.BasicFacilityAgent {
-		deployType = setting.BasicFacilityAgent
 	} else {
 		deployType = p.DeployType
 	}

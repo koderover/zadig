@@ -88,29 +88,26 @@ func ListAgentIntegrations(ctx context.Context, projectName, encryptedKey string
 	return integrations, nil
 }
 
+// protectAgentIntegrationCredentials replaces the stored credentials in place:
+// without an encryptedKey they are masked, otherwise they are encrypted so the
+// edit dialog can echo them back.
 func protectAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegration, encryptedKey string) error {
-	if encryptedKey == "" {
-		for _, integration := range integrations {
-			if integration.APIKey != "" {
-				integration.APIKey = setting.MaskValue
-			}
-			if integration.AccessKey != "" {
-				integration.AccessKey = setting.MaskValue
-			}
-			if integration.SecretKey != "" {
-				integration.SecretKey = setting.MaskValue
-			}
+	var aesKey *commonutil.GetAesKeyFromEncryptedKeyResp
+	if encryptedKey != "" {
+		key, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log.SugaredLogger())
+		if err != nil {
+			return fmt.Errorf("get aes key from encrypted key: %w", err)
 		}
-		return nil
+		aesKey = key
 	}
 
-	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("get aes key from encrypted key: %w", err)
-	}
 	for _, integration := range integrations {
 		for _, credential := range []*string{&integration.APIKey, &integration.AccessKey, &integration.SecretKey} {
 			if *credential == "" {
+				continue
+			}
+			if aesKey == nil {
+				*credential = setting.MaskValue
 				continue
 			}
 			encrypted, err := crypto.AesEncryptByKey(*credential, aesKey.PlainText)
@@ -131,20 +128,30 @@ type AgentIntegrationBrief struct {
 	Description  string `json:"description"`
 }
 
-// ListAgentIntegrationBriefs lists agents for the workflow AI task selector; it
-// never exposes endpoint or credential fields. System admins see all projects,
-// other callers only the projects they belong to.
-func ListAgentIntegrationBriefs(ctx context.Context, isSystemAdmin bool, visibleProjects []string) ([]*AgentIntegrationBrief, error) {
-	if isSystemAdmin {
-		visibleProjects = nil
-	} else if visibleProjects == nil {
-		visibleProjects = []string{}
-	}
-	integrations, err := commonrepo.NewAgentIntegrationColl().ListByProjects(ctx, visibleProjects)
+// ListAllAgentIntegrationBriefs lists the agents of every project, for callers
+// that are allowed to see all of them.
+func ListAllAgentIntegrationBriefs(ctx context.Context) ([]*AgentIntegrationBrief, error) {
+	integrations, err := commonrepo.NewAgentIntegrationColl().ListAll(ctx)
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
+	return toAgentIntegrationBriefs(integrations)
+}
 
+// ListAgentIntegrationBriefsByProjects lists the agents of the given projects
+// only.
+func ListAgentIntegrationBriefsByProjects(ctx context.Context, projectNames []string) ([]*AgentIntegrationBrief, error) {
+	integrations, err := commonrepo.NewAgentIntegrationColl().ListByProjects(ctx, projectNames)
+	if err != nil {
+		return nil, e.ErrListAgentIntegration.AddErr(err)
+	}
+	return toAgentIntegrationBriefs(integrations)
+}
+
+// toAgentIntegrationBriefs keeps only the display fields of the integrations and
+// resolves the alias of their owning projects; it never exposes endpoint or
+// credential fields.
+func toAgentIntegrationBriefs(integrations []*commonmodels.AgentIntegration) ([]*AgentIntegrationBrief, error) {
 	projectNameSet := sets.NewString()
 	for _, integration := range integrations {
 		projectNameSet.Insert(integration.ProjectName)

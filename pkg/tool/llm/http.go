@@ -36,14 +36,14 @@ func newHTTPClient(proxy string, headers map[string]string, timeout time.Duratio
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
-	client := &http.Client{
-		Timeout:   timeout,
-		Transport: transport,
-	}
+	var roundTripper http.RoundTripper = transport
 	if len(headers) > 0 {
-		client.Transport = &headerTransport{base: transport, headers: headers}
+		roundTripper = &headerTransport{base: transport, headers: headers}
 	}
-	return client, nil
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: roundTripper,
+	}, nil
 }
 
 func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {

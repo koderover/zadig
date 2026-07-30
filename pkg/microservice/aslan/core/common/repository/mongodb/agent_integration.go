@@ -106,21 +106,20 @@ func (c *AgentIntegrationColl) FindByID(ctx context.Context, id string) (*models
 }
 
 func (c *AgentIntegrationColl) ListByProject(ctx context.Context, projectName string) ([]*models.AgentIntegration, error) {
-	result := make([]*models.AgentIntegration, 0)
-	cursor, err := c.Find(ctx, bson.M{"project_name": projectName}, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
-	if err != nil {
-		return nil, err
-	}
-	return result, cursor.All(ctx, &result)
+	return c.list(ctx, bson.M{"project_name": projectName})
 }
 
-// ListByProjects lists the integrations of the given projects. A nil projectNames
-// means no project filter at all, while an empty non-nil slice matches nothing.
+// ListByProjects lists the integrations of the given projects. An empty
+// projectNames matches nothing; use ListAll to list without a project filter.
 func (c *AgentIntegrationColl) ListByProjects(ctx context.Context, projectNames []string) ([]*models.AgentIntegration, error) {
-	query := bson.M{}
-	if projectNames != nil {
-		query["project_name"] = bson.M{"$in": projectNames}
-	}
+	return c.list(ctx, bson.M{"project_name": bson.M{"$in": projectNames}})
+}
+
+func (c *AgentIntegrationColl) ListAll(ctx context.Context) ([]*models.AgentIntegration, error) {
+	return c.list(ctx, bson.M{})
+}
+
+func (c *AgentIntegrationColl) list(ctx context.Context, query bson.M) ([]*models.AgentIntegration, error) {
 	result := make([]*models.AgentIntegration, 0)
 	cursor, err := c.Find(ctx, query, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
 	if err != nil {

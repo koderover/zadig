@@ -68,7 +68,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 	// deadline, so long streaming responses are not cut off.
 	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 0)
 	if err != nil {
-		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
+		return fmt.Errorf("could not build the openai http client: %w", err)
 	}
 	defaultConfig.HTTPClient = httpClient
 

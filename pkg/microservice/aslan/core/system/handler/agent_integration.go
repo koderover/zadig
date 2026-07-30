@@ -230,14 +230,15 @@ func ListAllAgentIntegrations(c *gin.Context) {
 
 	// the response carries no endpoint or credential, but the project and agent
 	// names themselves are scoped: only list the projects the caller belongs to.
-	var visibleProjects []string
-	if !ctx.Resources.IsSystemAdmin {
-		visibleProjects = make([]string, 0, len(ctx.Resources.ProjectAuthInfo))
-		for projectName := range ctx.Resources.ProjectAuthInfo {
-			visibleProjects = append(visibleProjects, projectName)
-		}
+	if ctx.Resources.IsSystemAdmin {
+		ctx.Resp, ctx.RespErr = service.ListAllAgentIntegrationBriefs(context.TODO())
+		return
 	}
-	ctx.Resp, ctx.RespErr = service.ListAgentIntegrationBriefs(context.TODO(), ctx.Resources.IsSystemAdmin, visibleProjects)
+	visibleProjects := make([]string, 0, len(ctx.Resources.ProjectAuthInfo))
+	for projectName := range ctx.Resources.ProjectAuthInfo {
+		visibleProjects = append(visibleProjects, projectName)
+	}
+	ctx.Resp, ctx.RespErr = service.ListAgentIntegrationBriefsByProjects(context.TODO(), visibleProjects)
 }
 
 // @Summary Update a agent integration

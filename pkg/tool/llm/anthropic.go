@@ -82,7 +82,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 
 	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 5*time.Minute)
 	if err != nil {
-		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
+		return fmt.Errorf("could not build the anthropic http client: %w", err)
 	}
 
 	c.name = string(config.GetProviderName())
