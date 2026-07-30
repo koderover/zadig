@@ -65,7 +65,6 @@ func NewAgentClient(integration *models.AgentIntegration) (llm.ILLM, error) {
 	case models.AgentAuthTypeAPIKey:
 		llmConfig.Token = integration.APIKey
 	case models.AgentAuthTypeAKSK:
-		llmConfig.DisableAuth = true
 		llmConfig.Headers = map[string]string{
 			agentAccessKeyHeader: integration.AccessKey,
 			agentSecretKeyHeader: integration.SecretKey,

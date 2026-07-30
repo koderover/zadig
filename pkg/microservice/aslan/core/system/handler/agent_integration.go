@@ -45,6 +45,9 @@ type AgentIntegrationRequest struct {
 // checkAgentIntegrationPermission requires the user to be a system admin or a
 // member of the project that owns the agent integrations.
 func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName string) bool {
+	if !requireLogin(ctx) {
+		return false
+	}
 	if projectName == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName is required")
 		return false
@@ -204,8 +207,8 @@ func ListAgentIntegrations(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), projectName, encryptedKey)
 }
 
-// @Summary List agents of all agent projects
-// @Description List agents of all agent projects for the workflow AI task selector
+// @Summary List agents of the projects visible to the caller
+// @Description List agents for the workflow AI task selector
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -221,9 +224,20 @@ func ListAllAgentIntegrations(c *gin.Context) {
 		return
 	}
 
-	// no extra permission needed: the response only carries project and agent
-	// display info, never endpoints or credentials
-	ctx.Resp, ctx.RespErr = service.ListAllAgentIntegrationBriefs(context.TODO())
+	if !requireLogin(ctx) {
+		return
+	}
+
+	// the response carries no endpoint or credential, but the project and agent
+	// names themselves are scoped: only list the projects the caller belongs to.
+	var visibleProjects []string
+	if !ctx.Resources.IsSystemAdmin {
+		visibleProjects = make([]string, 0, len(ctx.Resources.ProjectAuthInfo))
+		for projectName := range ctx.Resources.ProjectAuthInfo {
+			visibleProjects = append(visibleProjects, projectName)
+		}
+	}
+	ctx.Resp, ctx.RespErr = service.ListAgentIntegrationBriefs(context.TODO(), ctx.Resources.IsSystemAdmin, visibleProjects)
 }
 
 // @Summary Update a agent integration

@@ -56,7 +56,6 @@ func UpdateAgentIntegration(ctx context.Context, projectName, id string, integra
 	if err != nil {
 		return e.ErrUpdateAgentIntegration.AddErr(err)
 	}
-	integration.ProjectName = current.ProjectName
 	restoreAgentIntegrationCredentials(current, integration)
 	if err := validateAgentIntegration(integration); err != nil {
 		return e.ErrUpdateAgentIntegration.AddErr(err)
@@ -132,10 +131,16 @@ type AgentIntegrationBrief struct {
 	Description  string `json:"description"`
 }
 
-// ListAllAgentIntegrationBriefs lists agents across all agent projects for the
-// workflow AI task selector; it never exposes endpoint or credential fields.
-func ListAllAgentIntegrationBriefs(ctx context.Context) ([]*AgentIntegrationBrief, error) {
-	integrations, err := commonrepo.NewAgentIntegrationColl().ListAll(ctx)
+// ListAgentIntegrationBriefs lists agents for the workflow AI task selector; it
+// never exposes endpoint or credential fields. System admins see all projects,
+// other callers only the projects they belong to.
+func ListAgentIntegrationBriefs(ctx context.Context, isSystemAdmin bool, visibleProjects []string) ([]*AgentIntegrationBrief, error) {
+	if isSystemAdmin {
+		visibleProjects = nil
+	} else if visibleProjects == nil {
+		visibleProjects = []string{}
+	}
+	integrations, err := commonrepo.NewAgentIntegrationColl().ListByProjects(ctx, visibleProjects)
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}

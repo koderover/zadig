@@ -192,10 +192,6 @@ func (p *ProductFeature) GetDeployType() string {
 	return deployType
 }
 
-func (p *ProductFeature) IsAgentProduct() bool {
-	return p != nil && p.BasicFacility == setting.BasicFacilityAgent
-}
-
 func (p *ProductFeature) IsHostProduct() bool {
 	return p != nil && p.BasicFacility == setting.BasicFacilityK8S && p.CreateEnvType == setting.SourceFromExternal
 }
@@ -317,10 +313,6 @@ func (p *Product) IsCVMProduct() bool {
 
 func (p *Product) IsHostProduct() bool {
 	return p.ProductFeature != nil && p.ProductFeature.IsHostProduct()
-}
-
-func (p *Product) IsAgentProduct() bool {
-	return p.ProductFeature != nil && p.ProductFeature.IsAgentProduct()
 }
 
 func (r *RenderKV) SetAlias() {

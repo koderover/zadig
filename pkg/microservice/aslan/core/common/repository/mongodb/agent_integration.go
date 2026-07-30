@@ -47,8 +47,6 @@ func NewAgentIntegrationColl() *AgentIntegrationColl {
 func (c *AgentIntegrationColl) GetCollectionName() string { return c.coll }
 
 func (c *AgentIntegrationColl) EnsureIndex(ctx context.Context) error {
-	// drop the legacy global unique index on name; uniqueness is now per project
-	_, _ = c.Indexes().DropOne(ctx, "name_1")
 	_, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "project_name", Value: 1},
@@ -81,7 +79,14 @@ func (c *AgentIntegrationColl) Update(ctx context.Context, id string, integratio
 	}
 	integration.ID = oid
 	integration.UpdateTime = time.Now().Unix()
-	result, err := c.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": integration})
+	// the credential fields are omitempty, so an empty one would keep the stored
+	// value instead of clearing it; unset the ones the current auth type does not
+	// use so switching auth type does not leave the old secrets behind.
+	update := bson.M{"$set": integration}
+	if unset := unusedCredentialFields(integration.AuthType); len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	result, err := c.UpdateOne(ctx, bson.M{"_id": oid}, update)
 	if err != nil {
 		return err
 	}
@@ -109,13 +114,33 @@ func (c *AgentIntegrationColl) ListByProject(ctx context.Context, projectName st
 	return result, cursor.All(ctx, &result)
 }
 
-func (c *AgentIntegrationColl) ListAll(ctx context.Context) ([]*models.AgentIntegration, error) {
+// ListByProjects lists the integrations of the given projects. A nil projectNames
+// means no project filter at all, while an empty non-nil slice matches nothing.
+func (c *AgentIntegrationColl) ListByProjects(ctx context.Context, projectNames []string) ([]*models.AgentIntegration, error) {
+	query := bson.M{}
+	if projectNames != nil {
+		query["project_name"] = bson.M{"$in": projectNames}
+	}
 	result := make([]*models.AgentIntegration, 0)
-	cursor, err := c.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
+	cursor, err := c.Find(ctx, query, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
 	if err != nil {
 		return nil, err
 	}
 	return result, cursor.All(ctx, &result)
+}
+
+// unusedCredentialFields returns the credential fields that the given auth type
+// does not use, keyed by their bson field name.
+func unusedCredentialFields(authType models.AgentAuthType) bson.M {
+	unset := bson.M{}
+	switch authType {
+	case models.AgentAuthTypeAPIKey:
+		unset["access_key"] = ""
+		unset["secret_key"] = ""
+	case models.AgentAuthTypeAKSK:
+		unset["api_key"] = ""
+	}
+	return unset
 }
 
 func (c *AgentIntegrationColl) Delete(ctx context.Context, id string) error {

@@ -23,12 +23,11 @@ import (
 )
 
 type headerTransport struct {
-	base        http.RoundTripper
-	headers     map[string]string
-	disableAuth bool
+	base    http.RoundTripper
+	headers map[string]string
 }
 
-func newHTTPClient(proxy string, headers map[string]string, disableAuth bool, timeout time.Duration) (*http.Client, error) {
+func newHTTPClient(proxy string, headers map[string]string, timeout time.Duration) (*http.Client, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if proxy != "" {
 		proxyURL, err := url.Parse(proxy)
@@ -41,18 +40,14 @@ func newHTTPClient(proxy string, headers map[string]string, disableAuth bool, ti
 		Timeout:   timeout,
 		Transport: transport,
 	}
-	if len(headers) > 0 || disableAuth {
-		client.Transport = &headerTransport{base: transport, headers: headers, disableAuth: disableAuth}
+	if len(headers) > 0 {
+		client.Transport = &headerTransport{base: transport, headers: headers}
 	}
 	return client, nil
 }
 
 func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	cloned := req.Clone(req.Context())
-	if t.disableAuth {
-		cloned.Header.Del("Authorization")
-		cloned.Header.Del("x-api-key")
-	}
 	for key, value := range t.headers {
 		cloned.Header.Set(key, value)
 	}

@@ -24,6 +24,19 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
+// requireLogin rejects anonymous callers. NewContextWithAuthorization treats a
+// request without a token as a system call and hands back full admin resources,
+// so any handler that only inspects ctx.Resources would let anonymous callers
+// through. Handlers that are not mounted behind isSystemAdmin must call this
+// first.
+func requireLogin(ctx *internalhandler.Context) bool {
+	if ctx.UserID == "" {
+		ctx.UnAuthorized = true
+		return false
+	}
+	return true
+}
+
 func isSystemAdmin(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -112,6 +112,10 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
+	if !requireLogin(ctx) {
+		return
+	}
+
 	id := c.Param("id")
 	if len(id) == 0 {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid llm id")
@@ -145,6 +149,10 @@ func ListLLMIntegration(c *gin.Context) {
 		return
 	}
 
+	if !requireLogin(ctx) {
+		return
+	}
+
 	encryptedKey := c.Query("encryptedKey")
 	if !ctx.Resources.IsSystemAdmin {
 		encryptedKey = ""
@@ -160,11 +168,20 @@ func ListLLMIntegration(c *gin.Context) {
 // @Success 200 		{array} 	service.LLMIntegrationBrief
 // @Router /api/aslan/system/llm/integrations [get]
 func ListLLMIntegrationBriefs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	// no extra permission needed: the response only carries model id and name,
-	// never endpoints or credentials
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// the response only carries model id and name, never endpoints or
+	// credentials, so any logged-in user may read it
+	if !requireLogin(ctx) {
+		return
+	}
 	ctx.Resp, ctx.RespErr = service.ListLLMIntegrationBriefs(context.TODO())
 }
 

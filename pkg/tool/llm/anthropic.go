@@ -80,7 +80,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 		return fmt.Errorf("invalid anthropic base url %q", baseURL)
 	}
 
-	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled(), 5*time.Minute)
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 5*time.Minute)
 	if err != nil {
 		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
 	}
@@ -132,7 +132,9 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		return "", fmt.Errorf("create anthropic request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", c.token)
+	if c.token != "" {
+		req.Header.Set("x-api-key", c.token)
+	}
 	req.Header.Set("anthropic-version", anthropicAPIVersion)
 
 	resp, err := c.httpClient.Do(req)
