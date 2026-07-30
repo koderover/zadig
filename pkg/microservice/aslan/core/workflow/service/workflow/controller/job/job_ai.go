@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -126,9 +127,12 @@ func (j AIJobController) Update(useUserInput bool, ticket *commonmodels.Approval
 	return nil
 }
 
-func (j AIJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error { return nil }
-func (j AIJobController) ClearOptions()                                        {}
-func (j AIJobController) ClearSelection()                                      {}
+func (j AIJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+	j.jobSpec.TargetName, j.jobSpec.TargetProjectAlias = getAITargetDisplayInfo(j.jobSpec.TargetType, j.jobSpec.TargetID)
+	return nil
+}
+func (j AIJobController) ClearOptions()   {}
+func (j AIJobController) ClearSelection() {}
 
 func (j AIJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err := validateAIJobSpec(j.jobSpec); err != nil {
@@ -166,24 +170,37 @@ func (j AIJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 // getAITargetName resolves the display name of the configured model or agent so
 // the task detail does not depend on the integration still existing afterwards.
 func getAITargetName(targetType, targetID string) string {
+	name, _ := getAITargetDisplayInfo(targetType, targetID)
+	return name
+}
+
+// getAITargetDisplayInfo additionally resolves the project alias of the agent's
+// owning project so the frontend can render "AgentName (ProjectAlias)".
+func getAITargetDisplayInfo(targetType, targetID string) (string, string) {
 	ctx := context.Background()
 	switch targetType {
 	case config.AITargetTypeModel:
 		integration, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, targetID)
 		if err != nil {
 			log.Warnf("failed to find model integration %s, error: %s", targetID, err)
-			return ""
+			return "", ""
 		}
-		return integration.Name
+		return integration.Name, ""
 	case config.AITargetTypeAgent:
 		integration, err := commonrepo.NewAgentIntegrationColl().FindByID(ctx, targetID)
 		if err != nil {
 			log.Warnf("failed to find agent integration %s, error: %s", targetID, err)
-			return ""
+			return "", ""
 		}
-		return integration.Name
+		projectAlias := integration.ProjectName
+		if project, err := templaterepo.NewProductColl().Find(integration.ProjectName); err != nil {
+			log.Warnf("failed to find project %s, error: %s", integration.ProjectName, err)
+		} else if project.ProjectName != "" {
+			projectAlias = project.ProjectName
+		}
+		return integration.Name, projectAlias
 	default:
-		return ""
+		return "", ""
 	}
 }
 
