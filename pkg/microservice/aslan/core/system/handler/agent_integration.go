@@ -204,6 +204,28 @@ func ListAgentIntegrations(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), projectName, encryptedKey)
 }
 
+// @Summary List agents of all agent projects
+// @Description List agents of all agent projects for the workflow AI task selector
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	service.AgentIntegrationBrief
+// @Router /api/aslan/system/agent/integrations [get]
+func ListAllAgentIntegrations(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// no extra permission needed: the response only carries project and agent
+	// display info, never endpoints or credentials
+	ctx.Resp, ctx.RespErr = service.ListAllAgentIntegrationBriefs(context.TODO())
+}
+
 // @Summary Update a agent integration
 // @Description Update a agent integration
 // @Tags 	system

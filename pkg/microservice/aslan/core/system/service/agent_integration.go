@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -32,6 +33,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func CreateAgentIntegration(ctx context.Context, integration *commonmodels.AgentIntegration) error {
@@ -120,6 +122,50 @@ func protectAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegr
 		}
 	}
 	return nil
+}
+
+type AgentIntegrationBrief struct {
+	ID           string `json:"id"`
+	ProjectName  string `json:"project_name"`
+	ProjectAlias string `json:"project_alias"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+}
+
+// ListAllAgentIntegrationBriefs lists agents across all agent projects for the
+// workflow AI task selector; it never exposes endpoint or credential fields.
+func ListAllAgentIntegrationBriefs(ctx context.Context) ([]*AgentIntegrationBrief, error) {
+	integrations, err := commonrepo.NewAgentIntegrationColl().ListAll(ctx)
+	if err != nil {
+		return nil, e.ErrListAgentIntegration.AddErr(err)
+	}
+
+	projectNameSet := sets.NewString()
+	for _, integration := range integrations {
+		projectNameSet.Insert(integration.ProjectName)
+	}
+	projectAliasMap := map[string]string{}
+	if projectNameSet.Len() > 0 {
+		projects, err := templaterepo.NewProductColl().ListProjectBriefs(projectNameSet.List())
+		if err != nil {
+			return nil, e.ErrListAgentIntegration.AddErr(fmt.Errorf("list project briefs: %w", err))
+		}
+		for _, project := range projects {
+			projectAliasMap[project.Name] = project.Alias
+		}
+	}
+
+	briefs := make([]*AgentIntegrationBrief, 0, len(integrations))
+	for _, integration := range integrations {
+		briefs = append(briefs, &AgentIntegrationBrief{
+			ID:           integration.ID.Hex(),
+			ProjectName:  integration.ProjectName,
+			ProjectAlias: projectAliasMap[integration.ProjectName],
+			Name:         integration.Name,
+			Description:  integration.Description,
+		})
+	}
+	return briefs, nil
 }
 
 func DeleteAgentIntegration(ctx context.Context, projectName, id string) error {

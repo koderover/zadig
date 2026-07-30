@@ -109,6 +109,15 @@ func (c *AgentIntegrationColl) ListByProject(ctx context.Context, projectName st
 	return result, cursor.All(ctx, &result)
 }
 
+func (c *AgentIntegrationColl) ListAll(ctx context.Context) ([]*models.AgentIntegration, error) {
+	result := make([]*models.AgentIntegration, 0)
+	cursor, err := c.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "update_time", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	return result, cursor.All(ctx, &result)
+}
+
 func (c *AgentIntegrationColl) Delete(ctx context.Context, id string) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {

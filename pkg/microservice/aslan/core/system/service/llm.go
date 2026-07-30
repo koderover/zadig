@@ -74,6 +74,30 @@ func ListLLMIntegration(ctx context.Context, encryptedKey string) ([]*commonmode
 	return llmIntegrations, nil
 }
 
+type LLMIntegrationBrief struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ListLLMIntegrationBriefs lists models for the workflow AI task selector; it
+// never exposes endpoint or credential fields.
+func ListLLMIntegrationBriefs(ctx context.Context) ([]*LLMIntegrationBrief, error) {
+	llmIntegrations, err := commonrepo.NewLLMIntegrationColl().FindAll(ctx)
+	if err != nil {
+		fmtErr := fmt.Errorf("ListLLMIntegrationBriefs err: %w", err)
+		log.Error(fmtErr)
+		return nil, e.ErrListLLMIntegration.AddErr(fmtErr)
+	}
+	briefs := make([]*LLMIntegrationBrief, 0, len(llmIntegrations))
+	for _, integration := range llmIntegrations {
+		briefs = append(briefs, &LLMIntegrationBrief{
+			ID:   integration.ID.Hex(),
+			Name: integration.Name,
+		})
+	}
+	return briefs, nil
+}
+
 func protectLLMIntegrationTokens(integrations []*commonmodels.LLMIntegration, encryptedKey string) error {
 	if encryptedKey == "" {
 		for _, integration := range integrations {

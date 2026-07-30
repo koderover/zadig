@@ -152,6 +152,22 @@ func ListLLMIntegration(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO(), encryptedKey)
 }
 
+// @Summary List llm integration briefs
+// @Description List llm integration briefs (id and name only) for the workflow AI task selector
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	service.LLMIntegrationBrief
+// @Router /api/aslan/system/llm/integrations [get]
+func ListLLMIntegrationBriefs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// no extra permission needed: the response only carries model id and name,
+	// never endpoints or credentials
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegrationBriefs(context.TODO())
+}
+
 type checkLLMIntegrationResponse struct {
 	Check bool `json:"check"`
 }
