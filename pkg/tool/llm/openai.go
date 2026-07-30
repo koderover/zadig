@@ -64,7 +64,9 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		}
 	}
 
-	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled())
+	// 0 timeout keeps the historical OpenAI client behavior: no client-side
+	// deadline, so long streaming responses are not cut off.
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled(), 0)
 	if err != nil {
 		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
 	}

@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -79,7 +80,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 		return fmt.Errorf("invalid anthropic base url %q", baseURL)
 	}
 
-	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled())
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), config.IsAuthDisabled(), 5*time.Minute)
 	if err != nil {
 		return fmt.Errorf("invalid proxy url %s", config.GetProxy())
 	}

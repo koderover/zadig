@@ -8,7 +8,7 @@ import (
 	openapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -19,7 +19,7 @@ type BuildLogAnalysisArgs struct {
 
 func AnalyzeBuildLog(args *BuildLogAnalysisArgs, project, pipeline, job string, taskID int64, logger *zap.SugaredLogger) (string, error) {
 	ctx := context.Background()
-	client, err := llmservice.GetDefaultLLMClient(ctx)
+	client, err := service.GetDefaultLLMClient(ctx)
 	if err != nil {
 		logger.Errorf("failed to get llm client, the error is: %+v", err)
 		return "", err

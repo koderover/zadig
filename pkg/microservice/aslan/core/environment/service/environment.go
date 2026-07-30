@@ -56,7 +56,6 @@ import (
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -3880,7 +3879,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 
 	ctx := context.TODO()
-	llmClient, err := llmservice.GetDefaultLLMClient(ctx)
+	llmClient, err := commonservice.GetDefaultLLMClient(ctx)
 	if err != nil {
 		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
 	}

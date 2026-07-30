@@ -32,7 +32,7 @@ import (
 	"gorm.io/gorm/utils"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
@@ -53,7 +53,7 @@ type analysisAnswer struct {
 }
 
 func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAnalysisResp, error) {
-	client, err := llmservice.GetDefaultLLMClient(context.TODO())
+	client, err := service.GetDefaultLLMClient(context.TODO())
 	if err != nil {
 		logger.Errorf("failed to get llm client, the error is: %+v", err)
 		return nil, err
@@ -457,7 +457,7 @@ type AttentionAnswer struct {
 }
 
 func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, logger *zap.SugaredLogger) (*AIAttentionResp, error) {
-	client, err := llmservice.GetDefaultLLMClient(context.TODO())
+	client, err := service.GetDefaultLLMClient(context.TODO())
 	if err != nil {
 		logger.Errorf("failed to get llm client, the error is: %+v", err)
 		return nil, err

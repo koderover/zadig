@@ -15,6 +15,15 @@ const (
 	agentSecretKeyHeader = "X-Secret-Key"
 )
 
+func GetLLMClient(ctx context.Context, name string) (llm.ILLM, error) {
+	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindByName(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the llm integration for %s, err: %w", name, err)
+	}
+
+	return NewLLMClient(llmIntegration)
+}
+
 func GetDefaultLLMClient(ctx context.Context) (llm.ILLM, error) {
 	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindDefault(ctx)
 	if err != nil {

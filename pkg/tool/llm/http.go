@@ -28,7 +28,7 @@ type headerTransport struct {
 	disableAuth bool
 }
 
-func newHTTPClient(proxy string, headers map[string]string, disableAuth bool) (*http.Client, error) {
+func newHTTPClient(proxy string, headers map[string]string, disableAuth bool, timeout time.Duration) (*http.Client, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if proxy != "" {
 		proxyURL, err := url.Parse(proxy)
@@ -37,10 +37,14 @@ func newHTTPClient(proxy string, headers map[string]string, disableAuth bool) (*
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
-	return &http.Client{
-		Timeout:   5 * time.Minute,
-		Transport: &headerTransport{base: transport, headers: headers, disableAuth: disableAuth},
-	}, nil
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+	if len(headers) > 0 || disableAuth {
+		client.Transport = &headerTransport{base: transport, headers: headers, disableAuth: disableAuth}
+	}
+	return client, nil
 }
 
 func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
