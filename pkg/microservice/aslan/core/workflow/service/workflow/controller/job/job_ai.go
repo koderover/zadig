@@ -131,7 +131,10 @@ func (j AIJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	j.jobSpec.TargetName, j.jobSpec.TargetProjectAlias = getAITargetDisplayInfo(j.jobSpec.TargetType, j.jobSpec.TargetID)
 	return nil
 }
-func (j AIJobController) ClearOptions()   {}
+func (j AIJobController) ClearOptions() {
+	j.jobSpec.TargetName = ""
+	j.jobSpec.TargetProjectAlias = ""
+}
 func (j AIJobController) ClearSelection() {}
 
 func (j AIJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
@@ -192,6 +195,9 @@ func getAITargetDisplayInfo(targetType, targetID string) (string, string) {
 			log.Warnf("failed to find agent integration %s, error: %s", targetID, err)
 			return "", ""
 		}
+		// On the template Product model, ProjectName (bson project_name) is the
+		// display alias, while ProductName (bson product_name) is the project key.
+		// Fall back to the raw project key if the alias lookup fails or is empty.
 		projectAlias := integration.ProjectName
 		if project, err := templaterepo.NewProductColl().Find(integration.ProjectName); err != nil {
 			log.Warnf("failed to find project %s, error: %s", integration.ProjectName, err)
