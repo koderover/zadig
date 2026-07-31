@@ -269,10 +269,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			return errors.New(errMsg)
 		}
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
-			log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
-			continue
-		}
+		resolveWorkflowNotifyDynamicRecipients(task, notify, nil)
 
 		if notify.WebHookType == setting.NotifyWebHookTypeMail {
 			if task.TaskCreatorID != "" {
@@ -373,10 +370,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				return errors.New(errMsg)
 			}
 
-			if err := resolveWorkflowNotifyDynamicRecipients(task, notify); err != nil {
-				log.Errorf("failed to resolve workflow notification dynamic recipients, err: %s", err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(task, notify, nil)
 
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
 				if task.TaskCreatorID != "" {
@@ -446,9 +440,9 @@ func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *
 	return false
 }
 
-func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl) error {
+func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *models.NotifyCtl, runtimeContext map[string]string) {
 	if task == nil || notify == nil {
-		return nil
+		return
 	}
 
 	workflowArgs := task.WorkflowArgs
@@ -456,11 +450,22 @@ func resolveWorkflowNotifyDynamicRecipients(task *models.WorkflowTask, notify *m
 		workflowArgs = task.OriginWorkflowArgs
 	}
 	if workflowArgs == nil {
-		return nil
+		return
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowPayloadVariableKVs(workflowArgs))
-	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+	for _, kv := range commonutil.BuildWorkflowSystemVariableKVs(workflowArgs, task.ProjectName, task.ProjectDisplayName, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID, time.Unix(task.StartTime, 0)) {
+		if kv != nil {
+			keyMap[kv.Key] = kv.Value
+		}
+	}
+	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(task.GlobalContext) {
+		keyMap[key] = value
+	}
+	for key, value := range commonutil.WorkflowGlobalContextToKeyMap(runtimeContext) {
+		keyMap[key] = value
+	}
+	dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
 		LarkHook:   notify.LarkHookNotificationConfig,
 		LarkGroup:  notify.LarkGroupNotificationConfig,
 		LarkPerson: notify.LarkPersonNotificationConfig,
@@ -521,10 +526,10 @@ func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowT
 		return nil
 	}
 
-	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusPause, "taskStatusWaitingManualExec")
+	return w.sendManualStageUserNotifications(taskForNotification, stageForNotification, notifyCtls, config.StatusPause, "taskStatusWaitingManualExec", workflowCtx.GlobalContextGetAll())
 }
 
-func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string) error {
+func (w *Service) sendManualStageUserNotifications(taskForNotification *models.WorkflowTask, stageForNotification *models.StageTask, notifyCtls []*models.NotifyCtl, status config.Status, statusTextKeyOverride string, runtimeContext map[string]string) error {
 	respErr := new(multierror.Error)
 	for _, sourceNotify := range notifyCtls {
 		notify, err := models.CloneNotifyCtl(sourceNotify)
@@ -542,10 +547,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 
 		switch notify.WebHookType {
 		case setting.NotifyWebHookTypeFeishuPerson:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
-				respErr = multierror.Append(respErr, err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext)
 			resolvedTargets, err := w.resolveManualExecStageLarkTargets(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -574,10 +576,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 			}
 
 		case setting.NotifyWebHookTypeMail:
-			if err := resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify); err != nil {
-				respErr = multierror.Append(respErr, err)
-				continue
-			}
+			resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext)
 			resolvedUsers, err := w.resolveManualExecStageMailUsers(taskForNotification, stageForNotification, notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -731,9 +730,14 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 		return nil, nil
 	}
 
+	directUsers := make([]*models.User, 0)
 	usersToExpand := make([]*models.User, 0, len(notify.MailNotificationConfig.TargetUsers))
 	for _, user := range notify.MailNotificationConfig.TargetUsers {
 		if user == nil {
+			continue
+		}
+		if user.Type == "email" {
+			directUsers = append(directUsers, user)
 			continue
 		}
 		if user.Type == setting.UserTypeStageExecutor {
@@ -748,11 +752,11 @@ func (w *Service) resolveManualExecStageMailUsers(task *models.WorkflowTask, sta
 
 	if task.TaskCreatorID != "" {
 		users, _ := commonutil.GeneFlatUsersWithCaller(usersToExpand, task.TaskCreatorID)
-		return users, nil
+		return dynamicrecipient.UniqMailUsers(append(directUsers, users...)), nil
 	}
 
 	users, _ := commonutil.GeneFlatUsers(usersToExpand)
-	return users, nil
+	return dynamicrecipient.UniqMailUsers(append(directUsers, users...)), nil
 }
 
 func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) ([]*models.User, map[string]*types.UserInfo) {
@@ -789,6 +793,9 @@ type TaskNotifyInput struct {
 	// StatusTextKeyOverride allows the caller to customise the status text shown in the
 	// notification. If empty, the normal status text is used.
 	StatusTextKeyOverride string
+	// RecipientRuntimeContext contains the live workflow context so job outputs
+	// are available before the job task is persisted.
+	RecipientRuntimeContext map[string]string
 }
 
 // HasTaskNotifyCtls reports whether there is at least one enabled task-level
@@ -912,10 +919,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 		notifyToSend := *notify
 
-		if err := resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend); err != nil {
-			respErr = multierror.Append(respErr, err)
-			continue
-		}
+		resolveWorkflowNotifyDynamicRecipients(task, &notifyToSend, input.RecipientRuntimeContext)
 
 		// Resolve feishu_person targets (e.g. executor placeholders).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
@@ -1859,9 +1863,15 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification by lark app: failed to send lark card, error: %s", err)
 		}
 
-		err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeText, getNotifyAtContent(notify))
-		if err != nil {
-			return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
+		atMessage := getNotifyAtContent(notify)
+		if atMessage != "" {
+			atMessageContent, err := marshalLarkTextContent(atMessage)
+			if err != nil {
+				return fmt.Errorf("failed to send notification by lark app: failed to parse lark at message, error: %s", err)
+			}
+			if err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeText, atMessageContent); err != nil {
+				return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
+			}
 		}
 	case setting.NotifyWebHookTypeFeishuPerson:
 		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)

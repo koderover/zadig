@@ -13,6 +13,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -21,32 +22,39 @@ type dynamicRecipientKind string
 const (
 	dynamicRecipientKindEmail  dynamicRecipientKind = "email"
 	dynamicRecipientKindMobile dynamicRecipientKind = "mobile"
+	dynamicRecipientKindUserID dynamicRecipientKind = "user_id"
 )
 
 var supportedDynamicRecipientKinds = map[setting.NotifyWebHookType]map[dynamicRecipientKind]struct{}{
 	setting.NotifyWebhookTypeFeishuApp: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 	setting.NotifyWebHookTypeFeishuPerson: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 	setting.NotifyWebHookTypeFeishu: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 	setting.NotifyWebHookTypeDingDing: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 	setting.NotifyWebHookTypeMSTeam: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 	setting.NotifyWebHookTypeMail: {
 		dynamicRecipientKindEmail:  {},
 		dynamicRecipientKindMobile: {},
+		dynamicRecipientKindUserID: {},
 	},
 }
 
@@ -62,9 +70,11 @@ type Resolver struct {
 
 	lookupUsersByEmail func(email string) ([]*userclient.User, error)
 	lookupUsersByPhone func(phone string) ([]*userclient.User, error)
+	lookupUsersByUID   func(uid string) ([]*userclient.User, error)
 
 	emailUsersCache map[string][]*userclient.User
 	phoneUsersCache map[string][]*userclient.User
+	uidUsersCache   map[string][]*userclient.User
 
 	larkClientCache   map[string]*larktool.Client
 	larkUserIDCache   map[string]string
@@ -123,22 +133,49 @@ func NewResolver(keyMap map[string]string) *Resolver {
 		lookupUsersByPhone: func(phone string) ([]*userclient.User, error) {
 			return searchUsersByPhone(phone)
 		},
+		lookupUsersByUID: func(uid string) ([]*userclient.User, error) {
+			return searchUsersByUID(uid)
+		},
 		emailUsersCache:   make(map[string][]*userclient.User),
 		phoneUsersCache:   make(map[string][]*userclient.User),
+		uidUsersCache:     make(map[string][]*userclient.User),
 		larkClientCache:   make(map[string]*larktool.Client),
 		larkUserIDCache:   make(map[string]string),
 		larkUserMissCache: make(map[string]bool),
 	}
 }
 
-func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationConfigs) error {
+// splitDynamicRecipientTemplates separates template variables typed into a
+// static recipient list from the concrete entries, so both storage styles
+// resolve dynamic recipients. Invalid template variables are dropped: they can
+// never address a real user, and failing would skip the whole notification.
+func splitDynamicRecipientTemplates(entries []string) ([]string, []string) {
+	static := make([]string, 0, len(entries))
+	templates := make([]string, 0)
+	for _, entry := range entries {
+		trimmed := strings.TrimSpace(entry)
+		if dynamicRecipientTemplateRegexp.MatchString(trimmed) {
+			if _, err := parseDynamicRecipient(trimmed); err != nil {
+				log.Warnf("drop invalid dynamic recipient %s: %v", trimmed, err)
+				continue
+			}
+			templates = append(templates, trimmed)
+			continue
+		}
+		static = append(static, entry)
+	}
+	return static, templates
+}
+
+// ResolveNotificationConfigs is best-effort: a recipient that cannot be
+// resolved is logged and skipped, so the notification itself is always sent.
+func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationConfigs) {
 	resolver := NewResolver(keyMap)
 
 	if cfg := configs.LarkHook; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
+		staticAtUsers, templates := splitDynamicRecipientTemplates(cfg.AtUsers)
+		cfg.AtUsers = staticAtUsers
+		users := resolver.ResolveLarkUsers(append([]string(cfg.DynamicRecipients), templates...), cfg.AppID)
 		for _, user := range users {
 			if user == nil || user.ID == "" {
 				continue
@@ -148,60 +185,50 @@ func ResolveNotificationConfigs(keyMap map[string]string, configs NotificationCo
 		cfg.AtUsers = UniqStrings(cfg.AtUsers)
 	}
 	if cfg := configs.LarkGroup; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
+		users := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		cfg.AtUsers = UniqLarkUsers(append(cfg.AtUsers, users...))
 	}
 	if cfg := configs.LarkPerson; cfg != nil {
-		users, err := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
-		if err != nil {
-			return err
-		}
+		users := resolver.ResolveLarkUsers([]string(cfg.DynamicRecipients), cfg.AppID)
 		cfg.TargetUsers = UniqLarkUsers(append(cfg.TargetUsers, users...))
 	}
 	if cfg := configs.MSTeams; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
+		staticAtEmails, templates := splitDynamicRecipientTemplates(cfg.AtEmails)
+		cfg.AtEmails = staticAtEmails
+		emails := resolver.ResolveEmails(append([]string(cfg.DynamicRecipients), templates...))
 		cfg.AtEmails = UniqStrings(append(cfg.AtEmails, emails...))
 	}
 	if cfg := configs.Mail; cfg != nil {
-		emails, err := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
+		emails := resolver.ResolveEmails([]string(cfg.DynamicRecipients))
 		cfg.TargetUsers = UniqMailUsers(append(cfg.TargetUsers, BuildMailUsersFromEmails(emails)...))
 	}
 	if cfg := configs.DingDing; cfg != nil {
-		mobiles, err := resolver.ResolveMobiles([]string(cfg.DynamicRecipients))
-		if err != nil {
-			return err
-		}
+		staticAtMobiles, templates := splitDynamicRecipientTemplates(cfg.AtMobiles)
+		cfg.AtMobiles = staticAtMobiles
+		mobiles := resolver.ResolveMobiles(append([]string(cfg.DynamicRecipients), templates...))
 		cfg.AtMobiles = UniqStrings(append(cfg.AtMobiles, mobiles...))
 	}
-	return nil
 }
 
-func (r *Resolver) ResolveEmails(recipients []string) ([]string, error) {
+func (r *Resolver) ResolveEmails(recipients []string) []string {
 	return r.resolveContacts(recipients, dynamicRecipientKindEmail)
 }
 
-func (r *Resolver) ResolveMobiles(recipients []string) ([]string, error) {
+func (r *Resolver) ResolveMobiles(recipients []string) []string {
 	return r.resolveContacts(recipients, dynamicRecipientKindMobile)
 }
 
 // resolveContacts resolves recipients into the contact of the given target kind.
 // A recipient already matching target is collected directly; a recipient of the
 // opposite kind is looked up in the user table and its target contact is collected.
-func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientKind) ([]string, error) {
+// A recipient that fails to resolve is logged and skipped.
+func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientKind) []string {
 	resp := make([]string, 0)
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
 		if err != nil {
-			return nil, err
+			log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+			continue
 		}
 		if !ok {
 			continue
@@ -215,7 +242,19 @@ func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientK
 			}
 			users, err := r.getUsersByKind(spec.kind, value)
 			if err != nil {
-				return nil, err
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
+			}
+			for _, user := range users {
+				if contact := userContact(user, target); contact != "" {
+					resp = append(resp, contact)
+				}
+			}
+		case dynamicRecipientKindUserID:
+			users, err := r.getUsersByUID(value)
+			if err != nil {
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
 			}
 			for _, user := range users {
 				if contact := userContact(user, target); contact != "" {
@@ -223,15 +262,17 @@ func (r *Resolver) resolveContacts(recipients []string, target dynamicRecipientK
 				}
 			}
 		default:
-			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to %s", recipient, target)
+			log.Warnf("skip dynamic recipient %s: cannot be resolved to %s", recipient, target)
 		}
 	}
-	return UniqStrings(resp), nil
+	return UniqStrings(resp)
 }
 
-func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) ([]*larktool.UserInfo, error) {
+// ResolveLarkUsers resolves recipients into lark users. A recipient that fails
+// to resolve (including when app_id is missing) is logged and skipped.
+func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) []*larktool.UserInfo {
 	if len(recipients) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	resp := make([]*larktool.UserInfo, 0)
@@ -250,11 +291,25 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) ([]*larkt
 		}
 		return client, nil
 	}
+	buildUserInfo := func(client *larktool.Client, id, fallbackName string) *larktool.UserInfo {
+		userInfo, err := client.GetUserInfoByIDWithCache(id, setting.LarkUserID)
+		if err != nil {
+			log.Warnf("failed to resolve lark user name for %s: %v", id, err)
+			userInfo = &larktool.UserInfo{ID: id, Name: fallbackName}
+		}
+		userInfo.ID = id
+		userInfo.IDType = setting.LarkUserID
+		if userInfo.Name == "" {
+			userInfo.Name = fallbackName
+		}
+		return userInfo
+	}
 
 	for _, recipient := range recipients {
 		spec, value, ok, err := r.resolveRecipient(recipient)
 		if err != nil {
-			return nil, err
+			log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+			continue
 		}
 		if !ok {
 			continue
@@ -264,33 +319,58 @@ func (r *Resolver) ResolveLarkUsers(recipients []string, appID string) ([]*larkt
 		case dynamicRecipientKindEmail:
 			client, err := getClient()
 			if err != nil {
-				return nil, err
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
 			}
 			ids, err := r.resolveLarkUserIDsByEmail(client, appID, value)
 			if err != nil {
-				return nil, err
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
 			}
 			for _, id := range ids {
-				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
+				resp = append(resp, buildUserInfo(client, id, value))
 			}
 		case dynamicRecipientKindMobile:
 			client, err := getClient()
 			if err != nil {
-				return nil, err
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
 			}
 			ids, err := r.resolveLarkUserIDsByPhone(client, appID, value)
 			if err != nil {
-				return nil, err
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
 			}
 			for _, id := range ids {
-				resp = append(resp, &larktool.UserInfo{ID: id, IDType: setting.LarkUserID})
+				resp = append(resp, buildUserInfo(client, id, value))
+			}
+		case dynamicRecipientKindUserID:
+			client, err := getClient()
+			if err != nil {
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
+			}
+			users, err := r.getUsersByUID(value)
+			if err != nil {
+				log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+				continue
+			}
+			for _, user := range users {
+				id, found, err := r.lookupLarkUserIDByContacts(client, appID, user)
+				if err != nil {
+					log.Warnf("skip dynamic recipient %s: %v", recipient, err)
+					continue
+				}
+				if found {
+					resp = append(resp, buildUserInfo(client, id, user.Name))
+				}
 			}
 		default:
-			return nil, fmt.Errorf("dynamic recipient %s cannot be resolved to lark user", recipient)
+			log.Warnf("skip dynamic recipient %s: cannot be resolved to lark user", recipient)
 		}
 	}
 
-	return UniqLarkUsers(resp), nil
+	return UniqLarkUsers(resp)
 }
 
 func (r *Resolver) resolveLarkUserIDsByEmail(client *larktool.Client, appID, email string) ([]string, error) {
@@ -379,6 +459,33 @@ func (r *Resolver) lookupLarkUserID(client *larktool.Client, appID, queryType, v
 	return userID, true, nil
 }
 
+// lookupLarkUserIDByContacts tries the user's email first, then phone, to map
+// a Zadig user to a lark user ID.
+func (r *Resolver) lookupLarkUserIDByContacts(client *larktool.Client, appID string, user *userclient.User) (string, bool, error) {
+	if user == nil {
+		return "", false, nil
+	}
+	if user.Email != "" {
+		id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeEmail, user.Email)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return id, true, nil
+		}
+	}
+	if user.Phone != "" {
+		id, found, err := r.lookupLarkUserID(client, appID, larktool.QueryTypeMobile, user.Phone)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return id, true, nil
+		}
+	}
+	return "", false, nil
+}
+
 func (r *Resolver) getUsersByEmail(email string) ([]*userclient.User, error) {
 	if users, ok := r.emailUsersCache[email]; ok {
 		return users, nil
@@ -400,6 +507,18 @@ func (r *Resolver) getUsersByPhone(phone string) ([]*userclient.User, error) {
 		return nil, err
 	}
 	r.phoneUsersCache[phone] = users
+	return users, nil
+}
+
+func (r *Resolver) getUsersByUID(uid string) ([]*userclient.User, error) {
+	if users, ok := r.uidUsersCache[uid]; ok {
+		return users, nil
+	}
+	users, err := r.lookupUsersByUID(uid)
+	if err != nil {
+		return nil, err
+	}
+	r.uidUsersCache[uid] = users
 	return users, nil
 }
 
@@ -535,9 +654,9 @@ func parseDynamicRecipient(input string) (*dynamicRecipientSpec, error) {
 	if key == "" {
 		return nil, fmt.Errorf("dynamic recipient %s is invalid", input)
 	}
-	recipientKind, ok := commonutil.ParsePayloadRecipientKind(key)
+	recipientKind, ok := commonutil.ParseDynamicRecipientKind(key)
 	if !ok {
-		return nil, fmt.Errorf("dynamic recipient %s is not supported, only payload fields ending in email/mobile(phone) are allowed", input)
+		return nil, fmt.Errorf("dynamic recipient %s is not supported, only workflow, payload or job input/output fields named or suffixed with email, mobile, phone, userId or uid are allowed", input)
 	}
 
 	return &dynamicRecipientSpec{
@@ -562,6 +681,19 @@ func searchUsersByEmail(email string) ([]*userclient.User, error) {
 func searchUsersByPhone(phone string) ([]*userclient.User, error) {
 	resp, err := userclient.New().SearchUser(&userclient.SearchUserArgs{
 		Phone: phone,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, nil
+	}
+	return resp.Users, nil
+}
+
+func searchUsersByUID(uid string) ([]*userclient.User, error) {
+	resp, err := userclient.New().SearchUser(&userclient.SearchUserArgs{
+		UIDs: []string{uid},
 	})
 	if err != nil {
 		return nil, err

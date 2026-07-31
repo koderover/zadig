@@ -36,7 +36,7 @@ type gitEventMatcherForScanning interface {
 	GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository
 }
 
-func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
+func TriggerScanningByGithubEvent(event interface{}, rawPayload, requestID string, log *zap.SugaredLogger) error {
 	//1.find configured testing
 	scanningList, _, err := commonrepo.NewScanningColl().List(nil, 0, 0)
 	if err != nil {
@@ -45,6 +45,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -124,6 +125,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
 
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)

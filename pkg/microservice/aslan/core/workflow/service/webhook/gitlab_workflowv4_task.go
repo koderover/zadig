@@ -292,7 +292,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 	}
 
 	mErr := &multierror.Error{}
-	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -414,7 +414,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					EventType:    eventType,
 				}
 			}
-			hookPayload.PayloadVars = recipientPayloadVariables
+			hookPayload.PayloadVars = payloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {

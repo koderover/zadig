@@ -152,7 +152,7 @@ func (gtem gitlabTagEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.Te
 }
 
 // TriggerTestByGitlabEvent 测试管理模块的触发器任务
-func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerTestByGitlabEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// 1. find configured testing
 	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 	if err != nil {
@@ -161,6 +161,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -245,6 +246,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
 					if autoCancelOpt.Type != "" {
 						err = AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {

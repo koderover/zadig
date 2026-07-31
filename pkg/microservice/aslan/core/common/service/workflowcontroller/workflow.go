@@ -261,7 +261,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		WorkflowTaskCreatorUserID:    c.workflowTask.TaskCreatorID,
 		WorkflowTaskCreatorMobile:    c.workflowTask.TaskCreatorPhone,
 		WorkflowTaskCreatorEmail:     c.workflowTask.TaskCreatorEmail,
-		WorkflowKeyVals:              commonutil.BuildWorkflowRuntimeVariableKVs(c.workflowTask.WorkflowArgs, c.workflowTask.ProjectName, c.workflowTask.ProjectDisplayName, c.workflowTask.TaskID, c.workflowTask.TaskCreator, c.workflowTask.TaskCreatorAccount, c.workflowTask.TaskCreatorID, time.Unix(c.workflowTask.StartTime, 0)),
+		WorkflowKeyVals:              commonutil.BuildWorkflowSystemVariableKVs(c.workflowTask.WorkflowArgs, c.workflowTask.ProjectName, c.workflowTask.ProjectDisplayName, c.workflowTask.TaskID, c.workflowTask.TaskCreator, c.workflowTask.TaskCreatorAccount, c.workflowTask.TaskCreatorID, time.Unix(c.workflowTask.StartTime, 0)),
 		NotificationRecipientKeyVals: commonutil.BuildWorkflowPayloadVariableKVs(c.workflowTask.WorkflowArgs),
 		Workspace:                    "/workspace",
 		DistDir:                      fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
