@@ -1016,6 +1016,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		return err
 	}
 
+	sourceRevision := serviceTemplate.Revision
 	serviceTemplate.ReleaseNaming = args.NamingRule
 	rev, err := getNextServiceRevision(projectName, args.ServiceName, production)
 	if err != nil {
@@ -1052,6 +1053,16 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	err = repository.Create(serviceTemplate, production)
 	if err != nil {
 		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
+	}
+	if err = repository.CloneAutoServiceModulesForRevision(
+		context.Background(),
+		serviceTemplate.ProductName,
+		serviceTemplate.ServiceName,
+		production,
+		sourceRevision,
+		rev,
+	); err != nil {
+		return fmt.Errorf("failed to copy service modules for service %s from revision %d to %d: %s", args.ServiceName, sourceRevision, rev, err)
 	}
 
 	return nil
