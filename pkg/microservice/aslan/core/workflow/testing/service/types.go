@@ -124,6 +124,7 @@ func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 
 type ListScanningRespItem struct {
 	ID          string                 `json:"id"`
+	Type        types.ScannerType      `json:"type"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Statistics  *ScanningStatistic     `json:"statistics"`
