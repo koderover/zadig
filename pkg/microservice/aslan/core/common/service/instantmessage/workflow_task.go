@@ -292,23 +292,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		}
 
 		if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-			for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
-				if target.IsExecutor {
-					client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
-					if err != nil {
-						return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
-					}
-					resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
-					if err != nil {
-						log.Errorf("failed to resolve workflow executor lark target: %v", err)
-						return err
-					}
-					target.ID = resolvedTarget.ID
-					target.Name = resolvedTarget.Name
-					target.Avatar = resolvedTarget.Avatar
-					target.IDType = resolvedTarget.IDType
-				}
-			}
+			w.resolveFeishuPersonExecutorTargets(notify, task)
 		}
 
 		if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
@@ -391,24 +375,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			}
 
 			if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-
-				for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
-					if target.IsExecutor {
-						client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
-						if err != nil {
-							return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
-						}
-						resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
-						if err != nil {
-							log.Errorf("failed to resolve workflow executor lark target: %v", err)
-							return err
-						}
-						target.ID = resolvedTarget.ID
-						target.Name = resolvedTarget.Name
-						target.Avatar = resolvedTarget.Avatar
-						target.IDType = resolvedTarget.IDType
-					}
-				}
+				w.resolveFeishuPersonExecutorTargets(notify, task)
 			}
 
 			if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
@@ -489,6 +456,40 @@ func (w *Service) resolveWorkflowTaskExecutorLarkTarget(client *lark.Client, tas
 	}
 
 	return resolvedTarget, nil
+}
+
+// resolveFeishuPersonExecutorTargets resolves executor targets in place and drops the ones that
+// cannot be resolved (e.g. webhook/trigger-created tasks have no executor), so that the remaining
+// targets and other notification channels are still delivered.
+func (w *Service) resolveFeishuPersonExecutorTargets(notify *models.NotifyCtl, task *models.WorkflowTask) {
+	if notify.LarkPersonNotificationConfig == nil {
+		return
+	}
+
+	targets := make([]*lark.UserInfo, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
+	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+		if target == nil {
+			continue
+		}
+		if target.IsExecutor {
+			client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
+			if err != nil {
+				log.Warnf("skip workflow executor notify target: create feishu client error: %s", err)
+				continue
+			}
+			resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
+			if err != nil {
+				log.Warnf("skip workflow executor notify target: %v", err)
+				continue
+			}
+			target.ID = resolvedTarget.ID
+			target.Name = resolvedTarget.Name
+			target.Avatar = resolvedTarget.Avatar
+			target.IDType = resolvedTarget.IDType
+		}
+		targets = append(targets, target)
+	}
+	notify.LarkPersonNotificationConfig.TargetUsers = targets
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {

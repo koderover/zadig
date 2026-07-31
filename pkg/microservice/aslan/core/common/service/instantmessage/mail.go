@@ -18,6 +18,7 @@ package instantmessage
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -35,11 +36,13 @@ func (w *Service) sendMailMessage(title, content string, users []*models.User) e
 	email, err := systemconfig.New().GetEmailHost()
 	if err != nil {
 		log.Errorf("sendMailMessage GetEmailHost error, error msg:%s", err)
+		return fmt.Errorf("failed to get email host config: %w", err)
 	}
 
 	emailSvc, err := systemconfig.New().GetEmailService()
 	if err != nil {
 		log.Errorf("sendMailMessage GetEmailService error, error msg:%s", err)
+		return fmt.Errorf("failed to get email service config: %w", err)
 	}
 
 	sentEmails := make(map[string]struct{})
