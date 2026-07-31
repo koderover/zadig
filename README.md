@@ -36,10 +36,9 @@
 
 ## What is Zadig
 
-Zadig is a self-service cloud-native DevOps platform developed by KodeRover based on Kubernetes. Zadig provides flexible and scalable workflow support, multiple release strategy orchestrations, and one-click security audits, and continuously optimizes the R&D process through intelligent capabilities such as AI environment inspections, AI performance diagnosis. The platform also supports customized enterprise-level XOps agile performance dashboards, deeply integrates multiple enterprise-level platforms, and quickly accesses thousands of services in batches through project templates, achieving one-click management and governance of thousands of services.
-
-Its main goal is to help enterprises realize the digital transformation of production and research, enable engineers to become innovation engines, and provide support for the unlimited value links of the digital economy.
-
+Zadig is an open-source, cloud-native DevOps platform developed by KodeRover, built on Kubernetes and AI large language models, and dedicated to helping enterprises achieve digital transformation in product R&D.
+Its core capabilities cover flexible and extensible workflows, multiple release strategy orchestrations, one-click security audits, AI environment inspection and efficiency diagnosis, customized enterprise-level XOps agile dashboards, and deep integration with enterprise platforms, plus project templates for managing thousands of services in batches.
+Zadig fully embeds intelligent capabilities such as AI code review, AI release risk assessment, AI task orchestration, and agent management, shifting quality gates left, making release decisions more precise, and delivery more automated—empowering engineers as engines of innovation and providing a solid foundation for continuous innovation in the digital economy.
 
 > Our vision is: Developer + Zadig = Business success
 
@@ -51,6 +50,11 @@ The business architecture is as follows:
 For more details about system architecture, see [Zadig System Architecture Overview](System-Architecture-Overview.md).
 
 The Highlighted Features:
+
+<details>
+  <summary><b>AI-Driven End-to-End Efficiency</b></summary>
+  Deeply integrated with AI large language models across development, release, and operations: AI code review precisely identifies defects and security vulnerabilities; AI release risk assessment intelligently analyzes change impact to support safer releases; AI task orchestration seamlessly embeds enterprise agents into the R&D process. It also provides AI efficiency diagnosis and environment inspection to pinpoint bottlenecks and regularly warn about environmental risks.
+  </details>
 
 <details>
   <summary><b>High Concurrency</b></summary>
@@ -82,20 +86,8 @@ The Highlighted Features:
   </details>
 
 <details>
- <summary><b>Stable and Efficient Customer Delivery</b></summary>
-  Simplify the implementation process for vendors to customer versions, customer private clouds, public clouds, and offline environments, as well as product license management. The supplier management plane collaborates with the customer console to complete the implementation, update, and maintenance process for customer environments, enhancing the quality of external services provided by the enterprise.
- </details>
-
-<details>
   <summary><b>Objective and Accurate Performance Insights</b></summary>
   Comprehensive understanding of the system's operational status, including data overviews on clusters, projects, environments, workflows, and key process pass rates. It provides objective performance metrics data for various aspects like builds, tests, and deployments at the project level, enabling precise analysis of development efficiency bottlenecks and promoting steady improvement.
-  </details>
-
-<details>
-  <summary><b>AI-Driven Efficiency Diagnosis · Environment Inspection</b></summary>
-  Deeply integrated with AI capabilities, it delivers three core functions: AI Efficiency Analysis, AI Environment Inspection. By intelligently analyzing data from pipelines, builds, tests and other workflow stages, it precisely identifies efficiency bottlenecks and provides actionable improvement suggestions. The system performs regular comprehensive inspections of Kubernetes environments to detect and warn about potential issues, ensuring environmental stability.
-
-  With enterprise-level round-the-clock technical support for instant response - spanning technical consultation to fault resolution - it serves as an essential AI assistant for development teams.
   </details>
 
 
