@@ -174,7 +174,7 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 					image = args.Task.GlobalContext[imageContextKey]
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRepositoryInfo\"}}**：%s %s[%s](%s)  ", branchTag, prInfo, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRepositoryInfo\"}}**：%s %s[%s](%s)  \n", branchTag, prInfo, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextCommitMessage\"}}**："
 					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextRepositoryInfo\"}}：%s %s[%s]( %s ) \n", branchTag, prInfo, commitID, gitCommitURL)
 					if len(commitMsgs) == 1 {

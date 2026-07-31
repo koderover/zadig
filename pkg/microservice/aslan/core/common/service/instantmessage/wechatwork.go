@@ -29,9 +29,10 @@ const (
 	WeChatTextTypeMarkdown     TextType = "markdown"
 	WeChatTextTypeTemplateCard TextType = "template_card"
 
-	textColorBlue  = "#3270e3"
-	textColorGreen = "#00a13e"
-	textColorRed   = "#eb0823"
+	textColorBlue   = "#3270e3"
+	textColorGreen  = "#00a13e"
+	textColorRed    = "#eb0823"
+	textColorOrange = "#ff8800"
 )
 
 type TextType string
