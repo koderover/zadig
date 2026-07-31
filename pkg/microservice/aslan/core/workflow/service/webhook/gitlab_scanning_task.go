@@ -33,7 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerScanningByGitlabEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// 1. find configured testing
 	scanningList, _, err := commonrepo.NewScanningColl().List(nil, 0, 0)
 	if err != nil {
@@ -42,6 +42,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -123,6 +124,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
 
 					if scanning.ScannerType == types.ScannerTypeAIReview && prID <= 0 {
 						log.Debugf("skip non-MR event for AI review scanning %s", scanning.Name)

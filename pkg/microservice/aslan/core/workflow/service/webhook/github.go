@@ -356,7 +356,7 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
-		if err = TriggerTestByGithubEvent(et, requestID, log); err != nil {
+		if err = TriggerTestByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
@@ -390,7 +390,7 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
-		if err = TriggerScanningByGithubEvent(et, requestID, log); err != nil {
+		if err = TriggerScanningByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerScanningByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}

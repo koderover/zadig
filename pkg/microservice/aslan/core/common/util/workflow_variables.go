@@ -5,17 +5,41 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
-// BuildPayloadRecipientVariables keeps only payload leaves that can identify
-// notification recipients.
-func BuildPayloadRecipientVariables(rawPayload string) []*commonmodels.KeyVal {
+// DetachJobTaskNotificationFields temporarily removes the notification fields
+// from a job task so JSON-based variable rendering cannot replace typed
+// recipient templates, which are resolved by the notification send path. The
+// returned function restores the detached fields.
+func DetachJobTaskNotificationFields(task *commonmodels.JobTask) func() {
+	notifyCtls := task.NotifyCtls
+	task.NotifyCtls = nil
+	isNotificationJob := task.JobType == string(config.JobNotification)
+	var notificationSpec interface{}
+	if isNotificationJob {
+		notificationSpec = task.Spec
+		task.Spec = nil
+	}
+	return func() {
+		task.NotifyCtls = notifyCtls
+		if isNotificationJob {
+			task.Spec = notificationSpec
+		}
+	}
+}
+
+var payloadVariableRegexp = regexp.MustCompile(`{{\.(payload(\.[\p{L}\d_-]+)+)}}`)
+
+// BuildPayloadVariables flattens webhook payload leaves into workflow variables.
+func BuildPayloadVariables(rawPayload string) []*commonmodels.KeyVal {
 	if rawPayload == "" {
 		return nil
 	}
@@ -41,41 +65,121 @@ func flattenPayloadValue(prefix string, value interface{}, resp *[]*commonmodels
 			flattenPayloadValue(fmt.Sprintf("%s.%d", prefix, index), item, resp)
 		}
 	case string:
-		appendPayloadRecipientVariable(prefix, val, resp)
+		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: val, IsCredential: false})
 	case float64:
-		appendPayloadRecipientVariable(prefix, strconv.FormatFloat(val, 'f', -1, 64), resp)
+		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatFloat(val, 'f', -1, 64), IsCredential: false})
 	case bool:
-		appendPayloadRecipientVariable(prefix, strconv.FormatBool(val), resp)
+		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: strconv.FormatBool(val), IsCredential: false})
 	case nil:
 		return
 	default:
-		appendPayloadRecipientVariable(prefix, fmt.Sprint(val), resp)
+		*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: fmt.Sprint(val), IsCredential: false})
 	}
 }
 
-func appendPayloadRecipientVariable(prefix, value string, resp *[]*commonmodels.KeyVal) {
-	if _, ok := ParsePayloadRecipientKind(prefix); !ok {
-		return
+// FilterWorkflowPayloadVariables keeps only payload variables referenced by
+// runtime-rendered workflow fields.
+func FilterWorkflowPayloadVariables(workflow *commonmodels.WorkflowV4) error {
+	if workflow == nil || workflow.HookPayload == nil || len(workflow.HookPayload.PayloadVars) == 0 {
+		return nil
 	}
-	*resp = append(*resp, &commonmodels.KeyVal{Key: prefix, Value: value, IsCredential: false})
+
+	runtimeFields := struct {
+		Params     []*commonmodels.Param         `json:"params"`
+		Stages     []*commonmodels.WorkflowStage `json:"stages"`
+		NotifyCtls []*commonmodels.NotifyCtl     `json:"notify_ctls"`
+	}{
+		Params:     workflow.Params,
+		Stages:     workflow.Stages,
+		NotifyCtls: workflow.NotifyCtls,
+	}
+	data, err := json.Marshal(runtimeFields)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflow runtime fields: %w", err)
+	}
+
+	referencedKeys := make(map[string]struct{})
+	for _, match := range payloadVariableRegexp.FindAllSubmatch(data, -1) {
+		if len(match) > 1 {
+			referencedKeys[string(match[1])] = struct{}{}
+		}
+	}
+
+	variablesByKey := make(map[string]*commonmodels.KeyVal, len(workflow.HookPayload.PayloadVars))
+	for _, variable := range workflow.HookPayload.PayloadVars {
+		if variable == nil {
+			continue
+		}
+		if _, referenced := referencedKeys[variable.Key]; !referenced {
+			continue
+		}
+		if _, exists := variablesByKey[variable.Key]; !exists {
+			variablesByKey[variable.Key] = variable
+		}
+	}
+
+	keys := make([]string, 0, len(variablesByKey))
+	for key := range variablesByKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	workflow.HookPayload.PayloadVars = make([]*commonmodels.KeyVal, 0, len(keys))
+	for _, key := range keys {
+		workflow.HookPayload.PayloadVars = append(workflow.HookPayload.PayloadVars, variablesByKey[key])
+	}
+	return nil
 }
 
-// ParsePayloadRecipientKind validates a flattened payload key and normalizes
-// phone/mobile fields to the mobile contact kind.
-func ParsePayloadRecipientKind(key string) (string, bool) {
-	if !strings.HasPrefix(key, "payload.") {
+// ParseDynamicRecipientKind validates notification recipient variables and
+// normalizes phone/mobile fields to the mobile contact kind.
+func ParseDynamicRecipientKind(key string) (string, bool) {
+	key = strings.ToLower(key)
+	if strings.HasPrefix(key, "job.") {
+		parts := strings.Split(key, ".")
+		outputMarkerIndex := strings.LastIndex(key, ".output.")
+		validInput := len(parts) == 3 && parts[1] != "" && parts[2] != ""
+		validOutput := outputMarkerIndex > len("job.") &&
+			!strings.Contains(key[outputMarkerIndex+len(".output."):], ".")
+		if !validInput && !validOutput {
+			return "", false
+		}
+	} else if !strings.HasPrefix(key, "payload.") && !strings.HasPrefix(key, "workflow.") {
+		return "", false
+	}
+	if strings.HasSuffix(key, ".output.") {
 		return "", false
 	}
 
-	parts := strings.Split(strings.ToLower(key), ".")
-	switch parts[len(parts)-1] {
-	case "email":
+	parts := strings.Split(key, ".")
+	field := parts[len(parts)-1]
+	switch {
+	case field == "email" || strings.HasSuffix(field, "_email"):
 		return "email", true
-	case "mobile", "phone":
+	case field == "mobile" || strings.HasSuffix(field, "_mobile"),
+		field == "phone" || strings.HasSuffix(field, "_phone"):
 		return "mobile", true
+	case field == "user_id" || strings.HasSuffix(field, "_user_id"),
+		field == "userid" || strings.HasSuffix(field, "_userid"),
+		field == "uid" || strings.HasSuffix(field, "_uid"):
+		return "user_id", true
 	default:
 		return "", false
 	}
+}
+
+// WorkflowGlobalContextToKeyMap converts Mongo-safe workflow context keys back
+// to the variable names used by the notification renderer.
+func WorkflowGlobalContextToKeyMap(context map[string]string) map[string]string {
+	resp := make(map[string]string, len(context))
+	for key, value := range context {
+		key = strings.ReplaceAll(key, "@?", ".")
+		key = strings.TrimSuffix(strings.TrimPrefix(key, "{{."), "}}")
+		if key != "" {
+			resp[key] = value
+		}
+	}
+	return resp
 }
 
 func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
@@ -118,15 +222,12 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 			IsCredential: false,
 		})
 	}
-	if workflow.HookPayload != nil {
-		resp = append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
-	}
-
 	return resp
 }
 
-// BuildWorkflowPayloadVariableKVs exposes webhook payload fields only to
-// dynamic notification recipient resolution.
+// BuildWorkflowPayloadVariableKVs exposes webhook payload fields to dynamic
+// notification recipient resolution. Recipient templates are validated at the
+// resolver boundary.
 func BuildWorkflowPayloadVariableKVs(workflow *commonmodels.WorkflowV4) []*commonmodels.KeyVal {
 	if workflow == nil || workflow.HookPayload == nil {
 		return nil
@@ -141,30 +242,43 @@ func BuildWorkflowTriggerVariableKVs(hookPayload *commonmodels.HookPayload) []*c
 
 	resp := make([]*commonmodels.KeyVal, 0, 8)
 	appendIfNotEmpty := func(key, value string) {
-		if value == "" {
-			return
+		if value != "" {
+			resp = append(resp, &commonmodels.KeyVal{Key: key, Value: value, IsCredential: false})
 		}
-		resp = append(resp, &commonmodels.KeyVal{Key: key, Value: value, IsCredential: false})
 	}
 
-	appendIfNotEmpty("workflow.trigger.branch", hookPayload.Branch)
-	appendIfNotEmpty("workflow.trigger.target_branch", hookPayload.TargetBranch)
-	appendIfNotEmpty("workflow.trigger.pr", hookPayload.MergeRequestID)
-	appendIfNotEmpty("workflow.trigger.commit_id", hookPayload.CommitID)
-	appendIfNotEmpty("workflow.trigger.commit_sha", inferWorkflowTriggerCommitSHA(hookPayload))
-	appendIfNotEmpty("workflow.trigger.commit_message", hookPayload.CommitMessage)
-	appendIfNotEmpty("workflow.trigger.committer", hookPayload.Committer)
-	appendIfNotEmpty("workflow.trigger.event", hookPayload.EventType)
-
+	values := map[string]string{
+		"payload.trigger.branch":         hookPayload.Branch,
+		"payload.trigger.target_branch":  hookPayload.TargetBranch,
+		"payload.trigger.pr":             hookPayload.MergeRequestID,
+		"payload.trigger.commit_id":      hookPayload.CommitID,
+		"payload.trigger.commit_sha":     inferWorkflowTriggerCommitSHA(hookPayload),
+		"payload.trigger.commit_message": hookPayload.CommitMessage,
+		"payload.trigger.committer":      hookPayload.Committer,
+		"payload.trigger.event":          hookPayload.EventType,
+	}
+	for _, key := range WorkflowTriggerVariableKeys() {
+		appendIfNotEmpty(key, values[key])
+	}
 	return resp
+}
+
+func WorkflowTriggerVariableKeys() []string {
+	return []string{
+		"payload.trigger.branch",
+		"payload.trigger.target_branch",
+		"payload.trigger.pr",
+		"payload.trigger.commit_id",
+		"payload.trigger.commit_sha",
+		"payload.trigger.commit_message",
+		"payload.trigger.committer",
+		"payload.trigger.event",
+	}
 }
 
 var commitSHARegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 
 func inferWorkflowTriggerCommitSHA(hookPayload *commonmodels.HookPayload) string {
-	if hookPayload == nil {
-		return ""
-	}
 	if hookPayload.CommitSHA != "" {
 		return hookPayload.CommitSHA
 	}
@@ -175,7 +289,12 @@ func inferWorkflowTriggerCommitSHA(hookPayload *commonmodels.HookPayload) string
 }
 
 func BuildWorkflowRuntimeVariableKVs(workflow *commonmodels.WorkflowV4, projectName, projectDisplayName string, taskID int64, creator, account, uid string, now time.Time) []*commonmodels.KeyVal {
-	return BuildWorkflowSystemVariableKVs(workflow, projectName, projectDisplayName, taskID, creator, account, uid, now)
+	resp := BuildWorkflowSystemVariableKVs(workflow, projectName, projectDisplayName, taskID, creator, account, uid, now)
+	if workflow == nil || workflow.HookPayload == nil {
+		return resp
+	}
+	resp = append(resp, workflow.HookPayload.PayloadVars...)
+	return append(resp, BuildWorkflowTriggerVariableKVs(workflow.HookPayload)...)
 }
 
 func KeyValsToMap(kvs []*commonmodels.KeyVal) map[string]string {

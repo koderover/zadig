@@ -24,6 +24,7 @@ import (
 	"os"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -55,17 +57,9 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	if job == nil {
 		return nil
 	}
-
 	// NotificationJobCtl owns notification spec rendering because it has the
 	// webhook and task runtime context required by notification templates.
-	var notificationSpec interface{}
-	if job.JobType == string(config.JobNotification) {
-		notificationSpec = job.Spec
-		job.Spec = nil
-		defer func() {
-			job.Spec = notificationSpec
-		}()
-	}
+	defer commonutil.DetachJobTaskNotificationFields(job)()
 
 	b, err := json.Marshal(job)
 	if err != nil {
@@ -75,6 +69,48 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
 	if err := json.Unmarshal(replacedJob, job); err != nil {
 		return fmt.Errorf("failed to unmarshal job: %w", err)
+	}
+	return nil
+}
+
+func renderJobGlobalVariables(job *commonmodels.JobTask, variables map[string]string) error {
+	if job == nil || len(variables) == 0 {
+		return nil
+	}
+	// NotificationJobCtl renders its own spec at send time so typed recipient
+	// templates survive until dynamic recipient resolution.
+	defer commonutil.DetachJobTaskNotificationFields(job)()
+
+	jobBytes, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job: %w", err)
+	}
+
+	jobJSON := string(jobBytes)
+	keys := make([]string, 0, len(variables))
+	for key := range variables {
+		if strings.Contains(jobJSON, key) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+
+	replacements := make([]string, 0, len(keys)*2)
+	for _, key := range keys {
+		value := strings.Trim(variables[key], "\n")
+		escapedValue, err := util.JsonEscapeString(value)
+		if err != nil {
+			return fmt.Errorf("failed to escape global variable %s: %w", key, err)
+		}
+		replacements = append(replacements, key, escapedValue)
+	}
+	if len(replacements) == 0 {
+		return nil
+	}
+
+	replacedJob := strings.NewReplacer(replacements...).Replace(jobJSON)
+	if err := json.Unmarshal([]byte(replacedJob), job); err != nil {
+		return fmt.Errorf("failed to unmarshal rendered job: %w", err)
 	}
 	return nil
 }
@@ -198,23 +234,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 	}(&jobCtl)
 
-	// @note render global variables for every job.
-	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		b, _ := json.Marshal(job)
-		v = strings.Trim(v, "\n")
-
-		jsonEscapeValue, err := util.JsonEscapeString(string(v))
-		if err != nil {
-			logger.Errorf("failed to escape value %s, error: %v", string(v), err)
-			jsonEscapeValue = string(v)
-		}
-
-		replacedString := strings.ReplaceAll(string(b), k, jsonEscapeValue)
-		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
-			logger.Errorf("unmarshal job error: %v", err)
-		}
-		return true
-	})
+	// Rendering is best-effort to keep the historical behavior: a failure keeps
+	// the job running with unrendered variables instead of failing it.
+	if err := renderJobGlobalVariables(job, workflowCtx.GlobalContextGetAll()); err != nil {
+		logger.Errorf("render job global variables error: %v", err)
+	}
 
 	// remove all the unrendered variable, replacing then with empty string
 	if err := removeUnrenderedVariables(job); err != nil {
@@ -271,12 +295,13 @@ func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *common
 	}
 
 	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
-		WorkflowName:          workflowCtx.WorkflowName,
-		TaskID:                workflowCtx.TaskID,
-		Job:                   job,
-		NotifyCtls:            job.NotifyCtls,
-		Status:                status,
-		StatusTextKeyOverride: statusTextKeyOverride,
+		WorkflowName:            workflowCtx.WorkflowName,
+		TaskID:                  workflowCtx.TaskID,
+		Job:                     job,
+		NotifyCtls:              job.NotifyCtls,
+		Status:                  status,
+		StatusTextKeyOverride:   statusTextKeyOverride,
+		RecipientRuntimeContext: workflowCtx.GlobalContextGetAll(),
 	}); err != nil {
 		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", job.Name, status, err)
 	}
