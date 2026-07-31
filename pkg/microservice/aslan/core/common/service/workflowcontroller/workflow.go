@@ -583,6 +583,11 @@ func (c *workflowCtl) updateWorkflowTask() {
 	isFirstComplete := c.workflowTask.Finished() && taskInColl.EndTime == 0 && c.workflowTask.EndTime > 0
 	shouldSendCompleteHook := isFirstComplete
 	shouldUpdateJiraIssue := isFirstComplete || (c.workflowTask.Status == config.StatusReject && taskInColl.Status != config.StatusReject)
+	// cancelled ACKs are let through above so job status can be persisted, and pause ACKs
+	// repeat while a stage stays paused; notify only on the first completion (finished
+	// statuses) or on the actual status transition (reject/pause have no EndTime).
+	isNewRejectOrPause := (c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause) && c.workflowTask.Status != taskInColl.Status
+	shouldSendStatusNotification := isFirstComplete || isNewRejectOrPause
 
 	c.workflowTaskMutex.Lock()
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
@@ -594,16 +599,6 @@ func (c *workflowCtl) updateWorkflowTask() {
 
 	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
-		// cancelled ACKs are let through above so job status can be persisted, and
-		// pause ACKs repeat while a stage stays paused; without this guard every
-		// such ACK would re-send the same terminal notification.
-		shouldSendStatusNotification := false
-		switch c.workflowTask.Status {
-		case config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled:
-			shouldSendStatusNotification = isFirstComplete
-		case config.StatusReject, config.StatusPause:
-			shouldSendStatusNotification = c.workflowTask.Status != taskInColl.Status
-		}
 		if shouldSendStatusNotification {
 			if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 				c.logger.Errorf("send workflow task notification failed, error: %v", err)
