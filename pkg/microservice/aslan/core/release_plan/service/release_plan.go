@@ -47,6 +47,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
@@ -540,7 +541,7 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 				}
 
 				workflowController := controller.CreateWorkflowController(spec.Workflow)
-				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+				if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log.SugaredLogger()); err != nil {
 					log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
 					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 				}
