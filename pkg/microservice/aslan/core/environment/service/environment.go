@@ -1593,9 +1593,12 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 
 	switch scene {
 	case EstimateValuesSceneCreateEnv:
-		prod = &commonmodels.Product{}
-		prod.DefaultValues = arg.DefaultValues
-		prod.Namespace = namespace
+		prod = &commonmodels.Product{
+			ProductName:   projectName,
+			EnvName:       envName,
+			Namespace:     namespace,
+			DefaultValues: arg.DefaultValues,
+		}
 		prodSvc, latestTmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
