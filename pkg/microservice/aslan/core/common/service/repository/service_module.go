@@ -118,6 +118,34 @@ func ListAutoServiceModules(ctx context.Context, projectName, serviceName string
 	return pickServiceModuleColl(production).ListAutoByRevision(ctx, projectName, serviceName, revision)
 }
 
+// CloneAutoServiceModulesForRevision carries visible auto-discovered modules
+// forward for a metadata-only service revision. Manual modules are not copied
+// because they are revision-independent.
+func CloneAutoServiceModulesForRevision(ctx context.Context, projectName, serviceName string, production bool, sourceRevision, targetRevision int64) error {
+	if projectName == "" || serviceName == "" || sourceRevision == 0 || targetRevision == 0 || sourceRevision == targetRevision {
+		return nil
+	}
+	records, err := ListAutoServiceModules(ctx, projectName, serviceName, production, sourceRevision)
+	if err != nil {
+		return err
+	}
+	clones := make([]*models.ServiceModule, 0, len(records))
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		clones = append(clones, &models.ServiceModule{
+			Name:       record.Name,
+			Type:       record.Type,
+			Image:      record.Image,
+			ImageName:  record.ImageName,
+			ImagePath:  record.ImagePath,
+			CreateTime: record.CreateTime,
+		})
+	}
+	return pickServiceModuleColl(production).ReplaceAutoForRevision(ctx, projectName, serviceName, targetRevision, clones)
+}
+
 // DeleteAutoServiceModulesForRevision drops every auto record for one
 // (service, revision). Used by Delete in this package when a specific
 // revision is reaped. Manual records are untouched.
