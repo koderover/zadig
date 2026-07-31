@@ -114,7 +114,11 @@ func (job *job) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 	}
 
 	for _, c := range job.Spec.Template.Spec.Containers {
-		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image})
+		wl.Images = append(wl.Images, resource.ContainerImage{
+			Name:      c.Name,
+			Image:     c.Image,
+			ImageName: util.ExtractImageName(c.Image),
+		})
 	}
 
 	for _, p := range pods {
