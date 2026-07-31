@@ -594,8 +594,20 @@ func (c *workflowCtl) updateWorkflowTask() {
 
 	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
-		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
-			c.logger.Errorf("send workflow task notification failed, error: %v", err)
+		// cancelled ACKs are let through above so job status can be persisted, and
+		// pause ACKs repeat while a stage stays paused; without this guard every
+		// such ACK would re-send the same terminal notification.
+		shouldSendStatusNotification := false
+		switch c.workflowTask.Status {
+		case config.StatusPassed, config.StatusFailed, config.StatusTimeout, config.StatusCancelled:
+			shouldSendStatusNotification = isFirstComplete
+		case config.StatusReject, config.StatusPause:
+			shouldSendStatusNotification = c.workflowTask.Status != taskInColl.Status
+		}
+		if shouldSendStatusNotification {
+			if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
+				c.logger.Errorf("send workflow task notification failed, error: %v", err)
+			}
 		}
 		if shouldSendCompleteHook {
 			if err := SendSystemWorkflowHook(c.workflowTask, commonmodels.WorkflowHookEventCompleteExecute); err != nil {
