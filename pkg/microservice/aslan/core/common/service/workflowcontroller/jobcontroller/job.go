@@ -328,10 +328,11 @@ type jobNotifier struct {
 }
 
 type jobNotifyGroup struct {
-	jobs     []*commonmodels.JobTask
-	prepared bool
-	finished int
-	notified bool
+	jobs      []*commonmodels.JobTask
+	snapshots []*commonmodels.JobTask
+	prepared  bool
+	finished  int
+	notified  bool
 }
 
 func newJobNotifier(jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *jobNotifier {
@@ -348,8 +349,30 @@ func newJobNotifier(jobs []*commonmodels.JobTask, workflowCtx *commonmodels.Work
 			notifier.groups[key] = group
 		}
 		group.jobs = append(group.jobs, job)
+		group.snapshots = append(group.snapshots, snapshotJobTask(job))
 	}
 	return notifier
+}
+
+func snapshotJobTask(job *commonmodels.JobTask) *commonmodels.JobTask {
+	if job == nil {
+		return nil
+	}
+	copied := *job
+	return &copied
+}
+
+func (g *jobNotifyGroup) updateSnapshot(job *commonmodels.JobTask) {
+	for i, original := range g.jobs {
+		if original == job {
+			g.snapshots[i] = snapshotJobTask(job)
+			return
+		}
+	}
+}
+
+func (g *jobNotifyGroup) jobSnapshots() []*commonmodels.JobTask {
+	return append([]*commonmodels.JobTask(nil), g.snapshots...)
 }
 
 func jobNotifyGroupKey(job *commonmodels.JobTask) string {
@@ -361,44 +384,62 @@ func jobNotifyGroupKey(job *commonmodels.JobTask) string {
 
 func (n *jobNotifier) jobStarted(job *commonmodels.JobTask) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
-
 	group := n.groups[jobNotifyGroupKey(job)]
 	if group == nil || group.prepared {
+		n.mu.Unlock()
 		return
 	}
 	group.prepared = true
-	sendJobGroupNotifications(n.workflowCtx, group.jobs, config.StatusPrepare, n.logger)
+	group.updateSnapshot(job)
+	jobs := group.jobSnapshots()
+	n.mu.Unlock()
+
+	sendJobGroupNotifications(n.workflowCtx, jobs, config.StatusPrepare, n.logger)
 }
 
 func (n *jobNotifier) jobFinished(job *commonmodels.JobTask) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
-
 	group := n.groups[jobNotifyGroupKey(job)]
 	if group == nil || group.notified {
+		n.mu.Unlock()
 		return
 	}
 	group.finished++
+	group.updateSnapshot(job)
 	if group.finished < len(group.jobs) {
+		n.mu.Unlock()
 		return
 	}
 	group.notified = true
-	sendJobGroupNotifications(n.workflowCtx, group.jobs, aggregateJobNotifyStatus(group.jobs), n.logger)
+	jobs := group.jobSnapshots()
+	status := aggregateJobNotifyStatus(jobs)
+	n.mu.Unlock()
+
+	sendJobGroupNotifications(n.workflowCtx, jobs, status, n.logger)
 }
 
 // flush sends final notifications for groups whose remaining jobs will never
 // run, e.g. when a stage aborts after a failed job.
 func (n *jobNotifier) flush() {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	type notification struct {
+		jobs   []*commonmodels.JobTask
+		status config.Status
+	}
 
+	n.mu.Lock()
+	pending := make([]notification, 0, len(n.groups))
 	for _, group := range n.groups {
 		if group.notified || group.finished == 0 {
 			continue
 		}
 		group.notified = true
-		sendJobGroupNotifications(n.workflowCtx, group.jobs, aggregateJobNotifyStatus(group.jobs), n.logger)
+		jobs := group.jobSnapshots()
+		pending = append(pending, notification{jobs: jobs, status: aggregateJobNotifyStatus(jobs)})
+	}
+	n.mu.Unlock()
+
+	for _, item := range pending {
+		sendJobGroupNotifications(n.workflowCtx, item.jobs, item.status, n.logger)
 	}
 }
 
