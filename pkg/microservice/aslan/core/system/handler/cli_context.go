@@ -25,9 +25,9 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
-// OpenAPIGetCLIContext returns the authenticated user and Zadig edition metadata.
+// OpenAPIGetCLIContext returns the authenticated user and administrator-only Zadig metadata.
 // @Summary Get Zadig CLI context
-// @Description Returns the authenticated user, edition, licensed features, server version, and request ID.
+// @Description Returns the authenticated user and request ID. System administrators also receive edition, licensed features, and server version.
 // @Tags system
 // @Produce json
 // @Success 200 {object} service.CLIContextResponse
@@ -43,5 +43,5 @@ func OpenAPIGetCLIContext(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetCLIContext(ctx.GenUserBriefInfo(), ctx.RequestID)
+	ctx.Resp, ctx.RespErr = service.GetCLIContext(ctx.GenUserBriefInfo(), ctx.RequestID, ctx.Resources.IsSystemAdmin)
 }
