@@ -90,6 +90,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							Owner:          *ev.Repo.Owner.Login,
 							Repo:           *ev.Repo.Name,
 							Branch:         *ev.PullRequest.Base.Ref,
+							TargetBranch:   *ev.PullRequest.Base.Ref,
 							Ref:            *ev.PullRequest.Head.SHA,
 							IsPr:           true,
 							CodehostID:     mainRepo.CodehostID,
@@ -125,6 +126,11 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						}
 					}
 
+					if scanning.ScannerType == types.ScannerTypeAIReview && prID <= 0 {
+						log.Debugf("skip non-PR event for AI review scanning %s", scanning.Name)
+						continue
+					}
+
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {
@@ -157,6 +163,9 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						Branch:     item.Branch,
 						Tag:        item.Tag,
 						PR:         prID,
+					}
+					if scanning.ScannerType == types.ScannerTypeAIReview {
+						repoInfo.Branch = hookPayload.TargetBranch
 					}
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)

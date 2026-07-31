@@ -403,7 +403,7 @@ func (r *Reaper) Exec() (err error) {
 	}
 	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 
-	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarEnableScanner {
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScannerTypeSonarQube && r.Ctx.SonarEnableScanner {
 		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
 		log.Info("Executing SonarQube Scanning process.")
 		startTimeRunSonar := time.Now()
@@ -461,7 +461,7 @@ func (r *Reaper) CollectTestResults() error {
 }
 
 func (r *Reaper) AfterExec() error {
-	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarCheckQualityGate {
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScannerTypeSonarQube && r.Ctx.SonarCheckQualityGate {
 		log.Info("Start check Sonar scanning quality gate status.")
 		client := sonar.NewSonarClient(r.Ctx.SonarServer, r.Ctx.SonarLogin)
 		sonarWorkDir := sonar.GetSonarWorkDir(r.Ctx.SonarParameter)

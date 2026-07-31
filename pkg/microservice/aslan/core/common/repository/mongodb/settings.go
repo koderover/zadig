@@ -289,3 +289,44 @@ func (c *SystemSettingColl) GetWorkflowHookSetting() (*models.WorkflowHookSettin
 
 	return resp.WorkflowHook, nil
 }
+
+func (c *SystemSettingColl) GetAIReviewConfig() (*models.AIReviewConfig, error) {
+	query := bson.M{}
+	resp := &models.SystemSetting{}
+
+	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &models.AIReviewConfig{
+				LLMIntegrationID: "",
+				IncludePaths:     []string{},
+				ExcludePaths:     []string{},
+				OutputLanguage:   "",
+				Rules:            []*models.ReviewRule{},
+			}, nil
+		}
+		return nil, err
+	}
+
+	if resp.AIReviewConfig == nil {
+		return &models.AIReviewConfig{
+			LLMIntegrationID: "",
+			IncludePaths:     []string{},
+			ExcludePaths:     []string{},
+			OutputLanguage:   "",
+			Rules:            []*models.ReviewRule{},
+		}, nil
+	}
+
+	return resp.AIReviewConfig, nil
+}
+
+func (c *SystemSettingColl) UpdateAIReviewConfig(reviewConfig *models.AIReviewConfig) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+	change := bson.M{"$set": bson.M{"ai_review_config": reviewConfig}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}

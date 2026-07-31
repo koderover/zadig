@@ -1183,6 +1183,9 @@ func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonm
 
 		writeOutputs(outputs, jobTask.Key, workflowCtx)
 	}
+	if report := cm.Data[commontypes.JobAIReviewReportKey]; report != "" {
+		workflowCtx.GlobalContextSet(job.GetJobOutputKey(jobTask.Key, commontypes.JobAIReviewReportKey), report)
+	}
 	return nil
 }
 

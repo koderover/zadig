@@ -321,7 +321,7 @@ func (r *Reaper) runSonarScanner() error {
 
 func (r *Reaper) prepareScriptsEnv() []string {
 	scripts := []string{}
-	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScannerTypeSonarQube {
 		return scripts
 	}
 	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")

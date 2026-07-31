@@ -18,11 +18,53 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
+
+func ValidateReviewRules(rules []*commonmodels.ReviewRule) error {
+	paths := make(map[string]struct{}, len(rules))
+	for i, rule := range rules {
+		if rule == nil {
+			return fmt.Errorf("review rule at index %d cannot be nil", i)
+		}
+		path := strings.TrimSpace(rule.Path)
+		if path == "" {
+			return fmt.Errorf("review rule path at index %d cannot be empty", i)
+		}
+		if _, ok := paths[path]; ok {
+			return fmt.Errorf("duplicate review rule path %q", path)
+		}
+		rule.Path = path
+		paths[path] = struct{}{}
+	}
+	return nil
+}
+
+func MergeReviewRules(scanningRules, systemRules []*commonmodels.ReviewRule) []*commonmodels.ReviewRule {
+	result := make([]*commonmodels.ReviewRule, 0, len(scanningRules)+len(systemRules))
+	overridden := make(map[string]struct{}, len(scanningRules))
+	for _, rule := range scanningRules {
+		if rule == nil {
+			continue
+		}
+		result = append(result, rule)
+		overridden[rule.Path] = struct{}{}
+	}
+	for _, rule := range systemRules {
+		if rule == nil {
+			continue
+		}
+		if _, ok := overridden[rule.Path]; ok {
+			continue
+		}
+		result = append(result, rule)
+	}
+	return result
+}
 
 type ScanService struct {
 	IDScanMap       sync.Map
