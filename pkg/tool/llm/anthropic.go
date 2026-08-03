@@ -62,12 +62,20 @@ type anthropicMessage struct {
 }
 
 type anthropicMessageResponse struct {
-	Content []anthropicContent `json:"content"`
+	ID         string             `json:"id"`
+	Content    []anthropicContent `json:"content"`
+	StopReason string             `json:"stop_reason"`
+	Usage      anthropicUsage     `json:"usage"`
 }
 
 type anthropicContent struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
+}
+
+type anthropicUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 func (c *AnthropicClient) Configure(config LLMConfig) error {
@@ -156,13 +164,29 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		return "", fmt.Errorf("decode anthropic response: %w", err)
 	}
 	var result strings.Builder
+	textBlocks := 0
+	toolUseBlocks := 0
 	for _, content := range response.Content {
-		if content.Type == "text" {
+		switch content.Type {
+		case "text":
+			textBlocks++
 			result.WriteString(content.Text)
+		case "tool_use":
+			toolUseBlocks++
 		}
 	}
-	if result.Len() == 0 {
-		return "", errors.New("anthropic response contains no text content")
+	if strings.TrimSpace(result.String()) == "" {
+		return "", fmt.Errorf(
+			"anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
+			response.ID,
+			response.StopReason,
+			len(response.Content),
+			textBlocks,
+			result.Len(),
+			toolUseBlocks,
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+		)
 	}
 	return result.String(), nil
 }

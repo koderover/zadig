@@ -132,11 +132,17 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	log.Debugf("ai completion took: %v", time.Since(now))
 
 	if len(resp.Choices) == 0 {
-		return "", errors.New("no completion choices")
+		return "", fmt.Errorf(
+			"openai response contains no completion choices: response_id=%s completion_tokens=%d total_tokens=%d",
+			resp.ID,
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
 	}
+	choice := resp.Choices[0]
 	thinkStartTag := "<think>"
 	thinkEndTag := "</think>"
-	message := resp.Choices[0].Message.Content
+	message := choice.Message.Content
 	for {
 		thinkStartIndex := strings.Index(message, thinkStartTag)
 		thinkEndIndex := strings.Index(message, thinkEndTag)
@@ -150,8 +156,22 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		message = strings.TrimSpace(message)
 	}
 
-	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(resp.Choices[0].FinishReason) {
+	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(choice.FinishReason) {
 		return message, ErrMaxTokensExceeded
+	}
+	if strings.TrimSpace(message) == "" {
+		return "", fmt.Errorf(
+			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t completion_tokens=%d total_tokens=%d",
+			resp.ID,
+			choice.FinishReason,
+			len(choice.Message.Content),
+			len(choice.Message.MultiContent),
+			len(choice.Message.ToolCalls),
+			choice.Message.FunctionCall != nil,
+			choice.Message.Refusal != "",
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
 	}
 	return message, nil
 }
