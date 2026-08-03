@@ -122,13 +122,7 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	// encrypted token echo is for the admin edit dialog only; everyone else
-	// always gets masked values.
-	encryptedKey := c.Query("encryptedKey")
-	if !ctx.Resources.IsSystemAdmin {
-		encryptedKey = ""
-	}
-	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id, encryptedKey)
+	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id, c.Query("encryptedKey"))
 }
 
 // @Summary List llm integrations
@@ -153,11 +147,7 @@ func ListLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	encryptedKey := c.Query("encryptedKey")
-	if !ctx.Resources.IsSystemAdmin {
-		encryptedKey = ""
-	}
-	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO(), encryptedKey)
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO(), c.Query("encryptedKey"))
 }
 
 // @Summary List llm integration briefs
