@@ -18,12 +18,22 @@ package service
 
 import (
 	"encoding/json"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 func hasReleasePlanSnapshotChanges(beforeSnapshot, afterSnapshot interface{}) bool {
 	beforeComparable := normalizeReleasePlanSnapshotComparableValue("", beforeSnapshot)
 	afterComparable := normalizeReleasePlanSnapshotComparableValue("", afterSnapshot)
 	return !releasePlanSnapshotValuesEqual(beforeComparable, afterComparable)
+}
+
+func hasReleasePlanPersistedSectionChanges(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) (bool, error) {
+	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
+	if err != nil {
+		return false, err
+	}
+	return hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot), nil
 }
 
 func releasePlanSnapshotValuesEqual(left, right interface{}) bool {

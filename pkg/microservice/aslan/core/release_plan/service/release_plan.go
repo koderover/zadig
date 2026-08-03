@@ -451,6 +451,13 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
+	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, sectionKey, currentSnapshot)
+	if err != nil {
+		return errors.Wrap(err, "build release plan persisted snapshot")
+	}
+	if !hasChanges {
+		return nil
+	}
 	var baseSnapshot interface{}
 	nextVersion := originalPlan.Version + 1
 	needBaseSnapshot, previousVersion, err := shouldBuildReleasePlanVersionBaseSnapshot(planID, sectionKey, nextVersion, args.Verb)
