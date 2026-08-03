@@ -157,7 +157,15 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 
 	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(choice.FinishReason) {
-		return message, ErrMaxTokensExceeded
+		return message, fmt.Errorf(
+			"%w: response_id=%s finish_reason=%s content_length=%d completion_tokens=%d total_tokens=%d",
+			ErrMaxTokensExceeded,
+			resp.ID,
+			choice.FinishReason,
+			len(choice.Message.Content),
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
 	}
 	if strings.TrimSpace(message) == "" {
 		return "", fmt.Errorf(

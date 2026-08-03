@@ -87,7 +87,13 @@ func (c *AIJobCtl) Run(ctx context.Context) {
 		c.fail(fmt.Errorf("create ai client failed: %w", err))
 		return
 	}
-	result, err := client.GetCompletion(jobCtx, c.jobTaskSpec.Prompt)
+	deadline, _ := jobCtx.Deadline()
+	result, err := client.GetCompletion(
+		jobCtx,
+		c.jobTaskSpec.Prompt,
+		llm.WithErrorOnMaxTokens(),
+		llm.WithRequestTimeout(time.Until(deadline)),
+	)
 	if err != nil {
 		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
 			c.timeout()

@@ -65,7 +65,12 @@ func (j AIJobController) Validate(isExecution bool) error {
 	if err := validateAIJobSpec(j.jobSpec); err != nil {
 		return err
 	}
-	if j.jobSpec.TargetType == config.AITargetTypeAgent {
+	switch j.jobSpec.TargetType {
+	case config.AITargetTypeModel:
+		if _, err := commonrepo.NewLLMIntegrationColl().FindByID(context.Background(), j.jobSpec.TargetID); err != nil {
+			return fmt.Errorf("failed to find model integration %s, error: %s", j.jobSpec.TargetID, err)
+		}
+	case config.AITargetTypeAgent:
 		if _, err := commonrepo.NewAgentIntegrationColl().FindByID(context.Background(), j.jobSpec.TargetID); err != nil {
 			return fmt.Errorf("failed to find agent integration %s, error: %s", j.jobSpec.TargetID, err)
 		}

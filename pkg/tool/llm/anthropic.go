@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -88,7 +87,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 		return fmt.Errorf("invalid anthropic base url %q", baseURL)
 	}
 
-	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 5*time.Minute)
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 0)
 	if err != nil {
 		return fmt.Errorf("could not build the anthropic http client: %w", err)
 	}
@@ -108,6 +107,12 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		opt(&opts)
 	}
 	opts = ValidOptions(opts)
+	requestTimeout := opts.RequestTimeout
+	if requestTimeout <= 0 {
+		requestTimeout = defaultCompletionTimeout
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 
 	model := opts.Model
 	if model == "" {
@@ -135,7 +140,7 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		return "", fmt.Errorf("marshal anthropic request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.messagesURL(), bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.messagesURL(), bytes.NewReader(requestBody))
 	if err != nil {
 		return "", fmt.Errorf("create anthropic request: %w", err)
 	}
@@ -174,6 +179,17 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		case "tool_use":
 			toolUseBlocks++
 		}
+	}
+	if opts.ErrorOnMaxTokens && response.StopReason == "max_tokens" {
+		return result.String(), fmt.Errorf(
+			"%w: response_id=%s stop_reason=%s text_length=%d input_tokens=%d output_tokens=%d",
+			ErrMaxTokensExceeded,
+			response.ID,
+			response.StopReason,
+			result.Len(),
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+		)
 	}
 	if strings.TrimSpace(result.String()) == "" {
 		return "", fmt.Errorf(
