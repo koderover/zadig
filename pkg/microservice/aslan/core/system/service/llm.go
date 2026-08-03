@@ -54,7 +54,6 @@ func GetLLMIntegration(ctx context.Context, id string) (*commonmodels.LLMIntegra
 		return nil, e.ErrGetLLMIntegration.AddErr(fmtErr)
 	}
 
-	maskLLMIntegrationTokens([]*commonmodels.LLMIntegration{llmIntegration})
 	return llmIntegration, nil
 }
 
@@ -66,7 +65,6 @@ func ListLLMIntegration(ctx context.Context) ([]*commonmodels.LLMIntegration, er
 		return nil, e.ErrListLLMIntegration.AddErr(fmtErr)
 	}
 
-	maskLLMIntegrationTokens(llmIntegrations)
 	return llmIntegrations, nil
 }
 
@@ -92,14 +90,6 @@ func ListLLMIntegrationBriefs(ctx context.Context) ([]*LLMIntegrationBrief, erro
 		})
 	}
 	return briefs, nil
-}
-
-func maskLLMIntegrationTokens(integrations []*commonmodels.LLMIntegration) {
-	for _, integration := range integrations {
-		if integration.Token != "" {
-			integration.Token = setting.MaskValue
-		}
-	}
 }
 
 func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration) error {

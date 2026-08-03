@@ -68,7 +68,6 @@ func GetAgentIntegration(ctx context.Context, projectName, id string) (*commonmo
 	if err != nil {
 		return nil, e.ErrGetAgentIntegration.AddErr(err)
 	}
-	maskAgentIntegrationCredentials([]*commonmodels.AgentIntegration{integration})
 	return integration, nil
 }
 
@@ -77,19 +76,7 @@ func ListAgentIntegrations(ctx context.Context, projectName string) ([]*commonmo
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
-	maskAgentIntegrationCredentials(integrations)
 	return integrations, nil
-}
-
-func maskAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegration) {
-	for _, integration := range integrations {
-		for _, credential := range []*string{&integration.APIKey, &integration.AccessKey, &integration.SecretKey} {
-			if *credential == "" {
-				continue
-			}
-			*credential = setting.MaskValue
-		}
-	}
 }
 
 type AgentIntegrationBrief struct {
