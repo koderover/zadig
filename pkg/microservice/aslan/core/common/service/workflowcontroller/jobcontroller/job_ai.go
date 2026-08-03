@@ -140,6 +140,7 @@ func (c *AIJobCtl) Run(ctx context.Context) {
 	}
 	c.job.Status = config.StatusWaitingApprove
 	c.ack()
+	sendJobNotifications(c.workflowCtx, c.job, config.StatusWaitingApprove, c.logger)
 	status, err := waitForNativeApprove(jobCtx, approvalSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
 	if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 		c.timeout()

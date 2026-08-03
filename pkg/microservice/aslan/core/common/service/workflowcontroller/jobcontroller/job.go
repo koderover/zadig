@@ -270,6 +270,8 @@ func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *common
 	statusTextKeyOverride := ""
 	if status == config.StatusPrepare {
 		statusTextKeyOverride = "taskStatusExecutionStarted"
+	} else if status == config.StatusWaitingApprove {
+		statusTextKeyOverride = "taskStatusManualApproval"
 	}
 
 	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
