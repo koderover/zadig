@@ -65,7 +65,7 @@ var (
 		"taskStatusExecutionStarted":  "开始执行",
 		"taskStatusManualApproval":    "待确认",
 		"taskStatusPause":             "暂停",
-		"taskStatusWaitingManualExec": "等待手动执行",
+		"taskStatusWaitingManualExec": "执行失败等待人工确认",
 		"jobStatusUnstarted":          "未执行",
 
 		"jobTypeBuild":            "构建",
@@ -149,7 +149,7 @@ var (
 		"taskStatusExecutionStarted":  "Created",
 		"taskStatusManualApproval":    "Waiting for confirmation",
 		"taskStatusPause":             "Pause",
-		"taskStatusWaitingManualExec": "Waiting for Manual Execution",
+		"taskStatusWaitingManualExec": "Execution failed, waiting for manual confirmation",
 		"jobStatusUnstarted":          "Unstarted",
 
 		"jobTypeBuild":            "Build",
