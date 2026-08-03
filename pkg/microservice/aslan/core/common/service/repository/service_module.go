@@ -193,7 +193,7 @@ func pickServiceModuleColl(production bool) *mongodb.ServiceModuleColl {
 func containersToAutoRecords(projectName, serviceName string, revision int64, containers []*models.Container) []*models.ServiceModule {
 	records := make([]*models.ServiceModule, 0, len(containers))
 	for _, c := range containers {
-		if c == nil || c.Name == "" {
+		if c == nil || c.Name == "" || c.Name == "<nil>" {
 			continue
 		}
 		records = append(records, &models.ServiceModule{
