@@ -25,9 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -48,7 +46,7 @@ func CheckLLMIntegration(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func GetLLMIntegration(ctx context.Context, id, encryptedKey string) (*commonmodels.LLMIntegration, error) {
+func GetLLMIntegration(ctx context.Context, id string) (*commonmodels.LLMIntegration, error) {
 	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
 	if err != nil {
 		fmtErr := fmt.Errorf("GetLLMIntegration err: %w", err)
@@ -56,13 +54,11 @@ func GetLLMIntegration(ctx context.Context, id, encryptedKey string) (*commonmod
 		return nil, e.ErrGetLLMIntegration.AddErr(fmtErr)
 	}
 
-	if err := protectLLMIntegrationTokens([]*commonmodels.LLMIntegration{llmIntegration}, encryptedKey); err != nil {
-		return nil, e.ErrGetLLMIntegration.AddErr(err)
-	}
+	maskLLMIntegrationTokens([]*commonmodels.LLMIntegration{llmIntegration})
 	return llmIntegration, nil
 }
 
-func ListLLMIntegration(ctx context.Context, encryptedKey string) ([]*commonmodels.LLMIntegration, error) {
+func ListLLMIntegration(ctx context.Context) ([]*commonmodels.LLMIntegration, error) {
 	llmIntegrations, err := commonrepo.NewLLMIntegrationColl().FindAll(ctx)
 	if err != nil {
 		fmtErr := fmt.Errorf("ListLLMIntegration err: %w", err)
@@ -70,9 +66,7 @@ func ListLLMIntegration(ctx context.Context, encryptedKey string) ([]*commonmode
 		return nil, e.ErrListLLMIntegration.AddErr(fmtErr)
 	}
 
-	if err := protectLLMIntegrationTokens(llmIntegrations, encryptedKey); err != nil {
-		return nil, e.ErrListLLMIntegration.AddErr(err)
-	}
+	maskLLMIntegrationTokens(llmIntegrations)
 	return llmIntegrations, nil
 }
 
@@ -100,31 +94,12 @@ func ListLLMIntegrationBriefs(ctx context.Context) ([]*LLMIntegrationBrief, erro
 	return briefs, nil
 }
 
-func protectLLMIntegrationTokens(integrations []*commonmodels.LLMIntegration, encryptedKey string) error {
-	if encryptedKey == "" {
-		for _, integration := range integrations {
-			if integration.Token != "" {
-				integration.Token = setting.MaskValue
-			}
-		}
-		return nil
-	}
-
-	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("get aes key from encrypted key: %w", err)
-	}
+func maskLLMIntegrationTokens(integrations []*commonmodels.LLMIntegration) {
 	for _, integration := range integrations {
-		if integration.Token == "" {
-			continue
+		if integration.Token != "" {
+			integration.Token = setting.MaskValue
 		}
-		encrypted, err := crypto.AesEncryptByKey(integration.Token, aesKey.PlainText)
-		if err != nil {
-			return fmt.Errorf("encrypt token: %w", err)
-		}
-		integration.Token = encrypted
 	}
-	return nil
 }
 
 func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration) error {

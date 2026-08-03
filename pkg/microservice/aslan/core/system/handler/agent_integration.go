@@ -62,18 +62,6 @@ func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName s
 	return true
 }
 
-// canEchoAgentCredential decides whether encrypted credential echo is allowed;
-// it is for the edit dialog only, so system admins and project admins qualify.
-func canEchoAgentCredential(ctx *internalhandler.Context, projectName string) bool {
-	if ctx.Resources.IsSystemAdmin {
-		return true
-	}
-	if authInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		return authInfo.IsProjectAdmin
-	}
-	return false
-}
-
 // @Summary Create a agent integration
 // @Description Create a agent integration
 // @Tags 	system
@@ -147,7 +135,6 @@ func ValidateAgentIntegration(c *gin.Context) {
 // @Produce json
 // @Param 	projectName		query		string								true	"project name"
 // @Param 	id				path		string								true	"id"
-// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{object} 	commonmodels.AgentIntegration
 // @Router /api/aslan/system/agent/integration/{id} [get]
 func GetAgentIntegration(c *gin.Context) {
@@ -169,11 +156,7 @@ func GetAgentIntegration(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
 	}
-	encryptedKey := c.Query("encryptedKey")
-	if !canEchoAgentCredential(ctx, projectName) {
-		encryptedKey = ""
-	}
-	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), projectName, c.Param("id"), encryptedKey)
+	ctx.Resp, ctx.RespErr = service.GetAgentIntegration(context.TODO(), projectName, c.Param("id"))
 }
 
 // @Summary List agent integrations
@@ -182,7 +165,6 @@ func GetAgentIntegration(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	projectName		query		string								true	"project name"
-// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{array} 	commonmodels.AgentIntegration
 // @Router /api/aslan/system/agent/integration [get]
 func ListAgentIntegrations(c *gin.Context) {
@@ -200,11 +182,7 @@ func ListAgentIntegrations(c *gin.Context) {
 		return
 	}
 
-	encryptedKey := c.Query("encryptedKey")
-	if !canEchoAgentCredential(ctx, projectName) {
-		encryptedKey = ""
-	}
-	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), projectName, encryptedKey)
+	ctx.Resp, ctx.RespErr = service.ListAgentIntegrations(context.TODO(), projectName)
 }
 
 // @Summary List agents of the projects visible to the caller

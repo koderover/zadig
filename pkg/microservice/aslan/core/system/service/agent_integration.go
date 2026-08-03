@@ -27,12 +27,9 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -66,58 +63,33 @@ func UpdateAgentIntegration(ctx context.Context, projectName, id string, integra
 	return nil
 }
 
-func GetAgentIntegration(ctx context.Context, projectName, id, encryptedKey string) (*commonmodels.AgentIntegration, error) {
+func GetAgentIntegration(ctx context.Context, projectName, id string) (*commonmodels.AgentIntegration, error) {
 	integration, err := findProjectAgentIntegration(ctx, projectName, id)
 	if err != nil {
 		return nil, e.ErrGetAgentIntegration.AddErr(err)
 	}
-	if err := protectAgentIntegrationCredentials([]*commonmodels.AgentIntegration{integration}, encryptedKey); err != nil {
-		return nil, e.ErrGetAgentIntegration.AddErr(err)
-	}
+	maskAgentIntegrationCredentials([]*commonmodels.AgentIntegration{integration})
 	return integration, nil
 }
 
-func ListAgentIntegrations(ctx context.Context, projectName, encryptedKey string) ([]*commonmodels.AgentIntegration, error) {
+func ListAgentIntegrations(ctx context.Context, projectName string) ([]*commonmodels.AgentIntegration, error) {
 	integrations, err := commonrepo.NewAgentIntegrationColl().ListByProject(ctx, projectName)
 	if err != nil {
 		return nil, e.ErrListAgentIntegration.AddErr(err)
 	}
-	if err := protectAgentIntegrationCredentials(integrations, encryptedKey); err != nil {
-		return nil, e.ErrListAgentIntegration.AddErr(err)
-	}
+	maskAgentIntegrationCredentials(integrations)
 	return integrations, nil
 }
 
-// protectAgentIntegrationCredentials replaces the stored credentials in place:
-// without an encryptedKey they are masked, otherwise they are encrypted so the
-// edit dialog can echo them back.
-func protectAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegration, encryptedKey string) error {
-	var aesKey *commonutil.GetAesKeyFromEncryptedKeyResp
-	if encryptedKey != "" {
-		key, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log.SugaredLogger())
-		if err != nil {
-			return fmt.Errorf("get aes key from encrypted key: %w", err)
-		}
-		aesKey = key
-	}
-
+func maskAgentIntegrationCredentials(integrations []*commonmodels.AgentIntegration) {
 	for _, integration := range integrations {
 		for _, credential := range []*string{&integration.APIKey, &integration.AccessKey, &integration.SecretKey} {
 			if *credential == "" {
 				continue
 			}
-			if aesKey == nil {
-				*credential = setting.MaskValue
-				continue
-			}
-			encrypted, err := crypto.AesEncryptByKey(*credential, aesKey.PlainText)
-			if err != nil {
-				return fmt.Errorf("encrypt credential: %w", err)
-			}
-			*credential = encrypted
+			*credential = setting.MaskValue
 		}
 	}
-	return nil
 }
 
 type AgentIntegrationBrief struct {

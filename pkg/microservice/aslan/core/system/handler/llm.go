@@ -99,7 +99,6 @@ type GetLLMIntegrationRespone struct {
 // @Accept 	json
 // @Produce json
 // @Param 	id				path		string								true	"id"
-// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{object} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration/{id} [get]
 func GetLLMIntegration(c *gin.Context) {
@@ -122,7 +121,7 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id, c.Query("encryptedKey"))
+	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id)
 }
 
 // @Summary List llm integrations
@@ -130,7 +129,6 @@ func GetLLMIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	encryptedKey	query		string								false	"encrypted key"
 // @Success 200 		{array} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration [get]
 func ListLLMIntegration(c *gin.Context) {
@@ -147,7 +145,7 @@ func ListLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO(), c.Query("encryptedKey"))
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
 }
 
 // @Summary List llm integration briefs
