@@ -312,7 +312,7 @@ func sendJobGroupNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, jobs [
 		StatusTextKeyOverride:   statusTextKeyOverride,
 		RecipientRuntimeContext: workflowCtx.GlobalContextGetAll(),
 	}); err != nil {
-		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", primary.Name, status, err)
+		logger.Errorf("send task notification failed, job: %s, status: %s, error: %v", primary.Name, status, err)
 	}
 }
 

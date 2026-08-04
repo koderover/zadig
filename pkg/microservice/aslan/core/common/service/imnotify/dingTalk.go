@@ -16,6 +16,8 @@ limitations under the License.
 
 package imnotify
 
+import "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+
 type DingDingMessage struct {
 	MsgType  string            `json:"msgtype"`
 	MarkDown *DingDingMarkDown `json:"markdown"`
@@ -45,6 +47,9 @@ func (w *IMNotifyService) SendDingDingMessage(uri, title, content string, atMobi
 		IsAtAll:   isAtAll,
 	}
 
-	_, err := w.SendMessageRequest(uri, message)
-	return err
+	response, err := w.SendMessageRequest(uri, message)
+	if err != nil {
+		return err
+	}
+	return instantmessage.ValidateDingDingResponse(response)
 }
