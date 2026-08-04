@@ -241,10 +241,35 @@ func getHelmServiceValuesDiff(render *template.ServiceRender, latestSourceValues
 	if equal {
 		return nil, nil
 	}
+
+	currentSourceValues, err = formatHelmValuesDiffContent(currentSourceValues)
+	if err != nil {
+		return nil, err
+	}
+	latestSourceValues, err = formatHelmValuesDiffContent(latestSourceValues)
+	if err != nil {
+		return nil, err
+	}
 	return &HelmServiceValuesDiff{
 		Current: currentSourceValues,
 		Latest:  latestSourceValues,
 	}, nil
+}
+
+func formatHelmValuesDiffContent(values string) (string, error) {
+	valuesMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
+		return "", err
+	}
+
+	formattedValues, err := yaml.Marshal(valuesMap)
+	if err != nil {
+		return "", err
+	}
+	if string(formattedValues) == "{}\n" {
+		return "", nil
+	}
+	return string(formattedValues), nil
 }
 
 func findHelmProductService(prod *models.Product, serviceOrReleaseName string, isHelmChartDeploy bool) *models.ProductService {
