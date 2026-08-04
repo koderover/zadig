@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -292,7 +291,11 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		}
 
 		if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-			w.resolveFeishuPersonExecutorTargets(notify, task)
+			resolvedTargets, resolveErr := w.resolveLarkPersonNotificationTargets(task, executedManualStageUsers(task.Stages), notify)
+			notify.LarkPersonNotificationConfig.TargetUsers = resolvedTargets
+			if resolveErr != nil {
+				log.Errorf("failed to resolve feishu person notification targets: %v", resolveErr)
+			}
 		}
 
 		if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
@@ -375,7 +378,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			}
 
 			if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-				w.resolveFeishuPersonExecutorTargets(notify, task)
+				resolvedTargets, resolveErr := w.resolveLarkPersonNotificationTargets(task, executedManualStageUsers(task.Stages), notify)
+				notify.LarkPersonNotificationConfig.TargetUsers = resolvedTargets
+				if resolveErr != nil {
+					log.Errorf("failed to resolve feishu person notification targets: %v", resolveErr)
+				}
 			}
 
 			if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
@@ -451,45 +458,8 @@ func (w *Service) resolveWorkflowTaskExecutorLarkTarget(client *lark.Client, tas
 	if err != nil {
 		return nil, err
 	}
-	if resolvedTarget == nil {
-		return nil, fmt.Errorf("executor lark target cannot be empty")
-	}
 
 	return resolvedTarget, nil
-}
-
-// resolveFeishuPersonExecutorTargets resolves executor targets in place and drops the ones that
-// cannot be resolved (e.g. webhook/trigger-created tasks have no executor), so that the remaining
-// targets and other notification channels are still delivered.
-func (w *Service) resolveFeishuPersonExecutorTargets(notify *models.NotifyCtl, task *models.WorkflowTask) {
-	if notify.LarkPersonNotificationConfig == nil {
-		return
-	}
-
-	targets := make([]*lark.UserInfo, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
-	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
-		if target == nil {
-			continue
-		}
-		if target.IsExecutor {
-			client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
-			if err != nil {
-				log.Warnf("skip workflow executor notify target: create feishu client error: %s", err)
-				continue
-			}
-			resolvedTarget, err := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
-			if err != nil {
-				log.Warnf("skip workflow executor notify target: %v", err)
-				continue
-			}
-			target.ID = resolvedTarget.ID
-			target.Name = resolvedTarget.Name
-			target.Avatar = resolvedTarget.Avatar
-			target.IDType = resolvedTarget.IDType
-		}
-		targets = append(targets, target)
-	}
-	notify.LarkPersonNotificationConfig.TargetUsers = targets
 }
 
 func (w *Service) SendManualExecStageNotifications(workflowCtx *models.WorkflowTaskCtx, stage *models.StageTask) error {
@@ -549,7 +519,7 @@ func (w *Service) sendManualStageUserNotifications(taskForNotification *models.W
 		switch notify.WebHookType {
 		case setting.NotifyWebHookTypeFeishuPerson:
 			resolveWorkflowNotifyDynamicRecipients(taskForNotification, notify, runtimeContext)
-			resolvedTargets, err := w.resolveManualExecStageLarkTargets(taskForNotification, stageForNotification, notify)
+			resolvedTargets, err := w.resolveLarkPersonNotificationTargets(taskForNotification, manualExecStageUsers(stageForNotification), notify)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -648,7 +618,10 @@ func getManualExecStageNotifyCtls(task *models.WorkflowTask) []*models.NotifyCtl
 	return ret
 }
 
-func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, stage *models.StageTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
+// resolveLarkPersonNotificationTargets resolves workflow and stage executor
+// placeholders to concrete Feishu users. The same user is retained when it is
+// selected through multiple notification targets.
+func (w *Service) resolveLarkPersonNotificationTargets(task *models.WorkflowTask, stageUsers []*models.User, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
 	if notify == nil || notify.LarkPersonNotificationConfig == nil || notify.LarkPersonNotificationConfig.AppID == "" {
 		return nil, nil
 	}
@@ -658,10 +631,16 @@ func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, s
 		return nil, fmt.Errorf("create feishu client error: %w", err)
 	}
 
+	return w.resolveLarkPersonNotificationTargetsWithClient(client, task, stageUsers, notify)
+}
+
+func (w *Service) resolveLarkPersonNotificationTargetsWithClient(client *lark.Client, task *models.WorkflowTask, stageUsers []*models.User, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
 	respErr := new(multierror.Error)
 	targets := make([]*lark.UserInfo, 0, len(notify.LarkPersonNotificationConfig.TargetUsers))
-	targetSet := sets.NewString()
-	stageUsers, stageUserInfoMap := resolveManualExecStageUsers(stage, task.TaskCreatorID)
+	resolvedStageUsers, stageUserInfoMap := commonutil.GeneFlatUsers(stageUsers)
+	if task.TaskCreatorID != "" {
+		resolvedStageUsers, stageUserInfoMap = commonutil.GeneFlatUsersWithCaller(stageUsers, task.TaskCreatorID)
+	}
 
 	for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 		if target == nil {
@@ -669,26 +648,18 @@ func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, s
 		}
 
 		if target.IsExecutor {
-			if task.TaskCreatorID == "" {
-				respErr = multierror.Append(respErr, fmt.Errorf("executor id is empty, cannot send message"))
-				continue
-			}
-			userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
-			if err != nil {
-				respErr = multierror.Append(respErr, fmt.Errorf("failed to find user %s, error: %w", task.TaskCreatorID, err))
-				continue
-			}
-			resolvedTarget, _, resolveErr := w.resolveManualExecStageLarkTargetFromUser(client, userInfo.Uid, userInfo.Name)
+			resolvedTarget, resolveErr := w.resolveWorkflowTaskExecutorLarkTarget(client, task)
 			if resolveErr != nil {
 				respErr = multierror.Append(respErr, resolveErr)
 				continue
 			}
-			targets = appendManualExecStageLarkTarget(targets, targetSet, resolvedTarget)
+			resolvedTarget.IsExecutor = true
+			targets = append(targets, resolvedTarget)
 			continue
 		}
 
 		if target.IsStageExecutor {
-			for _, stageUser := range stageUsers {
+			for _, stageUser := range resolvedStageUsers {
 				if stageUser == nil || stageUser.UserID == "" {
 					continue
 				}
@@ -701,7 +672,8 @@ func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, s
 					respErr = multierror.Append(respErr, fmt.Errorf("stage executor %s: %w", stageUser.UserID, resolveErr))
 					continue
 				}
-				targets = appendManualExecStageLarkTarget(targets, targetSet, resolvedTarget)
+				resolvedTarget.IsStageExecutor = true
+				targets = append(targets, resolvedTarget)
 			}
 			continue
 		}
@@ -720,7 +692,7 @@ func (w *Service) resolveManualExecStageLarkTargets(task *models.WorkflowTask, s
 		if resolvedTarget.IDType == "" {
 			resolvedTarget.IDType = setting.LarkUserID
 		}
-		targets = appendManualExecStageLarkTarget(targets, targetSet, resolvedTarget)
+		targets = append(targets, resolvedTarget)
 	}
 
 	return targets, respErr.ErrorOrNil()
@@ -774,17 +746,19 @@ func manualExecStageUsers(stage *models.StageTask) []*models.User {
 	return stage.ManualExec.ManualExecUsers
 }
 
-func resolveManualExecStageUsers(stage *models.StageTask, taskCreatorID string) ([]*models.User, map[string]*types.UserInfo) {
-	stageUsers := manualExecStageUsers(stage)
-	if len(stageUsers) == 0 {
-		return nil, map[string]*types.UserInfo{}
+func executedManualStageUsers(stages []*models.StageTask) []*models.User {
+	users := make([]*models.User, 0)
+	for _, stage := range stages {
+		if stage == nil || stage.ManualExec == nil || stage.ManualExec.ManualExectorID == "" {
+			continue
+		}
+		users = append(users, &models.User{
+			Type:     setting.UserTypeUser,
+			UserID:   stage.ManualExec.ManualExectorID,
+			UserName: stage.ManualExec.ManualExectorName,
+		})
 	}
-
-	if taskCreatorID != "" {
-		return commonutil.GeneFlatUsersWithCaller(stageUsers, taskCreatorID)
-	}
-
-	return commonutil.GeneFlatUsers(stageUsers)
+	return users
 }
 
 // ---------------------------------------------------------------------------
@@ -973,7 +947,7 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 
 		// Resolve feishu_person targets (e.g. executor placeholders).
 		if notifyToSend.WebHookType == setting.NotifyWebHookTypeFeishuPerson && notifyToSend.LarkPersonNotificationConfig != nil {
-			resolvedTargets, err := w.resolveManualExecStageLarkTargets(task, stageForNotification, &notifyToSend)
+			resolvedTargets, err := w.resolveLarkPersonNotificationTargets(task, manualExecStageUsers(stageForNotification), &notifyToSend)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
 				continue
@@ -1015,6 +989,20 @@ func (w *Service) SendTaskNotifications(input *TaskNotifyInput) error {
 	}
 
 	return respErr.ErrorOrNil()
+}
+
+// ResolveJobLarkPersonNotificationTargets resolves notification targets using
+// the manual execution context of the job's stage.
+func (w *Service) ResolveJobLarkPersonNotificationTargets(client *lark.Client, task *models.WorkflowTask, job *models.JobTask, notify *models.NotifyCtl) ([]*lark.UserInfo, error) {
+	stage := findTaskNotifyStage(task.Stages, job)
+	if stage == nil {
+		for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+			if target != nil && target.IsStageExecutor {
+				return nil, fmt.Errorf("failed to find stage for notification job %s", job.Name)
+			}
+		}
+	}
+	return w.resolveLarkPersonNotificationTargetsWithClient(client, task, manualExecStageUsers(stage), notify)
 }
 
 func findTaskNotifyStage(stages []*models.StageTask, job *models.JobTask) *models.StageTask {
@@ -1070,23 +1058,6 @@ func (w *Service) resolveManualExecStageLarkTargetFromUser(client *lark.Client, 
 		Name:   userDetailedInfo.Name,
 		Avatar: userDetailedInfo.Avatar,
 	}, displayName, nil
-}
-
-func appendManualExecStageLarkTarget(targets []*lark.UserInfo, targetSet sets.String, target *lark.UserInfo) []*lark.UserInfo {
-	if target == nil || target.ID == "" {
-		return targets
-	}
-	if target.IDType == "" {
-		target.IDType = setting.LarkUserID
-	}
-
-	targetKey := fmt.Sprintf("%s:%s", target.IDType, target.ID)
-	if !targetSet.Has(targetKey) {
-		targetSet.Insert(targetKey)
-		targets = append(targets, target)
-	}
-
-	return targets
 }
 
 func getStageTaskByName(stages []*models.StageTask, stageName string) *models.StageTask {
