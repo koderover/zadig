@@ -212,11 +212,11 @@ func getHelmServiceDiffSummary(prodSvc *models.ProductService, latestTmplSvc *mo
 			return summary, "", false, err
 		}
 		if hasSource {
-			equal, err := yamlutil.Equal(sourceValues, render.GetOverrideYaml())
+			valuesDiff, err := getHelmServiceValuesDiff(render, sourceValues)
 			if err != nil {
 				return summary, "", false, err
 			}
-			summary.ValuesChanged = !equal
+			summary.ValuesChanged = valuesDiff != nil
 		}
 	}
 
@@ -224,54 +224,26 @@ func getHelmServiceDiffSummary(prodSvc *models.ProductService, latestTmplSvc *mo
 	return summary, sourceValues, hasSource, nil
 }
 
-func parseOverrideValues(valueStr string) ([]*commonservice.KVPair, error) {
-	if valueStr == "" {
+func getHelmServiceValuesDiff(render *template.ServiceRender, latestSourceValues string) (*HelmServiceValuesDiff, error) {
+	if render == nil {
 		return nil, nil
 	}
 
-	ret := make([]*commonservice.KVPair, 0)
-	if err := json.Unmarshal([]byte(valueStr), &ret); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func getHelmServiceValuesDiff(productName, envName, namespace string, prodSvc *models.ProductService, diff *HelmServiceDiffSummary, overrideYaml string, production, isHelmChartDeploy bool, log *zap.SugaredLogger) (*HelmServiceValuesDiff, error) {
-	render := prodSvc.GetServiceRender()
-	overrideValues, err := parseOverrideValues(render.OverrideValues)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse override values for service %s, err: %s", prodSvc.ServiceName, err)
+	currentSourceValues := render.GetOverrideYaml()
+	if helmValuesSourceType(render.OverrideYaml) == setting.SourceFromGitRepo {
+		currentSourceValues = render.GetAutoSyncYaml()
 	}
 
-	arg := &EstimateValuesArg{
-		OverrideYaml:   overrideYaml,
-		OverrideValues: overrideValues,
-		Production:     production,
-	}
-	serviceOrReleaseName := prodSvc.ServiceName
-	if isHelmChartDeploy {
-		serviceOrReleaseName = prodSvc.ReleaseName
-		arg.ChartRepo = render.ChartRepo
-		arg.ChartName = render.ChartName
-		arg.ChartVersion = render.ChartVersion
-	}
-	valuesResp, err := GenEstimatedValues(productName, envName, namespace, serviceOrReleaseName, EstimateValuesSceneUpdateService, EstimateContentTypeValues, EstimateValuesResponseFormatYaml, arg, diff.VersionChanged, production, isHelmChartDeploy, "", log)
+	equal, err := yamlutil.Equal(currentSourceValues, latestSourceValues)
 	if err != nil {
 		return nil, err
 	}
-
-	equal, err := yamlutil.Equal(valuesResp.Current, valuesResp.Latest)
-	if err != nil {
-		return nil, err
-	}
-	diff.ValuesChanged = !equal
-	diff.HasDiff = diff.VersionChanged || diff.ValuesChanged
 	if equal {
 		return nil, nil
 	}
 	return &HelmServiceValuesDiff{
-		Current: valuesResp.Current,
-		Latest:  valuesResp.Latest,
+		Current: currentSourceValues,
+		Latest:  latestSourceValues,
 	}, nil
 }
 
@@ -661,14 +633,7 @@ func ListHelmReleaseDiffSummaries(productName, envName string, production bool, 
 				latestTmplSvc = serviceTmplMap[prodSvc.ServiceName]
 			}
 
-			diff, sourceValues, hasSource, diffErr := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
-			if diffErr == nil && diff.ValuesChanged {
-				overrideYaml := prodSvc.GetServiceRender().GetOverrideYaml()
-				if hasSource {
-					overrideYaml = sourceValues
-				}
-				_, diffErr = getHelmServiceValuesDiff(productName, envName, prod.Namespace, prodSvc, diff, overrideYaml, production, isHelmChartDeploy, log)
-			}
+			diff, _, _, diffErr := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
 			if diffErr != nil {
 				log.Warnf("failed to get helm service diff summary, project: %s, env: %s, service: %s, err: %s", productName, envName, prodSvc.ServiceName, diffErr)
 				if diff == nil {
@@ -719,7 +684,7 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 		}
 	}
 
-	diff, sourceValues, hasSource, err := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
+	diff, sourceValues, _, err := getHelmServiceDiffSummary(prodSvc, latestTmplSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -744,15 +709,10 @@ func GetHelmReleaseDiff(productName, envName, serviceOrReleaseName string, produ
 		return resp, nil
 	}
 
-	overrideYaml := prodSvc.GetServiceRender().GetOverrideYaml()
-	if hasSource {
-		overrideYaml = sourceValues
-	}
-	valuesDiff, err := getHelmServiceValuesDiff(productName, envName, prod.Namespace, prodSvc, diff, overrideYaml, production, isHelmChartDeploy, log)
+	valuesDiff, err := getHelmServiceValuesDiff(prodSvc.GetServiceRender(), sourceValues)
 	if err != nil {
 		return nil, err
 	}
-	resp.HasDiff = diff.HasDiff
 	resp.ValuesDiff = valuesDiff
 
 	return resp, nil
