@@ -156,6 +156,11 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
+		case setting.Job:
+			if err := updater.UpdateJobImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
+				log.Errorf("[%s] UpdateJobImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 Job 容器镜像失败")
+			}
 		case setting.CronJob:
 			if err := updater.UpdateCronJobImageV2(context.TODO(), product.ClusterID, namespace, args.Name, args.ContainerName, args.Image); err != nil {
 				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())

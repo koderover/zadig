@@ -993,7 +993,7 @@ func FindServiceFromIstioGateway(gwObjs *v1alpha3.GatewayList, serviceName strin
 }
 
 // GetHelmServiceName get service name from annotations of resources deployed by helm
-// resType currently only support Deployment, StatefulSet and CronJob
+// resType currently only support Deployment, StatefulSet, Job and CronJob.
 // this function needs to be optimized
 func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client, version *version.Info) (string, error) {
 	res := &unstructured.Unstructured{}
@@ -1009,6 +1009,8 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		res.SetGroupVersionKind(getter.DeploymentGVK)
 	case setting.StatefulSet:
 		res.SetGroupVersionKind(getter.StatefulSetGVK)
+	case setting.Job:
+		res.SetGroupVersionKind(getter.JobGVK)
 	case setting.CronJob:
 		if !kubeclient.VersionLessThan121(version) {
 			res.SetGroupVersionKind(getter.CronJobGVK)
