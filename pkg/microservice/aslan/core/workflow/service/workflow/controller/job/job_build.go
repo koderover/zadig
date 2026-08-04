@@ -1060,7 +1060,8 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 		return nil, fmt.Errorf("service name and service module are required for build job")
 	}
 
-	// Find the correct service/module from options
+	// Use the latest persisted workflow to validate the requested service/module
+	// and determine its configured build.
 	var targetBuild *commonmodels.ServiceAndBuild
 	latestJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
@@ -1068,7 +1069,7 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 	}
 	latestJobSpec := new(commonmodels.ZadigBuildJobSpec)
 	if err := commonmodels.IToi(latestJob.Spec, latestJobSpec); err != nil {
-		return nil, fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+		return nil, fmt.Errorf("failed to decode build job spec, error: %s", err)
 	}
 
 	for _, build := range latestJobSpec.ServiceAndBuildsOptions {
@@ -1082,8 +1083,33 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 		return nil, fmt.Errorf("service %s/%s not found in build job options", option.ServiceName, option.ServiceModule)
 	}
 
-	// Find the KeyVal with the given key
-	for _, kv := range targetBuild.KeyVals {
+	// Build templates can be updated independently from workflows. Load the
+	// configured build to locate its latest template instead of using the variable
+	// snapshot persisted in the workflow or build target.
+	buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+		Name:        targetBuild.BuildName,
+		ProductName: j.workflow.Project,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find build: %s for service %s/%s, error: %s", targetBuild.BuildName, option.ServiceName, option.ServiceModule, err)
+	}
+
+	preBuild := buildInfo.PreBuild
+	if buildInfo.TemplateID != "" {
+		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: buildInfo.TemplateID})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find build template: %s for build: %s, error: %s", buildInfo.TemplateID, targetBuild.BuildName, err)
+		}
+		preBuild = buildTemplate.PreBuild
+	}
+	if preBuild == nil {
+		return nil, fmt.Errorf("build: %s pre build config is empty", targetBuild.BuildName)
+	}
+
+	// Only values referenced by CallFunction come from the request. The script
+	// and CallFunction themselves always come from the latest persisted build
+	// configuration (the build template when one is configured).
+	for _, kv := range preBuild.Envs {
 		if kv.Key == key {
 			resp, err := RenderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
 			if err != nil {
