@@ -31,6 +31,7 @@ import (
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func OpenAPICreateScanningModule(username string, args *OpenAPICreateScanningReq, log *zap.SugaredLogger) error {
@@ -140,26 +141,53 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 	if err != nil {
 		return 0, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
-	repos, err := workflowservice.OpenAPIRepoInputToRepository(testInfo.Repos, args.RepoInfo)
-	if err != nil {
-		return 0, err
+
+	repos := testInfo.Repos
+	if len(args.RepoInfo) > 0 {
+		if err := util.DeepCopy(&repos, testInfo.Repos); err != nil {
+			return 0, fmt.Errorf("copy test repositories error: %v", err)
+		}
+		// The converter updates matching Git repository objects in place. Applying it to
+		// the copied slice preserves repositories omitted from the runtime override.
+		overrides, err := workflowservice.OpenAPIRepoInputToRepository(repos, args.RepoInfo)
+		if err != nil {
+			return 0, err
+		}
+		if len(overrides) != len(args.RepoInfo) {
+			return 0, fmt.Errorf("one or more repositories do not match the test configuration")
+		}
+		for _, override := range overrides {
+			if override.Source == "perforce" {
+				return 0, fmt.Errorf("perforce repository overrides are not supported")
+			}
+		}
 	}
-	if len(args.RepoInfo) > 0 && len(repos) != len(args.RepoInfo) {
-		return 0, fmt.Errorf("one or more repositories do not match the test configuration")
-	}
-	keyVals := make(commonmodels.RuntimeKeyValList, 0)
-	if testInfo.PreTest != nil {
-		keyVals = testInfo.PreTest.Envs.ToRuntimeList()
-	}
-	keyVals = workflowservice.OpenAPIKVInputToKeyValList(keyVals, args.Inputs)
-	taskKeyVals := keyVals.ToKVList()
+
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
 		Repos:           repos,
-		KeyVals:         &taskKeyVals,
 	}
+	if len(args.Inputs) > 0 {
+		keyVals := make(commonmodels.RuntimeKeyValList, 0)
+		if testInfo.PreTest != nil {
+			keyVals = testInfo.PreTest.Envs.ToRuntimeList()
+		}
+		configuredInputs := make(map[string]struct{}, len(keyVals))
+		for _, keyVal := range keyVals {
+			configuredInputs[keyVal.Key] = struct{}{}
+		}
+		for _, input := range args.Inputs {
+			if _, ok := configuredInputs[input.Key]; !ok {
+				return 0, fmt.Errorf("input %q does not exist in the test configuration", input.Key)
+			}
+		}
+		keyVals = workflowservice.OpenAPIKVInputToKeyValList(keyVals, args.Inputs)
+		taskKeyVals := keyVals.ToKVList()
+		task.KeyVals = &taskKeyVals
+	}
+
 	result, err := CreateTestTaskV2(task, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)

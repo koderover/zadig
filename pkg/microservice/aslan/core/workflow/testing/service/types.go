@@ -312,6 +312,7 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 	if t.TestName == "" {
 		return false, fmt.Errorf("test name cannot be empty")
 	}
+	repositories := make(map[string]struct{}, len(t.RepoInfo))
 	for i, repo := range t.RepoInfo {
 		if repo == nil {
 			return false, fmt.Errorf("repo_info[%d] cannot be empty", i)
@@ -319,11 +320,22 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.Branch) == "" {
 			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace, repo_name and branch cannot be empty", i)
 		}
+		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)
+		if _, ok := repositories[repository]; ok {
+			return false, fmt.Errorf("repo_info[%d] duplicates repository %s/%s", i, repo.RepoNamespace, repo.RepoName)
+		}
+		repositories[repository] = struct{}{}
 	}
+	inputs := make(map[string]struct{}, len(t.Inputs))
 	for i, input := range t.Inputs {
 		if input == nil || strings.TrimSpace(input.Key) == "" {
 			return false, fmt.Errorf("inputs[%d] key cannot be empty", i)
 		}
+		key := strings.TrimSpace(input.Key)
+		if _, ok := inputs[key]; ok {
+			return false, fmt.Errorf("inputs[%d] duplicates key %q", i, input.Key)
+		}
+		inputs[key] = struct{}{}
 	}
 
 	return true, nil
