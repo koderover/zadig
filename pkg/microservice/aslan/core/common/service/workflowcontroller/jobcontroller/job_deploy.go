@@ -67,6 +67,68 @@ type DeployJobCtl struct {
 	ack         func()
 }
 
+type readyPodCount struct {
+	resource  commonmodels.Resource
+	readyPods int
+	totalPods int
+}
+
+func getReadyPodCount(kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, resource commonmodels.Resource) (readyPodCount, bool, error) {
+	podCount := readyPodCount{resource: resource}
+	switch resource.Kind {
+	case setting.Deployment:
+		d, found, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
+		if err != nil || !found {
+			return podCount, true, fmt.Errorf("failed to get deployment %s/%s - %v", namespace, resource.Name, err)
+		}
+		if d.Spec.Replicas != nil {
+			podCount.totalPods = int(*d.Spec.Replicas)
+		}
+	case setting.DaemonSet:
+		daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
+		if err != nil || !found {
+			return podCount, true, fmt.Errorf("failed to get daemonSet %s/%s - %v", namespace, resource.Name, err)
+		}
+		podCount.totalPods = int(daemonSet.Status.DesiredNumberScheduled)
+	case setting.StatefulSet:
+		sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
+		if err != nil || !found {
+			return podCount, true, fmt.Errorf("failed to get statefulSet %s/%s - %v", namespace, resource.Name, err)
+		}
+		if sts.Spec.Replicas != nil {
+			podCount.totalPods = int(*sts.Spec.Replicas)
+		}
+	default:
+		return podCount, false, nil
+	}
+
+	podUIDs := make(map[string]bool)
+	for _, label := range relatedPodLabels {
+		if len(label) == 0 {
+			continue
+		}
+		selector := labels.Set(label).AsSelector()
+		pods, err := getter.ListPods(namespace, selector, kubeClient)
+		if err != nil {
+			return podCount, true, err
+		}
+		for _, pod := range pods {
+			if !wrapper.Pod(pod).IsOwnerMatched(resource.PodOwnerUID) {
+				continue
+			}
+			if podUIDs[string(pod.UID)] {
+				continue
+			}
+			podUIDs[string(pod.UID)] = true
+			if wrapper.Pod(pod).Ready() {
+				podCount.readyPods++
+			}
+		}
+	}
+
+	return podCount, true, nil
+}
+
 func NewDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *DeployJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskDeploySpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -922,77 +984,17 @@ func checkDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 			return config.StatusTimeout, nil
 		default:
 			time.Sleep(time.Second * 2)
-			type readyPodCount struct {
-				resource  commonmodels.Resource
-				readyPods int
-				totalPods int
-			}
 			readyPodCounts := make([]readyPodCount, 0, len(readyPodResources))
 			countErr := false
 			for _, resource := range readyPodResources {
-				podCount := readyPodCount{resource: resource}
-				switch resource.Kind {
-				case setting.Deployment:
-					d, found, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
-					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get deployment %s/%s - %v", namespace, resource.Name, err))
-						countErr = true
-						break
-					}
-					if d.Spec.Replicas != nil {
-						podCount.totalPods = int(*d.Spec.Replicas)
-					}
-				case setting.DaemonSet:
-					daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
-					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get daemonSet %s/%s - %v", namespace, resource.Name, err))
-						countErr = true
-						break
-					}
-					podCount.totalPods = int(daemonSet.Status.DesiredNumberScheduled)
-				case setting.StatefulSet:
-					sts, found, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
-					if err != nil || !found {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: failed to get statefulSet %s/%s - %v", namespace, resource.Name, err))
-						countErr = true
-						break
-					}
-					if sts.Spec.Replicas != nil {
-						podCount.totalPods = int(*sts.Spec.Replicas)
-					}
-				default:
+				podCount, supported, err := getReadyPodCount(kubeClient, namespace, relatedPodLabels, resource)
+				if err != nil {
+					jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: %v", err))
+					countErr = true
+					break
+				}
+				if !supported {
 					continue
-				}
-				if countErr {
-					break
-				}
-				podUIDs := make(map[string]bool)
-				for _, label := range relatedPodLabels {
-					if len(label) == 0 {
-						continue
-					}
-					selector := labels.Set(label).AsSelector()
-					pods, err := getter.ListPods(namespace, selector, kubeClient)
-					if err != nil {
-						jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get ready pod count: %v", err))
-						countErr = true
-						break
-					}
-					for _, pod := range pods {
-						if !wrapper.Pod(pod).IsOwnerMatched(resource.PodOwnerUID) {
-							continue
-						}
-						if podUIDs[string(pod.UID)] {
-							continue
-						}
-						podUIDs[string(pod.UID)] = true
-						if wrapper.Pod(pod).Ready() {
-							podCount.readyPods++
-						}
-					}
-				}
-				if countErr {
-					break
 				}
 				readyPodCounts = append(readyPodCounts, podCount)
 			}
@@ -1029,6 +1031,12 @@ func checkDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 
 						break L
 					} else {
+						podCount, supported, err := getReadyPodCount(kubeClient, namespace, relatedPodLabels, resource)
+						if err != nil {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get final ready pod count: %v", err))
+						} else if supported {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
+						}
 						jobLogManager.SaveJobLog(fmt.Sprintf("Deployment %s/%s is ready", namespace, resource.Name))
 					}
 				case setting.DaemonSet:
@@ -1050,6 +1058,12 @@ func checkDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 
 						break L
 					} else {
+						podCount, supported, err := getReadyPodCount(kubeClient, namespace, relatedPodLabels, resource)
+						if err != nil {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get final ready pod count: %v", err))
+						} else if supported {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
+						}
 						jobLogManager.SaveJobLog(fmt.Sprintf("DaemonSet %s/%s is ready", namespace, resource.Name))
 					}
 				case setting.StatefulSet:
@@ -1074,6 +1088,12 @@ func checkDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 
 						break L
 					} else {
+						podCount, supported, err := getReadyPodCount(kubeClient, namespace, relatedPodLabels, resource)
+						if err != nil {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Failed to get final ready pod count: %v", err))
+						} else if supported {
+							jobLogManager.SaveJobLog(fmt.Sprintf("Ready pods for %s %s: %d/%d", podCount.resource.Kind, podCount.resource.Name, podCount.readyPods, podCount.totalPods))
+						}
 						jobLogManager.SaveJobLog(fmt.Sprintf("StatefulSet %s/%s is ready", namespace, resource.Name))
 					}
 				}
