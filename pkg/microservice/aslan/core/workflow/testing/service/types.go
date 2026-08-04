@@ -299,8 +299,10 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 }
 
 type OpenAPICreateTestTaskReq struct {
-	ProjectName string `json:"project_key"`
-	TestName    string `json:"test_name"`
+	ProjectName string                    `json:"project_key"`
+	TestName    string                    `json:"test_name"`
+	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info,omitempty"`
+	Inputs      []*types.KV               `json:"inputs,omitempty"`
 }
 
 func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
@@ -309,6 +311,19 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 	}
 	if t.TestName == "" {
 		return false, fmt.Errorf("test name cannot be empty")
+	}
+	for i, repo := range t.RepoInfo {
+		if repo == nil {
+			return false, fmt.Errorf("repo_info[%d] cannot be empty", i)
+		}
+		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.Branch) == "" {
+			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace, repo_name and branch cannot be empty", i)
+		}
+	}
+	for i, input := range t.Inputs {
+		if input == nil || strings.TrimSpace(input.Key) == "" {
+			return false, fmt.Errorf("inputs[%d] key cannot be empty", i)
+		}
 	}
 
 	return true, nil

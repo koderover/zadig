@@ -371,21 +371,9 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		NotificationID:   args.NotificationID,
 	}
 
-	// set pr and branch
-	for i, build := range testInfo.Repos {
-		// check same repo and source
-		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {
-			pr := args.Repos[i].PRs
-			if len(pr) != 0 {
-				testInfo.Repos[i].PRs = pr
-			}
-			if args.Repos[i].Branch != "" {
-				testInfo.Repos[i].Branch = args.Repos[i].Branch
-			}
-			if args.Repos[i].Tag != "" {
-				testInfo.Repos[i].Tag = args.Repos[i].Tag
-			}
-		}
+	repos := testInfo.Repos
+	if len(args.Repos) > 0 {
+		repos = args.Repos
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
@@ -406,7 +394,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
 					KeyVals:     keyVals,
-					Repos:       testInfo.Repos,
+					Repos:       repos,
 				},
 			},
 			ServiceAndTests: nil,

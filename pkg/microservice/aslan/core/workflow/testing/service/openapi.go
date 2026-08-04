@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -135,10 +136,29 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 }
 
 func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
+	testInfo, err := commonrepo.NewTestingColl().Find(args.TestName, args.ProjectName)
+	if err != nil {
+		return 0, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
+	}
+	repos, err := workflowservice.OpenAPIRepoInputToRepository(testInfo.Repos, args.RepoInfo)
+	if err != nil {
+		return 0, err
+	}
+	if len(args.RepoInfo) > 0 && len(repos) != len(args.RepoInfo) {
+		return 0, fmt.Errorf("one or more repositories do not match the test configuration")
+	}
+	keyVals := make(commonmodels.RuntimeKeyValList, 0)
+	if testInfo.PreTest != nil {
+		keyVals = testInfo.PreTest.Envs.ToRuntimeList()
+	}
+	keyVals = workflowservice.OpenAPIKVInputToKeyValList(keyVals, args.Inputs)
+	taskKeyVals := keyVals.ToKVList()
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
+		Repos:           repos,
+		KeyVals:         &taskKeyVals,
 	}
 	result, err := CreateTestTaskV2(task, userName, account, userID, logger)
 	if err != nil {
