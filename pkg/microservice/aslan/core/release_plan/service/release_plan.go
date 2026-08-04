@@ -302,6 +302,10 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 		return nil, errors.Wrap(err, "GetReleasePlan")
 	}
 
+	if err := refreshReleasePlanWorkflowDisplayNames(releasePlan); err != nil {
+		log.Warnf("failed to refresh workflow display names for release plan %s: %v", id, err)
+	}
+
 	// native approval users may be user or user groups
 	// convert to flat user when needed, this data is generated dynamically because group binding may be changed
 	if releasePlan.Approval != nil && releasePlan.Approval.NativeApproval != nil {
@@ -316,6 +320,55 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	}
 
 	return releasePlan, nil
+}
+
+func refreshReleasePlanWorkflowDisplayNames(releasePlan *models.ReleasePlan) error {
+	workflows := make([]mongodb.WorkflowV4, 0)
+	workflowJobs := make(map[string][]*models.ReleaseJob)
+	for _, job := range releasePlan.Jobs {
+		if job.Type != config.JobWorkflow {
+			continue
+		}
+
+		spec := new(models.WorkflowReleaseJobSpec)
+		if err := models.IToi(job.Spec, spec); err != nil {
+			log.Warnf("failed to decode workflow release job %s when refreshing display name: %v", job.ID, err)
+			continue
+		}
+		applyReleasePlanWorkflowLatestLookupCompat(job.Spec, spec)
+		if spec.Workflow == nil || spec.Workflow.Name == "" || spec.Workflow.Project == "" {
+			continue
+		}
+
+		key := spec.Workflow.Project + ":" + spec.Workflow.Name
+		if _, exists := workflowJobs[key]; !exists {
+			workflows = append(workflows, mongodb.WorkflowV4{
+				Name:        spec.Workflow.Name,
+				ProjectName: spec.Workflow.Project,
+			})
+		}
+		workflowJobs[key] = append(workflowJobs[key], job)
+	}
+
+	latestWorkflows, err := mongodb.NewWorkflowV4Coll().ListByWorkflows(mongodb.ListWorkflowV4Opt{
+		Workflows: workflows,
+	})
+	if err != nil {
+		return err
+	}
+	applyReleasePlanWorkflowDisplayNames(workflowJobs, latestWorkflows)
+	return nil
+}
+
+func applyReleasePlanWorkflowDisplayNames(workflowJobs map[string][]*models.ReleaseJob, latestWorkflows []*models.WorkflowV4) {
+	for _, workflow := range latestWorkflows {
+		if workflow.DisplayName == "" {
+			continue
+		}
+		for _, job := range workflowJobs[workflow.Project+":"+workflow.Name] {
+			job.Name = workflow.DisplayName
+		}
+	}
 }
 
 type ReleasePlanLogI18N struct {
