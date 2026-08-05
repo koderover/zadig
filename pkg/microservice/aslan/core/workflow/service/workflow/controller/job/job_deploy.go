@@ -462,15 +462,8 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			}
 		}
 
-		services := make([]*commonmodels.DeployServiceInfo, 0, len(j.jobSpec.Services))
 		for _, service := range j.jobSpec.Services {
 			moduleList := make([]*commonmodels.DeployModuleInfo, 0)
-
-			if len(j.jobSpec.DeployContents) == 1 && slices.Contains(j.jobSpec.DeployContents, config.DeployImage) {
-				if _, ok := productServiceMap[service.ServiceName]; !ok {
-					continue
-				}
-			}
 
 			deployService, ok := deployServiceMap[service.ServiceName]
 			if !ok {
@@ -484,9 +477,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				}
 			}
 			service.Modules = moduleList
-			services = append(services, service)
 		}
-		j.jobSpec.Services = services
 	}
 
 	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
