@@ -393,6 +393,14 @@ const (
 	ProductStatusUnstable = "Unstable"
 )
 
+// Helm Values auto sync status.
+const (
+	HelmAutoSyncStatusPending = "pending"
+	HelmAutoSyncStatusSyncing = "syncing"
+	HelmAutoSyncStatusSynced  = "synced"
+	HelmAutoSyncStatusFailed  = "failed"
+)
+
 // DeliveryVersion status
 
 type DeliveryVersionStatus string

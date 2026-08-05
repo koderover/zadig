@@ -2084,6 +2084,23 @@ func populateHelmValuesSourceCommits(chartValues []*commonservice.HelmSvcRenderA
 	}
 }
 
+func updateHelmAutoSyncStatuses(product *commonmodels.Product, renders []*templatemodels.ServiceRender, status string) error {
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil || !render.OverrideYaml.AutoSync {
+			continue
+		}
+		identifier := render.ServiceName
+		if render.IsHelmChartDeploy {
+			identifier = render.ReleaseName
+		}
+		if err := commonrepo.NewProductColl().UpdateServiceAutoSyncStatus(product.ProductName, product.EnvName, product.Production, render.IsHelmChartDeploy, identifier, status); err != nil {
+			return err
+		}
+		render.OverrideYaml.AutoSyncStatus = status
+	}
+	return nil
+}
+
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
@@ -2133,9 +2150,21 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		util.Go(func() {
 			defer wg.Done()
 
+			if err := updateHelmAutoSyncStatuses(product, []*templatemodels.ServiceRender{chartInfo}, setting.HelmAutoSyncStatusPending); err != nil {
+				log.Errorf("failed to update Helm Values auto sync status to pending, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+			}
 			changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
 			if err != nil {
+				if statusErr := updateHelmAutoSyncStatuses(product, []*templatemodels.ServiceRender{chartInfo}, setting.HelmAutoSyncStatusFailed); statusErr != nil {
+					log.Errorf("failed to update Helm Values auto sync status to failed, serviceName: %s, err: %s", chartInfo.ServiceName, statusErr)
+				}
 				log.Errorf("failed to sync yaml from source, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				return
+			}
+			if !changed {
+				if statusErr := updateHelmAutoSyncStatuses(product, []*templatemodels.ServiceRender{chartInfo}, setting.HelmAutoSyncStatusSynced); statusErr != nil {
+					log.Errorf("failed to update Helm Values auto sync status to synced, serviceName: %s, err: %s", chartInfo.ServiceName, statusErr)
+				}
 				return
 			}
 
@@ -2289,12 +2318,24 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 			}
 		}()
 
+		if syncLock != nil {
+			if statusErr := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, setting.HelmAutoSyncStatusSyncing); statusErr != nil {
+				log.Errorf("failed to update Helm Values auto sync status to syncing: %v", statusErr)
+			}
+		}
 		err := kube.DeployMultiHelmRelease(productResp, helmClient, nil, userName, log)
+		autoSyncStatus := setting.HelmAutoSyncStatusSynced
 		if err != nil {
+			autoSyncStatus = setting.HelmAutoSyncStatusFailed
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
 			notify.SendErrorMessage(userName, title, requestID, err, log)
+		}
+		if syncLock != nil {
+			if statusErr := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, autoSyncStatus); statusErr != nil {
+				log.Errorf("failed to update Helm Values auto sync result: %v", statusErr)
+			}
 		}
 		productResp.Status = setting.ProductStatusSuccess
 		if err = commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, productResp.Status, ""); err != nil {
