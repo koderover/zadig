@@ -19,6 +19,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -450,7 +451,7 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 		}
 	}
 
-	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	resourceOwners := make(map[string]sets.String)
 
 	for _, env := range envs {
 		for _, svc := range env.GetServiceMap() {
@@ -460,22 +461,25 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 			for _, res := range svc.Resources {
 				resourceKey := res.String()
 				if clusterResSet.Has(resourceKey) || env.Namespace == productInfo.Namespace && namespacedResSet.Has(resourceKey) {
-					sharedNSEnvList[res.String()] = env
-					break
+					if _, ok := resourceOwners[resourceKey]; !ok {
+						resourceOwners[resourceKey] = sets.NewString()
+					}
+					resourceOwners[resourceKey].Insert(fmt.Sprintf("%s/%s/%s", env.ProductName, env.EnvName, svc.ServiceName))
 				}
 			}
 		}
 	}
 
-	if len(sharedNSEnvList) == 0 {
+	if len(resourceOwners) == 0 {
 		return nil
 	}
 
-	usedEnvStr := make([]string, 0)
-	for resource, env := range sharedNSEnvList {
-		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", resource, env.ProductName, env.EnvName))
+	resourcesWithOwners := make([]string, 0, len(resourceOwners))
+	for resource, owners := range resourceOwners {
+		resourcesWithOwners = append(resourcesWithOwners, fmt.Sprintf("%s: %s", resource, strings.Join(owners.List(), ", ")))
 	}
-	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
+	sort.Strings(resourcesWithOwners)
+	return fmt.Errorf("resource is applied by other envs: %s", strings.Join(resourcesWithOwners, "; "))
 }
 
 func isClusterScopedK8sServiceResource(kind string) bool {
