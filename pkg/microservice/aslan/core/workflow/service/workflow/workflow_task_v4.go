@@ -310,10 +310,13 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 
 		return resp, nil
 	}
+	if includeRuntime {
+		return GetWorkflowGlobalVars(workflow, jobName, false, ctx.Logger)
+	}
 
 	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
 		GetAggregatedVariables:      false,
-		GetRuntimeVariables:         includeRuntime,
+		GetRuntimeVariables:         false,
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: false,
 		UseUserInput:                true,
