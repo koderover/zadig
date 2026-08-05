@@ -17,15 +17,24 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	dms "github.com/alibabacloud-go/dms-enterprise-20181101/v3/client"
+	"github.com/alibabacloud-go/tea/dara"
+	"github.com/alibabacloud-go/tea/tea"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	cloudservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/cloudservice"
 	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/aliyun"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type DMSJobController struct {
@@ -121,6 +130,48 @@ func (j DMSJobController) Update(useUserInput bool, ticket *commonmodels.Approva
 
 // SetOptions sets the actual kv for each configured apollo namespace for users to select and edit
 func (j DMSJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+	if j.jobSpec.ID == "" || len(j.jobSpec.Orders) == 0 {
+		return nil
+	}
+
+	ctx := context.Background()
+	dmsInfo, err := mongodb.NewCloudServiceColl().Find(ctx, &mongodb.CloudServiceCollFindOption{Id: j.jobSpec.ID})
+	if err != nil {
+		log.Warnf("DMSJob: failed to find DMS service %s while refreshing selected orders: %v", j.jobSpec.ID, err)
+		return nil
+	}
+
+	client, err := cloudservice.NewDMSClient(dmsInfo)
+	if err != nil {
+		log.Warnf("DMSJob: failed to create DMS client %s while refreshing selected orders: %v", j.jobSpec.ID, err)
+		return nil
+	}
+
+	for _, order := range j.jobSpec.Orders {
+		if order == nil {
+			continue
+		}
+
+		resp, err := client.GetOrderBaseInfoWithContext(ctx, &dms.GetOrderBaseInfoRequest{
+			OrderId: tea.Int64(order.ID),
+		}, &dara.RuntimeOptions{})
+		if err != nil {
+			log.Warnf("DMSJob: failed to refresh DMS order %d: %v", order.ID, aliyun.HandleError(err))
+			continue
+		}
+		if resp == nil || resp.Body == nil || resp.Body.OrderBaseInfo == nil {
+			log.Warnf("DMSJob: empty response while refreshing DMS order %d", order.ID)
+			continue
+		}
+
+		latest := resp.Body.OrderBaseInfo
+		order.Comment = tea.StringValue(latest.Comment)
+		order.StatusCode = tea.StringValue(latest.StatusCode)
+		order.StatusDesc = tea.StringValue(latest.StatusDesc)
+		order.Committer = tea.StringValue(latest.Committer)
+		order.CreateTime = tea.StringValue(latest.CreateTime)
+	}
+
 	return nil
 }
 
