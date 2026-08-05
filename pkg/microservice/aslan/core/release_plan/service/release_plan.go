@@ -451,11 +451,17 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err != nil {
 		return errors.Wrap(err, "build release plan current snapshot")
 	}
-	hasChanges, err := hasReleasePlanPersistedSectionChanges(originalPlan, sectionKey, currentSnapshot)
+	persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
 	if err != nil {
 		return errors.Wrap(err, "build release plan persisted snapshot")
 	}
+	hasChanges := hasReleasePlanSnapshotChanges(persistedSnapshot, currentSnapshot)
 	if !hasChanges {
+		return nil
+	}
+	// Workflow job details are refreshed with the latest rendered workflow before editing.
+	// Treat an unchanged round trip of that editor state as a no-op, even if the stored snapshot is older.
+	if args.Verb == ActionUpdateReleaseJob && shouldSkipReleasePlanWorkflowEditorSave(originalPlan, sectionKey, currentSnapshot) {
 		return nil
 	}
 	var baseSnapshot interface{}
@@ -471,10 +477,6 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		}
 	}
 	if needBaseSnapshot {
-		persistedSnapshot, err := buildReleasePlanVersionSnapshot(originalPlan, sectionKey)
-		if err != nil {
-			return errors.Wrap(err, "build release plan persisted snapshot")
-		}
 		baseSnapshot = persistedSnapshot
 	}
 
@@ -534,27 +536,8 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
-			if releasePlanJob.Type == config.JobWorkflow {
-				spec := new(models.WorkflowReleaseJobSpec)
-				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
-					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
-				}
-				if spec.Workflow == nil {
-					return nil, fmt.Errorf("workflow is nil")
-				}
-				spec.Workflow, err = normalizeReleasePlanWorkflowForController(spec.Workflow)
-				if err != nil {
-					return nil, fmt.Errorf("invalid workflow for job: %s. normalize error: %s", releasePlanJob.Name, err)
-				}
-
-				workflowController := controller.CreateWorkflowController(spec.Workflow)
-				if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log.SugaredLogger()); err != nil {
-					log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-				}
-
-				spec.Workflow = workflowController.WorkflowV4
-				releasePlanJob.Spec = spec
+			if err := updateReleasePlanJobWithLatestRenderedWorkflow(releasePlanJob); err != nil {
+				return nil, err
 			}
 
 			return releasePlanJob, nil
@@ -562,6 +545,71 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 	}
 
 	return nil, fmt.Errorf("failed to find release plan job with id: %s. Job does not exist", jobID)
+}
+
+func shouldSkipReleasePlanWorkflowEditorSave(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) bool {
+	editorBaselineSnapshot, hasEditorBaseline, err := buildReleasePlanWorkflowEditorBaselineSnapshot(originalPlan, sectionKey)
+	if err != nil {
+		log.Warnf("cannot build workflow editor baseline for release plan section %s, continue saving: %v", sectionKey, err)
+		return false
+	}
+	return hasEditorBaseline && !hasReleasePlanSnapshotChanges(editorBaselineSnapshot, currentSnapshot)
+}
+
+func buildReleasePlanWorkflowEditorBaselineSnapshot(originalPlan *models.ReleasePlan, sectionKey string) (interface{}, bool, error) {
+	if originalPlan == nil || !strings.HasPrefix(sectionKey, releasePlanVersionSectionJobPrefix) {
+		return nil, false, nil
+	}
+
+	jobID := strings.TrimPrefix(sectionKey, releasePlanVersionSectionJobPrefix)
+	originalJob, err := findReleasePlanJob(originalPlan, jobID)
+	if err != nil {
+		return nil, false, err
+	}
+	if originalJob.Type != config.JobWorkflow {
+		return nil, false, nil
+	}
+	baselineJob := new(models.ReleaseJob)
+	if err := models.IToi(originalJob, baselineJob); err != nil {
+		return nil, false, err
+	}
+	if err := updateReleasePlanJobWithLatestRenderedWorkflow(baselineJob); err != nil {
+		return nil, false, err
+	}
+
+	snapshot, err := buildReleasePlanJobInputSnapshot(baselineJob)
+	if err != nil {
+		return nil, false, err
+	}
+	return snapshot, true, nil
+}
+
+func updateReleasePlanJobWithLatestRenderedWorkflow(job *models.ReleaseJob) error {
+	if job == nil || job.Type != config.JobWorkflow {
+		return nil
+	}
+
+	spec := new(models.WorkflowReleaseJobSpec)
+	if err := models.IToi(job.Spec, spec); err != nil {
+		return fmt.Errorf("invalid spec for job: %s. decode error: %s", job.Name, err)
+	}
+	if spec.Workflow == nil {
+		return fmt.Errorf("workflow is nil")
+	}
+	normalizedWorkflow, err := normalizeReleasePlanWorkflowForController(spec.Workflow)
+	if err != nil {
+		return fmt.Errorf("invalid workflow for job: %s. normalize error: %s", job.Name, err)
+	}
+
+	workflowController := controller.CreateWorkflowController(normalizedWorkflow)
+	if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log.SugaredLogger()); err != nil {
+		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", normalizedWorkflow.Name, err)
+		return e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+
+	spec.Workflow = workflowController.WorkflowV4
+	job.Spec = spec
+	return nil
 }
 
 func findReleasePlanJob(plan *models.ReleasePlan, jobID string) (*models.ReleaseJob, error) {
