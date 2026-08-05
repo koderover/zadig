@@ -1185,6 +1185,16 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		log.Errorf("retry workflow task error: %v", err)
 		return e.ErrCreateTask.AddDesc(fmt.Sprintf("重试工作流任务失败: %s", err.Error()))
 	}
+	if task.ReleasePlan != nil {
+		if err := commonrepo.NewReleasePlanColl().ResetWorkflowJobForRetry(
+			context.Background(), task.ReleasePlan.ID, task.WorkflowName, task.TaskID,
+		); err != nil {
+			logger.Errorf(
+				"failed to reset release plan workflow job after retry, release plan: %s, workflow: %s, task ID: %d, error: %v",
+				task.ReleasePlan.ID, task.WorkflowName, task.TaskID, err,
+			)
+		}
+	}
 
 	return nil
 }

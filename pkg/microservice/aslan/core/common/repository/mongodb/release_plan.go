@@ -128,6 +128,39 @@ func (c *ReleasePlanColl) UpdateByID(ctx context.Context, idString string, args 
 	return err
 }
 
+// ResetWorkflowJobForRetry resets a release plan workflow job after its workflow task is retried directly.
+// The workflow name and task ID together identify the release job to avoid updating an unrelated task.
+func (c *ReleasePlanColl) ResetWorkflowJobForRetry(ctx context.Context, idString, workflowName string, taskID int64) error {
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return fmt.Errorf("invalid release plan id")
+	}
+
+	query := bson.M{
+		"_id": id,
+		"jobs": bson.M{"$elemMatch": bson.M{
+			"type":               config.JobWorkflow,
+			"spec.workflow.name": workflowName,
+			"spec.task_id":       taskID,
+		}},
+	}
+	change := bson.M{"$set": bson.M{
+		"jobs.$.status":      config.ReleasePlanJobStatusRunning,
+		"jobs.$.spec.status": config.StatusPrepare,
+		"status":             config.ReleasePlanStatusExecuting,
+		"success_time":       int64(0),
+	}}
+
+	result, err := c.UpdateOne(ctx, query, change)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("release plan workflow job not found, workflow: %s, task ID: %d", workflowName, taskID)
+	}
+	return nil
+}
+
 func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
