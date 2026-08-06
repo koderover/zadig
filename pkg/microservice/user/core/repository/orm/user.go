@@ -237,7 +237,8 @@ func joinUserMFA(db *gorm.DB) *gorm.DB {
 func ListUsersByGroup(groupID string, db *gorm.DB) ([]*models.User, error) {
 	resp := make([]*models.User, 0)
 
-	err := db.Joins("INNER JOIN group_binding on group_binding.uid = user.uid").
+	err := db.Select("user.*").
+		Joins("INNER JOIN group_binding on group_binding.uid = user.uid").
 		Where("group_binding.group_id = ?", groupID).
 		Find(&resp).
 		Error
