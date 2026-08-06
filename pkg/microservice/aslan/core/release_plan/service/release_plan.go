@@ -602,10 +602,15 @@ func updateReleasePlanJobWithLatestRenderedWorkflow(job *models.ReleaseJob) erro
 	}
 
 	workflowController := controller.CreateWorkflowController(normalizedWorkflow)
-	if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log.SugaredLogger()); err != nil {
+	latestWorkflow, err := workflowservice.FindWorkflowV4RenderedForExecution(workflowController.Name, log.SugaredLogger())
+	if err == nil {
+		err = workflowController.UpdateWithWorkflowSettings(latestWorkflow, nil)
+	}
+	if err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", normalizedWorkflow.Name, err)
 		return e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
+	workflowController.DisplayName = latestWorkflow.DisplayName
 
 	spec.Workflow = workflowController.WorkflowV4
 	job.Spec = spec
