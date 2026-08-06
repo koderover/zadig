@@ -290,6 +290,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+
 	updateProd.Production = exitedProd.Production
 	updateProd.GlobalVariables = exitedProd.GlobalVariables
 	updateProd.DefaultValues = exitedProd.DefaultValues
