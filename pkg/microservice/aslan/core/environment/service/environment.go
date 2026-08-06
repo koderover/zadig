@@ -2085,16 +2085,24 @@ func populateHelmValuesSourceCommits(chartValues []*commonservice.HelmSvcRenderA
 }
 
 func updateHelmAutoSyncStatuses(product *commonmodels.Product, renders []*templatemodels.ServiceRender, status string) error {
+	serviceNames := make([]string, 0)
+	releaseNames := make([]string, 0)
 	for _, render := range renders {
 		if render == nil || render.OverrideYaml == nil {
 			continue
 		}
-		identifier := render.ServiceName
 		if render.IsHelmChartDeploy {
-			identifier = render.ReleaseName
+			releaseNames = append(releaseNames, render.ReleaseName)
+		} else {
+			serviceNames = append(serviceNames, render.ServiceName)
 		}
-		if err := commonrepo.NewProductColl().UpdateServiceAutoSyncStatus(product.ProductName, product.EnvName, product.Production, render.IsHelmChartDeploy, identifier, status); err != nil {
-			return err
+	}
+	if err := commonrepo.NewProductColl().UpdateServicesAutoSyncStatus(product.ProductName, product.EnvName, product.Production, serviceNames, releaseNames, status); err != nil {
+		return err
+	}
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil {
+			continue
 		}
 		render.OverrideYaml.AutoSyncStatus = status
 	}

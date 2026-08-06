@@ -541,14 +541,53 @@ func (c *ProductColl) UpdateServiceValuesSource(productName, envName string, pro
 	return nil
 }
 
-func (c *ProductColl) UpdateServiceAutoSyncStatus(productName, envName string, production, isHelmChartDeploy bool, identifier, status string) error {
-	query, serviceFilter := buildServiceValuesSourceQuery(productName, envName, production, isHelmChartDeploy, identifier)
+func (c *ProductColl) UpdateServicesAutoSyncStatus(productName, envName string, production bool, serviceNames, releaseNames []string, status string) error {
+	if len(serviceNames) == 0 && len(releaseNames) == 0 {
+		return nil
+	}
+
+	matchServices := make([]bson.M, 0, 2)
+	serviceFilters := make([]bson.M, 0, 2)
+	if len(serviceNames) > 0 {
+		matchServices = append(matchServices, bson.M{
+			"service_name": bson.M{"$in": serviceNames},
+			"type":         bson.M{"$ne": setting.HelmChartDeployType},
+		})
+		serviceFilters = append(serviceFilters, bson.M{
+			"svc.service_name": bson.M{"$in": serviceNames},
+			"svc.type":         bson.M{"$ne": setting.HelmChartDeployType},
+		})
+	}
+	if len(releaseNames) > 0 {
+		matchServices = append(matchServices, bson.M{
+			"release_name": bson.M{"$in": releaseNames},
+			"type":         setting.HelmChartDeployType,
+		})
+		serviceFilters = append(serviceFilters, bson.M{
+			"svc.release_name": bson.M{"$in": releaseNames},
+			"svc.type":         setting.HelmChartDeployType,
+		})
+	}
+
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+		"services": bson.M{"$elemMatch": bson.M{"$elemMatch": bson.M{
+			"$or": matchServices,
+		}}},
+	}
+	if production {
+		query["production"] = true
+	} else {
+		query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+	}
+
 	valuesPath := "services.$[].$[svc].render.override_yaml.auto_sync_status"
 	change := bson.M{"$set": bson.M{valuesPath: status}}
 	if status == "" {
 		change = bson.M{"$unset": bson.M{valuesPath: ""}}
 	}
-	arrayFilters := options.ArrayFilters{Filters: []interface{}{serviceFilter}}
+	arrayFilters := options.ArrayFilters{Filters: []interface{}{bson.M{"$or": serviceFilters}}}
 	updateOptions := options.UpdateOptions{ArrayFilters: &arrayFilters}
 
 	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change, &updateOptions)
@@ -556,7 +595,7 @@ func (c *ProductColl) UpdateServiceAutoSyncStatus(productName, envName string, p
 		return err
 	}
 	if result.MatchedCount == 0 {
-		return fmt.Errorf("no matching service found to update auto sync status: %s", identifier)
+		return fmt.Errorf("no matching services found to update auto sync status")
 	}
 	return nil
 }
