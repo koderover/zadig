@@ -1026,12 +1026,18 @@ var (
 	ErrValidateApiGateway = NewHTTPError(7184, "校验API网关集成失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// agent integration errors: 7190 - 7199
+	// ai review config releated errors: 7190 - 7199
 	//-----------------------------------------------------------------------------------------------
-	ErrCreateAgentIntegration   = NewHTTPError(7190, "创建 Agent 集成失败")
-	ErrListAgentIntegration     = NewHTTPError(7191, "获取 Agent 集成列表失败")
-	ErrUpdateAgentIntegration   = NewHTTPError(7192, "更新 Agent 集成失败")
-	ErrDeleteAgentIntegration   = NewHTTPError(7193, "删除 Agent 集成失败")
-	ErrGetAgentIntegration      = NewHTTPError(7194, "获取 Agent 集成详情失败")
-	ErrValidateAgentIntegration = NewHTTPError(7195, "验证 Agent 集成失败")
+	ErrGetAIReviewConfig    = NewHTTPError(7190, "获取AI审查配置失败")
+	ErrUpdateAIReviewConfig = NewHTTPError(7191, "更新AI审查配置失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// agent integration errors: 7200 - 7209
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateAgentIntegration   = NewHTTPError(7200, "创建 Agent 集成失败")
+	ErrListAgentIntegration     = NewHTTPError(7201, "获取 Agent 集成列表失败")
+	ErrUpdateAgentIntegration   = NewHTTPError(7202, "更新 Agent 集成失败")
+	ErrDeleteAgentIntegration   = NewHTTPError(7203, "删除 Agent 集成失败")
+	ErrGetAgentIntegration      = NewHTTPError(7204, "获取 Agent 集成详情失败")
+	ErrValidateAgentIntegration = NewHTTPError(7205, "验证 Agent 集成失败")
 )

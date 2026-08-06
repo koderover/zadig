@@ -377,7 +377,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 					return config.StatusPassed, nil
 				}
 				if util.GetStringFromPointer(larkApprovalInstance.Status) == "REJECTED" {
-					return config.StatusFailed, nil
+					return config.StatusReject, nil
 				}
 				if util.GetStringFromPointer(larkApprovalInstance.Status) == "CANCELLED" {
 					return config.StatusCancelled, nil

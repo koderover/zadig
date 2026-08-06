@@ -36,7 +36,7 @@ type gitEventMatcherForScanning interface {
 	GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository
 }
 
-func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
+func TriggerScanningByGithubEvent(event interface{}, rawPayload, requestID string, log *zap.SugaredLogger) error {
 	//1.find configured testing
 	scanningList, _, err := commonrepo.NewScanningColl().List(nil, 0, 0)
 	if err != nil {
@@ -45,6 +45,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -90,6 +91,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							Owner:          *ev.Repo.Owner.Login,
 							Repo:           *ev.Repo.Name,
 							Branch:         *ev.PullRequest.Base.Ref,
+							TargetBranch:   *ev.PullRequest.Base.Ref,
 							Ref:            *ev.PullRequest.Head.SHA,
 							IsPr:           true,
 							CodehostID:     mainRepo.CodehostID,
@@ -124,6 +126,12 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 							EventType: eventType,
 						}
 					}
+					hookPayload.PayloadVars = payloadVariables
+
+					if scanning.ScannerType == types.ScannerTypeAIReview && prID <= 0 {
+						log.Debugf("skip non-PR event for AI review scanning %s", scanning.Name)
+						continue
+					}
 
 					if autoCancelOpt.Type != "" {
 						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
@@ -157,6 +165,9 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						Branch:     item.Branch,
 						Tag:        item.Tag,
 						PR:         prID,
+					}
+					if scanning.ScannerType == types.ScannerTypeAIReview {
+						repoInfo.Branch = hookPayload.TargetBranch
 					}
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)

@@ -133,13 +133,13 @@ type Context struct {
 	UploadInfo        []*types.ObjectStoragePathDetail `yaml:"upload_info"`
 
 	// scanner used flag
-	ScannerFlag           bool   `yaml:"scanner_flag"`
-	ScannerType           string `yaml:"scanner_type"`
-	SonarParameter        string `yaml:"sonar_parameter"`
-	SonarEnableScanner    bool   `yaml:"sonar_enable_scanner"`
-	SonarServer           string `yaml:"sonar_server"`
-	SonarLogin            string `yaml:"sonar_login"`
-	SonarCheckQualityGate bool   `yaml:"sonar_check_quality_gate"`
+	ScannerFlag           bool              `yaml:"scanner_flag"`
+	ScannerType           types.ScannerType `yaml:"scanner_type"`
+	SonarParameter        string            `yaml:"sonar_parameter"`
+	SonarEnableScanner    bool              `yaml:"sonar_enable_scanner"`
+	SonarServer           string            `yaml:"sonar_server"`
+	SonarLogin            string            `yaml:"sonar_login"`
+	SonarCheckQualityGate bool              `yaml:"sonar_check_quality_gate"`
 }
 
 type ArtifactInfo struct {

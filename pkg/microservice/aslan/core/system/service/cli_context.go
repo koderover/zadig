@@ -26,10 +26,10 @@ import (
 
 type CLIContextResponse struct {
 	User          CLIUser  `json:"user"`
-	Edition       string   `json:"edition"`
-	LicenseStatus string   `json:"license_status"`
-	Features      []string `json:"features"`
-	ServerVersion string   `json:"server_version"`
+	Edition       string   `json:"edition,omitempty"`
+	LicenseStatus string   `json:"license_status,omitempty"`
+	Features      []string `json:"features,omitempty"`
+	ServerVersion string   `json:"server_version,omitempty"`
 	RequestID     string   `json:"request_id"`
 }
 
@@ -40,7 +40,20 @@ type CLIUser struct {
 	IdentityType string `json:"identity_type"`
 }
 
-func GetCLIContext(user types.UserBriefInfo, requestID string) (*CLIContextResponse, error) {
+func GetCLIContext(user types.UserBriefInfo, requestID string, isSystemAdmin bool) (*CLIContextResponse, error) {
+	response := &CLIContextResponse{
+		User: CLIUser{
+			UID:          user.UID,
+			Name:         user.Name,
+			Account:      user.Account,
+			IdentityType: user.IdentityType,
+		},
+		RequestID: requestID,
+	}
+	if !isSystemAdmin {
+		return response, nil
+	}
+
 	licenseStatus, err := plutusenterprise.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return nil, fmt.Errorf("check zadig license status: %w", err)
@@ -49,17 +62,9 @@ func GetCLIContext(user types.UserBriefInfo, requestID string) (*CLIContextRespo
 		return nil, errors.New("check zadig license status: empty response")
 	}
 
-	return &CLIContextResponse{
-		User: CLIUser{
-			UID:          user.UID,
-			Name:         user.Name,
-			Account:      user.Account,
-			IdentityType: user.IdentityType,
-		},
-		Edition:       licenseStatus.Type,
-		LicenseStatus: licenseStatus.Status,
-		Features:      append([]string{}, licenseStatus.Features...),
-		ServerVersion: licenseStatus.CurrentVersion,
-		RequestID:     requestID,
-	}, nil
+	response.Edition = licenseStatus.Type
+	response.LicenseStatus = licenseStatus.Status
+	response.Features = append([]string{}, licenseStatus.Features...)
+	response.ServerVersion = licenseStatus.CurrentVersion
+	return response, nil
 }

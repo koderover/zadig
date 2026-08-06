@@ -29,7 +29,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -220,7 +219,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 	}
 
 	mErr := &multierror.Error{}
-	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
+	payloadVariables := buildGiteePayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *gitee.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequestEvent(pullRequestEvent, codehostId)
 	}
@@ -281,7 +280,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
 					CodehostID:     item.MainRepo.CodehostID,
-					Branch:         eventRepo.Branch,
+					Branch:         ev.SourceBranch,
 					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
@@ -320,7 +319,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 					EventType:    eventType,
 				}
 			}
-			hookPayload.PayloadVars = recipientPayloadVariables
+			hookPayload.PayloadVars = payloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
@@ -339,7 +338,7 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, rawPayload, baseURI, reque
 				}
 			}
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
-			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))

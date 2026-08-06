@@ -31,7 +31,7 @@ type Scanning struct {
 	TemplateID  string             `bson:"template_id"   json:"template_id"`
 	ProjectName string             `bson:"project_name"  json:"project_name"`
 	Description string             `bson:"description"   json:"description"`
-	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`
+	ScannerType types.ScannerType  `bson:"scanner_type"  json:"scanner_type"`
 	// EnableScanner indicates whether user uses sonar scanner instead of the script
 	EnableScanner  bool                `bson:"enable_scanner" json:"enable_scanner"`
 	ImageID        string              `bson:"image_id"      json:"image_id"`
@@ -45,11 +45,14 @@ type Scanning struct {
 	// Envs is the user defined key/values
 	Envs KeyValList `bson:"envs" json:"envs"`
 	// Script is for other type only
-	ScriptType       types.ScriptType         `bson:"script_type"           json:"script_type"`
-	Script           string                   `bson:"script"                json:"script"`
-	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
-	CheckQualityGate bool                     `bson:"check_quality_gate"    json:"check_quality_gate"`
-	Outputs          []*Output                `bson:"outputs"               json:"outputs"`
+	ScriptType         types.ScriptType         `bson:"script_type"           json:"script_type"`
+	Script             string                   `bson:"script"                json:"script"`
+	AdvancedSetting    *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
+	CheckQualityGate   bool                     `bson:"check_quality_gate"    json:"check_quality_gate"`
+	Outputs            []*Output                `bson:"outputs"               json:"outputs"`
+	ReviewIncludePaths []string                 `bson:"review_include_paths,omitempty" json:"review_include_paths,omitempty"`
+	ReviewExcludePaths []string                 `bson:"review_exclude_paths,omitempty" json:"review_exclude_paths,omitempty"`
+	ReviewRules        []*ReviewRule            `bson:"review_rules,omitempty" json:"review_rules,omitempty"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
 	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`
@@ -58,6 +61,13 @@ type Scanning struct {
 
 func (Scanning) TableName() string {
 	return "scanning"
+}
+
+func (s *Scanning) GetUpdatedAt() int64 {
+	if s.UpdatedAt == 0 {
+		return s.CreatedAt
+	}
+	return s.UpdatedAt
 }
 
 type ScanningAdvancedSetting struct {

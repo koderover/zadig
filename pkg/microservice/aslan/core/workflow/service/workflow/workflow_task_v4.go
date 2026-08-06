@@ -47,11 +47,11 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dynamicrecipient"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
@@ -257,7 +257,7 @@ type DistributeImageJobSpec struct {
 
 // GetWorkflowV4Preset returns the workflow preset.
 func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(workflowName, log)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -515,7 +515,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(args)
-	if err := workflowCtrl.UpdateWithLatestWorkflow(nil); err != nil {
+	if err := UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, log); err != nil {
 		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err)
 		return resp, e.ErrCreateTask.AddDesc(fmt.Sprintf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err))
 	}
@@ -625,9 +625,18 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		args.Account = args.Name
 	}
 
+	// Payload variables are persisted in GlobalContext, not duplicated in the
+	// original and rendered workflow arguments.
+	workflowForOrigin := *workflow
+	if workflow.HookPayload != nil {
+		hookPayloadForOrigin := *workflow.HookPayload
+		hookPayloadForOrigin.PayloadVars = nil
+		workflowForOrigin.HookPayload = &hookPayloadForOrigin
+	}
+
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
-	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
+	if err := commonmodels.IToi(&workflowForOrigin, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -674,17 +683,21 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
-		err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+		err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, log)
 		if err != nil {
 			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 
-		err = workflowCtrl.Validate(true)
+		err = ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, log)
 		if err != nil {
 			log.Errorf("failed to validate workflow task args, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
+	}
+	if err := commonutil.FilterWorkflowPayloadVariables(workflow); err != nil {
+		log.Errorf("filter workflow payload variables error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	workflowCtrl.SetParameterRepoCommitInfo()
@@ -721,7 +734,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("fill serviceModules to jobs error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
-	workflowTask.GlobalContext = buildWorkflowTaskRuntimeContext(workflowTask)
+	workflowTask.GlobalContext, err = buildWorkflowTaskRuntimeContext(workflowTask)
+	if err != nil {
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+	if workflowTask.WorkflowArgs.HookPayload != nil {
+		workflowTask.WorkflowArgs.HookPayload.PayloadVars = nil
+	}
 
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
@@ -942,9 +961,9 @@ func updateNotifyCtls(notifyCtls []*commonmodels.NotifyCtl, notifyInputs []*Crea
 	return notifyCtls, nil
 }
 
-func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string]string {
+func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) (map[string]string, error) {
 	if task == nil {
-		return nil
+		return nil, nil
 	}
 
 	resp := make(map[string]string)
@@ -953,7 +972,7 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	}
 
 	if task.WorkflowArgs == nil {
-		return resp
+		return resp, nil
 	}
 
 	keyMap := commonutil.KeyValsToMap(commonutil.BuildWorkflowRuntimeVariableKVs(
@@ -970,7 +989,15 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) map[string
 	for key, value := range keyMap {
 		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", key))] = value
 	}
-	return resp
+
+	jobInputVariables, err := workflowController.CreateWorkflowController(task.WorkflowArgs).GetDynamicRecipientJobInputVariables()
+	if err != nil {
+		return nil, err
+	}
+	for _, variable := range jobInputVariables {
+		resp[runtimeWorkflowController.GetContextKey(fmt.Sprintf("{{.%s}}", variable.Key))] = variable.GetValue()
+	}
+	return resp, nil
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -996,7 +1023,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
-	err = workflowCtrl.UpdateWithLatestWorkflow(approvalTicket)
+	err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, approvalTicket, logger)
 	if err != nil {
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -1022,7 +1049,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
-	err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+	err = UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, nil, logger)
 	if err != nil {
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -1112,7 +1139,10 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			globalKeyMap[key] = item.Value
 		}
 	}
-	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
+	task.GlobalContext, err = buildWorkflowTaskRuntimeContext(task)
+	if err != nil {
+		return err
+	}
 
 	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
@@ -1268,7 +1298,10 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 			globalKeyMap[key] = item.Value
 		}
 	}
-	task.GlobalContext = buildWorkflowTaskRuntimeContext(task)
+	task.GlobalContext, err = buildWorkflowTaskRuntimeContext(task)
+	if err != nil {
+		return err
+	}
 
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {

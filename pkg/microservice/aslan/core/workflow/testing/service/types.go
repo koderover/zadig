@@ -32,7 +32,7 @@ type Scanning struct {
 	Name           string               `json:"name"`
 	ProjectName    string               `json:"project_name"`
 	Description    string               `json:"description"`
-	ScannerType    string               `json:"scanner_type"`
+	ScannerType    types.ScannerType    `json:"scanner_type"`
 	EnableScanner  bool                 `json:"enable_scanner"`
 	ImageID        string               `json:"image_id"`
 	SonarID        string               `json:"sonar_id"`
@@ -50,6 +50,12 @@ type Scanning struct {
 	CheckQualityGate bool                                  `json:"check_quality_gate"`
 	Outputs          []*commonmodels.Output                `json:"outputs"`
 	NotifyCtls       []*commonmodels.NotifyCtl             `json:"notify_ctls"`
+
+	// Code Review Configs
+	ReviewIncludePaths []string                   `json:"review_include_paths"`
+	ReviewExcludePaths []string                   `json:"review_exclude_paths"`
+	ReviewRules        []*commonmodels.ReviewRule `json:"review_rules"`
+
 	// template IDs
 	TemplateID string `json:"template_id"`
 }
@@ -59,7 +65,7 @@ type OpenAPICreateScanningReq struct {
 	Name        string                    `json:"name"`
 	ProjectName string                    `json:"project_key"`
 	Description string                    `json:"description"`
-	ScannerType string                    `json:"scanner_type"`
+	ScannerType types.ScannerType         `json:"scanner_type"`
 	ImageName   string                    `json:"image_name"`
 	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info"`
 	SonarSystem string                    `json:"sonar_system"`
@@ -109,7 +115,7 @@ func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 	if req.ImageName == "" {
 		return false, fmt.Errorf("image name cannot be empty")
 	}
-	if req.ScannerType != "sonarQube" && req.ScannerType != "other" {
+	if req.ScannerType != types.ScannerTypeSonarQube && req.ScannerType != types.ScannerTypeOther {
 		return false, fmt.Errorf("scanner_type can only be sonarQube or other")
 	}
 
@@ -118,6 +124,7 @@ func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 
 type ListScanningRespItem struct {
 	ID          string                 `json:"id"`
+	Type        types.ScannerType      `json:"type"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Statistics  *ScanningStatistic     `json:"statistics"`
@@ -163,6 +170,30 @@ func (repo *ScanningRepoInfo) GetKey() string {
 	return strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
 }
 
+func (repo *ScanningRepoInfo) NormalizeSinglePR() error {
+	if repo == nil {
+		return fmt.Errorf("repository cannot be nil")
+	}
+	if len(repo.PRs) > 1 {
+		return fmt.Errorf("multiple pull or merge requests are not supported")
+	}
+	if len(repo.PRs) == 0 {
+		if repo.PR <= 0 {
+			return fmt.Errorf("pull or merge request ID is required")
+		}
+		repo.PRs = []int{repo.PR}
+		return nil
+	}
+	if repo.PRs[0] <= 0 {
+		return fmt.Errorf("pull or merge request ID must be greater than zero")
+	}
+	if repo.PR > 0 && repo.PR != repo.PRs[0] {
+		return fmt.Errorf("pull or merge request IDs conflict: pr=%d, prs=%v", repo.PR, repo.PRs)
+	}
+	repo.PR = repo.PRs[0]
+	return nil
+}
+
 type ScanningStatistic struct {
 	TimesRun       int64 `json:"times_run"`
 	AverageRuntime int64 `json:"run_time_average"`
@@ -180,49 +211,59 @@ type ScanningInfo struct {
 }
 
 type ScanningTaskResp struct {
-	ScanID    int64  `json:"scan_id"`
-	Status    string `json:"status"`
-	RunTime   int64  `json:"run_time"`
-	Creator   string `json:"creator"`
-	CreatedAt int64  `json:"created_at"`
+	ScanID    int64               `json:"scan_id"`
+	Status    string              `json:"status"`
+	RunTime   int64               `json:"run_time"`
+	Creator   string              `json:"creator"`
+	CreatedAt int64               `json:"created_at"`
+	RepoInfo  []*types.Repository `json:"repo_info"`
 }
 
 type ScanningTaskDetail struct {
-	Creator        string              `json:"creator"`
-	Status         string              `json:"status"`
-	Error          string              `json:"error,omitempty"`
-	CreateTime     int64               `json:"create_time"`
-	EndTime        int64               `json:"end_time"`
-	RepoInfo       []*types.Repository `json:"repo_info"`
-	SonarMetrics   *step.SonarMetrics  `json:"sonar_metrics"`
-	ResultLink     string              `json:"result_link,omitempty"`
-	IsHasArtifact  bool                `json:"is_has_artifact"`
-	JobName        string              `json:"job_name"`
-	JobDisplayName string              `json:"job_display_name"`
+	Creator        string                `json:"creator"`
+	Status         string                `json:"status"`
+	Error          string                `json:"error,omitempty"`
+	CreateTime     int64                 `json:"create_time"`
+	EndTime        int64                 `json:"end_time"`
+	RepoInfo       []*types.Repository   `json:"repo_info"`
+	SonarMetrics   *step.SonarMetrics    `json:"sonar_metrics"`
+	ResultLink     string                `json:"result_link,omitempty"`
+	IsHasArtifact  bool                  `json:"is_has_artifact"`
+	JobName        string                `json:"job_name"`
+	JobDisplayName string                `json:"job_display_name"`
+	AIReviewReport *AIReviewReportResult `json:"ai_review_report,omitempty"`
+}
+
+type AIReviewReportResult struct {
+	Report          *step.AIReviewReport `json:"report,omitempty"`
+	CollectionError string               `json:"collection_error,omitempty"`
 }
 
 func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 	// ID is omitted since they are of different type and there will be no use of it
 	return &commonmodels.Scanning{
-		Name:             args.Name,
-		ProjectName:      args.ProjectName,
-		Description:      args.Description,
-		ScannerType:      args.ScannerType,
-		EnableScanner:    args.EnableScanner,
-		ImageID:          args.ImageID,
-		Infrastructure:   args.Infrastructure,
-		VMLabels:         args.VMLabels,
-		SonarID:          args.SonarID,
-		Repos:            args.Repos,
-		Parameter:        args.Parameter,
-		ScriptType:       args.ScriptType,
-		Script:           args.Script,
-		AdvancedSetting:  args.AdvancedSetting,
-		Installs:         args.Installs,
-		CheckQualityGate: args.CheckQualityGate,
-		Outputs:          args.Outputs,
-		Envs:             args.Envs,
-		TemplateID:       args.TemplateID,
+		Name:               args.Name,
+		ProjectName:        args.ProjectName,
+		Description:        args.Description,
+		ScannerType:        args.ScannerType,
+		EnableScanner:      args.EnableScanner,
+		ImageID:            args.ImageID,
+		Infrastructure:     args.Infrastructure,
+		VMLabels:           args.VMLabels,
+		SonarID:            args.SonarID,
+		Repos:              args.Repos,
+		Parameter:          args.Parameter,
+		ScriptType:         args.ScriptType,
+		Script:             args.Script,
+		AdvancedSetting:    args.AdvancedSetting,
+		Installs:           args.Installs,
+		CheckQualityGate:   args.CheckQualityGate,
+		Outputs:            args.Outputs,
+		Envs:               args.Envs,
+		TemplateID:         args.TemplateID,
+		ReviewIncludePaths: args.ReviewIncludePaths,
+		ReviewExcludePaths: args.ReviewExcludePaths,
+		ReviewRules:        args.ReviewRules,
 	}
 }
 
@@ -231,26 +272,29 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		repo.RepoNamespace = repo.GetRepoNamespace()
 	}
 	return &Scanning{
-		ID:               scanning.ID.Hex(),
-		Name:             scanning.Name,
-		ProjectName:      scanning.ProjectName,
-		Description:      scanning.Description,
-		ScannerType:      scanning.ScannerType,
-		EnableScanner:    scanning.EnableScanner,
-		ImageID:          scanning.ImageID,
-		SonarID:          scanning.SonarID,
-		Infrastructure:   scanning.Infrastructure,
-		VMLabels:         scanning.VMLabels,
-		Repos:            scanning.Repos,
-		Parameter:        scanning.Parameter,
-		ScriptType:       scanning.ScriptType,
-		Script:           scanning.Script,
-		AdvancedSetting:  scanning.AdvancedSetting,
-		Installs:         scanning.Installs,
-		CheckQualityGate: scanning.CheckQualityGate,
-		Outputs:          scanning.Outputs,
-		Envs:             scanning.Envs,
-		TemplateID:       scanning.TemplateID,
+		ID:                 scanning.ID.Hex(),
+		Name:               scanning.Name,
+		ProjectName:        scanning.ProjectName,
+		Description:        scanning.Description,
+		ScannerType:        scanning.ScannerType,
+		EnableScanner:      scanning.EnableScanner,
+		ImageID:            scanning.ImageID,
+		SonarID:            scanning.SonarID,
+		Infrastructure:     scanning.Infrastructure,
+		VMLabels:           scanning.VMLabels,
+		Repos:              scanning.Repos,
+		Parameter:          scanning.Parameter,
+		ScriptType:         scanning.ScriptType,
+		Script:             scanning.Script,
+		AdvancedSetting:    scanning.AdvancedSetting,
+		Installs:           scanning.Installs,
+		CheckQualityGate:   scanning.CheckQualityGate,
+		Outputs:            scanning.Outputs,
+		Envs:               scanning.Envs,
+		TemplateID:         scanning.TemplateID,
+		ReviewIncludePaths: scanning.ReviewIncludePaths,
+		ReviewExcludePaths: scanning.ReviewExcludePaths,
+		ReviewRules:        scanning.ReviewRules,
 	}
 }
 

@@ -78,6 +78,87 @@ func CreateJobV2(ctx context.Context, clusterID string, job *batchv1.Job) error 
 	return nil
 }
 
+// UpdateJobImageV2 updates a Job image by recreating the Job because its pod
+// template is immutable after creation. If creating the updated Job fails, it
+// makes a best-effort attempt to restore the original Job.
+func UpdateJobImageV2(ctx context.Context, clusterID, namespace, name, containerName, newImage string) error {
+	cl, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	job := &batchv1.Job{}
+	if err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, job); err != nil {
+		return fmt.Errorf("failed to get job %s/%s: %w", namespace, name, err)
+	}
+
+	originalJob := job.DeepCopy()
+	originalJob.ResourceVersion = ""
+	originalJob.UID = ""
+	originalJob.Generation = 0
+	originalJob.CreationTimestamp = metav1.Time{}
+	originalJob.DeletionTimestamp = nil
+	originalJob.DeletionGracePeriodSeconds = nil
+	originalJob.ManagedFields = nil
+	originalJob.Status = batchv1.JobStatus{}
+
+	if originalJob.Spec.ManualSelector == nil || !*originalJob.Spec.ManualSelector {
+		originalJob.Spec.Selector = nil
+		for _, label := range []string{
+			"batch.kubernetes.io/controller-uid",
+			"batch.kubernetes.io/job-name",
+			"controller-uid",
+			"job-name",
+		} {
+			delete(originalJob.Spec.Template.Labels, label)
+		}
+	}
+
+	updatedJob := originalJob.DeepCopy()
+	containerFound := false
+	for i := range updatedJob.Spec.Template.Spec.Containers {
+		if updatedJob.Spec.Template.Spec.Containers[i].Name == containerName {
+			updatedJob.Spec.Template.Spec.Containers[i].Image = newImage
+			containerFound = true
+			break
+		}
+	}
+	if !containerFound {
+		return fmt.Errorf("failed to update image for job %s/%s: container %q not found", namespace, name, containerName)
+	}
+	if err := util.CreateApplyAnnotation(updatedJob); err != nil {
+		return fmt.Errorf("failed to create apply annotation for updated job %s/%s: %w", namespace, name, err)
+	}
+
+	propagationPolicy := metav1.DeletePropagationForeground
+	if err := cl.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+		return fmt.Errorf("failed to delete job %s/%s before image update: %w", namespace, name, err)
+	}
+
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(c context.Context) (bool, error) {
+		fetched := &batchv1.Job{}
+		err := cl.Get(c, client.ObjectKey{Namespace: namespace, Name: name}, fetched)
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	}); err != nil {
+		return fmt.Errorf("failed waiting for job %s/%s to be deleted before image update: %w", namespace, name, err)
+	}
+
+	if err := cl.Create(ctx, updatedJob); err != nil {
+		if restoreErr := cl.Create(ctx, originalJob); restoreErr != nil {
+			return fmt.Errorf("failed to recreate job %s/%s with updated image: %w; failed to restore original job: %v", namespace, name, err, restoreErr)
+		}
+		return fmt.Errorf("failed to recreate job %s/%s with updated image: %w; original job restored", namespace, name, err)
+	}
+
+	return nil
+}
+
 func DeleteJobV2(ctx context.Context, clusterID, namespace, name string) error {
 	cl, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {

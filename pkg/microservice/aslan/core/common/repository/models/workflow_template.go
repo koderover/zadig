@@ -37,8 +37,25 @@ type WorkflowV4Template struct {
 	BuildIn          bool                     `bson:"build_in"            yaml:"build_in"           json:"build_in"`
 	ShareStorages    []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"     json:"share_storages"`
 	ConcurrencyLimit int                      `bson:"concurrency_limit"   yaml:"concurrency_limit"  json:"concurrency_limit"`
+	LatestVersion    int                      `bson:"latest_version"      yaml:"latest_version"     json:"latest_version"`
+	LatestVersionID  string                   `bson:"latest_version_id"   yaml:"latest_version_id"  json:"latest_version_id"`
 }
 
 func (WorkflowV4Template) TableName() string {
 	return "workflow_template"
+}
+
+type WorkflowV4TemplateVersion struct {
+	ID           primitive.ObjectID  `bson:"_id,omitempty"      json:"id"`
+	TemplateID   string              `bson:"template_id"        json:"template_id"`
+	TemplateName string              `bson:"template_name"      json:"template_name"`
+	Version      int                 `bson:"version"            json:"version"`
+	Snapshot     *WorkflowV4Template `bson:"snapshot"           json:"snapshot"`
+	Hash         string              `bson:"hash"               json:"hash"`
+	CreatedBy    string              `bson:"created_by"         json:"created_by"`
+	CreateTime   int64               `bson:"create_time"        json:"create_time"`
+}
+
+func (WorkflowV4TemplateVersion) TableName() string {
+	return "workflow_template_version"
 }

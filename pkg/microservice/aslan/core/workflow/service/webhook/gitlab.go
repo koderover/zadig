@@ -143,7 +143,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerTestStart := time.Now()
-			if err = TriggerTestByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGitlabEvent(pushEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerTestByGitlabEvent push cost %s", time.Since(triggerTestStart))
@@ -153,7 +153,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerScanningStart := time.Now()
-			if err = TriggerScanningByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerScanningByGitlabEvent(pushEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerScanningByGitlabEvent push cost %s", time.Since(triggerScanningStart))
@@ -176,7 +176,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerTestStart := time.Now()
-			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGitlabEvent(mergeEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerTestByGitlabEvent merge cost %s", time.Since(triggerTestStart))
@@ -186,7 +186,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerScanningStart := time.Now()
-			if err = TriggerScanningByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerScanningByGitlabEvent(mergeEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerScanningByGitlabEvent merge cost %s", time.Since(triggerScanningStart))
@@ -209,7 +209,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerTestStart := time.Now()
-			if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGitlabEvent(tagEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerTestByGitlabEvent tag cost %s", time.Since(triggerTestStart))
@@ -219,7 +219,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			triggerScanningStart := time.Now()
-			if err = TriggerScanningByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+			if err = TriggerScanningByGitlabEvent(tagEvent, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 			log.Infof("gitlab webhook TriggerScanningByGitlabEvent tag cost %s", time.Since(triggerScanningStart))
@@ -622,13 +622,23 @@ func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWith
 
 			createFrom, err := service.GetHelmCreateFrom()
 			if err != nil {
-				log.Errorf("Failed to get helm create from, error: %v", err)
+				log.Errorf(
+					"Failed to get helm create from for service, project: %s, service: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, production, err,
+				)
+				continue
+			}
+
+			if createFrom.YamlData == nil || createFrom.YamlData.SourceDetail == nil {
 				continue
 			}
 
 			sourceRepo, err := createFrom.GetSourceDetail()
 			if err != nil {
-				log.Errorf("Failed to get source detail, error: %v", err)
+				log.Errorf(
+					"Failed to get source detail for helm chart template service, project: %s, service: %s, template: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, createFrom.TemplateName, production, err,
+				)
 				continue
 			}
 

@@ -36,6 +36,7 @@ import (
 	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -49,6 +50,14 @@ func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogge
 	}
 	if err := commonutil.ValidateGeneratedWorkflowJobName(args.Name, commonutil.GenerateScanningModuleJobName); err != nil {
 		return e.ErrCreateScanningModule.AddDesc(err.Error())
+	}
+	if args.AdvancedSetting == nil {
+		return e.ErrCreateScanningModule.AddDesc("advanced settings cannot be empty")
+	}
+	if args.ScannerType == types.ScannerTypeAIReview {
+		if err := validateAIReviewScanningConfig(args); err != nil {
+			return e.ErrCreateScanningModule.AddErr(err)
+		}
 	}
 
 	err := util.CheckDefineResourceParam(args.AdvancedSetting.ResReq, args.AdvancedSetting.ResReqSpec)
@@ -80,6 +89,14 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 	}
 	if err := commonutil.ValidateGeneratedWorkflowJobName(args.Name, commonutil.GenerateScanningModuleJobName); err != nil {
 		return e.ErrUpdateScanningModule.AddDesc(err.Error())
+	}
+	if args.AdvancedSetting == nil {
+		return e.ErrUpdateScanningModule.AddDesc("advanced settings cannot be empty")
+	}
+	if args.ScannerType == types.ScannerTypeAIReview {
+		if err := validateAIReviewScanningConfig(args); err != nil {
+			return e.ErrUpdateScanningModule.AddErr(err)
+		}
 	}
 
 	scanning, err := commonrepo.NewScanningColl().GetByID(id)
@@ -120,6 +137,109 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 	return nil
 }
 
+func validateAIReviewScanningConfig(args *Scanning) error {
+	if args.Infrastructure != "" && args.Infrastructure != setting.JobK8sInfrastructure {
+		return fmt.Errorf("AI review scanning only supports Kubernetes infrastructure")
+	}
+	if len(args.Repos) != 1 || args.Repos[0] == nil {
+		return fmt.Errorf("AI review scanning requires exactly one Git repository")
+	}
+	repo := args.Repos[0]
+	if repo.Source == types.ProviderPerforce {
+		return fmt.Errorf("AI review scanning does not support Perforce repositories")
+	}
+	if repo.Tag != "" {
+		return fmt.Errorf("AI review scanning does not support tag review")
+	}
+	return nil
+}
+
+type ListCodeRepoScanningRespItem struct {
+	CodehostID        int                 `json:"codehost_id"`
+	Source            string              `json:"source"`
+	RepoNamespace     string              `json:"repo_namespace"`
+	RepoName          string              `json:"repo_name"`
+	CodeRepoScannings []*CodeRepoScanning `json:"code_repo_scannings"`
+}
+
+type CodeRepoScanning struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	ScannerType    string `json:"scanner_type"`
+	Description    string `json:"description"`
+	TimesRun       int64  `json:"times_run"`
+	AverageRuntime int64  `json:"run_time_average"`
+	CreatedAt      int64  `json:"created_at"`
+	UpdatedAt      int64  `json:"updated_at"`
+	UpdateBy       string `json:"update_by"`
+	// Repos          []*types.Repository `json:"repos"`
+	// ClusterID   string                 `json:"cluster_id"`
+	// Envs        []*commonmodels.KeyVal `json:"key_vals"`
+}
+
+func ListCodeRepoScannings(ctx *internalhandler.Context, projectName string) ([]*ListCodeRepoScanningRespItem, int64, error) {
+	scanningList, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ProjectName: projectName}, 0, 0)
+	if err != nil {
+		ctx.Logger.Errorf("failed to list scanning list from mongodb, the error is: %s", err)
+		return nil, 0, err
+	}
+
+	repoItemMap := make(map[string]*ListCodeRepoScanningRespItem)
+	repoKeys := make([]string, 0)
+
+	for _, scanning := range scanningList {
+		res, err := ListScanningTask(scanning.ID.Hex(), 0, 0, ctx.Logger)
+		if err != nil {
+			ctx.Logger.Errorf("failed to get scanning task statistics, error is: %s", err)
+			return nil, 0, err
+		}
+		var timesTaken int64
+		for _, scanTask := range res.ScanTasks {
+			timesTaken += scanTask.RunTime
+		}
+		var avgRuntime int64
+		if len(res.ScanTasks) > 0 {
+			avgRuntime = timesTaken / int64(len(res.ScanTasks))
+		}
+
+		item := &CodeRepoScanning{
+			ID:             scanning.ID.Hex(),
+			Name:           scanning.Name,
+			ScannerType:    string(scanning.ScannerType),
+			Description:    scanning.Description,
+			TimesRun:       res.TotalTasks,
+			AverageRuntime: avgRuntime,
+			CreatedAt:      scanning.CreatedAt,
+			UpdatedAt:      scanning.GetUpdatedAt(),
+			UpdateBy:       scanning.UpdatedBy,
+		}
+
+		if len(scanning.Repos) == 0 {
+			continue
+		}
+		repo := scanning.Repos[0]
+		namespace := repo.GetRepoNamespace()
+		key := fmt.Sprintf("%d/%s/%s", repo.CodehostID, namespace, repo.RepoName)
+		if _, ok := repoItemMap[key]; !ok {
+			repoItemMap[key] = &ListCodeRepoScanningRespItem{
+				CodehostID:        repo.CodehostID,
+				Source:            repo.Source,
+				RepoNamespace:     namespace,
+				RepoName:          repo.RepoName,
+				CodeRepoScannings: make([]*CodeRepoScanning, 0),
+			}
+			repoKeys = append(repoKeys, key)
+		}
+		repoItemMap[key].CodeRepoScannings = append(repoItemMap[key].CodeRepoScannings, item)
+	}
+
+	resp := make([]*ListCodeRepoScanningRespItem, 0, len(repoKeys))
+	for _, key := range repoKeys {
+		resp = append(resp, repoItemMap[key])
+	}
+	return resp, int64(len(resp)), nil
+}
+
 func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScanningRespItem, int64, error) {
 	scanningList, total, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ProjectName: projectName}, 0, 0)
 	if err != nil {
@@ -148,13 +268,14 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 			ID:          scanning.ID.Hex(),
 			Name:        scanning.Name,
 			Description: scanning.Description,
+			Type:        scanning.ScannerType,
 			Statistics: &ScanningStatistic{
 				TimesRun:       res.TotalTasks,
 				AverageRuntime: avgRuntime,
 			},
 			Repos:     scanning.Repos,
 			CreatedAt: scanning.CreatedAt,
-			UpdatedAt: scanning.UpdatedAt,
+			UpdatedAt: scanning.GetUpdatedAt(),
 			ClusterID: scanning.AdvancedSetting.ClusterID,
 			Envs:      scanning.Envs,
 		}
@@ -314,11 +435,17 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 		if len(workflowTask.Stages) == 1 && len(workflowTask.Stages[0].Jobs) == 1 && workflowTask.Stages[0].Jobs[0].Status != "" {
 			status = workflowTask.Stages[0].Jobs[0].Status
 		}
+		repoInfo, err := getScanningTaskRepoInfo(workflowTask)
+		if err != nil {
+			log.Warnf("failed to get repository info from scanning task %d: %s", workflowTask.TaskID, err)
+			repoInfo = make([]*types.Repository, 0)
+		}
 		taskInfo := &ScanningTaskResp{
 			ScanID:    workflowTask.TaskID,
 			Status:    string(status),
 			Creator:   workflowTask.TaskCreator,
 			CreatedAt: workflowTask.CreateTime,
+			RepoInfo:  repoInfo,
 		}
 		if status == config.StatusPassed || status == config.StatusCancelled || status == config.StatusFailed {
 			taskInfo.RunTime = workflowTask.EndTime - workflowTask.StartTime
@@ -329,11 +456,32 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 	return &ListScanningTaskResp{
 		ScanInfo: &ScanningInfo{
 			Editor:    scanningInfo.UpdatedBy,
-			UpdatedAt: scanningInfo.UpdatedAt,
+			UpdatedAt: scanningInfo.GetUpdatedAt(),
 		},
 		ScanTasks:  respList,
 		TotalTasks: total,
 	}, nil
+}
+
+func getScanningTaskRepoInfo(workflowTask *commonmodels.WorkflowTask) ([]*types.Repository, error) {
+	if workflowTask == nil || workflowTask.WorkflowArgs == nil {
+		return nil, fmt.Errorf("scanning task workflow args cannot be empty")
+	}
+	if len(workflowTask.WorkflowArgs.Stages) != 1 ||
+		workflowTask.WorkflowArgs.Stages[0] == nil ||
+		len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 ||
+		workflowTask.WorkflowArgs.Stages[0].Jobs[0] == nil {
+		return nil, fmt.Errorf("invalid scanning task workflow args")
+	}
+
+	spec := new(commonmodels.ZadigScanningJobSpec)
+	if err := commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec); err != nil {
+		return nil, fmt.Errorf("decode scanning job spec: %w", err)
+	}
+	if len(spec.Scannings) != 1 || spec.Scannings[0] == nil {
+		return nil, fmt.Errorf("invalid scanning task scan list: expect 1")
+	}
+	return spec.Scannings[0].GetReposWithoutCredentials(), nil
 }
 
 func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger) (*ScanningTaskDetail, error) {
@@ -380,6 +528,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 
 	jobName := ""
 	isHasArtifact := false
+	var aiReviewReport *AIReviewReportResult
 	for _, step := range jobTaskSpec.Steps {
 		if step.Name == config.TestJobArchiveResultStepName {
 			if step.StepType != config.StepTarArchive {
@@ -390,10 +539,21 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			}
 			jobName = step.JobName
 		}
+		if step.StepType == config.StepAIReviewReport {
+			reportSpec := new(stepspec.StepAIReviewReportSpec)
+			if err := commonmodels.IToi(step.Spec, reportSpec); err != nil {
+				return nil, fmt.Errorf("decode AI review report step: %w", err)
+			}
+			aiReviewReport = &AIReviewReportResult{
+				Report:          reportSpec.Report,
+				CollectionError: reportSpec.CollectionError,
+			}
+			jobName = step.JobName
+		}
 	}
 
 	sonarMetrics := &stepspec.SonarMetrics{}
-	if scanningInfo.ScannerType == "sonarQube" {
+	if scanningInfo.ScannerType == types.ScannerTypeSonarQube {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
 			log.Errorf("failed to get sonar integration info, error: %s", err)
@@ -428,13 +588,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		sonarMetrics = nil
 	}
 
-	repoInfo := spec.Scannings[0].Repos
-	// for security reasons, we set all sensitive information to empty
-	for _, repo := range repoInfo {
-		repo.OauthToken = ""
-		repo.Password = ""
-		repo.Username = ""
-	}
+	repoInfo := spec.Scannings[0].GetReposWithoutCredentials()
 
 	status := workflowTask.Status
 	if workflowTask.Stages[0].Jobs[0].Status != "" {
@@ -448,16 +602,18 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		errorMsg = workflowTask.Error
 	}
 	return &ScanningTaskDetail{
-		Creator:       workflowTask.TaskCreator,
-		Status:        string(status),
-		Error:         errorMsg,
-		CreateTime:    workflowTask.CreateTime,
-		EndTime:       workflowTask.EndTime,
-		RepoInfo:      repoInfo,
-		SonarMetrics:  sonarMetrics,
-		ResultLink:    resultAddr,
-		JobName:       jobName,
-		IsHasArtifact: isHasArtifact,
+		Creator:        workflowTask.TaskCreator,
+		Status:         string(status),
+		Error:          errorMsg,
+		CreateTime:     workflowTask.CreateTime,
+		EndTime:        workflowTask.EndTime,
+		RepoInfo:       repoInfo,
+		SonarMetrics:   sonarMetrics,
+		ResultLink:     resultAddr,
+		JobName:        jobName,
+		IsHasArtifact:  isHasArtifact,
+		JobDisplayName: workflowTask.Stages[0].Jobs[0].DisplayName,
+		AIReviewReport: aiReviewReport,
 	}, nil
 }
 
@@ -489,6 +645,15 @@ func GetScanningTaskEvents(scanningID string, taskID int64, log *zap.SugaredLogg
 }
 
 func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args *CreateScanningTaskReq, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	if scanInfo.ScannerType == types.ScannerTypeAIReview {
+		if len(args.Repos) != 1 || args.Repos[0] == nil {
+			return nil, fmt.Errorf("AI review scanning requires exactly one pull or merge request repository")
+		}
+		if err := args.Repos[0].NormalizeSinglePR(); err != nil {
+			return nil, fmt.Errorf("invalid AI review scanning repository: %w", err)
+		}
+	}
+
 	concurrencyLimit := 1
 	if scanInfo.AdvancedSetting != nil {
 		concurrencyLimit = scanInfo.AdvancedSetting.ConcurrencyLimit

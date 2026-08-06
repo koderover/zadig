@@ -86,6 +86,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
 		image.POST("/daemonset/:envName", UpdateDaemonSetContainerImage)
 		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
+		image.POST("/job/:envName", UpdateJobContainerImage)
 		image.POST("/cronjob/:envName", UpdateCronJobContainerImage)
 	}
 
@@ -164,6 +165,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:name/helm/releases", ListReleases)
+		environments.GET("/:name/helm/releases/diffs", ListHelmReleaseDiffSummaries)
+		environments.GET("/:name/helm/releases/:serviceOrReleaseName/diff", GetHelmReleaseDiff)
+		environments.PUT("/:name/helm/releases/:serviceOrReleaseName/values-source", UpdateHelmValuesSource)
 		environments.DELETE("/:name/helm/releases", DeleteHelmReleases)
 		environments.GET("/:name/helm/values", GetChartValues)
 		environments.GET("/:name/helm/charts", GetChartInfos)
@@ -218,6 +222,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/version/:serviceName", ListEnvServiceVersions)
 		environments.GET("/:name/version/:serviceName/revision/:revision", GetEnvServiceVersionYaml)
 		environments.GET("/:name/version/:serviceName/diff", DiffEnvServiceVersions)
+		environments.GET("/:name/version/:serviceName/rollback/check", CheckRollbackEnvServiceVersion)
 		environments.POST("/:name/version/:serviceName/rollback", RollbackEnvServiceVersion)
 
 		environments.GET("sae", ListSAEEnvs)
@@ -278,6 +283,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		image.POST("/deployment/:envName", OpenAPIUpdateDeploymentContainerImage)
 		image.POST("/statefulset/:envName", OpenAPIUpdateStatefulSetContainerImage)
+		image.POST("/job/:envName", OpenAPIUpdateJobContainerImage)
 		image.POST("/cronjob/:envName", OpenAPIUpdateCronJobContainerImage)
 	}
 

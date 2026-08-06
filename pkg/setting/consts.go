@@ -26,6 +26,7 @@ const (
 	ENVSystemAddress              = "ADDRESS"
 	ENVImagePullPolicy            = "IMAGE_PULL_POLICY"
 	ENVBuildKitImage              = "BUILD_KIT_IMAGE"
+	ENVZadigReviewImage           = "ZADIG_REVIEW_IMAGE"
 	ENVMode                       = "MODE"
 	ENVMongoDBConnectionString    = "MONGODB_CONNECTION_STRING"
 	ENVIsDocumentDB               = "IS_DOCUMENT_DB"
@@ -48,6 +49,7 @@ const (
 	ENVPodIP                      = "BE_POD_IP"
 	ENVNamespace                  = "BE_POD_NAMESPACE"
 	ENVDisableKubeClientKeepAlive = "DISABLE_KUBE_CLIENT_KEEP_ALIVE"
+	ENVKubeInformerIdleTimeout    = "KUBE_INFORMER_IDLE_TIMEOUT_MINUTES"
 
 	// Aslan
 	ENVLogLevel                  = "LOG_LEVEL"
@@ -390,6 +392,8 @@ const (
 	ProductStatusUnknown  = "unknown"
 	ProductStatusUnstable = "Unstable"
 )
+
+const HelmAutoSyncStatusSyncing = "syncing"
 
 // DeliveryVersion status
 

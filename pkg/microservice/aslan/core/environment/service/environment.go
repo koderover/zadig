@@ -1593,9 +1593,12 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 
 	switch scene {
 	case EstimateValuesSceneCreateEnv:
-		prod = &commonmodels.Product{}
-		prod.DefaultValues = arg.DefaultValues
-		prod.Namespace = namespace
+		prod = &commonmodels.Product{
+			ProductName:   projectName,
+			EnvName:       envName,
+			Namespace:     namespace,
+			DefaultValues: arg.DefaultValues,
+		}
 		prodSvc, latestTmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
@@ -1960,6 +1963,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 	if len(args.ChartValues) == 0 {
 		return nil
 	}
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
@@ -2069,6 +2073,42 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 	return ret
 }
 
+func populateHelmValuesSourceCommits(chartValues []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) {
+	for _, chartValue := range chartValues {
+		if chartValue == nil {
+			continue
+		}
+		if err := commonservice.PopulateValuesSourceCommit(chartValue.ValuesData, log); err != nil {
+			log.Warnf("failed to get current Helm Values source commit, service: %s, release: %s, err: %s", chartValue.ServiceName, chartValue.ReleaseName, err)
+		}
+	}
+}
+
+func updateHelmAutoSyncStatuses(product *commonmodels.Product, renders []*templatemodels.ServiceRender, status string) error {
+	serviceNames := make([]string, 0)
+	releaseNames := make([]string, 0)
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil {
+			continue
+		}
+		if render.IsHelmChartDeploy {
+			releaseNames = append(releaseNames, render.ReleaseName)
+		} else {
+			serviceNames = append(serviceNames, render.ServiceName)
+		}
+	}
+	if err := commonrepo.NewProductColl().UpdateServicesAutoSyncStatus(product.ProductName, product.EnvName, product.Production, serviceNames, releaseNames, status); err != nil {
+		return err
+	}
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil {
+			continue
+		}
+		render.OverrideYaml.AutoSyncStatus = status
+	}
+	return nil
+}
+
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
@@ -2125,6 +2165,9 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 			}
 
 			if changed {
+				if err := commonservice.RefreshYamlSourceCommit(chartInfo.OverrideYaml, log); err != nil {
+					log.Warnf("failed to refresh Helm Values source commit, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				}
 				updatedRcMapLock.Lock()
 				chartInfo.OverrideYaml.YamlContent = values
 				chartInfo.OverrideYaml.AutoSyncYaml = values
@@ -2260,6 +2303,11 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 		}
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
+	if syncLock != nil {
+		if err := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, setting.HelmAutoSyncStatusSyncing); err != nil {
+			log.Errorf("failed to update Helm Values auto sync status to syncing: %v", err)
+		}
+	}
 
 	go func() {
 		defer func() {
@@ -2267,6 +2315,9 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 				log.Errorf("panic in updateHelmProductVariable async function, project: %s, env: %s, panic: %v", productName, envName, r)
 			}
 			if syncLock != nil {
+				if err := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, ""); err != nil {
+					log.Errorf("failed to clear Helm Values auto sync status: %v", err)
+				}
 				syncLock.Unlock()
 			}
 		}()
@@ -2288,6 +2339,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 }
 
 func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 	mutexAutoUpdate := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
@@ -2365,6 +2417,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 }
 
 func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	populateHelmValuesSourceCommits(args.ChartValues, log)
 	mutexUpdateMultiHelm := cache.NewRedisLock(updateMultipleProductLockKey(args.ProductName))
 
 	err := mutexUpdateMultiHelm.Lock()

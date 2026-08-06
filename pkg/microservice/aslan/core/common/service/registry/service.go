@@ -34,12 +34,15 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/distribution/reference"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/docker/distribution/registry/api/errcode"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -78,10 +81,18 @@ type GetRepoImageDetailOption struct {
 	Tag   string
 }
 
+type CheckImageExistOption struct {
+	Endpoint
+	Image  string
+	Tag    string
+	Digest string
+}
+
 type Service interface {
 	ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) error
 	ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (*ReposResp, error)
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
+	CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error)
 }
 
 func NewV2Service(provider string, tlsEnabled bool, tlsCert string) Service {
@@ -222,6 +233,36 @@ func (c *authClient) listTags(repoName string) (tags []string, err error) {
 	}
 
 	return
+}
+
+func (c *authClient) tagExists(repoName, tag string) (bool, error) {
+	repo, err := c.getRepository(repoName)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = repo.Tags(c.ctx).Get(c.ctx, tag)
+	if err == nil {
+		return true, nil
+	}
+	if isRegistryImageNotFound(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func isRegistryImageNotFound(err error) bool {
+	switch registryErr := err.(type) {
+	case errcode.Error:
+		return registryErr.Code == v2.ErrorCodeManifestUnknown || registryErr.Code == v2.ErrorCodeNameUnknown
+	case errcode.Errors:
+		for _, item := range registryErr {
+			if isRegistryImageNotFound(item) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type containerInfo struct {
@@ -497,6 +538,32 @@ func (s *v2RegistryService) GetImageInfo(option GetRepoImageDetailOption, log *z
 	}, nil
 }
 
+func (s *v2RegistryService) CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error) {
+	cli, err := s.createClient(option.Endpoint, log)
+	if err != nil {
+		return false, err
+	}
+
+	repoName := strings.Trim(strings.Join([]string{option.Namespace, option.Image}, "/"), "/")
+	if option.Digest == "" {
+		return cli.tagExists(repoName, option.Tag)
+	}
+
+	dgst, err := digest.Parse(option.Digest)
+	if err != nil {
+		return false, err
+	}
+	repo, err := cli.getRepository(repoName)
+	if err != nil {
+		return false, err
+	}
+	manifestService, err := repo.Manifests(cli.ctx)
+	if err != nil {
+		return false, err
+	}
+	return manifestService.Exists(cli.ctx, dgst)
+}
+
 type ReverseStringSlice []string
 
 // Len is the number of elements in the collection.
@@ -674,6 +741,30 @@ func (s *swrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 	return &commonmodels.DeliveryImage{}, nil
 }
 
+func (s *swrService) CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error) {
+	swrCli := s.createClient(option.Endpoint)
+	request := &model.ListRepositoryTagsRequest{Namespace: option.Namespace, Repository: option.Image}
+	if option.Digest == "" {
+		request.Tag = &option.Tag
+	}
+	repoTags, err := swrCli.ListRepositoryTags(request)
+	if err != nil {
+		return false, err
+	}
+	if repoTags.Body == nil {
+		return false, nil
+	}
+	for _, repoTag := range *repoTags.Body {
+		if option.Digest != "" && repoTag.Digest == option.Digest {
+			return true, nil
+		}
+		if option.Digest == "" && repoTag.Tag == option.Tag {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 type ecrService struct {
 }
 
@@ -803,4 +894,28 @@ func (s *ecrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 		}, nil
 	}
 	return &commonmodels.DeliveryImage{}, nil
+}
+
+func (s *ecrService) CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error) {
+	svc, err := s.getECRService(option.Endpoint, log)
+	if err != nil {
+		return false, err
+	}
+	imageID := &ecr.ImageIdentifier{}
+	if option.Digest != "" {
+		imageID.ImageDigest = aws.String(option.Digest)
+	} else {
+		imageID.ImageTag = aws.String(option.Tag)
+	}
+	result, err := svc.DescribeImages(&ecr.DescribeImagesInput{
+		ImageIds:       []*ecr.ImageIdentifier{imageID},
+		RepositoryName: aws.String(option.Image),
+	})
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecr.ErrCodeImageNotFoundException {
+			return false, nil
+		}
+		return false, err
+	}
+	return len(result.ImageDetails) > 0, nil
 }

@@ -85,13 +85,20 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
+func (c *ReleasePlanColl) Create(ctx context.Context, args *models.ReleasePlan) (string, error) {
 	if args == nil {
 		return "", errors.New("nil ReleasePlan")
 	}
 
-	res, err := c.InsertOne(context.Background(), args)
-	return res.InsertedID.(primitive.ObjectID).Hex(), err
+	res, err := c.InsertOne(ctx, args)
+	if err != nil {
+		return "", err
+	}
+	id, ok := res.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return "", errors.New("invalid ReleasePlan inserted id")
+	}
+	return id.Hex(), nil
 }
 
 func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {

@@ -156,7 +156,7 @@ func (c *SprintColl) BulkAddStage(ctx *handler.Context, sprintIDs []primitive.Ob
 	}
 
 	if len(bulkOps) > 0 {
-		_, err := c.Collection.BulkWrite(ctx, bulkOps)
+		_, err := c.Collection.BulkWrite(mongotool.SessionContext(ctx, c.Session), bulkOps)
 		if err != nil {
 			return err
 		}
@@ -183,7 +183,7 @@ func (c *SprintColl) BulkDeleteStage(ctx *handler.Context, sprintIDs []primitive
 	}
 
 	if len(bulkOps) > 0 {
-		_, err := c.Collection.BulkWrite(ctx, bulkOps)
+		_, err := c.Collection.BulkWrite(mongotool.SessionContext(ctx, c.Session), bulkOps)
 		if err != nil {
 			return err
 		}
@@ -475,11 +475,14 @@ func (c *SprintColl) UpdateStageName(ctx *handler.Context, sprintIDStr string, s
 		ArrayFilters: &arrayFilters,
 	}
 
-	res, err := c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	res, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
+	if err != nil {
+		return err
+	}
 	if res.ModifiedCount == 0 {
 		return fmt.Errorf("UpdateStageName: no document updated, sprintID: %s, stageID: %s", sprintIDStr, stageID)
 	}
-	return err
+	return nil
 }
 
 func (c *SprintColl) AddStageWorkItemID(ctx *handler.Context, sprintIDStr string, stageID string, workItemID string) error {
@@ -508,12 +511,15 @@ func (c *SprintColl) AddStageWorkItemID(ctx *handler.Context, sprintIDStr string
 		ArrayFilters: &arrayFilters,
 	}
 
-	res, err := c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	res, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
+	if err != nil {
+		return err
+	}
 	if res.ModifiedCount == 0 {
 		return fmt.Errorf("AddStageWorkIemID: no document updated, sprintID: %s, stageID: %s, workItemID: %s", sprintIDStr, stageID, workItemID)
 	}
 
-	return err
+	return nil
 }
 
 func (c *SprintColl) DeleteStageWorkItemID(ctx *handler.Context, sprintIDStr string, stageID string, workItemID string) error {
@@ -542,12 +548,15 @@ func (c *SprintColl) DeleteStageWorkItemID(ctx *handler.Context, sprintIDStr str
 		ArrayFilters: &arrayFilters,
 	}
 
-	res, err := c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	res, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
+	if err != nil {
+		return err
+	}
 	if res.ModifiedCount == 0 {
 		return fmt.Errorf("DeleteStageWorkItemID: no document updated, sprintID: %s, stageID: %s, workItemID: %s", sprintIDStr, stageID, workItemID)
 	}
 
-	return err
+	return nil
 }
 
 func (c *SprintColl) UpdateStageWorkItemIDs(ctx *handler.Context, sprintIDStr string, stageID string, workItemIDs []string) error {
@@ -574,12 +583,15 @@ func (c *SprintColl) UpdateStageWorkItemIDs(ctx *handler.Context, sprintIDStr st
 		ArrayFilters: &arrayFilters,
 	}
 
-	res, err := c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	res, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
+	if err != nil {
+		return err
+	}
 	if res.ModifiedCount == 0 {
 		return fmt.Errorf("UpdateStageWorkItemIDs: no document updated, sprintID: %s, stageID: %s", sprintIDStr, stageID)
 	}
 
-	return err
+	return nil
 }
 
 func (c *SprintColl) UpdateStageWorkflows(ctx *handler.Context, sprintIDStr string, stageID string, workflows []*models.SprintWorkflow) error {
@@ -606,10 +618,13 @@ func (c *SprintColl) UpdateStageWorkflows(ctx *handler.Context, sprintIDStr stri
 		ArrayFilters: &arrayFilters,
 	}
 
-	res, err := c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	res, err := c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
+	if err != nil {
+		return err
+	}
 	if res.ModifiedCount == 0 {
 		return fmt.Errorf("UpdateStageWorkflows: no document updated, sprintID: %s, stageID: %s", sprintIDStr, stageID)
 	}
 
-	return err
+	return nil
 }

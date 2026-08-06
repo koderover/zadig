@@ -45,7 +45,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
-	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
 
 type NotificationJobCtl struct {
@@ -89,13 +88,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec = runtimeSpec
 
-	if err := c.prepareRuntimeNotificationFields(); err != nil {
-		c.logger.Error(err)
-		c.job.Status = config.StatusFailed
-		c.job.Error = err.Error()
-		c.ack()
-		return
-	}
+	c.prepareRuntimeNotificationFields()
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
@@ -168,7 +161,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkPersonNotificationConfig.AppID)
+		task, err := mongodb.NewworkflowTaskv4Coll().Find(c.workflowCtx.WorkflowName, c.workflowCtx.TaskID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -177,40 +170,24 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 
-		// the logic to change the executor in the list to the real user.
+		notify := &commonmodels.NotifyCtl{LarkPersonNotificationConfig: c.jobTaskSpec.LarkPersonNotificationConfig}
+		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkPersonNotificationConfig.AppID)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+		resolvedTargets, resolveErr := instantmessage.NewWeChatClient().ResolveJobLarkPersonNotificationTargets(client, task, c.job, notify)
+		c.jobTaskSpec.LarkPersonNotificationConfig.TargetUsers = resolvedTargets
+
 		respErr := new(multierror.Error)
+		if resolveErr != nil {
+			respErr = multierror.Append(respErr, resolveErr)
+		}
 
 		for _, target := range c.jobTaskSpec.LarkPersonNotificationConfig.TargetUsers {
-			if target.IsExecutor {
-				userInfo, err := user.New().GetUserByID(c.workflowCtx.WorkflowTaskCreatorUserID)
-				if err != nil || userInfo == nil {
-					respErr = multierror.Append(respErr, fmt.Errorf("cannot find task invoker's information, error: %s", err))
-					continue
-				}
-
-				if len(userInfo.Phone) == 0 {
-					respErr = multierror.Append(respErr, fmt.Errorf("phone not configured"))
-					continue
-				}
-
-				larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
-				if err != nil {
-					respErr = multierror.Append(fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err))
-					continue
-				}
-
-				userDetailedInfo, err := client.GetUserInfoByID(util2.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
-				if err != nil {
-					respErr = multierror.Append(fmt.Errorf("find lark user info for userID %s error: %v", util2.GetStringFromPointer(larkUser.UserId), err))
-					continue
-				}
-
-				target.ID = util2.GetStringFromPointer(larkUser.UserId)
-				target.Name = userDetailedInfo.Name
-				target.Avatar = userDetailedInfo.Avatar
-				target.IDType = setting.LarkUserID
-			}
-
 			err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, target.IDType, target.ID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, make([]string, 0), false)
 			if err != nil {
 				respErr = multierror.Append(respErr, err)
@@ -238,26 +215,33 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func (c *NotificationJobCtl) prepareRuntimeNotificationFields() error {
+func (c *NotificationJobCtl) prepareRuntimeNotificationFields() {
 	keyMap := c.buildRuntimeNotificationKeyMap()
-	recipientKeyMap := c.buildRuntimeNotificationRecipientKeyMap()
 
 	c.jobTaskSpec.Title = renderNotificationString(c.jobTaskSpec.Title, keyMap)
 	c.jobTaskSpec.Content = renderNotificationString(c.jobTaskSpec.Content, keyMap)
 
-	return c.resolveDynamicRecipients(recipientKeyMap)
+	c.resolveDynamicRecipients(keyMap)
 }
 
+// buildRuntimeNotificationKeyMap merges system variables, webhook payload
+// variables and the live global context, because the notification spec is
+// rendered here at send time rather than by the generic job rendering.
 func (c *NotificationJobCtl) buildRuntimeNotificationKeyMap() map[string]string {
-	return util.KeyValsToMap(c.workflowCtx.WorkflowKeyVals)
+	keyMap := util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
+	for _, kv := range c.workflowCtx.WorkflowKeyVals {
+		if kv != nil {
+			keyMap[kv.Key] = kv.Value
+		}
+	}
+	for key, value := range util.WorkflowGlobalContextToKeyMap(c.workflowCtx.GlobalContextGetAll()) {
+		keyMap[key] = value
+	}
+	return keyMap
 }
 
-func (c *NotificationJobCtl) buildRuntimeNotificationRecipientKeyMap() map[string]string {
-	return util.KeyValsToMap(c.workflowCtx.NotificationRecipientKeyVals)
-}
-
-func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) error {
-	return dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
+func (c *NotificationJobCtl) resolveDynamicRecipients(keyMap map[string]string) {
+	dynamicrecipient.ResolveNotificationConfigs(keyMap, dynamicrecipient.NotificationConfigs{
 		LarkHook:   c.jobTaskSpec.LarkHookNotificationConfig,
 		LarkGroup:  c.jobTaskSpec.LarkGroupNotificationConfig,
 		LarkPerson: c.jobTaskSpec.LarkPersonNotificationConfig,
@@ -392,11 +376,9 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	resp, err := c.Post(uri, httpclient.SetBody(messageReq))
 	if err != nil {
 		return err
-	} else {
-		fmt.Println(string(resp.Body()))
 	}
 
-	return nil
+	return instantmessage.ValidateDingDingResponse(resp.Body())
 }
 
 func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {

@@ -291,8 +291,8 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 
 	if repo.SubModules {
-		cmd := &common.Command{
-			Cmd:       gitcmd.UpdateSubmodules(),
+		syncCmd := &common.Command{
+			Cmd:       gitcmd.SyncSubmodules(),
 			BeforeRun: AddOAuthInSubmoduleURLs,
 			BeforeRunArgs: []interface{}{
 				s.GetWorkDir(repo),
@@ -300,7 +300,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 				s.spec.CodeHosts,
 			},
 		}
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, syncCmd, &common.Command{Cmd: gitcmd.UpdateSubmodules()})
 	}
 
 	cmds = append(cmds, &common.Command{Cmd: gitcmd.ShowLastLog()})

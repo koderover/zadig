@@ -129,6 +129,16 @@ func UpdateSubmodules() *exec.Cmd {
 	return cmd
 }
 
+// SyncSubmodules returns command: git submodule sync --recursive
+func SyncSubmodules() *exec.Cmd {
+	return exec.Command(
+		"git",
+		"submodule",
+		"sync",
+		"--recursive",
+	)
+}
+
 // SetConfig returns command: git config --global $KEY $VA
 // e.g. git config --global user.name username
 func SetConfig(key, value string) *exec.Cmd {

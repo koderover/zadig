@@ -500,7 +500,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// external system API
+	// LLM integration API
 	// ---------------------------------------------------------------------------------------
 	llm := router.Group("llm")
 	{
@@ -512,6 +512,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		llm.GET("/integration/:id", GetLLMIntegration)
 		llm.PUT("/integration/:id", UpdateLLMIntegration)
 		llm.DELETE("/integration/:id", DeleteLLMIntegration)
+	}
+
+	ai := router.Group("ai")
+	{
+		ai.GET("/review", GetSystemAIReviewConfig)
+		ai.PUT("/review", UpdateSystemAIReviewConfig)
 	}
 
 	// ---------------------------------------------------------------------------------------

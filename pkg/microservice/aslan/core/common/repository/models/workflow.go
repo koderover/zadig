@@ -509,7 +509,7 @@ type HookPayload struct {
 	DeliveryID     string `bson:"delivery_id"      json:"delivery_id,omitempty"`
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	EventType      string `bson:"event_type"       json:"event_type"`
-	// PayloadVars only contains flattened email/mobile/phone leaves used for dynamic recipients.
+	// PayloadVars contains flattened webhook payload leaves used as workflow runtime variables.
 	PayloadVars []*KeyVal `bson:"payload_vars,omitempty" json:"payload_vars,omitempty"`
 }
 
@@ -575,6 +575,12 @@ type BuildModuleArgs struct {
 	FileName     string
 	URL          string
 	TaskType     string
+}
+
+type ReviewRule struct {
+	Name string `bson:"name" yaml:"name" json:"name"`
+	Path string `bson:"path" yaml:"path" json:"path"`
+	Rule string `bson:"rule" yaml:"rule" json:"rule"`
 }
 
 func (Workflow) TableName() string {

@@ -42,7 +42,7 @@ type OpenAPIRepoInput struct {
 	// 远程名称
 	RemoteName string `json:"remote_name" binding:"required"`
 	// 检出路径
-	CheckoutPath string `json:"checkout_path" binding:"required"`
+	CheckoutPath string `json:"checkout_path"`
 	// 是否使用子模块
 	SubModules bool `json:"submodules"`
 

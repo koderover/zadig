@@ -48,12 +48,78 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 	return &Workflow{wf}
 }
 
+type workflowJobNotificationFields struct {
+	stageIndex int
+	jobIndex   int
+	notifyCtls []*commonmodels.NotifyCtl
+	spec       interface{}
+	hasSpec    bool
+}
+
+type workflowNotificationFields struct {
+	notifyCtls []*commonmodels.NotifyCtl
+	jobs       []*workflowJobNotificationFields
+}
+
+func detachWorkflowNotificationFields(workflow *commonmodels.WorkflowV4) *workflowNotificationFields {
+	backup := &workflowNotificationFields{notifyCtls: workflow.NotifyCtls}
+	workflow.NotifyCtls = nil
+	for stageIndex, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		for jobIndex, job := range stage.Jobs {
+			if job == nil || (len(job.NotifyCtls) == 0 && job.JobType != config.JobNotification) {
+				continue
+			}
+			fields := &workflowJobNotificationFields{
+				stageIndex: stageIndex,
+				jobIndex:   jobIndex,
+				notifyCtls: job.NotifyCtls,
+			}
+			job.NotifyCtls = nil
+			if job.JobType == config.JobNotification {
+				fields.spec = job.Spec
+				fields.hasSpec = true
+				job.Spec = nil
+			}
+			backup.jobs = append(backup.jobs, fields)
+		}
+	}
+	return backup
+}
+
+func (backup *workflowNotificationFields) restore(workflow *commonmodels.WorkflowV4) {
+	if workflow == nil {
+		return
+	}
+	workflow.NotifyCtls = backup.notifyCtls
+	for _, fields := range backup.jobs {
+		if fields.stageIndex >= len(workflow.Stages) || workflow.Stages[fields.stageIndex] == nil {
+			continue
+		}
+		stage := workflow.Stages[fields.stageIndex]
+		if fields.jobIndex >= len(stage.Jobs) || stage.Jobs[fields.jobIndex] == nil {
+			continue
+		}
+		job := stage.Jobs[fields.jobIndex]
+		job.NotifyCtls = fields.notifyCtls
+		if fields.hasSpec {
+			job.Spec = fields.spec
+		}
+	}
+}
+
 // RenderJobTaskRuntimeVariables applies runtime variables consistently during
 // initial task creation, retry, and manual execution.
 func RenderJobTaskRuntimeVariables(task *commonmodels.JobTask, globalKeyMap map[string]string) error {
 	if task == nil {
 		return nil
 	}
+
+	// Notification configs are rendered and resolved by their send path. Generic
+	// rendering here would replace typed recipient templates with plain values.
+	defer commonutil.DetachJobTaskNotificationFields(task)()
 
 	taskBytes, err := json.Marshal(task)
 	if err != nil {
@@ -260,6 +326,36 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 	return resp, nil
 }
 
+func (w *Workflow) GetDynamicRecipientJobInputVariables() ([]*commonmodels.KeyVal, error) {
+	resp := make([]*commonmodels.KeyVal, 0)
+	for _, stage := range w.Stages {
+		for _, workflowJob := range stage.Jobs {
+			if workflowJob.Skipped || workflowJob.JobType != config.JobFreestyle {
+				continue
+			}
+			spec := new(commonmodels.FreestyleJobSpec)
+			if err := commonmodels.IToiYaml(workflowJob.Spec, spec); err != nil {
+				return nil, err
+			}
+			for _, env := range spec.Envs {
+				if env == nil || env.KeyVal == nil || env.IsCredential || env.GetValue() == "" || strings.HasPrefix(env.GetValue(), "{{.") {
+					continue
+				}
+				variable := &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", workflowJob.Name, env.Key}, "."),
+					Value:        env.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				}
+				if _, ok := commonutil.ParseDynamicRecipientKind(variable.Key); ok {
+					resp = append(resp, variable)
+				}
+			}
+		}
+	}
+	return resp, nil
+}
+
 func (w *Workflow) SetParameterRepoCommitInfo() {
 	for _, param := range w.Params {
 		if param.ParamsType != "repo" {
@@ -280,10 +376,14 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 		return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
 	}
 
+	return w.UpdateWithWorkflowSettings(latestWorkflowSettings, ticket)
+}
+
+func (w *Workflow) UpdateWithWorkflowSettings(latestWorkflowSettings *commonmodels.WorkflowV4, ticket *commonmodels.ApprovalTicket) error {
 	w.Params = renderParams(latestWorkflowSettings.Params, w.Params)
 
 	newStage := make([]*commonmodels.WorkflowStage, 0)
-	err = util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
+	err := util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
 	if err != nil {
 		return err
 	}
@@ -336,6 +436,7 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 			originJobMap[job.Name].RunPolicy = job.RunPolicy
 			originJobMap[job.Name].ErrorPolicy = job.ErrorPolicy
 			originJobMap[job.Name].ExecutePolicy = job.ExecutePolicy
+			originJobMap[job.Name].NotifyCtls = job.NotifyCtls
 			jobList = append(jobList, originJobMap[job.Name])
 		}
 		stage.Jobs = jobList
@@ -362,6 +463,8 @@ func (w *Workflow) ClearOptions() error {
 }
 
 func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string, releasePlan *commonmodels.ReleasePlanRef) error {
+	notificationFields := detachWorkflowNotificationFields(w.WorkflowV4)
+	defer notificationFields.restore(w.WorkflowV4)
 	b, err := json.Marshal(w.WorkflowV4)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
@@ -603,18 +706,17 @@ func buildRuntimeReferableVariables(workflow *commonmodels.WorkflowV4) []*common
 		Type:         "string",
 		IsCredential: false,
 	})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.branch", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.target_branch", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.pr", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_id", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_sha", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.commit_message", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.committer", Type: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.KeyVal{Key: "workflow.trigger.event", Type: "string", IsCredential: false})
+	for _, key := range commonutil.WorkflowTriggerVariableKeys() {
+		resp = append(resp, &commonmodels.KeyVal{Key: key, Type: "string", IsCredential: false})
+	}
 	return resp
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
+	return w.ValidateWithWorkflowSettings(isExecution, nil)
+}
+
+func (w *Workflow) ValidateWithWorkflowSettings(isExecution bool, latestWorkflowSettings *commonmodels.WorkflowV4) error {
 	if w.Project == "" {
 		err := fmt.Errorf("project should not be empty")
 		return e.ErrLintWorkflow.AddErr(err)
@@ -657,11 +759,12 @@ func (w *Workflow) Validate(isExecution bool) error {
 		return e.ErrLintWorkflow.AddErr(err)
 	}
 
-	var latestWorkflowSettings *commonmodels.WorkflowV4
 	if isExecution {
-		latestWorkflowSettings, err = commonrepo.NewWorkflowV4Coll().Find(w.Name)
-		if err != nil {
-			return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+		if latestWorkflowSettings == nil {
+			latestWorkflowSettings, err = commonrepo.NewWorkflowV4Coll().Find(w.Name)
+			if err != nil {
+				return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+			}
 		}
 		w.RemarkRequired = latestWorkflowSettings.RemarkRequired
 		if latestWorkflowSettings.RemarkRequired && strings.TrimSpace(w.Remark) == "" {

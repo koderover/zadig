@@ -227,6 +227,6 @@ func (c *SprintTemplateColl) UpdateStageWorkflows(ctx *handler.Context, sprintID
 		ArrayFilters: &arrayFilters,
 	}
 
-	_, err = c.Collection.UpdateOne(ctx, query, update, &updateOptions)
+	_, err = c.Collection.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, update, &updateOptions)
 	return err
 }

@@ -107,7 +107,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
@@ -142,7 +142,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
@@ -168,7 +168,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err = TriggerTestByGiteeEvent(event, baseURI, requestID, log); err != nil {
+			if err = TriggerTestByGiteeEvent(event, string(payload), baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
@@ -183,6 +183,18 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 	}
 	wg.Wait()
 	return errorList.ErrorOrNil()
+}
+
+func buildGiteePayloadVariables(rawPayload string) []*commonmodels.KeyVal {
+	variables := commonutil.BuildPayloadVariables(rawPayload)
+	filtered := make([]*commonmodels.KeyVal, 0, len(variables))
+	for _, variable := range variables {
+		if variable.Key == "payload.password" || variable.Key == "payload.sign" {
+			continue
+		}
+		filtered = append(filtered, variable)
+	}
+	return filtered
 }
 
 func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error {

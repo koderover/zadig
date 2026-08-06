@@ -24,8 +24,9 @@ const (
 )
 
 const (
-	JobResultKey  = "job-result"
-	JobOutputsKey = "job-outputs"
+	JobResultKey         = "job-result"
+	JobOutputsKey        = "job-outputs"
+	JobAIReviewReportKey = "ai-review-report"
 
 	JobDebugStatusKey    = "job-debug-status"
 	JobDebugStatusBefore = "before"

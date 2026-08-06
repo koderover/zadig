@@ -62,7 +62,7 @@ func (l *cacheLock) Unlock(key string) {
 	delete(l.cm, key)
 }
 
-func ReadCache(job types.ZadigJobTask, dest, cacheDir string, logger *zap.SugaredLogger) {
+func ReadCache(job types.ZadigJobTask, dest, cacheDir string, copyContents bool, logger *zap.SugaredLogger) {
 	// lock the cache path to avoid other job write or read this path at the same time
 	key := fmt.Sprintf("%s-%s-%s", job.ProjectName, job.WorkflowName, job.JobName)
 	cache.Lock(key)
@@ -76,14 +76,14 @@ func ReadCache(job types.ZadigJobTask, dest, cacheDir string, logger *zap.Sugare
 		}
 		return
 	} else {
-		err = copyCmd(cachePath, dest, logger)
+		err = copyCmd(cachePath, dest, copyContents, logger)
 		if err != nil {
 			log.Errorf("failed to copy cache directory %s to %s, error: %v", cachePath, dest, err)
 		}
 	}
 }
 
-func WriteCache(job types.ZadigJobTask, src string, cachePath string, logger *zap.SugaredLogger) {
+func WriteCache(job types.ZadigJobTask, src string, cachePath string, copyContents bool, logger *zap.SugaredLogger) {
 	// lock the cache path to avoid other job write or read this path at the same time
 	key := fmt.Sprintf("%s-%s-%s", job.ProjectName, job.WorkflowName, job.JobName)
 	cache.Lock(key)
@@ -96,14 +96,19 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, logger *za
 		}
 	}
 
-	err := copyCmd(src, cachePath, logger)
+	err := copyCmd(src, cachePath, copyContents, logger)
 	if err != nil {
 		log.Errorf("failed to copy cache directory %s to %s, error: %v", src, cachePath, err)
 	}
 }
 
-func copyCmd(src, dest string, logger *zap.SugaredLogger) error {
-	cmd := exec.Command("cp", "-f", "-r", src, dest)
+func copyCmd(src, dest string, copyContents bool, logger *zap.SugaredLogger) error {
+	copySource := src
+	if copyContents {
+		copySource = filepath.Join(src, ".")
+	}
+
+	cmd := exec.Command("cp", "-f", "-R", copySource, dest)
 	var wg sync.WaitGroup
 
 	cmdStdoutReader, err := cmd.StdoutPipe()

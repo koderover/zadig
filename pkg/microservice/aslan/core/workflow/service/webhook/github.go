@@ -356,7 +356,7 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
-		if err = TriggerTestByGithubEvent(et, requestID, log); err != nil {
+		if err = TriggerTestByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
@@ -390,7 +390,7 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
-		if err = TriggerScanningByGithubEvent(et, requestID, log); err != nil {
+		if err = TriggerScanningByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerScanningByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
@@ -584,13 +584,23 @@ func updateServiceTemplateHelmValuesByGithubPush(pushEvent *github.PushEvent, lo
 
 			createFrom, err := service.GetHelmCreateFrom()
 			if err != nil {
-				log.Errorf("Failed to get helm create from, error: %v", err)
+				log.Errorf(
+					"Failed to get helm create from for service, project: %s, service: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, production, err,
+				)
+				continue
+			}
+
+			if createFrom.YamlData == nil || createFrom.YamlData.SourceDetail == nil {
 				continue
 			}
 
 			sourceRepo, err := createFrom.GetSourceDetail()
 			if err != nil {
-				log.Errorf("Failed to get source detail, error: %v", err)
+				log.Errorf(
+					"Failed to get source detail for helm chart template service, project: %s, service: %s, template: %s, production: %v, error: %v",
+					service.ProductName, service.ServiceName, createFrom.TemplateName, production, err,
+				)
 				continue
 			}
 

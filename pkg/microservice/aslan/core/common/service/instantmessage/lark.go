@@ -17,6 +17,7 @@ limitations under the License.
 package instantmessage
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -212,6 +213,14 @@ func (w *Service) sendFeishuMessageFromClient(client *lark.Client, receiverType,
 	return nil
 }
 
+func marshalLarkTextContent(text string) (string, error) {
+	content, err := json.Marshal(&FeiShuContentV2{Text: text})
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
 func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) error {
 	if content == "" {
 		return nil
@@ -238,10 +247,10 @@ func (w *Service) SendFeishuHookText(uri, content string) error {
 }
 
 func getColorTemplateWithStatus(status config.Status) string {
-	if status == config.StatusPassed || status == config.StatusCreated {
+	if status == config.StatusPassed || status == config.StatusCreated || status == config.StatusPrepare {
 		return feishuHeaderTemplateGreen
 	}
-	if status == config.StatusPause {
+	if status == config.StatusPause || status == config.StatusWaitingApprove {
 		return feishuHeaderTemplateOrange
 	}
 	return feishuHeaderTemplateRed

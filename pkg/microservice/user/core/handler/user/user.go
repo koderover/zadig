@@ -274,7 +274,7 @@ func ListUsers(c *gin.Context) {
 	}
 
 	if len(args.UIDs) > 0 {
-		ctx.Resp, ctx.RespErr = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.SearchUsersByUIDs(args.UIDs, args.MFAEnabled, ctx.Logger)
 	} else if len(args.Email) > 0 {
 		ctx.Resp, ctx.RespErr = permission.SearchUsersByEmail(args, ctx.Logger)
 	} else if len(args.Phone) > 0 {
@@ -325,6 +325,7 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 		Roles:        args.Roles,
 		Project:      args.Project,
 		IdentityType: args.IdentityType,
+		MFAEnabled:   args.MFAEnabled,
 	}
 
 	var resp *types.UsersResp
@@ -387,7 +388,7 @@ func ListUsersBrief(c *gin.Context) {
 
 	var resp *types.UsersResp
 	if len(args.UIDs) > 0 {
-		resp, err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		resp, err = permission.SearchUsersByUIDs(args.UIDs, args.MFAEnabled, ctx.Logger)
 	} else if len(args.Email) > 0 {
 		resp, err = permission.SearchUsersByEmail(args, ctx.Logger)
 	} else if len(args.Phone) > 0 {

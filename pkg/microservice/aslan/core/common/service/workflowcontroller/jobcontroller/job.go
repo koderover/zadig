@@ -24,6 +24,7 @@ import (
 	"os"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -55,17 +57,9 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	if job == nil {
 		return nil
 	}
-
 	// NotificationJobCtl owns notification spec rendering because it has the
 	// webhook and task runtime context required by notification templates.
-	var notificationSpec interface{}
-	if job.JobType == string(config.JobNotification) {
-		notificationSpec = job.Spec
-		job.Spec = nil
-		defer func() {
-			job.Spec = notificationSpec
-		}()
-	}
+	defer commonutil.DetachJobTaskNotificationFields(job)()
 
 	b, err := json.Marshal(job)
 	if err != nil {
@@ -75,6 +69,48 @@ func removeUnrenderedVariables(job *commonmodels.JobTask) error {
 	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
 	if err := json.Unmarshal(replacedJob, job); err != nil {
 		return fmt.Errorf("failed to unmarshal job: %w", err)
+	}
+	return nil
+}
+
+func renderJobGlobalVariables(job *commonmodels.JobTask, variables map[string]string) error {
+	if job == nil || len(variables) == 0 {
+		return nil
+	}
+	// NotificationJobCtl renders its own spec at send time so typed recipient
+	// templates survive until dynamic recipient resolution.
+	defer commonutil.DetachJobTaskNotificationFields(job)()
+
+	jobBytes, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job: %w", err)
+	}
+
+	jobJSON := string(jobBytes)
+	keys := make([]string, 0, len(variables))
+	for key := range variables {
+		if strings.Contains(jobJSON, key) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+
+	replacements := make([]string, 0, len(keys)*2)
+	for _, key := range keys {
+		value := strings.Trim(variables[key], "\n")
+		escapedValue, err := util.JsonEscapeString(value)
+		if err != nil {
+			return fmt.Errorf("failed to escape global variable %s: %w", key, err)
+		}
+		replacements = append(replacements, key, escapedValue)
+	}
+	if len(replacements) == 0 {
+		return nil
+	}
+
+	replacedJob := strings.NewReplacer(replacements...).Replace(jobJSON)
+	if err := json.Unmarshal([]byte(replacedJob), job); err != nil {
+		return fmt.Errorf("failed to unmarshal rendered job: %w", err)
 	}
 	return nil
 }
@@ -164,7 +200,7 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 	return jobCtl
 }
 
-func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, notifier *jobNotifier, logger *zap.SugaredLogger, ack func()) {
 	setJobStartTimeContext(job, workflowCtx)
 
 	// Keep the original execution timestamps when a completed job is skipped
@@ -188,7 +224,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		setJobFinalStatusContext(job, workflowCtx)
 		ack()
-		sendJobNotifications(workflowCtx, job, job.Status, logger)
+		notifier.jobFinished(job)
 		if workflowCtx.IsDebug {
 			logger.Infof("skip updating debug job info into db")
 			return
@@ -200,23 +236,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		}
 	}(&jobCtl)
 
-	// @note render global variables for every job.
-	workflowCtx.GlobalContextEach(func(k, v string) bool {
-		b, _ := json.Marshal(job)
-		v = strings.Trim(v, "\n")
-
-		jsonEscapeValue, err := util.JsonEscapeString(string(v))
-		if err != nil {
-			logger.Errorf("failed to escape value %s, error: %v", string(v), err)
-			jsonEscapeValue = string(v)
-		}
-
-		replacedString := strings.ReplaceAll(string(b), k, jsonEscapeValue)
-		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
-			logger.Errorf("unmarshal job error: %v", err)
-		}
-		return true
-	})
+	// Rendering is best-effort to keep the historical behavior: a failure keeps
+	// the job running with unrendered variables instead of failing it.
+	if err := renderJobGlobalVariables(job, workflowCtx.GlobalContextGetAll()); err != nil {
+		logger.Errorf("render job global variables error: %v", err)
+	}
 
 	// remove all the unrendered variable, replacing then with empty string
 	if err := removeUnrenderedVariables(job); err != nil {
@@ -241,7 +265,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
 	ack()
 
-	sendJobNotifications(workflowCtx, job, config.StatusPrepare, logger)
+	notifier.jobStarted(job)
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
 
@@ -263,7 +287,15 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 }
 
 func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *commonmodels.JobTask, status config.Status, logger *zap.SugaredLogger) {
-	if workflowCtx == nil || job == nil || !instantmessage.HasTaskNotifyCtls(job.NotifyCtls, status) {
+	sendJobGroupNotifications(workflowCtx, []*commonmodels.JobTask{job}, status, logger)
+}
+
+func sendJobGroupNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, jobs []*commonmodels.JobTask, status config.Status, logger *zap.SugaredLogger) {
+	if workflowCtx == nil || len(jobs) == 0 {
+		return
+	}
+	primary := jobs[0]
+	if primary == nil || !instantmessage.HasTaskNotifyCtls(primary.NotifyCtls, status) {
 		return
 	}
 
@@ -275,15 +307,171 @@ func sendJobNotifications(workflowCtx *commonmodels.WorkflowTaskCtx, job *common
 	}
 
 	if err := sendTaskNotifications(&instantmessage.TaskNotifyInput{
-		WorkflowName:          workflowCtx.WorkflowName,
-		TaskID:                workflowCtx.TaskID,
-		Job:                   job,
-		NotifyCtls:            job.NotifyCtls,
-		Status:                status,
-		StatusTextKeyOverride: statusTextKeyOverride,
+		WorkflowName:            workflowCtx.WorkflowName,
+		TaskID:                  workflowCtx.TaskID,
+		Job:                     primary,
+		Jobs:                    jobs,
+		NotifyCtls:              primary.NotifyCtls,
+		Status:                  status,
+		StatusTextKeyOverride:   statusTextKeyOverride,
+		RecipientRuntimeContext: workflowCtx.GlobalContextGetAll(),
 	}); err != nil {
-		logger.Warnf("send task notification failed, job: %s, status: %s, error: %v", job.Name, status, err)
+		logger.Errorf("send task notification failed, job: %s, status: %s, error: %v", primary.Name, status, err)
 	}
+}
+
+// jobNotifier groups the split JobTasks of one original workflow job (e.g. a
+// build job with one JobTask per service) so that each original job produces a
+// single start notification and a single aggregated final notification.
+type jobNotifier struct {
+	workflowCtx *commonmodels.WorkflowTaskCtx
+	logger      *zap.SugaredLogger
+
+	mu     sync.Mutex
+	groups map[string]*jobNotifyGroup
+}
+
+type jobNotifyGroup struct {
+	jobs      []*commonmodels.JobTask
+	snapshots []*commonmodels.JobTask
+	prepared  bool
+	finished  int
+	notified  bool
+}
+
+func newJobNotifier(jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *jobNotifier {
+	notifier := &jobNotifier{
+		workflowCtx: workflowCtx,
+		logger:      logger,
+		groups:      map[string]*jobNotifyGroup{},
+	}
+	for _, job := range jobs {
+		key := jobNotifyGroupKey(job)
+		group, ok := notifier.groups[key]
+		if !ok {
+			group = &jobNotifyGroup{}
+			notifier.groups[key] = group
+		}
+		group.jobs = append(group.jobs, job)
+		group.snapshots = append(group.snapshots, snapshotJobTask(job))
+	}
+	return notifier
+}
+
+func snapshotJobTask(job *commonmodels.JobTask) *commonmodels.JobTask {
+	if job == nil {
+		return nil
+	}
+	copied := *job
+	return &copied
+}
+
+func (g *jobNotifyGroup) updateSnapshot(job *commonmodels.JobTask) {
+	for i, original := range g.jobs {
+		if original == job {
+			g.snapshots[i] = snapshotJobTask(job)
+			return
+		}
+	}
+}
+
+func (g *jobNotifyGroup) jobSnapshots() []*commonmodels.JobTask {
+	return append([]*commonmodels.JobTask(nil), g.snapshots...)
+}
+
+func jobNotifyGroupKey(job *commonmodels.JobTask) string {
+	if job.OriginName != "" {
+		return job.OriginName
+	}
+	return job.Name
+}
+
+func (n *jobNotifier) jobStarted(job *commonmodels.JobTask) {
+	n.mu.Lock()
+	group := n.groups[jobNotifyGroupKey(job)]
+	if group == nil || group.prepared {
+		n.mu.Unlock()
+		return
+	}
+	group.prepared = true
+	group.updateSnapshot(job)
+	jobs := group.jobSnapshots()
+	n.mu.Unlock()
+
+	sendJobGroupNotifications(n.workflowCtx, jobs, config.StatusPrepare, n.logger)
+}
+
+func (n *jobNotifier) jobFinished(job *commonmodels.JobTask) {
+	n.mu.Lock()
+	group := n.groups[jobNotifyGroupKey(job)]
+	if group == nil || group.notified {
+		n.mu.Unlock()
+		return
+	}
+	group.finished++
+	group.updateSnapshot(job)
+	if group.finished < len(group.jobs) {
+		n.mu.Unlock()
+		return
+	}
+	group.notified = true
+	jobs := group.jobSnapshots()
+	status := aggregateJobNotifyStatus(jobs)
+	n.mu.Unlock()
+
+	sendJobGroupNotifications(n.workflowCtx, jobs, status, n.logger)
+}
+
+// flush sends final notifications for groups whose remaining jobs will never
+// run, e.g. when a stage aborts after a failed job.
+func (n *jobNotifier) flush() {
+	type notification struct {
+		jobs   []*commonmodels.JobTask
+		status config.Status
+	}
+
+	n.mu.Lock()
+	pending := make([]notification, 0, len(n.groups))
+	for _, group := range n.groups {
+		if group.notified || group.finished == 0 {
+			continue
+		}
+		group.notified = true
+		jobs := group.jobSnapshots()
+		pending = append(pending, notification{jobs: jobs, status: aggregateJobNotifyStatus(jobs)})
+	}
+	n.mu.Unlock()
+
+	for _, item := range pending {
+		sendJobGroupNotifications(n.workflowCtx, item.jobs, item.status, n.logger)
+	}
+}
+
+func aggregateJobNotifyStatus(jobs []*commonmodels.JobTask) config.Status {
+	statusPriority := map[config.Status]int{
+		config.StatusCancelled: 7,
+		config.StatusTimeout:   6,
+		config.StatusFailed:    5,
+		config.StatusPause:     4,
+		config.StatusReject:    3,
+		config.StatusPassed:    2,
+		config.StatusUnstable:  1,
+		config.StatusSkipped:   0,
+	}
+
+	aggregated := jobs[0].Status
+	aggregatedPriority := -1
+	for _, job := range jobs {
+		priority, ok := statusPriority[job.Status]
+		if !ok {
+			continue
+		}
+		if priority > aggregatedPriority {
+			aggregated = job.Status
+			aggregatedPriority = priority
+		}
+	}
+	return aggregated
 }
 
 func retryJob(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, jobCtl JobCtl, ack func(), maxRetry int) {
@@ -355,16 +543,19 @@ func waitForManualErrorHandling(ctx context.Context, workflowCtx *commonmodels.W
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+	notifier := newJobNotifier(jobs, workflowCtx, logger)
+	defer notifier.flush()
+
 	if concurrency == 1 {
 		for _, job := range jobs {
-			runJob(ctx, job, workflowCtx, logger, ack)
+			runJob(ctx, job, workflowCtx, notifier, logger, ack)
 			if jobStatusFailed(job.Status) {
 				return
 			}
 		}
 		return
 	}
-	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
+	jobPool := NewPool(ctx, jobs, workflowCtx, notifier, concurrency, logger, ack)
 	jobPool.Run()
 }
 
@@ -399,6 +590,7 @@ func CleanPendingBlueGreenReleaseJobs(ctx context.Context, workflowTask *commonm
 type Pool struct {
 	Jobs        []*commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
+	notifier    *jobNotifier
 	concurrency int
 	jobsChan    chan *commonmodels.JobTask
 	logger      *zap.SugaredLogger
@@ -409,11 +601,12 @@ type Pool struct {
 
 // NewPool initializes a new pool with the given tasks and
 // at the given concurrency.
-func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) *Pool {
+func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, notifier *jobNotifier, concurrency int, logger *zap.SugaredLogger, ack func()) *Pool {
 	return &Pool{
 		Jobs:        jobs,
 		concurrency: concurrency,
 		workflowCtx: workflowCtx,
+		notifier:    notifier,
 		jobsChan:    make(chan *commonmodels.JobTask),
 		logger:      logger,
 		ack:         ack,
@@ -442,7 +635,7 @@ func (p *Pool) Run() {
 // The work loop for any single goroutine.
 func (p *Pool) work() {
 	for job := range p.jobsChan {
-		runJob(p.ctx, job, p.workflowCtx, p.logger, p.ack)
+		runJob(p.ctx, job, p.workflowCtx, p.notifier, p.logger, p.ack)
 		p.wg.Done()
 	}
 }

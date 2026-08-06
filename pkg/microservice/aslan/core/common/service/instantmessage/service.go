@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/url"
 	"sort"
 	"strconv"
@@ -341,20 +342,15 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeCard, notifyCtl.FeishuChat.ChatID, string(messageContent))
 
 			atMessage := getNotifyAtContent(notifyCtl)
+			if atMessage != "" {
+				atMessageContent, err := marshalLarkTextContent(atMessage)
+				if err != nil {
+					return err
+				}
 
-			larkAtMessage := &FeiShuMessage{
-				Text: atMessage,
-			}
-
-			atMessageContent, err := json.Marshal(larkAtMessage)
-			if err != nil {
-				return err
-			}
-
-			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChat.ChatID, string(atMessageContent))
-
-			if err != nil {
-				return err
+				if err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChat.ChatID, atMessageContent); err != nil {
+					return err
+				}
 			}
 
 		} else {
@@ -822,24 +818,18 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	}
 	if notify.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		atUserList := []string{}
-		for _, userID := range notify.LarkGroupNotificationConfig.AtUsers {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID.ID))
+		for _, user := range notify.LarkGroupNotificationConfig.AtUsers {
+			if user == nil || user.ID == "" {
+				continue
+			}
+			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\">%s</at>", user.ID, html.EscapeString(user.Name)))
 		}
 		msg := strings.Join(atUserList, " ")
-		if notify.LarkHookNotificationConfig.IsAtAll {
+		if notify.LarkGroupNotificationConfig.IsAtAll {
 			msg += "<at user_id=\"all\"></at>"
 		}
 
-		larkAtMessage := &FeiShuMessage{
-			Text: msg,
-		}
-
-		atMessageContent, err := json.Marshal(larkAtMessage)
-		if err != nil {
-			log.Errorf("failed to generate lark at info, error: %s", err)
-			return ""
-		}
-		return string(atMessageContent)
+		return msg
 	}
 	return resp
 }

@@ -8,7 +8,7 @@
   <name>embeddedTomcatSample Maven Webapp</name>
   <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
   <properties>
-    <tomcat.version>7.0.57</tomcat.version>
+    <tomcat.version>9.0.119</tomcat.version>
     <java.version>1.8</java.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
@@ -17,11 +17,6 @@
     <dependency>
         <groupId>org.apache.tomcat.embed</groupId>
         <artifactId>tomcat-embed-core</artifactId>
-        <version>${tomcat.version}</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-logging-juli</artifactId>
         <version>${tomcat.version}</version>
     </dependency>
     <dependency>
@@ -54,7 +49,7 @@
             <version>3.3.1</version>
             <configuration>
                 <!-- 配置 WAR 文件的名称，如果不指定，默认为项目的 artifactId -->
-                <warName><java-tomcat-demo></java-tomcat-demo></warName>
+                <warName>java-tomcat-demo</warName>
                 <!-- 配置 WAR 文件包含的内容，比如静态资源文件、Web.xml 等 -->
                 <webResources>
                     <resource>
@@ -67,7 +62,7 @@
         <plugin>
            <groupId>org.apache.maven.plugins</groupId>
            <artifactId>maven-compiler-plugin</artifactId>
-           <version>2.3.2</version>
+           <version>3.14.1</version>
            <inherited>true</inherited>
            <configuration>
                  <source>1.8</source>

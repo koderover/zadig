@@ -33,7 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+func TriggerScanningByGitlabEvent(event interface{}, rawPayload, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// 1. find configured testing
 	scanningList, _, err := commonrepo.NewScanningColl().List(nil, 0, 0)
 	if err != nil {
@@ -42,6 +42,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 	}
 
 	mErr := &multierror.Error{}
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -89,6 +90,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 							Owner:          eventRepo.RepoOwner,
 							Repo:           eventRepo.RepoName,
 							Branch:         eventRepo.Branch,
+							TargetBranch:   ev.ObjectAttributes.TargetBranch,
 							IsPr:           true,
 							MergeRequestID: strconv.Itoa(mergeRequestID),
 							CommitID:       commitID,
@@ -121,6 +123,12 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						hookPayload = &commonmodels.HookPayload{
 							EventType: eventType,
 						}
+					}
+					hookPayload.PayloadVars = payloadVariables
+
+					if scanning.ScannerType == types.ScannerTypeAIReview && prID <= 0 {
+						log.Debugf("skip non-MR event for AI review scanning %s", scanning.Name)
+						continue
 					}
 
 					if autoCancelOpt.Type != "" {
@@ -164,6 +172,9 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
 					repoInfo.PR = mergeRequestID
+					if scanning.ScannerType == types.ScannerTypeAIReview {
+						repoInfo.Branch = hookPayload.TargetBranch
+					}
 
 					notificationID := ""
 					if notification != nil {

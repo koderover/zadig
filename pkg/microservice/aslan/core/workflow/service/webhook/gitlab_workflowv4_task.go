@@ -292,7 +292,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 	}
 
 	mErr := &multierror.Error{}
-	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
 	}
@@ -373,7 +373,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
-					Branch:         eventRepo.Branch,
+					Branch:         ev.ObjectAttributes.SourceBranch,
 					TargetBranch:   eventRepo.TargetBranch,
 					IsPr:           true,
 					MergeRequestID: mergeRequestID,
@@ -414,7 +414,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 					EventType:    eventType,
 				}
 			}
-			hookPayload.PayloadVars = recipientPayloadVariables
+			hookPayload.PayloadVars = payloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
@@ -429,7 +429,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, rawPayload, baseURI, requ
 			}
 
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
-			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))

@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	giteeClient "gitee.com/openeuler/go-gitee/gitee"
+	githubapi "github.com/google/go-github/v35/github"
 	"github.com/pkg/errors"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
+	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
@@ -44,6 +46,153 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{logger: log.SugaredLogger()}
+}
+
+func (c *Client) UpsertAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
+	if prID <= 0 {
+		return fmt.Errorf("invalid pull/merge request ID %d", prID)
+	}
+	codeHostDetail, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
+	}
+
+	switch strings.ToLower(codeHostDetail.Type) {
+	case setting.SourceFromGitlab:
+		cli, err := gitlabtool.NewClient(
+			codeHostDetail.ID,
+			codeHostDetail.Address,
+			codeHostDetail.AccessToken,
+			config.ProxyHTTPSAddr(),
+			codeHostDetail.EnableProxy,
+			codeHostDetail.DisableSSL,
+		)
+		if err != nil {
+			return fmt.Errorf("create gitlab client: %w", err)
+		}
+		return c.upsertGitLabAIReviewComment(cli.Client, projectID, prID, comment)
+	case setting.SourceFromGithub:
+		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
+		if err != nil {
+			return fmt.Errorf("create github app client: %w", err)
+		}
+		if cli == nil {
+			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
+		}
+		return c.upsertGitHubAIReviewComment(cli.Client.Client, repoOwner, repoName, prID, comment)
+	default:
+		return fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
+	}
+}
+
+func (c *Client) upsertGitHubAIReviewComment(cli *githubapi.Client, repoOwner, repoName string, prID int, comment string) error {
+	ctx := context.Background()
+	options := &githubapi.IssueListCommentsOptions{
+		Sort:      githubapi.String("updated"),
+		Direction: githubapi.String("desc"),
+		ListOptions: githubapi.ListOptions{
+			PerPage: 100,
+		},
+	}
+	for {
+		comments, resp, err := cli.Issues.ListComments(ctx, repoOwner, repoName, prID, options)
+		if err != nil {
+			c.logAIReviewCommentFallback("list GitHub pull request comments", err)
+			return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+		}
+		for _, existingComment := range comments {
+			if existingComment == nil || !strings.Contains(existingComment.GetBody(), aiReviewCommentMarker) {
+				continue
+			}
+			_, _, err = cli.Issues.EditComment(
+				ctx,
+				repoOwner,
+				repoName,
+				existingComment.GetID(),
+				&githubapi.IssueComment{Body: &comment},
+			)
+			if err == nil {
+				return nil
+			}
+			c.logAIReviewCommentFallback("update GitHub pull request comment", err)
+			return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		options.Page = resp.NextPage
+	}
+	return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+}
+
+func createGitHubAIReviewComment(ctx context.Context, cli *githubapi.Client, repoOwner, repoName string, prID int, comment string) error {
+	_, _, err := cli.Issues.CreateComment(
+		ctx,
+		repoOwner,
+		repoName,
+		prID,
+		&githubapi.IssueComment{Body: &comment},
+	)
+	if err != nil {
+		return fmt.Errorf("create GitHub pull request comment: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) upsertGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int, comment string) error {
+	options := &gitlab.ListMergeRequestNotesOptions{
+		OrderBy: gitlab.String("updated_at"),
+		Sort:    gitlab.String("desc"),
+		ListOptions: gitlab.ListOptions{
+			PerPage: 100,
+		},
+	}
+	for {
+		notes, resp, err := cli.Notes.ListMergeRequestNotes(projectID, prID, options)
+		if err != nil {
+			c.logAIReviewCommentFallback("list GitLab merge request notes", err)
+			return createGitLabAIReviewComment(cli, projectID, prID, comment)
+		}
+		for _, note := range notes {
+			if note == nil || !strings.Contains(note.Body, aiReviewCommentMarker) {
+				continue
+			}
+			_, _, err = cli.Notes.UpdateMergeRequestNote(
+				projectID,
+				prID,
+				note.ID,
+				&gitlab.UpdateMergeRequestNoteOptions{Body: &comment},
+			)
+			if err == nil {
+				return nil
+			}
+			c.logAIReviewCommentFallback("update GitLab merge request note", err)
+			return createGitLabAIReviewComment(cli, projectID, prID, comment)
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		options.Page = resp.NextPage
+	}
+	return createGitLabAIReviewComment(cli, projectID, prID, comment)
+}
+
+func createGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int, comment string) error {
+	_, _, err := cli.Notes.CreateMergeRequestNote(
+		projectID,
+		prID,
+		&gitlab.CreateMergeRequestNoteOptions{Body: &comment},
+	)
+	if err != nil {
+		return fmt.Errorf("create GitLab merge request note: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) logAIReviewCommentFallback(operation string, err error) {
+	if c.logger != nil {
+		c.logger.Warnf("failed to %s, fallback to creating a new AI review comment: %v", operation, err)
+	}
 }
 
 // Comment send comment to gitlab and set comment id in notify

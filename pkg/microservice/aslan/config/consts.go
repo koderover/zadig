@@ -208,6 +208,7 @@ const (
 	StepTarArchive        StepType = "tar_archive"
 	StepSonarCheck        StepType = "sonar_check"
 	StepSonarGetMetrics   StepType = "sonar_get_metrics"
+	StepAIReviewReport    StepType = "ai_review_report"
 	StepDistributeImage   StepType = "distribute_image"
 	StepDebugBefore       StepType = "debug_before"
 	StepDebugAfter        StepType = "debug_after"

@@ -223,7 +223,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 	}
 
 	mErr := &multierror.Error{}
-	recipientPayloadVariables := commonutil.BuildPayloadRecipientVariables(rawPayload)
+	payloadVariables := commonutil.BuildPayloadVariables(rawPayload)
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
@@ -276,7 +276,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          *ev.Repo.Owner.Login,
 					Repo:           *ev.Repo.Name,
-					Branch:         *ev.PullRequest.Base.Ref,
+					Branch:         *ev.PullRequest.Head.Ref,
 					TargetBranch:   *ev.PullRequest.Base.Ref,
 					Ref:            *ev.PullRequest.Head.SHA,
 					IsPr:           true,
@@ -321,7 +321,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 					EventType:    eventType,
 				}
 			}
-			hookPayload.PayloadVars = recipientPayloadVariables
+			hookPayload.PayloadVars = payloadVariables
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
@@ -334,7 +334,7 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
-			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			if err := workflowservice.UpdateWorkflowControllerWithLatestRenderedWorkflow(workflowController, nil, log); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
