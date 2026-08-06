@@ -868,12 +868,8 @@ type AIRuntimeServiceItem struct {
 }
 
 type AIRuntimeHostStatus struct {
-	HostID   string `bson:"host_id,omitempty" json:"host_id,omitempty" yaml:"host_id,omitempty"`
-	Address  string `bson:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
-	Status   string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Protocol string `bson:"protocol,omitempty" json:"protocol,omitempty" yaml:"protocol,omitempty"`
-	Port     int    `bson:"port,omitempty" json:"port,omitempty" yaml:"port,omitempty"`
-	Path     string `bson:"path,omitempty" json:"path,omitempty" yaml:"path,omitempty"`
+	Address string `bson:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
+	Status  string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 type AIRuntimeWorkload struct {
