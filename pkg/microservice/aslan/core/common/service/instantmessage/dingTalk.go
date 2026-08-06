@@ -17,6 +17,7 @@ limitations under the License.
 package instantmessage
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -55,6 +56,26 @@ type DingDingAt struct {
 	IsAtAll   bool     `json:"isAtAll"`
 }
 
+// ValidateDingDingResponse checks the business result returned by a DingTalk
+// custom bot. DingTalk may return HTTP 200 for a rejected message, so the
+// response body must be checked separately from the transport error.
+func ValidateDingDingResponse(body []byte) error {
+	var response struct {
+		ErrCode *int   `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("failed to parse DingTalk response: %w", err)
+	}
+	if response.ErrCode == nil {
+		return fmt.Errorf("DingTalk response is missing errcode")
+	}
+	if *response.ErrCode != 0 {
+		return fmt.Errorf("DingTalk response error: errcode=%d, errmsg=%s", *response.ErrCode, response.ErrMsg)
+	}
+	return nil
+}
+
 const (
 	DingDingMsgType         = "actionCard"
 	DingDingMarkdownMsgType = "markdown"
@@ -63,8 +84,11 @@ const (
 
 func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
 	message := BuildDingDingMessage(title, content, actionURL, atMobiles, isAtAll)
-	_, err := w.SendMessageRequest(uri, message)
-	return err
+	response, err := w.SendMessageRequest(uri, message)
+	if err != nil {
+		return err
+	}
+	return ValidateDingDingResponse(response)
 }
 
 func BuildDingDingMessage(title, content, actionURL string, atMobiles []string, isAtAll bool) *DingDingMessage {

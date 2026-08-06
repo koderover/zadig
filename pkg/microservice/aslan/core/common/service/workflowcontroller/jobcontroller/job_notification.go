@@ -376,11 +376,9 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	resp, err := c.Post(uri, httpclient.SetBody(messageReq))
 	if err != nil {
 		return err
-	} else {
-		fmt.Println(string(resp.Body()))
 	}
 
-	return nil
+	return instantmessage.ValidateDingDingResponse(resp.Body())
 }
 
 func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {

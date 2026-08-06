@@ -240,6 +240,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		}
 	}
 
+	respErr := new(multierror.Error)
 	for _, sourceNotify := range resp.NotifyCtls {
 		notify, err := models.CloneNotifyCtl(sourceNotify)
 		if err != nil {
@@ -299,10 +300,10 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		}
 
 		if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
-			log.Errorf("failed to send notification, err: %s", err)
+			respErr = multierror.Append(respErr, fmt.Errorf("failed to send notification: %w", err))
 		}
 	}
-	return nil
+	return respErr.ErrorOrNil()
 }
 
 // TODO: manual error handling is not supported in the SendWorkflowTaskNotifications function, mainly because the error handling is done in the lifetime of a job, where the
@@ -327,6 +328,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	if task.Status == config.StatusCreated {
 		statusChanged = false
 	}
+	respErr := new(multierror.Error)
 	for _, sourceNotify := range task.OriginWorkflowArgs.NotifyCtls {
 		notify, err := models.CloneNotifyCtl(sourceNotify)
 		if err != nil {
@@ -386,11 +388,11 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			}
 
 			if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
-				log.Errorf("failed to send notification, err: %s", err)
+				respErr = multierror.Append(respErr, fmt.Errorf("failed to send notification: %w", err))
 			}
 		}
 	}
-	return nil
+	return respErr.ErrorOrNil()
 }
 
 func shouldSkipFeishuPersonPauseNotification(task *models.WorkflowTask, notify *models.NotifyCtl) bool {
