@@ -17,7 +17,7 @@ RUN go mod download
 RUN --mount=type=cache,id=gobuild,target=/gocache \
     go build -v -o /hub-agent ./cmd/hub-agent/main.go
 
-FROM alpine/git:v2.30.2
+FROM alpine/git:v2.54.0
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
@@ -25,6 +25,9 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo Asia/Shanghai  > /etc/timezone && \
     apk del tzdata
+
+RUN apk update
+RUN apk --no-cache add curl curl-dev    
 
 WORKDIR /app
 
