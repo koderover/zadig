@@ -130,6 +130,7 @@ type CustomYaml struct {
 	RenderVariableKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs"               json:"render_variable_kvs"`
 	Source            string                          `bson:"source"                            json:"source"`
 	AutoSync          bool                            `bson:"auto_sync"                         json:"auto_sync"`
+	AutoSyncStatus    string                          `bson:"auto_sync_status,omitempty"        json:"auto_sync_status,omitempty"`
 	AutoSyncYaml      string                          `bson:"auto_sync_yaml"                    json:"auto_sync_yaml"`
 	SourceDetail      interface{}                     `bson:"source_detail"                     json:"source_detail"`
 	SourceID          string                          `bson:"source_id"                         json:"source_id"`

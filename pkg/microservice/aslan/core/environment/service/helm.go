@@ -77,6 +77,7 @@ type HelmReleaseResp struct {
 	IsHelmChartDeploy bool                          `json:"isHelmChartDeploy"`
 	DeployStrategy    setting.ServiceDeployStrategy `json:"deployStrategy"`
 	Error             string                        `json:"error"`
+	AutoSyncStatus    string                        `json:"autoSyncStatus"`
 }
 
 type HelmServiceDiffSummary struct {
@@ -559,6 +560,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			Updatable:      updatable,
 			DeployStrategy: prod.ServiceDeployStrategy[svcDataSet.ProdSvc.ServiceName],
 			Error:          svcDataSet.ProdSvc.Error,
+			AutoSyncStatus: svcDataSet.ProdSvc.GetServiceRender().OverrideYaml.AutoSyncStatus,
 		}
 		respObj.Updatable = updatable
 

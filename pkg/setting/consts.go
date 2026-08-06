@@ -393,6 +393,8 @@ const (
 	ProductStatusUnstable = "Unstable"
 )
 
+const HelmAutoSyncStatusSyncing = "syncing"
+
 // DeliveryVersion status
 
 type DeliveryVersionStatus string

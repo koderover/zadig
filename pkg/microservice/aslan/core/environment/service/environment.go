@@ -2084,6 +2084,31 @@ func populateHelmValuesSourceCommits(chartValues []*commonservice.HelmSvcRenderA
 	}
 }
 
+func updateHelmAutoSyncStatuses(product *commonmodels.Product, renders []*templatemodels.ServiceRender, status string) error {
+	serviceNames := make([]string, 0)
+	releaseNames := make([]string, 0)
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil {
+			continue
+		}
+		if render.IsHelmChartDeploy {
+			releaseNames = append(releaseNames, render.ReleaseName)
+		} else {
+			serviceNames = append(serviceNames, render.ServiceName)
+		}
+	}
+	if err := commonrepo.NewProductColl().UpdateServicesAutoSyncStatus(product.ProductName, product.EnvName, product.Production, serviceNames, releaseNames, status); err != nil {
+		return err
+	}
+	for _, render := range renders {
+		if render == nil || render.OverrideYaml == nil {
+			continue
+		}
+		render.OverrideYaml.AutoSyncStatus = status
+	}
+	return nil
+}
+
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
@@ -2278,6 +2303,11 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 		}
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
+	if syncLock != nil {
+		if err := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, setting.HelmAutoSyncStatusSyncing); err != nil {
+			log.Errorf("failed to update Helm Values auto sync status to syncing: %v", err)
+		}
+	}
 
 	go func() {
 		defer func() {
@@ -2285,6 +2315,9 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 				log.Errorf("panic in updateHelmProductVariable async function, project: %s, env: %s, panic: %v", productName, envName, r)
 			}
 			if syncLock != nil {
+				if err := updateHelmAutoSyncStatuses(productResp, productResp.ServiceRenders, ""); err != nil {
+					log.Errorf("failed to clear Helm Values auto sync status: %v", err)
+				}
 				syncLock.Unlock()
 			}
 		}()
