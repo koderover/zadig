@@ -116,14 +116,15 @@ func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, 
 }
 
 func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
 	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
-			log.Errorf("failed to find default default registry")
+			log.Errorf("failed to find default registry")
 			return err
 		}
+	}
+	if defaultReg == nil {
+		args.IsDefault = true
 	}
 	if args.IsDefault {
 		if defaultReg != nil {
@@ -148,15 +149,23 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 }
 
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
+	originReg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: id})
+	if err != nil {
+		return fmt.Errorf("failed to find registry, id: %s, err: %v", id, err)
+	}
+
 	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
-			log.Errorf("failed to find default default registry")
+			log.Errorf("failed to find default registry")
 			return err
 		}
 	}
+	if originReg.IsDefault {
+		args.IsDefault = true
+	}
 	if args.IsDefault {
-		if defaultReg != nil {
+		if defaultReg != nil && defaultReg.ID.Hex() != id {
 			defaultReg.IsDefault = false
 			err := UpdateRegistryNamespaceDefault(defaultReg, log)
 			if err != nil {
@@ -164,11 +173,6 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 				return fmt.Errorf("RegistryNamespace.Update error: %v", err)
 			}
 		}
-	}
-
-	originReg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: id})
-	if err != nil {
-		return fmt.Errorf("failed to find registry, id: %s, err: %v", id, err)
 	}
 
 	args.UpdateBy = username
