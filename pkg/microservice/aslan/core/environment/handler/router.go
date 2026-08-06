@@ -86,6 +86,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
 		image.POST("/daemonset/:envName", UpdateDaemonSetContainerImage)
 		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
+		image.POST("/job/:envName", UpdateJobContainerImage)
 		image.POST("/cronjob/:envName", UpdateCronJobContainerImage)
 	}
 
@@ -282,6 +283,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		image.POST("/deployment/:envName", OpenAPIUpdateDeploymentContainerImage)
 		image.POST("/statefulset/:envName", OpenAPIUpdateStatefulSetContainerImage)
+		image.POST("/job/:envName", OpenAPIUpdateJobContainerImage)
 		image.POST("/cronjob/:envName", OpenAPIUpdateCronJobContainerImage)
 	}
 

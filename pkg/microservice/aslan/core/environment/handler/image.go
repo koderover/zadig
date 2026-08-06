@@ -304,6 +304,84 @@ func UpdateDaemonSetContainerImage(c *gin.Context) {
 	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
+func UpdateJobContainerImage(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.UpdateContainerImageArgs)
+	args.Type = setting.Job
+	production := c.Query("production") == "true"
+	args.Production = production
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateJobContainerImage c.GetRawData() err : %v", err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateJobContainerImage json.Unmarshal err : %v", err)
+		return
+	}
+
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Job:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Job: %s", args.EnvName, args.ServiceName, args.Name)
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
+		detail,
+		detailEn,
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
+}
+
 func UpdateCronJobContainerImage(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -388,6 +466,74 @@ type OpenAPIUpdateContainerImageArgs struct {
 	Name          string `json:"name"`
 	ContainerName string `json:"container_name"`
 	Image         string `json:"image"`
+}
+
+func OpenAPIUpdateJobContainerImage(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(OpenAPIUpdateContainerImageArgs)
+	args.Type = setting.Job
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("OpenAPIUpdateJobContainerImage c.GetRawData() err : %v", err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("OpenAPIUpdateJobContainerImage json.Unmarshal err : %v", err)
+		return
+	}
+
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Job:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Job: %s", args.EnvName, args.ServiceName, args.Name)
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
+		"更新", "OpenAPI-环境-服务镜像",
+		detail,
+		detailEn,
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+
+	permitted := ctx.Resources.IsSystemAdmin
+	if !permitted {
+		if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
+			permitted = projectAuthInfo.IsProjectAdmin || projectAuthInfo.Env.EditConfig
+
+			if !permitted {
+				collabPermitted, permissionErr := internalhandler.GetCollaborationModePermission(
+					ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig,
+				)
+				permitted = permissionErr == nil && collabPermitted
+			}
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, &service.UpdateContainerImageArgs{
+		Type:          args.Type,
+		ProductName:   args.ProductName,
+		EnvName:       args.EnvName,
+		ServiceName:   args.ServiceName,
+		Name:          args.Name,
+		ContainerName: args.ContainerName,
+		Image:         args.Image,
+	}, ctx.Logger)
 }
 
 func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
