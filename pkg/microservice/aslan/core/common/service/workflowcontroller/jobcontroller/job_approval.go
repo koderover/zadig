@@ -236,7 +236,15 @@ func waitForNativeApproveWithCallback(ctx context.Context, spec *commonmodels.Jo
 				return config.StatusFailed, fmt.Errorf("get approval status error: %s", err)
 			}
 			if navtiveApproval != nil {
-				*approval = *navtiveApproval
+				for _, nativeUser := range navtiveApproval.ApproveUsers {
+					for _, user := range approval.ApproveUsers {
+						if nativeUser.UserID == user.UserID {
+							user.RejectOrApprove = nativeUser.RejectOrApprove
+							user.Comment = nativeUser.Comment
+							user.OperationTime = nativeUser.OperationTime
+						}
+					}
+				}
 			}
 
 			// update the approval user information

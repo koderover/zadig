@@ -30,7 +30,6 @@ import (
 )
 
 type CreateLLMIntegrationRequest struct {
-	ID           string       `json:"id"`
 	Name         string       `json:"name"`
 	ProviderName llm.Provider `json:"provider_name"`
 	Protocol     llm.Protocol `json:"protocol"`
@@ -39,6 +38,11 @@ type CreateLLMIntegrationRequest struct {
 	Model        string       `json:"model"`
 	EnableProxy  bool         `json:"enable_proxy"`
 	IsDefault    bool         `json:"is_default"`
+}
+
+type ValidateLLMIntegrationRequest struct {
+	ID string `json:"id"`
+	CreateLLMIntegrationRequest
 }
 
 // @Summary Create a llm integration
@@ -69,20 +73,20 @@ func CreateLLMIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	body 			body 		CreateLLMIntegrationRequest 			true 	"body"
+// @Param 	body 			body 		ValidateLLMIntegrationRequest 			true 	"body"
 // @Success 200
 // @Router /api/aslan/system/llm/integration/validate [post]
 func ValidateLLMIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(CreateLLMIntegrationRequest)
+	args := new(ValidateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate llm Integration json args")
 		return
 	}
 
-	llmProvider := convertLLMArgToModel(args)
+	llmProvider := convertLLMArgToModel(&args.CreateLLMIntegrationRequest)
 	llmProvider.UpdatedBy = ctx.UserName
 	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), args.ID, llmProvider)
 }
@@ -111,7 +115,7 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	if !requireLogin(ctx) {
+	if !isLogin(ctx) {
 		return
 	}
 
@@ -141,7 +145,7 @@ func ListLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	if !requireLogin(ctx) {
+	if !isLogin(ctx) {
 		return
 	}
 
@@ -167,7 +171,7 @@ func ListLLMIntegrationBriefs(c *gin.Context) {
 
 	// the response only carries model id and name, never endpoints or
 	// credentials, so any logged-in user may read it
-	if !requireLogin(ctx) {
+	if !isLogin(ctx) {
 		return
 	}
 	ctx.Resp, ctx.RespErr = service.ListLLMIntegrationBriefs(context.TODO())

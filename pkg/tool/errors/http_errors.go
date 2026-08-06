@@ -895,16 +895,11 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	// llm integraton Error Range: 7010 - 7019
 	//-----------------------------------------------------------------------------------------------
-	ErrCreateLLMIntegration   = NewHTTPError(7010, "创建llm集成失败")
-	ErrListLLMIntegration     = NewHTTPError(7011, "获取llm集成列表失败")
-	ErrUpdateLLMIntegration   = NewHTTPError(7012, "更新llm集成失败")
-	ErrDeleteLLMIntegration   = NewHTTPError(7013, "删除llm集成失败")
-	ErrGetLLMIntegration      = NewHTTPError(7014, "获取llm集成详情失败")
-	ErrCreateAgentIntegration = NewHTTPError(7015, "创建 Agent 集成失败")
-	ErrListAgentIntegration   = NewHTTPError(7016, "获取 Agent 集成列表失败")
-	ErrUpdateAgentIntegration = NewHTTPError(7017, "更新 Agent 集成失败")
-	ErrDeleteAgentIntegration = NewHTTPError(7018, "删除 Agent 集成失败")
-	ErrGetAgentIntegration    = NewHTTPError(7019, "获取 Agent 集成详情失败")
+	ErrCreateLLMIntegration = NewHTTPError(7010, "创建llm集成失败")
+	ErrListLLMIntegration   = NewHTTPError(7011, "获取llm集成列表失败")
+	ErrUpdateLLMIntegration = NewHTTPError(7012, "更新llm集成失败")
+	ErrDeleteLLMIntegration = NewHTTPError(7013, "删除llm集成失败")
+	ErrGetLLMIntegration    = NewHTTPError(7014, "获取llm集成详情失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// observability integration Error Range: 7020 - 7029
@@ -1029,4 +1024,14 @@ var (
 	ErrDeleteApiGateway   = NewHTTPError(7182, "删除API网关集成失败")
 	ErrListApiGateway     = NewHTTPError(7183, "列出API网关集成失败")
 	ErrValidateApiGateway = NewHTTPError(7184, "校验API网关集成失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// agent integration errors: 7190 - 7199
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateAgentIntegration   = NewHTTPError(7190, "创建 Agent 集成失败")
+	ErrListAgentIntegration     = NewHTTPError(7191, "获取 Agent 集成列表失败")
+	ErrUpdateAgentIntegration   = NewHTTPError(7192, "更新 Agent 集成失败")
+	ErrDeleteAgentIntegration   = NewHTTPError(7193, "删除 Agent 集成失败")
+	ErrGetAgentIntegration      = NewHTTPError(7194, "获取 Agent 集成详情失败")
+	ErrValidateAgentIntegration = NewHTTPError(7195, "验证 Agent 集成失败")
 )

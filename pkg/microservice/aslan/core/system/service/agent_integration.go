@@ -158,25 +158,25 @@ func DeleteAgentIntegration(ctx context.Context, projectName, id string) error {
 
 func ValidateAgentIntegration(ctx context.Context, projectName, id string, integration *commonmodels.AgentIntegration) error {
 	if integration == nil {
-		return fmt.Errorf("验证 Agent 集成失败: agent integration is required")
+		return e.ErrValidateAgentIntegration.AddErr(fmt.Errorf("agent integration is required"))
 	}
 	normalizeAgentIntegration(integration)
 	if id != "" {
 		current, err := findProjectAgentIntegration(ctx, projectName, id)
 		if err != nil {
-			return fmt.Errorf("验证 Agent 集成失败: %s", err)
+			return e.ErrValidateAgentIntegration.AddErr(err)
 		}
 		restoreAgentIntegrationCredentials(current, integration)
 	}
 	if err := validateAgentIntegration(integration); err != nil {
-		return fmt.Errorf("验证 Agent 集成失败: %s", err)
+		return e.ErrValidateAgentIntegration.AddErr(err)
 	}
 	client, err := llmservice.NewAgentClient(integration)
 	if err != nil {
-		return fmt.Errorf("验证 Agent 集成失败: %s", err)
+		return e.ErrValidateAgentIntegration.AddErr(err)
 	}
 	if _, err := client.GetCompletion(ctx, "Hello"); err != nil {
-		return fmt.Errorf("验证 Agent 集成失败: %s", err)
+		return e.ErrValidateAgentIntegration.AddErr(err)
 	}
 	return nil
 }

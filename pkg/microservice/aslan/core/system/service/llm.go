@@ -19,9 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
@@ -218,13 +216,6 @@ func DeleteLLMIntegration(ctx context.Context, ID string) error {
 	}
 	if integration.IsDefault && count > 1 {
 		return e.ErrDeleteLLMIntegration.AddErr(fmt.Errorf("set another model as default before deleting the current default model"))
-	}
-	workflowNames, err := commonrepo.NewWorkflowV4Coll().ListNamesByAITarget(ctx, config.AITargetTypeModel, ID)
-	if err != nil {
-		return e.ErrDeleteLLMIntegration.AddErr(fmt.Errorf("find workflows referencing the model: %w", err))
-	}
-	if len(workflowNames) > 0 {
-		return e.ErrDeleteLLMIntegration.AddErr(fmt.Errorf("model is still used by workflow: %s", strings.Join(workflowNames, ", ")))
 	}
 	if err := repo.Delete(ctx, ID); err != nil {
 		fmtErr := fmt.Errorf("DeleteLLMIntegration err: %w", err)

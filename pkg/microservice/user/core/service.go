@@ -138,6 +138,7 @@ var readOnlyAction = []string{
 	permissionservice.VerbGetEnvironment,
 	permissionservice.VerbGetProductionEnv,
 	permissionservice.VerbGetScan,
+	permissionservice.VerbGetAgentIntegration,
 	permissionservice.VerbGetSprint,
 }
 
