@@ -1084,32 +1084,21 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 	}
 
 	// Build templates can be updated independently from workflows. Load the
-	// configured build to locate its latest template instead of using the variable
-	// snapshot persisted in the workflow or build target.
-	buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
-		Name:        targetBuild.BuildName,
-		ProductName: j.workflow.Project,
-	})
+	// configured build and merge its latest template and service/module settings
+	// instead of using the variable snapshot persisted in the workflow.
+	buildSvc := commonservice.NewBuildService()
+	buildInfo, err := buildSvc.GetBuild(targetBuild.BuildName, option.ServiceName, option.ServiceModule)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find build: %s for service %s/%s, error: %s", targetBuild.BuildName, option.ServiceName, option.ServiceModule, err)
+		return nil, fmt.Errorf("failed to get build: %s for service %s/%s, error: %s", targetBuild.BuildName, option.ServiceName, option.ServiceModule, err)
 	}
 
-	preBuild := buildInfo.PreBuild
-	if buildInfo.TemplateID != "" {
-		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: buildInfo.TemplateID})
-		if err != nil {
-			return nil, fmt.Errorf("failed to find build template: %s for build: %s, error: %s", buildInfo.TemplateID, targetBuild.BuildName, err)
-		}
-		preBuild = buildTemplate.PreBuild
-	}
-	if preBuild == nil {
+	if buildInfo.PreBuild == nil {
 		return nil, fmt.Errorf("build: %s pre build config is empty", targetBuild.BuildName)
 	}
 
-	// Only values referenced by CallFunction come from the request. The script
-	// and CallFunction themselves always come from the latest persisted build
-	// configuration (the build template when one is configured).
-	for _, kv := range preBuild.Envs {
+	// Only values referenced by CallFunction come from the request. Script and
+	// CallFunction come from the resolved build configuration.
+	for _, kv := range buildInfo.PreBuild.Envs {
 		if kv.Key == key {
 			resp, err := RenderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
 			if err != nil {
