@@ -29,7 +29,6 @@ type ProjectActions struct {
 	Build             *BuildActions             `json:"build"`
 	Test              *TestActions              `json:"test"`
 	Scanning          *ScanningActions          `json:"scanning"`
-	AgentIntegration  *AgentIntegrationActions  `json:"agent_integration"`
 	Version           *VersionActions           `json:"version"`
 	Sprint            *SprintActions            `json:"sprint"`
 	SprintTemplate    *SprintTemplateActions    `json:"sprint_template"`
@@ -132,13 +131,6 @@ type ScanningActions struct {
 	Edit    bool
 	Delete  bool
 	Execute bool
-}
-
-type AgentIntegrationActions struct {
-	View   bool
-	Create bool
-	Edit   bool
-	Delete bool
 }
 
 type VersionActions struct {

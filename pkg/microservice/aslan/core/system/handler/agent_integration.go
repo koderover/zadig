@@ -24,7 +24,6 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
@@ -43,16 +42,7 @@ type AgentIntegrationRequest struct {
 	SecretKey   string                     `json:"secret_key"`
 }
 
-type agentIntegrationAction string
-
-const (
-	agentIntegrationActionView   agentIntegrationAction = "view"
-	agentIntegrationActionCreate agentIntegrationAction = "create"
-	agentIntegrationActionEdit   agentIntegrationAction = "edit"
-	agentIntegrationActionDelete agentIntegrationAction = "delete"
-)
-
-func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName string, action agentIntegrationAction) bool {
+func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName string) bool {
 	if !isLogin(ctx) {
 		return false
 	}
@@ -63,35 +53,11 @@ func checkAgentIntegrationPermission(ctx *internalhandler.Context, projectName s
 	if ctx.Resources.IsSystemAdmin {
 		return true
 	}
-	projectActions, ok := ctx.Resources.ProjectAuthInfo[projectName]
-	if !ok {
+	if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 		ctx.UnAuthorized = true
 		return false
 	}
-	if projectActions.IsProjectAdmin {
-		return true
-	}
-
-	allowed := hasAgentIntegrationPermission(projectActions.AgentIntegration, action)
-	if !allowed {
-		ctx.UnAuthorized = true
-	}
-	return allowed
-}
-
-func hasAgentIntegrationPermission(actions *userclient.AgentIntegrationActions, action agentIntegrationAction) bool {
-	switch action {
-	case agentIntegrationActionView:
-		return actions.View
-	case agentIntegrationActionCreate:
-		return actions.Create
-	case agentIntegrationActionEdit:
-		return actions.Edit
-	case agentIntegrationActionDelete:
-		return actions.Delete
-	default:
-		return false
-	}
+	return true
 }
 
 // @Summary Create a agent integration
@@ -114,7 +80,7 @@ func CreateAgentIntegration(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
-	if !checkAgentIntegrationPermission(ctx, projectName, agentIntegrationActionCreate) {
+	if !checkAgentIntegrationPermission(ctx, projectName) {
 		return
 	}
 
@@ -147,17 +113,14 @@ func ValidateAgentIntegration(c *gin.Context) {
 		return
 	}
 
+	projectName := c.Query("projectName")
+	if !checkAgentIntegrationPermission(ctx, projectName) {
+		return
+	}
+
 	request := new(AgentIntegrationRequest)
 	if err := c.ShouldBindJSON(request); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate agent integration json args")
-		return
-	}
-	projectName := c.Query("projectName")
-	action := agentIntegrationActionCreate
-	if request.ID != "" {
-		action = agentIntegrationActionEdit
-	}
-	if !checkAgentIntegrationPermission(ctx, projectName, action) {
 		return
 	}
 	ctx.RespErr = service.ValidateAgentIntegration(context.TODO(), projectName, request.ID, convertAgentIntegrationRequest(projectName, request))
@@ -183,7 +146,7 @@ func GetAgentIntegration(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
-	if !checkAgentIntegrationPermission(ctx, projectName, agentIntegrationActionView) {
+	if !checkAgentIntegrationPermission(ctx, projectName) {
 		return
 	}
 
@@ -213,7 +176,7 @@ func ListAgentIntegrations(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
-	if !checkAgentIntegrationPermission(ctx, projectName, agentIntegrationActionView) {
+	if !checkAgentIntegrationPermission(ctx, projectName) {
 		return
 	}
 
@@ -248,10 +211,8 @@ func ListAllAgentIntegrations(c *gin.Context) {
 		return
 	}
 	visibleProjects := make([]string, 0, len(ctx.Resources.ProjectAuthInfo))
-	for projectName, projectActions := range ctx.Resources.ProjectAuthInfo {
-		if projectActions.IsProjectAdmin || projectActions.AgentIntegration.View {
-			visibleProjects = append(visibleProjects, projectName)
-		}
+	for projectName := range ctx.Resources.ProjectAuthInfo {
+		visibleProjects = append(visibleProjects, projectName)
 	}
 	ctx.Resp, ctx.RespErr = service.ListAgentIntegrationBriefsByProjects(context.TODO(), visibleProjects)
 }
@@ -277,7 +238,7 @@ func UpdateAgentIntegration(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
-	if !checkAgentIntegrationPermission(ctx, projectName, agentIntegrationActionEdit) {
+	if !checkAgentIntegrationPermission(ctx, projectName) {
 		return
 	}
 
@@ -315,7 +276,7 @@ func DeleteAgentIntegration(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
-	if !checkAgentIntegrationPermission(ctx, projectName, agentIntegrationActionDelete) {
+	if !checkAgentIntegrationPermission(ctx, projectName) {
 		return
 	}
 

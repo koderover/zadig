@@ -86,11 +86,6 @@ const (
 	VerbEditScan   = "edit_scan"
 	VerbDeleteScan = "delete_scan"
 	VerbRunScan    = "run_scan"
-	// Agent Integration
-	VerbGetAgentIntegration    = "get_agent_integration"
-	VerbCreateAgentIntegration = "create_agent_integration"
-	VerbEditAgentIntegration   = "edit_agent_integration"
-	VerbDeleteAgentIntegration = "delete_agent_integration"
 	// Sprint Template
 	VerbEditSprintTemplate = "edit_sprint_template"
 	// Sprint
@@ -192,7 +187,6 @@ type ProjectActions struct {
 	Build             *BuildActions             `json:"build"`
 	Test              *TestActions              `json:"test"`
 	Scanning          *ScanningActions          `json:"scanning"`
-	AgentIntegration  *AgentIntegrationActions  `json:"agent_integration"`
 	Version           *VersionActions           `json:"version"`
 	SprintTemplate    *SprintTemplateActions    `json:"sprint_template"`
 	Sprint            *SprintActions            `json:"sprint"`
@@ -295,13 +289,6 @@ type ScanningActions struct {
 	Edit    bool
 	Delete  bool
 	Execute bool
-}
-
-type AgentIntegrationActions struct {
-	View   bool
-	Create bool
-	Edit   bool
-	Delete bool
 }
 
 type VersionActions struct {

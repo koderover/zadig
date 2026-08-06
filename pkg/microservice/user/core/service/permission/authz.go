@@ -800,12 +800,6 @@ func generateDefaultProjectActions() *ProjectActions {
 			Delete:  false,
 			Execute: false,
 		},
-		AgentIntegration: &AgentIntegrationActions{
-			View:   false,
-			Create: false,
-			Edit:   false,
-			Delete: false,
-		},
 		Version: &VersionActions{
 			View:   false,
 			Create: false,
@@ -1018,14 +1012,6 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Scanning.Delete = true
 	case VerbRunScan:
 		userAuthInfo.Scanning.Execute = true
-	case VerbGetAgentIntegration:
-		userAuthInfo.AgentIntegration.View = true
-	case VerbCreateAgentIntegration:
-		userAuthInfo.AgentIntegration.Create = true
-	case VerbEditAgentIntegration:
-		userAuthInfo.AgentIntegration.Edit = true
-	case VerbDeleteAgentIntegration:
-		userAuthInfo.AgentIntegration.Delete = true
 	case VerbEditSprintTemplate:
 		userAuthInfo.SprintTemplate.Edit = true
 	case VerbGetSprint:
