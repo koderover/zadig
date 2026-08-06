@@ -450,7 +450,7 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 		}
 	}
 
-	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	resourceConflicts := sets.NewString()
 
 	for _, env := range envs {
 		for _, svc := range env.GetServiceMap() {
@@ -460,22 +460,17 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 			for _, res := range svc.Resources {
 				resourceKey := res.String()
 				if clusterResSet.Has(resourceKey) || env.Namespace == productInfo.Namespace && namespacedResSet.Has(resourceKey) {
-					sharedNSEnvList[res.String()] = env
-					break
+					resourceConflicts.Insert(fmt.Sprintf("resource %q is already applied by service %q in environment %q of project %q", resourceKey, svc.ServiceName, env.EnvName, env.ProductName))
 				}
 			}
 		}
 	}
 
-	if len(sharedNSEnvList) == 0 {
+	if resourceConflicts.Len() == 0 {
 		return nil
 	}
 
-	usedEnvStr := make([]string, 0)
-	for resource, env := range sharedNSEnvList {
-		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", resource, env.ProductName, env.EnvName))
-	}
-	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
+	return fmt.Errorf("resource ownership conflict: %s", strings.Join(resourceConflicts.List(), "; "))
 }
 
 func isClusterScopedK8sServiceResource(kind string) bool {
