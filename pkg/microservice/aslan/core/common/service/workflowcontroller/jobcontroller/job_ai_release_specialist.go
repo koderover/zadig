@@ -72,7 +72,7 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 审批摘要：如果 approval_summary 存在，表示工作流中与当前 AI 节点相关的人工审批节点执行结果，节点可能位于当前 AI 节点之前或之后；items 中的 details 字段可能包含 approval_type、decision、approvers、needed_approvers 等信息。
 - 其他任务摘要：如果 other_task_summary 存在，表示工作流中其他 VM 部署、自定义任务等的执行状态，任务可能位于当前 AI 节点之前或之后；items 中的 details 字段可能包含 service_name、service_module、infrastructure、vm_labels、step_types 等信息。
 - 监控告警：如果 observability_summary 存在，表示工作流中已有 Grafana 或观测云检查任务的执行结果；这不是全量监控平台告警，只能依据其中的任务状态、检查项状态、级别和链接判断。
-- 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；pod_status、ready、pod_count、ready_pods 是从 Kubernetes workload 关联 Pod 查询到的就绪信号，可用于判断目标服务是否明显异常；这不代表实时 CPU、内存、磁盘或业务日志。
+- 运行时服务状态：如果 runtime_services 存在，表示发布目标环境中当前服务快照；Kubernetes/Helm 服务使用 pod_status、ready、pod_count、ready_pods，主机服务使用 ready、host_count、healthy_hosts、host_statuses 判断就绪情况；这不代表实时 CPU、内存、磁盘或业务日志。
 - 运行时副本数语义：runtime_services.items 中的 pod_count 和 ready_pods 是按 env_name、service_name 记录的当前实际 Pod 数，不同环境的副本数允许不同，不能跨环境比较。
 - workloads[].replicas 仅表示对应工作负载的配置副本数；当评估规则未明确要求检查目标副本数时，不能仅因为 ready_pods != workloads[].replicas 给出 warning；service_ready 应根据同一环境、同一服务的 ready、pod_count 和 ready_pods 判断。
 - 发布专员：表示当前 AI 评估节点，需要汇总上下文并输出风险结论。
@@ -106,7 +106,7 @@ const aiReleaseSpecialistOutputContract = `系统固定输出协议（优先级�
 const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - summary 只写基于实际提供上下文的判断，不要输出“本次输入未提供”这类缺失上下文清单，不要罗列代码扫描、构建、测试、审批、部署目标等未提供项。
 - 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
-- 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的 pod_count 和 ready_pods，不能只写“Pod 已就绪”或“数量一致”。`
+- 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。`
 
 type AIReleaseSpecialistJobCtl struct {
 	job         *commonmodels.JobTask
@@ -138,6 +138,15 @@ var (
 			return "", err
 		}
 		return release.Manifest, nil
+	}
+	findAIReleaseVMService = func(serviceName, projectName string, revision int64) (*commonmodels.Service, error) {
+		return commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			ServiceName:   serviceName,
+			ProductName:   projectName,
+			Type:          setting.PMDeployType,
+			Revision:      revision,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		})
 	}
 )
 
@@ -522,6 +531,18 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				}
 				target := buildReleaseTargetFromHelmChartDeploy(job, spec)
 				collector.addReleaseTarget(task.ProjectName, job, target, requestedContexts, scopeFilter, envMap)
+			case string(config.JobZadigVMDeploy):
+				spec := &commonmodels.ZadigVMDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					continue
+				}
+				if hasAIReleaseSpecialistContext(requestedContexts, "release_target", "runtime") {
+					target := buildReleaseTargetFromVMDeploy(job, spec)
+					collector.addReleaseTarget(task.ProjectName, job, target, requestedContexts, scopeFilter, envMap)
+				}
+				if hasAIReleaseSpecialistContext(requestedContexts, "other") && scopeFilter.matchesJob("other", job) {
+					collector.addOtherTask(job, nil)
+				}
 			case string(config.JobZadigBuild):
 				appendChangeSummarySource(input.ChangeSummary, job)
 				spec := &commonmodels.JobTaskFreestyleSpec{}
@@ -572,7 +593,7 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				summary := buildApprovalSummaryLine(job, spec)
 				collector.approvalSummaries = append(collector.approvalSummaries, summary)
 				collector.approvalItems = append(collector.approvalItems, buildAIApprovalSummaryItem(job, spec, summary))
-			case string(config.JobZadigVMDeploy), string(config.JobFreestyle):
+			case string(config.JobFreestyle):
 				if !hasAIReleaseSpecialistContext(requestedContexts, "other") || !scopeFilter.matchesJob("other", job) {
 					continue
 				}
@@ -580,10 +601,7 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
 					continue
 				}
-				collector.otherStatuses = append(collector.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				summary := buildResultSummaryLine(job)
-				collector.otherSummaries = append(collector.otherSummaries, summary)
-				collector.otherItems = append(collector.otherItems, buildAIOtherTaskSummaryItem(job, spec, summary))
+				collector.addOtherTask(job, spec)
 			case string(config.JobGrafana):
 				if !hasAIReleaseSpecialistContext(requestedContexts, "observability") || !scopeFilter.matchesJob("observability", job) {
 					continue
@@ -832,6 +850,13 @@ type aiReleaseInputCollector struct {
 	obsItems     []*commonmodels.AIObservabilityItem
 }
 
+func (c *aiReleaseInputCollector) addOtherTask(job *commonmodels.JobTask, spec *commonmodels.JobTaskFreestyleSpec) {
+	c.otherStatuses = append(c.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
+	summary := buildResultSummaryLine(job)
+	c.otherSummaries = append(c.otherSummaries, summary)
+	c.otherItems = append(c.otherItems, buildAIOtherTaskSummaryItem(job, spec, summary))
+}
+
 func (c *aiReleaseInputCollector) addReleaseTarget(projectName string, job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary, requestedContexts map[string]struct{}, scopeFilter *aiReleaseSpecialistRulePlanFilter, envMap map[string]*commonmodels.Product) {
 	fillReleaseTargetEnvAlias(projectName, target, envMap)
 	if hasAIReleaseSpecialistContext(requestedContexts, "release_target") {
@@ -953,6 +978,34 @@ func buildReleaseTargetFromHelmChartDeploy(job *commonmodels.JobTask, spec *comm
 	}
 	target.ServiceNames = uniqueSortedStrings(target.ServiceNames)
 	target.ImageVersions = uniquePreserveOrder(target.ImageVersions)
+	target.Items = append(target.Items, buildReleaseTargetItem(job, target))
+	return target
+}
+
+func buildReleaseTargetFromVMDeploy(job *commonmodels.JobTask, spec *commonmodels.ZadigVMDeployJobSpec) *commonmodels.AIReleaseTargetsSummary {
+	target := &commonmodels.AIReleaseTargetsSummary{
+		EnvName:    spec.Env,
+		EnvAlias:   spec.EnvAlias,
+		Production: spec.Production,
+	}
+	for _, service := range spec.ServiceAndVMDeploys {
+		if service == nil {
+			continue
+		}
+		serviceName := strings.TrimSpace(service.ServiceModule)
+		if serviceName == "" {
+			serviceName = strings.TrimSpace(service.ServiceName)
+		}
+		if serviceName != "" {
+			target.ServiceNames = append(target.ServiceNames, serviceName)
+		}
+		if service.Image != "" {
+			target.ImageVersions = append(target.ImageVersions, service.Image)
+		}
+	}
+	target.ServiceNames = uniqueSortedStrings(target.ServiceNames)
+	target.ImageVersions = uniquePreserveOrder(target.ImageVersions)
+	target.TargetCount = len(target.ServiceNames)
 	target.Items = append(target.Items, buildReleaseTargetItem(job, target))
 	return target
 }
@@ -1347,7 +1400,11 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 				continue
 			}
 			item := buildAIRuntimeServiceItem(product, serviceName, service)
-			if kubeClient != nil && serviceReleaseNamesErr == nil {
+			if jobType == string(config.JobZadigVMDeploy) {
+				if err := fillAIRuntimeVMServiceHealth(projectName, service, item); err != nil {
+					summary.QueryErrors = append(summary.QueryErrors, err.Error())
+				}
+			} else if kubeClient != nil && serviceReleaseNamesErr == nil {
 				releaseName, err := resolveAIRuntimeServiceReleaseName(serviceName, service, serviceReleaseNames)
 				if err != nil {
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
@@ -1425,7 +1482,7 @@ func findAIRuntimeService(product *commonmodels.Product, serviceName, jobType st
 	switch jobType {
 	case string(config.JobZadigHelmChartDeploy):
 		return product.GetChartServiceMap()[serviceName]
-	case string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy):
+	case string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy), string(config.JobZadigVMDeploy):
 		return product.GetServiceMap()[serviceName]
 	default:
 		return nil
@@ -1558,6 +1615,50 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	}
 	if len(queryErrors) > 0 {
 		return fmt.Errorf("query service %s pod status failed: %s", item.ServiceName, strings.Join(uniquePreserveOrder(queryErrors), "; "))
+	}
+	return nil
+}
+
+func fillAIRuntimeVMServiceHealth(projectName string, service *commonmodels.ProductService, item *commonmodels.AIRuntimeServiceItem) error {
+	if service == nil || item == nil {
+		return nil
+	}
+	template, err := findAIReleaseVMService(service.ServiceName, projectName, service.Revision)
+	if err != nil {
+		return fmt.Errorf("query service %s host status failed: %v", item.ServiceName, err)
+	}
+	seenHosts := make(map[string]struct{})
+	for _, envStatus := range template.EnvStatuses {
+		if envStatus == nil || envStatus.EnvName != item.EnvName {
+			continue
+		}
+		hostKey := strings.TrimSpace(envStatus.HostID) + "|" + strings.TrimSpace(envStatus.Address)
+		if _, ok := seenHosts[hostKey]; ok {
+			continue
+		}
+		seenHosts[hostKey] = struct{}{}
+		host := &commonmodels.AIRuntimeHostStatus{
+			HostID:  envStatus.HostID,
+			Address: envStatus.Address,
+			Status:  envStatus.Status,
+		}
+		if envStatus.HealthChecks != nil {
+			host.Protocol = envStatus.HealthChecks.Protocol
+			host.Port = envStatus.HealthChecks.Port
+			host.Path = envStatus.HealthChecks.Path
+		}
+		item.HostStatuses = append(item.HostStatuses, host)
+		item.HostCount++
+		if envStatus.Status == setting.PodRunning {
+			item.HealthyHosts++
+		}
+	}
+	item.Ready = setting.PodNotReady
+	if item.HostCount > 0 && item.HealthyHosts == item.HostCount {
+		item.Ready = setting.PodReady
+	}
+	if item.HostCount == 0 {
+		return fmt.Errorf("query service %s host status failed: no status found in env %s", item.ServiceName, item.EnvName)
 	}
 	return nil
 }
@@ -2279,6 +2380,12 @@ func buildAIReleaseSpecialistRuleCatalog(task *commonmodels.WorkflowTask, curren
 					return nil, fmt.Errorf("decode helm chart deploy job %s for rule catalog: %w", name, err)
 				}
 				target = buildReleaseTargetFromHelmChartDeploy(job, spec)
+			case string(config.JobZadigVMDeploy):
+				spec := &commonmodels.ZadigVMDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					return nil, fmt.Errorf("decode VM deploy job %s for rule catalog: %w", name, err)
+				}
+				target = buildReleaseTargetFromVMDeploy(job, spec)
 			}
 			if target != nil {
 				if target.EnvName != "" {
@@ -2703,6 +2810,13 @@ func enrichAIReleaseSpecialistRuntimeEvidence(result *commonmodels.AIReleaseSpec
 		if item == nil {
 			continue
 		}
+		if item.ServiceType == setting.PMDeployType {
+			evidenceLines = append(evidenceLines, fmt.Sprintf(
+				"env_name=%s, service_name=%s, host_count=%d, healthy_hosts=%d",
+				item.EnvName, item.ServiceName, item.HostCount, item.HealthyHosts,
+			))
+			continue
+		}
 		evidenceLines = append(evidenceLines, fmt.Sprintf(
 			"env_name=%s, service_name=%s, pod_count=%d, ready_pods=%d",
 			item.EnvName, item.ServiceName, item.PodCount, item.ReadyPods,
@@ -2737,7 +2851,8 @@ func enrichAIReleaseSpecialistRuntimeEvidence(result *commonmodels.AIReleaseSpec
 func isAIReleaseSpecialistRuntimeCheck(check *commonmodels.AIReleaseSpecialistCheckItem) bool {
 	text := strings.ToLower(check.Name + " " + check.Evidence)
 	return strings.Contains(text, "运行时") || strings.Contains(text, "runtime") ||
-		strings.Contains(text, "service_ready") || strings.Contains(text, "pod_count") || strings.Contains(text, "ready_pods")
+		strings.Contains(text, "service_ready") || strings.Contains(text, "pod_count") || strings.Contains(text, "ready_pods") ||
+		strings.Contains(text, "host_count") || strings.Contains(text, "healthy_hosts")
 }
 
 func extractJSONCodeBlock(text string) string {
