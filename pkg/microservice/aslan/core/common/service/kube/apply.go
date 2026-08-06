@@ -19,7 +19,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -451,7 +450,7 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 		}
 	}
 
-	resourceOwners := make(map[string]sets.String)
+	resourceConflicts := sets.NewString()
 
 	for _, env := range envs {
 		for _, svc := range env.GetServiceMap() {
@@ -461,25 +460,17 @@ func checkResourcesAppliedByOtherEnvs(resources []*commonmodels.ServiceResource,
 			for _, res := range svc.Resources {
 				resourceKey := res.String()
 				if clusterResSet.Has(resourceKey) || env.Namespace == productInfo.Namespace && namespacedResSet.Has(resourceKey) {
-					if _, ok := resourceOwners[resourceKey]; !ok {
-						resourceOwners[resourceKey] = sets.NewString()
-					}
-					resourceOwners[resourceKey].Insert(fmt.Sprintf("%s/%s/%s", env.ProductName, env.EnvName, svc.ServiceName))
+					resourceConflicts.Insert(fmt.Sprintf("resource %q is already applied by service %q in environment %q of project %q", resourceKey, svc.ServiceName, env.EnvName, env.ProductName))
 				}
 			}
 		}
 	}
 
-	if len(resourceOwners) == 0 {
+	if resourceConflicts.Len() == 0 {
 		return nil
 	}
 
-	resourcesWithOwners := make([]string, 0, len(resourceOwners))
-	for resource, owners := range resourceOwners {
-		resourcesWithOwners = append(resourcesWithOwners, fmt.Sprintf("%s: %s", resource, strings.Join(owners.List(), ", ")))
-	}
-	sort.Strings(resourcesWithOwners)
-	return fmt.Errorf("resource is applied by other envs: %s", strings.Join(resourcesWithOwners, "; "))
+	return fmt.Errorf("resource ownership conflict: %s", strings.Join(resourceConflicts.List(), "; "))
 }
 
 func isClusterScopedK8sServiceResource(kind string) bool {
