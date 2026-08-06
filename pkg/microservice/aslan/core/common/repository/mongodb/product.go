@@ -545,6 +545,9 @@ func (c *ProductColl) UpdateServiceAutoSyncStatus(productName, envName string, p
 	query, serviceFilter := buildServiceValuesSourceQuery(productName, envName, production, isHelmChartDeploy, identifier)
 	valuesPath := "services.$[].$[svc].render.override_yaml.auto_sync_status"
 	change := bson.M{"$set": bson.M{valuesPath: status}}
+	if status == "" {
+		change = bson.M{"$unset": bson.M{valuesPath: ""}}
+	}
 	arrayFilters := options.ArrayFilters{Filters: []interface{}{serviceFilter}}
 	updateOptions := options.UpdateOptions{ArrayFilters: &arrayFilters}
 
