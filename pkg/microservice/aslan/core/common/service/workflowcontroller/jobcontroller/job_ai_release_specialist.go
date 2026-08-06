@@ -57,7 +57,7 @@ const (
 	aiReleaseSpecialistMaxPromptTokens          = 12000
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
-	aiReleaseSpecialistRulePlanMaxTokens        = 128 * 1024
+	aiReleaseSpecialistRulePlanMaxTokens        = 128000
 	aiReleaseSpecialistRulePlanVersion          = 4
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
