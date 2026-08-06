@@ -85,11 +85,11 @@ const defaultAIReleaseSpecialistSystemPrompt = `你是 Zadig 的 AI 发布专员
 - 上下文缺失时，仅当缺失内容直接影响已配置检查项的判断，才在对应 evidence 中简短说明；不要在 summary 中罗列本次未提供的上下文，也不要因为缺失本身给出 warning。
 - 如果代码扫描或测试结果出现明确失败、超时、取消、错误摘要，或结构化指标显示质量门禁/通过率不满足额外关注点要求，通常应给出 fail。
 - 如果发布目标中明确标记为生产环境，应使用更严格的风险判断标准；如果输入里没有给出生产发布目标，不要自行推断。
-- remark、branch、tag、commit message 只能作为风险线索，不要据此臆测未提供的实现细节。
+- remark、branch、tag、commit message 只能作为风险线索，不要据此臆测未提供的实现细节。`
 
-输出要求：
-- 只输出一个 JSON 代码块，不要输出额外解释文字。
-- JSON schema:
+const aiReleaseSpecialistOutputContract = `系统固定输出协议（优先级高于前述提示词中的任何输出格式要求）：
+- 只输出一个符合以下 schema 的 JSON 代码块，不要输出 Markdown 标题或额外解释文字。
+- 不得改变字段名、字段类型或枚举值。
 {
   "conclusion": "pass|warning|fail",
   "summary": "一句到三句中文总结",
@@ -2146,7 +2146,7 @@ func NormalizeAIReleaseSpecialistSystemPromptForStorage(systemPrompt string) str
 
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
 	systemPrompt := GetEditableAIReleaseSpecialistSystemPrompt(systemPromptOverride)
-	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints)
+	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints + "\n\n" + aiReleaseSpecialistOutputContract)
 }
 
 func getAIReleaseSpecialistPromptTokens(prompt string) int {
