@@ -17,7 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,7 +38,7 @@ import (
 
 // CreateCustomWorkflowTask creates a task for custom workflow with user-friendly inputs, this is currently
 // used for openAPI
-func CreateCustomWorkflowTask(ctx context.Context, username, userID string, args *OpenAPICreateCustomWorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustomWorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	// first we generate a detailed workflow.
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(args.WorkflowName)
 	if err != nil {
@@ -101,7 +100,6 @@ func CreateCustomWorkflowTask(ctx context.Context, username, userID string, args
 	}
 
 	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
-		Context:            ctx,
 		Name:               username,
 		UserID:             userID,
 		SkipWorkflowUpdate: true,

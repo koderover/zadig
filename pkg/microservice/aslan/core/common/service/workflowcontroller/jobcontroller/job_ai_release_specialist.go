@@ -188,7 +188,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	rulePlan, err := c.getRulePlan(task)
+	rulePlan, err := c.getRulePlan(jobCtx, task)
 	if err != nil {
 		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
@@ -411,7 +411,7 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 	return flatUsers, nil
 }
 
-func (c *AIReleaseSpecialistJobCtl) getRulePlan(task *commonmodels.WorkflowTask) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
+func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context, task *commonmodels.WorkflowTask) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
 	sourceRule := strings.TrimSpace(c.jobTaskSpec.PromptTemplate)
 	if sourceRule == "" {
 		return nil, nil
@@ -420,10 +420,37 @@ func (c *AIReleaseSpecialistJobCtl) getRulePlan(task *commonmodels.WorkflowTask)
 	if err != nil {
 		return nil, err
 	}
-	if err := validatePreparedAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan, sourceRule, catalog); err != nil {
-		return nil, fmt.Errorf("ai release specialist rule plan is not prepared: %w", err)
+	if validatePreparedAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan, sourceRule, catalog) == nil {
+		return c.jobTaskSpec.RulePlan, nil
 	}
-	return c.jobTaskSpec.RulePlan, nil
+
+	rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, sourceRule, catalog)
+	if err != nil {
+		return nil, err
+	}
+	c.jobTaskSpec.RulePlan = rulePlan
+	c.ack()
+
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(c.workflowCtx.WorkflowName)
+	if err != nil {
+		c.logger.Warnf("find workflow to persist ai release specialist rule plan failed: %v", err)
+		return rulePlan, nil
+	}
+	cachedPlans := getAIReleaseSpecialistRulePlanCaches(workflow)[c.job.OriginName]
+	plansToCache := make(map[string]*commonmodels.AIReleaseSpecialistRulePlan, len(cachedPlans)+1)
+	for contextHash, cachedPlan := range cachedPlans {
+		plansToCache[contextHash] = cachedPlan
+	}
+	plansToCache[rulePlan.ContextHash] = rulePlan
+	plansToCache = trimAIReleaseSpecialistRulePlanCache(plansToCache, aiReleaseSpecialistRulePlanCacheLimit, rulePlan.ContextHash)
+	matched, err := commonrepo.NewWorkflowV4Coll().CacheAIReleaseSpecialistRulePlans(ctx, c.workflowCtx.WorkflowName, c.job.OriginName, c.jobTaskSpec.PromptTemplate, plansToCache)
+	switch {
+	case err != nil:
+		c.logger.Warnf("persist ai release specialist rule plan failed: %v", err)
+	case !matched:
+		c.logger.Warnf("skip persisting ai release specialist rule plan for changed job %s", c.job.OriginName)
+	}
+	return rulePlan, nil
 }
 
 func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.WorkflowTask) {
@@ -2527,12 +2554,9 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 	return nil
 }
 
-func PrepareAIReleaseSpecialistRulePlansForTask(ctx context.Context, task *commonmodels.WorkflowTask, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask, workflow *commonmodels.WorkflowV4) error {
 	if task == nil || workflow == nil {
 		return fmt.Errorf("workflow task and workflow are required")
-	}
-	if err := ctx.Err(); err != nil {
-		return err
 	}
 
 	workflowJobs := make(map[string]*commonmodels.Job)
@@ -2561,7 +2585,7 @@ func PrepareAIReleaseSpecialistRulePlansForTask(ctx context.Context, task *commo
 				return fmt.Errorf("decode ai release specialist task %s: %w", job.OriginName, err)
 			}
 
-			workflowJob, ok := workflowJobs[job.OriginName]
+			_, ok := workflowJobs[job.OriginName]
 			if !ok {
 				return fmt.Errorf("ai release specialist job %s not found in workflow %s", job.OriginName, workflow.Name)
 			}
@@ -2582,44 +2606,12 @@ func PrepareAIReleaseSpecialistRulePlansForTask(ctx context.Context, task *commo
 			}
 			contextHash := hashAIReleaseSpecialistRuleCatalog(catalog)
 			rulePlan := workflowSpec.RulePlans[contextHash]
-			needsCompile := validatePreparedAIReleaseSpecialistRulePlan(rulePlan, sourceRule, catalog) != nil
-
-			if needsCompile {
-				compileTimeout := spec.Timeout
-				if compileTimeout <= 0 {
-					compileTimeout = config.AIReleaseSpecialistDefaultTimeoutMinutes
-				}
-				compileCtx, cancel := context.WithTimeout(ctx, time.Duration(compileTimeout)*time.Minute)
-				rulePlan, err = CompileAIReleaseSpecialistRulePlan(compileCtx, sourceRule, catalog)
-				cancel()
-				if err != nil {
-					return fmt.Errorf("compile ai release specialist rule plan for job %s: %w", job.OriginName, err)
-				}
-				if err := ctx.Err(); err != nil {
-					return err
-				}
+			if validatePreparedAIReleaseSpecialistRulePlan(rulePlan, sourceRule, catalog) != nil {
+				rulePlan = nil
 			}
 
 			spec.RulePlan = rulePlan
 			job.Spec = spec
-			if needsCompile {
-				plansToCache := make(map[string]*commonmodels.AIReleaseSpecialistRulePlan, len(workflowSpec.RulePlans)+1)
-				for cachedContextHash, cachedPlan := range workflowSpec.RulePlans {
-					plansToCache[cachedContextHash] = cachedPlan
-				}
-				plansToCache[contextHash] = rulePlan
-				plansToCache = trimAIReleaseSpecialistRulePlanCache(plansToCache, aiReleaseSpecialistRulePlanCacheLimit, contextHash)
-				matched, err := commonrepo.NewWorkflowV4Coll().CacheAIReleaseSpecialistRulePlans(ctx, workflow.Name, workflowJob.Name, workflowSpec.PromptTemplate, plansToCache)
-				switch {
-				case err != nil:
-					if ctx.Err() != nil {
-						return ctx.Err()
-					}
-					logger.Warnf("persist ai release specialist rule plan for job %s failed: %v", job.OriginName, err)
-				case !matched:
-					logger.Warnf("skip persisting ai release specialist rule plan for changed job %s", job.OriginName)
-				}
-			}
 		}
 	}
 	for jobName, workflowJob := range workflowJobs {

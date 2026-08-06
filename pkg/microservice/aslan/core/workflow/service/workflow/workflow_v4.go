@@ -2098,7 +2098,7 @@ func GeneralHookEventHandler(workflowName, hookName string, logger *zap.SugaredL
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	_, err = CreateWorkflowTaskV4ByBuildInTrigger(context.Background(), setting.GeneralHookTaskCreator, generalHook.WorkflowArg, logger)
+	_, err = CreateWorkflowTaskV4ByBuildInTrigger(setting.GeneralHookTaskCreator, generalHook.WorkflowArg, logger)
 	if err != nil {
 		errMsg := fmt.Sprintf("HandleGeneralHookEvent: failed to create workflow task: %s", err)
 		logger.Error(errMsg)

@@ -489,7 +489,6 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Context                context.Context
 	Name                   string
 	Account                string
 	UserID                 string
@@ -506,7 +505,7 @@ type CreateWorkflowTaskV4Args struct {
 	ReleasePlan            *commonmodels.ReleasePlanRef
 }
 
-func CreateWorkflowTaskV4ByBuildInTrigger(ctx context.Context, triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
+func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	resp := &CreateTaskV4Resp{
 		ProjectName:  args.Project,
 		WorkflowName: args.Name,
@@ -518,7 +517,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(ctx context.Context, triggerName strin
 		return resp, e.ErrCreateTask.AddDesc(fmt.Sprintf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err))
 	}
 
-	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{Context: ctx, Name: triggerName}, workflowCtrl.WorkflowV4, log)
+	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{Name: triggerName}, workflowCtrl.WorkflowV4, log)
 }
 
 func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -709,11 +708,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	if err := workflowTaskLint(workflowTask, log); err != nil {
 		return resp, err
 	}
-	taskContext := args.Context
-	if taskContext == nil {
-		taskContext = context.Background()
-	}
-	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlansForTask(taskContext, workflowTask, workflow, log); err != nil {
+	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlansForTask(workflowTask, workflow); err != nil {
 		log.Errorf("failed to prepare ai release specialist rule plans, error: %s", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
