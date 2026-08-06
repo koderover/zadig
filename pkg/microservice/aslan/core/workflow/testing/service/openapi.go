@@ -142,14 +142,13 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		return 0, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
-	repos := testInfo.Repos
+	var repoOverrides []*types.Repository
 	if len(args.RepoInfo) > 0 {
-		if err := util.DeepCopy(&repos, testInfo.Repos); err != nil {
+		var configuredRepos []*types.Repository
+		if err := util.DeepCopy(&configuredRepos, testInfo.Repos); err != nil {
 			return 0, fmt.Errorf("copy test repositories error: %v", err)
 		}
-		// The converter updates matching Git repository objects in place. Applying it to
-		// the copied slice preserves repositories omitted from the runtime override.
-		overrides, err := workflowservice.OpenAPIRepoInputToRepository(repos, args.RepoInfo)
+		overrides, err := workflowservice.OpenAPIRepoInputToRepository(configuredRepos, args.RepoInfo)
 		if err != nil {
 			return 0, err
 		}
@@ -161,13 +160,14 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 				return 0, fmt.Errorf("perforce repository overrides are not supported")
 			}
 		}
+		repoOverrides = overrides
 	}
 
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
-		Repos:           repos,
+		Repos:           repoOverrides,
 	}
 	if len(args.Inputs) > 0 {
 		keyVals := make(commonmodels.RuntimeKeyValList, 0)
@@ -194,6 +194,47 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		return 0, err
 	}
 	return result.TaskID, nil
+}
+
+func OpenAPIGetTestRunConfig(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestRunConfig, error) {
+	testInfo, err := GetRaw(testName, projectKey, logger)
+	if err != nil {
+		return nil, err
+	}
+	return buildOpenAPITestRunConfig(testInfo), nil
+}
+
+func buildOpenAPITestRunConfig(testInfo *commonmodels.Testing) *OpenAPITestRunConfig {
+	resp := &OpenAPITestRunConfig{
+		ProjectKey: testInfo.ProductName,
+		TestName:   testInfo.Name,
+		Inputs:     make([]*OpenAPITestRunConfigInput, 0),
+	}
+	if testInfo.PreTest == nil {
+		return resp
+	}
+
+	for _, input := range testInfo.PreTest.Envs {
+		if input == nil {
+			continue
+		}
+		value := input.GetValue()
+		hasValue := strings.TrimSpace(value) != "" || strings.TrimSpace(input.FileID) != ""
+		if input.IsCredential {
+			value = ""
+		}
+		resp.Inputs = append(resp.Inputs, &OpenAPITestRunConfigInput{
+			Key:          input.Key,
+			Value:        value,
+			Type:         string(input.Type),
+			ChoiceOption: append([]string(nil), input.ChoiceOption...),
+			Required:     input.Required,
+			IsCredential: input.IsCredential,
+			HasValue:     hasValue,
+			Description:  input.Description,
+		})
+	}
+	return resp
 }
 
 func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*OpenAPITestTaskDetail, error) {

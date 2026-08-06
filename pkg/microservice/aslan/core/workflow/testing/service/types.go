@@ -345,6 +345,23 @@ type OpenAPICreateTestTaskResp struct {
 	TaskID int64 `json:"task_id"`
 }
 
+type OpenAPITestRunConfig struct {
+	ProjectKey string                       `json:"project_key"`
+	TestName   string                       `json:"test_name"`
+	Inputs     []*OpenAPITestRunConfigInput `json:"inputs"`
+}
+
+type OpenAPITestRunConfigInput struct {
+	Key          string   `json:"key"`
+	Value        string   `json:"value,omitempty"`
+	Type         string   `json:"type,omitempty"`
+	ChoiceOption []string `json:"choice_option,omitempty"`
+	Required     bool     `json:"required"`
+	IsCredential bool     `json:"is_credential"`
+	HasValue     bool     `json:"has_value"`
+	Description  string   `json:"description,omitempty"`
+}
+
 type OpenAPIScanTaskDetail struct {
 	ScanName   string                  `json:"scan_name"`
 	Creator    string                  `json:"creator"`

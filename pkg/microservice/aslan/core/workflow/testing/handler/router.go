@@ -150,6 +150,7 @@ func (*QualityRouter) Inject(router *gin.RouterGroup) {
 	test := router.Group("testing")
 	{
 		test.POST("/task", OpenAPICreateTestTask)
+		test.GET("/:testName/config", OpenAPIGetTestRunConfig)
 		test.GET("/:testName/task/:taskID", OpenAPIGetTestTaskResult)
 	}
 }
