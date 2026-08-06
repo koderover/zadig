@@ -2757,12 +2757,15 @@ Semantics:
 - Environment or service health maps to runtime.service_ready.
 - Available or ready replicas map to runtime.ready_pod_count.
 - release_target.production only identifies whether a target is production; it does not represent environment health.
-- Resolve natural-language task references against the workflow catalog. scope.job_names must contain catalog jobs[].name exactly; display_name and stage_name are hints only.
+- Interpret natural-language task references by meaning, not literal name equality. Use job name, display name, stage name, and job type together to select the intended catalog jobs, then write their exact jobs[].name values to scope.job_names.
+- When no exact task name exists but the wording describes a task category, apply the rule to all matching before jobs of that category. A wording difference alone is not an unsupported requirement.
+- When the requested metric granularity is unavailable, use a broader available metric only if it enforces the same risk intent conservatively. For example, "no high-risk vulnerabilities" may use vulnerability_count greater_than 0 with result fail when severity counts are unavailable.
+- Do not map between unrelated task categories or use a weaker condition than the business rule.
 - scope.env_names and scope.service_names must contain values present in the workflow catalog exactly.
 - A task_status or build_status rule must include scope.job_names and may reference only catalog jobs whose position is before. Expand general status requirements to all matching before jobs. Other jobs have no reliable execution result yet.
 - Preserve explicit environment, service, and task scopes. Use env_names and service_names only for release_target or runtime rules; use job_names for a specifically named task.
 - Omit scope and all of its fields when the business rule does not explicitly limit the rule to named environments, services, or tasks.
-- If a requirement needs configuration contents, field-level diffs, SQL query results, logs, or another unavailable metric, add it to unsupported_requirements. Never replace it with task_status.
+- Add a requirement to unsupported_requirements only when the catalog has no semantically relevant job or metric and no conservative representation is possible. Requirements are not unsupported merely because user wording differs from catalog names. Never replace unavailable configuration contents, field-level diffs, SQL query results, or logs with task_status.
 - Return an empty unsupported_requirements array when every requirement is represented.
 - Use the fewest rules that preserve each explicit condition in the business rule.
 
