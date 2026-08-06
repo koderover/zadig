@@ -97,6 +97,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+		Context:                ctx.Context,
 		Name:                   ctx.UserName,
 		Account:                ctx.Account,
 		UserID:                 ctx.UserID,
@@ -120,7 +121,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 		triggerName = setting.DefaultTaskRevoker
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流任务", args.Name, args.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4ByBuildInTrigger(ctx.Context, triggerName, args, ctx.Logger)
 }
 
 type listWorkflowTaskV4PreviewResp struct {

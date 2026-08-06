@@ -1282,12 +1282,12 @@ type NotificationJobSpec struct {
 }
 
 type AIReleaseSpecialistJobSpec struct {
-	Timeout              int64                        `bson:"timeout" json:"timeout" yaml:"timeout"`
-	PromptTemplate       string                       `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
-	RulePlan             *AIReleaseSpecialistRulePlan `bson:"rule_plan,omitempty" json:"rule_plan,omitempty" yaml:"rule_plan,omitempty"`
-	RequireManualConfirm bool                         `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
-	ConfirmUsers         []*User                      `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
-	SystemPrompt         string                       `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+	Timeout              int64                                   `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string                                  `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RulePlans            map[string]*AIReleaseSpecialistRulePlan `bson:"rule_plans,omitempty" json:"rule_plans,omitempty" yaml:"-"`
+	RequireManualConfirm bool                                    `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User                                 `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	SystemPrompt         string                                  `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
 }
 
 type AIReleaseSpecialistRulePlan struct {

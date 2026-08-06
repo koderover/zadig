@@ -59,6 +59,7 @@ const (
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
 	aiReleaseSpecialistRulePlanMaxTokens        = 128000
 	aiReleaseSpecialistRulePlanVersion          = 4
+	aiReleaseSpecialistRulePlanCacheLimit       = 3
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
 
@@ -187,7 +188,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	rulePlan, err := c.getRulePlan(jobCtx, task)
+	rulePlan, err := c.getRulePlan(task)
 	if err != nil {
 		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
@@ -410,41 +411,19 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 	return flatUsers, nil
 }
 
-func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context, task *commonmodels.WorkflowTask) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
+func (c *AIReleaseSpecialistJobCtl) getRulePlan(task *commonmodels.WorkflowTask) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
 	sourceRule := strings.TrimSpace(c.jobTaskSpec.PromptTemplate)
-	sourceRuleHash := hashAIReleaseSpecialistRuleSource(sourceRule)
+	if sourceRule == "" {
+		return nil, nil
+	}
 	catalog, err := buildAIReleaseSpecialistRuleCatalog(task, c.job.Name)
 	if err != nil {
 		return nil, err
 	}
-	contextHash := hashAIReleaseSpecialistRuleCatalog(catalog)
-	if c.jobTaskSpec.RulePlan != nil &&
-		c.jobTaskSpec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion &&
-		c.jobTaskSpec.RulePlan.ContextHash == contextHash &&
-		(sourceRule == "" || c.jobTaskSpec.RulePlan.SourceRuleHash == sourceRuleHash) {
-		if err := normalizeAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan); err != nil {
-			return nil, err
-		}
-		return c.jobTaskSpec.RulePlan, nil
+	if err := validatePreparedAIReleaseSpecialistRulePlan(c.jobTaskSpec.RulePlan, sourceRule, catalog); err != nil {
+		return nil, fmt.Errorf("ai release specialist rule plan is not prepared: %w", err)
 	}
-	if sourceRule == "" {
-		return c.jobTaskSpec.RulePlan, nil
-	}
-
-	// Workflows saved with an older rule-plan format are recompiled on first run.
-	rulePlan, err := CompileAIReleaseSpecialistRulePlan(ctx, sourceRule, catalog)
-	if err != nil {
-		return nil, err
-	}
-	c.jobTaskSpec.RulePlan = rulePlan
-	c.ack()
-	if c.job.OriginName != "" {
-		// Persist the runtime-compiled plan so later workflow runs can reuse it.
-		if _, err := commonrepo.NewWorkflowV4Coll().UpdateAIReleaseSpecialistRulePlan(ctx, c.workflowCtx.WorkflowName, c.job.OriginName, c.jobTaskSpec.PromptTemplate, rulePlan); err != nil {
-			c.logger.Warnf("persist ai release specialist rule plan failed: %v", err)
-		}
-	}
-	return rulePlan, nil
+	return c.jobTaskSpec.RulePlan, nil
 }
 
 func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.WorkflowTask) {
@@ -2490,8 +2469,27 @@ func normalizeAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialist
 	return nil
 }
 
+func validatePreparedAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialistRulePlan, sourceRule string, catalog *aiReleaseSpecialistRuleCatalog) error {
+	if plan == nil {
+		return fmt.Errorf("rule plan is missing")
+	}
+	if plan.Version != aiReleaseSpecialistRulePlanVersion {
+		return fmt.Errorf("rule plan version %d is not supported", plan.Version)
+	}
+	if plan.SourceRuleHash != hashAIReleaseSpecialistRuleSource(sourceRule) {
+		return fmt.Errorf("rule plan source has changed")
+	}
+	if plan.ContextHash != hashAIReleaseSpecialistRuleCatalog(catalog) {
+		return fmt.Errorf("workflow context has changed")
+	}
+	if err := normalizeAIReleaseSpecialistRulePlan(plan); err != nil {
+		return err
+	}
+	return validateAIReleaseSpecialistRulePlanAgainstCatalog(plan, catalog)
+}
+
 func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodels.WorkflowV4) error {
-	existingPlans := getAIReleaseSpecialistRulePlans(existingWorkflow)
+	existingPlans := getAIReleaseSpecialistRulePlanCaches(existingWorkflow)
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType != config.JobAIReleaseSpecialist {
@@ -2505,34 +2503,158 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 
 			sourceRule := strings.TrimSpace(spec.PromptTemplate)
 			if sourceRule == "" {
-				spec.RulePlan = nil
+				spec.RulePlans = nil
 				job.Spec = spec
 				continue
 			}
 			sourceRuleHash := hashAIReleaseSpecialistRuleSource(sourceRule)
-			if spec.RulePlan != nil && spec.RulePlan.Version == aiReleaseSpecialistRulePlanVersion && spec.RulePlan.SourceRuleHash == sourceRuleHash {
-				if err := normalizeAIReleaseSpecialistRulePlan(spec.RulePlan); err == nil {
-					job.Spec = spec
-					continue
+			validPlans := make(map[string]*commonmodels.AIReleaseSpecialistRulePlan)
+			if cachedPlans, ok := existingPlans[job.Name]; ok {
+				for contextHash, plan := range cachedPlans {
+					if plan == nil || plan.Version != aiReleaseSpecialistRulePlanVersion || plan.SourceRuleHash != sourceRuleHash || plan.ContextHash != contextHash {
+						continue
+					}
+					if err := normalizeAIReleaseSpecialistRulePlan(plan); err != nil {
+						continue
+					}
+					validPlans[contextHash] = plan
 				}
 			}
-			if existingPlan, ok := existingPlans[job.Name]; ok && existingPlan.Version == aiReleaseSpecialistRulePlanVersion && existingPlan.SourceRuleHash == sourceRuleHash {
-				if err := normalizeAIReleaseSpecialistRulePlan(existingPlan); err == nil {
-					spec.RulePlan = existingPlan
-					job.Spec = spec
-					continue
-				}
-			}
-
-			spec.RulePlan = nil
+			spec.RulePlans = trimAIReleaseSpecialistRulePlanCache(validPlans, aiReleaseSpecialistRulePlanCacheLimit, "")
 			job.Spec = spec
 		}
 	}
 	return nil
 }
 
-func getAIReleaseSpecialistRulePlans(workflow *commonmodels.WorkflowV4) map[string]*commonmodels.AIReleaseSpecialistRulePlan {
-	plans := make(map[string]*commonmodels.AIReleaseSpecialistRulePlan)
+func PrepareAIReleaseSpecialistRulePlansForTask(ctx context.Context, task *commonmodels.WorkflowTask, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	if task == nil || workflow == nil {
+		return fmt.Errorf("workflow task and workflow are required")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	workflowJobs := make(map[string]*commonmodels.Job)
+	workflowSpecs := make(map[string]*commonmodels.AIReleaseSpecialistJobSpec)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job != nil && job.JobType == config.JobAIReleaseSpecialist {
+				spec := &commonmodels.AIReleaseSpecialistJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					return fmt.Errorf("decode ai release specialist job %s: %w", job.Name, err)
+				}
+				workflowJobs[job.Name] = job
+				workflowSpecs[job.Name] = spec
+			}
+		}
+	}
+
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job == nil || job.JobType != string(config.JobAIReleaseSpecialist) {
+				continue
+			}
+
+			spec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+			if err := commonmodels.IToi(job.Spec, spec); err != nil {
+				return fmt.Errorf("decode ai release specialist task %s: %w", job.OriginName, err)
+			}
+
+			workflowJob, ok := workflowJobs[job.OriginName]
+			if !ok {
+				return fmt.Errorf("ai release specialist job %s not found in workflow %s", job.OriginName, workflow.Name)
+			}
+			workflowSpec := workflowSpecs[job.OriginName]
+			sourceRule := strings.TrimSpace(spec.PromptTemplate)
+			if strings.TrimSpace(workflowSpec.PromptTemplate) != sourceRule {
+				return fmt.Errorf("ai release specialist rule changed while creating workflow task")
+			}
+			if sourceRule == "" {
+				spec.RulePlan = nil
+				job.Spec = spec
+				continue
+			}
+
+			catalog, err := buildAIReleaseSpecialistRuleCatalog(task, job.Name)
+			if err != nil {
+				return err
+			}
+			contextHash := hashAIReleaseSpecialistRuleCatalog(catalog)
+			rulePlan := workflowSpec.RulePlans[contextHash]
+			needsCompile := validatePreparedAIReleaseSpecialistRulePlan(rulePlan, sourceRule, catalog) != nil
+
+			if needsCompile {
+				compileTimeout := spec.Timeout
+				if compileTimeout <= 0 {
+					compileTimeout = config.AIReleaseSpecialistDefaultTimeoutMinutes
+				}
+				compileCtx, cancel := context.WithTimeout(ctx, time.Duration(compileTimeout)*time.Minute)
+				rulePlan, err = CompileAIReleaseSpecialistRulePlan(compileCtx, sourceRule, catalog)
+				cancel()
+				if err != nil {
+					return fmt.Errorf("compile ai release specialist rule plan for job %s: %w", job.OriginName, err)
+				}
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
+
+			spec.RulePlan = rulePlan
+			job.Spec = spec
+			if needsCompile {
+				plansToCache := make(map[string]*commonmodels.AIReleaseSpecialistRulePlan, len(workflowSpec.RulePlans)+1)
+				for cachedContextHash, cachedPlan := range workflowSpec.RulePlans {
+					plansToCache[cachedContextHash] = cachedPlan
+				}
+				plansToCache[contextHash] = rulePlan
+				plansToCache = trimAIReleaseSpecialistRulePlanCache(plansToCache, aiReleaseSpecialistRulePlanCacheLimit, contextHash)
+				matched, err := commonrepo.NewWorkflowV4Coll().CacheAIReleaseSpecialistRulePlans(ctx, workflow.Name, workflowJob.Name, workflowSpec.PromptTemplate, plansToCache)
+				switch {
+				case err != nil:
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					logger.Warnf("persist ai release specialist rule plan for job %s failed: %v", job.OriginName, err)
+				case !matched:
+					logger.Warnf("skip persisting ai release specialist rule plan for changed job %s", job.OriginName)
+				}
+			}
+		}
+	}
+	for jobName, workflowJob := range workflowJobs {
+		workflowSpec := workflowSpecs[jobName]
+		workflowSpec.RulePlans = nil
+		workflowJob.Spec = workflowSpec
+	}
+	return nil
+}
+
+func trimAIReleaseSpecialistRulePlanCache(plans map[string]*commonmodels.AIReleaseSpecialistRulePlan, limit int, keepHash string) map[string]*commonmodels.AIReleaseSpecialistRulePlan {
+	if limit <= 0 {
+		return nil
+	}
+	contextHashes := make([]string, 0, len(plans))
+	for contextHash := range plans {
+		if contextHash != keepHash {
+			contextHashes = append(contextHashes, contextHash)
+		}
+	}
+	sort.Strings(contextHashes)
+	for _, contextHash := range contextHashes {
+		if len(plans) <= limit {
+			break
+		}
+		delete(plans, contextHash)
+	}
+	if len(plans) == 0 {
+		return nil
+	}
+	return plans
+}
+
+func getAIReleaseSpecialistRulePlanCaches(workflow *commonmodels.WorkflowV4) map[string]map[string]*commonmodels.AIReleaseSpecialistRulePlan {
+	plans := make(map[string]map[string]*commonmodels.AIReleaseSpecialistRulePlan)
 	if workflow == nil {
 		return plans
 	}
@@ -2542,10 +2664,10 @@ func getAIReleaseSpecialistRulePlans(workflow *commonmodels.WorkflowV4) map[stri
 				continue
 			}
 			spec := &commonmodels.AIReleaseSpecialistJobSpec{}
-			if commonmodels.IToi(job.Spec, spec) != nil || spec.RulePlan == nil {
+			if commonmodels.IToi(job.Spec, spec) != nil || len(spec.RulePlans) == 0 {
 				continue
 			}
-			plans[job.Name] = spec.RulePlan
+			plans[job.Name] = spec.RulePlans
 		}
 	}
 	return plans
@@ -2560,7 +2682,7 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 	sourceRuleHash := hashAIReleaseSpecialistRuleSource(sourceRule)
 	contextHash := hashAIReleaseSpecialistRuleCatalog(catalog)
 	compileKey := sourceRuleHash + ":" + contextHash
-	result, err, _ := aiReleaseSpecialistRulePlanCompileGroup.Do(compileKey, func() (interface{}, error) {
+	resultCh := aiReleaseSpecialistRulePlanCompileGroup.DoChan(compileKey, func() (interface{}, error) {
 		client, err := getAIReleaseSpecialistLLMClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("get default llm client: %w", err)
@@ -2591,8 +2713,15 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 		rulePlan.ContextHash = contextHash
 		return rulePlan, nil
 	})
-	if err != nil {
-		return nil, err
+	var result interface{}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case callResult := <-resultCh:
+		if callResult.Err != nil {
+			return nil, callResult.Err
+		}
+		result = callResult.Val
 	}
 	rulePlan, ok := result.(*commonmodels.AIReleaseSpecialistRulePlan)
 	if !ok {

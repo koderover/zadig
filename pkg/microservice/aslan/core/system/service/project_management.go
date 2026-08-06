@@ -530,7 +530,7 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 		}
 	}
 
-	taskInfo, err := workflow.CreateWorkflowTaskV4ByBuildInTrigger(setting.JiraHookTaskCreator, jiraHook.WorkflowArg, logger)
+	taskInfo, err := workflow.CreateWorkflowTaskV4ByBuildInTrigger(internalhandler.NewBackgroupContext(), setting.JiraHookTaskCreator, jiraHook.WorkflowArg, logger)
 	if err != nil {
 		errMsg := fmt.Sprintf("HandleJiraHookEvent: failed to create workflow task: %s", err)
 		logger.Error(errMsg)
@@ -602,7 +602,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	taskInfo, err := workflow.CreateWorkflowTaskV4ByBuildInTrigger(setting.MeegoHookTaskCreator, meegoHook.WorkflowArg, logger)
+	taskInfo, err := workflow.CreateWorkflowTaskV4ByBuildInTrigger(internalhandler.NewBackgroupContext(), setting.MeegoHookTaskCreator, meegoHook.WorkflowArg, logger)
 	if err != nil {
 		errMsg := fmt.Sprintf("HandleMeegoHookEvent: failed to create workflow task: %s", err)
 		logger.Error(errMsg)
