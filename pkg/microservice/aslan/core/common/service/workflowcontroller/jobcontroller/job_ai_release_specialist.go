@@ -2758,7 +2758,7 @@ Semantics:
 - Available or ready replicas map to runtime.ready_pod_count.
 - release_target.production only identifies whether a target is production; it does not represent environment health.
 - Interpret natural-language task references by meaning, not literal name equality. Use job name, display name, stage name, and job type together to select the intended catalog jobs, then write their exact jobs[].name values to scope.job_names.
-- When no exact task name exists but the wording describes a task category, apply the rule to all matching before jobs of that category. A wording difference alone is not an unsupported requirement.
+- When a requirement asks only for a task-category outcome (such as tests passing, scans having no findings, or builds succeeding) and no exact task label exists, select all semantically related before jobs by job_type and the supported category metric, then use their exact jobs[].name values. Differences in subtype wording do not make the requirement unsupported unless the condition depends on subtype-specific data.
 - When the requested metric granularity is unavailable, use a broader available metric only if it enforces the same risk intent conservatively. For example, "no high-risk vulnerabilities" may use vulnerability_count greater_than 0 with result fail when severity counts are unavailable.
 - Do not map between unrelated task categories or use a weaker condition than the business rule.
 - scope.env_names and scope.service_names must contain values present in the workflow catalog exactly.
