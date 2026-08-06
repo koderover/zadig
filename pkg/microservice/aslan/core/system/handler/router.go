@@ -481,6 +481,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		grafana.GET("/:id/alert", ListGrafanaAlert)
 	}
 
+	agent := router.Group("agent")
+	{
+		agent.POST("/integration", CreateAgentIntegration)
+		agent.GET("/integration", ListAgentIntegrations)
+		agent.GET("/integrations", ListAllAgentIntegrations)
+		agent.POST("/integration/validate", ValidateAgentIntegration)
+		agent.GET("/integration/:id", GetAgentIntegration)
+		agent.PUT("/integration/:id", UpdateAgentIntegration)
+		agent.DELETE("/integration/:id", DeleteAgentIntegration)
+	}
+
 	// personal favorite API
 	favorite := router.Group("favorite")
 	{
@@ -495,6 +506,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		llm.POST("/integration", CreateLLMIntegration)
 		llm.GET("/integration", ListLLMIntegration)
+		llm.GET("/integrations", ListLLMIntegrationBriefs)
 		llm.GET("/integration/check", CheckLLMIntegration)
 		llm.POST("/integration/validate", ValidateLLMIntegration)
 		llm.GET("/integration/:id", GetLLMIntegration)

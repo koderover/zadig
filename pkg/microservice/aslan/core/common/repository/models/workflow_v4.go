@@ -1312,6 +1312,19 @@ type AIReleaseSpecialistRulePlanScope struct {
 	JobNames     []string `bson:"job_names,omitempty" json:"job_names,omitempty" yaml:"job_names,omitempty"`
 }
 
+type AIJobSpec struct {
+	TargetType string `bson:"target_type" json:"target_type" yaml:"target_type"`
+	TargetID   string `bson:"target_id" json:"target_id" yaml:"target_id"`
+	// TargetName and TargetProjectAlias are response-only display fields resolved
+	// when rendering the workflow preset; they are never persisted.
+	TargetName           string  `bson:"-" json:"target_name,omitempty" yaml:"-"`
+	TargetProjectAlias   string  `bson:"-" json:"target_project_alias,omitempty" yaml:"-"`
+	Prompt               string  `bson:"prompt" json:"prompt" yaml:"prompt"`
+	RequireManualConfirm bool    `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	Timeout              int64   `bson:"timeout" json:"timeout" yaml:"timeout"`
+}
+
 // GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
 func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 	switch n.WebHookType {

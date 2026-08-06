@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -62,12 +61,20 @@ type anthropicMessage struct {
 }
 
 type anthropicMessageResponse struct {
-	Content []anthropicContent `json:"content"`
+	ID         string             `json:"id"`
+	Content    []anthropicContent `json:"content"`
+	StopReason string             `json:"stop_reason"`
+	Usage      anthropicUsage     `json:"usage"`
 }
 
 type anthropicContent struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
+}
+
+type anthropicUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 func (c *AnthropicClient) Configure(config LLMConfig) error {
@@ -80,13 +87,9 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 		return fmt.Errorf("invalid anthropic base url %q", baseURL)
 	}
 
-	httpClient := &http.Client{Timeout: 5 * time.Minute}
-	if config.GetProxy() != "" {
-		proxyURL, err := url.Parse(config.GetProxy())
-		if err != nil {
-			return fmt.Errorf("invalid proxy url %s", config.GetProxy())
-		}
-		httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 0)
+	if err != nil {
+		return fmt.Errorf("could not build the anthropic http client: %w", err)
 	}
 
 	c.name = string(config.GetProviderName())
@@ -104,6 +107,12 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		opt(&opts)
 	}
 	opts = ValidOptions(opts)
+	requestTimeout := opts.RequestTimeout
+	if requestTimeout <= 0 {
+		requestTimeout = defaultCompletionTimeout
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 
 	model := opts.Model
 	if model == "" {
@@ -131,12 +140,14 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		return "", fmt.Errorf("marshal anthropic request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.messagesURL(), bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.messagesURL(), bytes.NewReader(requestBody))
 	if err != nil {
 		return "", fmt.Errorf("create anthropic request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", c.token)
+	if c.token != "" {
+		req.Header.Set("x-api-key", c.token)
+	}
 	req.Header.Set("anthropic-version", anthropicAPIVersion)
 
 	resp, err := c.httpClient.Do(req)
@@ -158,13 +169,40 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		return "", fmt.Errorf("decode anthropic response: %w", err)
 	}
 	var result strings.Builder
+	textBlocks := 0
+	toolUseBlocks := 0
 	for _, content := range response.Content {
-		if content.Type == "text" {
+		switch content.Type {
+		case "text":
+			textBlocks++
 			result.WriteString(content.Text)
+		case "tool_use":
+			toolUseBlocks++
 		}
 	}
-	if result.Len() == 0 {
-		return "", errors.New("anthropic response contains no text content")
+	if opts.ErrorOnMaxTokens && response.StopReason == "max_tokens" {
+		return result.String(), fmt.Errorf(
+			"%w: response_id=%s stop_reason=%s text_length=%d input_tokens=%d output_tokens=%d",
+			ErrMaxTokensExceeded,
+			response.ID,
+			response.StopReason,
+			result.Len(),
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+		)
+	}
+	if strings.TrimSpace(result.String()) == "" {
+		return "", fmt.Errorf(
+			"anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
+			response.ID,
+			response.StopReason,
+			len(response.Content),
+			textBlocks,
+			result.Len(),
+			toolUseBlocks,
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+		)
 	}
 	return result.String(), nil
 }

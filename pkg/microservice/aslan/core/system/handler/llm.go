@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -37,6 +38,11 @@ type CreateLLMIntegrationRequest struct {
 	Model        string       `json:"model"`
 	EnableProxy  bool         `json:"enable_proxy"`
 	IsDefault    bool         `json:"is_default"`
+}
+
+type ValidateLLMIntegrationRequest struct {
+	ID string `json:"id"`
+	CreateLLMIntegrationRequest
 }
 
 // @Summary Create a llm integration
@@ -67,22 +73,22 @@ func CreateLLMIntegration(c *gin.Context) {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	body 			body 		CreateLLMIntegrationRequest 			true 	"body"
+// @Param 	body 			body 		ValidateLLMIntegrationRequest 			true 	"body"
 // @Success 200
 // @Router /api/aslan/system/llm/integration/validate [post]
 func ValidateLLMIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(CreateLLMIntegrationRequest)
+	args := new(ValidateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate llm Integration json args")
 		return
 	}
 
-	llmProvider := convertLLMArgToModel(args)
+	llmProvider := convertLLMArgToModel(&args.CreateLLMIntegrationRequest)
 	llmProvider.UpdatedBy = ctx.UserName
-	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), llmProvider)
+	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), args.ID, llmProvider)
 }
 
 type GetLLMIntegrationRespone struct {
@@ -96,12 +102,22 @@ type GetLLMIntegrationRespone struct {
 // @Tags 	system
 // @Accept 	json
 // @Produce json
-// @Param 	id			path		string								true	"id"
+// @Param 	id				path		string								true	"id"
 // @Success 200 		{object} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration/{id} [get]
 func GetLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !isLogin(ctx) {
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -120,10 +136,45 @@ func GetLLMIntegration(c *gin.Context) {
 // @Success 200 		{array} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration [get]
 func ListLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !isLogin(ctx) {
+		return
+	}
+
 	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
+}
+
+// @Summary List llm integration briefs
+// @Description List llm integration briefs (id and name only) for the workflow AI task selector
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	service.LLMIntegrationBrief
+// @Router /api/aslan/system/llm/integrations [get]
+func ListLLMIntegrationBriefs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// the response only carries model id and name, never endpoints or
+	// credentials, so any logged-in user may read it
+	if !isLogin(ctx) {
+		return
+	}
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegrationBriefs(context.TODO())
 }
 
 type checkLLMIntegrationResponse struct {

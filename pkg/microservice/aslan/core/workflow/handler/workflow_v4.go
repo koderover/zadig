@@ -609,7 +609,7 @@ func GetAvailableWorkflowV4DynamicVariable(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.GetAvailableWorkflowV4DynamicVariable(ctx, args, c.Query("jobName"))
+	ctx.Resp, ctx.RespErr = workflow.GetAvailableWorkflowV4DynamicVariable(ctx, args, c.Query("jobName"), c.Query("include_runtime") == "true")
 }
 
 func GetWorkflowV4Preset(c *gin.Context) {

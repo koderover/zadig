@@ -20,8 +20,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -66,16 +64,11 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		}
 	}
 
-	httpClient := &http.Client{}
-	if config.GetProxy() != "" {
-		proxyUrl, err := url.Parse(config.GetProxy())
-		if err != nil {
-			return fmt.Errorf("invalid proxy url %s", config.GetProxy())
-		}
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxyUrl),
-		}
-		httpClient.Transport = transport
+	// 0 timeout keeps the historical OpenAI client behavior: no client-side
+	// deadline, so long streaming responses are not cut off.
+	httpClient, err := newHTTPClient(config.GetProxy(), config.GetHeaders(), 0)
+	if err != nil {
+		return fmt.Errorf("could not build the openai http client: %w", err)
 	}
 	defaultConfig.HTTPClient = httpClient
 
@@ -139,11 +132,17 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	log.Debugf("ai completion took: %v", time.Since(now))
 
 	if len(resp.Choices) == 0 {
-		return "", errors.New("no completion choices")
+		return "", fmt.Errorf(
+			"openai response contains no completion choices: response_id=%s completion_tokens=%d total_tokens=%d",
+			resp.ID,
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
 	}
+	choice := resp.Choices[0]
 	thinkStartTag := "<think>"
 	thinkEndTag := "</think>"
-	message := resp.Choices[0].Message.Content
+	message := choice.Message.Content
 	for {
 		thinkStartIndex := strings.Index(message, thinkStartTag)
 		thinkEndIndex := strings.Index(message, thinkEndTag)
@@ -157,8 +156,30 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		message = strings.TrimSpace(message)
 	}
 
-	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(resp.Choices[0].FinishReason) {
-		return message, ErrMaxTokensExceeded
+	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(choice.FinishReason) {
+		return message, fmt.Errorf(
+			"%w: response_id=%s finish_reason=%s content_length=%d completion_tokens=%d total_tokens=%d",
+			ErrMaxTokensExceeded,
+			resp.ID,
+			choice.FinishReason,
+			len(choice.Message.Content),
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
+	}
+	if strings.TrimSpace(message) == "" {
+		return "", fmt.Errorf(
+			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t completion_tokens=%d total_tokens=%d",
+			resp.ID,
+			choice.FinishReason,
+			len(choice.Message.Content),
+			len(choice.Message.MultiContent),
+			len(choice.Message.ToolCalls),
+			choice.Message.FunctionCall != nil,
+			choice.Message.Refusal != "",
+			resp.Usage.CompletionTokens,
+			resp.Usage.TotalTokens,
+		)
 	}
 	return message, nil
 }

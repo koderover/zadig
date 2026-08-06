@@ -263,8 +263,20 @@ const (
 	JobApproval             JobType = "approval"
 	JobNotification         JobType = "notification"
 	JobAIReleaseSpecialist  JobType = "ai-release-specialist"
+	JobAI                   JobType = "ai-task"
 	JobSAEDeploy            JobType = "sae-deploy"
 	JobApisix               JobType = "apisix"
+)
+
+const (
+	AIDefaultTimeoutMinutes int64 = 60
+
+	// the supported targets an AI job can call
+	AITargetTypeModel = "model"
+	AITargetTypeAgent = "agent"
+
+	// the job output key holding the AI response
+	AIOutputResult = "result"
 )
 
 const (
