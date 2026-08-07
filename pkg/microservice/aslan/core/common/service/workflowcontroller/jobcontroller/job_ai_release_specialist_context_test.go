@@ -352,16 +352,22 @@ func TestBuildAIReleaseSpecialistEvaluationPromptUsesCompactJSON(t *testing.T) {
 }
 
 func TestBuildReleaseTargetFromHelmChartDeployKeepsProduction(t *testing.T) {
-	target := buildReleaseTargetFromHelmChartDeploy(
-		&commonmodels.JobTask{OriginName: "chart-deploy"},
-		&commonmodels.JobTaskHelmChartDeploySpec{
+	job := &commonmodels.JobTask{
+		OriginName: "chart-deploy",
+		JobType:    string(config.JobZadigHelmChartDeploy),
+		Spec: &commonmodels.JobTaskHelmChartDeploySpec{
 			Env:        "prod",
 			Production: true,
 			DeployHelmChart: &commonmodels.DeployHelmChart{
 				ReleaseName: "orders-release",
 			},
 		},
-	)
+	}
+	deploymentInfo, isDeployment, err := parseAIReleaseDeploymentJob(job)
+	if err != nil || !isDeployment {
+		t.Fatalf("parse helm chart deployment failed: isDeployment=%t err=%v", isDeployment, err)
+	}
+	target := deploymentInfo.buildReleaseTarget(job)
 	if !target.Production {
 		t.Fatal("expected helm chart target to be production")
 	}
