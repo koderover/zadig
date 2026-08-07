@@ -100,6 +100,7 @@ const (
 	DockerHost      = "DOCKER_HOST"
 	DockerTLSVerify = "DOCKER_TLS_VERIFY"
 	DockerCertPath  = "DOCKER_CERT_PATH"
+	DockerContext   = "DOCKER_CONTEXT"
 	BuildURL        = "BUILD_URL"
 	DefaultDockSock = "/var/run/docker.sock"
 
