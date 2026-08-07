@@ -1291,11 +1291,12 @@ type AIReleaseSpecialistJobSpec struct {
 }
 
 type AIReleaseSpecialistRulePlan struct {
-	Version        int                                `bson:"version" json:"version" yaml:"version"`
-	SourceRuleHash string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
-	ContextHash    string                             `bson:"context_hash" json:"context_hash" yaml:"context_hash"`
-	Contexts       []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
-	Rules          []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+	Version                 int                                `bson:"version" json:"version" yaml:"version"`
+	SourceRuleHash          string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
+	ContextHash             string                             `bson:"context_hash" json:"context_hash" yaml:"context_hash"`
+	Contexts                []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
+	Rules                   []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+	UnsupportedRequirements []string                           `bson:"unsupported_requirements,omitempty" json:"unsupported_requirements,omitempty" yaml:"unsupported_requirements,omitempty"`
 }
 
 type AIReleaseSpecialistRulePlanRule struct {

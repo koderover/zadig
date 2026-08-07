@@ -213,6 +213,10 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.Input = input
+	if len(rulePlan.Rules) == 0 {
+		c.finishAIReleaseSpecialistResult(jobCtx, task, jobStartTime, input, buildAIReleaseSpecialistUnsupportedResult(rulePlan.UnsupportedRequirements))
+		return
+	}
 
 	prompt, err := BuildAIReleaseSpecialistEvaluationPrompt(rulePlan, c.jobTaskSpec.SystemPrompt, input)
 	if err != nil {
@@ -275,6 +279,11 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		c.ack()
 		return
 	}
+	appendAIReleaseSpecialistUnsupportedChecks(result, rulePlan.UnsupportedRequirements)
+	c.finishAIReleaseSpecialistResult(jobCtx, task, jobStartTime, input, result)
+}
+
+func (c *AIReleaseSpecialistJobCtl) finishAIReleaseSpecialistResult(jobCtx context.Context, task *commonmodels.WorkflowTask, jobStartTime time.Time, input *commonmodels.AIReleaseSpecialistInput, result *commonmodels.AIReleaseSpecialistResult) {
 	enrichAIReleaseSpecialistRuntimeEvidence(result, input.RuntimeServices)
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	c.jobTaskSpec.Result = result
@@ -2496,22 +2505,76 @@ func ParseAIReleaseSpecialistRulePlan(answer string) (*commonmodels.AIReleaseSpe
 	if err := json.Unmarshal([]byte(extractJSONCodeBlock(strings.TrimSpace(answer))), &response); err != nil {
 		return nil, fmt.Errorf("parse rule plan failed: %w", err)
 	}
-	if len(response.UnsupportedRequirements) > 0 {
-		return nil, fmt.Errorf("unsupported release checks: %s", strings.Join(uniquePreserveOrder(response.UnsupportedRequirements), "; "))
-	}
-	if len(response.Rules) == 0 {
+	unsupportedRequirements := uniquePreserveOrder(response.UnsupportedRequirements)
+	if len(response.Rules) == 0 && len(unsupportedRequirements) == 0 {
 		return nil, fmt.Errorf("rule plan cannot be empty")
 	}
-	plan := &commonmodels.AIReleaseSpecialistRulePlan{Rules: response.Rules}
+	plan := &commonmodels.AIReleaseSpecialistRulePlan{
+		Rules:                   response.Rules,
+		UnsupportedRequirements: unsupportedRequirements,
+	}
 	if err := normalizeAIReleaseSpecialistRulePlan(plan); err != nil {
 		return nil, err
 	}
 	return plan, nil
 }
 
+func buildAIReleaseSpecialistUnsupportedResult(requirements []string) *commonmodels.AIReleaseSpecialistResult {
+	result := &commonmodels.AIReleaseSpecialistResult{Conclusion: "warning"}
+	appendAIReleaseSpecialistUnsupportedChecks(result, requirements)
+	return result
+}
+
+func appendAIReleaseSpecialistUnsupportedChecks(result *commonmodels.AIReleaseSpecialistResult, requirements []string) {
+	if result == nil {
+		return
+	}
+
+	existing := make(map[string]struct{}, len(result.Checks))
+	for _, check := range result.Checks {
+		if check != nil {
+			existing[strings.TrimSpace(check.Name)] = struct{}{}
+		}
+	}
+	added := 0
+	for _, requirement := range uniquePreserveOrder(requirements) {
+		requirement = strings.TrimSpace(requirement)
+		if requirement == "" {
+			continue
+		}
+		if _, ok := existing[requirement]; ok {
+			continue
+		}
+		result.Checks = append(result.Checks, &commonmodels.AIReleaseSpecialistCheckItem{
+			Name:       requirement,
+			Result:     "warning",
+			Evidence:   "该检查项未执行自动检测。",
+			Suggestion: "请结合工作流任务结果确认。",
+		})
+		existing[requirement] = struct{}{}
+		added++
+	}
+	if added == 0 {
+		return
+	}
+	if result.Conclusion == "pass" {
+		result.Conclusion = "warning"
+	}
+	notice := fmt.Sprintf("%d 个检查项未执行自动检测，建议关注。", added)
+	if strings.TrimSpace(result.Summary) == "" {
+		result.Summary = notice
+	} else {
+		result.Summary = strings.TrimSpace(result.Summary) + "；" + notice
+	}
+}
+
 func normalizeAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialistRulePlan) error {
 	if plan == nil {
 		return nil
+	}
+	plan.UnsupportedRequirements = uniquePreserveOrder(plan.UnsupportedRequirements)
+	if len(plan.Rules) == 0 && len(plan.UnsupportedRequirements) == 0 {
+		return fmt.Errorf("rule plan cannot be empty")
 	}
 	contexts := make(map[string]struct{})
 	for _, rule := range plan.Rules {
