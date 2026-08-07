@@ -735,13 +735,38 @@ type AIReleaseContextSource struct {
 }
 
 type AIReleaseSummaryItem struct {
-	JobName        string            `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
-	JobType        string            `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
-	Status         string            `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Summary        string            `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
-	Details        []string          `bson:"details,omitempty" json:"details,omitempty" yaml:"details,omitempty"`
-	ScanMetrics    *AIScanMetrics    `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
-	TestStatistics *AITestStatistics `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+	JobName        string                   `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType        string                   `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	Status         string                   `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Summary        string                   `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
+	Details        []string                 `bson:"details,omitempty" json:"details,omitempty" yaml:"details,omitempty"`
+	ScanMetrics    *AIScanMetrics           `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
+	TestStatistics *AITestStatistics        `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+	ConfigChanges  []*AIConfigChangeSummary `bson:"config_changes,omitempty" json:"config_changes,omitempty" yaml:"config_changes,omitempty"`
+	SQLExecution   *AISQLExecutionSummary   `bson:"sql_execution,omitempty" json:"sql_execution,omitempty" yaml:"sql_execution,omitempty"`
+}
+
+type AIConfigChangeSummary struct {
+	NamespaceName          string   `bson:"namespace_name,omitempty" json:"namespace_name,omitempty" yaml:"namespace_name,omitempty"`
+	DataID                 string   `bson:"data_id,omitempty" json:"data_id,omitempty" yaml:"data_id,omitempty"`
+	Group                  string   `bson:"group,omitempty" json:"group,omitempty" yaml:"group,omitempty"`
+	Format                 string   `bson:"format,omitempty" json:"format,omitempty" yaml:"format,omitempty"`
+	ContentChanged         bool     `bson:"content_changed" json:"content_changed" yaml:"content_changed"`
+	ChangedFieldsAvailable bool     `bson:"changed_fields_available" json:"changed_fields_available" yaml:"changed_fields_available"`
+	ChangedFieldCount      int      `bson:"changed_field_count,omitempty" json:"changed_field_count,omitempty" yaml:"changed_field_count,omitempty"`
+	ChangedFieldsHash      string   `bson:"changed_fields_hash,omitempty" json:"changed_fields_hash,omitempty" yaml:"changed_fields_hash,omitempty"`
+	AddedFields            []string `bson:"added_fields,omitempty" json:"added_fields,omitempty" yaml:"added_fields,omitempty"`
+	UpdatedFields          []string `bson:"updated_fields,omitempty" json:"updated_fields,omitempty" yaml:"updated_fields,omitempty"`
+	RemovedFields          []string `bson:"removed_fields,omitempty" json:"removed_fields,omitempty" yaml:"removed_fields,omitempty"`
+	FieldsTruncated        bool     `bson:"fields_truncated,omitempty" json:"fields_truncated,omitempty" yaml:"fields_truncated,omitempty"`
+}
+
+type AISQLExecutionSummary struct {
+	StatementCount           int   `bson:"statement_count,omitempty" json:"statement_count,omitempty" yaml:"statement_count,omitempty"`
+	SuccessfulStatementCount int   `bson:"successful_statement_count,omitempty" json:"successful_statement_count,omitempty" yaml:"successful_statement_count,omitempty"`
+	FailedStatementCount     int   `bson:"failed_statement_count,omitempty" json:"failed_statement_count,omitempty" yaml:"failed_statement_count,omitempty"`
+	PendingStatementCount    int   `bson:"pending_statement_count,omitempty" json:"pending_statement_count,omitempty" yaml:"pending_statement_count,omitempty"`
+	RowsAffected             int64 `bson:"rows_affected,omitempty" json:"rows_affected,omitempty" yaml:"rows_affected,omitempty"`
 }
 
 type AIJobSummary struct {
@@ -847,21 +872,29 @@ type AIRuntimeServicesSummary struct {
 }
 
 type AIRuntimeServiceItem struct {
-	EnvName     string               `bson:"env_name,omitempty" json:"env_name,omitempty" yaml:"env_name,omitempty"`
-	EnvAlias    string               `bson:"env_alias,omitempty" json:"env_alias,omitempty" yaml:"env_alias,omitempty"`
-	Production  bool                 `bson:"production,omitempty" json:"production,omitempty" yaml:"production,omitempty"`
-	ServiceName string               `bson:"service_name,omitempty" json:"service_name,omitempty" yaml:"service_name,omitempty"`
-	ServiceType string               `bson:"service_type,omitempty" json:"service_type,omitempty" yaml:"service_type,omitempty"`
-	Revision    int64                `bson:"revision,omitempty" json:"revision,omitempty" yaml:"revision,omitempty"`
-	PodStatus   string               `bson:"pod_status,omitempty" json:"pod_status,omitempty" yaml:"pod_status,omitempty"`
-	Ready       string               `bson:"ready,omitempty" json:"ready,omitempty" yaml:"ready,omitempty"`
-	PodCount    int                  `bson:"pod_count,omitempty" json:"pod_count,omitempty" yaml:"pod_count,omitempty"`
-	ReadyPods   int                  `bson:"ready_pods,omitempty" json:"ready_pods,omitempty" yaml:"ready_pods,omitempty"`
-	Error       string               `bson:"error,omitempty" json:"error,omitempty" yaml:"error,omitempty"`
-	UpdateTime  int64                `bson:"update_time,omitempty" json:"update_time,omitempty" yaml:"update_time,omitempty"`
-	Images      []string             `bson:"images,omitempty" json:"images,omitempty" yaml:"images,omitempty"`
-	Workloads   []*AIRuntimeWorkload `bson:"workloads,omitempty" json:"workloads,omitempty" yaml:"workloads,omitempty"`
-	Resources   []*AIRuntimeResource `bson:"resources,omitempty" json:"resources,omitempty" yaml:"resources,omitempty"`
+	EnvName      string                 `bson:"env_name,omitempty" json:"env_name,omitempty" yaml:"env_name,omitempty"`
+	EnvAlias     string                 `bson:"env_alias,omitempty" json:"env_alias,omitempty" yaml:"env_alias,omitempty"`
+	Production   bool                   `bson:"production,omitempty" json:"production,omitempty" yaml:"production,omitempty"`
+	ServiceName  string                 `bson:"service_name,omitempty" json:"service_name,omitempty" yaml:"service_name,omitempty"`
+	ServiceType  string                 `bson:"service_type,omitempty" json:"service_type,omitempty" yaml:"service_type,omitempty"`
+	Revision     int64                  `bson:"revision,omitempty" json:"revision,omitempty" yaml:"revision,omitempty"`
+	PodStatus    string                 `bson:"pod_status,omitempty" json:"pod_status,omitempty" yaml:"pod_status,omitempty"`
+	Ready        string                 `bson:"ready,omitempty" json:"ready,omitempty" yaml:"ready,omitempty"`
+	PodCount     int                    `bson:"pod_count,omitempty" json:"pod_count,omitempty" yaml:"pod_count,omitempty"`
+	ReadyPods    int                    `bson:"ready_pods,omitempty" json:"ready_pods,omitempty" yaml:"ready_pods,omitempty"`
+	HostCount    int                    `bson:"host_count,omitempty" json:"host_count,omitempty" yaml:"host_count,omitempty"`
+	HealthyHosts int                    `bson:"healthy_hosts,omitempty" json:"healthy_hosts,omitempty" yaml:"healthy_hosts,omitempty"`
+	HostStatuses []*AIRuntimeHostStatus `bson:"host_statuses,omitempty" json:"host_statuses,omitempty" yaml:"host_statuses,omitempty"`
+	Error        string                 `bson:"error,omitempty" json:"error,omitempty" yaml:"error,omitempty"`
+	UpdateTime   int64                  `bson:"update_time,omitempty" json:"update_time,omitempty" yaml:"update_time,omitempty"`
+	Images       []string               `bson:"images,omitempty" json:"images,omitempty" yaml:"images,omitempty"`
+	Workloads    []*AIRuntimeWorkload   `bson:"workloads,omitempty" json:"workloads,omitempty" yaml:"workloads,omitempty"`
+	Resources    []*AIRuntimeResource   `bson:"resources,omitempty" json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+type AIRuntimeHostStatus struct {
+	Address string `bson:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
+	Status  string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 type AIRuntimeWorkload struct {

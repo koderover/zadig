@@ -708,9 +708,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 
 	workflowTask.Stages = stageTasks
-
 	if err := workflowTaskLint(workflowTask, log); err != nil {
 		return resp, err
+	}
+	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlansForTask(workflowTask, workflow); err != nil {
+		log.Errorf("failed to prepare ai release specialist rule plans, error: %s", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	if err := createLarkApprovalDefinition(workflow); err != nil {
@@ -1164,6 +1167,18 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			if t, ok := jobTaskMap[jobTask.Name]; ok {
 				if err := workflowController.RenderJobTaskRuntimeVariables(t, globalKeyMap); err != nil {
 					return err
+				}
+				if jobTask.JobType == string(config.JobAIReleaseSpecialist) {
+					currentSpec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+					if err := commonmodels.IToi(jobTask.Spec, currentSpec); err != nil {
+						return errors.Errorf("decode current ai release specialist task %s error: %s", jobTask.Name, err)
+					}
+					retrySpec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
+					if err := commonmodels.IToi(t.Spec, retrySpec); err != nil {
+						return errors.Errorf("decode retry ai release specialist task %s error: %s", jobTask.Name, err)
+					}
+					retrySpec.RulePlan = currentSpec.RulePlan
+					t.Spec = retrySpec
 				}
 				jobTask.Spec = t.Spec
 				jobTask.NotifyCtls = t.NotifyCtls

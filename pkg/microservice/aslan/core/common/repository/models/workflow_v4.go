@@ -1282,19 +1282,21 @@ type NotificationJobSpec struct {
 }
 
 type AIReleaseSpecialistJobSpec struct {
-	Timeout              int64                        `bson:"timeout" json:"timeout" yaml:"timeout"`
-	PromptTemplate       string                       `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
-	RulePlan             *AIReleaseSpecialistRulePlan `bson:"rule_plan,omitempty" json:"rule_plan,omitempty" yaml:"rule_plan,omitempty"`
-	RequireManualConfirm bool                         `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
-	ConfirmUsers         []*User                      `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
-	SystemPrompt         string                       `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
+	Timeout              int64                                   `bson:"timeout" json:"timeout" yaml:"timeout"`
+	PromptTemplate       string                                  `bson:"prompt_template" json:"prompt_template" yaml:"prompt_template"`
+	RulePlans            map[string]*AIReleaseSpecialistRulePlan `bson:"rule_plans,omitempty" json:"rule_plans,omitempty" yaml:"-"`
+	RequireManualConfirm bool                                    `bson:"require_manual_confirm" json:"require_manual_confirm" yaml:"require_manual_confirm"`
+	ConfirmUsers         []*User                                 `bson:"confirm_users" json:"confirm_users" yaml:"confirm_users"`
+	SystemPrompt         string                                  `bson:"system_prompt,omitempty" json:"system_prompt,omitempty" yaml:"system_prompt,omitempty"`
 }
 
 type AIReleaseSpecialistRulePlan struct {
-	Version        int                                `bson:"version" json:"version" yaml:"version"`
-	SourceRuleHash string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
-	Contexts       []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
-	Rules          []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+	Version                 int                                `bson:"version" json:"version" yaml:"version"`
+	SourceRuleHash          string                             `bson:"source_rule_hash" json:"source_rule_hash" yaml:"source_rule_hash"`
+	ContextHash             string                             `bson:"context_hash" json:"context_hash" yaml:"context_hash"`
+	Contexts                []string                           `bson:"contexts" json:"contexts" yaml:"contexts"`
+	Rules                   []*AIReleaseSpecialistRulePlanRule `bson:"rules" json:"rules" yaml:"rules"`
+	UnsupportedRequirements []string                           `bson:"unsupported_requirements,omitempty" json:"unsupported_requirements,omitempty" yaml:"unsupported_requirements,omitempty"`
 }
 
 type AIReleaseSpecialistRulePlanRule struct {

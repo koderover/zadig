@@ -422,11 +422,35 @@ func (c *WorkflowV4Coll) Update(idString string, obj *models.WorkflowV4) error {
 	return err
 }
 
-func (c *WorkflowV4Coll) UpdateAIReleaseSpecialistRulePlan(ctx context.Context, workflowName, jobName, sourceRule string, rulePlan *models.AIReleaseSpecialistRulePlan) (bool, error) {
-	filter := bson.M{"name": workflowName}
+func (c *WorkflowV4Coll) CacheAIReleaseSpecialistRulePlans(ctx context.Context, workflowName, jobName, sourceRule string, rulePlans map[string]*models.AIReleaseSpecialistRulePlan) (bool, error) {
+	if len(rulePlans) == 0 {
+		return false, errors.New("ai release specialist rule plans cannot be empty")
+	}
+	for contextHash, rulePlan := range rulePlans {
+		if rulePlan == nil {
+			return false, errors.New("ai release specialist rule plan cannot be nil")
+		}
+		if contextHash == "" || rulePlan.ContextHash != contextHash {
+			return false, errors.New("ai release specialist rule plan context hash is invalid")
+		}
+	}
+	jobFilter := bson.M{
+		"name":                 jobName,
+		"type":                 config.JobAIReleaseSpecialist,
+		"spec.prompt_template": sourceRule,
+	}
+	filter := bson.M{
+		"name": workflowName,
+		"stages": bson.M{"$elemMatch": bson.M{
+			"jobs": bson.M{"$elemMatch": jobFilter},
+		}},
+	}
 	update := bson.M{
 		"$set": bson.M{
-			"stages.$[].jobs.$[job].spec.rule_plan": rulePlan,
+			"stages.$[].jobs.$[job].spec.rule_plans": rulePlans,
+		},
+		"$unset": bson.M{
+			"stages.$[].jobs.$[job].spec.rule_plan": "",
 		},
 	}
 	arrayFilters := options.ArrayFilters{
@@ -442,7 +466,7 @@ func (c *WorkflowV4Coll) UpdateAIReleaseSpecialistRulePlan(ctx context.Context, 
 	if err != nil {
 		return false, err
 	}
-	return result.ModifiedCount > 0, nil
+	return result.MatchedCount > 0, nil
 }
 
 func (c *WorkflowV4Coll) DeleteByID(idString string) error {
