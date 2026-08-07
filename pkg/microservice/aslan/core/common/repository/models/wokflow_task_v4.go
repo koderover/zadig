@@ -735,13 +735,38 @@ type AIReleaseContextSource struct {
 }
 
 type AIReleaseSummaryItem struct {
-	JobName        string            `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
-	JobType        string            `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
-	Status         string            `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
-	Summary        string            `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
-	Details        []string          `bson:"details,omitempty" json:"details,omitempty" yaml:"details,omitempty"`
-	ScanMetrics    *AIScanMetrics    `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
-	TestStatistics *AITestStatistics `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+	JobName        string                   `bson:"job_name,omitempty" json:"job_name,omitempty" yaml:"job_name,omitempty"`
+	JobType        string                   `bson:"job_type,omitempty" json:"job_type,omitempty" yaml:"job_type,omitempty"`
+	Status         string                   `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Summary        string                   `bson:"summary,omitempty" json:"summary,omitempty" yaml:"summary,omitempty"`
+	Details        []string                 `bson:"details,omitempty" json:"details,omitempty" yaml:"details,omitempty"`
+	ScanMetrics    *AIScanMetrics           `bson:"scan_metrics,omitempty" json:"scan_metrics,omitempty" yaml:"scan_metrics,omitempty"`
+	TestStatistics *AITestStatistics        `bson:"test_statistics,omitempty" json:"test_statistics,omitempty" yaml:"test_statistics,omitempty"`
+	ConfigChanges  []*AIConfigChangeSummary `bson:"config_changes,omitempty" json:"config_changes,omitempty" yaml:"config_changes,omitempty"`
+	SQLExecution   *AISQLExecutionSummary   `bson:"sql_execution,omitempty" json:"sql_execution,omitempty" yaml:"sql_execution,omitempty"`
+}
+
+type AIConfigChangeSummary struct {
+	NamespaceName          string   `bson:"namespace_name,omitempty" json:"namespace_name,omitempty" yaml:"namespace_name,omitempty"`
+	DataID                 string   `bson:"data_id,omitempty" json:"data_id,omitempty" yaml:"data_id,omitempty"`
+	Group                  string   `bson:"group,omitempty" json:"group,omitempty" yaml:"group,omitempty"`
+	Format                 string   `bson:"format,omitempty" json:"format,omitempty" yaml:"format,omitempty"`
+	ContentChanged         bool     `bson:"content_changed" json:"content_changed" yaml:"content_changed"`
+	ChangedFieldsAvailable bool     `bson:"changed_fields_available" json:"changed_fields_available" yaml:"changed_fields_available"`
+	ChangedFieldCount      int      `bson:"changed_field_count,omitempty" json:"changed_field_count,omitempty" yaml:"changed_field_count,omitempty"`
+	ChangedFieldsHash      string   `bson:"changed_fields_hash,omitempty" json:"changed_fields_hash,omitempty" yaml:"changed_fields_hash,omitempty"`
+	AddedFields            []string `bson:"added_fields,omitempty" json:"added_fields,omitempty" yaml:"added_fields,omitempty"`
+	UpdatedFields          []string `bson:"updated_fields,omitempty" json:"updated_fields,omitempty" yaml:"updated_fields,omitempty"`
+	RemovedFields          []string `bson:"removed_fields,omitempty" json:"removed_fields,omitempty" yaml:"removed_fields,omitempty"`
+	FieldsTruncated        bool     `bson:"fields_truncated,omitempty" json:"fields_truncated,omitempty" yaml:"fields_truncated,omitempty"`
+}
+
+type AISQLExecutionSummary struct {
+	StatementCount           int   `bson:"statement_count,omitempty" json:"statement_count,omitempty" yaml:"statement_count,omitempty"`
+	SuccessfulStatementCount int   `bson:"successful_statement_count,omitempty" json:"successful_statement_count,omitempty" yaml:"successful_statement_count,omitempty"`
+	FailedStatementCount     int   `bson:"failed_statement_count,omitempty" json:"failed_statement_count,omitempty" yaml:"failed_statement_count,omitempty"`
+	PendingStatementCount    int   `bson:"pending_statement_count,omitempty" json:"pending_statement_count,omitempty" yaml:"pending_statement_count,omitempty"`
+	RowsAffected             int64 `bson:"rows_affected,omitempty" json:"rows_affected,omitempty" yaml:"rows_affected,omitempty"`
 }
 
 type AIJobSummary struct {

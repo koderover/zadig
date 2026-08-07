@@ -60,7 +60,7 @@ const (
 	aiReleaseSpecialistRulePlanMaxTokens        = 32000
 	aiReleaseSpecialistRulePlanMaxRetries       = 2
 	aiReleaseSpecialistRulePlanRequestTimeout   = 5 * time.Minute
-	aiReleaseSpecialistRulePlanVersion          = 4
+	aiReleaseSpecialistRulePlanVersion          = 5
 	aiReleaseSpecialistRulePlanCacheLimit       = 3
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -109,6 +109,8 @@ const aiReleaseSpecialistOutputContract = `系统固定输出协议（优先级�
 const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - summary 只写基于实际提供上下文的判断，不要输出“本次输入未提供”这类缺失上下文清单，不要罗列代码扫描、构建、测试、审批、部署目标等未提供项。
 - 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
+- other_task_summary.config_changes 只包含 Nacos/Apollo 配置标识和新增、修改、删除的字段路径，不包含配置值；比较配置任务时，应按配置标识核对 changed_fields_hash，配置项缺失或哈希不同均表示变更字段集合不一致，即使字段列表因长度被截断也应以哈希为准。若 content_changed 为 true 但 changed_fields_available 为 false，说明格式无法安全结构化解析，不能据此判定配置字段一致。
+- other_task_summary.sql_execution 只表示语句执行数量、成功/失败数量和影响行数；sql_execution_success 仅在任务成功、存在执行结果且没有失败或未执行语句时为 true，执行成功不能单独证明业务数据一致。
 - 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。`
 
 type AIReleaseSpecialistJobCtl struct {
@@ -606,10 +608,7 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				if !hasAIReleaseSpecialistContext(requestedContexts, "other") || !scopeFilter.matchesJob("other", job) {
 					continue
 				}
-				collector.otherStatuses = append(collector.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
-				summary := buildResultSummaryLine(job)
-				collector.otherSummaries = append(collector.otherSummaries, summary)
-				collector.otherItems = append(collector.otherItems, buildReleaseSummaryItem(job, summary))
+				collector.addOtherTask(job, nil)
 			}
 		}
 	}
@@ -838,7 +837,9 @@ func (c *aiReleaseInputCollector) addOtherTask(job *commonmodels.JobTask, spec *
 	c.otherStatuses = append(c.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 	summary := buildResultSummaryLine(job)
 	c.otherSummaries = append(c.otherSummaries, summary)
-	c.otherItems = append(c.otherItems, buildAIOtherTaskSummaryItem(job, spec, summary))
+	item := buildAIOtherTaskSummaryItem(job, spec, summary)
+	appendAIReleaseSpecialistTaskDetails(item, job)
+	c.otherItems = append(c.otherItems, item)
 }
 
 func (c *aiReleaseInputCollector) addReleaseTarget(projectName string, job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary, requestedContexts map[string]struct{}, scopeFilter *aiReleaseSpecialistRulePlanFilter, envMap map[string]*commonmodels.Product) {
@@ -2276,6 +2277,7 @@ type aiReleaseSpecialistRuleMetric struct {
 	dimension            string
 	valueType            string
 	values               map[string]struct{}
+	requiresJobScope     bool
 	requiresCompletedJob bool
 }
 
@@ -2302,22 +2304,28 @@ type aiReleaseSpecialistRuleCatalogJob struct {
 }
 
 var aiReleaseSpecialistRuleMetrics = map[string]aiReleaseSpecialistRuleMetric{
-	"target_count":         {dimension: "release_target", valueType: "number"},
-	"production":           {dimension: "release_target", valueType: "boolean"},
-	"ready_pod_count":      {dimension: "runtime", valueType: "number"},
-	"pod_count":            {dimension: "runtime", valueType: "number"},
-	"service_ready":        {dimension: "runtime", valueType: "boolean"},
-	"build_status":         {dimension: "build", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
-	"failed_case_count":    {dimension: "test", valueType: "number"},
-	"error_case_count":     {dimension: "test", valueType: "number"},
-	"pass_rate":            {dimension: "test", valueType: "number"},
-	"quality_gate_status":  {dimension: "scan", valueType: "enum", values: aiReleaseSpecialistRuleValues("ok", "error", "warn", "none")},
-	"bug_count":            {dimension: "scan", valueType: "number"},
-	"vulnerability_count":  {dimension: "scan", valueType: "number"},
-	"coverage":             {dimension: "scan", valueType: "number"},
-	"approval_decision":    {dimension: "approval", valueType: "enum", values: aiReleaseSpecialistRuleValues("approved", "rejected", "waiting")},
-	"abnormal_event_count": {dimension: "observability", valueType: "number"},
-	"task_status":          {dimension: "other", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"target_count":             {dimension: "release_target", valueType: "number"},
+	"production":               {dimension: "release_target", valueType: "boolean"},
+	"deploy_status":            {dimension: "release_target", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"ready_pod_count":          {dimension: "runtime", valueType: "number"},
+	"pod_count":                {dimension: "runtime", valueType: "number"},
+	"service_ready":            {dimension: "runtime", valueType: "boolean"},
+	"build_status":             {dimension: "build", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"test_status":              {dimension: "test", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"failed_case_count":        {dimension: "test", valueType: "number"},
+	"error_case_count":         {dimension: "test", valueType: "number"},
+	"pass_rate":                {dimension: "test", valueType: "number"},
+	"scan_status":              {dimension: "scan", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"quality_gate_status":      {dimension: "scan", valueType: "enum", values: aiReleaseSpecialistRuleValues("ok", "error", "warn", "none")},
+	"bug_count":                {dimension: "scan", valueType: "number"},
+	"vulnerability_count":      {dimension: "scan", valueType: "number"},
+	"coverage":                 {dimension: "scan", valueType: "number"},
+	"approval_decision":        {dimension: "approval", valueType: "enum", values: aiReleaseSpecialistRuleValues("approved", "rejected", "waiting")},
+	"observability_status":     {dimension: "observability", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"abnormal_event_count":     {dimension: "observability", valueType: "number"},
+	"task_status":              {dimension: "other", valueType: "enum", values: aiReleaseSpecialistRuleValues("passed", "failed", "timeout", "cancelled", "skipped", "waiting", "running"), requiresCompletedJob: true},
+	"config_change_consistent": {dimension: "other", valueType: "boolean", requiresJobScope: true},
+	"sql_execution_success":    {dimension: "other", valueType: "boolean", requiresCompletedJob: true},
 }
 
 func buildAIReleaseSpecialistRuleCatalog(task *commonmodels.WorkflowTask, currentJobName string) (*aiReleaseSpecialistRuleCatalog, error) {
@@ -2422,8 +2430,7 @@ func validateAIReleaseSpecialistRulePlanAgainstCatalog(plan *commonmodels.AIRele
 			continue
 		}
 		metric := aiReleaseSpecialistRuleMetrics[rule.Metric]
-		statusRule := metric.requiresCompletedJob
-		if statusRule && (rule.Scope == nil || len(rule.Scope.JobNames) == 0) {
+		if (metric.requiresJobScope || metric.requiresCompletedJob) && (rule.Scope == nil || len(rule.Scope.JobNames) == 0) {
 			return fmt.Errorf("rule %d metric %s requires scope.job_names", ruleIndex+1, rule.Metric)
 		}
 		if !hasAIReleaseSpecialistRuleScope(rule.Scope) {
@@ -2445,7 +2452,24 @@ func validateAIReleaseSpecialistRulePlanAgainstCatalog(plan *commonmodels.AIRele
 		if len(matchedJobs) == 0 {
 			return fmt.Errorf("rule %d scope matches no workflow job: job_names=%v, env_names=%v, service_names=%v", ruleIndex+1, rule.Scope.JobNames, rule.Scope.EnvNames, rule.Scope.ServiceNames)
 		}
-		if statusRule {
+		switch rule.Metric {
+		case "config_change_consistent":
+			if len(matchedJobs) < 2 {
+				return fmt.Errorf("rule %d metric %s requires at least two configuration jobs", ruleIndex+1, rule.Metric)
+			}
+			for _, matchedJob := range matchedJobs {
+				if matchedJob.JobType != string(config.JobNacos) && matchedJob.JobType != string(config.JobApollo) {
+					return fmt.Errorf("rule %d metric %s cannot inspect job %s of type %s", ruleIndex+1, rule.Metric, matchedJob.Name, matchedJob.JobType)
+				}
+			}
+		case "sql_execution_success":
+			for _, matchedJob := range matchedJobs {
+				if matchedJob.JobType != string(config.JobSQL) {
+					return fmt.Errorf("rule %d metric %s cannot inspect job %s of type %s", ruleIndex+1, rule.Metric, matchedJob.Name, matchedJob.JobType)
+				}
+			}
+		}
+		if metric.requiresCompletedJob {
 			for _, matchedJob := range matchedJobs {
 				if matchedJob.Position != aiReleaseSpecialistJobPositionBefore {
 					return fmt.Errorf("rule %d cannot inspect status of job %s because it is %s the ai release specialist", ruleIndex+1, matchedJob.Name, matchedJob.Position)
@@ -2780,28 +2804,34 @@ Return exactly one JSON object:
 }
 
 Metrics:
-- release_target.target_count:number; release_target.production:boolean
+- release_target.target_count:number; release_target.production:boolean; release_target.deploy_status:passed|failed|timeout|cancelled|skipped|waiting|running
 - runtime.ready_pod_count:number; runtime.pod_count:number; runtime.service_ready:boolean (metric must be the bare name without the runtime. prefix)
 - build.build_status:passed|failed|timeout|cancelled|skipped|waiting|running
-- test.failed_case_count:number; test.error_case_count:number; test.pass_rate:number
-- scan.quality_gate_status:ok|error|warn|none; scan.bug_count:number; scan.vulnerability_count:number; scan.coverage:number
+- test.test_status:passed|failed|timeout|cancelled|skipped|waiting|running; test.failed_case_count:number; test.error_case_count:number; test.pass_rate:number
+- scan.scan_status:passed|failed|timeout|cancelled|skipped|waiting|running; scan.quality_gate_status:ok|error|warn|none; scan.bug_count:number; scan.vulnerability_count:number; scan.coverage:number
 - approval.approval_decision:approved|rejected|waiting
-- observability.abnormal_event_count:number
-- other.task_status:passed|failed|timeout|cancelled|skipped|waiting|running
+- observability.observability_status:passed|failed|timeout|cancelled|skipped|waiting|running; observability.abnormal_event_count:number
+- other.task_status:passed|failed|timeout|cancelled|skipped|waiting|running; other.config_change_consistent:boolean; other.sql_execution_success:boolean
 
 Semantics:
 - Environment or service health maps to runtime.service_ready.
 - Available or ready replicas map to runtime.ready_pod_count.
+- A deployment task execution outcome maps to release_target.deploy_status.
+- A test or scan task outcome maps to test.test_status or scan.scan_status when report metrics are unavailable or the requirement only asks whether the task passed.
+- A Nacos or Apollo task applying configuration successfully maps to other.task_status. This proves only that the task completed successfully, not that a live configuration read-back matched.
+- Comparing the planned changed-field sets of named Nacos or Apollo tasks maps to other.config_change_consistent. Scope the rule to every configuration task being compared; config_changes contains no secret values.
+- SQL script execution success maps to other.sql_execution_success. Do not use it to claim business data consistency unless the requirement defines consistency solely as every statement executing successfully.
 - release_target.production only identifies whether a target is production; it does not represent environment health.
 - Interpret natural-language task references by meaning, not literal name equality. Use job name, display name, stage name, and job type together to select the intended catalog jobs, then write their exact jobs[].name values to scope.job_names.
 - When a requirement asks only for a task-category outcome (such as tests passing, scans having no findings, or builds succeeding) and no exact task label exists, select all semantically related before jobs by job_type and the supported category metric, then use their exact jobs[].name values. Differences in subtype wording do not make the requirement unsupported unless the condition depends on subtype-specific data.
 - When the requested metric granularity is unavailable, use a broader available metric only if it enforces the same risk intent conservatively. For example, "no high-risk vulnerabilities" may use vulnerability_count greater_than 0 with result fail when severity counts are unavailable.
 - Do not map between unrelated task categories or use a weaker condition than the business rule.
 - scope.env_names and scope.service_names must contain values present in the workflow catalog exactly.
-- A task_status or build_status rule must include scope.job_names and may reference only catalog jobs whose position is before. Expand general status requirements to all matching before jobs. Other jobs have no reliable execution result yet.
+- A task_status or build_status rule must include scope.job_names. The same requirement applies to deploy_status, test_status, scan_status, observability_status, and sql_execution_success. These rules may reference only catalog jobs whose position is before; expand general status requirements to all matching before jobs because other jobs have no reliable execution result yet.
+- A config_change_consistent rule must include all compared configuration jobs in scope.job_names and may reference jobs before or after the AI release specialist because it compares configured change fields rather than execution results.
 - Preserve explicit environment, service, and task scopes. Use env_names and service_names only for release_target or runtime rules; use job_names for a specifically named task.
 - Omit scope and all of its fields when the business rule does not explicitly limit the rule to named environments, services, or tasks.
-- Add a requirement to unsupported_requirements only when the catalog has no semantically relevant job or metric and no conservative representation is possible. Requirements are not unsupported merely because user wording differs from catalog names. Never replace unavailable configuration contents, field-level diffs, SQL query results, or logs with task_status.
+- Add a requirement to unsupported_requirements only when the catalog has no semantically relevant job or metric and no conservative representation is possible. Requirements are not unsupported merely because user wording differs from catalog names. Never replace live configuration values, raw SQL query result data, logs, or an undefined business-level data consistency check with task_status.
 - Return an empty unsupported_requirements array when every requirement is represented.
 - Use the fewest rules that preserve each explicit condition in the business rule.
 
