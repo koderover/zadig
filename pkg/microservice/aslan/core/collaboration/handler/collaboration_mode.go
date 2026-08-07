@@ -74,7 +74,7 @@ func CreateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -119,7 +119,7 @@ func UpdateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -151,7 +151,7 @@ func DeleteCollaborationMode(c *gin.Context) {
 		return
 	}
 	name := c.Param("name")
-	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

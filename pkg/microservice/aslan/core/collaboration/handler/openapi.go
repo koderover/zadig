@@ -193,7 +193,7 @@ func OpenAPICreateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectKey, "(OpenAPI)"+"新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)"+"新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -235,7 +235,7 @@ func OpenAPIDeleteCollaborationMode(c *gin.Context) {
 		return
 	}
 	name := c.Param("name")
-	internalhandler.InsertOperationLog(c, ctx.Account, projectKey, "(OpenAPI)删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
