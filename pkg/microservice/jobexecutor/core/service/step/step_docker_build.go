@@ -37,10 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
-const (
-	dockerExe               = "docker"
-	dockerBuildxContextName = "zadig-buildx"
-)
+const dockerExe = "docker"
 
 type DockerBuildStep struct {
 	spec       *step.StepDockerBuildSpec
@@ -206,11 +203,9 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	)
 
 	if s.spec.EnableBuildkit {
-		initContextCmd := dockerInitContextCmd()
 		initBuildxCmd := dockerInitBuildxCmd(s.spec.Platform, s.spec.BuildKitImage)
 		cmds = append(
 			cmds,
-			initContextCmd,
 			initBuildxCmd,
 			buildCmd,
 		)
@@ -226,14 +221,9 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	return cmds
 }
 
-func dockerInitContextCmd() *exec.Cmd {
-	command := fmt.Sprintf("docker context inspect %s >/dev/null 2>&1 || docker context create %s", dockerBuildxContextName, dockerBuildxContextName)
-	return exec.Command("sh", "-c", command)
-}
-
 func dockerInitBuildxCmd(platform string, buildKitImage string) *exec.Cmd {
 	args := []string{"-c"}
-	dockerInitBuildxCommand := fmt.Sprintf("docker buildx create --node=multiarch --use --platform %s --driver-opt=image=%s %s", platform, buildKitImage, dockerBuildxContextName)
+	dockerInitBuildxCommand := fmt.Sprintf("docker buildx create --node=multiarch --use --platform %s --driver-opt=image=%s", platform, buildKitImage)
 	args = append(args, dockerInitBuildxCommand)
 	return exec.Command("sh", args...)
 }
