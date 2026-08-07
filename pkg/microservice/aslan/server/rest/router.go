@@ -111,6 +111,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/openapi/quality":        new(testinghandler.QualityRouter),
 		"/openapi/build":          new(buildhandler.OpenAPIRouter),
 		"/openapi/service":        new(servicehandler.OpenAPIRouter),
+		"/openapi/templates":      new(templatehandler.OpenAPIRouter),
 		"/openapi/release_plan":   new(releaseplanhandler.OpenAPIRouter),
 		"/openapi/delivery":       new(deliveryhandler.OpenAPIRouter),
 		"/openapi/cluster":        new(multiclusterhandler.OpenAPIRouter),
