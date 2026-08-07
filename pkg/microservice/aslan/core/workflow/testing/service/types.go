@@ -299,8 +299,10 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 }
 
 type OpenAPICreateTestTaskReq struct {
-	ProjectName string `json:"project_key"`
-	TestName    string `json:"test_name"`
+	ProjectName string                    `json:"project_key"`
+	TestName    string                    `json:"test_name"`
+	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info,omitempty"`
+	Inputs      []*types.KV               `json:"inputs,omitempty"`
 }
 
 func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
@@ -310,12 +312,54 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 	if t.TestName == "" {
 		return false, fmt.Errorf("test name cannot be empty")
 	}
+	repositories := make(map[string]struct{}, len(t.RepoInfo))
+	for i, repo := range t.RepoInfo {
+		if repo == nil {
+			return false, fmt.Errorf("repo_info[%d] cannot be empty", i)
+		}
+		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.Branch) == "" {
+			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace, repo_name and branch cannot be empty", i)
+		}
+		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)
+		if _, ok := repositories[repository]; ok {
+			return false, fmt.Errorf("repo_info[%d] duplicates repository %s/%s", i, repo.RepoNamespace, repo.RepoName)
+		}
+		repositories[repository] = struct{}{}
+	}
+	inputs := make(map[string]struct{}, len(t.Inputs))
+	for i, input := range t.Inputs {
+		if input == nil || strings.TrimSpace(input.Key) == "" {
+			return false, fmt.Errorf("inputs[%d] key cannot be empty", i)
+		}
+		key := strings.TrimSpace(input.Key)
+		if _, ok := inputs[key]; ok {
+			return false, fmt.Errorf("inputs[%d] duplicates key %q", i, input.Key)
+		}
+		inputs[key] = struct{}{}
+	}
 
 	return true, nil
 }
 
 type OpenAPICreateTestTaskResp struct {
 	TaskID int64 `json:"task_id"`
+}
+
+type OpenAPITestRunInfo struct {
+	ProjectKey string                 `json:"project_key"`
+	TestName   string                 `json:"test_name"`
+	Inputs     []*OpenAPITestRunInput `json:"inputs"`
+}
+
+type OpenAPITestRunInput struct {
+	Key          string   `json:"key"`
+	Value        string   `json:"value,omitempty"`
+	Type         string   `json:"type,omitempty"`
+	ChoiceOption []string `json:"choice_option,omitempty"`
+	Required     bool     `json:"required"`
+	IsCredential bool     `json:"is_credential"`
+	HasValue     bool     `json:"has_value"`
+	Description  string   `json:"description,omitempty"`
 }
 
 type OpenAPIScanTaskDetail struct {

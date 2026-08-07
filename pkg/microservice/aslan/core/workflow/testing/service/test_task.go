@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
+	rootutil "github.com/koderover/zadig/v2/pkg/util"
 )
 
 type CreateTaskResp struct {
@@ -49,6 +50,19 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
+	testKeyVals, err := resolveTestTaskKeyVals(testInfo, args)
+	if err != nil {
+		return nil, err
+	}
+	resolvedRepos, err := resolveTestTaskRepos(testInfo.Repos, args.Repos)
+	if err != nil {
+		return nil, err
+	}
+
+	return createTestTaskV2WithTestInfo(testInfo, args, testKeyVals, resolvedRepos, username, account, userID, log)
+}
+
+func resolveTestTaskKeyVals(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (commonmodels.RuntimeKeyValList, error) {
 	testKeyVals := make(commonmodels.RuntimeKeyValList, 0)
 	if testInfo.PreTest != nil {
 		testKeyVals = testInfo.PreTest.Envs.ToRuntimeList()
@@ -58,11 +72,14 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		testKeyVals = args.KeyVals.ToRuntimeList()
 	}
 	// validate required key vals
-	if err = jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
+	if err := jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
 		return nil, err
 	}
+	return testKeyVals, nil
+}
 
-	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args, testKeyVals)
+func createTestTaskV2WithTestInfo(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, testKeyVals commonmodels.RuntimeKeyValList, resolvedRepos []*types.Repository, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args, testKeyVals, resolvedRepos)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +99,53 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 	}
 
 	return nil, err
+}
+
+func resolveTestTaskRepos(configuredRepos, overrides []*types.Repository) ([]*types.Repository, error) {
+	var repos []*types.Repository
+	if err := rootutil.DeepCopy(&repos, configuredRepos); err != nil {
+		return nil, fmt.Errorf("copy test repositories error: %w", err)
+	}
+	if len(overrides) == 0 {
+		return repos, nil
+	}
+
+	repoKey := func(repo *types.Repository) string {
+		return fmt.Sprintf("%d/%s/%s", repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName)
+	}
+	configuredByKey := make(map[string]*types.Repository, len(repos))
+	for _, repo := range repos {
+		if repo == nil {
+			continue
+		}
+		configuredByKey[repoKey(repo)] = repo
+	}
+
+	seen := make(map[string]struct{}, len(overrides))
+	for i, override := range overrides {
+		if override == nil {
+			return nil, fmt.Errorf("test repository override %d cannot be empty", i)
+		}
+		key := repoKey(override)
+		if _, ok := seen[key]; ok {
+			return nil, fmt.Errorf("test repository %s is duplicated", key)
+		}
+		seen[key] = struct{}{}
+
+		repo, ok := configuredByKey[key]
+		if !ok {
+			return nil, fmt.Errorf("test repository %s is not configured", key)
+		}
+		repo.Branch = override.Branch
+		repo.MergeBranches = append([]string(nil), override.MergeBranches...)
+		repo.PR = override.PR
+		repo.PRs = append([]int(nil), override.PRs...)
+		repo.Tag = override.Tag
+		repo.EnableCommit = override.EnableCommit
+		repo.CommitID = override.CommitID
+	}
+
+	return repos, nil
 }
 
 type TestTaskList struct {
@@ -343,7 +407,7 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	return testResults, nil
 }
 
-func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList, repos []*types.Repository) (*commonmodels.WorkflowV4, error) {
 	concurrencyLimit := 1
 	if testInfo.PreTest != nil {
 		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
@@ -371,23 +435,6 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		NotificationID:   args.NotificationID,
 	}
 
-	// set pr and branch
-	for i, build := range testInfo.Repos {
-		// check same repo and source
-		if build.Source == args.Repos[i].Source && build.RepoOwner == args.Repos[i].RepoOwner && build.RepoName == args.Repos[i].RepoName {
-			pr := args.Repos[i].PRs
-			if len(pr) != 0 {
-				testInfo.Repos[i].PRs = pr
-			}
-			if args.Repos[i].Branch != "" {
-				testInfo.Repos[i].Branch = args.Repos[i].Branch
-			}
-			if args.Repos[i].Tag != "" {
-				testInfo.Repos[i].Tag = args.Repos[i].Tag
-			}
-		}
-	}
-
 	stage := make([]*commonmodels.WorkflowStage, 0)
 
 	job := make([]*commonmodels.Job, 0)
@@ -406,7 +453,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
 					KeyVals:     keyVals,
-					Repos:       testInfo.Repos,
+					Repos:       repos,
 				},
 			},
 			ServiceAndTests: nil,

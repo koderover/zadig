@@ -28,8 +28,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func OpenAPICreateScanningModule(username string, args *OpenAPICreateScanningReq, log *zap.SugaredLogger) error {
@@ -135,17 +137,105 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 }
 
 func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
+	testInfo, err := commonrepo.NewTestingColl().Find(args.TestName, args.ProjectName)
+	if err != nil {
+		return 0, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
+	}
+
+	var resolvedRepos []*types.Repository
+	if err := util.DeepCopy(&resolvedRepos, testInfo.Repos); err != nil {
+		return 0, fmt.Errorf("copy test repositories error: %v", err)
+	}
+	if len(args.RepoInfo) > 0 {
+		overrides, err := workflowservice.OpenAPIRepoInputToRepository(resolvedRepos, args.RepoInfo)
+		if err != nil {
+			return 0, err
+		}
+		for _, override := range overrides {
+			if override.Source == "perforce" {
+				return 0, fmt.Errorf("perforce repository overrides are not supported")
+			}
+		}
+		if len(overrides) != len(args.RepoInfo) {
+			return 0, fmt.Errorf("one or more repositories do not match the test configuration")
+		}
+	}
+
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
 	}
-	result, err := CreateTestTaskV2(task, userName, account, userID, logger)
+	if len(args.Inputs) > 0 {
+		keyVals := make(commonmodels.RuntimeKeyValList, 0)
+		if testInfo.PreTest != nil {
+			keyVals = testInfo.PreTest.Envs.ToRuntimeList()
+		}
+		configuredInputs := make(map[string]struct{}, len(keyVals))
+		for _, keyVal := range keyVals {
+			configuredInputs[keyVal.Key] = struct{}{}
+		}
+		for _, input := range args.Inputs {
+			if _, ok := configuredInputs[input.Key]; !ok {
+				return 0, fmt.Errorf("input %q does not exist in the test configuration", input.Key)
+			}
+		}
+		keyVals = workflowservice.OpenAPIKVInputToKeyValList(keyVals, args.Inputs)
+		taskKeyVals := keyVals.ToKVList()
+		task.KeyVals = &taskKeyVals
+	}
+
+	testKeyVals, err := resolveTestTaskKeyVals(testInfo, task)
+	if err != nil {
+		return 0, err
+	}
+	result, err := createTestTaskV2WithTestInfo(testInfo, task, testKeyVals, resolvedRepos, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
 		return 0, err
 	}
 	return result.TaskID, nil
+}
+
+func OpenAPIGetTestRunInfo(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestRunInfo, error) {
+	testInfo, err := GetRaw(testName, projectKey, logger)
+	if err != nil {
+		return nil, err
+	}
+	return buildOpenAPITestRunInfo(testInfo), nil
+}
+
+func buildOpenAPITestRunInfo(testInfo *commonmodels.Testing) *OpenAPITestRunInfo {
+	resp := &OpenAPITestRunInfo{
+		ProjectKey: testInfo.ProductName,
+		TestName:   testInfo.Name,
+		Inputs:     make([]*OpenAPITestRunInput, 0),
+	}
+	if testInfo.PreTest == nil {
+		return resp
+	}
+
+	for _, input := range testInfo.PreTest.Envs {
+		if input == nil {
+			continue
+		}
+		value := input.GetValue()
+		hasValue := strings.TrimSpace(value) != "" || strings.TrimSpace(input.FileID) != ""
+		if input.IsCredential {
+			value = ""
+		}
+		resp.Inputs = append(resp.Inputs, &OpenAPITestRunInput{
+			Key:          input.Key,
+			Value:        value,
+			Type:         string(input.Type),
+			ChoiceOption: append([]string(nil), input.ChoiceOption...),
+			Required:     input.Required,
+			IsCredential: input.IsCredential,
+			HasValue:     hasValue,
+			Description:  input.Description,
+		})
+	}
+	return resp
 }
 
 func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*OpenAPITestTaskDetail, error) {

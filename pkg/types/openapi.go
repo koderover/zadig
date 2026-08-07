@@ -139,6 +139,12 @@ type KV struct {
 	Type string `json:"type,omitempty"`
 	// 是否为敏感信息
 	IsCredential bool `json:"is_credential,omitempty"`
+	// 文件 ID
+	FileID string `json:"file_id,omitempty"`
+	// 文件名称
+	FileName string `json:"file_name,omitempty"`
+	// 文件路径
+	FilePath string `json:"file_path,omitempty"`
 }
 
 type OpenAPIUserBriefInfo struct {
