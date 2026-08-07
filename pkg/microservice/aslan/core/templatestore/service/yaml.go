@@ -966,8 +966,35 @@ func ValidateVariable(content, variable string) error {
 }
 
 func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*commontypes.ServiceVariableKV) error {
-	if strings.TrimSpace(variableYaml) == "" || len(templateVariables) == 0 {
+	if len(templateVariables) == 0 {
 		return nil
+	}
+	if strings.TrimSpace(variableYaml) == "" {
+		missingKeys := make([]string, 0, len(templateVariables))
+		for _, templateVariable := range templateVariables {
+			if templateVariable != nil {
+				missingKeys = append(missingKeys, templateVariable.Key)
+			}
+		}
+		return fmt.Errorf("template variables missing keys %v", missingKeys)
+	}
+
+	variableMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(variableYaml), &variableMap); err != nil {
+		return fmt.Errorf("failed to unmarshal template variables, err: %w", err)
+	}
+
+	missingKeys := make([]string, 0)
+	for _, templateVariable := range templateVariables {
+		if templateVariable == nil {
+			continue
+		}
+		if _, ok := variableMap[templateVariable.Key]; !ok {
+			missingKeys = append(missingKeys, templateVariable.Key)
+		}
+	}
+	if len(missingKeys) > 0 {
+		return fmt.Errorf("template variables missing keys %v", missingKeys)
 	}
 
 	if _, err := commontypes.YamlToServiceVariableKV(variableYaml, templateVariables); err != nil {
