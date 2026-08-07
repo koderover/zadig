@@ -59,7 +59,7 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, err
 	}
 
-	return createTestTaskV2WithResolvedConfig(testInfo, args, testKeyVals, resolvedRepos, username, account, userID, log)
+	return createTestTaskV2WithTestInfo(testInfo, args, testKeyVals, resolvedRepos, username, account, userID, log)
 }
 
 func resolveTestTaskKeyVals(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (commonmodels.RuntimeKeyValList, error) {
@@ -78,7 +78,7 @@ func resolveTestTaskKeyVals(testInfo *commonmodels.Testing, args *commonmodels.T
 	return testKeyVals, nil
 }
 
-func createTestTaskV2WithResolvedConfig(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, testKeyVals commonmodels.RuntimeKeyValList, resolvedRepos []*types.Repository, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func createTestTaskV2WithTestInfo(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, testKeyVals commonmodels.RuntimeKeyValList, resolvedRepos []*types.Repository, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args, testKeyVals, resolvedRepos)
 	if err != nil {
 		return nil, err

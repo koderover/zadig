@@ -345,13 +345,13 @@ type OpenAPICreateTestTaskResp struct {
 	TaskID int64 `json:"task_id"`
 }
 
-type OpenAPITestRunConfig struct {
-	ProjectKey string                       `json:"project_key"`
-	TestName   string                       `json:"test_name"`
-	Inputs     []*OpenAPITestRunConfigInput `json:"inputs"`
+type OpenAPITestRunInfo struct {
+	ProjectKey string                 `json:"project_key"`
+	TestName   string                 `json:"test_name"`
+	Inputs     []*OpenAPITestRunInput `json:"inputs"`
 }
 
-type OpenAPITestRunConfigInput struct {
+type OpenAPITestRunInput struct {
 	Key          string   `json:"key"`
 	Value        string   `json:"value,omitempty"`
 	Type         string   `json:"type,omitempty"`

@@ -189,7 +189,7 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 	if err != nil {
 		return 0, err
 	}
-	result, err := createTestTaskV2WithResolvedConfig(testInfo, task, testKeyVals, resolvedRepos, userName, account, userID, logger)
+	result, err := createTestTaskV2WithTestInfo(testInfo, task, testKeyVals, resolvedRepos, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
 		return 0, err
@@ -197,19 +197,19 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 	return result.TaskID, nil
 }
 
-func OpenAPIGetTestRunConfig(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestRunConfig, error) {
+func OpenAPIGetTestRunInfo(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestRunInfo, error) {
 	testInfo, err := GetRaw(testName, projectKey, logger)
 	if err != nil {
 		return nil, err
 	}
-	return buildOpenAPITestRunConfig(testInfo), nil
+	return buildOpenAPITestRunInfo(testInfo), nil
 }
 
-func buildOpenAPITestRunConfig(testInfo *commonmodels.Testing) *OpenAPITestRunConfig {
-	resp := &OpenAPITestRunConfig{
+func buildOpenAPITestRunInfo(testInfo *commonmodels.Testing) *OpenAPITestRunInfo {
+	resp := &OpenAPITestRunInfo{
 		ProjectKey: testInfo.ProductName,
 		TestName:   testInfo.Name,
-		Inputs:     make([]*OpenAPITestRunConfigInput, 0),
+		Inputs:     make([]*OpenAPITestRunInput, 0),
 	}
 	if testInfo.PreTest == nil {
 		return resp
@@ -224,7 +224,7 @@ func buildOpenAPITestRunConfig(testInfo *commonmodels.Testing) *OpenAPITestRunCo
 		if input.IsCredential {
 			value = ""
 		}
-		resp.Inputs = append(resp.Inputs, &OpenAPITestRunConfigInput{
+		resp.Inputs = append(resp.Inputs, &OpenAPITestRunInput{
 			Key:          input.Key,
 			Value:        value,
 			Type:         string(input.Type),
