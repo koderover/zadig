@@ -60,7 +60,7 @@ const (
 	aiReleaseSpecialistRulePlanMaxTokens        = 32000
 	aiReleaseSpecialistRulePlanMaxRetries       = 2
 	aiReleaseSpecialistRulePlanRequestTimeout   = 5 * time.Minute
-	aiReleaseSpecialistRulePlanVersion          = 5
+	aiReleaseSpecialistRulePlanVersion          = 6
 	aiReleaseSpecialistRulePlanCacheLimit       = 3
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -111,7 +111,9 @@ const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
 - other_task_summary.config_changes 只包含 Nacos/Apollo 配置标识和新增、修改、删除的字段路径，不包含配置值；比较配置任务时，应按配置标识核对 changed_fields_hash，配置项缺失或哈希不同均表示变更字段集合不一致，即使字段列表因长度被截断也应以哈希为准。若 content_changed 为 true 但 changed_fields_available 为 false，说明格式无法安全结构化解析，不能据此判定配置字段一致。
 - other_task_summary.sql_execution 只表示语句执行数量、成功/失败数量和影响行数；sql_execution_success 仅在任务成功、存在执行结果且没有失败或未执行语句时为 true，执行成功不能单独证明业务数据一致。
-- 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。`
+- 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。
+- checks[].evidence 和 suggestion 面向发布人员，不要展示输入字段名、规则名、JSON 路径、哈希值或其他内部实现标识。配置字段不一致时，直接说明各环境、配置标识及其变更字段；不要展示 changed_fields_hash。
+- 规则未命中风险条件时，检查项必须为 pass。任务状态为 passed、SQL 执行成功、配置字段一致或服务就绪本身不能产生 warning 或 fail。`
 
 type AIReleaseSpecialistJobCtl struct {
 	job         *commonmodels.JobTask
@@ -2876,6 +2878,11 @@ Metrics:
 - observability.observability_status:passed|failed|timeout|cancelled|skipped|waiting|running; observability.abnormal_event_count:number
 - other.task_status:passed|failed|timeout|cancelled|skipped|waiting|running; other.config_change_consistent:boolean; other.sql_execution_success:boolean
 
+Risk predicate rules:
+- result is the risk level when a rule matches. Every rule must match only an abnormal or unsafe state, never the expected successful state.
+- Use these canonical risk conditions: a task/build/test/scan/deploy/observability task must pass -> status not_equal passed; SQL must execute successfully -> sql_execution_success equal false; configuration changed fields must be consistent -> config_change_consistent equal false; a service must be ready -> service_ready equal false; an approval must be approved -> approval_decision not_equal approved; a quality gate must be OK -> quality_gate_status not_equal ok.
+- Do not create a warning or fail rule whose condition is task_status equal passed, sql_execution_success equal true, config_change_consistent equal true, service_ready equal true, approval_decision equal approved, or quality_gate_status equal ok.
+
 Semantics:
 - Environment or service health maps to runtime.service_ready.
 - Available or ready replicas map to runtime.ready_pod_count.
@@ -2938,6 +2945,7 @@ func validateAIReleaseSpecialistRule(rule *commonmodels.AIReleaseSpecialistRuleP
 	if rule.Result != "warning" && rule.Result != "fail" {
 		return fmt.Errorf("unsupported rule result: %s", rule.Result)
 	}
+	normalizeAIReleaseSpecialistRiskRule(rule)
 	if !isAIReleaseSpecialistRuleOperatorValid(metric.valueType, rule.Operator) {
 		return fmt.Errorf("unsupported operator %s for metric %s", rule.Operator, rule.Metric)
 	}
@@ -2956,6 +2964,28 @@ func validateAIReleaseSpecialistRule(rule *commonmodels.AIReleaseSpecialistRuleP
 		}
 	}
 	return nil
+}
+
+func normalizeAIReleaseSpecialistRiskRule(rule *commonmodels.AIReleaseSpecialistRulePlanRule) {
+	switch rule.Metric {
+	case "task_status", "build_status", "test_status", "scan_status", "observability_status", "deploy_status":
+		if rule.Operator == "equal" && rule.Value == "passed" {
+			rule.Operator = "not_equal"
+		}
+	case "service_ready", "config_change_consistent", "sql_execution_success":
+		if (rule.Operator == "equal" && rule.Value == "true") || (rule.Operator == "not_equal" && rule.Value == "false") {
+			rule.Operator = "equal"
+			rule.Value = "false"
+		}
+	case "approval_decision":
+		if rule.Operator == "equal" && rule.Value == "approved" {
+			rule.Operator = "not_equal"
+		}
+	case "quality_gate_status":
+		if rule.Operator == "equal" && rule.Value == "ok" {
+			rule.Operator = "not_equal"
+		}
+	}
 }
 
 func normalizeAIReleaseSpecialistScopeValues(values []string) []string {
