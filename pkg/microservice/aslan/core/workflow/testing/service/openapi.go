@@ -142,13 +142,12 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		return 0, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
-	var repoOverrides []*types.Repository
+	var resolvedRepos []*types.Repository
+	if err := util.DeepCopy(&resolvedRepos, testInfo.Repos); err != nil {
+		return 0, fmt.Errorf("copy test repositories error: %v", err)
+	}
 	if len(args.RepoInfo) > 0 {
-		var configuredRepos []*types.Repository
-		if err := util.DeepCopy(&configuredRepos, testInfo.Repos); err != nil {
-			return 0, fmt.Errorf("copy test repositories error: %v", err)
-		}
-		overrides, err := workflowservice.OpenAPIRepoInputToRepository(configuredRepos, args.RepoInfo)
+		overrides, err := workflowservice.OpenAPIRepoInputToRepository(resolvedRepos, args.RepoInfo)
 		if err != nil {
 			return 0, err
 		}
@@ -160,14 +159,12 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		if len(overrides) != len(args.RepoInfo) {
 			return 0, fmt.Errorf("one or more repositories do not match the test configuration")
 		}
-		repoOverrides = overrides
 	}
 
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
-		Repos:           repoOverrides,
 	}
 	if len(args.Inputs) > 0 {
 		keyVals := make(commonmodels.RuntimeKeyValList, 0)
@@ -188,7 +185,11 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		task.KeyVals = &taskKeyVals
 	}
 
-	result, err := createTestTaskV2WithTestInfo(testInfo, task, userName, account, userID, logger)
+	testKeyVals, err := resolveTestTaskKeyVals(testInfo, task)
+	if err != nil {
+		return 0, err
+	}
+	result, err := createTestTaskV2WithResolvedConfig(testInfo, task, testKeyVals, resolvedRepos, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
 		return 0, err
