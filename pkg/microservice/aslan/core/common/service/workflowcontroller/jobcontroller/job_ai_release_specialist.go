@@ -286,7 +286,6 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 }
 
 func (c *AIReleaseSpecialistJobCtl) finishAIReleaseSpecialistResult(jobCtx context.Context, task *commonmodels.WorkflowTask, jobStartTime time.Time, input *commonmodels.AIReleaseSpecialistInput, result *commonmodels.AIReleaseSpecialistResult) {
-	enrichAIReleaseSpecialistRuntimeEvidence(result, input.RuntimeServices)
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	c.jobTaskSpec.Result = result
 	c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
@@ -3069,61 +3068,6 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	}
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil
-}
-
-func enrichAIReleaseSpecialistRuntimeEvidence(result *commonmodels.AIReleaseSpecialistResult, runtime *commonmodels.AIRuntimeServicesSummary) {
-	if result == nil || runtime == nil {
-		return
-	}
-
-	evidenceLines := make([]string, 0, len(runtime.Items)+len(runtime.QueryErrors))
-	for _, item := range runtime.Items {
-		if item == nil {
-			continue
-		}
-		if item.ServiceType == setting.PMDeployType {
-			evidenceLines = append(evidenceLines, fmt.Sprintf(
-				"env_name=%s, service_name=%s, host_count=%d, healthy_hosts=%d",
-				item.EnvName, item.ServiceName, item.HostCount, item.HealthyHosts,
-			))
-			continue
-		}
-		evidenceLines = append(evidenceLines, fmt.Sprintf(
-			"env_name=%s, service_name=%s, pod_count=%d, ready_pods=%d",
-			item.EnvName, item.ServiceName, item.PodCount, item.ReadyPods,
-		))
-	}
-	for _, queryError := range runtime.QueryErrors {
-		if queryError = strings.TrimSpace(queryError); queryError != "" {
-			evidenceLines = append(evidenceLines, "query_error="+queryError)
-		}
-	}
-	if len(evidenceLines) == 0 {
-		return
-	}
-
-	const evidenceMarker = "运行时服务明细："
-	evidence := evidenceMarker + strings.Join(evidenceLines, "; ")
-	for _, check := range result.Checks {
-		if check == nil || !isAIReleaseSpecialistRuntimeCheck(check) {
-			continue
-		}
-		if !strings.Contains(check.Evidence, evidenceMarker) {
-			check.Evidence = strings.TrimSpace(strings.TrimSuffix(check.Evidence, "。"))
-			if check.Evidence != "" {
-				check.Evidence += "；"
-			}
-			check.Evidence += evidence
-		}
-		return
-	}
-}
-
-func isAIReleaseSpecialistRuntimeCheck(check *commonmodels.AIReleaseSpecialistCheckItem) bool {
-	text := strings.ToLower(check.Name + " " + check.Evidence)
-	return strings.Contains(text, "运行时") || strings.Contains(text, "runtime") ||
-		strings.Contains(text, "service_ready") || strings.Contains(text, "pod_count") || strings.Contains(text, "ready_pods") ||
-		strings.Contains(text, "host_count") || strings.Contains(text, "healthy_hosts")
 }
 
 func extractJSONCodeBlock(text string) string {
