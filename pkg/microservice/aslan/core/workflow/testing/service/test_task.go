@@ -49,7 +49,10 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		log.Errorf("find test[%s] error: %v", args.TestName, err)
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
+	return createTestTaskV2WithTestInfo(testInfo, args, username, account, userID, log)
+}
 
+func createTestTaskV2WithTestInfo(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	testKeyVals := make(commonmodels.RuntimeKeyValList, 0)
 	if testInfo.PreTest != nil {
 		testKeyVals = testInfo.PreTest.Envs.ToRuntimeList()
@@ -59,7 +62,7 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		testKeyVals = args.KeyVals.ToRuntimeList()
 	}
 	// validate required key vals
-	if err = jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
+	if err := jobctrl.ValidateRequiredRuntimeKeyVals(testKeyVals, fmt.Sprintf("test %s", args.TestName)); err != nil {
 		return nil, err
 	}
 

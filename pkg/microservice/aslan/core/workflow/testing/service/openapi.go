@@ -152,13 +152,13 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		if err != nil {
 			return 0, err
 		}
-		if len(overrides) != len(args.RepoInfo) {
-			return 0, fmt.Errorf("one or more repositories do not match the test configuration")
-		}
 		for _, override := range overrides {
 			if override.Source == "perforce" {
 				return 0, fmt.Errorf("perforce repository overrides are not supported")
 			}
+		}
+		if len(overrides) != len(args.RepoInfo) {
+			return 0, fmt.Errorf("one or more repositories do not match the test configuration")
 		}
 		repoOverrides = overrides
 	}
@@ -188,7 +188,7 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 		task.KeyVals = &taskKeyVals
 	}
 
-	result, err := CreateTestTaskV2(task, userName, account, userID, logger)
+	result, err := createTestTaskV2WithTestInfo(testInfo, task, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
 		return 0, err
