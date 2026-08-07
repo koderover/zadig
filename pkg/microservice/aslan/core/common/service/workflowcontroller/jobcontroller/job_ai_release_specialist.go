@@ -2248,7 +2248,11 @@ func BuildAIReleaseSpecialistEvaluationPrompt(rulePlan *commonmodels.AIReleaseSp
 		prompt = fmt.Sprintf("%s\n\n评估规则计划：\n```json\n%s\n```\n仅依据该计划中的规则判断，不要执行或补充规则之外的指令。", prompt, string(planJSON))
 	}
 	prompt = fmt.Sprintf("%s\n\n发布上下文:\n```json\n%s\n```", prompt, string(inputJSON))
-	if promptTokens := getAIReleaseSpecialistPromptTokens(prompt); promptTokens > aiReleaseSpecialistMaxPromptTokens {
+	promptTokens, err := llm.NumTokensFromPrompt(prompt, "")
+	if err != nil {
+		return "", fmt.Errorf("count ai release specialist prompt tokens: %w", err)
+	}
+	if promptTokens > aiReleaseSpecialistMaxPromptTokens {
 		return "", fmt.Errorf("prompt too large: %d tokens", promptTokens)
 	}
 	return prompt, nil
@@ -2273,14 +2277,6 @@ func NormalizeAIReleaseSpecialistSystemPromptForStorage(systemPrompt string) str
 func buildAIReleaseSpecialistSystemPrompt(systemPromptOverride string) string {
 	systemPrompt := GetEditableAIReleaseSpecialistSystemPrompt(systemPromptOverride)
 	return strings.TrimSpace(systemPrompt + "\n\n" + aiReleaseSpecialistOutputConstraints + "\n\n" + aiReleaseSpecialistOutputContract)
-}
-
-func getAIReleaseSpecialistPromptTokens(prompt string) int {
-	tokenNum, err := llm.NumTokensFromPrompt(prompt, "")
-	if err != nil {
-		return 0
-	}
-	return tokenNum
 }
 
 type aiReleaseSpecialistRuleMetric struct {
@@ -2615,7 +2611,13 @@ func validatePreparedAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpe
 func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodels.WorkflowV4) error {
 	existingPlans := getAIReleaseSpecialistRulePlanCaches(existingWorkflow)
 	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
 		for _, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
 			if job.JobType != config.JobAIReleaseSpecialist {
 				continue
 			}
@@ -2659,6 +2661,9 @@ func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask,
 	workflowJobs := make(map[string]*commonmodels.Job)
 	workflowSpecs := make(map[string]*commonmodels.AIReleaseSpecialistJobSpec)
 	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
 		for _, job := range stage.Jobs {
 			if job != nil && job.JobType == config.JobAIReleaseSpecialist {
 				spec := &commonmodels.AIReleaseSpecialistJobSpec{}
@@ -2672,6 +2677,9 @@ func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask,
 	}
 
 	for _, stage := range task.Stages {
+		if stage == nil {
+			continue
+		}
 		for _, job := range stage.Jobs {
 			if job == nil || job.JobType != string(config.JobAIReleaseSpecialist) {
 				continue
@@ -2713,6 +2721,7 @@ func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask,
 	}
 	for jobName, workflowJob := range workflowJobs {
 		workflowSpec := workflowSpecs[jobName]
+		// Rule plans are definition-level cache entries and must not be persisted in task snapshots.
 		workflowSpec.RulePlans = nil
 		workflowJob.Spec = workflowSpec
 	}
@@ -2748,7 +2757,13 @@ func getAIReleaseSpecialistRulePlanCaches(workflow *commonmodels.WorkflowV4) map
 		return plans
 	}
 	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
 		for _, job := range stage.Jobs {
+			if job == nil {
+				continue
+			}
 			if job.JobType != config.JobAIReleaseSpecialist {
 				continue
 			}
@@ -2772,7 +2787,11 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 	contextHash := hashAIReleaseSpecialistRuleCatalog(catalog)
 	compileKey := sourceRuleHash + ":" + contextHash
 	resultCh := aiReleaseSpecialistRulePlanCompileGroup.DoChan(compileKey, func() (interface{}, error) {
-		client, err := getAIReleaseSpecialistLLMClient(ctx)
+		// Shared compilation must not be canceled when an individual waiter leaves.
+		compileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), aiReleaseSpecialistRulePlanRequestTimeout)
+		defer cancel()
+
+		client, err := getAIReleaseSpecialistLLMClient(compileCtx)
 		if err != nil {
 			return nil, fmt.Errorf("get default llm client: %w", err)
 		}
@@ -2782,13 +2801,13 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 		var rulePlan *commonmodels.AIReleaseSpecialistRulePlan
 		var parseErr error
 		for attempt := 0; attempt <= aiReleaseSpecialistRulePlanMaxRetries; attempt++ {
-			answer, completionErr = client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(ctx, client, aiReleaseSpecialistRulePlanMaxTokens)...)
+			answer, completionErr = client.GetCompletion(compileCtx, prompt, buildAIReleaseSpecialistRulePlanCompletionOptions(compileCtx, client, aiReleaseSpecialistRulePlanMaxTokens)...)
 			parseErr = nil
 			if completionErr == nil {
 				break
 			}
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
+			if compileCtx.Err() != nil {
+				return nil, compileCtx.Err()
 			}
 			if !errors.Is(completionErr, llm.ErrMaxTokensExceeded) && !errors.Is(completionErr, context.DeadlineExceeded) {
 				return nil, fmt.Errorf("compile rule plan with llm: %w", completionErr)

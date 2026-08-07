@@ -32,7 +32,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
-const aiReleaseSpecialistConfigFieldLimit = 100
+const (
+	aiReleaseSpecialistConfigFieldLimit = 100
+	aiReleaseSpecialistConfigMaxDepth   = 50
+	aiReleaseSpecialistConfigTooDeep    = "[truncated: too deep]"
+)
 
 func appendAIReleaseSpecialistTaskDetails(item *commonmodels.AIReleaseSummaryItem, job *commonmodels.JobTask) {
 	if item == nil || job == nil {
@@ -207,13 +211,13 @@ func parseAIConfigFields(format, content string) (map[string]interface{}, bool) 
 		if err := yaml.Unmarshal([]byte(content), &value); err != nil {
 			return nil, false
 		}
-		flattenAIConfigFields("", normalizeAIConfigValue(value), fields)
+		flattenAIConfigFields("", value, fields, 0)
 	case "json":
 		var value interface{}
 		if err := json.Unmarshal([]byte(content), &value); err != nil {
 			return nil, false
 		}
-		flattenAIConfigFields("", value, fields)
+		flattenAIConfigFields("", value, fields, 0)
 	case "properties":
 		parsed, err := properties.LoadString(content)
 		if err != nil {
@@ -228,32 +232,18 @@ func parseAIConfigFields(format, content string) (map[string]interface{}, bool) 
 	return fields, true
 }
 
-func normalizeAIConfigValue(value interface{}) interface{} {
-	switch typed := value.(type) {
-	case map[string]interface{}:
-		result := make(map[string]interface{}, len(typed))
-		for key, item := range typed {
-			result[key] = normalizeAIConfigValue(item)
+func flattenAIConfigFields(path string, value interface{}, fields map[string]interface{}, depth int) {
+	if depth >= aiReleaseSpecialistConfigMaxDepth {
+		switch value.(type) {
+		case map[string]interface{}, map[interface{}]interface{}:
+			if path == "" {
+				path = "$"
+			}
+			fields[path] = aiReleaseSpecialistConfigTooDeep
+			return
 		}
-		return result
-	case map[interface{}]interface{}:
-		result := make(map[string]interface{}, len(typed))
-		for key, item := range typed {
-			result[fmt.Sprint(key)] = normalizeAIConfigValue(item)
-		}
-		return result
-	case []interface{}:
-		result := make([]interface{}, 0, len(typed))
-		for _, item := range typed {
-			result = append(result, normalizeAIConfigValue(item))
-		}
-		return result
-	default:
-		return value
 	}
-}
 
-func flattenAIConfigFields(path string, value interface{}, fields map[string]interface{}) {
 	switch typed := value.(type) {
 	case map[string]interface{}:
 		if len(typed) == 0 && path != "" {
@@ -265,7 +255,19 @@ func flattenAIConfigFields(path string, value interface{}, fields map[string]int
 			if path != "" {
 				childPath = path + "." + key
 			}
-			flattenAIConfigFields(childPath, item, fields)
+			flattenAIConfigFields(childPath, item, fields, depth+1)
+		}
+	case map[interface{}]interface{}:
+		if len(typed) == 0 && path != "" {
+			fields[path] = typed
+			return
+		}
+		for key, item := range typed {
+			childPath := fmt.Sprint(key)
+			if path != "" {
+				childPath = path + "." + childPath
+			}
+			flattenAIConfigFields(childPath, item, fields, depth+1)
 		}
 	default:
 		if path == "" {
@@ -282,13 +284,26 @@ func hashAIConfigFields(added, updated, removed []string) string {
 }
 
 func limitAIConfigFields(added, updated, removed []string) ([]string, []string, []string) {
-	remaining := aiReleaseSpecialistConfigFieldLimit
-	limit := func(values []string) []string {
-		if len(values) > remaining {
-			values = values[:remaining]
+	// Rotate from removals to additions so every change type remains visible.
+	values := [][]string{removed, updated, added}
+	limited := make([][]string, len(values))
+	for remaining := aiReleaseSpecialistConfigFieldLimit; remaining > 0; {
+		progress := false
+		for index := range values {
+			if len(limited[index]) >= len(values[index]) {
+				continue
+			}
+			limited[index] = append(limited[index], values[index][len(limited[index])])
+			remaining--
+			progress = true
+			if remaining == 0 {
+				break
+			}
 		}
-		remaining -= len(values)
-		return append([]string(nil), values...)
+		if !progress {
+			break
+		}
 	}
-	return limit(added), limit(updated), limit(removed)
+	// values and limited are ordered as removed, updated, added.
+	return limited[2], limited[1], limited[0]
 }

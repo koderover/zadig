@@ -1,15 +1,27 @@
 package jobcontroller
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
+
+func TestAIReleaseSpecialistRulePlanUsesProviderTokenLimit(t *testing.T) {
+	options := llm.ParamOptions{}
+	for _, option := range buildAIReleaseSpecialistRulePlanCompletionOptions(context.Background(), nil, aiReleaseSpecialistRulePlanMaxTokens) {
+		option(&options)
+	}
+	if options.MaxTokens != aiReleaseSpecialistRulePlanMaxTokens {
+		t.Fatalf("expected rule plan max tokens to be %d, got %d", aiReleaseSpecialistRulePlanMaxTokens, options.MaxTokens)
+	}
+}
 
 func TestBuildAIReleaseSpecialistInputWithRulePlanKeepsBuildAndChangeContext(t *testing.T) {
 	buildJob := &commonmodels.JobTask{
@@ -352,16 +364,22 @@ func TestBuildAIReleaseSpecialistEvaluationPromptUsesCompactJSON(t *testing.T) {
 }
 
 func TestBuildReleaseTargetFromHelmChartDeployKeepsProduction(t *testing.T) {
-	target := buildReleaseTargetFromHelmChartDeploy(
-		&commonmodels.JobTask{OriginName: "chart-deploy"},
-		&commonmodels.JobTaskHelmChartDeploySpec{
+	job := &commonmodels.JobTask{
+		OriginName: "chart-deploy",
+		JobType:    string(config.JobZadigHelmChartDeploy),
+		Spec: &commonmodels.JobTaskHelmChartDeploySpec{
 			Env:        "prod",
 			Production: true,
 			DeployHelmChart: &commonmodels.DeployHelmChart{
 				ReleaseName: "orders-release",
 			},
 		},
-	)
+	}
+	deploymentInfo, isDeployment, err := parseAIReleaseDeploymentJob(job)
+	if err != nil || !isDeployment {
+		t.Fatalf("parse helm chart deployment failed: isDeployment=%t err=%v", isDeployment, err)
+	}
+	target := deploymentInfo.buildReleaseTarget(job)
 	if !target.Production {
 		t.Fatal("expected helm chart target to be production")
 	}
