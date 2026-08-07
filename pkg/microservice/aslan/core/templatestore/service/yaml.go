@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commmonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -710,6 +711,9 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 	if err != nil {
 		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
 	}
+	if err := validateYamlTemplateContent(template.Content, extractVariableYmal); err != nil {
+		return fmt.Errorf("failed to validate yaml template, err: %w", err)
+	}
 
 	created := &models.YamlTemplate{
 		Name:               template.Name,
@@ -759,6 +763,9 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 	if err != nil {
 		return fmt.Errorf("failed to merge service variables, err %w", err)
 	}
+	if err := validateYamlTemplateContent(template.Content, template.VariableYaml); err != nil {
+		return fmt.Errorf("failed to validate yaml template, err: %w", err)
+	}
 
 	updated := &models.YamlTemplate{
 		Name:               template.Name,
@@ -795,9 +802,11 @@ func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logg
 		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", template.Name, template.VariableYaml)
-	if err != nil {
-		return fmt.Errorf("failed to validate variable, err: %s", err)
+	if err := validateYamlTemplateVariableYaml(template.VariableYaml, origin.ServiceVariableKVs); err != nil {
+		return err
+	}
+	if err := validateYamlTemplateContent(origin.Content, origin.VariableYaml, template.VariableYaml); err != nil {
+		return fmt.Errorf("failed to validate variable, err: %w", err)
 	}
 
 	err = commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVariableKVs)
@@ -940,7 +949,7 @@ func GetSystemDefaultVariables() []*models.ChartVariable {
 }
 
 func ValidateVariable(content, variable string) error {
-	if len(content) == 0 || len(variable) == 0 {
+	if len(content) == 0 {
 		return nil
 	}
 
@@ -949,11 +958,64 @@ func ValidateVariable(content, variable string) error {
 		return fmt.Errorf("failed to marshal default system variable, err: %s", err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "ValidateVariable", variable, string(defaultSystemVariableYaml))
-	if err != nil {
-		return fmt.Errorf("failed to validate variable, err: %s", err)
+	if err := validateYamlTemplateContent(content, variable, string(defaultSystemVariableYaml)); err != nil {
+		return fmt.Errorf("failed to validate variable, err: %w", err)
 	}
 
+	return nil
+}
+
+func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*commontypes.ServiceVariableKV) error {
+	if len(templateVariables) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(variableYaml) == "" {
+		missingKeys := make([]string, 0, len(templateVariables))
+		for _, templateVariable := range templateVariables {
+			if templateVariable != nil {
+				missingKeys = append(missingKeys, templateVariable.Key)
+			}
+		}
+		return fmt.Errorf("template variables missing keys %v", missingKeys)
+	}
+
+	variableMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(variableYaml), &variableMap); err != nil {
+		return fmt.Errorf("failed to unmarshal template variables, err: %w", err)
+	}
+
+	missingKeys := make([]string, 0)
+	for _, templateVariable := range templateVariables {
+		if templateVariable == nil {
+			continue
+		}
+		if _, ok := variableMap[templateVariable.Key]; !ok {
+			missingKeys = append(missingKeys, templateVariable.Key)
+		}
+	}
+	if len(missingKeys) > 0 {
+		return fmt.Errorf("template variables missing keys %v", missingKeys)
+	}
+
+	if _, err := commontypes.YamlToServiceVariableKV(variableYaml, templateVariables); err != nil {
+		return fmt.Errorf("failed to validate template variables, err: %w", err)
+	}
+	return nil
+}
+
+func validateYamlTemplateContent(content string, variableYamls ...string) error {
+	if strings.TrimSpace(content) == "" {
+		return nil
+	}
+
+	renderedYaml, err := commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "ValidateTemplate", variableYamls...)
+	if err != nil {
+		return fmt.Errorf("failed to render yaml template, err: %w", err)
+	}
+
+	if _, _, err := kube.ManifestToUnstructured(renderedYaml); err != nil {
+		return fmt.Errorf("failed to parse rendered yaml template, err: %w", err)
+	}
 	return nil
 }
 
