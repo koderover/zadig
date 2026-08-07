@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/step"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 )
@@ -76,6 +77,7 @@ func NewJob() (*Job, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure active workspace `%s`: %s", ctx.Workspace, err)
 	}
+	initializeDockerContext()
 
 	userEnvs := job.getUserEnvs()
 	job.UserEnvs = make(map[string]string, len(userEnvs))
@@ -121,7 +123,9 @@ func (j *Job) getUserEnvs() []string {
 
 	j.Ctx.Paths = strings.Replace(j.Ctx.Paths, "$HOME", config.Home(), -1)
 	envs = append(envs, fmt.Sprintf("PATH=%s", j.Ctx.Paths))
-	envs = append(envs, fmt.Sprintf("DOCKER_HOST=%s", config.DockerHost()))
+	if os.Getenv(setting.DockerContext) == "" {
+		envs = append(envs, fmt.Sprintf("DOCKER_HOST=%s", config.DockerHost()))
+	}
 	envs = append(envs, j.Ctx.Envs...)
 	envs = append(envs, j.Ctx.SecretEnvs...)
 	// @var share output var between steps.
