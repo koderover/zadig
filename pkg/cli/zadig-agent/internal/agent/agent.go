@@ -152,6 +152,7 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 	err = executor.BeforeExecute()
 	if err != nil {
 		log.Errorf("failed to execute BeforeExecute, error: %s", err)
+		executor.CleanupTempFileAndDir()
 
 		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
@@ -160,6 +161,7 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 		return fmt.Errorf("failed to execute workflow %s job %s, error: %s", job.WorkflowName, job.JobName, err)
 	}
 	if executor.CheckZadigCancel() {
+		executor.CleanupTempFileAndDir()
 		return nil
 	}
 
