@@ -48,7 +48,7 @@ func (c *Client) Get(url string, queries map[string]string, response interface{}
 
 	_, err := httpclient.Get(url, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to do apisix request, error: %s", err)
+		return fmt.Errorf("failed to do apisix request, error: %w", err)
 	}
 
 	return nil
@@ -67,7 +67,7 @@ func (c *Client) Post(url string, requestBody interface{}, response interface{})
 
 	_, err := httpclient.Post(url, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to do apisix request, error: %s", err)
+		return fmt.Errorf("failed to do apisix request, error: %w", err)
 	}
 
 	return nil
@@ -86,7 +86,7 @@ func (c *Client) Put(url string, requestBody interface{}, response interface{}) 
 
 	_, err := httpclient.Put(url, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to do apisix request, error: %s", err)
+		return fmt.Errorf("failed to do apisix request, error: %w", err)
 	}
 
 	return nil
@@ -105,9 +105,8 @@ func (c *Client) Delete(url string, response interface{}) error {
 
 	_, err := httpclient.Delete(url, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to do apisix request, error: %s", err)
+		return fmt.Errorf("failed to do apisix request, error: %w", err)
 	}
 
 	return nil
 }
-

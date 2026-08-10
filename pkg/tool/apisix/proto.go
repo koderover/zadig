@@ -17,7 +17,12 @@ limitations under the License.
 package apisix
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 // Proto represents an APISIX proto configuration for gRPC
@@ -27,6 +32,10 @@ type Proto struct {
 	Desc    string            `json:"desc,omitempty"`
 	Content string            `json:"content,omitempty"` // Content of .proto or .pb files
 	Labels  map[string]string `json:"labels,omitempty"`
+}
+
+type legacyProtoRequest struct {
+	Content string `json:"content"`
 }
 
 // ProtoResponse represents a single proto response from APISIX Admin API
@@ -53,8 +62,11 @@ func (c *Client) CreateProto(proto *Proto) (*ProtoResponse, error) {
 	resp := new(ProtoResponse)
 
 	err := c.Post(url, proto, resp)
+	if isLegacyProtoSchemaError(err) {
+		err = c.Post(url, legacyProtoRequestBody(proto), resp)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to create proto: %s", err)
+		return nil, fmt.Errorf("failed to create proto: %w", err)
 	}
 
 	return resp, nil
@@ -67,11 +79,53 @@ func (c *Client) UpdateProto(id string, proto *Proto) (*ProtoResponse, error) {
 	resp := new(ProtoResponse)
 
 	err := c.Put(url, proto, resp)
+	if isLegacyProtoSchemaError(err) {
+		err = c.Put(url, legacyProtoRequestBody(proto), resp)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to update proto: %s", err)
+		return nil, fmt.Errorf("failed to update proto: %w", err)
 	}
 
 	return resp, nil
+}
+
+func legacyProtoRequestBody(proto *Proto) *legacyProtoRequest {
+	return &legacyProtoRequest{
+		Content: proto.Content,
+	}
+}
+
+func isLegacyProtoSchemaError(err error) bool {
+	var httpErr *httpclient.Error
+	if !errors.As(err, &httpErr) || httpErr.Status() != httpclient.StatusReasonBadRequest {
+		return false
+	}
+
+	var response struct {
+		ErrorMessage string `json:"error_msg"`
+	}
+	detail := httpErr.Detail
+	if err := json.Unmarshal([]byte(detail), &response); err == nil && response.ErrorMessage != "" {
+		detail = response.ErrorMessage
+	}
+
+	return isUnsupportedProtoFieldError(detail)
+}
+
+func isUnsupportedProtoFieldError(detail string) bool {
+	detail = strings.ToLower(detail)
+	if !strings.Contains(detail, "additional properties forbidden") {
+		return false
+	}
+
+	// Older APISIX versions only accept content. The validator reports the
+	// first unsupported field, so check every field that was added to Proto.
+	for _, field := range []string{"id", "name", "desc", "labels"} {
+		if strings.Contains(detail, "found "+field) {
+			return true
+		}
+	}
+	return false
 }
 
 // ListProtos retrieves all protos with optional pagination
@@ -90,7 +144,7 @@ func (c *Client) ListProtos(page, pageSize int) (*ProtoListResponse, error) {
 
 	err := c.Get(url, queries, resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list protos: %s", err)
+		return nil, fmt.Errorf("failed to list protos: %w", err)
 	}
 
 	return resp, nil
@@ -104,7 +158,7 @@ func (c *Client) GetProto(id string) (*ProtoResponse, error) {
 
 	err := c.Get(url, nil, resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get proto: %s", err)
+		return nil, fmt.Errorf("failed to get proto: %w", err)
 	}
 
 	return resp, nil
@@ -117,9 +171,8 @@ func (c *Client) DeleteProto(id string) error {
 
 	err := c.Delete(url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to delete proto: %s", err)
+		return fmt.Errorf("failed to delete proto: %w", err)
 	}
 
 	return nil
 }
-
