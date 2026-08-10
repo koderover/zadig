@@ -205,7 +205,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	// Keep the original execution timestamps when a completed job is skipped
 	// during a workflow retry.
-	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
+	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped || job.Status == config.StatusUnstable {
 		setJobFinalStatusContext(job, workflowCtx)
 		return
 	}

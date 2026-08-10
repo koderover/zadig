@@ -67,7 +67,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range stages {
 		// should skip passed stage when workflow task be restarted
-		if stage.Status == config.StatusPassed {
+		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped || stage.Status == config.StatusUnstable {
 			continue
 		}
 		runStage(ctx, stage, workflowCtx, concurrency, logger, ack)
