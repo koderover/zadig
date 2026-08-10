@@ -148,16 +148,6 @@ var (
 	}
 )
 
-func findAIReleaseVMService(serviceName, projectName string, revision int64) (*commonmodels.Service, error) {
-	return commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName:   serviceName,
-		ProductName:   projectName,
-		Type:          setting.PMDeployType,
-		Revision:      revision,
-		ExcludeStatus: setting.ProductStatusDeleting,
-	})
-}
-
 func NewAIReleaseSpecialistJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *AIReleaseSpecialistJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -432,6 +422,14 @@ func (c *AIReleaseSpecialistJobCtl) getRuntimeConfirmUsers() ([]*commonmodels.Us
 	return flatUsers, nil
 }
 
+// getRulePlan 返回本次执行要用的 rule plan：spec 上已带的 plan 通过校验就复用，否则重新编译并回写缓存。
+//
+// 这里是 plan 复用的实际决策点。spec 上的 plan 可能来自创建 task 时预填的定义级缓存，也可能来自重试时
+// 从上一次执行搬过来的结果，两种来源都要先过 validatePreparedAIReleaseSpecialistRulePlan 才能用。
+//
+// 规则为空时返回 nil plan 而非报错，表示不做规则判定、走全量上下文的降级路径。
+// 编译成功后立即 ack 一次，让前端尽快看到已编译的规则，不必等整个 job 跑完。
+// 回写定义级缓存失败只记 warning：缓存是优化手段，丢失只会让下次重新编译，不影响本次判定。
 func (c *AIReleaseSpecialistJobCtl) getRulePlan(ctx context.Context, task *commonmodels.WorkflowTask) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
 	sourceRule := strings.TrimSpace(c.jobTaskSpec.PromptTemplate)
 	if sourceRule == "" {
@@ -500,6 +498,15 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 	c.ack()
 }
 
+// BuildAIReleaseSpecialistInputFromTaskWithRulePlan 遍历 task 内除当前 job 以外的所有 job，
+// 收集判定所需的上下文；传入 rulePlan 时按其声明的维度和 scope 裁剪，以控制送给 LLM 的体积。
+//
+// rulePlan 为 nil（尚未编译成功、或规则为空）时 requestedContexts 也为 nil，
+// 此时 hasAIReleaseSpecialistContext 一律返回 true，即收集全量上下文，保证降级路径仍可判定。
+//
+// 需要注意变更来源（ChangeSummary）不受维度裁剪影响：appendChangeSummarySource 在维度判断之外调用。
+// 变更来源描述的是「这次发布改了什么」，属于所有规则的公共背景，裁掉会让 LLM 失去判断依据。
+// 只有各维度自己的明细数据才按 scope 过滤。
 func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.WorkflowTask, currentJobName string, rulePlan *commonmodels.AIReleaseSpecialistRulePlan) (*commonmodels.AIReleaseSpecialistInput, error) {
 	input := &commonmodels.AIReleaseSpecialistInput{
 		ChangeSummary: &commonmodels.AIChangeSummary{
@@ -647,6 +654,12 @@ type aiReleaseSpecialistDimensionScopes struct {
 	scopes       []*commonmodels.AIReleaseSpecialistRulePlanScope
 }
 
+// newAIReleaseSpecialistRulePlanFilter 把 rule plan 里按规则组织的 scope 重新索引成按维度（dimension）组织，
+// 用于后续裁剪送给 LLM 的上下文，只保留规则真正关心的部分。
+//
+// 关键语义是「无 scope 即不限制」：某维度下只要有一条规则没写 scope，该维度就整体放开（unrestricted），
+// 因为限制它会让那条规则拿不到判定所需的数据。plan.Contexts 里出现但没有对应规则的维度同样标记为放开 ——
+// 这类维度是规则声明需要、但没给出过滤条件的上下文，必须完整提供。
 func newAIReleaseSpecialistRulePlanFilter(rulePlan *commonmodels.AIReleaseSpecialistRulePlan) *aiReleaseSpecialistRulePlanFilter {
 	filter := &aiReleaseSpecialistRulePlanFilter{dimensions: make(map[string]*aiReleaseSpecialistDimensionScopes)}
 	if rulePlan == nil {
@@ -694,6 +707,14 @@ func (f *aiReleaseSpecialistRulePlanFilter) matchesJob(dimension string, job *co
 	return false
 }
 
+// filterReleaseTarget 按维度 scope 裁剪一个发布目标，返回 nil 表示该目标与所有 scope 都不匹配、应整体剔除。
+//
+// 匹配是各 scope 取并集：任一 scope 命中即保留。serviceRestricted 用来区分两种命中方式 ——
+// 只要有一条命中的 scope 没写 service_names，就说明该 job/env 下所有服务都需要，此时整体返回不裁剪服务；
+// 只有当全部命中的 scope 都指定了 service_names 时，才按并集裁剪到 allowedServices。
+//
+// 裁剪服务时会一并清掉 ImageVersions 并重算 TargetCount：这些字段是对整个目标聚合出来的，
+// 服务集合变了之后原值就不再成立，留着会让 LLM 看到与 ServiceNames 不一致的数据。
 func (f *aiReleaseSpecialistRulePlanFilter) filterReleaseTarget(dimension string, job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary) *commonmodels.AIReleaseTargetsSummary {
 	if target == nil {
 		return nil
@@ -1647,7 +1668,13 @@ func fillAIRuntimeVMServiceHealth(projectName string, service *commonmodels.Prod
 	if service == nil || item == nil {
 		return nil
 	}
-	template, err := findAIReleaseVMService(service.ServiceName, projectName, service.Revision)
+	template, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   service.ServiceName,
+		ProductName:   projectName,
+		Type:          setting.PMDeployType,
+		Revision:      service.Revision,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
 	if err != nil {
 		return fmt.Errorf("query service %s host status failed: %v", item.ServiceName, err)
 	}
@@ -2334,6 +2361,12 @@ var aiReleaseSpecialistRuleMetrics = map[string]aiReleaseSpecialistRuleMetric{
 	"sql_execution_success":    {dimension: "other", valueType: "boolean", requiresCompletedJob: true},
 }
 
+// buildAIReleaseSpecialistRuleCatalog 汇总当前 workflow 里可被规则引用的 job、环境、服务，
+// 作为编译规则时给 LLM 的「可选项清单」，也是 plan 复用判断中 ContextHash 的计算来源。
+//
+// 只收录当前 job 之前的 job：AI 发布专员依赖前序 job 的执行结果，把后续 job 放进 catalog 会让 LLM 编出
+// 永远拿不到数据的规则。catalog 内容变化会导致 ContextHash 变化，进而使已缓存的 plan 失效并重新编译，
+// 所以这里放入的字段应当只包含影响规则可用性的信息，不要掺入每次执行都会变的运行时数据。
 func buildAIReleaseSpecialistRuleCatalog(task *commonmodels.WorkflowTask, currentJobName string) (*aiReleaseSpecialistRuleCatalog, error) {
 	if task == nil {
 		return nil, fmt.Errorf("workflow task is nil")
@@ -2427,6 +2460,14 @@ func buildAIReleaseSpecialistRuleCatalog(task *commonmodels.WorkflowTask, curren
 	return catalog, nil
 }
 
+// validateAIReleaseSpecialistRulePlanAgainstCatalog 校验 plan 里每条规则的 scope 在当前 catalog 中真实存在，
+// 拦住 LLM 编出的、引用了不存在 job/env/service 的规则。
+//
+// 校验不通过一律返回错误、让规则整体重新编译，而不是把匹配不上的规则静默丢掉 ——
+// 静默丢弃会让发布判定少跑一条检查却依然显示通过，这比直接失败危险得多。
+//
+// 另外部分指标（requiresJobScope / requiresCompletedJob）强制要求写明 scope.job_names：
+// 这类指标依赖具体 job 的执行结果，没有 job 范围就无从取值，因此在遍历 catalog 之前先行拦截。
 func validateAIReleaseSpecialistRulePlanAgainstCatalog(plan *commonmodels.AIReleaseSpecialistRulePlan, catalog *aiReleaseSpecialistRuleCatalog) error {
 	if plan == nil || catalog == nil {
 		return nil
@@ -2589,6 +2630,14 @@ func normalizeAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialist
 	return nil
 }
 
+// validatePreparedAIReleaseSpecialistRulePlan 判断一个已有的 rule plan 能否直接复用，不通过则调用方重新编译。
+//
+// 这是 plan 复用的唯一失效检查入口：所有传入已有 plan 的场景（workflow 定义级缓存、task 快照、
+// 重试时搬运过来的 plan）都依赖它来拦截过期数据。
+//
+// 四种情况会判废：编译产物格式升级（Version 不匹配）、用户改了规则文本（SourceRuleHash 不匹配）、
+// workflow 结构变化（ContextHash 不匹配）、plan 仍引用当前 catalog 里已不存在的 job/env/service。
+// 调用方应把任何错误都当作「需要重新编译」，而不是当作执行失败。
 func validatePreparedAIReleaseSpecialistRulePlan(plan *commonmodels.AIReleaseSpecialistRulePlan, sourceRule string, catalog *aiReleaseSpecialistRuleCatalog) error {
 	if plan == nil {
 		return fmt.Errorf("rule plan is missing")
@@ -2653,6 +2702,17 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 	return nil
 }
 
+// PrepareAIReleaseSpecialistRulePlansForTask 在创建 task 时为每个 AI 发布专员 job 预填可复用的 rule plan，
+// 命中定义级缓存就直接带上，让 task 首次执行不必再调 LLM 编译。
+//
+// 两个约定要注意：
+//
+// 一是校验规则文本一致性。若 workflow 定义里的 PromptTemplate 与 task spec 里的不一致，说明创建 task 期间
+// 规则被人改了，此时直接报错而不是按任一方继续，避免 task 用一份规则、缓存对应另一份。
+//
+// 二是函数末尾会把 workflowSpec.RulePlans 置为 nil。rule plan 是 workflow 定义级的缓存，不应写进 task 快照
+//（快照会随每个 task 持久化，plan 体积大且会过期）。这也意味着 ToTask 重建出来的 spec 里 RulePlan 必然为空，
+// 重试路径需要自己搬运，见 RetryWorkflowTaskV4 中的处理。
 func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask, workflow *commonmodels.WorkflowV4) error {
 	if task == nil || workflow == nil {
 		return fmt.Errorf("workflow task and workflow are required")
@@ -2728,6 +2788,12 @@ func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask,
 	return nil
 }
 
+// trimAIReleaseSpecialistRulePlanCache 把单个 job 的 plan 缓存裁剪到 limit 条以内，
+// 并保证刚编译出来的 keepHash 一定保留（即使缓存已满）。
+//
+// 淘汰顺序按 context hash 排序，而不是按时间：plan 上没有时间戳字段，排序只是为了让淘汰结果确定，
+// 避免 Go map 遍历顺序随机导致每次保存淘汰掉不同的条目。结果为空时返回 nil，
+// 好让调用方直接不写这个 bson 字段，而不是存一个空 map。
 func trimAIReleaseSpecialistRulePlanCache(plans map[string]*commonmodels.AIReleaseSpecialistRulePlan, limit int, keepHash string) map[string]*commonmodels.AIReleaseSpecialistRulePlan {
 	if limit <= 0 {
 		return nil
@@ -2777,6 +2843,19 @@ func getAIReleaseSpecialistRulePlanCaches(workflow *commonmodels.WorkflowV4) map
 	return plans
 }
 
+// CompileAIReleaseSpecialistRulePlan 把用户写的自然语言规则编译成结构化的 rule plan，通过一次 LLM 调用完成。
+//
+// 这是整条链路上最贵的一步（超时 5 分钟、最多 3 次尝试、单次 32K completion token），所以做了两层保护：
+//
+// 一是用 singleflight 按「规则 hash + 上下文 hash」合并并发编译，多个 task 同时首跑同一份规则时只打一次
+// LLM。合并后的编译用 context.WithoutCancel 重建 ctx，避免某个等待方提前退出就把其他人共享的编译取消掉；
+// 各等待方自己的 ctx 取消只影响自己（见下面的 select）。
+//
+// 二是命中 token 上限时复用已拿到的部分响应：LLM 报 ErrMaxTokensExceeded 或超时的情况下，只要 answer 非空
+// 就先尝试解析，解析成功就直接用，不浪费这次调用。所以循环里 completionErr != nil 也可能正常返回。
+//
+// 返回前会用 validateAIReleaseSpecialistRulePlanAgainstCatalog 校验 LLM 有没有编出当前 workflow 里
+// 不存在的 job/env/service，并把两个 hash 写进 plan，供后续 validatePreparedAIReleaseSpecialistRulePlan 判断复用。
 func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, catalog *aiReleaseSpecialistRuleCatalog) (*commonmodels.AIReleaseSpecialistRulePlan, error) {
 	sourceRule = strings.TrimSpace(sourceRule)
 	if sourceRule == "" {

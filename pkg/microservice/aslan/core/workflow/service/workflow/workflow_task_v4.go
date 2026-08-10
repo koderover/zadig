@@ -1165,6 +1165,20 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				if err := workflowController.RenderJobTaskRuntimeVariables(t, globalKeyMap); err != nil {
 					return err
 				}
+				// 把首次执行已编译好的 rule plan 搬到重试的 spec 上。
+				//
+				// 上面 ctrl.ToTask 重建出来的 spec 里 RulePlan 一定是空的：rule plan 属于 workflow
+				// 定义级缓存，PrepareAIReleaseSpecialistRulePlans 在写入 task 快照前会把
+				// workflowSpec.RulePlans 置为 nil。因此不在这里搬一次，每次重试都会退回到
+				// CompileAIReleaseSpecialistRulePlan 重新编译，而那是一次 LLM 调用
+				//（超时 5 分钟、最多 3 次尝试、单次 32K completion token），开销不小。
+				//
+				// 复用不会让过期的 plan 生效：getRulePlan 会再用
+				// validatePreparedAIReleaseSpecialistRulePlan 校验一遍，version、规则文本 hash、
+				// catalog context hash 任一不匹配就判废并重新编译。这里只是把 plan 作为候选传下去，
+				// 是否真的复用由运行时决定。
+				//
+				// 另外这样也保证重试与首次执行使用同一套规则，避免同一个 task 被两套规则判定。
 				if jobTask.JobType == string(config.JobAIReleaseSpecialist) {
 					currentSpec := &commonmodels.JobTaskAIReleaseSpecialistSpec{}
 					if err := commonmodels.IToi(jobTask.Spec, currentSpec); err != nil {
