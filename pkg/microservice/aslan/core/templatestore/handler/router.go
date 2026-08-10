@@ -27,7 +27,7 @@ type OpenAPIRouter struct{}
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	charts := router.Group("charts")
 	{
-		charts.GET("", ListChartTemplates)
+		charts.GET("", OpenAPIListChartTemplates)
 	}
 }
 
