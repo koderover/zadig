@@ -195,20 +195,7 @@ func OpenAPIListServicePods(projectName, envName, serviceName string, production
 	return resp, nil
 }
 
-func OpenAPIRestartServicePod(projectName, envName, serviceName, podName string, production bool, logger *zap.SugaredLogger) (*OpenAPIRestartServicePodResponse, error) {
-	serviceResp, err := GetService(envName, projectName, serviceName, production, "", logger)
-	if err != nil {
-		return nil, err
-	}
-
-	scale, pod := findServicePod(serviceResp.Scales, podName)
-	if pod == nil {
-		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("pod %s does not belong to service %s", podName, serviceName))
-	}
-	if scale.Type == setting.Job {
-		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("restart pod is not supported for Job workload %s", scale.Name))
-	}
-
+func OpenAPIRestartServicePod(projectName, envName, podName string, production bool, logger *zap.SugaredLogger) (*OpenAPIRestartServicePodResponse, error) {
 	// Query the pod again to ensure it still exists before performing the restart.
 	if _, err := GetPodDetailInfo(projectName, envName, podName, production, logger); err != nil {
 		return nil, err
