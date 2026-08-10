@@ -184,15 +184,15 @@ func OpenAPICreateTestTask(c *gin.Context) {
 	ctx.RespErr = err
 }
 
-// @summary Get test run information
+// @summary Get test information
 // @description Get the safe runtime input metadata for a configured test
 // @tags OpenAPI
 // @produce json
 // @Param projectKey query string true "Project key"
 // @Param testName path string true "Test name"
-// @success 200 {object} testingservice.OpenAPITestRunInfo
+// @success 200 {object} testingservice.OpenAPITestInfo
 // @router /openapi/quality/testing/{testName} [get]
-func OpenAPIGetTestRunInfo(c *gin.Context) {
+func OpenAPIGetTestInfo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -217,7 +217,7 @@ func OpenAPIGetTestRunInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = testingservice.OpenAPIGetTestRunInfo(projectKey, testName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = testingservice.OpenAPIGetTestInfo(projectKey, testName, ctx.Logger)
 }
 
 func OpenAPIGetTestTaskResult(c *gin.Context) {

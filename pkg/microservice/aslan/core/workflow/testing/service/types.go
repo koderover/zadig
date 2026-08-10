@@ -317,8 +317,15 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 		if repo == nil {
 			return false, fmt.Errorf("repo_info[%d] cannot be empty", i)
 		}
-		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" || strings.TrimSpace(repo.Branch) == "" {
-			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace, repo_name and branch cannot be empty", i)
+		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" {
+			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace and repo_name cannot be empty", i)
+		}
+		if repo.EnableCommit {
+			if strings.TrimSpace(repo.CommitID) == "" {
+				return false, fmt.Errorf("repo_info[%d] commit_id cannot be empty when enable_commit is true", i)
+			}
+		} else if strings.TrimSpace(repo.Branch) == "" {
+			return false, fmt.Errorf("repo_info[%d] branch cannot be empty when enable_commit is false", i)
 		}
 		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)
 		if _, ok := repositories[repository]; ok {
@@ -345,13 +352,13 @@ type OpenAPICreateTestTaskResp struct {
 	TaskID int64 `json:"task_id"`
 }
 
-type OpenAPITestRunInfo struct {
-	ProjectKey string                 `json:"project_key"`
-	TestName   string                 `json:"test_name"`
-	Inputs     []*OpenAPITestRunInput `json:"inputs"`
+type OpenAPITestInfo struct {
+	ProjectKey string              `json:"project_key"`
+	TestName   string              `json:"test_name"`
+	Inputs     []*OpenAPITestInput `json:"inputs"`
 }
 
-type OpenAPITestRunInput struct {
+type OpenAPITestInput struct {
 	Key          string   `json:"key"`
 	Value        string   `json:"value,omitempty"`
 	Type         string   `json:"type,omitempty"`

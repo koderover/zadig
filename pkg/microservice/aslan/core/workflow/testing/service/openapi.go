@@ -197,19 +197,19 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 	return result.TaskID, nil
 }
 
-func OpenAPIGetTestRunInfo(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestRunInfo, error) {
+func OpenAPIGetTestInfo(projectKey, testName string, logger *zap.SugaredLogger) (*OpenAPITestInfo, error) {
 	testInfo, err := GetRaw(testName, projectKey, logger)
 	if err != nil {
 		return nil, err
 	}
-	return buildOpenAPITestRunInfo(testInfo), nil
+	return buildOpenAPITestInfo(testInfo), nil
 }
 
-func buildOpenAPITestRunInfo(testInfo *commonmodels.Testing) *OpenAPITestRunInfo {
-	resp := &OpenAPITestRunInfo{
+func buildOpenAPITestInfo(testInfo *commonmodels.Testing) *OpenAPITestInfo {
+	resp := &OpenAPITestInfo{
 		ProjectKey: testInfo.ProductName,
 		TestName:   testInfo.Name,
-		Inputs:     make([]*OpenAPITestRunInput, 0),
+		Inputs:     make([]*OpenAPITestInput, 0),
 	}
 	if testInfo.PreTest == nil {
 		return resp
@@ -224,7 +224,7 @@ func buildOpenAPITestRunInfo(testInfo *commonmodels.Testing) *OpenAPITestRunInfo
 		if input.IsCredential {
 			value = ""
 		}
-		resp.Inputs = append(resp.Inputs, &OpenAPITestRunInput{
+		resp.Inputs = append(resp.Inputs, &OpenAPITestInput{
 			Key:          input.Key,
 			Value:        value,
 			Type:         string(input.Type),
