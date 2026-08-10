@@ -802,14 +802,20 @@ func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logg
 		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
 	}
 
-	if err := validateYamlTemplateVariableYaml(template.VariableYaml, origin.ServiceVariableKVs); err != nil {
+	templateVariables, err := getCurrentYamlTemplateVariableKVs(origin.Content, origin.ServiceVariableKVs)
+	if err != nil {
+		return fmt.Errorf("failed to get current template variables, err: %w", err)
+	}
+
+	validatedKVs, err := validateYamlTemplateVariableYaml(template.VariableYaml, templateVariables)
+	if err != nil {
 		return err
 	}
 	if err := validateYamlTemplateContent(origin.Content, origin.VariableYaml, template.VariableYaml); err != nil {
 		return fmt.Errorf("failed to validate variable, err: %w", err)
 	}
 
-	err = commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVariableKVs)
+	err = commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, validatedKVs)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
 	}
@@ -965,9 +971,36 @@ func ValidateVariable(content, variable string) error {
 	return nil
 }
 
-func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*commontypes.ServiceVariableKV) error {
+func getCurrentYamlTemplateVariableKVs(content string, originKVs []*commontypes.ServiceVariableKV) ([]*commontypes.ServiceVariableKV, error) {
+	extractVariableYaml, err := yamlutil.ExtractVariableYaml(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract variable yaml from template content, err: %w", err)
+	}
+
+	extractedKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYaml, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert extracted variables to kv, err: %w", err)
+	}
+
+	_, currentOriginKVs, err := commontypes.ClipServiceVariableKVs(extractedKVs, originKVs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter template variables, err: %w", err)
+	}
+
+	_, currentKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(currentOriginKVs, extractedKVs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge current template variables, err: %w", err)
+	}
+	return currentKVs, nil
+}
+
+func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*commontypes.ServiceVariableKV) ([]*commontypes.ServiceVariableKV, error) {
 	if len(templateVariables) == 0 {
-		return nil
+		validatedKVs, err := commontypes.YamlToServiceVariableKV(variableYaml, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate template variables, err: %w", err)
+		}
+		return validatedKVs, nil
 	}
 	if strings.TrimSpace(variableYaml) == "" {
 		missingKeys := make([]string, 0, len(templateVariables))
@@ -976,12 +1009,12 @@ func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*
 				missingKeys = append(missingKeys, templateVariable.Key)
 			}
 		}
-		return fmt.Errorf("template variables missing keys %v", missingKeys)
+		return nil, fmt.Errorf("template variables missing keys %v", missingKeys)
 	}
 
 	variableMap := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(variableYaml), &variableMap); err != nil {
-		return fmt.Errorf("failed to unmarshal template variables, err: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal template variables, err: %w", err)
 	}
 
 	missingKeys := make([]string, 0)
@@ -994,13 +1027,14 @@ func validateYamlTemplateVariableYaml(variableYaml string, templateVariables []*
 		}
 	}
 	if len(missingKeys) > 0 {
-		return fmt.Errorf("template variables missing keys %v", missingKeys)
+		return nil, fmt.Errorf("template variables missing keys %v", missingKeys)
 	}
 
-	if _, err := commontypes.YamlToServiceVariableKV(variableYaml, templateVariables); err != nil {
-		return fmt.Errorf("failed to validate template variables, err: %w", err)
+	validatedKVs, err := commontypes.YamlToServiceVariableKV(variableYaml, templateVariables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate template variables, err: %w", err)
 	}
-	return nil
+	return validatedKVs, nil
 }
 
 func validateYamlTemplateContent(content string, variableYamls ...string) error {
