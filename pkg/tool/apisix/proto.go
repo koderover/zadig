@@ -63,7 +63,7 @@ func (c *Client) CreateProto(proto *Proto) (*ProtoResponse, error) {
 
 	err := c.Post(url, proto, resp)
 	if isLegacyProtoSchemaError(err) {
-		err = c.Post(url, legacyProtoRequestBody(proto), resp)
+		err = c.Post(url, &legacyProtoRequest{Content: proto.Content}, resp)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proto: %w", err)
@@ -80,19 +80,13 @@ func (c *Client) UpdateProto(id string, proto *Proto) (*ProtoResponse, error) {
 
 	err := c.Put(url, proto, resp)
 	if isLegacyProtoSchemaError(err) {
-		err = c.Put(url, legacyProtoRequestBody(proto), resp)
+		err = c.Put(url, &legacyProtoRequest{Content: proto.Content}, resp)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update proto: %w", err)
 	}
 
 	return resp, nil
-}
-
-func legacyProtoRequestBody(proto *Proto) *legacyProtoRequest {
-	return &legacyProtoRequest{
-		Content: proto.Content,
-	}
 }
 
 func isLegacyProtoSchemaError(err error) bool {
