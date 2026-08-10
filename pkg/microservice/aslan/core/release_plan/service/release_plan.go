@@ -410,6 +410,27 @@ type UpdateReleasePlanArgs struct {
 	Spec interface{}           `json:"spec"`
 }
 
+type CheckReleasePlanUpdateResponse struct {
+	HasUpdate      bool   `json:"has_update"`
+	CurrentVersion int64  `json:"current_version"`
+	UpdatedBy      string `json:"updated_by"`
+	UpdateTime     int64  `json:"update_time"`
+}
+
+func CheckReleasePlanUpdate(planID string, version int64) (*CheckReleasePlanUpdateResponse, error) {
+	plan, err := mongodb.NewReleasePlanColl().GetVersionByID(context.Background(), planID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get release plan version")
+	}
+
+	return &CheckReleasePlanUpdateResponse{
+		HasUpdate:      plan.Version != version,
+		CurrentVersion: plan.Version,
+		UpdatedBy:      plan.UpdatedBy,
+		UpdateTime:     plan.UpdateTime,
+	}, nil
+}
+
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
 	planLock := getLock(planID)
 	if err := planLock.Lock(); err != nil {

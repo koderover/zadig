@@ -216,28 +216,78 @@ func UpdateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	// Check permission based on the verb
-	if !ctx.Resources.IsSystemAdmin {
-		permitted := false
-		switch string(req.Verb) {
-		case service.ActionUpdateName, service.ActionUpdateManager, service.ActionUpdateTimeRange,
-			service.ActionUpdateScheduleExecuteTime, service.ActionUpdateDescription, service.ActionUpdateJiraSprint:
-			permitted = ctx.Resources.SystemActions.ReleasePlan.EditMetadata
-		case service.ActionUpdateApproval, service.ActionDeleteApproval:
-			permitted = ctx.Resources.SystemActions.ReleasePlan.EditApproval
-		case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob, service.ActionReorderReleaseJob:
-			permitted = ctx.Resources.SystemActions.ReleasePlan.EditSubtasks
-		default:
-			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown verb: %s", req.Verb))
-			return
-		}
-		if !permitted {
-			ctx.UnAuthorized = true
-			return
-		}
+	permitted, err := hasReleasePlanEditPermission(ctx, req.Verb)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), req)
+}
+
+func hasReleasePlanEditPermission(ctx *internalhandler.Context, verb service.UpdateReleasePlanVerb) (bool, error) {
+	if ctx.Resources.IsSystemAdmin {
+		return true, nil
+	}
+
+	switch verb {
+	case service.ActionUpdateName, service.ActionUpdateManager, service.ActionUpdateTimeRange,
+		service.ActionUpdateScheduleExecuteTime, service.ActionUpdateDescription, service.ActionUpdateJiraSprint:
+		return ctx.Resources.SystemActions.ReleasePlan.EditMetadata, nil
+	case service.ActionUpdateApproval, service.ActionDeleteApproval:
+		return ctx.Resources.SystemActions.ReleasePlan.EditApproval, nil
+	case service.ActionUpdateReleaseJob, service.ActionCreateReleaseJob, service.ActionDeleteReleaseJob, service.ActionReorderReleaseJob:
+		return ctx.Resources.SystemActions.ReleasePlan.EditSubtasks, nil
+	default:
+		return false, e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown verb: %s", verb))
+	}
+}
+
+func CheckReleasePlanUpdate(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	verb := service.UpdateReleasePlanVerb(c.Query("verb"))
+	permitted, err := hasReleasePlanEditPermission(ctx, verb)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	// This endpoint is called once immediately before saving, rather than polled while editing.
+	versionStr := strings.TrimSpace(c.Query("version"))
+	if versionStr == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("version is required")
+		return
+	}
+	version, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil || version <= 0 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("version must be a positive integer")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.CheckReleasePlanUpdate(c.Param("id"), version)
 }
 
 func GetReleasePlanVersionDiff(c *gin.Context) {
