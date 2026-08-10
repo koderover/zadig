@@ -134,13 +134,6 @@ func EnsureBuildResp(build *commonmodels.Build) {
 			build.PreBuild.Envs = make([]*commonmodels.KeyVal, 0)
 		}
 
-		// 隐藏用户设置的敏感信息
-		for k := range build.PreBuild.Envs {
-			if build.PreBuild.Envs[k].IsCredential {
-				build.PreBuild.Envs[k].Value = setting.MaskValue
-			}
-		}
-
 		if len(build.PreBuild.Parameters) == 0 {
 			build.PreBuild.Parameters = make([]*commonmodels.Parameter, 0)
 		}

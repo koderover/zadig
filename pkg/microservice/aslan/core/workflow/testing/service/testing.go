@@ -387,12 +387,6 @@ func ensureTestingResp(mt *commonmodels.Testing) {
 		if len(mt.PreTest.Envs) == 0 {
 			mt.PreTest.Envs = make([]*commonmodels.KeyVal, 0)
 		}
-		// 隐藏用户设置的敏感信息
-		for k := range mt.PreTest.Envs {
-			if mt.PreTest.Envs[k].IsCredential {
-				mt.PreTest.Envs[k].Value = setting.MaskValue
-			}
-		}
 	}
 }
 
