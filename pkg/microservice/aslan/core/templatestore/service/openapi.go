@@ -31,7 +31,6 @@ type OpenAPIListChartTemplatesResponse struct {
 
 type OpenAPIChartVariable struct {
 	Key         string `json:"key"`
-	Value       string `json:"value,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
