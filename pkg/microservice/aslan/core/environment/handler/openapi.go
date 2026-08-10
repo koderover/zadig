@@ -1776,19 +1776,14 @@ func openAPIRestartServicePod(c *gin.Context, production bool) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	serviceName := c.Param("serviceName")
-	if serviceName == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName is empty")
-		return
-	}
 	podName := c.Param("podName")
 	if podName == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName is empty")
 		return
 	}
 
-	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,pod名称:%s", envName, serviceName, podName)
-	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Pod Name: %s", envName, serviceName, podName)
+	detail := fmt.Sprintf("环境名称:%s,pod名称:%s", envName, podName)
+	detailEn := fmt.Sprintf("Environment Name: %s, Pod Name: %s", envName, podName)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectName, setting.OperationSceneEnv, "重启", "环境-服务实例", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
@@ -1826,7 +1821,7 @@ func openAPIRestartServicePod(c *gin.Context, production bool) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.OpenAPIRestartServicePod(projectName, envName, serviceName, podName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIRestartServicePod(projectName, envName, podName, production, ctx.Logger)
 }
 
 func OpenAPICheckWorkloadsK8sServices(c *gin.Context) {

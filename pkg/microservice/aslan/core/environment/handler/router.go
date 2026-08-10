@@ -315,7 +315,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.GET("/:name/services/:serviceName", OpenAPIGetService)
 		common.GET("/:name/service/:serviceName/pods", OpenAPIListServicePods)
 		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
-		common.POST("/:name/service/:serviceName/pod/:podName/restart", OpenAPIRestartServicePod)
+		common.POST("/:name/pod/:podName/restart", OpenAPIRestartServicePod)
 
 		common.GET("/:name/check/workloads/k8services", OpenAPICheckWorkloadsK8sServices)
 		common.POST("/:name/share/enable", OpenAPIEnableBaseEnv)
@@ -352,7 +352,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.GET("/:name/services/:serviceName", OpenAPIGetProductionService)
 		production.GET("/:name/service/:serviceName/pods", OpenAPIListProductionServicePods)
 		production.POST("/:name/service/:serviceName/restart", OpenAPIProductionRestartService)
-		production.POST("/:name/service/:serviceName/pod/:podName/restart", OpenAPIProductionRestartServicePod)
+		production.POST("/:name/pod/:podName/restart", OpenAPIProductionRestartServicePod)
 	}
 
 	helm := router.Group("helm")
