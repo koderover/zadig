@@ -1145,7 +1145,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	}
 
 	for _, stage := range task.Stages {
-		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
+		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped || stage.Status == config.StatusUnstable {
 			continue
 		}
 		stage.Status = ""
@@ -1154,7 +1154,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		stage.Error = ""
 
 		for _, jobTask := range stage.Jobs {
-			if jobTask.Status == config.StatusPassed {
+			if jobTask.Status == config.StatusPassed || jobTask.Status == config.StatusSkipped || jobTask.Status == config.StatusUnstable {
 				continue
 			}
 			jobTask.Status = ""
@@ -1392,7 +1392,7 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 
 		// for the manual executed stage itself, we need to re-render the tasks, not getting them from the previous task since it might not be right
 		if stage.Name == stageName {
-			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped) {
+			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped || preStage.Status == config.StatusUnstable) {
 				return errors.Errorf("previous stage %s status is not passed or skipped", preStage.Name)
 			}
 
