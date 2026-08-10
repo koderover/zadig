@@ -157,15 +157,9 @@ func (e *JobExecutor) InitWorkDirectory() error {
 
 	// check the job whether job use cache and init workspace by cache
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
-		cacheDest := filepath.Dir(e.Dirs.Workspace)
-		copyContents := false
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			copyContents = true
-			cacheDest = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
-			cacheDest = strings.ReplaceAll(cacheDest, "${WORKSPACE}", e.Dirs.Workspace)
-			if !filepath.IsAbs(cacheDest) {
-				cacheDest = filepath.Join(e.Dirs.Workspace, cacheDest)
-			}
+		cacheDest, copyContents := resolveCachePath(e.JobCtx.Cache, e.Dirs.Workspace)
+		if !copyContents {
+			cacheDest = filepath.Dir(cacheDest)
 		}
 		if err := os.MkdirAll(cacheDest, os.ModePerm); err != nil {
 			return fmt.Errorf("failed to create cache restore directory %s, error: %v", cacheDest, err)
@@ -332,24 +326,17 @@ func (e *JobExecutor) AfterExecute() error {
 
 	// -------------------------------------------------- save job cache ------------------------------------------------
 	if e.shouldWriteCache() {
-		src := e.Dirs.Workspace
-		copyContents := false
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			copyContents = true
-			src = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
-			src = strings.ReplaceAll(src, "${WORKSPACE}", e.Dirs.Workspace)
-			if !filepath.IsAbs(src) {
-				src = filepath.Join(e.Dirs.Workspace, src)
+		src, copyContents := resolveCachePath(e.JobCtx.Cache, e.Dirs.Workspace)
+
+		if copyContents {
+			if _, err := os.Stat(src); os.IsNotExist(err) {
+				log.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
+				return fmt.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
 			}
 		}
 
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			log.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
-			return fmt.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
-		}
-
 		var cachePath string
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+		if copyContents {
 			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName)
 		} else {
 			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName)
@@ -393,6 +380,23 @@ func (e *JobExecutor) AfterExecute() error {
 
 func (e *JobExecutor) shouldWriteCache() bool {
 	return e.JobCtx != nil && e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable && !e.CheckZadigCancel()
+}
+
+// resolveCachePath returns the configured cache directory and whether only its contents
+// should be copied. Empty cache_dir_type is kept compatible with older jobs that
+// persisted cache_user_dir without persisting the type.
+func resolveCachePath(cacheConfig *jobctl.JobCacheConfig, workspace string) (string, bool) {
+	if cacheConfig == nil || cacheConfig.CacheUserDir == "" || cacheConfig.CacheDirType == common.CacheDirWorkspaceType {
+		return workspace, false
+	}
+
+	cacheSource := strings.ReplaceAll(cacheConfig.CacheUserDir, "$WORKSPACE", workspace)
+	cacheSource = strings.ReplaceAll(cacheSource, "${WORKSPACE}", workspace)
+	if !filepath.IsAbs(cacheSource) {
+		cacheSource = filepath.Join(workspace, cacheSource)
+	}
+
+	return cacheSource, true
 }
 
 func (e *JobExecutor) cleanup() {

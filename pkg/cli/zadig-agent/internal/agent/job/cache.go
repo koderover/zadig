@@ -89,7 +89,7 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, copyConten
 	cache.Lock(key)
 	defer cache.Unlock(key)
 
-	if _, err := os.Stat(cachePath); err == os.ErrNotExist {
+	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
 		err := os.MkdirAll(cachePath, os.ModePerm)
 		if err != nil {
 			log.Errorf("failed to create cache directory %s, error: %v", cachePath, err)
@@ -105,7 +105,9 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, copyConten
 func copyCmd(src, dest string, copyContents bool, logger *zap.SugaredLogger) error {
 	copySource := src
 	if copyContents {
-		copySource = filepath.Join(src, ".")
+		// filepath.Join cleans the trailing dot, so build this path explicitly
+		// to make cp copy the directory contents instead of the directory itself.
+		copySource = filepath.Clean(src) + string(os.PathSeparator) + "."
 	}
 
 	cmd := exec.Command("cp", "-f", "-R", copySource, dest)
