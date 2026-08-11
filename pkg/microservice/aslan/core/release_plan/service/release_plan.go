@@ -49,6 +49,7 @@ import (
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
+	workflowjobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -528,7 +529,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	return nil
 }
 
-func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, error) {
+func GetReleasePlanJobDetail(planID, jobID string, resources *user.AuthorizedResources) (*commonmodels.ReleaseJob, error) {
 	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), planID)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetReleasePlan")
@@ -539,12 +540,88 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 			if err := updateReleasePlanJobWithLatestRenderedWorkflow(releasePlanJob); err != nil {
 				return nil, err
 			}
+			if err := filterReleasePlanWorkflowJobOptions(releasePlanJob, resources); err != nil {
+				return nil, err
+			}
 
 			return releasePlanJob, nil
 		}
 	}
 
 	return nil, fmt.Errorf("failed to find release plan job with id: %s. Job does not exist", jobID)
+}
+
+func filterReleasePlanWorkflowJobOptions(job *models.ReleaseJob, resources *user.AuthorizedResources) error {
+	if resources.IsSystemAdmin || job == nil || job.Type != config.JobWorkflow {
+		return nil
+	}
+
+	spec, ok := job.Spec.(*models.WorkflowReleaseJobSpec)
+	if !ok {
+		spec = new(models.WorkflowReleaseJobSpec)
+		if err := models.IToi(job.Spec, spec); err != nil {
+			return fmt.Errorf("invalid spec for job: %s. decode error: %s", job.Name, err)
+		}
+	}
+	if spec.Workflow == nil {
+		return fmt.Errorf("workflow is nil")
+	}
+
+	projectActions, hasProjectPermission := resources.ProjectAuthInfo[spec.Workflow.Project]
+	if hasProjectPermission && projectActions.IsProjectAdmin {
+		return nil
+	}
+
+	for _, stage := range spec.Workflow.Stages {
+		for _, workflowJob := range stage.Jobs {
+			hasPermission := false
+			switch workflowJob.JobType {
+			case config.JobZadigDeploy:
+				jobSpec := new(models.ZadigDeployJobSpec)
+				if err := models.IToi(workflowJob.Spec, jobSpec); err != nil {
+					return fmt.Errorf("invalid spec for workflow job: %s. decode error: %s", workflowJob.Name, err)
+				}
+				if hasProjectPermission {
+					if jobSpec.Production {
+						hasPermission = projectActions.ProductionEnv.View
+					} else {
+						hasPermission = projectActions.Env.View
+					}
+				}
+			case config.JobZadigDistributeImage:
+				if hasProjectPermission {
+					hasPermission = projectActions.Service.View
+				}
+			case config.JobZadigRestart:
+				jobSpec := new(models.ZadigRestartJobSpec)
+				if err := models.IToi(workflowJob.Spec, jobSpec); err != nil {
+					return fmt.Errorf("invalid spec for workflow job: %s. decode error: %s", workflowJob.Name, err)
+				}
+				if hasProjectPermission {
+					if jobSpec.Production {
+						hasPermission = projectActions.ProductionEnv.View
+					} else {
+						hasPermission = projectActions.Env.View
+					}
+				}
+			default:
+				continue
+			}
+
+			if hasPermission {
+				continue
+			}
+			controller, err := workflowjobcontroller.CreateJobController(workflowJob, spec.Workflow)
+			if err != nil {
+				return err
+			}
+			controller.ClearOptions()
+			workflowJob.Spec = controller.GetSpec()
+		}
+	}
+
+	job.Spec = spec
+	return nil
 }
 
 func shouldSkipReleasePlanWorkflowEditorSave(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) bool {
