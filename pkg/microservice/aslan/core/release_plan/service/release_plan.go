@@ -1241,24 +1241,29 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 				}
 
 				if spec.TaskID != 0 {
+					t, err := commonrepo.NewworkflowTaskv4Coll().Find(spec.Workflow.Name, spec.TaskID)
+					if err != nil {
+						fmtErr := fmt.Errorf("failed find workflow task, workflow: %s, taskID: %d, err: %v", spec.Workflow.Name, spec.TaskID, err)
+						log.Error(fmtErr)
+						return fmtErr
+					}
+
+					if t.Status == config.StatusPassed {
+						continue
+					}
+
 					err = runtimeWorkflowController.CancelWorkflowTask(c.UserName, spec.Workflow.Name, spec.TaskID, log.SugaredLogger())
 					if err != nil {
 						fmtErr := fmt.Errorf("failed cancel workflow task, workflow: %s, taskID: %d, err: %v", spec.Workflow.Name, spec.TaskID, err)
 						log.Error(fmtErr)
 						return fmtErr
 					}
+
+					spec.TaskID = 0
+					spec.Status = config.StatusPrepare
+					job.Spec = spec
 				}
-
-				spec.TaskID = 0
-				spec.Status = config.StatusPrepare
-				job.Spec = spec
 			}
-
-			job.Status = config.ReleasePlanJobStatusTodo
-			job.LastStatus = config.ReleasePlanJobStatusTodo
-			job.Updated = false
-			job.ExecutedBy = ""
-			job.ExecutedTime = 0
 		}
 
 		plan.InstanceCode, err = generateInstanceCode(plan)
