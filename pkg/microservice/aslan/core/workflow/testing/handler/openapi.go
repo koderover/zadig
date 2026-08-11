@@ -184,6 +184,42 @@ func OpenAPICreateTestTask(c *gin.Context) {
 	ctx.RespErr = err
 }
 
+// @summary Get test information
+// @description Get the safe runtime input metadata for a configured test
+// @tags OpenAPI
+// @produce json
+// @Param projectKey query string true "Project key"
+// @Param testName path string true "Test name"
+// @success 200 {object} testingservice.OpenAPITestInfo
+// @router /openapi/quality/testing/{testName} [get]
+func OpenAPIGetTestInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	testName := c.Param("testName")
+	if projectKey == "" || testName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid params")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+		if !ok || (!projectAuth.IsProjectAdmin && !projectAuth.Test.Execute) {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = testingservice.OpenAPIGetTestInfo(projectKey, testName, ctx.Logger)
+}
+
 func OpenAPIGetTestTaskResult(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

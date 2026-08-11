@@ -340,6 +340,10 @@ func OpenAPIKVInputToKeyValList(originalKvs commonmodels.RuntimeKeyValList, kvIn
 				if kvInput.Value != "" {
 					kv.ChoiceValue = strings.Split(kvInput.Value, ",")
 				}
+			} else if kv.Type == commonmodels.FileType {
+				kv.FileID = kvInput.FileID
+				kv.FileName = kvInput.FileName
+				kv.FilePath = kvInput.FilePath
 			}
 		}
 	}
@@ -384,7 +388,7 @@ func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 			}
 
 			if repoInfo.Type != "perforce" {
-				if repo.RepoNamespace == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
+				if repo.GetRepoNamespace() == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
 					repo.Branch = inputRepo.Branch
 					repo.PR = inputRepo.PR
 					repo.PRs = inputRepo.PRs
