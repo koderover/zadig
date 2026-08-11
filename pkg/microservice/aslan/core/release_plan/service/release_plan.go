@@ -564,7 +564,7 @@ func filterReleasePlanWorkflowJobOptions(job *models.ReleaseJob, resources *user
 		}
 	}
 	if spec.Workflow == nil {
-		return fmt.Errorf("workflow is nil")
+		return fmt.Errorf("workflow is nil for release plan job: %s", job.Name)
 	}
 
 	projectActions, hasProjectPermission := resources.ProjectAuthInfo[spec.Workflow.Project]
