@@ -42,5 +42,13 @@ func OpenAPIListChartTemplates(c *gin.Context) {
 		return
 	}
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.RespErr = templateservice.OpenAPIListChartTemplates(ctx.Logger)
 }
