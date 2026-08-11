@@ -258,7 +258,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/globalVariables", GetGlobalVariables)
 		rendersets.GET("/yamlContent", GetYamlContent)
-		rendersets.GET("/variables", GetServiceVariables)
+		rendersets.POST("/variables", GetServiceVariables)
 	}
 
 	// ---------------------------------------------------------------------------------------
