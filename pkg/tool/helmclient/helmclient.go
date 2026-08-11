@@ -434,12 +434,15 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 	}
 	// find history of particular release
 	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, historyReleaseCount)
-	if err != nil && err != driver.ErrReleaseNotFound {
+	if errors.Is(err, driver.ErrReleaseNotFound) {
+		return true, nil
+	}
+	if err != nil {
 		return false, err
 	}
-	// release not found, install operation
+	// An empty history does not prove that the release does not exist. Helm may have skipped an undecodable release.
 	if len(releases) == 0 {
-		return true, nil
+		return false, fmt.Errorf("no revision for release %q", spec.ReleaseName)
 	}
 
 	releaseutil.Reverse(releases, releaseutil.SortByRevision)
@@ -448,6 +451,11 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 	// pending status
 	if lastRelease.Info.Status.IsPending() {
 		return false, errors.New("another operation (install/upgrade/rollback) is in progress, please try later")
+	}
+
+	if lastRelease.Info.Status == release.StatusUninstalled {
+		spec.Replace = true
+		return true, nil
 	}
 
 	// find deployed revision with status deployed from history, would be upgrade operation
@@ -597,15 +605,16 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 
 // InstallOrUpgradeChart install or upgrade helm chart, use the same rule with helm to determine weather to install or upgrade
 func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.ChartSpec, opts *hc.GenericHelmOptions) (*release.Release, error) {
-	install, err := hClient.isInstallOperation(spec)
+	operationSpec := *spec
+	install, err := hClient.isInstallOperation(&operationSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	if install {
-		return hClient.installChart(ctx, spec)
+		return hClient.installChart(ctx, &operationSpec)
 	} else {
-		return hClient.upgradeChart(ctx, spec)
+		return hClient.upgradeChart(ctx, &operationSpec)
 	}
 }
 
