@@ -495,11 +495,12 @@ type OpenAPICreateServiceArgs struct {
 }
 
 type OpenAPIServiceDetail struct {
-	ServiceName string                           `json:"service_name"`
-	Containers  []*commonmodels.Container        `json:"containers"`
-	VariableKVs []*commontypes.ServiceVariableKV `json:"variable_kvs"`
-	Status      string                           `json:"status"`
-	Type        string                           `json:"type"`
+	ServiceName    string                           `json:"service_name"`
+	DeployStrategy setting.ServiceDeployStrategy    `json:"deploy_strategy"`
+	Containers     []*commonmodels.Container        `json:"containers"`
+	VariableKVs    []*commontypes.ServiceVariableKV `json:"variable_kvs"`
+	Status         string                           `json:"status"`
+	Type           string                           `json:"type"`
 }
 
 func (env *OpenAPICreateEnvArgs) Validate() error {

@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -74,10 +75,15 @@ func GetEnvDetail(projectName, envName string, production bool, logger *zap.Suga
 	}
 	for _, servs := range env.Services {
 		for _, serv := range servs {
+			deployStrategy := commonutil.GetServiceDeployStrategy(serv.ServiceName, env.ServiceDeployStrategy)
+			if !serv.FromZadig() {
+				deployStrategy = commonutil.GetReleaseDeployStrategy(serv.ReleaseName, env.ServiceDeployStrategy)
+			}
 			service := &OpenAPIServiceDetail{
-				ServiceName: serv.ServiceName,
-				Containers:  serv.Containers,
-				Type:        serv.Type,
+				ServiceName:    serv.ServiceName,
+				DeployStrategy: deployStrategy,
+				Containers:     serv.Containers,
+				Type:           serv.Type,
 			}
 			if !env.Production {
 				servDetail, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
