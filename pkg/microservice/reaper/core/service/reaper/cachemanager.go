@@ -24,24 +24,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/mholt/archiver"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/internal/s3"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
+	utilfs "github.com/koderover/zadig/v2/pkg/util/fs"
 )
-
-func getArchiver() *archiver.TarGz {
-	return &archiver.TarGz{
-		Tar: &archiver.Tar{
-			OverwriteExisting:      true,
-			MkdirAll:               true,
-			ImplicitTopLevelFolder: false,
-		},
-	}
-}
 
 // CacheManager manages the caches
 type CacheManager interface {
@@ -59,20 +48,27 @@ func NewGoCacheManager() *GoCacheManager {
 }
 
 func (gcm *GoCacheManager) Archive(source, dest string) error {
-	var sources []string
-	files, err := ioutil.ReadDir(source)
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp(filepath.Dir(dest), ".zadig-cache-*.tar.gz")
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		sources = append(sources, filepath.Join(source, f.Name()))
+	tempName := temp.Name()
+	if err = temp.Close(); err != nil {
+		return err
 	}
+	defer os.Remove(tempName)
 
-	return getArchiver().Archive(sources, dest)
+	if err = utilfs.Tar(os.DirFS(source), tempName); err != nil {
+		return err
+	}
+	return os.Rename(tempName, dest)
 }
 
 func (gcm *GoCacheManager) Unarchive(source, dest string) error {
-	return getArchiver().Unarchive(source, dest)
+	return utilfs.Untar(source, dest)
 }
 
 type TarCacheManager struct {

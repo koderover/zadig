@@ -26,7 +26,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bradleyfalzon/ghinstallation"
+	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v35/github"
 	"github.com/gregjones/httpcache"
 	"golang.org/x/oauth2"

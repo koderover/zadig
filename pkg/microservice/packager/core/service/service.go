@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	typesimage "github.com/docker/docker/api/types/image"
 	typesregistry "github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -110,7 +110,7 @@ func ExtractErrorDetail(in io.Reader) error {
 	return nil
 }
 
-func pullImage(dockerClient *client.Client, imageUrl string, options *types.ImagePullOptions) error {
+func pullImage(dockerClient *client.Client, imageUrl string, options *typesimage.PullOptions) error {
 	log.Infof("pulling image: %s", imageUrl)
 	pullResponse, err := dockerClient.ImagePull(context.TODO(), imageUrl, *options)
 	if err != nil {
@@ -123,7 +123,7 @@ func pullImage(dockerClient *client.Client, imageUrl string, options *types.Imag
 	return err
 }
 
-func pushImage(dockerClient *client.Client, targetImageUrl string, options *types.ImagePushOptions) error {
+func pushImage(dockerClient *client.Client, targetImageUrl string, options *typesimage.PushOptions) error {
 	log.Infof("pushing image: %s", targetImageUrl)
 	pushResponse, err := dockerClient.ImagePush(context.TODO(), targetImageUrl, *options)
 	if err != nil {
@@ -141,7 +141,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 	retImages := make([]*ImageData, 0)
 
 	for _, singleImage := range imageByService.Images {
-		options := types.ImagePullOptions{}
+		options := typesimage.PullOptions{}
 		// for images from public repo，registryID won't be appointed
 		if len(singleImage.RegistryID) > 0 {
 			registryInfo, ok := allRegistries[singleImage.RegistryID]
@@ -193,7 +193,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 		if err != nil {
 			return nil, errors.Wrapf(err, "faied to create docker push auth data")
 		}
-		options := types.ImagePushOptions{
+		options := typesimage.PushOptions{
 			RegistryAuth: encodedAuth,
 		}
 

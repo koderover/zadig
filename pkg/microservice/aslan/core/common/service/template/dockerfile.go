@@ -56,7 +56,7 @@ func getVariables(s string, logger *zap.SugaredLogger) ([]*commonmodels.ChartVar
 		logger.Errorf("Failed to parse the dockerfile from source, the error is: %s", err)
 		return []*commonmodels.ChartVariable{}, err
 	}
-	stages, metaArgs, err := dockerfileinstructions.Parse(result.AST)
+	stages, metaArgs, err := dockerfileinstructions.Parse(result.AST, nil)
 	if err != nil {
 		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %s", err)
 		return []*commonmodels.ChartVariable{}, err
