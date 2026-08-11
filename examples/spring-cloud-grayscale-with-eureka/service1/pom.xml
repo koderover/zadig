@@ -20,8 +20,12 @@
         <maven.compiler.source>22</maven.compiler.source>
         <maven.compiler.target>22</maven.compiler.target>
         <httpcore5.version>5.5-beta2</httpcore5.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <jackson-bom.version>2.21.5</jackson-bom.version>
         <java.version>22</java.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <logback.version>1.5.38</logback.version>
+        <netty.version>4.1.136.Final</netty.version>
         <tomcat.version>10.1.56</tomcat.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>

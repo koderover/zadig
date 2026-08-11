@@ -17,14 +17,16 @@ limitations under the License.
 package reaper
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/mholt/archiver"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
@@ -109,17 +111,25 @@ func testReaperCompressAndDecompressCache(t *testing.T, manager CacheManager) {
 	var found bool
 	var permissionKept bool
 
-	_ = archiver.Walk(
-		r.GetCacheFile(),
-		func(f archiver.File) error {
-			if f.Name() == "readme3.md" {
-				found = f.Mode().Perm() == os.FileMode(0644)
-			} else if f.Name() == "readme.md" {
-				permissionKept = f.Mode().Perm() == os.FileMode(0755)
-			}
-			return nil
-		},
-	)
+	archiveFile, err := os.Open(r.GetCacheFile())
+	assert.Nil(t, err)
+	gzipReader, err := gzip.NewReader(archiveFile)
+	assert.Nil(t, err)
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		assert.Nil(t, err)
+		if header.Name == "readme3.md" {
+			found = header.FileInfo().Mode().Perm() == os.FileMode(0644)
+		} else if header.Name == "readme.md" {
+			permissionKept = header.FileInfo().Mode().Perm() == os.FileMode(0755)
+		}
+	}
+	assert.Nil(t, gzipReader.Close())
+	assert.Nil(t, archiveFile.Close())
 
 	assert.True(t, found)
 	assert.True(t, permissionKept)

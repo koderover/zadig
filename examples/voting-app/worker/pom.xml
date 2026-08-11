@@ -15,8 +15,12 @@
   </parent>
 
   <properties>
+    <commons-lang3.version>3.18.0</commons-lang3.version>
+    <jackson-bom.version>2.21.5</jackson-bom.version>
     <java.version>17</java.version>
+    <log4j2.version>2.25.5</log4j2.version>
     <logback.version>1.5.38</logback.version>
+    <netty.version>4.1.136.Final</netty.version>
   </properties>
 
   <dependencies>

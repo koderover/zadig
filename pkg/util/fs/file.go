@@ -19,6 +19,7 @@ package fs
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -57,9 +58,9 @@ func ShortenFileBase(baseDir, fullPath string) string {
 
 // Tar archives the src file system and saves to disk with path dst.
 // src file system is a tree of files from disk, memory or any other places which implement fs.FS.
-func Tar(src fs.FS, dst string) error {
+func Tar(src fs.FS, dst string) (err error) {
 	dir := filepath.Dir(dst)
-	err := os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
 	}
@@ -69,17 +70,23 @@ func Tar(src fs.FS, dst string) error {
 		return err
 	}
 	defer func() {
-		err = fw.Close()
+		if closeErr := fw.Close(); err == nil {
+			err = closeErr
+		}
 	}()
 
 	gw := gzip.NewWriter(fw)
 	defer func() {
-		err = gw.Close()
+		if closeErr := gw.Close(); err == nil {
+			err = closeErr
+		}
 	}()
 
 	tw := tar.NewWriter(gw)
 	defer func() {
-		err = tw.Close()
+		if closeErr := tw.Close(); err == nil {
+			err = closeErr
+		}
 	}()
 
 	return fs.WalkDir(src, ".", func(path string, entry fs.DirEntry, err error) error {
@@ -168,7 +175,11 @@ func Untar(src, dst string) (err error) {
 			continue
 		}
 
-		dirOrFile := filepath.Join(dst, hdr.Name)
+		archivePath := filepath.FromSlash(hdr.Name)
+		if !filepath.IsLocal(archivePath) {
+			return fmt.Errorf("archive entry %q escapes destination", hdr.Name)
+		}
+		dirOrFile := filepath.Join(dst, archivePath)
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
