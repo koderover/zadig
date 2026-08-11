@@ -20,8 +20,6 @@ import (
 	"sort"
 
 	"go.uber.org/zap"
-
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 type OpenAPIListChartTemplatesResponse struct {
@@ -45,38 +43,36 @@ type OpenAPIChartTemplate struct {
 }
 
 func OpenAPIListChartTemplates(logger *zap.SugaredLogger) (*OpenAPIListChartTemplatesResponse, error) {
-	charts, err := listChartTemplates(logger)
+	chartTemplates, err := ListChartTemplates(logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return buildOpenAPIListChartTemplatesResponse(charts), nil
+	return buildOpenAPIListChartTemplatesResponse(chartTemplates), nil
 }
 
-func buildOpenAPIListChartTemplatesResponse(charts []*commonmodels.Chart) *OpenAPIListChartTemplatesResponse {
+func buildOpenAPIListChartTemplatesResponse(chartTemplates *ChartTemplateListResp) *OpenAPIListChartTemplatesResponse {
 	resp := &OpenAPIListChartTemplatesResponse{
-		SystemVariables: make([]*OpenAPIChartVariable, 0, len(ChartTemplateDefaultSystemVariable)),
-		ChartTemplates:  make([]*OpenAPIChartTemplate, 0, len(charts)),
+		SystemVariables: make([]*OpenAPIChartVariable, 0, len(chartTemplates.SystemVariables)),
+		ChartTemplates:  make([]*OpenAPIChartTemplate, 0, len(chartTemplates.ChartTemplates)),
 	}
 
-	variableKeys := make([]string, 0, len(ChartTemplateDefaultSystemVariable))
-	for key := range ChartTemplateDefaultSystemVariable {
-		variableKeys = append(variableKeys, key)
-	}
-	sort.Strings(variableKeys)
-	for _, key := range variableKeys {
+	for _, variable := range chartTemplates.SystemVariables {
 		resp.SystemVariables = append(resp.SystemVariables, &OpenAPIChartVariable{
-			Key:         key,
-			Description: ChartTemplateDefaultSystemVariable[key],
+			Key:         variable.Key,
+			Description: variable.Description,
 		})
 	}
+	sort.Slice(resp.SystemVariables, func(i, j int) bool {
+		return resp.SystemVariables[i].Key < resp.SystemVariables[j].Key
+	})
 
-	for _, chart := range charts {
+	for _, chart := range chartTemplates.ChartTemplates {
 		resp.ChartTemplates = append(resp.ChartTemplates, &OpenAPIChartTemplate{
 			Name:       chart.Name,
-			CodeHostID: chart.CodeHostID,
+			CodeHostID: chart.CodehostID,
 			Owner:      chart.Owner,
-			Namespace:  chart.GetNamespace(),
+			Namespace:  chart.Namespace,
 			Repo:       chart.Repo,
 			Path:       chart.Path,
 			Branch:     chart.Branch,

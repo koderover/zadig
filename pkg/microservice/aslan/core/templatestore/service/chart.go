@@ -133,8 +133,9 @@ func getChartTemplateDefaultVariables() []*commonmodels.ChartVariable {
 }
 
 func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, error) {
-	cs, err := listChartTemplates(logger)
+	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
+		logger.Errorf("Failed to list chart templates, err: %s", err)
 		return nil, err
 	}
 
@@ -157,15 +158,6 @@ func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, erro
 	}
 
 	return ret, nil
-}
-
-func listChartTemplates(logger *zap.SugaredLogger) ([]*models.Chart, error) {
-	charts, err := mongodb.NewChartColl().List()
-	if err != nil {
-		logger.Errorf("Failed to list chart templates, err: %s", err)
-		return nil, err
-	}
-	return charts, nil
 }
 
 func GetFileContentForTemplate(name, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
