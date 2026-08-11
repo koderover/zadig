@@ -108,6 +108,10 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx.Resp, _, ctx.RespErr = commonservice.GetSvcRenderArgs(projectKey, envName, arg.GetSvcRendersArgs, ctx.Logger)
 }
 
+type getServiceVariablesRequest struct {
+	ServiceName string `json:"serviceName"`
+}
+
 // @Summary Get service variables
 // @Description Get service variables
 // @Tags 	environment
@@ -115,9 +119,9 @@ func GetServiceRenderCharts(c *gin.Context) {
 // @Produce json
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	envName		query		string										false	"env name"
-// @Param 	serviceName	query		string										true	"service name"
+// @Param 	body 		body 		getServiceVariablesRequest 					true 	"body"
 // @Success 200 		{array} 	commonservice.K8sSvcRenderArg
-// @Router /api/aslan/environment/rendersets/variables [get]
+// @Router /api/aslan/environment/rendersets/variables [post]
 func GetServiceVariables(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -175,7 +179,13 @@ func GetServiceVariables(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, _, ctx.RespErr = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), production, ctx.Logger)
+	arg := &getServiceVariablesRequest{}
+	if err := c.ShouldBindJSON(arg); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, _, ctx.RespErr = commonservice.GetK8sSvcRenderArgs(projectKey, envName, arg.ServiceName, production, ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
