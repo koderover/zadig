@@ -113,6 +113,23 @@ func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models
 	return result, err
 }
 
+func (c *ReleasePlanColl) GetVersionByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": id}
+	projection := bson.M{
+		"version":     1,
+		"updated_by":  1,
+		"update_time": 1,
+	}
+	result := new(models.ReleasePlan)
+	err = c.FindOne(ctx, query, options.FindOne().SetProjection(projection)).Decode(result)
+	return result, err
+}
+
 func (c *ReleasePlanColl) UpdateByID(ctx context.Context, idString string, args *models.ReleasePlan) error {
 	if args == nil {
 		return errors.New("nil ReleasePlan")
