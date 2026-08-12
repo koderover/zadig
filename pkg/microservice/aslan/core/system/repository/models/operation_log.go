@@ -35,6 +35,9 @@ type OperationLog struct {
 	BodyType    types.RequestBodyType `bson:"body_type"                   json:"body_type"`
 	Status      int                   `bson:"status"                      json:"status"`
 	CreatedAt   int64                 `bson:"created_at"                  json:"created_at"`
+	// RequestBodyMaskingProcessed indicates that request body masking has been processed.
+	// It is an internal marker and must never be exposed through operation log APIs.
+	RequestBodyMaskingProcessed bool `bson:"request_body_masking_processed,omitempty" json:"-"`
 }
 
 func (OperationLog) TableName() string {

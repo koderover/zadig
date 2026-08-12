@@ -652,6 +652,7 @@ const ProgressFile = "/var/log/job-progress"
 const (
 	ResponseError = "error"
 	ResponseData  = "response"
+	OperationLog  = "operationLog"
 )
 
 const ChartTemplatesPath = "charts"

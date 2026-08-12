@@ -97,6 +97,7 @@ func (c *OperationLogColl) Insert(args *models2.OperationLog) error {
 	if args == nil {
 		return errors.New("nil operation_log args")
 	}
+	maskOperationLog(args)
 
 	res, err := c.InsertOne(context.TODO(), args)
 	if err != nil || res == nil {
@@ -123,7 +124,7 @@ func (c *OperationLogColl) Update(id string, status int) error {
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}
-	_, err = c.UpdateByID(context.TODO(), oid, change, options.Update().SetUpsert(true))
+	_, err = c.UpdateByID(context.TODO(), oid, change)
 
 	return err
 }
@@ -183,6 +184,7 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 		}
 
 	}
+	sanitizeOperationLogsForResponse(res)
 
 	return res, int(count), err
 }

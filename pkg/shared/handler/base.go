@@ -34,7 +34,6 @@ import (
 	"go.uber.org/zap"
 
 	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -293,7 +292,7 @@ func GetRawData(c *gin.Context) ([]byte, error) {
 }
 
 // InsertOperationLog 插入操作日志
-func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, detailEn, requestBody string, bodyType types.RequestBodyType, logger *zap.SugaredLogger) {
+func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, detailEn, requestBody string, bodyType types.RequestBodyType, _ *zap.SugaredLogger) {
 	req := &systemmodels.OperationLog{
 		Username:    username,
 		ProductName: productName,
@@ -306,14 +305,10 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 		Status:      0,
 		CreatedAt:   time.Now().Unix(),
 	}
-	err := mongodb.NewOperationLogColl().Insert(req)
-	if err != nil {
-		logger.Errorf("InsertOperation err:%v", err)
-	}
-	c.Set("operationLogID", req.ID.Hex())
+	c.Set(setting.OperationLog, req)
 }
 
-func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, detailEn, requestBody string, bodyType types.RequestBodyType, logger *zap.SugaredLogger, targets ...string) {
+func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, detailEn, requestBody string, bodyType types.RequestBodyType, _ *zap.SugaredLogger, targets ...string) {
 	req := &systemmodels.OperationLog{
 		Username:    username,
 		ProductName: productName,
@@ -328,11 +323,7 @@ func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, me
 		Status:      0,
 		CreatedAt:   time.Now().Unix(),
 	}
-	err := mongodb.NewOperationLogColl().Insert(req)
-	if err != nil {
-		logger.Errorf("InsertOperation err:%v", err)
-	}
-	c.Set("operationLogID", req.ID.Hex())
+	c.Set(setting.OperationLog, req)
 }
 
 // responseHelper recursively finds all nil slice in the given interface,
