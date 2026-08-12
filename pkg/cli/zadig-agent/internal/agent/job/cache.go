@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,25 +90,21 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, copyConten
 	cache.Lock(key)
 	defer cache.Unlock(key)
 
-	if _, err := os.Stat(cachePath); err == os.ErrNotExist {
+	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
 		err := os.MkdirAll(cachePath, os.ModePerm)
 		if err != nil {
 			log.Errorf("failed to create cache directory %s, error: %v", cachePath, err)
 		}
 	}
 
-	err := copyCmd(src, cachePath, copyContents, logger)
+	err := hardLinkOrCopy(src, cachePath, copyContents, logger)
 	if err != nil {
 		log.Errorf("failed to copy cache directory %s to %s, error: %v", src, cachePath, err)
 	}
 }
 
 func copyCmd(src, dest string, copyContents bool, logger *zap.SugaredLogger) error {
-	copySource := src
-	if copyContents {
-		copySource = filepath.Join(src, ".")
-	}
-
+	copySource := resolveCopySource(src, copyContents)
 	cmd := exec.Command("cp", "-f", "-R", copySource, dest)
 	var wg sync.WaitGroup
 
@@ -143,4 +140,31 @@ func copyCmd(src, dest string, copyContents bool, logger *zap.SugaredLogger) err
 	wg.Wait()
 
 	return cmd.Wait()
+}
+
+func hardLinkOrCopy(src, dest string, copyContents bool, logger *zap.SugaredLogger) error {
+	copySource := resolveCopySource(src, copyContents)
+	output, err := exec.Command("cp", "-f", "-R", "-l", copySource, dest).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	outputMessage := strings.TrimSpace(string(output))
+	if outputMessage == "" {
+		log.Warnf("failed to hard link cache directory %s to %s, falling back to copy, error: %v", src, dest, err)
+	} else {
+		log.Warnf("failed to hard link cache directory %s to %s, falling back to copy, error: %v, output: %s", src, dest, err, outputMessage)
+	}
+
+	return copyCmd(src, dest, copyContents, logger)
+}
+
+func resolveCopySource(src string, copyContents bool) string {
+	if !copyContents {
+		return src
+	}
+
+	// filepath.Join cleans the trailing dot, so build this path explicitly
+	// to make cp copy the directory contents instead of the directory itself.
+	return filepath.Clean(src) + string(os.PathSeparator) + "."
 }

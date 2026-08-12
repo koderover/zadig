@@ -157,15 +157,9 @@ func (e *JobExecutor) InitWorkDirectory() error {
 
 	// check the job whether job use cache and init workspace by cache
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
-		cacheDest := filepath.Dir(e.Dirs.Workspace)
-		copyContents := false
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			copyContents = true
-			cacheDest = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
-			cacheDest = strings.ReplaceAll(cacheDest, "${WORKSPACE}", e.Dirs.Workspace)
-			if !filepath.IsAbs(cacheDest) {
-				cacheDest = filepath.Join(e.Dirs.Workspace, cacheDest)
-			}
+		cacheDest, copyContents := resolveCachePath(e.JobCtx.Cache, e.Dirs.Workspace)
+		if !copyContents {
+			cacheDest = filepath.Dir(cacheDest)
 		}
 		if err := os.MkdirAll(cacheDest, os.ModePerm); err != nil {
 			return fmt.Errorf("failed to create cache restore directory %s, error: %v", cacheDest, err)
@@ -328,27 +322,21 @@ func (e *JobExecutor) getUserEnvs() []string {
 
 func (e *JobExecutor) AfterExecute() error {
 	log.Infof("start project %s workflow %s job %s AfterExecute stage", e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName)
+	defer e.cleanup()
 
 	// -------------------------------------------------- save job cache ------------------------------------------------
-	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
-		src := e.Dirs.Workspace
-		copyContents := false
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			copyContents = true
-			src = strings.ReplaceAll(e.JobCtx.Cache.CacheUserDir, "$WORKSPACE", e.Dirs.Workspace)
-			src = strings.ReplaceAll(src, "${WORKSPACE}", e.Dirs.Workspace)
-			if !filepath.IsAbs(src) {
-				src = filepath.Join(e.Dirs.Workspace, src)
+	if e.shouldWriteCache() {
+		src, copyContents := resolveCachePath(e.JobCtx.Cache, e.Dirs.Workspace)
+
+		if copyContents {
+			if _, err := os.Stat(src); os.IsNotExist(err) {
+				log.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
+				return fmt.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
 			}
 		}
 
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			log.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
-			return fmt.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
-		}
-
 		var cachePath string
-		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+		if copyContents {
 			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName)
 		} else {
 			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName)
@@ -387,17 +375,46 @@ func (e *JobExecutor) AfterExecute() error {
 		}
 	}
 
-	// -------------------------------------------- delete all temp file and dir ----------------------------------------
-	e.Logger.Close()
+	return nil
+}
 
-	if !config.GetEnableDebug() {
-		err := e.deleteTempFileAndDir()
-		if err != nil {
-			log.Errorf("failed to delete temp file and dir, error: %s", err)
-		}
+func (e *JobExecutor) shouldWriteCache() bool {
+	return e.JobCtx != nil && e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable && !e.CheckZadigCancel()
+}
+
+// resolveCachePath returns the configured cache directory and whether only its contents
+// should be copied. Empty cache_dir_type is kept compatible with older jobs that
+// persisted cache_user_dir without persisting the type.
+func resolveCachePath(cacheConfig *jobctl.JobCacheConfig, workspace string) (string, bool) {
+	if cacheConfig == nil || cacheConfig.CacheUserDir == "" || cacheConfig.CacheDirType == common.CacheDirWorkspaceType {
+		return workspace, false
 	}
 
-	return nil
+	cacheSource := strings.ReplaceAll(cacheConfig.CacheUserDir, "$WORKSPACE", workspace)
+	cacheSource = strings.ReplaceAll(cacheSource, "${WORKSPACE}", workspace)
+	if !filepath.IsAbs(cacheSource) {
+		cacheSource = filepath.Join(workspace, cacheSource)
+	}
+
+	return cacheSource, true
+}
+
+func (e *JobExecutor) cleanup() {
+	if e.Logger != nil {
+		e.Logger.Close()
+	}
+
+	if config.GetEnableDebug() {
+		return
+	}
+
+	if err := e.deleteTempFileAndDir(); err != nil {
+		log.Errorf("failed to delete temp file and dir, error: %s", err)
+	}
+}
+
+func (e *JobExecutor) CleanupTempFileAndDir() {
+	e.cleanup()
 }
 
 func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
@@ -417,28 +434,40 @@ func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 }
 
 func (e *JobExecutor) deleteTempFileAndDir() error {
+	if e.Dirs == nil {
+		return nil
+	}
+
 	// --------------------------------------------- delete job workspace ---------------------------------------------
-	if err := os.RemoveAll(e.Dirs.Workspace); err != nil {
-		log.Errorf("failed to delete job workspace, error: %s", err)
-		return err
+	if e.Dirs.Workspace != "" {
+		if err := os.RemoveAll(e.Dirs.Workspace); err != nil {
+			log.Errorf("failed to delete job workspace, error: %s", err)
+			return err
+		}
 	}
 
 	// --------------------------------------------- delete job log file ---------------------------------------------
-	if err := os.RemoveAll(filepath.Dir(e.Dirs.JobLogPath)); err != nil {
-		log.Errorf("failed to delete job log file, error: %s", err)
-		return err
+	if e.Dirs.JobLogPath != "" {
+		if err := os.RemoveAll(filepath.Dir(e.Dirs.JobLogPath)); err != nil {
+			log.Errorf("failed to delete job log file, error: %s", err)
+			return err
+		}
 	}
 
 	// --------------------------------------------- delete job script dir ---------------------------------------------
-	if err := os.RemoveAll(e.Dirs.JobScriptDir); err != nil {
-		log.Errorf("failed to delete user script file, error: %s", err)
-		return err
+	if e.Dirs.JobScriptDir != "" {
+		if err := os.RemoveAll(e.Dirs.JobScriptDir); err != nil {
+			log.Errorf("failed to delete user script file, error: %s", err)
+			return err
+		}
 	}
 
 	// --------------------------------------------- delete job output dir ---------------------------------------------
-	if err := os.RemoveAll(filepath.Dir(filepath.Dir(e.Dirs.JobOutputsDir))); err != nil {
-		log.Errorf("failed to delete job output dir, error: %s", err)
-		return err
+	if e.Dirs.JobOutputsDir != "" {
+		if err := os.RemoveAll(filepath.Dir(filepath.Dir(e.Dirs.JobOutputsDir))); err != nil {
+			log.Errorf("failed to delete job output dir, error: %s", err)
+			return err
+		}
 	}
 
 	return nil

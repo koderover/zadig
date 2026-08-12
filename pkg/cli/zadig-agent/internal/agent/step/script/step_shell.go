@@ -78,7 +78,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command("bash", userScriptFile)
+	cmd := exec.CommandContext(ctx, "bash", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 

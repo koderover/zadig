@@ -146,12 +146,13 @@ func (c *AgentController) RunJob(ctx context.Context) {
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {
 	var err error
 	jobCtx, cancel := context.WithCancel(ctx)
-	executor := jobexecutor.NewJobExecutor(ctx, job, c.Client, cancel)
+	executor := jobexecutor.NewJobExecutor(jobCtx, job, c.Client, cancel)
 
 	// execute some init job before execute zadig job
 	err = executor.BeforeExecute()
 	if err != nil {
 		log.Errorf("failed to execute BeforeExecute, error: %s", err)
+		executor.CleanupTempFileAndDir()
 
 		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
@@ -160,10 +161,13 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 		return fmt.Errorf("failed to execute workflow %s job %s, error: %s", job.WorkflowName, job.JobName, err)
 	}
 	if executor.CheckZadigCancel() {
+		cancel()
+		executor.CleanupTempFileAndDir()
 		return nil
 	}
 
 	defer func() {
+		cancel()
 		if executor.Logger != nil {
 			executor.Logger.Close()
 		}
@@ -171,10 +175,7 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 
 	util.Go(func() {
 		func() {
-			defer func() {
-				executor.FinishedChan <- struct{}{}
-				close(executor.FinishedChan)
-			}()
+			defer close(executor.FinishedChan)
 
 			// execute zadig job
 			executor.Execute()
@@ -192,6 +193,8 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 		select {
 		case <-ctx.Done():
 			log.Infof("stop running job, received context cancel signal.")
+			cancel()
+			<-executor.FinishedChan
 			return nil
 		// TODO: how to deal with job cancel by better way, if restart the same job after cancel immediately?
 		case <-executor.FinishedChan:
@@ -210,6 +213,11 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 			return executor.Reporter.FinishedJobReport(common.StatusPassed, nil)
 		default:
 			if executor.CheckZadigCancel() {
+				cancel()
+				// Wait for Execute and AfterExecute to finish. AfterExecute owns
+				// the final cleanup, so returning before it completes leaves the
+				// workspace and job temporary directories behind.
+				<-executor.FinishedChan
 				return fmt.Errorf("job %s id %s is canceled by user", job.JobName, job.ID)
 			}
 			time.Sleep(time.Second)

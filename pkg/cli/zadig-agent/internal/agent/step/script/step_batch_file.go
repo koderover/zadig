@@ -74,7 +74,7 @@ func (s *BatchFileStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command(userScriptFile)
+	cmd := exec.CommandContext(ctx, userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
