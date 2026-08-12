@@ -19,27 +19,37 @@ package gin
 import (
 	"github.com/gin-gonic/gin"
 
-	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/v2/pkg/util/ginzap"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // OperationLogStatus update status of operation if necessary
 func OperationLogStatus() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer UpdateOperationLogStatus(c)
-		c.Next()
-	}
+	return operationLogStatus(func(operationLog *models.OperationLog) {
+		go func() {
+			if err := mongodb.NewOperationLogColl().Insert(operationLog); err != nil {
+				log.Errorf("failed to insert operation log: %v", err)
+			}
+		}()
+	})
 }
 
-// 更新操作日志状态
-func UpdateOperationLogStatus(c *gin.Context) {
-	c.Next()
-	if c.GetString("operationLogID") == "" {
-		return
-	}
-	log := ginzap.WithContext(c).Sugar()
-	err := systemservice.UpdateOperation(c.GetString("operationLogID"), c.Writer.Status(), log)
-	if err != nil {
-		log.Errorf("UpdateOperation err:%v", err)
+func operationLogStatus(insertAsync func(*models.OperationLog)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		value, ok := c.Get(setting.OperationLog)
+		if !ok {
+			return
+		}
+		operationLog, ok := value.(*models.OperationLog)
+		if !ok || operationLog == nil {
+			return
+		}
+
+		operationLog.Status = c.Writer.Status()
+		insertAsync(operationLog)
 	}
 }
