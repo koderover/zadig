@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1012,12 +1011,7 @@ func GetImageInfos(productName, envName, serviceNames string, production bool, l
 			}
 		}
 
-		containers, _, err := repository.ResolveServiceModules(context.Background(), productName, svcName, production, prodSvc.Revision)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve modules for service %s: %s", svcName, err)
-		}
-
-		for _, container := range containers {
+		for _, container := range prodSvc.Containers {
 			if container.ImagePath == nil {
 				return nil, fmt.Errorf("failed to parse image for container:%s", container.Image)
 			}
