@@ -67,6 +67,21 @@ func CreateUserGroup(groupName, desc string, uids []string, logger *zap.SugaredL
 
 	tx.Commit()
 
+	userCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	for _, uid := range uids {
+		userGroupKey := fmt.Sprintf(userconfig.UserGroupCacheKeyFormat, uid)
+		err := userCache.Delete(userGroupKey)
+		if err != nil {
+			log.Warnf("failed to flush uid: %s's group id cache, error: %s", uid, err)
+		}
+
+		go func(userGroupKey string, redisCache *cache.RedisCache) {
+			time.Sleep(2 * time.Second)
+			redisCache.Delete(userGroupKey)
+		}(userGroupKey, userCache)
+	}
+
 	return userGroup, nil
 }
 
