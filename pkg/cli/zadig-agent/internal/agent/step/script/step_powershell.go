@@ -74,7 +74,7 @@ func (s *PowerShellStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command("powershell", "-F", userScriptFile)
+	cmd := exec.CommandContext(ctx, "powershell", "-F", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
