@@ -17,7 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +35,6 @@ var terminalWatchUpgrader = websocket.Upgrader{
 	ReadBufferSize:   1024,
 	WriteBufferSize:  4096,
 	HandshakeTimeout: 5 * time.Second,
-	Subprotocols:     []string{"v2.asciicast"},
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
@@ -108,11 +110,71 @@ func WatchTerminalSession(c *gin.Context) {
 				log.Infof("terminal watch stream ended, sessionID=%s", sessionID)
 				return
 			}
+			message, ok := terminalWatchMessage(line)
+			if !ok {
+				continue
+			}
 			_ = conn.SetWriteDeadline(time.Now().Add(terminalWatchWriteWait))
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 				log.Errorf("terminal watch write failed, sessionID=%s err=%v", sessionID, err)
 				return
 			}
 		}
 	}
+}
+
+// terminalWatchMessage converts the recorder's internal asciicast frame into
+// the same read-only terminal message shape used by the active session.
+func terminalWatchMessage(line string) (string, bool) {
+	var frame []json.RawMessage
+	if err := json.Unmarshal([]byte(line), &frame); err != nil || len(frame) != 3 {
+		var header struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		}
+		if err := json.Unmarshal([]byte(line), &header); err == nil && header.Width > 0 && header.Height > 0 {
+			return terminalWatchResizeMessage(strconv.Itoa(header.Width) + "x" + strconv.Itoa(header.Height))
+		}
+		return terminalWatchResizeMessage(line)
+	}
+	var code, data string
+	if err := json.Unmarshal(frame[1], &code); err != nil {
+		return "", false
+	}
+	if err := json.Unmarshal(frame[2], &data); err != nil {
+		return "", false
+	}
+	switch code {
+	case "o":
+		message, err := json.Marshal(struct {
+			Operation string `json:"operation"`
+			Data      string `json:"data"`
+		}{Operation: "stdout", Data: data})
+		return string(message), err == nil
+	case "r":
+		return terminalWatchResizeMessage(data)
+	default:
+		return "", false
+	}
+}
+
+func terminalWatchResizeMessage(value string) (string, bool) {
+	parts := strings.Split(value, "x")
+	if len(parts) != 2 {
+		return "", false
+	}
+	cols, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return "", false
+	}
+	rows, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", false
+	}
+	message, err := json.Marshal(struct {
+		Operation string `json:"operation"`
+		Cols      int    `json:"cols"`
+		Rows      int    `json:"rows"`
+	}{Operation: "resize", Cols: cols, Rows: rows})
+	return string(message), err == nil
 }
