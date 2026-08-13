@@ -41,16 +41,19 @@ type SessionMeta struct {
 	Secrets []string
 }
 
+// SessionListResponse keeps pagination metadata alongside the session collection.
 type SessionListResponse struct {
 	Total    int64                     `json:"total"`
 	Sessions []*models.TerminalSession `json:"sessions"`
 }
 
+// CommandListResponse keeps pagination metadata alongside the command collection.
 type CommandListResponse struct {
 	Total    int64                     `json:"total"`
 	Commands []*models.TerminalCommand `json:"commands"`
 }
 
+// CastFileStream couples the cast body with its stored size for HTTP streaming.
 type CastFileStream struct {
 	Body     io.ReadCloser
 	FileSize int64

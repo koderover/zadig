@@ -468,6 +468,7 @@ func (w *countingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// buildObjectKey defines the date-partitioned object-storage path for a cast file.
 func buildObjectKey(sessionType models.TerminalSessionType, startedAt time.Time, sessionID string) string {
 	return path.Join(
 		"terminal-cast",

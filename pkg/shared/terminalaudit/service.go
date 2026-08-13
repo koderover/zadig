@@ -123,6 +123,7 @@ func normalizePagination(pageNum, pageSize *int64) error {
 	if *pageSize > maxTerminalAuditPageSize {
 		*pageSize = maxTerminalAuditPageSize
 	}
+	// Guard the skip calculation in repository List methods against int64 overflow.
 	if *pageNum-1 > math.MaxInt64 / *pageSize {
 		return e.NewWithDesc(e.ErrInvalidParam, "pageNum is too large")
 	}

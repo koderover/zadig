@@ -27,7 +27,7 @@ func NewAuditSession(meta *SessionMeta, terminate func()) (*AuditSession, error)
 }
 
 func (a *AuditSession) Close(finalStatus models.TerminalSessionStatus) error {
-	if session, ok := registry.load(a.SessionID); ok {
+	if session, ok := loadActiveSession(a.SessionID); ok {
 		finalStatus = session.closeWithStatus(finalStatus)
 		unregisterActiveSession(a.SessionID)
 	}

@@ -20,12 +20,8 @@ type activeSession struct {
 	closeOnce       sync.Once
 }
 
-type activeSessionRegistry struct {
-	sessions sync.Map
-}
-
-// registry isolates the active-session lifecycle from persisted audit records.
-var registry = &activeSessionRegistry{}
+// activeSessions tracks live terminal sessions separately from persisted audit records.
+var activeSessions sync.Map
 
 func registerActiveSession(sessionID string, terminate func()) error {
 	processContext := processLifecycleContext()
@@ -41,7 +37,7 @@ func registerActiveSession(sessionID string, terminate func()) error {
 		terminateSub:    terminateSub,
 		terminateCancel: cancel,
 	}
-	registry.sessions.Store(sessionID, session)
+	activeSessions.Store(sessionID, session)
 
 	go func() {
 		for {
@@ -65,10 +61,10 @@ func registerActiveSession(sessionID string, terminate func()) error {
 }
 
 func unregisterActiveSession(sessionID string) {
-	if session, ok := registry.load(sessionID); ok {
+	if session, ok := loadActiveSession(sessionID); ok {
 		session.close()
 	}
-	registry.sessions.Delete(sessionID)
+	activeSessions.Delete(sessionID)
 }
 
 func (s *activeSession) terminateWithStatus(status models.TerminalSessionStatus) {
@@ -105,9 +101,8 @@ func (s *activeSession) close() {
 	})
 }
 
-func (r *activeSessionRegistry) load(sessionID string) (*activeSession, bool) {
-	// Keep the sync.Map type assertion in one place for all registry callers.
-	value, ok := r.sessions.Load(sessionID)
+func loadActiveSession(sessionID string) (*activeSession, bool) {
+	value, ok := activeSessions.Load(sessionID)
 	if !ok {
 		return nil, false
 	}
