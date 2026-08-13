@@ -1811,11 +1811,6 @@ func DeleteHelmReleases(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.RespErr = err
-		return
-	}
-
 	ctx.RespErr = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, isDelete, ctx.Logger)
 }
 
