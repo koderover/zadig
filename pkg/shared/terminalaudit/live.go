@@ -19,9 +19,12 @@ package terminalaudit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	redisv9 "github.com/redis/go-redis/v9"
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -34,6 +37,8 @@ const (
 	liveStateTTL               = 30 * time.Second
 	liveHeartbeatInterval      = 10 * time.Second
 	livePublishBufferSize      = 512
+	liveStateReadRetries       = 5
+	liveStateReadRetryDelay    = 100 * time.Millisecond
 )
 
 const (
@@ -257,11 +262,18 @@ func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {
 		cancel()
 		return nil, nil, err
 	}
-	data, err := redis.GetString(liveStateKey(sessionID))
-	if err != nil {
-		_ = subscription.Close()
-		cancel()
-		return nil, nil, fmt.Errorf("load live terminal state: %w", err)
+	var data string
+	for attempt := 0; attempt < liveStateReadRetries; attempt++ {
+		data, err = redis.GetString(liveStateKey(sessionID))
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, redisv9.Nil) || attempt == liveStateReadRetries-1 {
+			_ = subscription.Close()
+			cancel()
+			return nil, nil, fmt.Errorf("load live terminal state: %w", err)
+		}
+		time.Sleep(liveStateReadRetryDelay)
 	}
 	state := liveState{}
 	if err := json.Unmarshal([]byte(data), &state); err != nil {
