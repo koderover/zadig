@@ -62,6 +62,7 @@ func (c *TerminalCommandColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 		{
+			// Commands are exact-match filters and may be too long for a regular index key.
 			Keys:    bson.D{{Key: "command", Value: "hashed"}},
 			Options: options.Index().SetUnique(false),
 		},
