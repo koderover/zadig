@@ -115,6 +115,8 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 
 func (e *CommandExtractor) flush() []ExtractedCommand {
 	commands := make([]ExtractedCommand, 0)
+	// Replaying deferred input can discover another interactive command and queue
+	// more input, so drain until no pending input remains.
 	for len(e.pendingInputs) > 0 {
 		pendingInputs := e.pendingInputs
 		e.pendingInteractive = false
@@ -127,6 +129,8 @@ func (e *CommandExtractor) flush() []ExtractedCommand {
 	return commands
 }
 
+// consumePlainByte parses terminal input; ESC starts a terminal control sequence.
+// consumePastedByte intentionally keeps ESC as command content while bracketed paste is active.
 func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
 	switch ch {
 	case 0x1b:

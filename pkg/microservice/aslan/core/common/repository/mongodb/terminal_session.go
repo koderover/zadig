@@ -165,6 +165,8 @@ func (c *TerminalSessionColl) CloseSession(args *CloseSessionArgs) error {
 
 func (c *TerminalSessionColl) List(args *models.TerminalSessionListArgs) ([]*models.TerminalSession, int64, error) {
 	resp := make([]*models.TerminalSession, 0)
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
 	query := bson.M{}
 	if args != nil {
 		if args.Status != "" {
@@ -207,15 +209,15 @@ func (c *TerminalSessionColl) List(args *models.TerminalSessionListArgs) ([]*mod
 	if args != nil && args.PageNum > 0 && args.PageSize > 0 {
 		opts.SetSkip((args.PageNum - 1) * args.PageSize).SetLimit(args.PageSize)
 	}
-	cursor, err := c.Find(context.TODO(), query, opts)
+	cursor, err := c.Find(ctx, query, opts)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer cursor.Close(context.TODO())
+	defer cursor.Close(ctx)
 
-	if err := cursor.All(context.TODO(), &resp); err != nil {
+	if err := cursor.All(ctx, &resp); err != nil {
 		return nil, 0, err
 	}
-	total, err := c.CountDocuments(context.TODO(), query)
+	total, err := c.CountDocuments(ctx, query)
 	return resp, total, err
 }

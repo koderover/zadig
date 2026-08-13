@@ -447,6 +447,7 @@ func (r *asciicastRecorder) getRecordErr() error {
 	return r.recordErr
 }
 
+// normalizeDimension applies the shared terminal-size defaulting rule.
 func normalizeDimension(value, fallback int) int {
 	if value > 0 {
 		return value

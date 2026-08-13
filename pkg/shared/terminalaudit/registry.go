@@ -24,6 +24,7 @@ type activeSessionRegistry struct {
 	sessions sync.Map
 }
 
+// registry isolates the active-session lifecycle from persisted audit records.
 var registry = &activeSessionRegistry{}
 
 func registerActiveSession(sessionID string, terminate func()) error {
@@ -105,6 +106,7 @@ func (s *activeSession) close() {
 }
 
 func (r *activeSessionRegistry) load(sessionID string) (*activeSession, bool) {
+	// Keep the sync.Map type assertion in one place for all registry callers.
 	value, ok := r.sessions.Load(sessionID)
 	if !ok {
 		return nil, false

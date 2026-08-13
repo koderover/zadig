@@ -79,6 +79,7 @@ func subscribeRedis(ctx context.Context, redis *cache.RedisCache, channel string
 				select {
 				case subscription.messages <- message.Payload:
 				default:
+					// Observer is too slow; close the subscription instead of blocking terminal I/O.
 					return
 				}
 			}

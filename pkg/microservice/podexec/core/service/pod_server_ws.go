@@ -209,14 +209,12 @@ FOR:
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败")
 	}
 
-	credValues := func() (secrets []string) {
-		for _, v := range jobTaskSpec.Properties.Envs {
-			if v.IsCredential {
-				secrets = append(secrets, v.Value)
-			}
+	var credValues []string
+	for _, v := range jobTaskSpec.Properties.Envs {
+		if v.IsCredential {
+			credValues = append(credValues, v.Value)
 		}
-		return secrets
-	}()
+	}
 
 	pty, err := NewTerminalSession(c.Writer, c.Request, nil)
 	if err != nil {
