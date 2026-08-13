@@ -498,38 +498,6 @@ func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor,
 	return c.Collection.Find(context.TODO(), query)
 }
 
-// ListNamesByAITarget returns the display names of the workflows that reference the
-// given AI target in an AI job, so that the target is not deleted while still in use.
-func (c *WorkflowV4Coll) ListNamesByAITarget(ctx context.Context, targetType, targetID string) ([]string, error) {
-	query := bson.M{
-		"stages.jobs": bson.M{
-			"$elemMatch": bson.M{
-				"type":             config.JobAI,
-				"spec.target_type": targetType,
-				"spec.target_id":   targetID,
-			},
-		},
-	}
-	cursor, err := c.Collection.Find(ctx, query, options.Find().SetProjection(bson.M{"display_name": 1, "name": 1}))
-	if err != nil {
-		return nil, err
-	}
-	workflows := make([]*models.WorkflowV4, 0)
-	if err := cursor.All(ctx, &workflows); err != nil {
-		return nil, err
-	}
-
-	names := make([]string, 0, len(workflows))
-	for _, workflow := range workflows {
-		name := workflow.DisplayName
-		if name == "" {
-			name = workflow.Name
-		}
-		names = append(names, name)
-	}
-	return names, nil
-}
-
 func (c *WorkflowV4Coll) GetJobNameList(projectName, workflowName, jobType string) ([]string, error) {
 	workflow := new(models.WorkflowV4)
 	query := bson.M{"project": projectName, "name": workflowName}

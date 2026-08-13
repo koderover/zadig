@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -142,13 +141,6 @@ func toAgentIntegrationBriefs(integrations []*commonmodels.AgentIntegration) ([]
 func DeleteAgentIntegration(ctx context.Context, projectName, id string) error {
 	if _, err := findProjectAgentIntegration(ctx, projectName, id); err != nil {
 		return e.ErrDeleteAgentIntegration.AddErr(err)
-	}
-	workflowNames, err := commonrepo.NewWorkflowV4Coll().ListNamesByAITarget(ctx, config.AITargetTypeAgent, id)
-	if err != nil {
-		return e.ErrDeleteAgentIntegration.AddErr(fmt.Errorf("find workflows referencing the agent: %w", err))
-	}
-	if len(workflowNames) > 0 {
-		return e.ErrDeleteAgentIntegration.AddErr(fmt.Errorf("agent is still used by workflow: %s", strings.Join(workflowNames, ", ")))
 	}
 	if err := commonrepo.NewAgentIntegrationColl().Delete(ctx, id); err != nil {
 		return e.ErrDeleteAgentIntegration.AddErr(err)
