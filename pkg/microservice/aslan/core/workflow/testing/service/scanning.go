@@ -186,6 +186,8 @@ func ListCodeRepoScannings(ctx *internalhandler.Context, projectName string) ([]
 
 	repoItemMap := make(map[string]*ListCodeRepoScanningRespItem)
 	repoKeys := make([]string, 0)
+	// scannings that have no repo configured, they are grouped into a single item at the end of the response
+	noRepoScannings := make([]*CodeRepoScanning, 0)
 
 	for _, scanning := range scanningList {
 		res, err := ListScanningTask(scanning.ID.Hex(), 0, 0, ctx.Logger)
@@ -214,9 +216,11 @@ func ListCodeRepoScannings(ctx *internalhandler.Context, projectName string) ([]
 			UpdateBy:       scanning.UpdatedBy,
 		}
 
-		if len(scanning.Repos) == 0 {
+		if len(scanning.Repos) == 0 || scanning.Repos[0] == nil {
+			noRepoScannings = append(noRepoScannings, item)
 			continue
 		}
+
 		repo := scanning.Repos[0]
 		namespace := repo.GetRepoNamespace()
 		key := fmt.Sprintf("%d/%s/%s", repo.CodehostID, namespace, repo.RepoName)
@@ -237,6 +241,13 @@ func ListCodeRepoScannings(ctx *internalhandler.Context, projectName string) ([]
 	for _, key := range repoKeys {
 		resp = append(resp, repoItemMap[key])
 	}
+
+	if len(noRepoScannings) > 0 {
+		resp = append(resp, &ListCodeRepoScanningRespItem{
+			CodeRepoScannings: noRepoScannings,
+		})
+	}
+
 	return resp, int64(len(resp)), nil
 }
 
