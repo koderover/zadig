@@ -626,6 +626,18 @@ func InitializeExternalCluster(clusterID string) error {
 			},
 		},
 	}
+	if cluster.DindCfg == nil || cluster.DindCfg.Storage == nil || cluster.DindCfg.Storage.Type != string(commonmodels.DindStorageDynamic) {
+		dindSts.Spec.Template.Spec.Containers[0].VolumeMounts = append(dindSts.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      types.DindMountName,
+			MountPath: types.DindMountPath,
+		})
+		dindSts.Spec.Template.Spec.Volumes = append(dindSts.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: types.DindMountName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	}
 
 	_, err = clientset.AppsV1().StatefulSets("koderover-agent").Create(context.TODO(), dindSts, metav1.CreateOptions{})
 	if err != nil {
@@ -1120,6 +1132,10 @@ spec:
                 path: server-cert.pem
               - key: server-key.pem
                 path: server-key.pem
+{{ if not .DindEnablePV }}
+        - name: zadig-docker
+          emptyDir: {}
+{{ end }}
       containers:
         - name: dind
           image: {{.DindImage}}
@@ -1149,10 +1165,8 @@ spec:
           - name: dind-tls-certs
             mountPath: /etc/zadig/dind/tls
             readOnly: true
-{{ if .DindEnablePV }}
           - name: zadig-docker
             mountPath: /var/lib/docker
-{{ end }}
 {{ if .DindEnablePV }}
   volumeClaimTemplates:
   - metadata:
@@ -1304,6 +1318,10 @@ spec:
                 path: server-cert.pem
               - key: server-key.pem
                 path: server-key.pem
+{{ if not .DindEnablePV }}
+        - name: zadig-docker
+          emptyDir: {}
+{{ end }}
       containers:
         - name: dind
           image: {{.DindImage}}
@@ -1333,10 +1351,8 @@ spec:
           - name: dind-tls-certs
             mountPath: /etc/zadig/dind/tls
             readOnly: true
-{{ if .DindEnablePV }}
           - name: zadig-docker
             mountPath: /var/lib/docker
-{{ end }}
 {{ if .DindEnablePV }}
   volumeClaimTemplates:
   - metadata:
