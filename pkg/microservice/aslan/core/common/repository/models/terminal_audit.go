@@ -113,3 +113,38 @@ type TerminalCommandListArgs struct {
 	PageNum     int64  `form:"pageNum" json:"pageNum"`
 	PageSize    int64  `form:"pageSize" json:"pageSize"`
 }
+
+type TerminalAuditAIStatus string
+
+const (
+	TerminalAuditAIStatusSucceeded TerminalAuditAIStatus = "succeeded"
+	TerminalAuditAIStatusFailed    TerminalAuditAIStatus = "failed"
+)
+
+type TerminalAuditAIFinding struct {
+	Seq        int64  `bson:"seq"        json:"seq"`
+	Command    string `bson:"command"    json:"command"`
+	Risk       string `bson:"risk"       json:"risk"`
+	Reason     string `bson:"reason"     json:"reason"`
+	Suggestion string `bson:"suggestion" json:"suggestion"`
+}
+
+type TerminalAuditAIResult struct {
+	ID           primitive.ObjectID       `bson:"_id,omitempty"    json:"id,omitempty"`
+	SessionID    string                   `bson:"session_id"       json:"session_id"`
+	Status       TerminalAuditAIStatus    `bson:"status"           json:"status"`
+	RiskLevel    string                   `bson:"risk_level"       json:"risk_level"`
+	Summary      string                   `bson:"summary"          json:"summary"`
+	Findings     []TerminalAuditAIFinding `bson:"findings"         json:"findings"`
+	Coverage     string                   `bson:"coverage"         json:"coverage"`
+	Prompt       string                   `bson:"prompt"           json:"prompt,omitempty"`
+	Answer       string                   `bson:"answer"           json:"answer,omitempty"`
+	TokenNum     int                      `bson:"token_num"        json:"token_num"`
+	ErrorMessage string                   `bson:"error_message"    json:"error_message,omitempty"`
+	CreatedAt    int64                    `bson:"created_at"       json:"created_at"`
+	UpdatedAt    int64                    `bson:"updated_at"       json:"updated_at"`
+}
+
+func (TerminalAuditAIResult) TableName() string {
+	return "terminal_audit_ai_result"
+}
