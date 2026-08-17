@@ -337,8 +337,12 @@ func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req
 
 	switch createFrom := req.CreateFrom.(type) {
 	case *OpenAPICreateFromRepo:
+		codehost, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(createFrom.CodehostName)
+		if err != nil {
+			return nil, e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("failed to get codehost by name %s: %s", createFrom.CodehostName, err))
+		}
 		args.CreateFrom = &CreateFromRepo{
-			CodehostID: createFrom.CodehostID,
+			CodehostID: codehost.ID,
 			Owner:      createFrom.Owner,
 			Namespace:  createFrom.Namespace,
 			Repo:       createFrom.Repo,
