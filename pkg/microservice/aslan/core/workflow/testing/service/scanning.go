@@ -138,6 +138,11 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 }
 
 func validateAIReviewScanningConfig(args *Scanning) error {
+	if args.CheckQualityGate {
+		if err := commonservice.ValidateReviewFailOn(args.ReviewFailOn); err != nil {
+			return err
+		}
+	}
 	if args.Infrastructure != "" && args.Infrastructure != setting.JobK8sInfrastructure {
 		return fmt.Errorf("AI review scanning only supports Kubernetes infrastructure")
 	}

@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type Client struct {
@@ -48,7 +49,7 @@ func NewClient() *Client {
 	return &Client{logger: log.SugaredLogger()}
 }
 
-func (c *Client) UpsertAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
+func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
 	if prID <= 0 {
 		return fmt.Errorf("invalid pull/merge request ID %d", prID)
 	}
@@ -70,7 +71,7 @@ func (c *Client) UpsertAIReviewComment(codehostID int, projectID, repoOwner, rep
 		if err != nil {
 			return fmt.Errorf("create gitlab client: %w", err)
 		}
-		return c.upsertGitLabAIReviewComment(cli.Client, projectID, prID, comment)
+		return createGitLabAIReviewComment(cli.Client, projectID, prID, comment)
 	case setting.SourceFromGithub:
 		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
 		if err != nil {
@@ -79,50 +80,164 @@ func (c *Client) UpsertAIReviewComment(codehostID int, projectID, repoOwner, rep
 		if cli == nil {
 			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
 		}
-		return c.upsertGitHubAIReviewComment(cli.Client.Client, repoOwner, repoName, prID, comment)
+		return createGitHubAIReviewComment(context.Background(), cli.Client.Client, repoOwner, repoName, prID, comment)
 	default:
 		return fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
 	}
 }
 
-func (c *Client) upsertGitHubAIReviewComment(cli *githubapi.Client, repoOwner, repoName string, prID int, comment string) error {
-	ctx := context.Background()
-	options := &githubapi.IssueListCommentsOptions{
-		Sort:      githubapi.String("updated"),
-		Direction: githubapi.String("desc"),
-		ListOptions: githubapi.ListOptions{
-			PerPage: 100,
-		},
+func (c *Client) createAIReviewInlineComments(codehostID int, projectID, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
+	if prID <= 0 {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("invalid pull/merge request ID %d", prID)
 	}
-	for {
-		comments, resp, err := cli.Issues.ListComments(ctx, repoOwner, repoName, prID, options)
+	codeHostDetail, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return aiReviewInlinePublishResult{}, errors.Wrapf(err, "codehost %d not found to publish inline AI review comments", codehostID)
+	}
+
+	switch strings.ToLower(codeHostDetail.Type) {
+	case setting.SourceFromGitlab:
+		cli, err := gitlabtool.NewClient(
+			codeHostDetail.ID,
+			codeHostDetail.Address,
+			codeHostDetail.AccessToken,
+			config.ProxyHTTPSAddr(),
+			codeHostDetail.EnableProxy,
+			codeHostDetail.DisableSSL,
+		)
 		if err != nil {
-			c.logAIReviewCommentFallback("list GitHub pull request comments", err)
-			return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+			return aiReviewInlinePublishResult{}, fmt.Errorf("create gitlab client: %w", err)
 		}
-		for _, existingComment := range comments {
-			if existingComment == nil || !strings.Contains(existingComment.GetBody(), aiReviewCommentMarker) {
+		return c.createGitLabAIReviewInlineComments(cli.Client, projectID, prID, report)
+	case setting.SourceFromGithub:
+		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
+		if err != nil {
+			return aiReviewInlinePublishResult{}, fmt.Errorf("create github app client: %w", err)
+		}
+		if cli == nil {
+			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
+		}
+		return c.createGitHubAIReviewInlineComments(context.Background(), cli.Client.Client, repoOwner, repoName, prID, report)
+	default:
+		return aiReviewInlinePublishResult{}, fmt.Errorf("codehost type %q does not support inline AI review comments", codeHostDetail.Type)
+	}
+}
+
+func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *githubapi.Client, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
+	pullRequest, _, err := cli.PullRequests.Get(ctx, repoOwner, repoName, prID)
+	if err != nil {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitHub pull request: %w", err)
+	}
+	headSHA := pullRequest.GetHead().GetSHA()
+	if headSHA == "" {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("GitHub pull request head SHA is empty")
+	}
+
+	patches := make(map[string]string)
+	options := &githubapi.ListOptions{PerPage: 100}
+	for {
+		files, resp, err := cli.PullRequests.ListFiles(ctx, repoOwner, repoName, prID, options)
+		if err != nil {
+			return aiReviewInlinePublishResult{}, fmt.Errorf("list GitHub pull request files: %w", err)
+		}
+		for _, file := range files {
+			if file == nil {
 				continue
 			}
-			_, _, err = cli.Issues.EditComment(
-				ctx,
-				repoOwner,
-				repoName,
-				existingComment.GetID(),
-				&githubapi.IssueComment{Body: &comment},
-			)
-			if err == nil {
-				return nil
-			}
-			c.logAIReviewCommentFallback("update GitHub pull request comment", err)
-			return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+			patches[file.GetFilename()] = file.GetPatch()
 		}
 		if resp == nil || resp.NextPage == 0 {
 			break
 		}
 		options.Page = resp.NextPage
 	}
-	return createGitHubAIReviewComment(ctx, cli, repoOwner, repoName, prID, comment)
+
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0)}
+	comments := make([]*githubapi.DraftReviewComment, 0, len(report.Findings))
+	for _, finding := range report.Findings {
+		anchor, ok := findAIReviewAddedLine(patches[finding.File], finding.StartLine, finding.EndLine)
+		if !ok {
+			result.Fallback = append(result.Fallback, finding)
+			continue
+		}
+		comments = append(comments, &githubapi.DraftReviewComment{
+			Path: githubapi.String(finding.File),
+			Body: githubapi.String(formatAIReviewInlineComment(finding)),
+			Side: githubapi.String("RIGHT"),
+			Line: githubapi.Int(anchor),
+		})
+	}
+	if len(comments) == 0 {
+		return result, nil
+	}
+	_, _, err = cli.PullRequests.CreateReview(ctx, repoOwner, repoName, prID, &githubapi.PullRequestReviewRequest{
+		CommitID: githubapi.String(headSHA),
+		Event:    githubapi.String("COMMENT"),
+		Comments: comments,
+	})
+	if err != nil {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("create GitHub pull request review: %w", err)
+	}
+	result.Published = len(comments)
+	return result, nil
+}
+
+func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectID string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
+	mergeRequest, _, err := cli.MergeRequests.GetMergeRequestChanges(projectID, prID, nil)
+	if err != nil {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitLab merge request changes: %w", err)
+	}
+	if mergeRequest.DiffRefs.HeadSha == "" {
+		return aiReviewInlinePublishResult{}, fmt.Errorf("GitLab merge request head SHA is empty")
+	}
+
+	type gitLabPatch struct {
+		oldPath string
+		patch   string
+	}
+	patches := make(map[string]gitLabPatch, len(mergeRequest.Changes))
+	for _, change := range mergeRequest.Changes {
+		patches[change.NewPath] = gitLabPatch{oldPath: change.OldPath, patch: change.Diff}
+	}
+
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0)}
+	for _, finding := range report.Findings {
+		filePatch, ok := patches[finding.File]
+		if !ok {
+			result.Fallback = append(result.Fallback, finding)
+			continue
+		}
+		anchor, ok := findAIReviewAddedLine(filePatch.patch, finding.StartLine, finding.EndLine)
+		if !ok {
+			result.Fallback = append(result.Fallback, finding)
+			continue
+		}
+		_, _, err := cli.Discussions.CreateMergeRequestDiscussion(
+			projectID,
+			prID,
+			&gitlab.CreateMergeRequestDiscussionOptions{
+				Body: gitlab.String(formatAIReviewInlineComment(finding)),
+				Position: &gitlab.NotePosition{
+					BaseSHA:      mergeRequest.DiffRefs.BaseSha,
+					StartSHA:     mergeRequest.DiffRefs.StartSha,
+					HeadSHA:      mergeRequest.DiffRefs.HeadSha,
+					PositionType: "text",
+					OldPath:      filePatch.oldPath,
+					NewPath:      finding.File,
+					NewLine:      anchor,
+				},
+			},
+		)
+		if err != nil {
+			result.Fallback = append(result.Fallback, finding)
+			if c.logger != nil {
+				c.logger.Warnf("failed to create GitLab inline AI review comment for %s:%d: %v", finding.File, anchor, err)
+			}
+			continue
+		}
+		result.Published++
+	}
+	return result, nil
 }
 
 func createGitHubAIReviewComment(ctx context.Context, cli *githubapi.Client, repoOwner, repoName string, prID int, comment string) error {
@@ -139,44 +254,6 @@ func createGitHubAIReviewComment(ctx context.Context, cli *githubapi.Client, rep
 	return nil
 }
 
-func (c *Client) upsertGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int, comment string) error {
-	options := &gitlab.ListMergeRequestNotesOptions{
-		OrderBy: gitlab.String("updated_at"),
-		Sort:    gitlab.String("desc"),
-		ListOptions: gitlab.ListOptions{
-			PerPage: 100,
-		},
-	}
-	for {
-		notes, resp, err := cli.Notes.ListMergeRequestNotes(projectID, prID, options)
-		if err != nil {
-			c.logAIReviewCommentFallback("list GitLab merge request notes", err)
-			return createGitLabAIReviewComment(cli, projectID, prID, comment)
-		}
-		for _, note := range notes {
-			if note == nil || !strings.Contains(note.Body, aiReviewCommentMarker) {
-				continue
-			}
-			_, _, err = cli.Notes.UpdateMergeRequestNote(
-				projectID,
-				prID,
-				note.ID,
-				&gitlab.UpdateMergeRequestNoteOptions{Body: &comment},
-			)
-			if err == nil {
-				return nil
-			}
-			c.logAIReviewCommentFallback("update GitLab merge request note", err)
-			return createGitLabAIReviewComment(cli, projectID, prID, comment)
-		}
-		if resp == nil || resp.NextPage == 0 {
-			break
-		}
-		options.Page = resp.NextPage
-	}
-	return createGitLabAIReviewComment(cli, projectID, prID, comment)
-}
-
 func createGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int, comment string) error {
 	_, _, err := cli.Notes.CreateMergeRequestNote(
 		projectID,
@@ -187,12 +264,6 @@ func createGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int,
 		return fmt.Errorf("create GitLab merge request note: %w", err)
 	}
 	return nil
-}
-
-func (c *Client) logAIReviewCommentFallback(operation string, err error) {
-	if c.logger != nil {
-		c.logger.Warnf("failed to %s, fallback to creating a new AI review comment: %v", operation, err)
-	}
 }
 
 // Comment send comment to gitlab and set comment id in notify

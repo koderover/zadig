@@ -44,6 +44,23 @@ func ValidateReviewRules(rules []*commonmodels.ReviewRule) error {
 	return nil
 }
 
+func ValidateReviewFailOn(failOn []string) error {
+	validSeverities := map[string]struct{}{
+		"critical": {},
+		"high":     {},
+		"medium":   {},
+		"low":      {},
+	}
+	for i, severity := range failOn {
+		severity = strings.TrimSpace(severity)
+		if _, ok := validSeverities[severity]; !ok {
+			return fmt.Errorf("review fail_on at index %d contains invalid severity %q", i, severity)
+		}
+		failOn[i] = severity
+	}
+	return nil
+}
+
 func MergeReviewRules(scanningRules, systemRules []*commonmodels.ReviewRule) []*commonmodels.ReviewRule {
 	result := make([]*commonmodels.ReviewRule, 0, len(scanningRules)+len(systemRules))
 	overridden := make(map[string]struct{}, len(scanningRules))
