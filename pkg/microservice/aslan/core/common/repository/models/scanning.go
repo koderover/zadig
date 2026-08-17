@@ -52,6 +52,7 @@ type Scanning struct {
 	Outputs            []*Output                `bson:"outputs"               json:"outputs"`
 	ReviewIncludePaths []string                 `bson:"review_include_paths,omitempty" json:"review_include_paths,omitempty"`
 	ReviewExcludePaths []string                 `bson:"review_exclude_paths,omitempty" json:"review_exclude_paths,omitempty"`
+	ReviewFailOn       []string                 `bson:"review_fail_on,omitempty" json:"review_fail_on,omitempty"`
 	ReviewRules        []*ReviewRule            `bson:"review_rules,omitempty" json:"review_rules,omitempty"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
