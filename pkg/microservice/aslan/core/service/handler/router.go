@@ -124,7 +124,7 @@ type OpenAPIRouter struct{}
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	loader := router.Group("loader")
 	{
-		loader.POST("/load/:codehostId", LoadServiceTemplateFromCodeHostOpenAPI)
+		loader.POST("/load", LoadServiceTemplateFromCodeHostOpenAPI)
 	}
 
 	template := router.Group("template")

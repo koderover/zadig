@@ -247,14 +247,14 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 }
 
 type OpenAPILoadServiceFromCodeHostReq struct {
-	CodehostID int    `json:"-"`
-	RepoName   string `json:"-"`
-	RepoUUID   string `json:"-"`
-	BranchName string `json:"-"`
-	RemoteName string `json:"-"`
-	RepoOwner  string `json:"-"`
-	Namespace  string `json:"-"`
-	Production bool   `json:"-"`
+	CodehostName string `json:"-"`
+	RepoName     string `json:"-"`
+	RepoUUID     string `json:"-"`
+	BranchName   string `json:"-"`
+	RemoteName   string `json:"-"`
+	RepoOwner    string `json:"-"`
+	Namespace    string `json:"-"`
+	Production   bool   `json:"-"`
 	// 项目标识
 	ProductName string `json:"product_name"`
 	// 服务路径列表
@@ -262,6 +262,9 @@ type OpenAPILoadServiceFromCodeHostReq struct {
 }
 
 func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
+	if req.CodehostName == "" {
+		return fmt.Errorf("codehostName cannot be empty")
+	}
 	if req.RepoName == "" && req.RepoUUID == "" {
 		return fmt.Errorf("repoName and repoUUID cannot be empty at the same time")
 	}
