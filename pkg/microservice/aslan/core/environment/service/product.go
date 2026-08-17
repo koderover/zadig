@@ -195,6 +195,9 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 						ImagePath: c.ImagePath,
 						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
+					if serviceTmpl.Type == setting.HelmDeployType {
+						container.ImagePaths = c.ImagePaths
+					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 					serviceResp.VariableYaml = serviceTmpl.VariableYaml
 					serviceResp.VariableKVs = commontypes.ServiceToRenderVariableKVs(serviceTmpl.ServiceVariableKVs)

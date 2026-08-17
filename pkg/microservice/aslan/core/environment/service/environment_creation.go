@@ -115,10 +115,11 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 					return e.ErrCreateEnv.AddDesc(errMsg)
 				}
 				container := &commonmodels.Container{
-					Name:      c.Name,
-					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
-					Image:     image,
-					ImagePath: c.ImagePath,
+					Name:       c.Name,
+					ImageName:  util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
+					Image:      image,
+					ImagePath:  c.ImagePath,
+					ImagePaths: c.ImagePaths,
 				}
 				serviceResp.Containers = append(serviceResp.Containers, container)
 			}

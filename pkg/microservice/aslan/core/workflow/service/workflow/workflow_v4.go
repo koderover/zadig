@@ -2902,12 +2902,18 @@ func HelmDeployJobMergeImage(ctx *internalhandler.Context, projectName, envName,
 
 	imageValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range mergedContainers {
-		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", projectName, serviceName, err.Error())
+		// Prepare replacement data for every image path.
+		imagePaths := targetContainer.ImagePaths
+		if len(imagePaths) == 0 && targetContainer.ImagePath != nil {
+			imagePaths = []*commonmodels.ImagePathSpec{targetContainer.ImagePath}
 		}
-		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+		for _, imagePath := range imagePaths {
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(imagePath))
+			if err != nil {
+				return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", projectName, serviceName, err.Error())
+			}
+			imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+		}
 	}
 
 	// replace image into service's values.yaml

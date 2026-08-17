@@ -1644,37 +1644,34 @@ type ServiceImageDetails struct {
 func updateValuesImage(service *commonmodels.DeliveryVersionService) ([]byte, error) {
 	retValuesYaml := service.YamlContent
 
-	imagePathSpecs := make([]map[string]string, 0)
 	for _, image := range service.Images {
-		imageSearchRule := &template.ImageSearchingRule{
-			Repo:      image.ImagePath.Repo,
-			Namespace: image.ImagePath.Namespace,
-			Image:     image.ImagePath.Image,
-			Tag:       image.ImagePath.Tag,
+		imagePaths := image.ImagePaths
+		if len(imagePaths) == 0 && image.ImagePath != nil {
+			imagePaths = []*commonmodels.ImagePathSpec{image.ImagePath}
 		}
-		pattern := imageSearchRule.GetSearchingPattern()
-		imagePathSpecs = append(imagePathSpecs, pattern)
-	}
+		for _, imagePath := range imagePaths {
+			if imagePath == nil {
+				continue
+			}
+			imageSearchRule := &template.ImageSearchingRule{
+				Repo:      imagePath.Repo,
+				Namespace: imagePath.Namespace,
+				Image:     imagePath.Image,
+				Tag:       imagePath.Tag,
+			}
+			pattern := imageSearchRule.GetSearchingPattern()
 
-	for _, image := range service.Images {
-		imageSearchRule := &template.ImageSearchingRule{
-			Repo:      image.ImagePath.Repo,
-			Namespace: image.ImagePath.Namespace,
-			Image:     image.ImagePath.Image,
-			Tag:       image.ImagePath.Tag,
-		}
-		pattern := imageSearchRule.GetSearchingPattern()
+			// assign image to values.yaml
+			replaceValuesMap, err := commonutil.AssignImageData(image.TargetImage, pattern)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pase image uri %s, err %s", image.TargetImage, err)
+			}
 
-		// assign image to values.yaml
-		replaceValuesMap, err := commonutil.AssignImageData(image.TargetImage, pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pase image uri %s, err %s", image.TargetImage, err)
-		}
-
-		// replace image into final merged values.yaml
-		retValuesYaml, err = commonutil.ReplaceImage(retValuesYaml, replaceValuesMap)
-		if err != nil {
-			return nil, err
+			// replace image into final merged values.yaml
+			retValuesYaml, err = commonutil.ReplaceImage(retValuesYaml, replaceValuesMap)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -140,6 +140,7 @@ func CloneAutoServiceModulesForRevision(ctx context.Context, projectName, servic
 			Image:      record.Image,
 			ImageName:  record.ImageName,
 			ImagePath:  record.ImagePath,
+			ImagePaths: record.ImagePaths,
 			CreateTime: record.CreateTime,
 		})
 	}
@@ -192,10 +193,21 @@ func pickServiceModuleColl(production bool) *mongodb.ServiceModuleColl {
 
 func containersToAutoRecords(projectName, serviceName string, revision int64, containers []*models.Container) []*models.ServiceModule {
 	records := make([]*models.ServiceModule, 0, len(containers))
+	// Merge paths with the same image name into one record.
+	byName := make(map[string]int, len(containers))
 	for _, c := range containers {
 		if c == nil || c.Name == "" || c.Name == "<nil>" {
 			continue
 		}
+		imagePaths := c.ImagePaths
+		if len(imagePaths) == 0 && c.ImagePath != nil {
+			imagePaths = []*models.ImagePathSpec{c.ImagePath}
+		}
+		if idx, ok := byName[c.Name]; ok {
+			records[idx].ImagePaths = append(records[idx].ImagePaths, imagePaths...)
+			continue
+		}
+		byName[c.Name] = len(records)
 		records = append(records, &models.ServiceModule{
 			ProjectName:   projectName,
 			ServiceName:   serviceName,
@@ -206,6 +218,7 @@ func containersToAutoRecords(projectName, serviceName string, revision int64, co
 			Image:         c.Image,
 			ImageName:     normalizeImageName(c.ImageName, c.Name),
 			ImagePath:     c.ImagePath,
+			ImagePaths:    imagePaths,
 		})
 	}
 	return records
@@ -257,11 +270,12 @@ func mergeServiceModules(records []*models.ServiceModule) []*models.Container {
 		}
 		seen[r.Name] = struct{}{}
 		winners = append(winners, &models.Container{
-			Name:      r.Name,
-			Type:      r.Type,
-			Image:     r.Image,
-			ImageName: r.ImageName,
-			ImagePath: r.ImagePath,
+			Name:       r.Name,
+			Type:       r.Type,
+			Image:      r.Image,
+			ImageName:  r.ImageName,
+			ImagePath:  r.ImagePath,
+			ImagePaths: r.ImagePaths,
 		})
 	}
 	return winners

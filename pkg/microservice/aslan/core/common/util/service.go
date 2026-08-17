@@ -484,6 +484,9 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 	}
 	ret := make([]*commonmodels.Container, 0)
 	usedImagePath := sets.NewString()
+	// Group all paths for the same image name.
+	byName := make(map[string]*commonmodels.Container)
+	nameOrder := make([]string, 0)
 	for _, searchResult := range matchedPath {
 		// Skip array elements - if any path contains "[" it's from an array
 		isArrayElement := false
@@ -507,17 +510,27 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 			return nil, err
 		}
 		name := ExtractImageName(imageUrl)
-		ret = append(ret, &commonmodels.Container{
-			Name:      name,
-			ImageName: name,
-			Image:     imageUrl,
-			ImagePath: &commonmodels.ImagePathSpec{
-				Repo:      searchResult[setting.PathSearchComponentRepo],
-				Namespace: searchResult[setting.PathSearchComponentNamespace],
-				Image:     searchResult[setting.PathSearchComponentImage],
-				Tag:       searchResult[setting.PathSearchComponentTag],
-			},
-		})
+		spec := &commonmodels.ImagePathSpec{
+			Repo:      searchResult[setting.PathSearchComponentRepo],
+			Namespace: searchResult[setting.PathSearchComponentNamespace],
+			Image:     searchResult[setting.PathSearchComponentImage],
+			Tag:       searchResult[setting.PathSearchComponentTag],
+		}
+		if existing, ok := byName[name]; ok {
+			existing.ImagePaths = append(existing.ImagePaths, spec)
+			continue
+		}
+		byName[name] = &commonmodels.Container{
+			Name:       name,
+			ImageName:  name,
+			Image:      imageUrl,
+			ImagePath:  spec,
+			ImagePaths: []*commonmodels.ImagePathSpec{spec},
+		}
+		nameOrder = append(nameOrder, name)
+	}
+	for _, name := range nameOrder {
+		ret = append(ret, byName[name])
 	}
 	return ret, nil
 }

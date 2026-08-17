@@ -75,6 +75,8 @@ type ServiceModule struct {
 	// ExtractImageName, falling back to Name.
 	ImageName string         `bson:"image_name,omitempty"      json:"image_name,omitempty"`
 	ImagePath *ImagePathSpec `bson:"image_path,omitempty"      json:"image_path,omitempty"`
+	// ImagePaths contains all Helm values paths for the same image.
+	ImagePaths []*ImagePathSpec `bson:"image_paths,omitempty"      json:"image_paths,omitempty"`
 
 	// Ignored marks an auto-discovered module as hidden for this revision.
 	// It is used as a tombstone when users delete an auto module, so later YAML

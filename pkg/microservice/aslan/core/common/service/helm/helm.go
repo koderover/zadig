@@ -403,16 +403,21 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 	// 1. calc weather to add container image into values yaml
 	mergedContainers := []*commonmodels.Container{}
 	for _, container := range productSvc.Containers {
-		if container.ImagePath == nil {
+		imagePaths := container.ImagePaths
+		if len(imagePaths) == 0 && container.ImagePath != nil {
+			imagePaths = []*commonmodels.ImagePathSpec{container.ImagePath}
+		}
+		if len(imagePaths) == 0 || imagePaths[0] == nil {
 			return "", fmt.Errorf("failed to parse image for container:%s", container.Image)
 		}
+		imagePath := imagePaths[0]
 
 		// find corresponding image in values
 		imageSearchRule := &templatemodels.ImageSearchingRule{
-			Repo:      container.ImagePath.Repo,
-			Namespace: container.ImagePath.Namespace,
-			Image:     container.ImagePath.Image,
-			Tag:       container.ImagePath.Tag,
+			Repo:      imagePath.Repo,
+			Namespace: imagePath.Namespace,
+			Image:     imagePath.Image,
+			Tag:       imagePath.Tag,
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imageUrl, err := commonutil.GeneImageURI(pattern, flatValuesMap)
@@ -444,12 +449,21 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 	serviceName := productSvc.ServiceName
 	imageValuesMaps := make([]map[string]interface{}, 0)
 	for _, mergedContainer := range mergedContainers {
-		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(mergedContainer.Image, commonutil.GetValidMatchData(mergedContainer.ImagePath))
-		if err != nil {
-			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
+		// Prepare replacement data for every image path.
+		imagePaths := mergedContainer.ImagePaths
+		if len(imagePaths) == 0 && mergedContainer.ImagePath != nil {
+			imagePaths = []*commonmodels.ImagePathSpec{mergedContainer.ImagePath}
 		}
-		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+		for _, imagePath := range imagePaths {
+			if imagePath == nil {
+				continue
+			}
+			replaceValuesMap, err := commonutil.AssignImageData(mergedContainer.Image, commonutil.GetValidMatchData(imagePath))
+			if err != nil {
+				return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
+			}
+			imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+		}
 	}
 
 	replacedEnvValuesYaml, err := commonutil.ReplaceImage(envValuesYaml, imageValuesMaps...)
@@ -480,15 +494,20 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		return "", fmt.Errorf("failed to flatten values map, err: %s", err)
 	}
 	for _, container := range productSvc.Containers {
-		if container.ImagePath == nil {
+		imagePaths := container.ImagePaths
+		if len(imagePaths) == 0 && container.ImagePath != nil {
+			imagePaths = []*commonmodels.ImagePathSpec{container.ImagePath}
+		}
+		if len(imagePaths) == 0 || imagePaths[0] == nil {
 			return "", fmt.Errorf("failed to parse image for container:%s", container.Image)
 		}
+		imagePath := imagePaths[0]
 
 		imageSearchRule := &templatemodels.ImageSearchingRule{
-			Repo:      container.ImagePath.Repo,
-			Namespace: container.ImagePath.Namespace,
-			Image:     container.ImagePath.Image,
-			Tag:       container.ImagePath.Tag,
+			Repo:      imagePath.Repo,
+			Namespace: imagePath.Namespace,
+			Image:     imagePath.Image,
+			Tag:       imagePath.Tag,
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imageUrl, err := commonutil.GeneImageURI(pattern, flatValuesMap)
@@ -570,6 +589,9 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 				} else {
 					if templateContainer.ImagePath != nil {
 						containerMap[templateContainer.Name].ImagePath = templateContainer.ImagePath
+					}
+					if len(templateContainer.ImagePaths) > 0 {
+						containerMap[templateContainer.Name].ImagePaths = templateContainer.ImagePaths
 					}
 					containerMap[templateContainer.Name].Type = templateContainer.Type
 				}

@@ -460,6 +460,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 					TargetImage:    image.TargetImage,
 					TargetImageTag: image.TargetImageTag,
 					ImagePath:      envImage.ImagePath,
+					ImagePaths:     envImage.ImagePaths,
 					PushImage:      image.PushImage,
 				})
 			}
@@ -551,6 +552,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 					TargetImage:    image.TargetImage,
 					TargetImageTag: image.TargetImageTag,
 					ImagePath:      originImage.ImagePath,
+					ImagePaths:     originImage.ImagePaths,
 					PushImage:      image.PushImage,
 				})
 			}
@@ -609,6 +611,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 					TargetImage:    image.TargetImage,
 					TargetImageTag: image.TargetImageTag,
 					ImagePath:      container.ImagePath,
+					ImagePaths:     container.ImagePaths,
 					PushImage:      image.PushImage,
 				})
 			}

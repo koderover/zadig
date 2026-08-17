@@ -985,6 +985,9 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 			if tmplContainer.ImagePath != nil {
 				containerMap[tmplContainer.Name].ImagePath = tmplContainer.ImagePath
 			}
+			if len(tmplContainer.ImagePaths) > 0 {
+				containerMap[tmplContainer.Name].ImagePaths = tmplContainer.ImagePaths
+			}
 			containerMap[tmplContainer.Name].Type = tmplContainer.Type
 			if containerMap[tmplContainer.Name].ImageName == "" {
 				containerMap[tmplContainer.Name].ImageName = tmplContainer.ImageName

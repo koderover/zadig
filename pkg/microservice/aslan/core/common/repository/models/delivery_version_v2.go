@@ -57,16 +57,17 @@ type DeliveryVersionService struct {
 }
 
 type DeliveryVersionImage struct {
-	ContainerName  string         `bson:"container_name"        json:"container_name"`
-	ImageName      string         `bson:"image_name"            json:"image_name"`
-	ImagePath      *ImagePathSpec `bson:"image_path"            json:"image_path"`
-	SourceImage    string         `bson:"source_image"          json:"source_image"`
-	SourceImageTag string         `bson:"source_image_tag"      json:"source_image_tag"`
-	TargetImage    string         `bson:"target_image"          json:"target_image"`
-	TargetImageTag string         `bson:"target_image_tag"      json:"target_image_tag"`
-	PushImage      bool           `bson:"push_image"            json:"push_image"`
-	Status         config.Status  `bson:"status"                json:"status"`
-	Error          string         `bson:"error"                 json:"error"`
+	ContainerName  string           `bson:"container_name"        json:"container_name"`
+	ImageName      string           `bson:"image_name"            json:"image_name"`
+	ImagePath      *ImagePathSpec   `bson:"image_path"            json:"image_path"`
+	ImagePaths     []*ImagePathSpec `bson:"image_paths,omitempty"  json:"image_paths,omitempty"`
+	SourceImage    string           `bson:"source_image"          json:"source_image"`
+	SourceImageTag string           `bson:"source_image_tag"      json:"source_image_tag"`
+	TargetImage    string           `bson:"target_image"          json:"target_image"`
+	TargetImageTag string           `bson:"target_image_tag"      json:"target_image_tag"`
+	PushImage      bool             `bson:"push_image"            json:"push_image"`
+	Status         config.Status    `bson:"status"                json:"status"`
+	Error          string           `bson:"error"                 json:"error"`
 }
 
 func (DeliveryVersionV2) TableName() string {
