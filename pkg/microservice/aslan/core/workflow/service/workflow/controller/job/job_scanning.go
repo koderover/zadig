@@ -1040,6 +1040,11 @@ func (j ScanningJobController) toAIReviewJobTask(
 	if err := commonservice.ValidateReviewRules(scanningInfo.ReviewRules); err != nil {
 		return nil, fmt.Errorf("invalid AI review scanning rules: %w", err)
 	}
+	if scanningInfo.CheckQualityGate {
+		if err := commonservice.ValidateReviewFailOn(scanningInfo.ReviewFailOn); err != nil {
+			return nil, fmt.Errorf("invalid AI review fail_on: %w", err)
+		}
+	}
 
 	reviewImage := config.ZadigReviewImage()
 	if reviewImage == "" {
@@ -1180,6 +1185,8 @@ func (j ScanningJobController) toAIReviewJobTask(
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_TARGET_BRANCH", Value: targetBranch},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_PR", Value: strconv.Itoa(repo.PR)},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_OUTPUT_LANGUAGE", Value: systemConfig.OutputLanguage},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_QUALITY_GATE_ENABLED", Value: strconv.FormatBool(scanningInfo.CheckQualityGate)},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_FAIL_ON", Value: aiReviewFailOnValue(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn)},
 	)
 	reportRelativePath := path.Join(repoDir, ".zadig-review", "zadig-review-report.json")
 	reviewScript := buildAIReviewScript()
@@ -1217,6 +1224,13 @@ func (j ScanningJobController) toAIReviewJobTask(
 	return renderedTask, nil
 }
 
+func aiReviewFailOnValue(checkQualityGate bool, failOn []string) string {
+	if !checkQualityGate {
+		return ""
+	}
+	return strings.Join(failOn, ",")
+}
+
 func buildAIReviewScript() string {
 	return `set -eu
 cd "$ZADIG_AI_REVIEW_REPO_DIR"
@@ -1227,6 +1241,10 @@ printf '%s' "$ZADIG_AI_REVIEW_RULES_B64" | base64 -d > "$RULE_FILE"
 REMOTE_NAME="$ZADIG_AI_REVIEW_REMOTE_NAME"
 TARGET_BRANCH="$ZADIG_AI_REVIEW_TARGET_BRANCH"
 PR_BRANCH="pr$ZADIG_AI_REVIEW_PR"
+set --
+if [ -n "$ZADIG_AI_REVIEW_FAIL_ON" ]; then
+  set -- --fail-on "$ZADIG_AI_REVIEW_FAIL_ON"
+fi
 #if ! git rev-parse --verify "$PR_BRANCH^{commit}" >/dev/null 2>&1; then
 #  echo "AI review failed: pull or merge request branch $PR_BRANCH was not fetched" >&2
 #  exit 2
@@ -1236,14 +1254,23 @@ PR_BRANCH="pr$ZADIG_AI_REVIEW_PR"
 #  echo "AI review failed: no merge-base found within the fetched history (maximum deepen: 500 commits)" >&2
 #  exit 2
 #fi
-zadig-review-agent review \
+if zadig-review-agent review \
   --from "$REMOTE_NAME/$TARGET_BRANCH" \
   --to "$PR_BRANCH" \
   --rule "$RULE_FILE" \
   --language "$ZADIG_AI_REVIEW_OUTPUT_LANGUAGE" \
+  "$@" \
   --console summary \
   --output-json "$REPORT_PATH" \
-  --output-md ""`
+  --output-md ""; then
+  REVIEW_EXIT_CODE=0
+else
+  REVIEW_EXIT_CODE=$?
+fi
+if [ "$ZADIG_AI_REVIEW_QUALITY_GATE_ENABLED" != "true" ] && [ "$REVIEW_EXIT_CODE" -eq 1 ]; then
+  REVIEW_EXIT_CODE=0
+fi
+exit "$REVIEW_EXIT_CODE"`
 }
 
 func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {
