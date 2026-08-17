@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -20,7 +19,7 @@ import (
 // @tags 	OpenAPI
 // @accept 	json
 // @produce json
-// @Param 	codehostId 		path 		int 							  true 		"代码源 ID"
+// @Param 	codehostName 	query 		string 							  true 		"代码源名称"
 // @Param   repoName 		query 		string 							  false 	"代码库名称，repoName 和 repoUUID 至少传一个"
 // @Param   repoUUID 		query 		string 							  false 	"代码库唯一标识"
 // @Param   branchName 		query 		string 							  true 		"服务配置所在分支"
@@ -30,7 +29,7 @@ import (
 // @Param   production 		query 		bool 							  false 	"是否创建生产服务，true 表示生产服务，false 表示测试服务"
 // @Param 	body 			body 		svcservice.OpenAPILoadServiceFromCodeHostReq true 	"K8s YAML 服务创建参数"
 // @success 200 {object} svcservice.OpenAPILoadHelmServiceResp
-// @router /openapi/service/loader/load/:codehostId [post]
+// @router /openapi/service/loader/load [post]
 func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -38,12 +37,6 @@ func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
-		return
-	}
-
-	codehostID, err := strconv.Atoi(c.Param("codehostId"))
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
@@ -58,7 +51,7 @@ func LoadServiceTemplateFromCodeHostOpenAPI(c *gin.Context) {
 		return
 	}
 
-	req.CodehostID = codehostID
+	req.CodehostName = c.Query("codehostName")
 	req.RepoName = c.Query("repoName")
 	req.RepoUUID = c.Query("repoUUID")
 	req.BranchName = c.Query("branchName")
