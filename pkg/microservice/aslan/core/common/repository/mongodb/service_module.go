@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	serviceModuleCollName           = "service_module"
-	productionServiceModuleCollName = "production_service_module"
+	serviceModuleCollName              = "service_module"
+	productionServiceModuleCollName    = "production_service_module"
+	legacyServiceModuleUniqueIndexName = "project_name_1_service_name_1_is_manual_1_revision_bound_1_name_1"
 )
 
 // ServiceModuleColl is the storage for first-class module records.
@@ -109,7 +110,16 @@ func (c *ServiceModuleColl) EnsureIndex(ctx context.Context) error {
 
 	// Remove the previous name-only uniqueness constraint after the new
 	// image-path-aware index has been created successfully.
-	_, _ = c.Indexes().DropOne(ctx, "project_name_1_service_name_1_is_manual_1_revision_bound_1_name_1")
+	indexes, err := c.Indexes().ListSpecifications(ctx)
+	if err != nil {
+		return err
+	}
+	for _, index := range indexes {
+		if index.Name == legacyServiceModuleUniqueIndexName {
+			_, err = c.Indexes().DropOne(ctx, legacyServiceModuleUniqueIndexName)
+			return err
+		}
+	}
 	return nil
 }
 
