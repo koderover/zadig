@@ -23,7 +23,6 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
@@ -40,10 +39,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	migration500ProgressEvery          = 200
-	migration500ServiceModuleBatchSize = 200
-)
+const migration500ProgressEvery = 200
 
 type permissionActionSeed500 struct {
 	Name     string
@@ -365,15 +361,7 @@ func backfillServiceModulesForCollection500(
 	label string,
 	production bool,
 ) (int, int, []string, error) {
-	cursor, err := coll.Find(ctx, bson.M{}, options.Find().
-		SetBatchSize(migration500ServiceModuleBatchSize).
-		SetProjection(bson.M{
-			"product_name": 1,
-			"service_name": 1,
-			"revision":     1,
-			"type":         1,
-			"containers":   1,
-		}))
+	cursor, err := coll.Find(ctx, bson.M{})
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("failed to open cursor over %s: %s", label, err)
 	}
@@ -382,60 +370,6 @@ func backfillServiceModulesForCollection500(
 	migrated := 0
 	skipped := 0
 	errors := make([]string, 0)
-	batch := make([]*commonmodels.Service, 0, migration500ServiceModuleBatchSize)
-	lastProgressLog := 0
-	logProgress := func() {
-		if migrated-lastProgressLog < migration500ProgressEvery {
-			return
-		}
-		log.Infof(
-			"migration 5.0.0: %s progress - %d revisions mirrored, %d skipped",
-			label,
-			migrated,
-			skipped,
-		)
-		lastProgressLog = migrated
-	}
-	flush := func() {
-		if len(batch) == 0 {
-			return
-		}
-
-		if err := servicerepo.BulkSyncAutoServiceModulesForMigration(ctx, batch, production); err == nil {
-			migrated += len(batch)
-			logProgress()
-			batch = batch[:0]
-			return
-		} else {
-			log.Warnf(
-				"migration 5.0.0: failed to bulk sync %s batch, retrying %d revisions individually: %s",
-				label,
-				len(batch),
-				err,
-			)
-		}
-
-		for _, svc := range batch {
-			if err := servicerepo.SyncAutoServiceModulesForMigration(ctx, svc, production); err != nil {
-				message := fmt.Sprintf(
-					"failed to sync %s %s/%s rev %d: %s",
-					label,
-					svc.ProductName,
-					svc.ServiceName,
-					svc.Revision,
-					err,
-				)
-				log.Warnf("migration 5.0.0: %s", message)
-				skipped++
-				errors = append(errors, message)
-				continue
-			}
-			migrated++
-		}
-		logProgress()
-		batch = batch[:0]
-	}
-
 	for cursor.Next(ctx) {
 		var legacy legacyServiceForMigration500
 		if err := cursor.Decode(&legacy); err != nil {
@@ -453,12 +387,31 @@ func backfillServiceModulesForCollection500(
 			Type:        legacy.Type,
 			Containers:  legacy.Containers,
 		}
-		batch = append(batch, svc)
-		if len(batch) >= migration500ServiceModuleBatchSize {
-			flush()
+		if err := servicerepo.SyncAutoServiceModules(ctx, svc, production); err != nil {
+			message := fmt.Sprintf(
+				"failed to sync %s %s/%s rev %d: %s",
+				label,
+				svc.ProductName,
+				svc.ServiceName,
+				svc.Revision,
+				err,
+			)
+			log.Warnf("migration 5.0.0: %s", message)
+			skipped++
+			errors = append(errors, message)
+			continue
+		}
+
+		migrated++
+		if migrated%migration500ProgressEvery == 0 {
+			log.Infof(
+				"migration 5.0.0: %s progress - %d revisions mirrored, %d skipped",
+				label,
+				migrated,
+				skipped,
+			)
 		}
 	}
-	flush()
 
 	if err := cursor.Err(); err != nil {
 		return migrated, skipped, errors, fmt.Errorf("cursor over %s ended in error: %s", label, err)

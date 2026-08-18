@@ -84,32 +84,6 @@ func SyncAutoServiceModules(ctx context.Context, svc *models.Service, production
 	return coll.ReplaceAutoForRevision(ctx, svc.ProductName, svc.ServiceName, svc.Revision, records)
 }
 
-// SyncAutoServiceModulesForMigration upserts auto-discovered modules without
-// querying ignored tombstones or deleting revision snapshots. Upgrade
-// migrations populate an empty target collection before user traffic.
-func SyncAutoServiceModulesForMigration(ctx context.Context, svc *models.Service, production bool) error {
-	if svc == nil || svc.ServiceName == "" || svc.ProductName == "" || svc.Revision == 0 {
-		return nil
-	}
-
-	records := containersToAutoRecords(svc.ProductName, svc.ServiceName, svc.Revision, svc.Containers)
-	return pickServiceModuleColl(production).BulkUpsertAutoRecords(ctx, records)
-}
-
-// BulkSyncAutoServiceModulesForMigration replaces multiple service revisions
-// in one ordered bulk write. Callers can fall back to the single-revision
-// variant to isolate malformed records when a batch fails.
-func BulkSyncAutoServiceModulesForMigration(ctx context.Context, services []*models.Service, production bool) error {
-	records := make([]*models.ServiceModule, 0)
-	for _, svc := range services {
-		if svc == nil || svc.ServiceName == "" || svc.ProductName == "" || svc.Revision == 0 {
-			continue
-		}
-		records = append(records, containersToAutoRecords(svc.ProductName, svc.ServiceName, svc.Revision, svc.Containers)...)
-	}
-	return pickServiceModuleColl(production).BulkUpsertAutoRecords(ctx, records)
-}
-
 // ListManualServiceModules returns just the manual records for a service,
 // mapped to Container shape. Render paths use this to inject user-declared
 // modules into the substitution pipeline alongside the in-memory parsed
