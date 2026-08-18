@@ -75,9 +75,9 @@ func (c *ServiceModuleColl) GetCollectionName() string {
 
 func (c *ServiceModuleColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
-		// Uniqueness: a given slot (manual or per-revision auto) holds at most
-		// one record per name. Manual and auto with the same name coexist —
-		// the merge layer (ResolveServiceModules) reconciles them.
+		// Uniqueness: a module image path is unique within a manual or
+		// revision-bound service slot. The same module name can have multiple
+		// records when their image paths differ.
 		{
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
@@ -85,8 +85,14 @@ func (c *ServiceModuleColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "is_manual", Value: 1},
 				bson.E{Key: "revision_bound", Value: 1},
 				bson.E{Key: "name", Value: 1},
+				bson.E{Key: "image_path.repo", Value: 1},
+				bson.E{Key: "image_path.namespace", Value: 1},
+				bson.E{Key: "image_path.image", Value: 1},
+				bson.E{Key: "image_path.tag", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().
+				SetName("uniq_service_module_path").
+				SetUnique(true),
 		},
 		// Hot path: list-all-modules-for-a-service.
 		{
