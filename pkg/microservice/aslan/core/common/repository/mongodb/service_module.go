@@ -103,8 +103,14 @@ func (c *ServiceModuleColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 	}
-	_, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx))
-	return err
+	if _, err := c.Indexes().CreateMany(ctx, mod, mongotool.CreateIndexOptions(ctx)); err != nil {
+		return err
+	}
+
+	// Remove the previous name-only uniqueness constraint after the new
+	// image-path-aware index has been created successfully.
+	_, _ = c.Indexes().DropOne(ctx, "project_name_1_service_name_1_is_manual_1_revision_bound_1_name_1")
+	return nil
 }
 
 // ListByServiceRevision returns the records relevant to a single read:
