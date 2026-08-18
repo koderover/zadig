@@ -128,7 +128,7 @@ func Client() *mongo.Client {
 
 // Init is a singleton, it will be initialized only once.
 // In case the uri provides only a single host in the mongodb cluster, the system will
-// attempt to connect without discovering other hosts in the cluster.
+// attempt to connect without discovering other hosts in the cluster, except for DocumentDB.
 func Init(ctx context.Context, uri string) {
 	once.Do(func() {
 		nilSliceCodec := bsoncodec.NewSliceCodec(bsonoptions.SliceCodec().SetEncodeNilAsEmpty(true))
@@ -146,12 +146,13 @@ func Init(ctx context.Context, uri string) {
 		// and only a single host ip is provided, the auto-discovery function will cause a panic due
 		// to non of the host can be connected by the discovered host name.
 		// Thus, when there is only 1 addr in the provided uri, the system will try to connect with
-		// the given connection string ONLY.
+		// the given connection string ONLY, except for DocumentDB.
 		// ref: https://pkg.go.dev/go.mongodb.org/mongo-driver/mongo/options#ClientOptions.SetDirect
-		if len(connInfo.addrs) == 1 {
+		isDocumentDB := pkgconfig.IsDocumentDB()
+		if len(connInfo.addrs) == 1 && !isDocumentDB {
 			opt.SetDirect(true)
 		}
-		if pkgconfig.IsDocumentDB() {
+		if isDocumentDB {
 			opt.SetRetryWrites(false)
 		}
 		client = connect(ctx, opt)
