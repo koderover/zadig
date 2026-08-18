@@ -270,6 +270,55 @@ func (c *ServiceModuleColl) ReplaceAutoForRevision(ctx context.Context, projectN
 	return err
 }
 
+// BulkUpsertAutoRecords writes migration records without deleting existing
+// revision snapshots. The unique module key makes interrupted migrations safe
+// to rerun while avoiding the per-revision delete required by normal syncing.
+func (c *ServiceModuleColl) BulkUpsertAutoRecords(ctx context.Context, records []*models.ServiceModule) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	now := time.Now().Unix()
+	writeModels := make([]mongo.WriteModel, 0, len(records))
+	for _, record := range records {
+		if record == nil || record.ProjectName == "" || record.ServiceName == "" || record.RevisionBound == 0 || record.Name == "" {
+			continue
+		}
+		writeModels = append(writeModels, mongo.NewUpdateOneModel().
+			SetFilter(bson.M{
+				"project_name":   record.ProjectName,
+				"service_name":   record.ServiceName,
+				"is_manual":      false,
+				"revision_bound": record.RevisionBound,
+				"name":           record.Name,
+			}).
+			SetUpdate(bson.M{
+				"$set": bson.M{
+					"type":        record.Type,
+					"image":       record.Image,
+					"image_name":  record.ImageName,
+					"image_path":  record.ImagePath,
+					"ignored":     false,
+					"update_time": now,
+				},
+				"$setOnInsert": bson.M{
+					"create_time": now,
+				},
+			}).
+			SetUpsert(true))
+	}
+
+	if len(writeModels) == 0 {
+		return nil
+	}
+	_, err := c.Collection.BulkWrite(
+		mongotool.SessionContext(ctx, c.Session),
+		writeModels,
+		options.BulkWrite().SetOrdered(true),
+	)
+	return err
+}
+
 // DeleteAutoByRevision drops every auto record for a specific revision. Used
 // when a service revision is hard-deleted (rare cleanup path).
 func (c *ServiceModuleColl) DeleteAutoByRevision(ctx context.Context, projectName, serviceName string, revision int64) error {
