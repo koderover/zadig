@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +57,7 @@ func ServeWs(c *gin.Context) {
 	containerName := c.Param("containerName")
 
 	if podName == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("containerName can't be empty,please check!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName can't be empty,please check!")
 		return
 	}
 	log.Infof("exec containerName: %s, pod: %s", containerName, podName)

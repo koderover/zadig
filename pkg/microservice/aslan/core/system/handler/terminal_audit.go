@@ -9,7 +9,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 

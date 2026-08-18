@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
@@ -51,10 +52,11 @@ type TerminalAuditSessionEvidence struct {
 }
 
 type TerminalAuditCommandEvidence struct {
-	Seq          int64  `json:"seq"`
-	TimeOffsetMS int64  `json:"time_offset_ms"`
-	Command      string `json:"command"`
-	Output       string `json:"output"`
+	Seq               int64  `json:"seq"`
+	TimeOffsetMS      int64  `json:"time_offset_ms"`
+	Command           string `json:"command"`
+	Output            string `json:"nearby_output"`
+	OutputAttribution string `json:"output_attribution"`
 }
 
 type TerminalAuditEvent struct {
@@ -75,10 +77,13 @@ type terminalAuditCastEvent struct {
 	data     string
 }
 
-// BuildTerminalAuditEvidence builds a deterministic snapshot from a session's
-// command records and asciicast stream. The reader is consumed incrementally so
-// the full recording does not need to be loaded before parsing starts.
-func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*models.TerminalCommand, cast io.Reader) (*TerminalAuditEvidence, error) {
+// BuildTerminalAuditEvidence builds a deterministic snapshot while retaining
+// at most maxDataRunes runes of cast event data. Reaching the limit stops cast
+// parsing and marks the evidence partial.
+func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*models.TerminalCommand, cast io.Reader, maxDataRunes int) (*TerminalAuditEvidence, error) {
+	if maxDataRunes <= 0 {
+		return nil, errors.New("terminal audit evidence data limit must be positive")
+	}
 	if session == nil {
 		return nil, errors.New("terminal session is nil")
 	}
@@ -127,9 +132,10 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 	}
 	for _, command := range sortedCommands {
 		evidence.Commands = append(evidence.Commands, TerminalAuditCommandEvidence{
-			Seq:          command.Seq,
-			TimeOffsetMS: command.TimeOffsetMS,
-			Command:      command.Command,
+			Seq:               command.Seq,
+			TimeOffsetMS:      command.TimeOffsetMS,
+			Command:           command.Command,
+			OutputAttribution: "time_window",
 		})
 		if reason, ok := detectOpaqueExecution(command.Command); ok {
 			evidence.OpaqueExecutions = append(evidence.OpaqueExecutions, TerminalOpaqueExecution{
@@ -143,26 +149,52 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 		evidence.Coverage = AuditEvidenceCoveragePartial
 	}
 
-	err := forEachTerminalAuditCastEvent(cast, func(event terminalAuditCastEvent) error {
+	outputBuilders := make([]strings.Builder, len(evidence.Commands))
+	retainedDataRunes := 0
+	dataTruncated := false
+	err := forEachTerminalAuditCastEvent(cast, func(event terminalAuditCastEvent) (bool, error) {
+		// The budget is shared by attributed output and unattributed events. Once
+		// exhausted, stop decoding the stream so memory usage no longer follows the
+		// total cast file size.
+		remainingRunes := maxDataRunes - retainedDataRunes
+		if remainingRunes == 0 {
+			dataTruncated = true
+			return true, nil
+		}
+
+		eventRunes := utf8.RuneCountInString(event.data)
+		if eventRunes > remainingRunes {
+			event.data = string([]rune(event.data)[:remainingRunes])
+			eventRunes = remainingRunes
+			dataTruncated = true
+		}
+		retainedDataRunes += eventRunes
+
 		commandIndex := commandIndexAt(evidence.Commands, event.offsetMS)
 		if event.typ == "o" && commandIndex >= 0 {
-			evidence.Commands[commandIndex].Output += event.data
-			return nil
+			outputBuilders[commandIndex].WriteString(event.data)
+			return dataTruncated, nil
 		}
 		evidence.Unattributed = append(evidence.Unattributed, TerminalAuditEvent{
 			OffsetMS: event.offsetMS,
 			Type:     event.typ,
 			Data:     event.data,
 		})
-		return nil
+		return dataTruncated, nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	for i := range evidence.Commands {
+		evidence.Commands[i].Output = outputBuilders[i].String()
+	}
+	if dataTruncated {
+		evidence.Coverage = AuditEvidenceCoveragePartial
+	}
 	return evidence, nil
 }
 
-func forEachTerminalAuditCastEvent(reader io.Reader, fn func(terminalAuditCastEvent) error) error {
+func forEachTerminalAuditCastEvent(reader io.Reader, fn func(terminalAuditCastEvent) (stop bool, err error)) error {
 	decoder := json.NewDecoder(reader)
 	var raw json.RawMessage
 	if err := decoder.Decode(&raw); err != nil {
@@ -205,8 +237,12 @@ func forEachTerminalAuditCastEvent(reader io.Reader, fn func(terminalAuditCastEv
 		if typ != "i" && typ != "o" && typ != "r" {
 			return fmt.Errorf("unsupported asciicast event type %q", typ)
 		}
-		if err := fn(terminalAuditCastEvent{offsetMS: int64(offset*1000 + 0.5), typ: typ, data: data}); err != nil {
+		stop, err := fn(terminalAuditCastEvent{offsetMS: int64(offset*1000 + 0.5), typ: typ, data: data})
+		if err != nil {
 			return err
+		}
+		if stop {
+			return nil
 		}
 	}
 }
@@ -223,22 +259,17 @@ func commandIndexAt(commands []TerminalAuditCommandEvidence, offsetMS int64) int
 }
 
 func detectOpaqueExecution(command string) (string, bool) {
-	fields := strings.Fields(command)
-	if len(fields) == 0 {
-		return "", false
-	}
-	for i := 0; i+1 < len(fields); i++ {
-		if fields[i] == "|" && isShellInterpreter(fields[i+1]) {
+	segments := strings.Split(command, "|")
+	for _, segment := range segments[1:] {
+		if isShellInterpreter(firstCommandExecutable(strings.Fields(segment))) {
 			return "remote_script_content_unavailable", true
 		}
 	}
 
-	first := strings.TrimSpace(fields[0])
-	if first == "sudo" || first == "env" {
-		if len(fields) < 2 {
-			return "", false
-		}
-		first = fields[1]
+	fields := strings.Fields(segments[0])
+	first := firstCommandExecutable(fields)
+	if first == "" {
+		return "", false
 	}
 	if first == "source" || first == "." {
 		if len(fields) > 1 {
@@ -266,6 +297,30 @@ func detectOpaqueExecution(command string) (string, bool) {
 		return "script_content_unavailable", true
 	}
 	return "", false
+}
+
+func firstCommandExecutable(fields []string) string {
+	prefixOptions := false
+	for i := 0; i < len(fields); i++ {
+		field := fields[i]
+		if field == "env" || field == "sudo" {
+			prefixOptions = true
+			continue
+		}
+		if strings.Contains(field, "=") {
+			continue
+		}
+		if prefixOptions && strings.HasPrefix(field, "-") {
+			switch field {
+			case "-u", "-g", "-h", "-p", "-C", "-T", "--user", "--group",
+				"--host", "--prompt", "--close-from", "--command-timeout":
+				i++
+			}
+			continue
+		}
+		return strings.TrimSpace(field)
+	}
+	return ""
 }
 
 func isShellInterpreter(value string) bool {

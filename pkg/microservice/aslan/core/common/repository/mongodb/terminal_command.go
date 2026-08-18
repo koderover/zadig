@@ -27,9 +27,7 @@ func NewTerminalCommandColl() *TerminalCommandColl {
 	}
 }
 
-func (c *TerminalCommandColl) GetCollectionName() string {
-	return c.coll
-}
+func (c *TerminalCommandColl) GetCollectionName() string { return c.coll }
 
 func (c *TerminalCommandColl) EnsureIndex(ctx context.Context) error {
 	indexes := []mongo.IndexModel{
@@ -124,7 +122,15 @@ func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs) ([]*mod
 		}
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}, {Key: "seq", Value: -1}, {Key: "_id", Value: -1}})
+	sortDirection := -1
+	if args != nil && args.SortAsc {
+		sortDirection = 1
+	}
+	opts := options.Find().SetSort(bson.D{
+		{Key: "created_at", Value: sortDirection},
+		{Key: "seq", Value: sortDirection},
+		{Key: "_id", Value: sortDirection},
+	})
 	if args != nil && args.PageNum > 0 && args.PageSize > 0 {
 		opts.SetSkip((args.PageNum - 1) * args.PageSize).SetLimit(args.PageSize)
 	}

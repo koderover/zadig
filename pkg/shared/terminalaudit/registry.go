@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
 type activeSession struct {
@@ -26,7 +28,7 @@ var activeSessions sync.Map
 func registerActiveSession(sessionID string, terminate func()) error {
 	processContext := processLifecycleContext()
 	sessionContext, cancel := context.WithCancel(processContext)
-	terminateSub, err := subscribeToTermination(sessionContext, sessionID)
+	terminateSub, err := subscribeRedis(sessionContext, cache.NewRedisCache(config.RedisCommonCacheTokenDB()), liveTerminateChannel(sessionID))
 	if err != nil {
 		cancel()
 		return fmt.Errorf("subscribe terminal session termination: %w", err)

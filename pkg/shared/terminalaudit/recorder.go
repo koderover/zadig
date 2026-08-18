@@ -125,8 +125,6 @@ func newRecorder(meta *SessionMeta) (*asciicastRecorder, error) {
 		LastActivityAt:  startedAt.Unix(),
 		CreatedAt:       startedAt.Unix(),
 		UpdatedAt:       startedAt.Unix(),
-		CommandCount:    0,
-		DurationSeconds: 0,
 		StorageID:       storageID,
 		Bucket:          storage.Bucket,
 		ObjectKey:       objectKey,
@@ -414,7 +412,9 @@ func (r *asciicastRecorder) writeEvent(code, data string) {
 	}
 	select {
 	case r.writeCh <- append(line, '\n'):
-		r.live.publish(code, string(line))
+		if code == "o" {
+			r.live.publish(string(line))
+		}
 	default:
 		r.degrade(fmt.Errorf("terminal audit write buffer full for session %s, dropping recording", r.session.SessionID))
 	}

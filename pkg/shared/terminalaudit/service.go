@@ -7,9 +7,11 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 )
@@ -91,7 +93,7 @@ func TerminateSession(sessionID string) error {
 	if session.Status != models.TerminalSessionStatusRunning {
 		return fmt.Errorf("terminal session %s is not running", sessionID)
 	}
-	subscribers, err := publishRemoteTermination(sessionID)
+	subscribers, err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).PublishCount(liveTerminateChannel(sessionID), liveMessageTerminate)
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,7 @@ func AnalyzeTerminalSession(c *gin.Context) {
 	if !authorized {
 		return
 	}
-	ctx.Resp, ctx.RespErr = systemservice.AnalyzeTerminalSession(c.Param("sessionID"))
+	ctx.Resp, ctx.RespErr = systemservice.AnalyzeTerminalSession(c.Request.Context(), c.Param("sessionID"))
 }
 
 func GetTerminalSessionAIResult(c *gin.Context) {

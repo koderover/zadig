@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,6 +21,8 @@ type TerminalAuditAIResultColl struct {
 	coll string
 }
 
+var ErrTerminalAuditAIAlreadyRunning = errors.New("terminal audit ai analysis is already running")
+
 func NewTerminalAuditAIResultColl() *TerminalAuditAIResultColl {
 	name := models.TerminalAuditAIResult{}.TableName()
 	return &TerminalAuditAIResultColl{
@@ -28,9 +31,7 @@ func NewTerminalAuditAIResultColl() *TerminalAuditAIResultColl {
 	}
 }
 
-func (c *TerminalAuditAIResultColl) GetCollectionName() string {
-	return c.coll
-}
+func (c *TerminalAuditAIResultColl) GetCollectionName() string { return c.coll }
 
 func (c *TerminalAuditAIResultColl) EnsureIndex(ctx context.Context) error {
 	indexes := []mongo.IndexModel{
@@ -48,42 +49,97 @@ func (c *TerminalAuditAIResultColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *TerminalAuditAIResultColl) Upsert(result *models.TerminalAuditAIResult) error {
-	if result == nil {
-		return errors.New("terminal audit ai result is nil")
+func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt, leaseExpiresAt int64) (*models.TerminalAuditAIResult, error) {
+	if sessionID == "" || runID == "" {
+		return nil, errors.New("terminal audit ai session id and run id are required")
 	}
-	if result.SessionID == "" {
-		return errors.New("terminal audit ai result session id is empty")
+	filter := bson.M{
+		"session_id": sessionID,
+		"$or": bson.A{
+			bson.M{"status": bson.M{"$ne": models.TerminalAuditAIStatusRunning}},
+			bson.M{"lease_expires_at": bson.M{"$lte": startedAt}},
+			bson.M{"lease_expires_at": bson.M{"$exists": false}},
+		},
 	}
-
-	now := time.Now().Unix()
-	if result.CreatedAt == 0 {
-		result.CreatedAt = now
-	}
-	result.UpdatedAt = now
-
 	update := bson.M{
 		"$set": bson.M{
-			"status":        result.Status,
-			"risk_level":    result.RiskLevel,
-			"summary":       result.Summary,
-			"findings":      result.Findings,
-			"coverage":      result.Coverage,
-			"prompt":        result.Prompt,
-			"answer":        result.Answer,
-			"token_num":     result.TokenNum,
-			"error_message": result.ErrorMessage,
-			"updated_at":    result.UpdatedAt,
+			"status":                 models.TerminalAuditAIStatusRunning,
+			"risk_level":             "",
+			"summary":                "",
+			"findings":               []models.TerminalAuditAIFinding{},
+			"coverage":               "",
+			"model":                  "",
+			"prompt_version":         0,
+			"token_num":              0,
+			"analyzed_command_count": 0,
+			"total_command_count":    0,
+			"error_message":          "",
+			"run_id":                 runID,
+			"lease_expires_at":       leaseExpiresAt,
+			"started_at":             startedAt,
+			"finished_at":            0,
+			"updated_at":             startedAt,
 		},
 		"$setOnInsert": bson.M{
-			"session_id": result.SessionID,
-			"created_at": result.CreatedAt,
+			"session_id": sessionID,
+			"created_at": startedAt,
+		},
+		"$unset": bson.M{
+			"prompt": "",
+			"answer": "",
 		},
 	}
+	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
 	defer cancel()
-	_, err := c.UpdateOne(ctx, bson.M{"session_id": result.SessionID}, update, options.Update().SetUpsert(true))
-	return err
+	result := new(models.TerminalAuditAIResult)
+	// A running session with a valid lease does not match the filter, so the upsert
+	// attempts an insert and hits the unique session_id index established above.
+	err := c.FindOneAndUpdate(ctx, filter, update, opts).Decode(result)
+	if mongo.IsDuplicateKeyError(err) {
+		return nil, ErrTerminalAuditAIAlreadyRunning
+	}
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *TerminalAuditAIResultColl) Finish(result *models.TerminalAuditAIResult) error {
+	if result == nil || result.SessionID == "" || result.RunID == "" {
+		return errors.New("terminal audit ai result, session id and run id are required")
+	}
+	now := time.Now().Unix()
+	result.UpdatedAt = now
+	if result.FinishedAt == 0 {
+		result.FinishedAt = now
+	}
+	update := bson.M{"$set": bson.M{
+		"status":                 result.Status,
+		"risk_level":             result.RiskLevel,
+		"summary":                result.Summary,
+		"findings":               result.Findings,
+		"coverage":               result.Coverage,
+		"model":                  result.Model,
+		"prompt_version":         result.PromptVersion,
+		"token_num":              result.TokenNum,
+		"analyzed_command_count": result.AnalyzedCommandCount,
+		"total_command_count":    result.TotalCommandCount,
+		"error_message":          result.ErrorMessage,
+		"lease_expires_at":       0,
+		"finished_at":            result.FinishedAt,
+		"updated_at":             result.UpdatedAt,
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	writeResult, err := c.UpdateOne(ctx, bson.M{"session_id": result.SessionID, "run_id": result.RunID}, update)
+	if err != nil {
+		return err
+	}
+	if writeResult.MatchedCount == 0 {
+		return fmt.Errorf("terminal audit ai run %s no longer owns session %s", result.RunID, result.SessionID)
+	}
+	return nil
 }
 
 func (c *TerminalAuditAIResultColl) FindBySessionID(sessionID string) (*models.TerminalAuditAIResult, error) {

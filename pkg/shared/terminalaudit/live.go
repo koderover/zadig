@@ -50,7 +50,6 @@ const (
 
 type liveState struct {
 	Header string `json:"header"`
-	Resize string `json:"resize,omitempty"`
 }
 
 type liveMessage struct {
@@ -139,7 +138,7 @@ func decodeLiveMessage(payload string) (liveMessage, error) {
 type livePublisher struct {
 	redis     *cache.RedisCache
 	sessionID string
-	events    chan livePublishEvent
+	frames    chan string
 	stop      chan struct{}
 	closeOnce sync.Once
 	enqueueMu sync.Mutex
@@ -148,16 +147,11 @@ type livePublisher struct {
 	state     liveState
 }
 
-type livePublishEvent struct {
-	code  string
-	frame string
-}
-
 func newLivePublisher(sessionID string) *livePublisher {
 	publisher := &livePublisher{
 		redis:     cache.NewRedisCache(config.RedisCommonCacheTokenDB()),
 		sessionID: sessionID,
-		events:    make(chan livePublishEvent, livePublishBufferSize),
+		frames:    make(chan string, livePublishBufferSize),
 		stop:      make(chan struct{}),
 	}
 	go publisher.run()
@@ -179,14 +173,14 @@ func (p *livePublisher) saveStateLocked() error {
 	return p.redis.Write(liveStateKey(p.sessionID), string(data), liveStateTTL)
 }
 
-func (p *livePublisher) publish(code, frame string) {
+func (p *livePublisher) publish(frame string) {
 	p.enqueueMu.Lock()
 	defer p.enqueueMu.Unlock()
 	if p.closed {
 		return
 	}
 	select {
-	case p.events <- livePublishEvent{code: code, frame: frame}:
+	case p.frames <- frame:
 	default:
 		// Live observers are best effort. The recorder and object-storage cast
 		// must not be slowed down by a Redis outage or a slow observer.
@@ -201,15 +195,15 @@ func (p *livePublisher) run() {
 		case <-p.stop:
 			for {
 				select {
-				case event := <-p.events:
-					p.publishEvent(event)
+				case frame := <-p.frames:
+					p.publishFrame(frame)
 				default:
 					p.finish()
 					return
 				}
 			}
-		case event := <-p.events:
-			p.publishEvent(event)
+		case frame := <-p.frames:
+			p.publishFrame(frame)
 		case <-ticker.C:
 			p.stateMu.Lock()
 			if p.state.Header != "" {
@@ -224,14 +218,8 @@ func (p *livePublisher) run() {
 	}
 }
 
-func (p *livePublisher) publishEvent(event livePublishEvent) {
-	if event.code == "r" {
-		p.stateMu.Lock()
-		p.state.Resize = event.frame
-		_ = p.saveStateLocked()
-		p.stateMu.Unlock()
-	}
-	payload, err := encodeLiveMessage(liveMessage{Type: liveMessageFrame, Frame: event.frame})
+func (p *livePublisher) publishFrame(frame string) {
+	payload, err := encodeLiveMessage(liveMessage{Type: liveMessageFrame, Frame: frame})
 	if err != nil {
 		return
 	}
@@ -289,10 +277,6 @@ func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {
 	}
 
 	frames := make(chan string, livePublishBufferSize)
-	frames <- state.Header
-	if state.Resize != "" {
-		frames <- state.Resize
-	}
 	done := make(chan struct{})
 	var closeOnce sync.Once
 	closeSubscription := func() {
@@ -360,12 +344,4 @@ func resetTimer(timer *time.Timer, timeout time.Duration) {
 		}
 	}
 	timer.Reset(timeout)
-}
-
-func publishRemoteTermination(sessionID string) (int64, error) {
-	return cache.NewRedisCache(config.RedisCommonCacheTokenDB()).PublishCount(liveTerminateChannel(sessionID), liveMessageTerminate)
-}
-
-func subscribeToTermination(ctx context.Context, sessionID string) (*redisLiveSubscription, error) {
-	return subscribeRedis(ctx, cache.NewRedisCache(config.RedisCommonCacheTokenDB()), liveTerminateChannel(sessionID))
 }

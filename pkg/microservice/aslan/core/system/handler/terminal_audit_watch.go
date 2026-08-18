@@ -19,15 +19,13 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	terminalaudit "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -128,14 +126,7 @@ func WatchTerminalSession(c *gin.Context) {
 func terminalWatchMessage(line string) (string, bool) {
 	var frame []json.RawMessage
 	if err := json.Unmarshal([]byte(line), &frame); err != nil || len(frame) != 3 {
-		var header struct {
-			Width  int `json:"width"`
-			Height int `json:"height"`
-		}
-		if err := json.Unmarshal([]byte(line), &header); err == nil && header.Width > 0 && header.Height > 0 {
-			return terminalWatchResizeMessage(strconv.Itoa(header.Width) + "x" + strconv.Itoa(header.Height))
-		}
-		return terminalWatchResizeMessage(line)
+		return "", false
 	}
 	var code, data string
 	if err := json.Unmarshal(frame[1], &code); err != nil {
@@ -144,37 +135,12 @@ func terminalWatchMessage(line string) (string, bool) {
 	if err := json.Unmarshal(frame[2], &data); err != nil {
 		return "", false
 	}
-	switch code {
-	case "o":
-		message, err := json.Marshal(struct {
-			Operation string `json:"operation"`
-			Data      string `json:"data"`
-		}{Operation: "stdout", Data: data})
-		return string(message), err == nil
-	case "r":
-		return terminalWatchResizeMessage(data)
-	default:
-		return "", false
-	}
-}
-
-func terminalWatchResizeMessage(value string) (string, bool) {
-	parts := strings.Split(value, "x")
-	if len(parts) != 2 {
-		return "", false
-	}
-	cols, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return "", false
-	}
-	rows, err := strconv.Atoi(parts[1])
-	if err != nil {
+	if code != "o" {
 		return "", false
 	}
 	message, err := json.Marshal(struct {
 		Operation string `json:"operation"`
-		Cols      int    `json:"cols"`
-		Rows      int    `json:"rows"`
-	}{Operation: "resize", Cols: cols, Rows: rows})
+		Data      string `json:"data"`
+	}{Operation: "stdout", Data: data})
 	return string(message), err == nil
 }

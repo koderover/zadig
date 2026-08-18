@@ -42,9 +42,7 @@ func NewTerminalSessionColl() *TerminalSessionColl {
 	}
 }
 
-func (c *TerminalSessionColl) GetCollectionName() string {
-	return c.coll
-}
+func (c *TerminalSessionColl) GetCollectionName() string { return c.coll }
 
 func (c *TerminalSessionColl) EnsureIndex(ctx context.Context) error {
 	indexes := []mongo.IndexModel{
