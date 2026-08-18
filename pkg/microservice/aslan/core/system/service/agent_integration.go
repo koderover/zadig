@@ -237,9 +237,6 @@ func validateAgentIntegration(integration *commonmodels.AgentIntegration) error 
 	if integration.Protocol != llm.ProtocolOpenAI && integration.Protocol != llm.ProtocolAnthropic {
 		return fmt.Errorf("protocol %s is not supported", integration.Protocol)
 	}
-	if integration.Protocol == llm.ProtocolAnthropic && integration.Model == "" {
-		return fmt.Errorf("model is required for anthropic protocol")
-	}
 	switch integration.AuthType {
 	case commonmodels.AgentAuthTypeAPIKey:
 		if integration.APIKey == "" || integration.APIKey == setting.MaskValue {
