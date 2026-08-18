@@ -308,6 +308,13 @@ func migrateServiceModule500(migrationInfo *internalmodels.Migration) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if err := commonrepo.NewServiceModuleColl().EnsureIndex(ctx); err != nil {
+		return fmt.Errorf("failed to ensure service_module indexes before backfill, err: %s", err)
+	}
+	if err := commonrepo.NewProductionServiceModuleColl().EnsureIndex(ctx); err != nil {
+		return fmt.Errorf("failed to ensure production_service_module indexes before backfill, err: %s", err)
+	}
+
 	testCount, testSkipped, testErrors, err := backfillServiceModulesForCollection500(
 		ctx,
 		commonrepo.NewServiceColl().Collection,
