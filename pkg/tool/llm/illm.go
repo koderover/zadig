@@ -70,6 +70,7 @@ type LLMConfig struct {
 	Protocol     Protocol
 	ProviderName Provider
 	Model        string
+	OmitModel    bool
 	Token        string
 	BaseURL      string
 	Proxy        string
