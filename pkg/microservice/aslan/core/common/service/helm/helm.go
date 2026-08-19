@@ -375,6 +375,60 @@ func NewHelmDeployService() *HelmDeployService {
 	return &HelmDeployService{}
 }
 
+// SetContainerImagesFromValues rewrites each container's image with the value
+// resolved from its values path in the supplied yaml (the environment override
+// yaml). Containers whose path is absent from the yaml are left untouched.
+//
+// The override yaml is the authoritative record of the deployed image. Syncing
+// from it before merging prevents a stale Container.Image (for example the
+// template's default tag) from being treated as the environment image and
+// overwriting the deployed tag.
+func SetContainerImagesFromValues(containers []*commonmodels.Container, valuesYaml string) {
+	if valuesYaml == "" {
+		return
+	}
+	valuesMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(valuesYaml), &valuesMap); err != nil {
+		return
+	}
+	flatValuesMap, err := converter.Flatten(valuesMap)
+	if err != nil {
+		return
+	}
+	for _, container := range containers {
+		if container == nil || container.ImagePath == nil {
+			continue
+		}
+		spec := container.ImagePath
+		if !imagePathInValues(flatValuesMap, spec.Repo, spec.Namespace, spec.Image, spec.Tag) {
+			continue
+		}
+		imageSearchRule := &templatemodels.ImageSearchingRule{
+			Repo:      spec.Repo,
+			Namespace: spec.Namespace,
+			Image:     spec.Image,
+			Tag:       spec.Tag,
+		}
+		imageUrl, err := commonutil.GeneImageURI(imageSearchRule.GetSearchingPattern(), flatValuesMap)
+		if err != nil {
+			continue
+		}
+		container.Image = imageUrl
+	}
+}
+
+func imagePathInValues(flatValuesMap map[string]interface{}, paths ...string) bool {
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, ok := flatValuesMap[p]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // MergeHelmContainers keeps existing environment images while adding or
 // refreshing the containers parsed from the selected service revision.
 func MergeHelmContainers(current, templates []*commonmodels.Container) []*commonmodels.Container {
@@ -385,12 +439,7 @@ func MergeHelmContainers(current, templates []*commonmodels.Container) []*common
 			continue
 		}
 		currentByKey[container.GetKey()] = container
-		if existing := currentByName[container.Name]; existing != nil {
-			container.Image = existing.Image
-			if container.ImageName == "" {
-				container.ImageName = existing.ImageName
-			}
-		} else {
+		if currentByName[container.Name] == nil {
 			currentByName[container.Name] = container
 		}
 	}
@@ -614,6 +663,11 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 			prodSvc.Revision = tmplSvc.Revision
 		}
 
+		// The override yaml is the authoritative record of the deployed image.
+		// Sync the environment containers from it before merging with the
+		// template, so a revision gap doesn't reset images back to the
+		// template's default tag.
+		SetContainerImagesFromValues(prodSvc.Containers, prodSvc.GetServiceRender().GetOverrideYaml())
 		prodSvc.Containers = MergeHelmContainers(prodSvc.Containers, tmplContainers)
 	}
 	return prodSvc, tmplSvc, nil

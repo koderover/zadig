@@ -973,6 +973,7 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		if err != nil {
 			return ret, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", templateSvc.ProductName, templateSvc.ServiceName, templateSvc.Revision, err)
 		}
+		helmservice.SetContainerImagesFromValues(productSvc.Containers, renderChart.GetOverrideYaml())
 		productSvc.Containers = helmservice.MergeHelmContainers(productSvc.Containers, tmplContainers)
 		ret.ServiceObj = templateSvc
 		ret.ReleaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), templateSvc.ProductName, namespace, envName, templateSvc.ServiceName)
