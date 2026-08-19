@@ -423,10 +423,15 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		name := commonutil.ExtractImageName(imageUrl)
 
 		if container.ImageName == name {
-			// find corresponding image in values
+			// If a build image is provided, override the current image. When no
+			// build image is provided, still replace values when the environment
+			// image differs from the image currently in values (for example, a
+			// newly added same-name values path inheriting the old environment
+			// image).
 			if imageMap[name] != "" {
-				// if found image in images, and the images are from build job, we should override it
 				container.Image = imageMap[name]
+				mergedContainers = append(mergedContainers, container)
+			} else if container.Image != imageUrl {
 				mergedContainers = append(mergedContainers, container)
 			}
 		} else {
