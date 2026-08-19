@@ -575,42 +575,55 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 }
 
 func (c *ServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOption) ([]*models.Service, error) {
-	productMatch := bson.M{}
-	productMatch["product_name"] = opt.ProductName
+	return listServicesWithSRevision(c.Collection, opt)
+}
 
-	var serviceMatch bson.A
-	for _, sr := range opt.ServiceRevisions {
-		serviceMatch = append(serviceMatch, bson.M{
-			"service_name": sr.ServiceName,
-			"revision":     sr.Revision,
-		})
-	}
-
-	pipeline := []bson.M{
-		{
-			"$match": productMatch,
-		},
-	}
-	if len(opt.ServiceRevisions) > 0 {
-		pipeline = append(pipeline, bson.M{
-			"$match": bson.M{
-				"$or": serviceMatch,
-			},
-		})
-	} else {
+func listServicesWithSRevision(collection *mongo.Collection, opt *SvcRevisionListOption) ([]*models.Service, error) {
+	filter, ok := serviceRevisionListFilter(opt)
+	if !ok {
 		return []*models.Service{}, nil
 	}
 
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	cursor, err := collection.Find(context.TODO(), filter)
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(context.TODO())
 
 	res := make([]*models.Service, 0)
 	if err := cursor.All(context.TODO(), &res); err != nil {
 		return nil, err
 	}
-	return res, err
+	return res, nil
+}
+
+func serviceRevisionListFilter(opt *SvcRevisionListOption) (bson.M, bool) {
+	if len(opt.ServiceRevisions) == 0 {
+		return nil, false
+	}
+	revisionsByService := make(map[string]map[int64]struct{})
+	for _, sr := range opt.ServiceRevisions {
+		if revisionsByService[sr.ServiceName] == nil {
+			revisionsByService[sr.ServiceName] = make(map[int64]struct{})
+		}
+		revisionsByService[sr.ServiceName][sr.Revision] = struct{}{}
+	}
+
+	serviceMatch := make(bson.A, 0, len(revisionsByService))
+	for serviceName, revisionSet := range revisionsByService {
+		revisions := make([]int64, 0, len(revisionSet))
+		for revision := range revisionSet {
+			revisions = append(revisions, revision)
+		}
+		serviceMatch = append(serviceMatch, bson.M{
+			"service_name": serviceName,
+			"revision":     bson.M{"$in": revisions},
+		})
+	}
+	return bson.M{
+		"product_name": opt.ProductName,
+		"$or":          serviceMatch,
+	}, true
 }
 
 func (c *ServiceColl) ListMaxRevisionsByProject(serviceName, serviceType string) ([]*models.Service, error) {

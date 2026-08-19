@@ -1100,26 +1100,42 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 	return BuildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
+// BuildServiceInfoOptions supplies data already loaded by a request-scoped caller.
+type BuildServiceInfoOptions struct {
+	Project                 *template.Product
+	ProductTemplateServices []*commonmodels.Service
+	Modules                 *repository.ServiceModuleSnapshot
+}
+
 // @fixme newSvcKVsMap is old struct kv map, which are the kv are from deploy job config
 // may need to be removed, or use new kv struct
 // helm values need to be refactored
-func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
+func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger, preload ...*BuildServiceInfoOptions) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,
 		EnvName:     envName,
 		Services:    make([]*EnvService, 0),
 	}
-
-	project, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
-	if err != nil {
-		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productInfo.ProductName, err))
+	var project *template.Product
+	var productTemplateSvcs []*commonmodels.Service
+	var moduleSnapshot *repository.ServiceModuleSnapshot
+	var err error
+	if len(preload) > 0 && preload[0] != nil {
+		project = preload[0].Project
+		productTemplateSvcs = preload[0].ProductTemplateServices
+		moduleSnapshot = preload[0].Modules
+	} else {
+		project, err = templaterepo.NewProductColl().Find(productInfo.ProductName)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productName, err))
+		}
+		productTemplateSvcs, err = commonutil.GetProductUsedTemplateSvcs(productInfo)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
+		}
 	}
 
-	productTemplateSvcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
-	}
 	productTemplateSvcMap := make(map[string]*commonmodels.Service)
 	for _, svc := range productTemplateSvcs {
 		productTemplateSvcMap[svc.ServiceName] = svc
@@ -1131,11 +1147,15 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		templateSvcMap[svc.ServiceName] = svc
 
 		svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
-		// Service.Containers is no longer persisted — read modules from the
-		// service_module collection.
-		resolved, _, rerr := repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, productInfo.Production, svc.Revision)
-		if rerr != nil {
-			return nil, e.ErrGetService.AddErr(errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", svc.ProductName, svc.ServiceName, svc.Revision))
+		var resolved []*commonmodels.Container
+		if moduleSnapshot != nil {
+			resolved = moduleSnapshot.Resolved[svc.ServiceName][svc.Revision]
+		} else {
+			var rerr error
+			resolved, _, rerr = repository.ResolveServiceModules(context.Background(), svc.ProductName, svc.ServiceName, productInfo.Production, svc.Revision)
+			if rerr != nil {
+				return nil, e.ErrGetService.AddErr(errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", svc.ProductName, svc.ServiceName, svc.Revision))
+			}
 		}
 		for _, container := range resolved {
 			svcModulesMap[svc.ServiceName][container.Name] = container
@@ -1157,8 +1177,9 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		ret := make([]*commonmodels.Container, 0)
 		if modulesMap, ok := svcModulesMap[svcName]; ok {
 			for _, module := range modulesMap {
-				module.ImageName = commonutil.ExtractImageName(module.Image)
-				ret = append(ret, module)
+				copy := *module
+				copy.ImageName = commonutil.ExtractImageName(module.Image)
+				ret = append(ret, &copy)
 			}
 		}
 		return ret
