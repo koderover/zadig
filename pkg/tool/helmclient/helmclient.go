@@ -871,8 +871,27 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 	return nil
 }
 
-func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string, proxy *Proxy) error {
-	chartClient := &http.Client{}
+const chartMuseumPushTimeout = 10 * time.Minute
+
+func loadChartMuseumContextPath(indexFilePath string) (string, error) {
+	index, err := repo.LoadIndexFile(indexFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load chart repo index: %w", err)
+	}
+
+	contextPathValue, ok := index.ServerInfo["contextPath"]
+	if !ok {
+		return "", nil
+	}
+	contextPath, ok := contextPathValue.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid chart repo context path: expected string, got %T", contextPathValue)
+	}
+	return contextPath, nil
+}
+
+func (hClient *HelmClient) pushChartMuseum(ctx context.Context, repoEntry *repo.Entry, chartPath, contextPath string, proxy *Proxy) error {
+	chartClient := &http.Client{Timeout: chartMuseumPushTimeout}
 	if proxy.Enabled {
 		transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
 		if err != nil {
@@ -885,7 +904,7 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 	if err != nil {
 		return err
 	}
-	u.Path = path.Join("api", u.Path, "charts")
+	u.Path = path.Join(contextPath, "api", strings.TrimPrefix(u.Path, contextPath), "charts")
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -908,7 +927,7 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), &body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), &body)
 	if err != nil {
 		return err
 	}
@@ -1015,11 +1034,17 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string, pr
 	} else if repoUrl.Scheme == registry.OCIScheme {
 		return hClient.pushOCIRegistry(repoEntry, chartPath)
 	} else {
-		_, err := hClient.UpdateChartRepo(repoEntry)
+		indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
 		if err != nil {
 			return err
 		}
-		return hClient.pushChartMuseum(repoEntry, chartPath, proxy)
+		contextPath, err := loadChartMuseumContextPath(indexFilePath)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), chartMuseumPushTimeout)
+		defer cancel()
+		return hClient.pushChartMuseum(ctx, repoEntry, chartPath, contextPath, proxy)
 	}
 }
 
