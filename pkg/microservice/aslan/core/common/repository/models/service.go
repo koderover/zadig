@@ -33,21 +33,21 @@ import (
 // 1. Kubernetes service, and yaml+config is held in aslan: type == "k8s"; source == "spock"; yaml != ""
 // 2. Kubernetes service, and yaml+config is held in gitlab: type == "k8s"; source == "gitlab"; src_path != ""
 type Service struct {
-	ServiceName  string     `bson:"service_name"                   json:"service_name"`
-	Type         string     `bson:"type"                           json:"type"`
-	Team         string     `bson:"team,omitempty"                 json:"team,omitempty"`
-	ProductName  string     `bson:"product_name"                   json:"product_name"`
-	Revision     int64      `bson:"revision"                       json:"revision"`
-	Source       string     `bson:"source,omitempty"               json:"source,omitempty"`
-	GUIConfig    *GUIConfig `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
-	Yaml         string     `bson:"yaml,omitempty"                 json:"yaml"`
-	RenderedYaml string     `bson:"-"                              json:"-"`
-	SrcPath      string     `bson:"src_path,omitempty"             json:"src_path,omitempty"`
-	Commit       *Commit    `bson:"commit,omitempty"               json:"commit,omitempty"`
-	KubeYamls    []string   `bson:"-"                              json:"-"`
-	Hash         string     `bson:"hash256,omitempty"              json:"hash256,omitempty"`
-	CreateTime   int64      `bson:"create_time"                    json:"create_time"`
-	CreateBy     string     `bson:"create_by"                      json:"create_by"`
+	ServiceName        string                           `bson:"service_name"                   json:"service_name"`
+	Type               string                           `bson:"type"                           json:"type"`
+	Team               string                           `bson:"team,omitempty"                 json:"team,omitempty"`
+	ProductName        string                           `bson:"product_name"                   json:"product_name"`
+	Revision           int64                            `bson:"revision"                       json:"revision"`
+	Source             string                           `bson:"source,omitempty"               json:"source,omitempty"`
+	GUIConfig          *GUIConfig                       `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
+	Yaml               string                           `bson:"yaml,omitempty"                 json:"yaml"`
+	RenderedYaml       string                           `bson:"-"                              json:"-"`
+	SrcPath            string                           `bson:"src_path,omitempty"             json:"src_path,omitempty"`
+	Commit             *Commit                          `bson:"commit,omitempty"               json:"commit,omitempty"`
+	KubeYamls          []string                         `bson:"-"                              json:"-"`
+	Hash               string                           `bson:"hash256,omitempty"              json:"hash256,omitempty"`
+	CreateTime         int64                            `bson:"create_time"                    json:"create_time"`
+	CreateBy           string                           `bson:"create_by"                      json:"create_by"`
 	// Containers is an in-memory transit field used by the parsing helpers
 	// (SetCurrentContainerImages, parseContainer) and JSON responses for the
 	// frontend. Authoritative storage lives in the service_module collection
@@ -57,7 +57,7 @@ type Service struct {
 	//
 	// Deprecated: do not add new readers of this field. Use
 	// repository.ResolveServiceModules instead.
-	Containers         []*Container                     `bson:"-" json:"containers,omitempty"`
+	Containers []*Container `bson:"-" json:"containers,omitempty"`
 	Description        string                           `bson:"description,omitempty"          json:"description,omitempty"`
 	Visibility         string                           `bson:"visibility,omitempty"           json:"visibility,omitempty"` // DEPRECATED since 1.17.0
 	Status             string                           `bson:"status,omitempty"               json:"status,omitempty"`

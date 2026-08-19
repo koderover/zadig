@@ -375,6 +375,50 @@ func NewHelmDeployService() *HelmDeployService {
 	return &HelmDeployService{}
 }
 
+// MergeHelmContainers keeps existing environment images while adding or
+// refreshing the containers parsed from the selected service revision.
+func MergeHelmContainers(current, templates []*commonmodels.Container) []*commonmodels.Container {
+	currentByKey := make(map[string]*commonmodels.Container, len(current))
+	currentByName := make(map[string]*commonmodels.Container, len(current))
+	for _, container := range current {
+		if container == nil {
+			continue
+		}
+		currentByKey[container.GetKey()] = container
+		if existing := currentByName[container.Name]; existing != nil {
+			container.Image = existing.Image
+			if container.ImageName == "" {
+				container.ImageName = existing.ImageName
+			}
+		} else {
+			currentByName[container.Name] = container
+		}
+	}
+
+	for _, template := range templates {
+		if template == nil {
+			continue
+		}
+		if existing := currentByKey[template.GetKey()]; existing != nil {
+			existing.ImagePath = template.ImagePath
+			existing.Type = template.Type
+			if existing.ImageName == "" {
+				existing.ImageName = template.ImageName
+			}
+			continue
+		}
+		if existing := currentByName[template.Name]; existing != nil {
+			template.Image = existing.Image
+			if template.ImageName == "" {
+				template.ImageName = existing.ImageName
+			}
+		}
+		currentByKey[template.GetKey()] = template
+		current = append(current, template)
+	}
+	return current
+}
+
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // defaultValues: global values yaml
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
@@ -570,47 +614,7 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 			prodSvc.Revision = tmplSvc.Revision
 		}
 
-		containerMap := make(map[string]*commonmodels.Container)
-		containerNameMap := make(map[string]*commonmodels.Container)
-		for _, container := range prodSvc.Containers {
-			if container == nil {
-				continue
-			}
-			containerMap[container.GetKey()] = container
-			if currentContainer, ok := containerNameMap[container.Name]; ok {
-				container.Image = currentContainer.Image
-				if container.ImageName == "" {
-					container.ImageName = currentContainer.ImageName
-				}
-			} else {
-				containerNameMap[container.Name] = container
-			}
-		}
-
-		for _, templateContainer := range tmplContainers {
-			if templateContainer == nil {
-				continue
-			}
-			key := templateContainer.GetKey()
-			if currentContainer, ok := containerMap[key]; ok {
-				if templateContainer.ImagePath != nil {
-					currentContainer.ImagePath = templateContainer.ImagePath
-				}
-				currentContainer.Type = templateContainer.Type
-				if currentContainer.ImageName == "" {
-					currentContainer.ImageName = templateContainer.ImageName
-				}
-				continue
-			}
-			if currentContainer := containerNameMap[templateContainer.Name]; currentContainer != nil {
-				templateContainer.Image = currentContainer.Image
-				if templateContainer.ImageName == "" {
-					templateContainer.ImageName = currentContainer.ImageName
-				}
-			}
-			containerMap[key] = templateContainer
-			prodSvc.Containers = append(prodSvc.Containers, templateContainer)
-		}
+		prodSvc.Containers = MergeHelmContainers(prodSvc.Containers, tmplContainers)
 	}
 	return prodSvc, tmplSvc, nil
 }
