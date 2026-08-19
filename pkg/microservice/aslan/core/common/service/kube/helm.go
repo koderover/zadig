@@ -980,7 +980,14 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 				continue
 			}
 			containerMap[container.GetKey()] = container
-			containerNameMap[container.Name] = container
+			if currentContainer, ok := containerNameMap[container.Name]; ok {
+				container.Image = currentContainer.Image
+				if container.ImageName == "" {
+					container.ImageName = currentContainer.ImageName
+				}
+			} else {
+				containerNameMap[container.Name] = container
+			}
 		}
 		for _, tmplContainer := range tmplContainers {
 			if tmplContainer == nil {

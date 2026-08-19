@@ -386,7 +386,9 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 	imageMap := make(map[string]string)
 	for _, image := range images {
 		name := commonutil.ExtractImageName(image)
-		imageMap[name] = image
+		if _, ok := imageMap[name]; !ok {
+			imageMap[name] = image
+		}
 	}
 
 	valuesMap := make(map[string]interface{})
@@ -575,7 +577,14 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 				continue
 			}
 			containerMap[container.GetKey()] = container
-			containerNameMap[container.Name] = container
+			if currentContainer, ok := containerNameMap[container.Name]; ok {
+				container.Image = currentContainer.Image
+				if container.ImageName == "" {
+					container.ImageName = currentContainer.ImageName
+				}
+			} else {
+				containerNameMap[container.Name] = container
+			}
 		}
 
 		for _, templateContainer := range tmplContainers {
