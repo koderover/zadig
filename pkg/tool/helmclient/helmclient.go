@@ -21,19 +21,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
-	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
@@ -870,16 +872,52 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 }
 
 func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string, proxy *Proxy) error {
-	chartClient, err := newHelmChartMuseumClient(
-		proxy,
-		cm.URL(repoEntry.URL),
-		cm.Username(repoEntry.Username),
-		cm.Password(repoEntry.Password),
-	)
+	chartClient := &http.Client{}
+	if proxy.Enabled {
+		transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
+		if err != nil {
+			return fmt.Errorf("failed to new transport, err: %s", err)
+		}
+		chartClient.Transport = transport
+	}
+
+	u, err := url.Parse(repoEntry.URL)
 	if err != nil {
 		return err
 	}
-	resp, err := chartClient.UploadChartPackage(chartPath, false)
+	u.Path = path.Join("api", u.Path, "charts")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("chart", chartPath)
+	if err != nil {
+		return err
+	}
+	chartFile, err := os.Open(chartPath)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(part, chartFile); err != nil {
+		chartFile.Close()
+		return err
+	}
+	if err = chartFile.Close(); err != nil {
+		return err
+	}
+	if err = writer.Close(); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if repoEntry.Username != "" && repoEntry.Password != "" {
+		req.SetBasicAuth(repoEntry.Username, repoEntry.Password)
+	}
+
+	resp, err := chartClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to prepare pushing chart: %s, error: %w", chartPath, err)
 
@@ -1072,24 +1110,4 @@ type Proxy struct {
 	Enabled  bool
 	URL      string
 	ProxyURL string
-}
-
-// rewrite NewClient() in github.com/chartmuseum/helm-push/pkg/chartmuseum to support proxy
-func newHelmChartMuseumClient(proxy *Proxy, opts ...cm.Option) (*cm.Client, error) {
-	var client cm.Client
-	client.Client = &http.Client{}
-	client.Option(opts...)
-
-	if !proxy.Enabled {
-		return &client, nil
-	}
-
-	transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to new transport, err: %s", err)
-	}
-
-	client.Transport = transport
-
-	return &client, nil
 }

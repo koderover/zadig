@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -39,6 +38,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
+	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -880,7 +880,7 @@ func pushDeliveryChartFromEnv(service *commonmodels.DeliveryVersionService, env 
 	chartRequested.Metadata.AppVersion = service.ChartVersion
 
 	//create local chart package
-	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
+	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
 	if err != nil {
 		return err
 	}
@@ -944,7 +944,7 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 	chartRequested.Metadata.AppVersion = service.ChartVersion
 
 	//create local chart package
-	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
+	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
 	if err != nil {
 		return err
 	}
