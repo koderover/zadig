@@ -19,7 +19,7 @@
     "vite": "^8.1.5"
   },
   "resolutions": {
-    "nanoid": "^3.3.17",
+    "nanoid": "^5.1.16",
     "postcss": "^8.5.26"
   },
   "engines": {

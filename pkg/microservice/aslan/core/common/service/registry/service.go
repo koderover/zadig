@@ -47,12 +47,10 @@ import (
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
-	typesregistry "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/registry"
-	"github.com/docker/go-connections/sockets"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
 	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
+	mobyregistry "github.com/moby/moby/api/types/registry"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -125,6 +123,51 @@ type authClient struct {
 	log *zap.SugaredLogger
 }
 
+const registryAuthClientID = "docker"
+
+type staticCredentialStore struct {
+	auth *mobyregistry.AuthConfig
+}
+
+func (s staticCredentialStore) Basic(*url.URL) (string, string) {
+	if s.auth == nil {
+		return "", ""
+	}
+	return s.auth.Username, s.auth.Password
+}
+
+func (s staticCredentialStore) RefreshToken(*url.URL, string) string {
+	if s.auth == nil {
+		return ""
+	}
+	return s.auth.IdentityToken
+}
+
+func (staticCredentialStore) SetRefreshToken(*url.URL, string, string) {}
+
+func pingV2Registry(endpoint *url.URL, roundTripper http.RoundTripper) (challenge.Manager, error) {
+	pingClient := &http.Client{
+		Transport: roundTripper,
+		Timeout:   15 * time.Second,
+	}
+	endpointStr := strings.TrimRight(endpoint.String(), "/") + "/v2/"
+	req, err := http.NewRequest(http.MethodGet, endpointStr, http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := pingClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	challengeManager := challenge.NewSimpleManager()
+	if err := challengeManager.AddResponse(resp); err != nil {
+		return nil, err
+	}
+	return challengeManager, nil
+}
+
 func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger) (cli *authClient, err error) {
 	endpointURL, err := url.Parse(ep.Addr)
 	if err != nil {
@@ -155,19 +198,9 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 		DisableKeepAlives:   true,
 	}
 
-	proxyDialer, err := sockets.DialerFromEnvironment(direct)
-	if err == nil {
-		// *net.Dialer already implements DialContext method
-		base.DialContext = proxyDialer.DialContext
-	}
-
 	authTransport := transport.NewTransport(base)
-	challengeManager, err := registry.PingV2Registry(endpointURL, authTransport)
-
+	challengeManager, err := pingV2Registry(endpointURL, authTransport)
 	if err != nil {
-		if responseErr, ok := err.(registry.PingResponseError); ok {
-			err = responseErr.Err
-		}
 		return
 	}
 
@@ -189,11 +222,10 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 		return
 	}
 
-	creds := registry.NewStaticCredentialStore(&typesregistry.AuthConfig{
-		Username:      c.endpoint.Ak,
-		Password:      c.endpoint.Sk,
-		ServerAddress: c.endpoint.Addr,
-	})
+	creds := staticCredentialStore{auth: &mobyregistry.AuthConfig{
+		Username: c.endpoint.Ak,
+		Password: c.endpoint.Sk,
+	}}
 
 	basicHandler := auth.NewBasicHandler(creds)
 	scope := auth.RepositoryScope{
@@ -206,7 +238,7 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 		Transport:   c.tr,
 		Credentials: creds,
 		Scopes:      []auth.Scope{scope},
-		ClientID:    registry.AuthClientID,
+		ClientID:    registryAuthClientID,
 	}
 
 	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
@@ -326,11 +358,10 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 }
 
 func (c *authClient) validateRegistry() (err error) {
-	creds := registry.NewStaticCredentialStore(&typesregistry.AuthConfig{
-		Username:      c.endpoint.Ak,
-		Password:      c.endpoint.Sk,
-		ServerAddress: c.endpoint.Addr,
-	})
+	creds := staticCredentialStore{auth: &mobyregistry.AuthConfig{
+		Username: c.endpoint.Ak,
+		Password: c.endpoint.Sk,
+	}}
 
 	basicHandler := auth.NewBasicHandler(creds)
 
@@ -343,7 +374,7 @@ func (c *authClient) validateRegistry() (err error) {
 		Transport:   c.tr,
 		Credentials: creds,
 		Scopes:      []auth.Scope{scope},
-		ClientID:    registry.AuthClientID,
+		ClientID:    registryAuthClientID,
 	}
 
 	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
