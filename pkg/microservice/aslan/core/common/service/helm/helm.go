@@ -375,6 +375,36 @@ func NewHelmDeployService() *HelmDeployService {
 	return &HelmDeployService{}
 }
 
+// MergeHelmContainers uses the service_module result as the authoritative
+// container set for the selected service revision. Existing images are
+// preserved only when name and image path match exactly; a new path keeps the
+// template image instead of inheriting an unrelated same-name image.
+func MergeHelmContainers(current, templates []*commonmodels.Container) []*commonmodels.Container {
+	currentByKey := make(map[string]*commonmodels.Container, len(current))
+	for _, container := range current {
+		if container == nil {
+			continue
+		}
+		currentByKey[container.GetKey()] = container
+	}
+
+	merged := make([]*commonmodels.Container, 0, len(templates))
+	for _, templateContainer := range templates {
+		if templateContainer == nil {
+			continue
+		}
+		currentContainer := currentByKey[templateContainer.GetKey()]
+		if currentContainer != nil {
+			templateContainer.Image = currentContainer.Image
+			if templateContainer.ImageName == "" {
+				templateContainer.ImageName = currentContainer.ImageName
+			}
+		}
+		merged = append(merged, templateContainer)
+	}
+	return merged
+}
+
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // defaultValues: global values yaml
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
@@ -540,41 +570,29 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
 		}
+	}
 
-		// Service.Containers no longer persisted — pull modules for the
-		// loaded template revision from the service_module table.
-		tmplContainers, _, rerr := repository.ResolveServiceModules(context.Background(), tmplSvc.ProductName, tmplSvc.ServiceName, prod.Production, tmplSvc.Revision)
-		if rerr != nil {
-			return nil, nil, errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", tmplSvc.ProductName, tmplSvc.ServiceName, tmplSvc.Revision)
+	// Service.Containers is no longer persisted in the template. Resolve the
+	// selected service revision from service_module; when updateServiceRevision
+	// is false, tmplSvc is pinned to the environment's current revision.
+	tmplContainers, _, rerr := repository.ResolveServiceModules(context.Background(), tmplSvc.ProductName, tmplSvc.ServiceName, prod.Production, tmplSvc.Revision)
+	if rerr != nil {
+		return nil, nil, errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", tmplSvc.ProductName, tmplSvc.ServiceName, tmplSvc.Revision)
+	}
+	if prodSvc == nil {
+		prodSvc = &commonmodels.ProductService{
+			ServiceName: serviceName,
+			ReleaseName: serviceName,
+			ProductName: prod.ProductName,
+			Type:        tmplSvc.Type,
+			Revision:    tmplSvc.Revision,
+			Containers:  tmplContainers,
 		}
-		if prodSvc == nil {
-			prodSvc = &commonmodels.ProductService{
-				ServiceName: serviceName,
-				ReleaseName: serviceName,
-				ProductName: prod.ProductName,
-				Type:        tmplSvc.Type,
-				Revision:    tmplSvc.Revision,
-				Containers:  tmplContainers,
-			}
-		} else {
+	} else {
+		if updateServiceRevision {
 			prodSvc.Revision = tmplSvc.Revision
-
-			containerMap := make(map[string]*commonmodels.Container)
-			for _, container := range prodSvc.Containers {
-				containerMap[container.Name] = container
-			}
-
-			for _, templateContainer := range tmplContainers {
-				if containerMap[templateContainer.Name] == nil {
-					prodSvc.Containers = append(prodSvc.Containers, templateContainer)
-				} else {
-					if templateContainer.ImagePath != nil {
-						containerMap[templateContainer.Name].ImagePath = templateContainer.ImagePath
-					}
-					containerMap[templateContainer.Name].Type = templateContainer.Type
-				}
-			}
 		}
+		prodSvc.Containers = MergeHelmContainers(prodSvc.Containers, tmplContainers)
 	}
 	return prodSvc, tmplSvc, nil
 }

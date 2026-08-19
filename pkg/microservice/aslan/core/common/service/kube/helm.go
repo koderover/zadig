@@ -973,23 +973,7 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		if err != nil {
 			return ret, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", templateSvc.ProductName, templateSvc.ServiceName, templateSvc.Revision, err)
 		}
-		containerMap := make(map[string]*commonmodels.Container)
-		for _, container := range productSvc.Containers {
-			containerMap[container.Name] = container
-		}
-		for _, tmplContainer := range tmplContainers {
-			if containerMap[tmplContainer.Name] == nil {
-				productSvc.Containers = append(productSvc.Containers, tmplContainer)
-				continue
-			}
-			if tmplContainer.ImagePath != nil {
-				containerMap[tmplContainer.Name].ImagePath = tmplContainer.ImagePath
-			}
-			containerMap[tmplContainer.Name].Type = tmplContainer.Type
-			if containerMap[tmplContainer.Name].ImageName == "" {
-				containerMap[tmplContainer.Name].ImageName = tmplContainer.ImageName
-			}
-		}
+		productSvc.Containers = helmservice.MergeHelmContainers(productSvc.Containers, tmplContainers)
 		ret.ServiceObj = templateSvc
 		ret.ReleaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), templateSvc.ProductName, namespace, envName, templateSvc.ServiceName)
 	} else {
