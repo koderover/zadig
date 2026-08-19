@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slices"
 
@@ -46,7 +47,116 @@ import (
 type DeployJobController struct {
 	*BasicInfo
 
-	jobSpec *commonmodels.ZadigDeployJobSpec
+	jobSpec       *commonmodels.ZadigDeployJobSpec
+	presetContext *deployPresetContext
+}
+
+type deployPresetServiceRevision struct {
+	serviceName string
+	revision    int64
+}
+
+// deployPresetContext caches Mongo data for one preset request.
+type deployPresetContext struct {
+	loaded            bool
+	environments      []*commonmodels.Product
+	environmentByName map[string]*commonmodels.Product
+	projectInfo       *templatemodels.Product
+	latestServices    []*commonmodels.Service
+	serviceByRevision map[deployPresetServiceRevision]*commonmodels.Service
+	serviceModules    *repository.ServiceModuleSnapshot
+	defaultRegistryID string
+}
+
+func (c *deployPresetContext) loadProjectInfo(project string) error {
+	if c.projectInfo != nil {
+		return nil
+	}
+	projectInfo, err := templaterepo.NewProductColl().Find(project)
+	if err != nil {
+		return fmt.Errorf("failed to find project %s: %w", project, err)
+	}
+	c.projectInfo = projectInfo
+	return nil
+}
+
+func (c *deployPresetContext) load(project string, production bool, envSource config.ParamSourceType, currentEnv string, ticket *commonmodels.ApprovalTicket) error {
+	if c.loaded {
+		return nil
+	}
+
+	started := time.Now()
+	environments, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: project, Production: util.GetBoolPointer(production)})
+	if err != nil {
+		return fmt.Errorf("failed to list environments for project %s: %w", project, err)
+	}
+
+	shouldLoadEnv := func(environment *commonmodels.Product) bool {
+		if !ticket.IsAllowedEnv(project, environment.EnvName) {
+			return false
+		}
+		return envSource != config.ParamSourceFixed || environment.EnvName == currentEnv
+	}
+
+	environmentByName := make(map[string]*commonmodels.Product, len(environments))
+	requestedRevisions := make(map[deployPresetServiceRevision]struct{})
+	for _, environment := range environments {
+		environment.LintServices()
+		environmentByName[environment.EnvName] = environment
+		if !shouldLoadEnv(environment) {
+			continue
+		}
+		for _, service := range environment.GetServiceMap() {
+			requestedRevisions[deployPresetServiceRevision{service.ServiceName, service.Revision}] = struct{}{}
+		}
+	}
+
+	if err := c.loadProjectInfo(project); err != nil {
+		return err
+	}
+	latestServices, err := repository.ListMaxRevisionsServices(project, production, false)
+	if err != nil {
+		return fmt.Errorf("failed to list latest services for project %s: %w", project, err)
+	}
+	revisionOptions := make([]*commonrepo.ServiceRevision, 0, len(requestedRevisions))
+	for revision := range requestedRevisions {
+		revisionOptions = append(revisionOptions, &commonrepo.ServiceRevision{ServiceName: revision.serviceName, Revision: revision.revision})
+	}
+	environmentServices, err := repository.ListServicesWithSRevision(&commonrepo.SvcRevisionListOption{ProductName: project, ServiceRevisions: revisionOptions}, production)
+	if err != nil {
+		return fmt.Errorf("failed to list environment service revisions for project %s: %w", project, err)
+	}
+	serviceByRevision := make(map[deployPresetServiceRevision]*commonmodels.Service, len(environmentServices))
+	for _, service := range environmentServices {
+		serviceByRevision[deployPresetServiceRevision{service.ServiceName, service.Revision}] = service
+	}
+	moduleRevisions := make(map[string][]int64, len(latestServices))
+	for _, service := range latestServices {
+		moduleRevisions[service.ServiceName] = []int64{service.Revision}
+	}
+	serviceModules, err := repository.LoadServiceModuleSnapshot(context.Background(), project, production, moduleRevisions)
+	if err != nil {
+		return fmt.Errorf("failed to load service modules for project %s: %w", project, err)
+	}
+
+	registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{IsDefault: true})
+	if err != nil {
+		return fmt.Errorf("failed to find default registry for project %s: %w", project, err)
+	}
+
+	c.loaded, c.environments, c.environmentByName = true, environments, environmentByName
+	c.latestServices, c.serviceByRevision = latestServices, serviceByRevision
+	c.serviceModules, c.defaultRegistryID = serviceModules, registry.ID.Hex()
+	log.Debugf("loaded deploy preset context for project %s in %s: environments=%d service_revisions=%d module_records=%d",
+		project, time.Since(started), len(environments), len(requestedRevisions), serviceModules.RecordCount)
+	return nil
+}
+
+func (j DeployJobController) loadPresetContext(ticket *commonmodels.ApprovalTicket) (*deployPresetContext, error) {
+	if err := j.presetContext.load(j.workflow.Project, j.jobSpec.Production, j.jobSpec.EnvSource, j.jobSpec.Env, ticket); err != nil {
+		return nil, err
+	}
+	return j.presetContext, nil
 }
 
 func CreateDeployJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
@@ -64,8 +174,9 @@ func CreateDeployJobController(job *commonmodels.Job, workflow *commonmodels.Wor
 	}
 
 	return DeployJobController{
-		BasicInfo: basicInfo,
-		jobSpec:   spec,
+		BasicInfo:     basicInfo,
+		jobSpec:       spec,
+		presetContext: &deployPresetContext{},
 	}, nil
 }
 
@@ -134,11 +245,11 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	j.executePolicy = latestJob.ExecutePolicy
 
 	j.jobSpec.Production = latestSpec.Production
-	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	if err := j.presetContext.loadProjectInfo(j.workflow.Project); err != nil {
+		return err
 	}
 
+	project := j.presetContext.projectInfo
 	if project.ProductFeature != nil {
 		j.jobSpec.DeployType = project.ProductFeature.DeployType
 	}
@@ -175,31 +286,24 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		if !ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
 			j.jobSpec.Env = ""
 		}
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:       j.workflow.Project,
-			Production: util.GetBoolPointer(j.jobSpec.Production),
-		})
-		if err != nil {
-			log.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
-			return err
-		}
-
-		currentEnvMap := make(map[string]*commonmodels.Product)
-		for _, env := range products {
-			currentEnvMap[env.EnvName] = env
-		}
-
-		if _, ok := currentEnvMap[j.jobSpec.Env]; !ok {
-			j.jobSpec.Env = ""
-		}
 
 		// if unselected for some reason, we skip calculating default service
 		if j.jobSpec.Env == "" {
 			j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 			return nil
 		}
+		presetContext, err := j.loadPresetContext(ticket)
+		if err != nil {
+			return err
+		}
+		environment, ok := presetContext.environmentByName[j.jobSpec.Env]
+		if !ok {
+			j.jobSpec.Env = ""
+			j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
+			return nil
+		}
 
-		envDeployInfo, err := generateDeployInfoForEnv(j.jobSpec.Env, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
+		envDeployInfo, err := generateDeployInfoForEnvironment(environment, presetContext, j.jobSpec.ServiceVariableConfig, ticket)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
 			return err
@@ -231,7 +335,17 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		return nil
 	}
 
-	envDeployInfo, err := generateDeployInfoForEnv(j.jobSpec.Env, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
+	presetContext, err := j.loadPresetContext(ticket)
+	if err != nil {
+		return err
+	}
+	var envDeployInfo *commonmodels.ZadigDeployEnvInformation
+	environment, ok := presetContext.environmentByName[j.jobSpec.Env]
+	if !ok {
+		err = fmt.Errorf("failed to find env: %s in environments", j.jobSpec.Env)
+	} else {
+		envDeployInfo, err = generateDeployInfoForEnvironment(environment, presetContext, j.jobSpec.ServiceVariableConfig, ticket)
+	}
 	if err != nil {
 		log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
 		if latestSpec.EnvSource == config.ParamSourceFixed {
@@ -303,28 +417,30 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 // it will update the env's option/ service's option based on the user's setting on whether they update the config
 func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	envOptions := make([]*commonmodels.ZadigDeployEnvInformation, 0)
+	if j.jobSpec.EnvSource == config.ParamSourceFixed && !ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
+		j.jobSpec.EnvOptions = envOptions
+		return nil
+	}
+	presetContext, err := j.loadPresetContext(ticket)
+	if err != nil {
+		return err
+	}
+	generationStarted := time.Now()
 
 	if j.jobSpec.EnvSource == config.ParamSourceFixed {
-		if ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
-			envInfo, err := generateDeployInfoForEnv(j.jobSpec.Env, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
-			if err != nil {
-				log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
-				return err
-			}
-
-			envOptions = append(envOptions, envInfo)
+		environment, ok := presetContext.environmentByName[j.jobSpec.Env]
+		if !ok {
+			return fmt.Errorf("failed to find env: %s in environments", j.jobSpec.Env)
 		}
-	} else {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:       j.workflow.Project,
-			Production: util.GetBoolPointer(j.jobSpec.Production),
-		})
+		envInfo, err := generateDeployInfoForEnvironment(environment, presetContext, j.jobSpec.ServiceVariableConfig, ticket)
 		if err != nil {
-			log.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+			log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
 			return err
 		}
 
-		for _, env := range products {
+		envOptions = append(envOptions, envInfo)
+	} else {
+		for _, env := range presetContext.environments {
 			// skip the sleeping envs
 			if env.IsSleeping() {
 				continue
@@ -334,7 +450,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 				continue
 			}
 
-			envInfo, err := generateDeployInfoForEnv(env.EnvName, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
+			envInfo, err := generateDeployInfoForEnvironment(env, presetContext, j.jobSpec.ServiceVariableConfig, ticket)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
 				return err
@@ -404,6 +520,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 	}
 
 	j.jobSpec.EnvOptions = envOptions
+	log.Debugf("generated deploy preset options for project %s in %s: environments=%d", j.workflow.Project, time.Since(generationStarted), len(envOptions))
 	return nil
 }
 
@@ -957,38 +1074,22 @@ ServiceOrderLoop:
 	return resp, nil
 }
 
-// generateDeployInfoForEnv generates the whole environment deployment info for the given env, it contains:
+// generateDeployInfoForEnvironment generates deployment information from a
+// request-scoped, preloaded data set. It contains:
 // 1. basic environment information
 // 2. ALL service information that is either in the environment or the service definition
 // 3. 2 versions of variable list (filtered by the user's variable configuration) showing the service variable definition and the env variables (if applicable)
-func generateDeployInfoForEnv(env, project string, production bool, configuredServiceVariableList commonmodels.DeployServiceVariableConfigList, approvalTicket *commonmodels.ApprovalTicket) (*commonmodels.ZadigDeployEnvInformation, error) {
-	repositoryCache := repository.NewRepsitoryCache()
+func generateDeployInfoForEnvironment(envInfo *commonmodels.Product, presetContext *deployPresetContext, configuredServiceVariableList commonmodels.DeployServiceVariableConfigList, approvalTicket *commonmodels.ApprovalTicket) (*commonmodels.ZadigDeployEnvInformation, error) {
+	env := envInfo.EnvName
+	project := envInfo.ProductName
+	production := envInfo.Production
+	registryID := envInfo.RegistryID
+	if registryID == "" {
+		registryID = presetContext.defaultRegistryID
+	}
 	serviceOption := make([]*commonmodels.DeployOptionInfo, 0)
 
-	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       project,
-		EnvName:    env,
-		Production: util.GetBoolPointer(production),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to find env: %s in environments, error: %s", env, err)
-	}
-
-	if envInfo.RegistryID == "" {
-		registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
-			IsDefault: true,
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to find default registry for env: %s, error: %s", env, err)
-		}
-		envInfo.RegistryID = registry.ID.Hex()
-	}
-
-	projectInfo, err := templaterepo.NewProductColl().Find(project)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project %s, err: %v", project, err)
-	}
+	projectInfo := presetContext.projectInfo
 
 	envServiceMap := envInfo.GetServiceMap()
 
@@ -1008,10 +1109,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			}
 
 			// Phase 4: append manual modules for host-product env case.
-			manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
-			if mErr != nil {
-				return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
-			}
+			manualMods := presetContext.serviceModules.Manual[service.ServiceName]
 			for _, m := range manualMods {
 				if _, exists := modulesMap[m.Name]; exists {
 					continue
@@ -1046,36 +1144,27 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			Env:        envInfo.EnvName,
 			EnvAlias:   envInfo.Alias,
 			Production: production,
-			RegistryID: envInfo.RegistryID,
+			RegistryID: registryID,
 			Services:   serviceOption,
 		}, nil
 	}
 
 	serviceDefinitionMap := make(map[string]*commonmodels.Service)
-	var serviceDefinitions []*commonmodels.Service
-	if production {
-		serviceDefinitions, err = commonrepo.NewProductionServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
-			ProductName: project,
-		})
-	} else {
-		serviceDefinitions, err = commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
-			ProductName: project,
-		})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to list services, error: %s", err)
-	}
+	serviceDefinitions := presetContext.latestServices
 
 	for _, service := range serviceDefinitions {
 		serviceDefinitionMap[service.ServiceName] = service
 	}
 
-	serviceList, err := repository.ListMaxRevisionsServices(project, production, false)
-	if err != nil {
-		return nil, fmt.Errorf("get service definition list error: %v", err)
+	productTemplateServices := make([]*commonmodels.Service, 0, len(envServiceMap))
+	for _, service := range envServiceMap {
+		if definition := presetContext.serviceByRevision[deployPresetServiceRevision{serviceName: service.ServiceName, revision: service.Revision}]; definition != nil {
+			productTemplateServices = append(productTemplateServices, definition)
+		}
 	}
-
-	serviceGeneralInfo, err := commonservice.BuildServiceInfoInEnv(envInfo, serviceList, nil, log.SugaredLogger())
+	serviceGeneralInfo, err := commonservice.BuildServiceInfoInEnv(envInfo, serviceDefinitions, nil, log.SugaredLogger(), &commonservice.BuildServiceInfoOptions{
+		Project: projectInfo, ProductTemplateServices: productTemplateServices, Modules: presetContext.serviceModules,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate service info, error: %s", err)
 	}
@@ -1111,10 +1200,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		// for CRD/DaemonSet workloads) and dedup against modulesMap so we
 		// don't double-count when a manual record shares a name with a
 		// container already pulled from ProductService via the env reconcile.
-		manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
-		if mErr != nil {
-			return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
-		}
+		manualMods := presetContext.serviceModules.Manual[service.ServiceName]
 		for _, m := range manualMods {
 			if _, exists := modulesMap[m.Name]; exists {
 				continue
@@ -1131,13 +1217,9 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 
 		currentReleaseName := ""
 		if service.Type == setting.HelmDeployType {
-			envService, err := repositoryCache.QueryTemplateServiceWithCache(&commonrepo.ServiceFindOption{
-				ProductName: project,
-				ServiceName: service.ServiceName,
-				Revision:    service.Revision,
-			}, production)
-			if err != nil {
-				return nil, fmt.Errorf("failed to query template service %s/%s/%d, error: %s", project, service.ServiceName, service.Revision, err)
+			envService, ok := presetContext.serviceByRevision[deployPresetServiceRevision{serviceName: service.ServiceName, revision: service.Revision}]
+			if !ok {
+				return nil, fmt.Errorf("failed to query template service %s/%s/%d", project, service.ServiceName, service.Revision)
 			}
 
 			currentReleaseName = util.GeneReleaseName(envService.GetReleaseNaming(), project, envInfo.Namespace, env, service.ServiceName)
@@ -1147,10 +1229,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		if serviceDef, ok := serviceDefinitionMap[service.ServiceName]; ok {
 			// Service.Containers no longer persisted — pull merged modules
 			// for the latest template revision.
-			defContainers, _, dErr := repository.ResolveServiceModules(context.Background(), serviceDef.ProductName, serviceDef.ServiceName, production, serviceDef.Revision)
-			if dErr != nil {
-				return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", serviceDef.ProductName, serviceDef.ServiceName, serviceDef.Revision, dErr)
-			}
+			defContainers := presetContext.serviceModules.Resolved[serviceDef.ServiceName][serviceDef.Revision]
 			for _, module := range defContainers {
 				// if a container is newly created in the service, add it to the module list
 				if _, ok := modulesMap[module.Name]; !ok {
@@ -1222,10 +1301,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		// Service.Containers is no longer persisted; read modules from the
 		// normalized module store so services not deployed in the env still
 		// expose their selectable modules in workflow presets.
-		containers, _, rErr := repository.ResolveServiceModules(context.Background(), service.ProductName, service.ServiceName, production, service.Revision)
-		if rErr != nil {
-			return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %s", service.ProductName, service.ServiceName, service.Revision, rErr)
-		}
+		containers := presetContext.serviceModules.Resolved[service.ServiceName][service.Revision]
 		for _, module := range containers {
 			modulesMap[module.Name] = struct{}{}
 			if approvalTicket.IsAllowedService(project, service.ServiceName, module.Name) {
@@ -1238,10 +1314,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		}
 
 		// Phase 4: append manual modules for services not yet deployed in env.
-		manualMods, mErr := repository.ListManualServiceModules(context.Background(), project, service.ServiceName, production)
-		if mErr != nil {
-			return nil, fmt.Errorf("failed to list manual service modules for %s: %v", service.ServiceName, mErr)
-		}
+		manualMods := presetContext.serviceModules.Manual[service.ServiceName]
 		for _, m := range manualMods {
 			if _, exists := modulesMap[m.Name]; exists {
 				continue
@@ -1299,7 +1372,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		Env:        envInfo.EnvName,
 		EnvAlias:   envInfo.Alias,
 		Production: production,
-		RegistryID: envInfo.RegistryID,
+		RegistryID: registryID,
 		Services:   serviceOption,
 	}, nil
 }
