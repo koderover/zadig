@@ -112,6 +112,13 @@ func (c *ProductColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
+				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "env_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "product_name", Value: 1},
 			},

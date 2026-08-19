@@ -37,6 +37,63 @@ type ModuleConflict struct {
 	Shadowed []*models.ServiceModule
 }
 
+// ServiceModuleSnapshot holds modules preloaded for one request.
+type ServiceModuleSnapshot struct {
+	Manual      map[string][]*models.Container
+	Resolved    map[string]map[int64][]*models.Container
+	RecordCount int
+}
+
+// LoadServiceModuleSnapshot loads all records required for serviceRevisions
+// in one MongoDB find and prepares the same merge results as
+// ResolveServiceModules.
+func LoadServiceModuleSnapshot(ctx context.Context, projectName string, production bool, serviceRevisions map[string][]int64) (*ServiceModuleSnapshot, error) {
+	records, err := pickServiceModuleColl(production).ListByServiceRevisions(ctx, projectName, serviceRevisions)
+	if err != nil {
+		return nil, err
+	}
+	return newServiceModuleSnapshot(records, serviceRevisions), nil
+}
+
+func newServiceModuleSnapshot(records []*models.ServiceModule, serviceRevisions map[string][]int64) *ServiceModuleSnapshot {
+	snapshot := &ServiceModuleSnapshot{
+		Manual:      make(map[string][]*models.Container),
+		Resolved:    make(map[string]map[int64][]*models.Container),
+		RecordCount: len(records),
+	}
+	recordsByService := make(map[string][]*models.ServiceModule)
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		recordsByService[record.ServiceName] = append(recordsByService[record.ServiceName], record)
+		if record.IsManual {
+			snapshot.Manual[record.ServiceName] = append(snapshot.Manual[record.ServiceName], &models.Container{
+				Name: record.Name, Type: record.Type, Image: record.Image, ImageName: record.ImageName, ImagePath: record.ImagePath,
+			})
+		}
+	}
+
+	for serviceName, revisions := range serviceRevisions {
+		snapshot.Resolved[serviceName] = make(map[int64][]*models.Container)
+		for _, revision := range revisions {
+			selected := make([]*models.ServiceModule, 0)
+			for _, record := range recordsByService[serviceName] {
+				// ListByServiceRevision historically excludes ignored records for
+				// both branches, while the standalone manual listing does not.
+				if record.Ignored {
+					continue
+				}
+				if record.IsManual || record.RevisionBound == revision {
+					selected = append(selected, record)
+				}
+			}
+			snapshot.Resolved[serviceName][revision] = mergeServiceModules(selected)
+		}
+	}
+	return snapshot
+}
+
 // ResolveServiceModules returns the merged module list for one (project,
 // service, revision) plus any name conflicts. Production picks the right
 // underlying collection (service_module vs production_service_module).
