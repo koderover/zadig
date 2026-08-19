@@ -25,8 +25,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-// ModuleConflict reports that two records share a Name. The Winner is the
-// record currently in effect under the precedence rule (see
+// ModuleConflict reports that two records share a Name and ImagePath. The
+// Winner is the record currently in effect under the precedence rule (see
 // ResolveServiceModules); Shadowed lists the records that were displaced.
 // Callers (typically API handlers) should surface these to the UI so users
 // can disambiguate — e.g., "module 'api' has both a manual declaration and
@@ -99,9 +99,9 @@ func newServiceModuleSnapshot(records []*models.ServiceModule, serviceRevisions 
 // underlying collection (service_module vs production_service_module).
 //
 // Merge rule: time-of-creation precedence ("first-come-first-served"). For
-// every Name in the union of (manual records, auto records bound to
-// `revision`), the record with the smallest CreateTime wins; later records
-// with the same Name are reported as shadowed. Ties (same CreateTime) are
+// every Name + ImagePath in the union of (manual records, auto records bound
+// to `revision`), the record with the smallest CreateTime wins; later records
+// with the same identity are reported as shadowed. Ties (same CreateTime) are
 // broken by ObjectID order — deterministic, but "shouldn't happen in
 // practice."
 //
@@ -309,10 +309,11 @@ func mergeServiceModules(records []*models.ServiceModule) []*models.Container {
 	winners := make([]*models.Container, 0, len(records))
 	seen := make(map[string]struct{}, len(records))
 	for _, r := range records {
-		if _, ok := seen[r.Name]; ok {
+		key := serviceModuleKey(r)
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[r.Name] = struct{}{}
+		seen[key] = struct{}{}
 		winners = append(winners, &models.Container{
 			Name:      r.Name,
 			Type:      r.Type,
@@ -324,30 +325,37 @@ func mergeServiceModules(records []*models.ServiceModule) []*models.Container {
 	return winners
 }
 
+func serviceModuleKey(module *models.ServiceModule) string {
+	if module == nil {
+		return ""
+	}
+	return (&models.Container{Name: module.Name, ImagePath: module.ImagePath}).GetKey()
+}
+
 // TODO: convenience wrapper ResolveServiceModulesFor(ctx, svc, production)
 // that infers project/service/revision from svc — deferred per discussion,
 // callers will pass the explicit args until usage volume justifies it.
 
-// conflictsFromMerge walks the same pre-sorted slice and groups shadowed
-// records under their winning entry. Returned slice is empty when there are
-// no name collisions.
+// conflictsFromMerge walks the same pre-sorted slice and groups records with
+// the same name and image path under their winning entry.
 func conflictsFromMerge(records []*models.ServiceModule) []ModuleConflict {
-	byName := make(map[string][]*models.ServiceModule, len(records))
+	byKey := make(map[string][]*models.ServiceModule, len(records))
 	order := make([]string, 0, len(records))
 	for _, r := range records {
-		if _, ok := byName[r.Name]; !ok {
-			order = append(order, r.Name)
+		key := serviceModuleKey(r)
+		if _, ok := byKey[key]; !ok {
+			order = append(order, key)
 		}
-		byName[r.Name] = append(byName[r.Name], r)
+		byKey[key] = append(byKey[key], r)
 	}
 	conflicts := make([]ModuleConflict, 0)
-	for _, name := range order {
-		group := byName[name]
+	for _, key := range order {
+		group := byKey[key]
 		if len(group) < 2 {
 			continue
 		}
 		conflicts = append(conflicts, ModuleConflict{
-			Name:     name,
+			Name:     group[0].Name,
 			Winner:   group[0],
 			Shadowed: group[1:],
 		})
