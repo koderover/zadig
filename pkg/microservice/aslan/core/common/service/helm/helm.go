@@ -375,36 +375,6 @@ func NewHelmDeployService() *HelmDeployService {
 	return &HelmDeployService{}
 }
 
-// MergeHelmContainers uses the service_module result as the authoritative
-// container set for the selected service revision. Existing images are
-// preserved only when name and image path match exactly; a new path keeps the
-// template image instead of inheriting an unrelated same-name image.
-func MergeHelmContainers(current, templates []*commonmodels.Container) []*commonmodels.Container {
-	currentByKey := make(map[string]*commonmodels.Container, len(current))
-	for _, container := range current {
-		if container == nil {
-			continue
-		}
-		currentByKey[container.GetKey()] = container
-	}
-
-	merged := make([]*commonmodels.Container, 0, len(templates))
-	for _, templateContainer := range templates {
-		if templateContainer == nil {
-			continue
-		}
-		currentContainer := currentByKey[templateContainer.GetKey()]
-		if currentContainer != nil {
-			templateContainer.Image = currentContainer.Image
-			if templateContainer.ImageName == "" {
-				templateContainer.ImageName = currentContainer.ImageName
-			}
-		}
-		merged = append(merged, templateContainer)
-	}
-	return merged
-}
-
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // defaultValues: global values yaml
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
@@ -592,7 +562,41 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		if updateServiceRevision {
 			prodSvc.Revision = tmplSvc.Revision
 		}
-		prodSvc.Containers = MergeHelmContainers(prodSvc.Containers, tmplContainers)
+
+		containerMap := make(map[string]*commonmodels.Container)
+		containerNameMap := make(map[string]*commonmodels.Container)
+		for _, container := range prodSvc.Containers {
+			if container == nil {
+				continue
+			}
+			containerMap[container.GetKey()] = container
+			containerNameMap[container.Name] = container
+		}
+
+		for _, templateContainer := range tmplContainers {
+			if templateContainer == nil {
+				continue
+			}
+			key := templateContainer.GetKey()
+			if currentContainer, ok := containerMap[key]; ok {
+				if templateContainer.ImagePath != nil {
+					currentContainer.ImagePath = templateContainer.ImagePath
+				}
+				currentContainer.Type = templateContainer.Type
+				if currentContainer.ImageName == "" {
+					currentContainer.ImageName = templateContainer.ImageName
+				}
+				continue
+			}
+			if currentContainer := containerNameMap[templateContainer.Name]; currentContainer != nil {
+				templateContainer.Image = currentContainer.Image
+				if templateContainer.ImageName == "" {
+					templateContainer.ImageName = currentContainer.ImageName
+				}
+			}
+			containerMap[key] = templateContainer
+			prodSvc.Containers = append(prodSvc.Containers, templateContainer)
+		}
 	}
 	return prodSvc, tmplSvc, nil
 }
