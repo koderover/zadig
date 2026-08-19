@@ -973,7 +973,39 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		if err != nil {
 			return ret, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", templateSvc.ProductName, templateSvc.ServiceName, templateSvc.Revision, err)
 		}
-		productSvc.Containers = helmservice.MergeHelmContainers(productSvc.Containers, tmplContainers)
+		containerMap := make(map[string]*commonmodels.Container)
+		containerNameMap := make(map[string]*commonmodels.Container)
+		for _, container := range productSvc.Containers {
+			if container == nil {
+				continue
+			}
+			containerMap[container.GetKey()] = container
+			containerNameMap[container.Name] = container
+		}
+		for _, tmplContainer := range tmplContainers {
+			if tmplContainer == nil {
+				continue
+			}
+			key := tmplContainer.GetKey()
+			if currentContainer, ok := containerMap[key]; ok {
+				if tmplContainer.ImagePath != nil {
+					currentContainer.ImagePath = tmplContainer.ImagePath
+				}
+				currentContainer.Type = tmplContainer.Type
+				if currentContainer.ImageName == "" {
+					currentContainer.ImageName = tmplContainer.ImageName
+				}
+				continue
+			}
+			if currentContainer := containerNameMap[tmplContainer.Name]; currentContainer != nil {
+				tmplContainer.Image = currentContainer.Image
+				if tmplContainer.ImageName == "" {
+					tmplContainer.ImageName = currentContainer.ImageName
+				}
+			}
+			containerMap[key] = tmplContainer
+			productSvc.Containers = append(productSvc.Containers, tmplContainer)
+		}
 		ret.ServiceObj = templateSvc
 		ret.ReleaseName = util.GeneReleaseName(templateSvc.GetReleaseNaming(), templateSvc.ProductName, namespace, envName, templateSvc.ServiceName)
 	} else {
