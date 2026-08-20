@@ -296,7 +296,7 @@ func (hClient *HelmClient) upgradeCRDs(ctx context.Context, chartInstance *chart
 	return nil
 }
 
-// upgradeCRDV1Beta1 upgrades a CRD of the v1 API version using the provided k8s client and CRD yaml.
+// upgradeCRDV1 upgrades a CRD of the v1 API version using the provided k8s client and CRD yaml.
 func (hClient *HelmClient) upgradeCRDV1(ctx context.Context, cl *clientset.Clientset, rawCRD []byte) error {
 	var crdObj v1.CustomResourceDefinition
 	if err := yaml.Unmarshal(rawCRD, &crdObj); err != nil {
