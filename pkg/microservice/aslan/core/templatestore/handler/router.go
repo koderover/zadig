@@ -29,6 +29,15 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		charts.GET("", OpenAPIListChartTemplates)
 	}
+
+	builds := router.Group("builds")
+	{
+		builds.GET("", OpenAPIListBuildTemplates)
+		builds.GET("/:id", OpenAPIGetBuildTemplate)
+		builds.POST("", OpenAPICreateBuildTemplate)
+		builds.PUT("/:id", OpenAPIUpdateBuildTemplate)
+		builds.DELETE("/:id", OpenAPIDeleteBuildTemplate)
+	}
 }
 
 func (*Router) Inject(router *gin.RouterGroup) {

@@ -32,8 +32,9 @@ import (
 )
 
 type BuildTemplateQueryOption struct {
-	ID   string
-	Name string
+	ID           string
+	Name         string
+	BasicImageID string
 }
 
 type BuildTemplateColl struct {
@@ -97,6 +98,9 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
 	}
+	if len(opt.BasicImageID) > 0 {
+		query["pre_build.image_id"] = opt.BasicImageID
+	}
 	resp := new(models.BuildTemplate)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
 	if err != nil {
@@ -113,7 +117,10 @@ func (c *BuildTemplateColl) List(pageNum, pageSize int) ([]*models.BuildTemplate
 		return nil, 0, err
 	}
 
-	opt := options.Find()
+	opt := options.Find().SetSort(bson.D{
+		{Key: "name", Value: 1},
+		{Key: "_id", Value: 1},
+	})
 	if pageNum != 0 && pageSize != 0 {
 		opt.SetSkip(int64((pageNum - 1) * pageSize)).SetLimit(int64(pageSize))
 	}

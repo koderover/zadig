@@ -154,6 +154,7 @@ func ToKeyValList(parameters []*types.ParameterSetting) models.KeyValList {
 			ChoiceValue:  parameter.ChoiceValue,
 			IsCredential: parameter.IsCredential,
 			Description:  parameter.Description,
+			Required:     parameter.Required,
 		})
 	}
 	return models.KeyValList(ret)
