@@ -596,6 +596,9 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 		log.Errorf("Project.Update error: %v", err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
+	if err := commonrepo.NewProjectGroupColl().UpdateProjectName(name, args.ProjectName); err != nil {
+		log.Warnf("failed to update project group project name, project: %s, error: %v", name, err)
+	}
 	return nil
 }
 

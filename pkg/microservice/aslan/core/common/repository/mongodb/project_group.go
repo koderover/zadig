@@ -82,10 +82,38 @@ func (c *ProjectGroupColl) Update(args *models.ProjectGroup) error {
 	return err
 }
 
+func (c *ProjectGroupColl) UpdateProjectName(projectKey, projectName string) error {
+	filter := bson.M{"projects.project_key": projectKey}
+	update := bson.M{"$set": bson.M{"projects.$[project].project_name": projectName}}
+	arrayFilters := options.ArrayFilters{
+		Filters: []interface{}{bson.M{"project.project_key": projectKey}},
+	}
+
+	_, err := c.UpdateMany(context.Background(), filter, update, options.Update().SetArrayFilters(arrayFilters))
+	return err
+}
+
 func (c *ProjectGroupColl) Delete(name string) error {
 	filter := bson.M{"name": name}
 	_, err := c.DeleteOne(context.Background(), filter)
 	return err
+}
+
+func (c *ProjectGroupColl) DeleteByID(id string) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("invalid group id")
+	}
+
+	result, err := c.DeleteOne(context.Background(), bson.M{"_id": objectID})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
 }
 
 type ProjectGroupOpts struct {

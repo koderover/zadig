@@ -24,6 +24,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -236,6 +239,197 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetProjectDetailOpenAPI(projectKey, ctx.Logger)
+}
+
+func OpenAPIUpdateProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+		if !ok || !projectAuthInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(service.OpenAPIUpdateProjectReq)
+	data, err := internalhandler.GetRawData(c)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update project request body")
+		return
+	}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update project request body")
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", projectKey, "更新", "项目管理-项目", projectKey, projectKey, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = service.UpdateProjectOpenAPI(projectKey, ctx.UserName, args, ctx.Logger)
+}
+
+func OpenAPIListProjectGroups(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.ListProjectGroupsOpenAPI(ctx.Logger)
+}
+
+func OpenAPIGetProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	groupID := c.Query("groupID")
+	if !primitive.IsValidObjectID(groupID) {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid groupID")
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetProjectGroupOpenAPI(groupID, ctx.Logger)
+}
+
+func OpenAPICreateProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.Project.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	args := new(service.OpenAPIProjectGroupReq)
+	data, err := internalhandler.GetRawData(c)
+	if err != nil {
+		ctx.RespErr = e.ErrCreateProjectGroup.AddDesc("invalid create project group request body")
+		return
+	}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = e.ErrCreateProjectGroup.AddDesc("invalid create project group request body")
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.RespErr = e.ErrCreateProjectGroup.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = service.CreateProjectGroupOpenAPI(args, ctx.UserName, ctx.Logger)
+}
+
+func OpenAPIUpdateProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.Project.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	groupID := c.Query("groupID")
+	if !primitive.IsValidObjectID(groupID) {
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddDesc("invalid groupID")
+		return
+	}
+
+	args := new(service.OpenAPIProjectGroupReq)
+	data, err := internalhandler.GetRawData(c)
+	if err != nil {
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddDesc("invalid update project group request body")
+		return
+	}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddDesc("invalid update project group request body")
+		return
+	}
+	if err := args.ValidateForUpdate(); err != nil {
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "编辑", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = service.UpdateProjectGroupOpenAPI(groupID, args, ctx.UserName, ctx.Logger)
+}
+
+func OpenAPIDeleteProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.Project.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	groupID := c.Query("groupID")
+	if !primitive.IsValidObjectID(groupID) {
+		ctx.RespErr = e.ErrDeleteProjectGroup.AddDesc("invalid groupID")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "分组", groupID, groupID, "", types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = service.DeleteProjectGroupOpenAPI(groupID, ctx.Logger)
 }
 
 func OpenAPIDeleteProject(c *gin.Context) {
