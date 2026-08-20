@@ -423,7 +423,7 @@ func checkK8SImageVersionStatusV2(deliveryVersion *commonmodels.DeliveryVersionV
 	done := false
 	if workflowTaskExist {
 		if len(workflowTask.Stages) != 1 {
-			return false, fmt.Errorf("invalid task data, stage length not leagal")
+			return false, fmt.Errorf("invalid task data, stage length not legal")
 		}
 		if workflowTask.Status == config.StatusPassed {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
@@ -1414,7 +1414,7 @@ func makeChartTGZFileDir(project, versionName string) (string, error) {
 	dirPath := getChartTGZDir(project, versionName)
 	if err := os.RemoveAll(dirPath); err != nil {
 		if !os.IsExist(err) {
-			return "", errors.Wrapf(err, "failed to claer dir for chart tgz files")
+			return "", errors.Wrapf(err, "failed to clear dir for chart tgz files")
 		}
 	}
 	err := os.MkdirAll(dirPath, 0777)
@@ -1510,7 +1510,7 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 	for _, service := range args.Services {
 		mergedYaml, err := yamlutil.Merge([][]byte{[]byte(service.YamlContent), []byte(args.GlobalVariables)})
 		if err != nil {
-			logger.Errorf("failed to merge gobal variables for service: %s", service.ServiceName)
+			logger.Errorf("failed to merge global variables for service: %s", service.ServiceName)
 			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", service.ServiceName)
 		}
 		ret.Services = append(ret.Services, &commonmodels.DeliveryVersionService{
