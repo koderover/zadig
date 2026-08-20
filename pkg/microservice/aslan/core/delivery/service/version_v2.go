@@ -423,7 +423,7 @@ func checkK8SImageVersionStatusV2(deliveryVersion *commonmodels.DeliveryVersionV
 	done := false
 	if workflowTaskExist {
 		if len(workflowTask.Stages) != 1 {
-			return false, fmt.Errorf("invalid task data, stage length not leagal")
+			return false, fmt.Errorf("invalid task data, stage length not legal")
 		}
 		if workflowTask.Status == config.StatusPassed {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
