@@ -166,7 +166,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		logger.Errorf("failed to convert service variable kv to yaml, err: %v", err)
 		return fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
-	servceTmplObjectargs := &commonservice.ServiceTmplObject{
+	serviceTmplObjectArgs := &commonservice.ServiceTmplObject{
 		ProductName:        projectName,
 		ServiceName:        serviceName,
 		Username:           userName,
@@ -174,7 +174,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		VariableYaml:       yaml,
 	}
 
-	return UpdateServiceVariables(servceTmplObjectargs, false)
+	return UpdateServiceVariables(serviceTmplObjectArgs, false)
 }
 
 func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName string, args *OpenAPIUpdateServiceVariableRequest, logger *zap.SugaredLogger) error {
