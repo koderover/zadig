@@ -39,6 +39,7 @@ import (
 	envService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	svcService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -439,22 +440,27 @@ func GetProjectDetailOpenAPI(projectName string, logger *zap.SugaredLogger) (*Op
 }
 
 func UpdateProjectOpenAPI(projectName, userName string, args *OpenAPIUpdateProjectReq, logger *zap.SugaredLogger) error {
-	project, err := templaterepo.NewProductColl().Find(projectName)
+	name := strings.TrimSpace(args.ProjectName)
+	pinyin, pinyinFirstLetter := util.GetPinyinFromChinese(name)
+	err := templaterepo.NewProductColl().UpdateMetadata(projectName, &templaterepo.ProjectMetadataUpdate{
+		ProjectName:                  name,
+		ProjectNamePinyin:            pinyin,
+		ProjectNamePinyinFirstLetter: pinyinFirstLetter,
+		Description:                  args.Description,
+		Public:                       *args.IsPublic,
+		UpdateBy:                     userName,
+	})
 	if err != nil {
-		logger.Errorf("OpenAPI: failed to find project %s, error: %s", projectName, err)
+		logger.Errorf("OpenAPI: failed to update project %s, error: %s", projectName, err)
 		return e.ErrUpdateProduct.AddErr(err)
 	}
-
-	applyOpenAPIProjectUpdate(project, args, userName)
-
-	return UpdateProject(projectName, project, logger)
-}
-
-func applyOpenAPIProjectUpdate(project *template.Product, args *OpenAPIUpdateProjectReq, userName string) {
-	project.ProjectName = strings.TrimSpace(args.ProjectName)
-	project.Description = args.Description
-	project.Public = *args.IsPublic
-	project.UpdateBy = userName
+	if err := user.New().SetProjectVisibility(projectName, *args.IsPublic); err != nil {
+		logger.Warnf("failed to update project visibility binding, project: %s, error: %v", projectName, err)
+	}
+	if err := commonrepo.NewProjectGroupColl().UpdateProjectName(projectName, name); err != nil {
+		logger.Warnf("failed to update project group project name, project: %s, error: %v", projectName, err)
+	}
+	return nil
 }
 
 func ListProjectGroupsOpenAPI(logger *zap.SugaredLogger) (*OpenAPIProjectGroupListResp, error) {

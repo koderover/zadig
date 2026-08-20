@@ -44,6 +44,15 @@ type ProjectInfo struct {
 	ProductFeature *templatemodels.ProductFeature `bson:"product_feature"`
 }
 
+type ProjectMetadataUpdate struct {
+	ProjectName                  string
+	ProjectNamePinyin            string
+	ProjectNamePinyinFirstLetter string
+	Description                  string
+	Public                       bool
+	UpdateBy                     string
+}
+
 type ProductColl struct {
 	*mongo.Collection
 	mongo.Session
@@ -446,6 +455,33 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
+}
+
+func (c *ProductColl) UpdateMetadata(productName string, args *ProjectMetadataUpdate) error {
+	if args == nil {
+		return errors.New("nil project metadata")
+	}
+
+	result, err := c.UpdateOne(
+		mongotool.SessionContext(context.TODO(), c.Session),
+		bson.M{"product_name": productName},
+		bson.M{"$set": bson.M{
+			"project_name":                     args.ProjectName,
+			"project_name_pinyin":              args.ProjectNamePinyin,
+			"project_name_pinyin_first_letter": args.ProjectNamePinyinFirstLetter,
+			"description":                      args.Description,
+			"public":                           args.Public,
+			"update_by":                        args.UpdateBy,
+			"update_time":                      time.Now().Unix(),
+		}},
+	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
 }
 
 type ProductArgs struct {
