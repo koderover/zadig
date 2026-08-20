@@ -395,20 +395,19 @@ func MergeHelmContainers(current, templates []*commonmodels.Container) []*common
 			continue
 		}
 
+		if existing := currentByKey[template.GetKey()]; existing != nil {
+			existing.ImagePath = template.ImagePath
+			existing.Type = template.Type
+			if existing.ImageName == "" {
+				existing.ImageName = template.ImageName
+			}
+			continue
+		}
 		if existing := currentByName[template.Name]; existing != nil {
 			template.Image = existing.Image
 			if template.ImageName == "" {
 				template.ImageName = existing.ImageName
 			}
-		}
-		if existing := currentByKey[template.GetKey()]; existing != nil {
-			existing.ImagePath = template.ImagePath
-			existing.Type = template.Type
-			existing.Image = template.Image
-			if existing.ImageName == "" {
-				existing.ImageName = template.ImageName
-			}
-			continue
 		}
 		currentByKey[template.GetKey()] = template
 		current = append(current, template)
