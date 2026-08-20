@@ -878,6 +878,10 @@ func ensureProductTmpl(args *template.Product) error {
 	if !config.ServiceNameRegex.MatchString(args.ProductName) {
 		return fmt.Errorf("product name must match %s", config.ServiceNameRegexString)
 	}
+	// Project keys are stored in the user service's role.namespace varchar(32) column.
+	if len(args.ProductName) > 32 {
+		return errors.New("project key cannot exceed 32 characters")
+	}
 
 	serviceNames := sets.NewString()
 	for _, sg := range args.Services {
