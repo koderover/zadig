@@ -240,6 +240,9 @@ func OpenAPIListBuildTemplates(pageNum, pageSize int) (*OpenAPIBuildTemplateList
 func OpenAPIGetBuildTemplate(id string, logger *zap.SugaredLogger) (*OpenAPIBuildTemplateDetail, error) {
 	template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: id})
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddErr(err)
+		}
 		logger.Errorf("OpenAPI: failed to get build template %s, error: %s", id, err)
 		return nil, e.ErrGetTemplate.AddErr(err)
 	}

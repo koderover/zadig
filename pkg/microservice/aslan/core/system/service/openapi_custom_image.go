@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -77,6 +79,9 @@ func ListCustomImagesOpenAPI(logger *zap.SugaredLogger) (*OpenAPICustomImageList
 func GetCustomImageOpenAPI(id string, logger *zap.SugaredLogger) (*OpenAPICustomImage, error) {
 	image, err := findCustomImage(id)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddErr(err)
+		}
 		logger.Errorf("OpenAPI: failed to get custom image %s, error: %s", id, err)
 		return nil, e.ErrGetBasicImage.AddErr(err)
 	}
