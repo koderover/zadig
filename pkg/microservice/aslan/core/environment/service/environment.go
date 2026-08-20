@@ -1111,6 +1111,23 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				continue
 			}
 
+			curUsedSvc := serviceMap[svr.ServiceName]
+			if curUsedSvc != nil {
+				// Service.Containers is not persisted, so resolve the deployed revision's modules for the baseline.
+				curUsedMerged, _, rerr := repository.ResolveServiceModules(
+					context.Background(),
+					curUsedSvc.ProductName,
+					curUsedSvc.ServiceName,
+					productResp.Production,
+					curUsedSvc.Revision,
+				)
+				if rerr != nil {
+					log.Errorf("failed to resolve current service modules for %s/%s rev %d: %s", curUsedSvc.ProductName, curUsedSvc.ServiceName, curUsedSvc.Revision, rerr)
+				} else {
+					curUsedSvc.Containers = curUsedMerged
+				}
+			}
+
 			svr.Containers = kube.CalculateContainer(ps, serviceMap[svr.ServiceName], svr.Containers, productResp)
 		}
 		allServices = append(allServices, svcGroup)
