@@ -596,6 +596,8 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 		log.Errorf("Project.Update error: %v", err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
+	// Project groups keep a denormalized display name. Its synchronization is
+	// non-blocking because the project update above is the source of truth.
 	if err := commonrepo.NewProjectGroupColl().UpdateProjectName(name, args.ProjectName); err != nil {
 		log.Warnf("failed to update project group project name, project: %s, error: %v", name, err)
 	}
@@ -1283,6 +1285,8 @@ func GetGlobalVariableCandidates(productName string, production bool, log *zap.S
 	return ret, nil
 }
 
+// CreateProjectGroup is shared by the console and OpenAPI handlers so both
+// entry points enforce the same group invariants.
 func CreateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
 	group, err := buildProjectGroup(args.GroupName, args.ProjectKeys, nil, user)
 	if err != nil {
@@ -1298,6 +1302,8 @@ func CreateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 	return nil
 }
 
+// UpdateProjectGroup shares the same validation and construction path as
+// CreateProjectGroup for both the console and OpenAPI handlers.
 func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
 	if args.GroupID == "" {
 		return e.ErrUpdateProjectGroup.AddDesc("group id can not be empty")

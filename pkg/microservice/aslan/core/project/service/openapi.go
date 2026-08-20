@@ -439,6 +439,8 @@ func GetProjectDetailOpenAPI(projectName string, logger *zap.SugaredLogger) (*Op
 	}, nil
 }
 
+// UpdateProjectOpenAPI persists project metadata before synchronizing derived
+// permission and project-group data on a best-effort basis.
 func UpdateProjectOpenAPI(projectName, userName string, args *OpenAPIUpdateProjectReq, logger *zap.SugaredLogger) error {
 	name := strings.TrimSpace(args.ProjectName)
 	pinyin, pinyinFirstLetter := util.GetPinyinFromChinese(name)
@@ -486,6 +488,7 @@ func GetProjectGroupOpenAPI(groupID string, logger *zap.SugaredLogger) (*OpenAPI
 	return convertProjectGroupToOpenAPI(group), nil
 }
 
+// CreateProjectGroupOpenAPI only adapts the OpenAPI request to the shared group service.
 func CreateProjectGroupOpenAPI(args *OpenAPIProjectGroupReq, userName string, logger *zap.SugaredLogger) error {
 	projectKeys := make([]string, 0)
 	if args.ProjectKeys != nil {
@@ -498,6 +501,7 @@ func CreateProjectGroupOpenAPI(args *OpenAPIProjectGroupReq, userName string, lo
 	}, userName, logger)
 }
 
+// UpdateProjectGroupOpenAPI only adapts the OpenAPI request to the shared group service.
 func UpdateProjectGroupOpenAPI(groupID string, args *OpenAPIProjectGroupReq, userName string, logger *zap.SugaredLogger) error {
 	return UpdateProjectGroup(&ProjectGroupArgs{
 		GroupID:     groupID,

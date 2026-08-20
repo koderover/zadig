@@ -457,6 +457,8 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 	return err
 }
 
+// UpdateMetadata updates only fields exposed by the project update OpenAPI to
+// avoid overwriting unrelated project state with a stale full Product model.
 func (c *ProductColl) UpdateMetadata(productName string, args *ProjectMetadataUpdate) error {
 	if args == nil {
 		return errors.New("nil project metadata")
