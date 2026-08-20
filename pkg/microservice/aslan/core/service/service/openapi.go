@@ -123,15 +123,8 @@ func OpenAPIProductionUpdateServiceConfig(userName string, args *OpenAPIUpdateSe
 	if service.Source == setting.ServiceSourceTemplate && service.AutoSync {
 		return e.ErrUpdateService.AddDesc("service is created by template and auto_sync is true, can't update")
 	}
-	currentService, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: args.ProjectName,
-		ServiceName: args.ServiceName,
-	})
-	if err != nil {
-		return e.ErrUpdateService.AddDesc(err.Error())
-	}
-	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
-	svc.VariableYaml = currentService.VariableYaml
+	svc.ServiceVariableKVs = service.ServiceVariableKVs
+	svc.VariableYaml = service.VariableYaml
 
 	_, err = CreateServiceTemplate(userName, svc, true, true, log)
 	return err
