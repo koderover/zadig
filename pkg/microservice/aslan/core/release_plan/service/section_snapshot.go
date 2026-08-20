@@ -73,6 +73,27 @@ var (
 	releasePlanWorkflowSnapshotTopLevelRequiredFields = []string{"name"}
 	releasePlanWorkflowLegacyNameKeys                 = []string{"workflowName", "workflow_name"}
 	releasePlanWorkflowLegacyProjectKeys              = []string{"projectName", "project_name"}
+
+	// Release plan versions only need the values selected by the user. These fields are
+	// derived candidates populated by workflow controllers for the editor. Keeping
+	// them in a version snapshot duplicates project-wide environment and service data and
+	// can make a single release_plan_version document exceed MongoDB's BSON size limit.
+	releasePlanWorkflowDerivedSpecFields = map[string]struct{}{
+		"env_options":                    {},
+		"job_options":                    {},
+		"nacos_filtered_data":            {},
+		"namespaceListOption":            {},
+		"patch_item_options":             {},
+		"scanning_options":               {},
+		"service_and_builds_options":     {},
+		"service_and_vm_deploys_options": {},
+		"service_options":                {},
+		"service_scanning_options":       {},
+		"service_test_options":           {},
+		"target_options":                 {},
+		"test_module_options":            {},
+		"alert_options":                  {},
+	}
 )
 
 func isReleasePlanVersionMetadataSection(sectionKey string) bool {
@@ -645,58 +666,6 @@ func hasReleasePlanWorkflowSnapshotJobFields(value interface{}) bool {
 		if !hasReleasePlanWorkflowSnapshotFields(jobMap, releasePlanWorkflowSnapshotJobRequiredFields...) {
 			return false
 		}
-		if !hasReleasePlanWorkflowSnapshotJobSpecFields(jobMap) {
-			return false
-		}
-	}
-	return true
-}
-
-func hasReleasePlanWorkflowSnapshotJobSpecFields(job map[string]interface{}) bool {
-	if job == nil {
-		return false
-	}
-
-	jobType, _ := getStringField(job, "type")
-	spec, _ := getMapField(job["spec"])
-	switch config.JobType(jobType) {
-	case config.JobZadigBuild:
-		if hasReleasePlanWorkflowSnapshotKey(spec, "service_and_builds") {
-			return hasReleasePlanWorkflowSnapshotKey(spec, "default_service_and_builds") &&
-				hasReleasePlanWorkflowSnapshotKey(spec, "service_and_builds_options")
-		}
-	case config.JobZadigScanning:
-		if hasReleasePlanWorkflowSnapshotKey(spec, "scannings") {
-			return hasReleasePlanWorkflowSnapshotKey(spec, "scanning_options")
-		}
-	case config.JobZadigDeploy:
-		if env, ok := getStringField(spec, "env"); ok && env != "" {
-			return hasReleasePlanWorkflowSnapshotKey(spec, "env_options")
-		}
-		if hasReleasePlanWorkflowSnapshotKey(spec, "services") {
-			return true
-		}
-	case config.JobNacos:
-		if hasReleasePlanWorkflowSnapshotKey(spec, "configSource") {
-			return hasReleasePlanWorkflowSnapshotKey(spec, "nacos_filtered_data")
-		}
-	}
-	return true
-}
-
-func hasReleasePlanWorkflowSnapshotKey(spec map[string]interface{}, key string) bool {
-	if spec == nil {
-		return false
-	}
-	value, exists := spec[key]
-	if !exists {
-		return false
-	}
-	if value == nil {
-		return false
-	}
-	if items, ok := value.([]interface{}); ok {
-		return len(items) > 0
 	}
 	return true
 }
@@ -885,7 +854,7 @@ func filterReleasePlanWorkflowInputValueAtPath(path string, value interface{}) i
 				}
 				continue
 			}
-			if shouldDropReleasePlanWorkflowInputField(key) {
+			if shouldDropReleasePlanWorkflowInputField(path, key) {
 				continue
 			}
 			if key == "variable_yaml" && hasReleasePlanWorkflowStructuredVariables(typedValue) {
@@ -1068,9 +1037,14 @@ func joinReleasePlanWorkflowInputPath(base, key string) string {
 	return base + "." + key
 }
 
-func shouldDropReleasePlanWorkflowInputField(key string) bool {
+func shouldDropReleasePlanWorkflowInputField(path, key string) bool {
 	if key == "" {
 		return false
+	}
+	if isReleasePlanWorkflowJobSpecPath(path) {
+		if _, exists := releasePlanWorkflowDerivedSpecFields[key]; exists {
+			return true
+		}
 	}
 
 	dropKeys := map[string]struct{}{
@@ -1102,4 +1076,8 @@ func shouldDropReleasePlanWorkflowInputField(key string) bool {
 	}
 
 	return false
+}
+
+func isReleasePlanWorkflowJobSpecPath(path string) bool {
+	return path == "jobs.spec" || strings.HasSuffix(path, ".jobs.spec")
 }
