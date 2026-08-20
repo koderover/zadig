@@ -1414,7 +1414,7 @@ func makeChartTGZFileDir(project, versionName string) (string, error) {
 	dirPath := getChartTGZDir(project, versionName)
 	if err := os.RemoveAll(dirPath); err != nil {
 		if !os.IsExist(err) {
-			return "", errors.Wrapf(err, "failed to claer dir for chart tgz files")
+			return "", errors.Wrapf(err, "failed to clear dir for chart tgz files")
 		}
 	}
 	err := os.MkdirAll(dirPath, 0777)
