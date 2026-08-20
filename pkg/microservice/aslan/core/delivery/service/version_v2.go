@@ -1510,7 +1510,7 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 	for _, service := range args.Services {
 		mergedYaml, err := yamlutil.Merge([][]byte{[]byte(service.YamlContent), []byte(args.GlobalVariables)})
 		if err != nil {
-			logger.Errorf("failed to merge gobal variables for service: %s", service.ServiceName)
+			logger.Errorf("failed to merge global variables for service: %s", service.ServiceName)
 			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", service.ServiceName)
 		}
 		ret.Services = append(ret.Services, &commonmodels.DeliveryVersionService{
