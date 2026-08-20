@@ -147,9 +147,13 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		return e.ErrUpdateService.AddDesc(err.Error())
 	}
 
-	serviceKvs := make([]*commontypes.ServiceVariableKV, 0)
+	serviceKvs := make([]*commontypes.ServiceVariableKV, 0, len(service.ServiceVariableKVs))
 	for _, kv := range service.ServiceVariableKVs {
-		serviceKvs = append(serviceKvs, kv)
+		if kv == nil {
+			continue
+		}
+		copiedKV := *kv
+		serviceKvs = append(serviceKvs, &copiedKV)
 	}
 	for _, kv := range serviceKvs {
 		for _, newKv := range args.ServiceVariableKVs {
