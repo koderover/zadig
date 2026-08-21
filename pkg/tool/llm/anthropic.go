@@ -42,13 +42,14 @@ type AnthropicClient struct {
 	name            string
 	integrationName string
 	model           string
+	omitModel       bool
 	token           string
 	baseURL         string
 	httpClient      *http.Client
 }
 
 type anthropicMessageRequest struct {
-	Model         string             `json:"model"`
+	Model         string             `json:"model,omitempty"`
 	MaxTokens     int                `json:"max_tokens"`
 	Messages      []anthropicMessage `json:"messages"`
 	Temperature   *float32           `json:"temperature,omitempty"`
@@ -95,6 +96,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 	c.name = string(config.GetProviderName())
 	c.integrationName = config.GetIntegrationName()
 	c.model = config.GetModel()
+	c.omitModel = config.OmitModel
 	c.token = config.GetToken()
 	c.baseURL = baseURL
 	c.httpClient = httpClient
@@ -114,12 +116,15 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 
-	model := opts.Model
-	if model == "" {
-		model = c.model
-	}
-	if model == "" {
-		return "", errors.New("anthropic model is required")
+	model := ""
+	if !c.omitModel {
+		model = opts.Model
+		if model == "" {
+			model = c.model
+		}
+		if model == "" {
+			return "", errors.New("anthropic model is required")
+		}
 	}
 	maxTokens := opts.MaxTokens
 	if maxTokens == 0 {

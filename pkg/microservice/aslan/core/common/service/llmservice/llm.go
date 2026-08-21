@@ -59,7 +59,7 @@ func NewAgentClient(integration *models.AgentIntegration) (llm.ILLM, error) {
 		Protocol:     integration.Protocol,
 		ProviderName: llm.ProviderOther,
 		BaseURL:      integration.BaseURL,
-		Model:        integration.Model,
+		OmitModel:    true,
 	}
 	switch integration.AuthType {
 	case models.AgentAuthTypeAPIKey:
