@@ -9,7 +9,7 @@
         <!--        <version>1.0-SNAPSHOT</version>-->
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.15</version>
+        <version>4.1.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -18,15 +18,13 @@
     <properties>
         <maven.compiler.source>22</maven.compiler.source>
         <maven.compiler.target>22</maven.compiler.target>
-        <httpcore5.version>5.5-beta2</httpcore5.version>
         <httpclient5.version>5.6.4</httpclient5.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
-        <jackson-bom.version>2.21.5</jackson-bom.version>
         <java.version>22</java.version>
         <log4j2.version>2.25.5</log4j2.version>
         <logback.version>1.5.38</logback.version>
-        <netty.version>4.1.136.Final</netty.version>
-        <tomcat.version>10.1.56</tomcat.version>
+        <netty.version>4.2.17.Final</netty.version>
+        <spring-framework.version>7.0.9</spring-framework.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -65,7 +63,7 @@
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
-                <version>2025.0.3</version>
+                <version>2025.1.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

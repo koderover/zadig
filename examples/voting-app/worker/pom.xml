@@ -11,16 +11,17 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.15</version>
+    <version>4.1.1</version>
   </parent>
 
   <properties>
     <commons-lang3.version>3.18.0</commons-lang3.version>
-    <jackson-bom.version>2.21.5</jackson-bom.version>
+    <httpclient5.version>5.6.4</httpclient5.version>
     <java.version>17</java.version>
     <log4j2.version>2.25.5</log4j2.version>
     <logback.version>1.5.38</logback.version>
-    <netty.version>4.1.136.Final</netty.version>
+    <netty.version>4.2.17.Final</netty.version>
+    <spring-framework.version>7.0.9</spring-framework.version>
   </properties>
 
   <dependencies>
