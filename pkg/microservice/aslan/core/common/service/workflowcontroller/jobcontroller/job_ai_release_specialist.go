@@ -61,7 +61,7 @@ const (
 	aiReleaseSpecialistRulePlanMaxTokens        = 32000
 	aiReleaseSpecialistRulePlanMaxRetries       = 2
 	aiReleaseSpecialistRulePlanRequestTimeout   = 5 * time.Minute
-	aiReleaseSpecialistRulePlanVersion          = 6
+	aiReleaseSpecialistRulePlanVersion          = 7
 	aiReleaseSpecialistRulePlanCacheLimit       = 3
 	aiReleaseSpecialistKubeQueryTimeout         = 5 * time.Second
 )
@@ -114,7 +114,8 @@ const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - other_task_summary.sql_execution 只表示语句执行数量、成功/失败数量和影响行数；sql_execution_success 仅在任务成功、存在执行结果且没有失败或未执行语句时为 true，执行成功不能单独证明业务数据一致。
 - 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。
 - checks[].evidence 和 suggestion 面向发布人员，不要展示输入字段名、规则名、JSON 路径、哈希值或其他内部实现标识。配置字段不一致时，直接说明各环境、配置标识及其变更字段；不要展示 changed_fields_hash。
-- 规则未命中风险条件时，检查项必须为 pass。任务状态为 passed、SQL 执行成功、配置字段一致或服务就绪本身不能产生 warning 或 fail。`
+- 规则未命中风险条件时，检查项必须为 pass。任务状态为 passed、SQL 执行成功、配置字段一致或服务就绪本身不能产生 warning 或 fail。
+- conclusion 必须等于 checks 中的最高风险级别：fail 高于 warning，warning 高于 pass。`
 
 type AIReleaseSpecialistJobCtl struct {
 	job         *commonmodels.JobTask
@@ -187,7 +188,10 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 
 	rulePlan, err := c.getRulePlan(jobCtx, task)
 	if err != nil {
-		if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
+		if errors.Is(jobCtx.Err(), context.Canceled) {
+			c.job.Status = config.StatusCancelled
+			c.job.Error = "ai release specialist cancelled"
+		} else if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
 			c.job.Error = "ai release specialist timeout"
 		} else {
@@ -198,15 +202,23 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	input, err := BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task, c.job.Name, rulePlan)
+	input, err := buildAIReleaseSpecialistInputFromTaskWithRulePlan(jobCtx, task, c.job.Name, rulePlan)
 	if err != nil {
-		c.job.Status = config.StatusFailed
-		c.job.Error = fmt.Sprintf("build ai release specialist input failed: %v", err)
+		if errors.Is(err, context.Canceled) || errors.Is(jobCtx.Err(), context.Canceled) {
+			c.job.Status = config.StatusCancelled
+			c.job.Error = "ai release specialist cancelled"
+		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
+			c.job.Status = config.StatusTimeout
+			c.job.Error = "ai release specialist timeout"
+		} else {
+			c.job.Status = config.StatusFailed
+			c.job.Error = fmt.Sprintf("build ai release specialist input failed: %v", err)
+		}
 		c.ack()
 		return
 	}
 	c.jobTaskSpec.Input = input
-	if len(rulePlan.Rules) == 0 {
+	if rulePlan != nil && len(rulePlan.Rules) == 0 {
 		c.finishAIReleaseSpecialistResult(jobCtx, task, jobStartTime, input, buildAIReleaseSpecialistUnsupportedResult(rulePlan.UnsupportedRequirements))
 		return
 	}
@@ -229,7 +241,10 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 
 	result, answer, err := completeAIReleaseSpecialist(jobCtx, client, prompt)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
+		if errors.Is(err, context.Canceled) || errors.Is(jobCtx.Err(), context.Canceled) {
+			c.job.Status = config.StatusCancelled
+			c.job.Error = "ai release specialist cancelled"
+		} else if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
 			c.job.Error = "ai release specialist timeout"
 		} else {
@@ -244,7 +259,9 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		c.ack()
 		return
 	}
-	appendAIReleaseSpecialistUnsupportedChecks(result, rulePlan.UnsupportedRequirements)
+	if rulePlan != nil {
+		appendAIReleaseSpecialistUnsupportedChecks(result, rulePlan.UnsupportedRequirements)
+	}
 	c.finishAIReleaseSpecialistResult(jobCtx, task, jobStartTime, input, result)
 }
 
@@ -512,6 +529,10 @@ func (c *AIReleaseSpecialistJobCtl) sendWaitNotifications(task *commonmodels.Wor
 // 变更来源描述的是「这次发布改了什么」，属于所有规则的公共背景，裁掉会让 LLM 失去判断依据。
 // 只有各维度自己的明细数据才按 scope 过滤。
 func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.WorkflowTask, currentJobName string, rulePlan *commonmodels.AIReleaseSpecialistRulePlan) (*commonmodels.AIReleaseSpecialistInput, error) {
+	return buildAIReleaseSpecialistInputFromTaskWithRulePlan(context.Background(), task, currentJobName, rulePlan)
+}
+
+func buildAIReleaseSpecialistInputFromTaskWithRulePlan(ctx context.Context, task *commonmodels.WorkflowTask, currentJobName string, rulePlan *commonmodels.AIReleaseSpecialistRulePlan) (*commonmodels.AIReleaseSpecialistInput, error) {
 	input := &commonmodels.AIReleaseSpecialistInput{
 		ChangeSummary: &commonmodels.AIChangeSummary{
 			Remark: strings.TrimSpace(task.Remark),
@@ -532,6 +553,9 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			if job.Name == currentJobName {
 				continue
 			}
@@ -544,7 +568,9 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 					collector.addReleaseTarget(task.ProjectName, job, deploymentInfo.buildReleaseTarget(job), requestedContexts, scopeFilter, envMap)
 				}
 				if deploymentInfo.vmTaskSpec != nil && hasAIReleaseSpecialistContext(requestedContexts, "other") && scopeFilter.matchesJob("other", job) {
-					collector.addOtherTask(job, deploymentInfo.vmTaskSpec)
+					if err := collector.addOtherTask(job, deploymentInfo.vmTaskSpec); err != nil {
+						return nil, err
+					}
 				}
 				continue
 			}
@@ -554,7 +580,7 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				appendChangeSummarySource(input.ChangeSummary, job)
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					continue
+					return nil, fmt.Errorf("decode build task %s: %w", job.OriginName, err)
 				}
 				collectChangeSummaryFromFreestyleSpec(input.ChangeSummary, spec)
 				if !hasAIReleaseSpecialistContext(requestedContexts, "build") || !scopeFilter.matchesJob("build", job) {
@@ -572,7 +598,11 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				summary := buildResultSummaryLine(job)
 				collector.scanSummaries = append(collector.scanSummaries, summary)
 				item := buildReleaseSummaryItem(job, summary)
-				item.ScanMetrics = buildAIScanMetricsFromJob(job)
+				scanMetrics, err := buildAIScanMetricsFromJob(job)
+				if err != nil {
+					return nil, err
+				}
+				item.ScanMetrics = scanMetrics
 				collector.scanItems = append(collector.scanItems, item)
 			case string(config.JobZadigTesting):
 				if !hasAIReleaseSpecialistContext(requestedContexts, "test") || !scopeFilter.matchesJob("test", job) {
@@ -582,6 +612,9 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				summary := buildResultSummaryLine(job)
 				collector.testSummaries = append(collector.testSummaries, summary)
 				testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobTaskName(task.WorkflowName, job.Name, task.TaskID)
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return nil, ctxErr
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -594,7 +627,7 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				}
 				spec := &commonmodels.JobTaskApprovalSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					continue
+					return nil, fmt.Errorf("decode approval task %s: %w", job.OriginName, err)
 				}
 				collector.approvalStatuses = append(collector.approvalStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				summary := buildApprovalSummaryLine(job, spec)
@@ -606,14 +639,19 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				}
 				spec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					continue
+					return nil, fmt.Errorf("decode freestyle task %s: %w", job.OriginName, err)
 				}
-				collector.addOtherTask(job, spec)
+				if err := collector.addOtherTask(job, spec); err != nil {
+					return nil, err
+				}
 			case string(config.JobGrafana):
 				if !hasAIReleaseSpecialistContext(requestedContexts, "observability") || !scopeFilter.matchesJob("observability", job) {
 					continue
 				}
-				item := buildAIObservabilityItemFromGrafana(job)
+				item, err := buildAIObservabilityItemFromGrafana(job)
+				if err != nil {
+					return nil, err
+				}
 				collector.obsStatuses = append(collector.obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				collector.obsSummaries = append(collector.obsSummaries, buildObservabilitySummaryLine(item))
 				collector.obsItems = append(collector.obsItems, item)
@@ -621,7 +659,10 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				if !hasAIReleaseSpecialistContext(requestedContexts, "observability") || !scopeFilter.matchesJob("observability", job) {
 					continue
 				}
-				item := buildAIObservabilityItemFromGuanceyun(job)
+				item, err := buildAIObservabilityItemFromGuanceyun(job)
+				if err != nil {
+					return nil, err
+				}
 				collector.obsStatuses = append(collector.obsStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 				collector.obsSummaries = append(collector.obsSummaries, buildObservabilitySummaryLine(item))
 				collector.obsItems = append(collector.obsItems, item)
@@ -629,12 +670,14 @@ func BuildAIReleaseSpecialistInputFromTaskWithRulePlan(task *commonmodels.Workfl
 				if !hasAIReleaseSpecialistContext(requestedContexts, "other") || !scopeFilter.matchesJob("other", job) {
 					continue
 				}
-				collector.addOtherTask(job, nil)
+				if err := collector.addOtherTask(job, nil); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 
-	return finalizeAIReleaseSpecialistInput(task.ProjectName, input, envMap, collector), nil
+	return finalizeAIReleaseSpecialistInput(ctx, task.ProjectName, input, envMap, collector)
 }
 
 func hasAIReleaseSpecialistContext(contexts map[string]struct{}, names ...string) bool {
@@ -868,13 +911,16 @@ type aiReleaseInputCollector struct {
 	obsItems     []*commonmodels.AIObservabilityItem
 }
 
-func (c *aiReleaseInputCollector) addOtherTask(job *commonmodels.JobTask, spec *commonmodels.JobTaskFreestyleSpec) {
+func (c *aiReleaseInputCollector) addOtherTask(job *commonmodels.JobTask, spec *commonmodels.JobTaskFreestyleSpec) error {
 	c.otherStatuses = append(c.otherStatuses, fmt.Sprintf("%s:%s", job.OriginName, job.Status))
 	summary := buildResultSummaryLine(job)
 	c.otherSummaries = append(c.otherSummaries, summary)
 	item := buildAIOtherTaskSummaryItem(job, spec, summary)
-	appendAIReleaseSpecialistTaskDetails(item, job)
+	if err := appendAIReleaseSpecialistTaskDetails(item, job); err != nil {
+		return err
+	}
 	c.otherItems = append(c.otherItems, item)
+	return nil
 }
 
 func (c *aiReleaseInputCollector) addReleaseTarget(projectName string, job *commonmodels.JobTask, target *commonmodels.AIReleaseTargetsSummary, requestedContexts map[string]struct{}, scopeFilter *aiReleaseSpecialistRulePlanFilter, envMap map[string]*commonmodels.Product) {
@@ -891,12 +937,16 @@ func (c *aiReleaseInputCollector) addReleaseTarget(projectName string, job *comm
 	}
 }
 
-func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AIReleaseSpecialistInput, envMap map[string]*commonmodels.Product, collector *aiReleaseInputCollector) *commonmodels.AIReleaseSpecialistInput {
+func finalizeAIReleaseSpecialistInput(ctx context.Context, projectName string, input *commonmodels.AIReleaseSpecialistInput, envMap map[string]*commonmodels.Product, collector *aiReleaseInputCollector) (*commonmodels.AIReleaseSpecialistInput, error) {
 	if len(collector.releaseTargets) > 0 {
 		input.ReleaseTargets = mergeReleaseTargets(collector.releaseTargets)
 	}
 	if collector.collectRuntime && len(collector.runtimeTargets) > 0 {
-		input.RuntimeServices = buildAIRuntimeServicesSummary(projectName, collector.runtimeTargets, envMap)
+		runtimeServices, err := buildAIRuntimeServicesSummary(ctx, projectName, collector.runtimeTargets, envMap)
+		if err != nil {
+			return nil, err
+		}
+		input.RuntimeServices = runtimeServices
 	}
 	if len(collector.buildStatuses) > 0 || len(collector.buildSummaries) > 0 || len(collector.buildItems) > 0 {
 		input.BuildSummary = buildAIJobSummary(collector.buildStatuses, collector.buildSummaries, collector.buildItems)
@@ -925,7 +975,7 @@ func finalizeAIReleaseSpecialistInput(projectName string, input *commonmodels.AI
 	input.ChangeSummary.Services = uniqueSortedStrings(input.ChangeSummary.Services)
 	input.ChangeSummary.CommitMessages = uniquePreserveOrder(input.ChangeSummary.CommitMessages)
 	input.ChangeSummary.Sources = uniqueReleaseContextSources(input.ChangeSummary.Sources)
-	return input
+	return input, nil
 }
 
 type aiReleaseDeploymentInfo struct {
@@ -1231,21 +1281,24 @@ func buildAIOtherTaskSummaryItem(job *commonmodels.JobTask, spec *commonmodels.J
 	return item
 }
 
-func buildAIScanMetricsFromJob(job *commonmodels.JobTask) *commonmodels.AIScanMetrics {
+func buildAIScanMetricsFromJob(job *commonmodels.JobTask) (*commonmodels.AIScanMetrics, error) {
 	if job == nil {
-		return nil
+		return nil, nil
 	}
 	spec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return nil
+		return nil, fmt.Errorf("decode scanning task %s: %w", job.OriginName, err)
 	}
 	for _, stepTask := range spec.Steps {
 		if stepTask == nil || stepTask.StepType != config.StepSonarGetMetrics {
 			continue
 		}
 		stepSpec := &steptypes.StepSonarGetMetricsSpec{}
-		if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil || stepSpec.SonarMetrics == nil {
-			return nil
+		if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+			return nil, fmt.Errorf("decode scanning metrics for task %s: %w", job.OriginName, err)
+		}
+		if stepSpec.SonarMetrics == nil {
+			return nil, nil
 		}
 		metrics := &commonmodels.AIScanMetrics{
 			QualityGateStatus: string(stepSpec.SonarMetrics.QualityGateStatus),
@@ -1258,11 +1311,11 @@ func buildAIScanMetricsFromJob(job *commonmodels.JobTask) *commonmodels.AIScanMe
 		}
 		if metrics.QualityGateStatus == "" && metrics.Ncloc == "" && metrics.Bugs == "" &&
 			metrics.Vulnerabilities == "" && metrics.CodeSmells == "" && metrics.Coverage == "" {
-			return nil
+			return nil, nil
 		}
-		return metrics
+		return metrics, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func buildAITestStatisticsFromReports(reports []*commonmodels.CustomWorkflowTestReport) *commonmodels.AITestStatistics {
@@ -1311,7 +1364,7 @@ func buildAITestPassRate(successCaseNum, testCaseNum int) float64 {
 	return math.Round(float64(successCaseNum)/float64(testCaseNum)*10000) / 100
 }
 
-func buildAIObservabilityItemFromGrafana(job *commonmodels.JobTask) *commonmodels.AIObservabilityItem {
+func buildAIObservabilityItemFromGrafana(job *commonmodels.JobTask) (*commonmodels.AIObservabilityItem, error) {
 	item := &commonmodels.AIObservabilityItem{
 		JobName:  job.OriginName,
 		JobType:  job.JobType,
@@ -1320,7 +1373,7 @@ func buildAIObservabilityItemFromGrafana(job *commonmodels.JobTask) *commonmodel
 	}
 	spec := &commonmodels.JobTaskGrafanaSpec{}
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return item
+		return nil, fmt.Errorf("decode Grafana task %s: %w", job.OriginName, err)
 	}
 	item.Name = spec.Name
 	item.CheckMode = spec.CheckMode
@@ -1336,10 +1389,10 @@ func buildAIObservabilityItemFromGrafana(job *commonmodels.JobTask) *commonmodel
 			URL:    alert.Url,
 		})
 	}
-	return item
+	return item, nil
 }
 
-func buildAIObservabilityItemFromGuanceyun(job *commonmodels.JobTask) *commonmodels.AIObservabilityItem {
+func buildAIObservabilityItemFromGuanceyun(job *commonmodels.JobTask) (*commonmodels.AIObservabilityItem, error) {
 	item := &commonmodels.AIObservabilityItem{
 		JobName:  job.OriginName,
 		JobType:  job.JobType,
@@ -1348,7 +1401,7 @@ func buildAIObservabilityItemFromGuanceyun(job *commonmodels.JobTask) *commonmod
 	}
 	spec := &commonmodels.JobTaskGuanceyunCheckSpec{}
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return item
+		return nil, fmt.Errorf("decode Guanceyun task %s: %w", job.OriginName, err)
 	}
 	item.Name = spec.Name
 	item.CheckMode = spec.CheckMode
@@ -1365,7 +1418,7 @@ func buildAIObservabilityItemFromGuanceyun(job *commonmodels.JobTask) *commonmod
 			URL:    monitor.Url,
 		})
 	}
-	return item
+	return item, nil
 }
 
 func buildObservabilitySummaryLine(item *commonmodels.AIObservabilityItem) string {
@@ -1384,12 +1437,15 @@ func buildObservabilitySummaryLine(item *commonmodels.AIObservabilityItem) strin
 	return fmt.Sprintf("%s(%s)", item.JobName, item.Status)
 }
 
-func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonmodels.AIReleaseTargetsSummary, envMap map[string]*commonmodels.Product) *commonmodels.AIRuntimeServicesSummary {
+func buildAIRuntimeServicesSummary(ctx context.Context, projectName string, releaseTargets []*commonmodels.AIReleaseTargetsSummary, envMap map[string]*commonmodels.Product) (*commonmodels.AIRuntimeServicesSummary, error) {
 	if len(releaseTargets) == 0 || strings.TrimSpace(projectName) == "" {
-		return nil
+		return nil, nil
 	}
 	summary := &commonmodels.AIRuntimeServicesSummary{}
 	for _, target := range releaseTargets {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if target == nil || strings.TrimSpace(target.EnvName) == "" {
 			continue
 		}
@@ -1399,14 +1455,20 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 			continue
 		}
 		product, err := getAIReleaseProduct(projectName, target.EnvName, target.Production, envMap)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		if err != nil {
 			summary.QueryErrors = append(summary.QueryErrors, err.Error())
 			continue
 		}
 		var kubeClient client.Client
 		if needsAIRuntimeKubeClient(product, target) {
-			kubeClient, err = getAIReleaseKubeClient(product.ClusterID)
+			kubeClient, err = getAIReleaseKubeClient(ctx, product.ClusterID)
 			if err != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return nil, ctxErr
+				}
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("get env %s kube client failed: %v", target.EnvName, err))
 			}
 		}
@@ -1414,11 +1476,17 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 		var serviceReleaseNamesErr error
 		if kubeClient != nil && jobType == string(config.JobZadigHelmDeploy) {
 			serviceReleaseNames, serviceReleaseNamesErr = commonutil.GetServiceNameToReleaseNameMap(product)
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
 			if serviceReleaseNamesErr != nil {
 				summary.QueryErrors = append(summary.QueryErrors, fmt.Sprintf("resolve env %s helm release names failed: %v", target.EnvName, serviceReleaseNamesErr))
 			}
 		}
 		for _, serviceName := range target.ServiceNames {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			serviceName = strings.TrimSpace(serviceName)
 			if serviceName == "" {
 				continue
@@ -1433,11 +1501,17 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 				if err := fillAIRuntimeVMServiceHealth(projectName, service, item); err != nil {
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
 				}
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return nil, ctxErr
+				}
 			} else if kubeClient != nil && serviceReleaseNamesErr == nil {
 				releaseName, err := resolveAIRuntimeServiceReleaseName(serviceName, service, serviceReleaseNames)
 				if err != nil {
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
-				} else if err := fillAIRuntimeServicePodReady(product, service, releaseName, item, kubeClient); err != nil {
+				} else if err := fillAIRuntimeServicePodReady(ctx, product, service, releaseName, item, kubeClient); err != nil {
+					if ctxErr := ctx.Err(); ctxErr != nil {
+						return nil, ctxErr
+					}
 					summary.QueryErrors = append(summary.QueryErrors, err.Error())
 				}
 			}
@@ -1447,9 +1521,9 @@ func buildAIRuntimeServicesSummary(projectName string, releaseTargets []*commonm
 	summary.Items = uniqueAIRuntimeServiceItems(summary.Items)
 	summary.QueryErrors = uniquePreserveOrder(summary.QueryErrors)
 	if len(summary.Items) == 0 && len(summary.QueryErrors) == 0 {
-		return nil
+		return nil, nil
 	}
-	return summary
+	return summary, nil
 }
 
 func getAIReleaseProduct(projectName, envName string, production bool, envMap map[string]*commonmodels.Product) (*commonmodels.Product, error) {
@@ -1493,7 +1567,7 @@ func getAIReleaseProductByEnv(projectName, envName string, envMap map[string]*co
 	return product, nil
 }
 
-func getAIReleaseKubeClient(clusterID string) (client.Client, error) {
+func getAIReleaseKubeClient(ctx context.Context, clusterID string) (client.Client, error) {
 	type resp struct {
 		kubeClient client.Client
 		err        error
@@ -1503,10 +1577,14 @@ func getAIReleaseKubeClient(clusterID string) (client.Client, error) {
 		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		ch <- resp{kubeClient: kubeClient, err: err}
 	}()
+	timer := time.NewTimer(aiReleaseSpecialistKubeQueryTimeout)
+	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case result := <-ch:
 		return result.kubeClient, result.err
-	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+	case <-timer.C:
 		return nil, fmt.Errorf("get kube client timeout after %s", aiReleaseSpecialistKubeQueryTimeout)
 	}
 }
@@ -1600,7 +1678,7 @@ func buildAIRuntimeServiceItem(product *commonmodels.Product, targetServiceName 
 	return item
 }
 
-func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string, item *commonmodels.AIRuntimeServiceItem, kubeClient client.Client) error {
+func fillAIRuntimeServicePodReady(ctx context.Context, product *commonmodels.Product, service *commonmodels.ProductService, releaseName string, item *commonmodels.AIRuntimeServiceItem, kubeClient client.Client) error {
 	if product == nil || service == nil || item == nil || kubeClient == nil {
 		return nil
 	}
@@ -1610,9 +1688,9 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	if strings.TrimSpace(product.Namespace) == "" {
 		return fmt.Errorf("query service %s pod status failed: env namespace is empty", item.ServiceName)
 	}
-	workloads, err := getAIRuntimeServiceWorkloads(product, service, releaseName)
+	workloads, err := getAIRuntimeServiceWorkloadsWithContext(ctx, product, service, releaseName)
 	if err != nil {
-		return fmt.Errorf("query service %s workloads failed: %v", item.ServiceName, err)
+		return fmt.Errorf("query service %s workloads failed: %w", item.ServiceName, err)
 	}
 	if service.Type != setting.K8SDeployType {
 		item.Workloads = make([]*commonmodels.AIRuntimeWorkload, 0, len(workloads))
@@ -1632,10 +1710,13 @@ func fillAIRuntimeServicePodReady(product *commonmodels.Product, service *common
 	}
 	var queryErrors []string
 	for _, workload := range workloads {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if workload == nil || strings.TrimSpace(workload.WorkloadName) == "" {
 			continue
 		}
-		pods, err := listAIRuntimeWorkloadPodsWithTimeout(product.Namespace, workload, kubeClient)
+		pods, err := listAIRuntimeWorkloadPodsWithTimeout(ctx, product.Namespace, workload, kubeClient)
 		if err != nil {
 			queryErrors = append(queryErrors, err.Error())
 			continue
@@ -1742,6 +1823,10 @@ func resolveAIRuntimeServiceReleaseName(targetServiceName string, service *commo
 }
 
 func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *commonmodels.ProductService, releaseName string) ([]*commonmodels.WorkLoad, error) {
+	return getAIRuntimeServiceWorkloadsWithContext(context.Background(), product, service, releaseName)
+}
+
+func getAIRuntimeServiceWorkloadsWithContext(ctx context.Context, product *commonmodels.Product, service *commonmodels.ProductService, releaseName string) ([]*commonmodels.WorkLoad, error) {
 	if product == nil || service == nil {
 		return nil, nil
 	}
@@ -1749,13 +1834,13 @@ func getAIRuntimeServiceWorkloads(product *commonmodels.Product, service *common
 	case setting.K8SDeployType:
 		return service.WorkLoads, nil
 	case setting.HelmDeployType, setting.HelmChartDeployType:
-		return getAIRuntimeHelmServiceWorkloadsWithTimeout(product, releaseName)
+		return getAIRuntimeHelmServiceWorkloadsWithTimeout(ctx, product, releaseName)
 	default:
 		return nil, nil
 	}
 }
 
-func getAIRuntimeHelmServiceWorkloadsWithTimeout(product *commonmodels.Product, releaseName string) ([]*commonmodels.WorkLoad, error) {
+func getAIRuntimeHelmServiceWorkloadsWithTimeout(ctx context.Context, product *commonmodels.Product, releaseName string) ([]*commonmodels.WorkLoad, error) {
 	releaseName = strings.TrimSpace(releaseName)
 	if releaseName == "" {
 		return nil, fmt.Errorf("release name is empty")
@@ -1774,10 +1859,14 @@ func getAIRuntimeHelmServiceWorkloadsWithTimeout(product *commonmodels.Product, 
 		workloads, err := parseAIRuntimeWorkloadsFromHelmManifest(manifest)
 		ch <- resp{workloads: workloads, err: err}
 	}()
+	timer := time.NewTimer(aiReleaseSpecialistKubeQueryTimeout)
+	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case result := <-ch:
 		return result.workloads, result.err
-	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+	case <-timer.C:
 		return nil, fmt.Errorf("query release %s workloads timeout after %s", releaseName, aiReleaseSpecialistKubeQueryTimeout)
 	}
 }
@@ -1844,7 +1933,7 @@ func listAIRuntimeWorkloadPods(namespace string, workload *commonmodels.WorkLoad
 	}
 }
 
-func listAIRuntimeWorkloadPodsWithTimeout(namespace string, workload *commonmodels.WorkLoad, kubeClient client.Client) ([]*corev1.Pod, error) {
+func listAIRuntimeWorkloadPodsWithTimeout(ctx context.Context, namespace string, workload *commonmodels.WorkLoad, kubeClient client.Client) ([]*corev1.Pod, error) {
 	type resp struct {
 		pods []*corev1.Pod
 		err  error
@@ -1854,10 +1943,14 @@ func listAIRuntimeWorkloadPodsWithTimeout(namespace string, workload *commonmode
 		pods, err := listAIRuntimeWorkloadPods(namespace, workload, kubeClient)
 		ch <- resp{pods: pods, err: err}
 	}()
+	timer := time.NewTimer(aiReleaseSpecialistKubeQueryTimeout)
+	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case result := <-ch:
 		return result.pods, result.err
-	case <-time.After(aiReleaseSpecialistKubeQueryTimeout):
+	case <-timer.C:
 		return nil, fmt.Errorf("query workload %s/%s pods timeout after %s", namespace, workload.WorkloadName, aiReleaseSpecialistKubeQueryTimeout)
 	}
 }
@@ -2368,9 +2461,9 @@ var aiReleaseSpecialistRuleMetrics = map[string]aiReleaseSpecialistRuleMetric{
 // buildAIReleaseSpecialistRuleCatalog 汇总当前 workflow 里可被规则引用的 job、环境、服务，
 // 作为编译规则时给 LLM 的「可选项清单」，也是 plan 复用判断中 ContextHash 的计算来源。
 //
-// 只收录当前 job 之前的 job：AI 发布专员依赖前序 job 的执行结果，把后续 job 放进 catalog 会让 LLM 编出
-// 永远拿不到数据的规则。catalog 内容变化会导致 ContextHash 变化，进而使已缓存的 plan 失效并重新编译，
-// 所以这里放入的字段应当只包含影响规则可用性的信息，不要掺入每次执行都会变的运行时数据。
+// catalog 收录当前 job 前后的任务：执行结果类指标只能引用前置任务，配置变更字段比较可以引用后置
+// Nacos/Apollo 任务的静态声明。catalog 内容变化会导致 ContextHash 变化，进而使已缓存的 plan 失效并重新编译，
+// 所以这里只放影响规则可用性的信息，不掺入每次执行都会变化的运行时数据。
 func buildAIReleaseSpecialistRuleCatalog(task *commonmodels.WorkflowTask, currentJobName string) (*aiReleaseSpecialistRuleCatalog, error) {
 	if task == nil {
 		return nil, fmt.Errorf("workflow task is nil")
@@ -2715,7 +2808,7 @@ func PrepareAIReleaseSpecialistRulePlans(workflow, existingWorkflow *commonmodel
 // 规则被人改了，此时直接报错而不是按任一方继续，避免 task 用一份规则、缓存对应另一份。
 //
 // 二是函数末尾会把 workflowSpec.RulePlans 置为 nil。rule plan 是 workflow 定义级的缓存，不应写进 task 快照
-//（快照会随每个 task 持久化，plan 体积大且会过期）。这也意味着 ToTask 重建出来的 spec 里 RulePlan 必然为空，
+// （快照会随每个 task 持久化，plan 体积大且会过期）。这也意味着 ToTask 重建出来的 spec 里 RulePlan 必然为空，
 // 重试路径需要自己搬运，见 RetryWorkflowTaskV4 中的处理。
 func PrepareAIReleaseSpecialistRulePlansForTask(task *commonmodels.WorkflowTask, workflow *commonmodels.WorkflowV4) error {
 	if task == nil || workflow == nil {
@@ -2992,6 +3085,9 @@ Semantics:
 - A Nacos or Apollo task applying configuration successfully maps to other.task_status. This proves only that the task completed successfully, not that a live configuration read-back matched.
 - Comparing the planned changed-field sets of named Nacos or Apollo tasks maps to other.config_change_consistent. Scope the rule to every configuration task being compared; config_changes contains no secret values.
 - SQL script execution success maps to other.sql_execution_success. Do not use it to claim business data consistency unless the requirement defines consistency solely as every statement executing successfully.
+- A task_status rule is valid for a Nacos, Apollo, SQL, or custom task only when the business rule asks whether that task executed successfully. It must not replace a request to compare configuration fields, SQL execution details, logs, task outputs, or business data.
+- Requests about configuration keys, fields, additions, updates, removals, missing entries, or consistency across before/after configuration tasks require config_change_consistent. Requests about SQL statements, failed statements, or affected rows require sql_execution_success. Requests about business logs, arbitrary task output, or business data are unsupported unless the input contains a dedicated structured result.
+- If a requirement cannot be represented by the supplied metrics and task data, copy it to unsupported_requirements instead of choosing task_status as a weaker substitute.
 - release_target.production only identifies whether a target is production; it does not represent environment health.
 - Interpret natural-language task references by meaning, not literal name equality. Use job name, display name, stage name, and job type together to select the intended catalog jobs, then write their exact jobs[].name values to scope.job_names.
 - When a requirement asks only for a task-category outcome (such as tests passing, scans having no findings, or builds succeeding) and no exact task label exists, select all semantically related before jobs by job_type and the supported category metric, then use their exact jobs[].name values. Differences in subtype wording do not make the requirement unsupported unless the condition depends on subtype-specific data.
@@ -3151,14 +3247,26 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 		return nil, err
 	}
 	result.Conclusion = normalizeAIResultValue(result.Conclusion)
-	for _, check := range result.Checks {
+	expectedConclusion := "pass"
+	for index, check := range result.Checks {
 		if check == nil {
-			continue
+			return nil, fmt.Errorf("check %d cannot be nil", index+1)
 		}
 		check.Result = normalizeAIResultValue(check.Result)
 		check.Name = strings.TrimSpace(check.Name)
 		check.Evidence = strings.TrimSpace(check.Evidence)
 		check.Suggestion = strings.TrimSpace(check.Suggestion)
+		if !isValidAIReleaseSpecialistConclusion(check.Result) {
+			return nil, fmt.Errorf("check %d has invalid result: %s", index+1, check.Result)
+		}
+		if check.Name == "" || check.Evidence == "" || check.Suggestion == "" {
+			return nil, fmt.Errorf("check %d requires name, evidence, and suggestion", index+1)
+		}
+		if check.Result == "fail" {
+			expectedConclusion = "fail"
+		} else if check.Result == "warning" && expectedConclusion == "pass" {
+			expectedConclusion = "warning"
+		}
 	}
 	result.Summary = strings.TrimSpace(result.Summary)
 	result.RawText = rawText
@@ -3167,6 +3275,9 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	}
 	if !isValidAIReleaseSpecialistConclusion(result.Conclusion) {
 		return nil, fmt.Errorf("invalid conclusion: %s", result.Conclusion)
+	}
+	if result.Conclusion != expectedConclusion {
+		return nil, fmt.Errorf("conclusion %s conflicts with check results; expected %s", result.Conclusion, expectedConclusion)
 	}
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil

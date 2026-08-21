@@ -38,28 +38,32 @@ const (
 	aiReleaseSpecialistConfigTooDeep    = "[truncated: too deep]"
 )
 
-func appendAIReleaseSpecialistTaskDetails(item *commonmodels.AIReleaseSummaryItem, job *commonmodels.JobTask) {
+func appendAIReleaseSpecialistTaskDetails(item *commonmodels.AIReleaseSummaryItem, job *commonmodels.JobTask) error {
 	if item == nil || job == nil {
-		return
+		return nil
 	}
 
 	switch job.JobType {
 	case string(config.JobNacos):
 		spec := &commonmodels.JobTaskNacosSpec{}
-		if commonmodels.IToi(job.Spec, spec) == nil {
-			item.ConfigChanges = buildAIConfigChangeSummaries(spec)
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			return fmt.Errorf("decode Nacos task %s: %w", job.OriginName, err)
 		}
+		item.ConfigChanges = buildAIConfigChangeSummaries(spec)
 	case string(config.JobApollo):
 		spec := &commonmodels.JobTaskApolloSpec{}
-		if commonmodels.IToi(job.Spec, spec) == nil {
-			item.ConfigChanges = buildAIApolloChangeSummaries(spec)
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			return fmt.Errorf("decode Apollo task %s: %w", job.OriginName, err)
 		}
+		item.ConfigChanges = buildAIApolloChangeSummaries(spec)
 	case string(config.JobSQL):
 		spec := &commonmodels.JobTaskSQLSpec{}
-		if commonmodels.IToi(job.Spec, spec) == nil {
-			item.SQLExecution = buildAISQLExecutionSummary(spec)
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			return fmt.Errorf("decode SQL task %s: %w", job.OriginName, err)
 		}
+		item.SQLExecution = buildAISQLExecutionSummary(spec)
 	}
+	return nil
 }
 
 func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commonmodels.AIConfigChangeSummary {
@@ -278,7 +282,16 @@ func flattenAIConfigFields(path string, value interface{}, fields map[string]int
 }
 
 func hashAIConfigFields(added, updated, removed []string) string {
-	fields := append(append(append([]string{}, added...), updated...), removed...)
+	fields := make([]string, 0, len(added)+len(updated)+len(removed))
+	for _, field := range added {
+		fields = append(fields, "added:"+field)
+	}
+	for _, field := range updated {
+		fields = append(fields, "updated:"+field)
+	}
+	for _, field := range removed {
+		fields = append(fields, "removed:"+field)
+	}
 	sort.Strings(fields)
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(fields, "\n"))))
 }
