@@ -596,6 +596,11 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 		log.Errorf("Project.Update error: %v", err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
+	// Project groups keep a denormalized display name. Its synchronization is
+	// non-blocking because the project update above is the source of truth.
+	if err := commonrepo.NewProjectGroupColl().UpdateProjectName(name, args.ProjectName); err != nil {
+		log.Warnf("failed to update project group project name, project: %s, error: %v", name, err)
+	}
 	return nil
 }
 
@@ -872,6 +877,10 @@ func ensureProductTmpl(args *template.Product) error {
 
 	if !config.ServiceNameRegex.MatchString(args.ProductName) {
 		return fmt.Errorf("product name must match %s", config.ServiceNameRegexString)
+	}
+	// Project keys are stored in the user service's role.namespace varchar(32) column.
+	if len(args.ProductName) > 32 {
+		return errors.New("project key cannot exceed 32 characters")
 	}
 
 	serviceNames := sets.NewString()
