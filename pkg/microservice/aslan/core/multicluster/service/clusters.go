@@ -1298,9 +1298,25 @@ func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, origi
 
 					volumeMounts = append(volumeMounts, volumeMount)
 				}
-				container.VolumeMounts = volumeMounts
+				container.VolumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:      types.DindMountName,
+					MountPath: types.DindMountPath,
+				})
 				dindSts.Spec.Template.Spec.Containers[i] = container
 			}
+
+			volumes := []corev1.Volume{}
+			for _, volume := range dindSts.Spec.Template.Spec.Volumes {
+				if volume.Name != types.DindMountName {
+					volumes = append(volumes, volume)
+				}
+			}
+			dindSts.Spec.Template.Spec.Volumes = append(volumes, corev1.Volume{
+				Name: types.DindMountName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			})
 
 			volumeClaimTemplates := []corev1.PersistentVolumeClaim{}
 			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
