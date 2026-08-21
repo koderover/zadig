@@ -1289,13 +1289,56 @@ func GetGlobalVariableCandidates(productName string, production bool, log *zap.S
 	return ret, nil
 }
 
-// CreateProjectGroup is shared by the console and OpenAPI handlers so both
-// entry points enforce the same group invariants.
 func CreateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
-	group, err := buildProjectGroup(args.GroupName, args.ProjectKeys, nil, user)
+	groups, err := commonrepo.NewProjectGroupColl().List()
 	if err != nil {
-		logger.Errorf("failed to build project group %s, error: %v", args.GroupName, err)
-		return e.ErrCreateProjectGroup.AddErr(err)
+		errMsg := fmt.Errorf("failed to list project groups, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
+	}
+
+	// find all project keys that have been set
+	set := sets.NewString()
+	for _, group := range groups {
+		for _, project := range group.Projects {
+			set.Insert(project.ProjectKey)
+		}
+	}
+
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
+	}
+
+	pm := make(map[string]*template.Product)
+	for _, project := range projects {
+		pm[project.ProductName] = project
+	}
+
+	group := &commonmodels.ProjectGroup{
+		Name:        args.GroupName,
+		CreatedTime: time.Now().Unix(),
+		UpdateTime:  time.Now().Unix(),
+		CreatedBy:   user,
+		UpdateBy:    user,
+		Projects:    make([]*commonmodels.ProjectDetail, 0),
+	}
+	for _, project := range args.ProjectKeys {
+		if set.Has(project) {
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("failed to set project %s to group %s, project Key %s has been set in other groups", project, args.GroupName, project))
+		}
+
+		if p, ok := pm[project]; ok {
+			group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
+				ProjectKey:        p.ProductName,
+				ProjectName:       p.ProjectName,
+				ProjectDeployType: p.ProductFeature.DeployType,
+			})
+		} else {
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+		}
 	}
 
 	if err := commonrepo.NewProjectGroupColl().Create(group); err != nil {
@@ -1306,22 +1349,72 @@ func CreateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 	return nil
 }
 
-// UpdateProjectGroup shares the same validation and construction path as
-// CreateProjectGroup for both the console and OpenAPI handlers.
 func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
 	if args.GroupID == "" {
 		return e.ErrUpdateProjectGroup.AddDesc("group id can not be empty")
+	}
+
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list project groups, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
 	}
 
 	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
 	if err != nil {
 		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
 	}
-	group, err := buildProjectGroup(args.GroupName, args.ProjectKeys, oldGroup, user)
-	if err != nil {
-		logger.Errorf("failed to build project group %s, error: %v", args.GroupName, err)
-		return e.ErrUpdateProjectGroup.AddErr(err)
+
+	// find all project keys that have been set
+	set := sets.NewString()
+	for _, group := range groups {
+		if oldGroup.Name != args.GroupName && group.Name == args.GroupName {
+			return fmt.Errorf("group name %s has been used", args.GroupName)
+		}
+		if group.Name != oldGroup.Name {
+			for _, project := range group.Projects {
+				set.Insert(project.ProjectKey)
+			}
+		}
 	}
+
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrUpdateProjectGroup.AddErr(errMsg)
+	}
+
+	pm := make(map[string]*template.Product)
+	for _, project := range projects {
+		pm[project.ProductName] = project
+	}
+	group := &commonmodels.ProjectGroup{
+		Name:       args.GroupName,
+		UpdateTime: time.Now().Unix(),
+		UpdateBy:   user,
+		Projects:   make([]*commonmodels.ProjectDetail, 0),
+	}
+	for _, project := range args.ProjectKeys {
+		if set.Has(project) {
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("failed to set project %s to group %s, project Key %s has been set in other groups", project, args.GroupName, project))
+		}
+
+		if p, ok := pm[project]; ok {
+			group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
+				ProjectKey:        p.ProductName,
+				ProjectName:       p.ProjectName,
+				ProjectDeployType: p.ProductFeature.DeployType,
+			})
+		} else {
+			return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+		}
+	}
+
+	group.ID = oldGroup.ID
+	group.CreatedTime = oldGroup.CreatedTime
+	group.CreatedBy = oldGroup.CreatedBy
 
 	if err := commonrepo.NewProjectGroupColl().Update(group); err != nil {
 		errMsg := fmt.Errorf("failed to update project group, groupName:%s, error: %v", oldGroup.Name, err)
@@ -1329,63 +1422,6 @@ func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 		return e.ErrUpdateProjectGroup.AddErr(errMsg)
 	}
 	return nil
-}
-
-func buildProjectGroup(name string, projectKeys []string, current *commonmodels.ProjectGroup, user string) (*commonmodels.ProjectGroup, error) {
-	groups, err := commonrepo.NewProjectGroupColl().List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list project groups, error: %v", err)
-	}
-
-	assignedProjectKeys := sets.NewString()
-	for _, group := range groups {
-		if group.Name == name && (current == nil || group.ID != current.ID) {
-			return nil, fmt.Errorf("group name %s has been used", name)
-		}
-		if current == nil || group.ID != current.ID {
-			for _, project := range group.Projects {
-				assignedProjectKeys.Insert(project.ProjectKey)
-			}
-		}
-	}
-
-	projects, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects, error: %v", err)
-	}
-	projectByKey := make(map[string]*template.Product, len(projects))
-	for _, project := range projects {
-		projectByKey[project.ProductName] = project
-	}
-
-	group := &commonmodels.ProjectGroup{
-		Name:       name,
-		UpdateTime: time.Now().Unix(),
-		UpdateBy:   user,
-		Projects:   make([]*commonmodels.ProjectDetail, 0, len(projectKeys)),
-	}
-	if current == nil {
-		group.CreatedBy = user
-	} else {
-		group.ID = current.ID
-		group.CreatedTime = current.CreatedTime
-		group.CreatedBy = current.CreatedBy
-	}
-	for _, projectKey := range projectKeys {
-		if assignedProjectKeys.Has(projectKey) {
-			return nil, fmt.Errorf("failed to set project %s to group %s, project Key %s has been set in other groups", projectKey, name, projectKey)
-		}
-		project, ok := projectByKey[projectKey]
-		if !ok {
-			return nil, fmt.Errorf("project Key %s not in current project list", projectKey)
-		}
-		group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
-			ProjectKey:        project.ProductName,
-			ProjectName:       project.ProjectName,
-			ProjectDeployType: project.ProductFeature.DeployType,
-		})
-	}
-	return group, nil
 }
 
 func DeleteProjectGroup(name string, logger *zap.SugaredLogger) error {
