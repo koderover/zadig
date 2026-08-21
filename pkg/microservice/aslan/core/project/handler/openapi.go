@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -318,7 +319,20 @@ func OpenAPIGetProjectGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetProjectGroupOpenAPI(groupID, ctx.Logger)
+	var authorizedProjects []string
+	if !ctx.Resources.IsSystemAdmin {
+		authorizedProjects = make([]string, 0)
+		projects, found, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
+		if err != nil {
+			ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
+			return
+		}
+		if found {
+			authorizedProjects = projects
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetProjectGroupOpenAPI(groupID, authorizedProjects, ctx.Logger)
 }
 
 func OpenAPICreateProjectGroup(c *gin.Context) {
@@ -356,7 +370,14 @@ func OpenAPICreateProjectGroup(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = service.CreateProjectGroupOpenAPI(args, ctx.UserName, ctx.Logger)
+	projectKeys := make([]string, 0)
+	if args.ProjectKeys != nil {
+		projectKeys = *args.ProjectKeys
+	}
+	ctx.RespErr = service.CreateProjectGroup(&service.ProjectGroupArgs{
+		GroupName:   strings.TrimSpace(args.GroupName),
+		ProjectKeys: projectKeys,
+	}, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIUpdateProjectGroup(c *gin.Context) {
@@ -400,7 +421,11 @@ func OpenAPIUpdateProjectGroup(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "编辑", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = service.UpdateProjectGroupOpenAPI(groupID, args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.UpdateProjectGroup(&service.ProjectGroupArgs{
+		GroupID:     groupID,
+		GroupName:   strings.TrimSpace(args.GroupName),
+		ProjectKeys: *args.ProjectKeys,
+	}, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIDeleteProjectGroup(c *gin.Context) {
@@ -422,14 +447,14 @@ func OpenAPIDeleteProjectGroup(c *gin.Context) {
 		return
 	}
 
-	groupID := c.Query("groupID")
-	if !primitive.IsValidObjectID(groupID) {
-		ctx.RespErr = e.ErrDeleteProjectGroup.AddDesc("invalid groupID")
+	groupName := strings.TrimSpace(c.Query("groupName"))
+	if groupName == "" {
+		ctx.RespErr = e.ErrDeleteProjectGroup.AddDesc("groupName is empty")
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "分组", groupID, groupID, "", types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = service.DeleteProjectGroupOpenAPI(groupID, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "分组", groupName, groupName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	ctx.RespErr = service.DeleteProjectGroup(groupName, ctx.Logger)
 }
 
 func OpenAPIDeleteProject(c *gin.Context) {

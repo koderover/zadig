@@ -475,7 +475,7 @@ func ListProjectGroupsOpenAPI(logger *zap.SugaredLogger) (*OpenAPIProjectGroupLi
 	return convertProjectGroupsToOpenAPI(groups), nil
 }
 
-func GetProjectGroupOpenAPI(groupID string, logger *zap.SugaredLogger) (*OpenAPIProjectGroupDetailResp, error) {
+func GetProjectGroupOpenAPI(groupID string, authorizedProjects []string, logger *zap.SugaredLogger) (*OpenAPIProjectGroupDetailResp, error) {
 	group, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: groupID})
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -485,40 +485,7 @@ func GetProjectGroupOpenAPI(groupID string, logger *zap.SugaredLogger) (*OpenAPI
 		return nil, fmt.Errorf("failed to find project group %s, error: %w", groupID, err)
 	}
 
-	return convertProjectGroupToOpenAPI(group), nil
-}
-
-// CreateProjectGroupOpenAPI only adapts the OpenAPI request to the shared group service.
-func CreateProjectGroupOpenAPI(args *OpenAPIProjectGroupReq, userName string, logger *zap.SugaredLogger) error {
-	projectKeys := make([]string, 0)
-	if args.ProjectKeys != nil {
-		projectKeys = *args.ProjectKeys
-	}
-
-	return CreateProjectGroup(&ProjectGroupArgs{
-		GroupName:   strings.TrimSpace(args.GroupName),
-		ProjectKeys: projectKeys,
-	}, userName, logger)
-}
-
-// UpdateProjectGroupOpenAPI only adapts the OpenAPI request to the shared group service.
-func UpdateProjectGroupOpenAPI(groupID string, args *OpenAPIProjectGroupReq, userName string, logger *zap.SugaredLogger) error {
-	return UpdateProjectGroup(&ProjectGroupArgs{
-		GroupID:     groupID,
-		GroupName:   strings.TrimSpace(args.GroupName),
-		ProjectKeys: *args.ProjectKeys,
-	}, userName, logger)
-}
-
-func DeleteProjectGroupOpenAPI(groupID string, logger *zap.SugaredLogger) error {
-	if err := commonrepo.NewProjectGroupColl().DeleteByID(groupID); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return e.ErrDeleteProjectGroup.AddDesc("project group not found")
-		}
-		return e.ErrDeleteProjectGroup.AddErr(fmt.Errorf("failed to delete project group %s, error: %w", groupID, err))
-	}
-
-	return nil
+	return convertProjectGroupToOpenAPI(group, authorizedProjects), nil
 }
 
 func convertProjectGroupsToOpenAPI(groups []*commonmodels.ProjectGroup) *OpenAPIProjectGroupListResp {
@@ -539,7 +506,7 @@ func convertProjectGroupsToOpenAPI(groups []*commonmodels.ProjectGroup) *OpenAPI
 	return resp
 }
 
-func convertProjectGroupToOpenAPI(group *commonmodels.ProjectGroup) *OpenAPIProjectGroupDetailResp {
+func convertProjectGroupToOpenAPI(group *commonmodels.ProjectGroup, authorizedProjects []string) *OpenAPIProjectGroupDetailResp {
 	resp := &OpenAPIProjectGroupDetailResp{
 		GroupID:     group.ID.Hex(),
 		GroupName:   group.Name,
@@ -549,7 +516,16 @@ func convertProjectGroupToOpenAPI(group *commonmodels.ProjectGroup) *OpenAPIProj
 		UpdateTime:  group.UpdateTime,
 		UpdateBy:    group.UpdateBy,
 	}
+	authorizedProjectSet := make(map[string]struct{}, len(authorizedProjects))
+	for _, project := range authorizedProjects {
+		authorizedProjectSet[project] = struct{}{}
+	}
 	for _, project := range group.Projects {
+		if authorizedProjects != nil {
+			if _, ok := authorizedProjectSet[project.ProjectKey]; !ok {
+				continue
+			}
+		}
 		resp.Projects = append(resp.Projects, &OpenAPIProjectGroupProject{
 			ProjectKey:  project.ProjectKey,
 			ProjectName: project.ProjectName,

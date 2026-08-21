@@ -99,23 +99,6 @@ func (c *ProjectGroupColl) Delete(name string) error {
 	return err
 }
 
-func (c *ProjectGroupColl) DeleteByID(id string) error {
-	objectID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return errors.New("invalid group id")
-	}
-
-	result, err := c.DeleteOne(context.Background(), bson.M{"_id": objectID})
-	if err != nil {
-		return err
-	}
-	if result.DeletedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-
-	return nil
-}
-
 type ProjectGroupOpts struct {
 	Name string
 	ID   string
