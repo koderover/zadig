@@ -2964,7 +2964,8 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 	compileKey := sourceRuleHash + ":" + contextHash
 	resultCh := aiReleaseSpecialistRulePlanCompileGroup.DoChan(compileKey, func() (interface{}, error) {
 		// Shared compilation must not be canceled when an individual waiter leaves.
-		compileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), aiReleaseSpecialistRulePlanRequestTimeout)
+		compileTimeout := time.Duration(aiReleaseSpecialistRulePlanMaxRetries+1) * aiReleaseSpecialistRulePlanRequestTimeout
+		compileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), compileTimeout)
 		defer cancel()
 
 		client, err := getAIReleaseSpecialistLLMClient(compileCtx)
