@@ -50,8 +50,6 @@ type ParameterSetting struct {
 	IsCredential bool `json:"is_credential"`
 	// 参数描述
 	Description string `json:"description"`
-	// 是否必须在工作流执行时提供值
-	Required bool `json:"required"`
 }
 
 type ExternalSetting struct {

@@ -93,23 +93,14 @@ func CreateCustomImageOpenAPI(req *OpenAPICustomImageReq, userName string, logge
 		return e.ErrInvalidParam.AddErr(err)
 	}
 
-	value := strings.TrimSpace(req.Value)
-	if err := ensureCustomImageValueAvailable(value, ""); err != nil {
-		return e.ErrCreateBasicImage.AddErr(err)
-	}
-
 	image := &commonmodels.BasicImage{
 		Label:     strings.TrimSpace(req.Label),
-		Value:     value,
+		Value:     strings.TrimSpace(req.Value),
 		ImageFrom: commonmodels.ImageFromCustom,
 		ImageType: req.ImageType,
 		UpdateBy:  userName,
 	}
-	if err := commonrepo.NewBasicImageColl().Create(image); err != nil {
-		logger.Errorf("OpenAPI: failed to create custom image, error: %s", err)
-		return e.ErrCreateBasicImage.AddErr(err)
-	}
-	return nil
+	return CreateBasicImage(image, logger)
 }
 
 func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName string, logger *zap.SugaredLogger) error {
@@ -121,20 +112,12 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 	if err != nil {
 		return e.ErrUpdateBasicImage.AddErr(err)
 	}
-	value := strings.TrimSpace(req.Value)
-	if err := ensureCustomImageValueAvailable(value, image.ID.Hex()); err != nil {
-		return e.ErrUpdateBasicImage.AddErr(err)
-	}
 
 	image.Label = strings.TrimSpace(req.Label)
-	image.Value = value
+	image.Value = strings.TrimSpace(req.Value)
 	image.ImageType = req.ImageType
 	image.UpdateBy = userName
-	if err := commonrepo.NewBasicImageColl().Update(id, image); err != nil {
-		logger.Errorf("OpenAPI: failed to update custom image %s, error: %s", id, err)
-		return e.ErrUpdateBasicImage.AddErr(err)
-	}
-	return nil
+	return UpdateBasicImage(id, image, logger)
 }
 
 func DeleteCustomImageOpenAPI(id string, logger *zap.SugaredLogger) error {
@@ -153,19 +136,6 @@ func findCustomImage(id string) (*commonmodels.BasicImage, error) {
 		return nil, fmt.Errorf("image %s is not a custom image", id)
 	}
 	return image, nil
-}
-
-func ensureCustomImageValueAvailable(value, currentID string) error {
-	images, err := commonrepo.NewBasicImageColl().List(&commonrepo.BasicImageOpt{Value: value})
-	if err != nil {
-		return err
-	}
-	for _, image := range images {
-		if image.ID.Hex() != currentID {
-			return fmt.Errorf("value:%s has existed", value)
-		}
-	}
-	return nil
 }
 
 func convertCustomImage(image *commonmodels.BasicImage) *OpenAPICustomImage {

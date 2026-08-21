@@ -36,16 +36,27 @@ import (
 )
 
 type OpenAPIBuildTemplateInput struct {
-	Name            string                        `json:"name"`
-	Infrastructure  string                        `json:"infrastructure"`
-	VMLabels        []string                      `json:"vm_labels"`
-	BuildOS         string                        `json:"build_os"`
-	Installs        []*types.OpenAPIToolItem      `json:"installs"`
-	Parameters      []*types.ParameterSetting     `json:"parameters"`
-	ScriptType      types.ScriptType              `json:"script_type"`
-	BuildScript     string                        `json:"build_script"`
-	DockerBuildStep *types.OpenAPIDockerBuildStep `json:"docker_build_step"`
-	AdvancedSetting *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
+	Name            string                           `json:"name"`
+	Infrastructure  string                           `json:"infrastructure"`
+	VMLabels        []string                         `json:"vm_labels"`
+	BuildOS         string                           `json:"build_os"`
+	Installs        []*types.OpenAPIToolItem         `json:"installs"`
+	Parameters      []*OpenAPIBuildTemplateParameter `json:"parameters"`
+	ScriptType      types.ScriptType                 `json:"script_type"`
+	BuildScript     string                           `json:"build_script"`
+	DockerBuildStep *types.OpenAPIDockerBuildStep    `json:"docker_build_step"`
+	AdvancedSetting *types.OpenAPIAdvancedSetting    `json:"advanced_settings"`
+}
+
+type OpenAPIBuildTemplateParameter struct {
+	Key          string                     `json:"key"`
+	Type         types.ParameterSettingType `json:"type"`
+	DefaultValue string                     `json:"default_value"`
+	ChoiceOption []string                   `json:"choice_option"`
+	ChoiceValue  []string                   `json:"choice_value"`
+	IsCredential bool                       `json:"is_credential"`
+	Description  string                     `json:"description"`
+	Required     bool                       `json:"required"`
 }
 
 type OpenAPIBuildTemplateDetail struct {
@@ -257,16 +268,13 @@ func OpenAPICreateBuildTemplate(req *OpenAPIBuildTemplateInput, userName string,
 	if err := req.Validate(); err != nil {
 		return e.ErrInvalidParam.AddErr(err)
 	}
-	if err := ensureBuildTemplateNameAvailable(req.Name, ""); err != nil {
-		return e.ErrCreateTemplate.AddErr(err)
-	}
 	resolved, err := resolveOpenAPIBuildTemplate(req)
 	if err != nil {
 		return e.ErrCreateTemplate.AddErr(err)
 	}
 	buildTemplate := new(commonmodels.BuildTemplate)
 	applyOpenAPIBuildTemplate(buildTemplate, req, resolved, userName)
-	if err := commonrepo.NewBuildTemplateColl().Create(buildTemplate); err != nil {
+	if err := AddBuildTemplate(userName, buildTemplate, logger); err != nil {
 		logger.Errorf("OpenAPI: failed to create build template %s, error: %s", req.Name, err)
 		return e.ErrCreateTemplate.AddErr(err)
 	}
@@ -281,15 +289,12 @@ func OpenAPIUpdateBuildTemplate(id string, req *OpenAPIBuildTemplateInput, userN
 	if err != nil {
 		return e.ErrUpdateTemplate.AddErr(err)
 	}
-	if err := ensureBuildTemplateNameAvailable(req.Name, existing.ID.Hex()); err != nil {
-		return e.ErrUpdateTemplate.AddErr(err)
-	}
 	resolved, err := resolveOpenAPIBuildTemplate(req)
 	if err != nil {
 		return e.ErrUpdateTemplate.AddErr(err)
 	}
 	applyOpenAPIBuildTemplate(existing, req, resolved, userName)
-	if err := commonrepo.NewBuildTemplateColl().Update(id, existing); err != nil {
+	if err := UpdateBuildTemplate(id, existing, logger); err != nil {
 		logger.Errorf("OpenAPI: failed to update build template %s, error: %s", id, err)
 		return e.ErrUpdateTemplate.AddErr(err)
 	}
@@ -301,20 +306,6 @@ func OpenAPIDeleteBuildTemplate(id string, logger *zap.SugaredLogger) error {
 		return e.ErrDeleteTemplate.AddErr(err)
 	}
 	return nil
-}
-
-func ensureBuildTemplateNameAvailable(name, currentID string) error {
-	template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{Name: strings.TrimSpace(name)})
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if currentID != "" && template.ID.Hex() == currentID {
-		return nil
-	}
-	return fmt.Errorf("build template name %s has existed", name)
 }
 
 type resolvedOpenAPIBuildTemplate struct {
@@ -402,7 +393,7 @@ func applyOpenAPIBuildTemplate(template *commonmodels.BuildTemplate, req *OpenAP
 	preBuild.ImageFrom = resolved.image.ImageFrom
 	preBuild.ImageID = resolved.image.ID.Hex()
 	preBuild.Installs = openapitool.ToBuildInstalls(req.Installs)
-	preBuild.Envs = openapitool.ToKeyValList(req.Parameters)
+	preBuild.Envs = convertOpenAPIBuildTemplateParameters(req.Parameters)
 	preBuild.ResReq = advanced.Spec.FindResourceRequestType()
 	if resolved.defaultAdvanced {
 		preBuild.ResReq = setting.LowRequest
@@ -548,11 +539,28 @@ func convertInstalls(installs []*commonmodels.Item) []*types.OpenAPIToolItem {
 	return ret
 }
 
-func convertParameters(parameters commonmodels.KeyValList) []*types.ParameterSetting {
-	ret := make([]*types.ParameterSetting, 0, len(parameters))
+func convertOpenAPIBuildTemplateParameters(parameters []*OpenAPIBuildTemplateParameter) commonmodels.KeyValList {
+	ret := make(commonmodels.KeyValList, 0, len(parameters))
+	for _, parameter := range parameters {
+		ret = append(ret, &commonmodels.KeyVal{
+			Key:          parameter.Key,
+			Value:        parameter.DefaultValue,
+			Type:         commonmodels.ParameterSettingType(parameter.Type),
+			ChoiceOption: parameter.ChoiceOption,
+			ChoiceValue:  parameter.ChoiceValue,
+			IsCredential: parameter.IsCredential,
+			Description:  parameter.Description,
+			Required:     parameter.Required,
+		})
+	}
+	return ret
+}
+
+func convertParameters(parameters commonmodels.KeyValList) []*OpenAPIBuildTemplateParameter {
+	ret := make([]*OpenAPIBuildTemplateParameter, 0, len(parameters))
 	for _, parameter := range parameters {
 		if parameter != nil {
-			ret = append(ret, &types.ParameterSetting{
+			ret = append(ret, &OpenAPIBuildTemplateParameter{
 				Key:          parameter.Key,
 				Type:         types.ParameterSettingType(parameter.Type),
 				DefaultValue: parameter.Value,

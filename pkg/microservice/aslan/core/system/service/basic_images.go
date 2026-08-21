@@ -98,7 +98,7 @@ func CreateBasicImage(args *commonmodels.BasicImage, log *zap.SugaredLogger) err
 		Value: args.Value,
 	}
 	resp, err := commonrepo.NewBasicImageColl().List(opt)
-	if err == nil && len(resp) != 0 {
+	if err == nil && hasBasicImageValueConflict(resp, "") {
 		log.Errorf("create BasicImage failed, value:%s has existed", args.Value)
 		return e.ErrCreateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
 	}
@@ -117,7 +117,7 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 		Value: args.Value,
 	}
 	resp, _ := commonrepo.NewBasicImageColl().List(opt)
-	if len(resp) != 0 {
+	if hasBasicImageValueConflict(resp, id) {
 		log.Errorf("update BasicImage failed, value:%s has existed", args.Value)
 		return e.ErrUpdateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
 	}
@@ -128,6 +128,15 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 		return e.ErrUpdateBasicImage
 	}
 	return nil
+}
+
+func hasBasicImageValueConflict(images []*commonmodels.BasicImage, currentID string) bool {
+	for _, image := range images {
+		if image.ID.Hex() != currentID {
+			return true
+		}
+	}
+	return false
 }
 
 func DeleteBasicImage(id string, log *zap.SugaredLogger) error {

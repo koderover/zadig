@@ -117,10 +117,7 @@ func (c *BuildTemplateColl) List(pageNum, pageSize int) ([]*models.BuildTemplate
 		return nil, 0, err
 	}
 
-	opt := options.Find().SetSort(bson.D{
-		{Key: "name", Value: 1},
-		{Key: "_id", Value: 1},
-	})
+	opt := options.Find()
 	if pageNum != 0 && pageSize != 0 {
 		opt.SetSkip(int64((pageNum - 1) * pageSize)).SetLimit(int64(pageSize))
 	}
