@@ -143,6 +143,38 @@ func (c *ServiceModuleColl) ListByServiceRevision(ctx context.Context, projectNa
 	}))
 }
 
+// ListByServiceRevisions returns all manual records in a project together
+// with the visible auto-discovered records for the requested service
+// revisions. It is the batch equivalent of ListByServiceRevision and keeps
+// the same deterministic ordering required by the merge logic.
+func (c *ServiceModuleColl) ListByServiceRevisions(ctx context.Context, projectName string, serviceRevisions map[string][]int64) ([]*models.ServiceModule, error) {
+	autoMatches := make(bson.A, 0, len(serviceRevisions))
+	for serviceName, revisions := range serviceRevisions {
+		if serviceName == "" || len(revisions) == 0 {
+			continue
+		}
+		autoMatches = append(autoMatches, bson.M{
+			"service_name":   serviceName,
+			"revision_bound": bson.M{"$in": revisions},
+		})
+	}
+
+	moduleMatches := bson.A{bson.M{"is_manual": true}}
+	if len(autoMatches) > 0 {
+		moduleMatches = append(moduleMatches, bson.M{
+			"is_manual": false,
+			"ignored":   bson.M{"$ne": true},
+			"$or":       autoMatches,
+		})
+	}
+
+	query := bson.M{
+		"project_name": projectName,
+		"$or":          moduleMatches,
+	}
+	return c.findAll(ctx, query, options.Find().SetSort(bson.D{{Key: "create_time", Value: 1}, {Key: "_id", Value: 1}}))
+}
+
 // ListManual returns every manual record for a service. Used by the manual-
 // module CRUD API to list user-declared modules independently of any revision.
 func (c *ServiceModuleColl) ListManual(ctx context.Context, projectName, serviceName string) ([]*models.ServiceModule, error) {

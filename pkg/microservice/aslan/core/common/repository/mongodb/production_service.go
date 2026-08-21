@@ -409,42 +409,7 @@ func (c *ProductionServiceColl) ListMaxRevisionsByProductWithFilter(productName 
 }
 
 func (c *ProductionServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOption) ([]*models.Service, error) {
-	productMatch := bson.M{}
-	productMatch["product_name"] = opt.ProductName
-
-	var serviceMatch bson.A
-	for _, sr := range opt.ServiceRevisions {
-		serviceMatch = append(serviceMatch, bson.M{
-			"service_name": sr.ServiceName,
-			"revision":     sr.Revision,
-		})
-	}
-
-	pipeline := []bson.M{
-		{
-			"$match": productMatch,
-		},
-	}
-	if len(opt.ServiceRevisions) > 0 {
-		pipeline = append(pipeline, bson.M{
-			"$match": bson.M{
-				"$or": serviceMatch,
-			},
-		})
-	} else {
-		return []*models.Service{}, nil
-	}
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make([]*models.Service, 0)
-	if err := cursor.All(context.TODO(), &res); err != nil {
-		return nil, err
-	}
-	return res, err
+	return listServicesWithSRevision(c.Collection, opt)
 }
 
 func (c *ProductionServiceColl) TransferServiceSource(productName, serviceName, source, newSource, username, yaml string) error {
