@@ -57,6 +57,7 @@ const (
 	aiReleaseSpecialistMaxPromptTokens          = 12000
 	aiReleaseSpecialistCompletionMaxTokens      = 8192
 	aiReleaseSpecialistCompletionRetryMaxTokens = 12000
+	aiReleaseSpecialistCompletionMaxRetries     = 3
 	aiReleaseSpecialistRulePlanMaxTokens        = 32000
 	aiReleaseSpecialistRulePlanMaxRetries       = 2
 	aiReleaseSpecialistRulePlanRequestTimeout   = 5 * time.Minute
@@ -226,47 +227,19 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	answer, err := client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(jobCtx, client, aiReleaseSpecialistCompletionMaxTokens)...)
-	if err == nil && strings.TrimSpace(answer) == "" {
-		c.logger.Warnf("llm completion returned empty response, retry with max tokens %d", aiReleaseSpecialistCompletionRetryMaxTokens)
-		answer, err = client.GetCompletion(jobCtx, prompt, buildAIReleaseSpecialistCompletionOptions(jobCtx, client, aiReleaseSpecialistCompletionRetryMaxTokens)...)
-	}
+	result, answer, err := completeAIReleaseSpecialist(jobCtx, client, prompt)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
 			c.job.Status = config.StatusTimeout
 			c.job.Error = "ai release specialist timeout"
 		} else {
 			c.job.Status = config.StatusFailed
-			c.job.Error = fmt.Sprintf("llm completion failed: %v", err)
-			c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, "")
+			c.job.Error = err.Error()
+			c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, answer)
 			c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
 			if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
-				c.logger.Warnf("marshal ai release specialist llm error result failed: %v", err)
+				c.logger.Warnf("marshal ai release specialist completion error result failed: %v", err)
 			}
-		}
-		c.ack()
-		return
-	}
-	if strings.TrimSpace(answer) == "" {
-		c.job.Status = config.StatusFailed
-		c.job.Error = "llm completion returned empty response"
-		c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, "")
-		c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
-		if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
-			c.logger.Warnf("marshal ai release specialist empty llm result failed: %v", err)
-		}
-		c.ack()
-		return
-	}
-
-	result, err := ParseAIReleaseSpecialistResult(answer)
-	if err != nil {
-		c.job.Status = config.StatusFailed
-		c.job.Error = fmt.Sprintf("parse llm result failed: %v", err)
-		c.jobTaskSpec.Result = buildAIReleaseSpecialistLLMErrorResult(c.job.Error, answer)
-		c.jobTaskSpec.ChangeSummaryText = buildChangeSummaryText(input.ChangeSummary)
-		if err := writeAIReleaseSpecialistOutputs(c.workflowCtx, c.job.Key, c.jobTaskSpec.Result); err != nil {
-			c.logger.Warnf("marshal ai release specialist parse error result failed: %v", err)
 		}
 		c.ack()
 		return
@@ -343,11 +316,46 @@ func buildAIReleaseSpecialistCompletionOptions(ctx context.Context, client llm.I
 	options := []llm.ParamOption{
 		llm.WithTemperature(0.1),
 		llm.WithMaxTokens(maxTokens),
+		llm.WithErrorOnMaxTokens(),
 	}
 	if client != nil && client.GetModel() != "" {
 		options = append(options, llm.WithModel(client.GetModel()))
 	}
 	return appendAIReleaseSpecialistRequestTimeout(ctx, options)
+}
+
+func completeAIReleaseSpecialist(ctx context.Context, client llm.ILLM, prompt string) (*commonmodels.AIReleaseSpecialistResult, string, error) {
+	var answer string
+	var lastErr error
+	for attempt := 0; attempt <= aiReleaseSpecialistCompletionMaxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, answer, err
+		}
+
+		maxTokens := aiReleaseSpecialistCompletionMaxTokens
+		if attempt > 0 {
+			maxTokens = aiReleaseSpecialistCompletionRetryMaxTokens
+		}
+		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistCompletionOptions(ctx, client, maxTokens)...)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, answer, err
+			}
+			lastErr = fmt.Errorf("llm completion failed: %w", err)
+			continue
+		}
+		if strings.TrimSpace(answer) == "" {
+			lastErr = errors.New("llm completion returned empty response")
+			continue
+		}
+
+		result, err := ParseAIReleaseSpecialistResult(answer)
+		if err == nil {
+			return result, answer, nil
+		}
+		lastErr = fmt.Errorf("parse llm result failed: %w", err)
+	}
+	return nil, answer, lastErr
 }
 
 func buildAIReleaseSpecialistRulePlanCompletionOptions(ctx context.Context, client llm.ILLM, maxTokens int) []llm.ParamOption {
