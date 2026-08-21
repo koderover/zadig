@@ -30,7 +30,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
@@ -38,10 +38,13 @@ import (
 )
 
 const (
-	terminalAuditAIAnalysisTimeout = 10 * time.Minute
-	terminalAuditAIPromptVersion   = 1
-	maxTerminalAuditAIChunkRunes   = 12000
-	maxTerminalAuditAIRecordRunes  = 6000
+	terminalAuditAIAnalysisTimeout          = 10 * time.Minute
+	terminalAuditAIPromptVersion            = 1
+	maxTerminalAuditAIChunkRunes            = 12000
+	maxTerminalAuditAIRecordRunes           = 6000
+	terminalAuditAICompletionMaxTokens      = 8192
+	terminalAuditAICompletionRetryMaxTokens = 12000
+	terminalAuditAICompletionMaxRetries     = 3
 	// maxTerminalAuditAICommands caps how many commands are loaded from MongoDB for
 	// AI analysis. Sessions exceeding this limit are marked coverage=partial.
 	maxTerminalAuditAICommands = 500
@@ -175,7 +178,7 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		validationCommands[command.Seq] = command.Command
 	}
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
-	client, err := commonservice.GetDefaultLLMClient(ctx)
+	client, err := llmservice.GetDefaultLLMClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -189,13 +192,21 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		if tokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model); tokenErr == nil {
 			result.TokenNum += tokenNum
 		}
-		answer, err := client.GetCompletion(ctx, prompt, llm.WithTemperature(0.1))
+		parsed, _, err := llmservice.CompleteWithRetry(ctx, client, prompt, terminalAuditAICompletionMaxRetries, func(attempt int) []llm.ParamOption {
+			maxTokens := terminalAuditAICompletionMaxTokens
+			if attempt > 0 {
+				maxTokens = terminalAuditAICompletionRetryMaxTokens
+			}
+			return []llm.ParamOption{
+				llm.WithTemperature(0.1),
+				llm.WithMaxTokens(maxTokens),
+				llm.WithErrorOnMaxTokens(),
+			}
+		}, func(answer string) (*terminalAuditAIAnswer, error) {
+			return parseAndValidateTerminalAuditAIAnswer(answer, validationCommands)
+		})
 		if err != nil {
-			return err
-		}
-		parsed, err := parseAndValidateTerminalAuditAIAnswer(answer, validationCommands)
-		if err != nil {
-			return fmt.Errorf("parse and validate terminal audit ai answer for chunk %d: %w", i+1, err)
+			return fmt.Errorf("complete terminal audit ai for chunk %d: %w", i+1, err)
 		}
 		if parsed.RiskLevel == "high" || parsed.RiskLevel == "medium" && result.RiskLevel == "low" {
 			result.RiskLevel = parsed.RiskLevel
@@ -349,7 +360,7 @@ type terminalAuditAIAnswer struct {
 
 func parseAndValidateTerminalAuditAIAnswer(answer string, commands map[int64]string) (*terminalAuditAIAnswer, error) {
 	parsed := new(terminalAuditAIAnswer)
-	if err := json.Unmarshal([]byte(strings.TrimSpace(answer)), parsed); err != nil {
+	if err := json.Unmarshal([]byte(llmservice.ExtractJSONCodeBlock(answer)), parsed); err != nil {
 		return nil, fmt.Errorf("decode ai answer json: %w", err)
 	}
 	if parsed.Findings == nil {
