@@ -375,6 +375,46 @@ func NewHelmDeployService() *HelmDeployService {
 	return &HelmDeployService{}
 }
 
+// MergeHelmContainers keeps existing environment images while adding or
+// refreshing the containers parsed from the selected service revision.
+func MergeHelmContainers(current, templates []*commonmodels.Container) []*commonmodels.Container {
+	currentByKey := make(map[string]*commonmodels.Container, len(current))
+	currentByName := make(map[string]*commonmodels.Container, len(current))
+	for _, container := range current {
+		if container == nil {
+			continue
+		}
+		currentByKey[container.GetKey()] = container
+		if currentByName[container.Name] == nil {
+			currentByName[container.Name] = container
+		}
+	}
+
+	for _, template := range templates {
+		if template == nil {
+			continue
+		}
+
+		if existing := currentByKey[template.GetKey()]; existing != nil {
+			existing.ImagePath = template.ImagePath
+			existing.Type = template.Type
+			if existing.ImageName == "" {
+				existing.ImageName = template.ImageName
+			}
+			continue
+		}
+		if existing := currentByName[template.Name]; existing != nil {
+			template.Image = existing.Image
+			if template.ImageName == "" {
+				template.ImageName = existing.ImageName
+			}
+		}
+		currentByKey[template.GetKey()] = template
+		current = append(current, template)
+	}
+	return current
+}
+
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // defaultValues: global values yaml
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
@@ -386,7 +426,9 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 	imageMap := make(map[string]string)
 	for _, image := range images {
 		name := commonutil.ExtractImageName(image)
-		imageMap[name] = image
+		if _, ok := imageMap[name]; !ok {
+			imageMap[name] = image
+		}
 	}
 
 	valuesMap := make(map[string]interface{})
@@ -423,21 +465,22 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		name := commonutil.ExtractImageName(imageUrl)
 
 		if container.ImageName == name {
-			// find corresponding image in values
-			if imageMap[name] != "" {
-				// if found image in images, and the images are from build job, we should override it
-				container.Image = imageMap[name]
-				mergedContainers = append(mergedContainers, container)
+			// path present in values: skip when unchanged and no build image
+			if imageMap[name] == "" && container.Image == imageUrl {
+				continue
 			}
-		} else {
-			// not found corresponding image in values
-			// add container image into values
-			if imageMap[container.ImageName] != "" {
-				// if found image in images, and the images are from build job, we should override it
-				container.Image = imageMap[container.ImageName]
+			if imageMap[name] != "" {
+				container.Image = imageMap[name]
 			}
 			mergedContainers = append(mergedContainers, container)
+			continue
 		}
+
+		// path not in values: always write back
+		if imageMap[container.ImageName] != "" {
+			container.Image = imageMap[container.ImageName]
+		}
+		mergedContainers = append(mergedContainers, container)
 	}
 
 	// 2. replace image into values yaml
@@ -540,41 +583,30 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
 		}
+	}
 
-		// Service.Containers no longer persisted — pull modules for the
-		// loaded template revision from the service_module table.
-		tmplContainers, _, rerr := repository.ResolveServiceModules(context.Background(), tmplSvc.ProductName, tmplSvc.ServiceName, prod.Production, tmplSvc.Revision)
-		if rerr != nil {
-			return nil, nil, errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", tmplSvc.ProductName, tmplSvc.ServiceName, tmplSvc.Revision)
+	// Service.Containers is no longer persisted in the template. Resolve the
+	// selected service revision from service_module; when updateServiceRevision
+	// is false, tmplSvc is pinned to the environment's current revision.
+	tmplContainers, _, rerr := repository.ResolveServiceModules(context.Background(), tmplSvc.ProductName, tmplSvc.ServiceName, prod.Production, tmplSvc.Revision)
+	if rerr != nil {
+		return nil, nil, errors.Wrapf(rerr, "failed to resolve modules for %s/%s rev %d", tmplSvc.ProductName, tmplSvc.ServiceName, tmplSvc.Revision)
+	}
+	if prodSvc == nil {
+		prodSvc = &commonmodels.ProductService{
+			ServiceName: serviceName,
+			ReleaseName: serviceName,
+			ProductName: prod.ProductName,
+			Type:        tmplSvc.Type,
+			Revision:    tmplSvc.Revision,
+			Containers:  tmplContainers,
 		}
-		if prodSvc == nil {
-			prodSvc = &commonmodels.ProductService{
-				ServiceName: serviceName,
-				ReleaseName: serviceName,
-				ProductName: prod.ProductName,
-				Type:        tmplSvc.Type,
-				Revision:    tmplSvc.Revision,
-				Containers:  tmplContainers,
-			}
-		} else {
+	} else {
+		if updateServiceRevision {
 			prodSvc.Revision = tmplSvc.Revision
-
-			containerMap := make(map[string]*commonmodels.Container)
-			for _, container := range prodSvc.Containers {
-				containerMap[container.Name] = container
-			}
-
-			for _, templateContainer := range tmplContainers {
-				if containerMap[templateContainer.Name] == nil {
-					prodSvc.Containers = append(prodSvc.Containers, templateContainer)
-				} else {
-					if templateContainer.ImagePath != nil {
-						containerMap[templateContainer.Name].ImagePath = templateContainer.ImagePath
-					}
-					containerMap[templateContainer.Name].Type = templateContainer.Type
-				}
-			}
 		}
+
+		prodSvc.Containers = MergeHelmContainers(prodSvc.Containers, tmplContainers)
 	}
 	return prodSvc, tmplSvc, nil
 }

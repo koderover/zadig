@@ -36,8 +36,9 @@ import (
 //     Manual records carry RevisionBound = 0 — they are version-agnostic and
 //     load for every revision of the service.
 //
-// Read-merge rule (see ResolveServiceModules): records are unioned by Name with
-// time-of-creation precedence ("first-come-first-served" by CreateTime).
+// Read-merge rule (see ResolveServiceModules): records are unioned by Name and
+// ImagePath with time-of-creation precedence ("first-come-first-served" by
+// CreateTime).
 // Conflicts are recorded and surfaced to the caller so the UI can warn users.
 type ServiceModule struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
