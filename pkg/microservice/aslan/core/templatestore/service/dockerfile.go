@@ -109,7 +109,7 @@ func ValidateDockerfileTemplate(template string, _ *zap.SugaredLogger) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = dockerfileinstructions.Parse(result.AST)
+	_, _, err = dockerfileinstructions.Parse(result.AST, nil)
 	if err != nil {
 		return err
 	}

@@ -17,9 +17,7 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,10 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	typesregistry "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
+	mobyauthconfig "github.com/moby/moby/api/pkg/authconfig"
+	mobyregistry "github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
@@ -76,14 +73,6 @@ func buildRegistryMap(registries []*DockerRegistry) map[string]*DockerRegistry {
 	return ret
 }
 
-func base64EncodeAuth(auth *typesregistry.AuthConfig) (string, error) {
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(auth); err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(buf.Bytes()), nil
-}
-
 func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
 	ret := ""
 	if len(nameSpace) > 0 {
@@ -99,18 +88,26 @@ func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
 func ExtractErrorDetail(in io.Reader) error {
 	dec := json.NewDecoder(in)
 	for dec.More() {
-		var jm jsonmessage.JSONMessage
+		var jm struct {
+			Error       string `json:"error"`
+			ErrorDetail *struct {
+				Message string `json:"message"`
+			} `json:"errorDetail"`
+		}
 		if err := dec.Decode(&jm); err != nil {
 			return err
 		}
-		if jm.Error != nil {
-			return jm.Error
+		if jm.ErrorDetail != nil && jm.ErrorDetail.Message != "" {
+			return errors.New(jm.ErrorDetail.Message)
+		}
+		if jm.Error != "" {
+			return errors.New(jm.Error)
 		}
 	}
 	return nil
 }
 
-func pullImage(dockerClient *client.Client, imageUrl string, options *types.ImagePullOptions) error {
+func pullImage(dockerClient *client.Client, imageUrl string, options *client.ImagePullOptions) error {
 	log.Infof("pulling image: %s", imageUrl)
 	pullResponse, err := dockerClient.ImagePull(context.TODO(), imageUrl, *options)
 	if err != nil {
@@ -123,7 +120,7 @@ func pullImage(dockerClient *client.Client, imageUrl string, options *types.Imag
 	return err
 }
 
-func pushImage(dockerClient *client.Client, targetImageUrl string, options *types.ImagePushOptions) error {
+func pushImage(dockerClient *client.Client, targetImageUrl string, options *client.ImagePushOptions) error {
 	log.Infof("pushing image: %s", targetImageUrl)
 	pushResponse, err := dockerClient.ImagePush(context.TODO(), targetImageUrl, *options)
 	if err != nil {
@@ -141,14 +138,14 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 	retImages := make([]*ImageData, 0)
 
 	for _, singleImage := range imageByService.Images {
-		options := types.ImagePullOptions{}
+		options := client.ImagePullOptions{}
 		// for images from public repo，registryID won't be appointed
 		if len(singleImage.RegistryID) > 0 {
 			registryInfo, ok := allRegistries[singleImage.RegistryID]
 			if !ok {
 				return nil, fmt.Errorf("failed to find source registry for image: %s", singleImage.ImageUrl)
 			}
-			encodedAuth, err := base64EncodeAuth(&typesregistry.AuthConfig{
+			encodedAuth, err := mobyauthconfig.Encode(mobyregistry.AuthConfig{
 				Username:      registryInfo.UserName,
 				Password:      registryInfo.Password,
 				ServerAddress: registryInfo.Host,
@@ -168,7 +165,10 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 		// tag image
 		for _, registry := range targetRegistries {
 			targetImage := buildTargetImage(singleImage.ImageName, singleImage.CustomTag, registry.Host, registry.Namespace)
-			err = dockerClient.ImageTag(context.TODO(), singleImage.ImageUrl, targetImage)
+			_, err = dockerClient.ImageTag(context.TODO(), client.ImageTagOptions{
+				Source: singleImage.ImageUrl,
+				Target: targetImage,
+			})
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to tag image from: %s to: %s", singleImage.ImageUrl, targetImage)
 			}
@@ -185,7 +185,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 
 	// push image
 	for _, registry := range targetRegistries {
-		encodedAuth, err := base64EncodeAuth(&typesregistry.AuthConfig{
+		encodedAuth, err := mobyauthconfig.Encode(mobyregistry.AuthConfig{
 			Username:      registry.UserName,
 			Password:      registry.Password,
 			ServerAddress: registry.Host,
@@ -193,7 +193,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 		if err != nil {
 			return nil, errors.Wrapf(err, "faied to create docker push auth data")
 		}
-		options := types.ImagePushOptions{
+		options := client.ImagePushOptions{
 			RegistryAuth: encodedAuth,
 		}
 
@@ -210,7 +210,7 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 func (p *Packager) Exec() error {
 
 	// init docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		log.Errorf("failed to init docker client %s", err)
 		return err
@@ -225,7 +225,7 @@ func (p *Packager) Exec() error {
 
 	// run docker info to ensure docker daemon connection
 	for i := 0; i < 120; i++ {
-		_, err := cli.Info(context.TODO())
+		_, err := cli.Info(context.TODO(), client.InfoOptions{})
 		if err == nil {
 			break
 		}

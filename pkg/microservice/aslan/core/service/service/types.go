@@ -58,15 +58,15 @@ type OpenAPILoadHelmServiceReq struct {
 	Source LoadSource `json:"source"`
 	// 服务名称。repo/publicRepo 场景可为空，后端会从 Chart.yaml 读取；chartRepo 场景使用 chartName 作为服务名
 	Name string `json:"name"`
-	// 服务来源配置。source=repo 时传 createFrom: {codehostID:int, owner:string, namespace:string, repo:string, branch:string, paths:[]string}；source=publicRepo 时传 createFrom: {repoLink:string, paths:[]string}；source=chartRepo 时传 createFrom: {chartRepoName:string, chartName:string, chartVersion:string}
+	// 服务来源配置。source=repo 时传 createFrom: {codehostName:string, owner:string, namespace:string, repo:string, branch:string, paths:[]string}；source=publicRepo 时传 createFrom: {repoLink:string, paths:[]string}；source=chartRepo 时传 createFrom: {chartRepoName:string, chartName:string, chartVersion:string}
 	CreateFrom interface{} `json:"createFrom"`
 	// 是否创建生产服务
 	Production bool `json:"production"`
 }
 
 type OpenAPICreateFromRepo struct {
-	// 代码源 ID
-	CodehostID int `json:"codehostID"`
+	// 代码源名称
+	CodehostName string `json:"codehostName"`
 	// 仓库拥有者/组织名
 	Owner string `json:"owner"`
 	// 仓库命名空间，GitLab 多层 group 时使用；为空默认使用 owner
@@ -247,14 +247,14 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 }
 
 type OpenAPILoadServiceFromCodeHostReq struct {
-	CodehostID int    `json:"-"`
-	RepoName   string `json:"-"`
-	RepoUUID   string `json:"-"`
-	BranchName string `json:"-"`
-	RemoteName string `json:"-"`
-	RepoOwner  string `json:"-"`
-	Namespace  string `json:"-"`
-	Production bool   `json:"-"`
+	CodehostName string `json:"-"`
+	RepoName     string `json:"-"`
+	RepoUUID     string `json:"-"`
+	BranchName   string `json:"-"`
+	RemoteName   string `json:"-"`
+	RepoOwner    string `json:"-"`
+	Namespace    string `json:"-"`
+	Production   bool   `json:"-"`
 	// 项目标识
 	ProductName string `json:"product_name"`
 	// 服务路径列表
@@ -262,6 +262,9 @@ type OpenAPILoadServiceFromCodeHostReq struct {
 }
 
 func (req *OpenAPILoadServiceFromCodeHostReq) Validate() error {
+	if req.CodehostName == "" {
+		return fmt.Errorf("codehostName cannot be empty")
+	}
 	if req.RepoName == "" && req.RepoUUID == "" {
 		return fmt.Errorf("repoName and repoUUID cannot be empty at the same time")
 	}

@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -39,6 +38,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
+	helmchartutil "helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -423,7 +423,7 @@ func checkK8SImageVersionStatusV2(deliveryVersion *commonmodels.DeliveryVersionV
 	done := false
 	if workflowTaskExist {
 		if len(workflowTask.Stages) != 1 {
-			return false, fmt.Errorf("invalid task data, stage length not leagal")
+			return false, fmt.Errorf("invalid task data, stage length not legal")
 		}
 		if workflowTask.Status == config.StatusPassed {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
@@ -880,7 +880,7 @@ func pushDeliveryChartFromEnv(service *commonmodels.DeliveryVersionService, env 
 	chartRequested.Metadata.AppVersion = service.ChartVersion
 
 	//create local chart package
-	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
+	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
 	if err != nil {
 		return err
 	}
@@ -944,7 +944,7 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 	chartRequested.Metadata.AppVersion = service.ChartVersion
 
 	//create local chart package
-	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
+	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
 	if err != nil {
 		return err
 	}
@@ -1414,7 +1414,7 @@ func makeChartTGZFileDir(project, versionName string) (string, error) {
 	dirPath := getChartTGZDir(project, versionName)
 	if err := os.RemoveAll(dirPath); err != nil {
 		if !os.IsExist(err) {
-			return "", errors.Wrapf(err, "failed to claer dir for chart tgz files")
+			return "", errors.Wrapf(err, "failed to clear dir for chart tgz files")
 		}
 	}
 	err := os.MkdirAll(dirPath, 0777)
@@ -1510,7 +1510,7 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 	for _, service := range args.Services {
 		mergedYaml, err := yamlutil.Merge([][]byte{[]byte(service.YamlContent), []byte(args.GlobalVariables)})
 		if err != nil {
-			logger.Errorf("failed to merge gobal variables for service: %s", service.ServiceName)
+			logger.Errorf("failed to merge global variables for service: %s", service.ServiceName)
 			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", service.ServiceName)
 		}
 		ret.Services = append(ret.Services, &commonmodels.DeliveryVersionService{

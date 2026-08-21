@@ -17,10 +17,10 @@ limitations under the License.
 package workflow
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
-	"github.com/mholt/archiver"
+	utilfs "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 // GoCacheManager is deprecated
@@ -31,24 +31,21 @@ func NewGoCacheManager() *GoCacheManager {
 }
 
 func (gcm *GoCacheManager) Archive(source, dest string) error {
-	var sources []string
-	files, err := ioutil.ReadDir(source)
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp(filepath.Dir(dest), ".zadig-cache-*.tar.gz")
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		sources = append(sources, filepath.Join(source, f.Name()))
+	tempName := temp.Name()
+	if err = temp.Close(); err != nil {
+		return err
 	}
+	defer os.Remove(tempName)
 
-	return getArchiver().Archive(sources, dest)
-}
-
-func getArchiver() *archiver.TarGz {
-	return &archiver.TarGz{
-		Tar: &archiver.Tar{
-			OverwriteExisting:      true,
-			MkdirAll:               true,
-			ImplicitTopLevelFolder: false,
-		},
+	if err = utilfs.Tar(os.DirFS(source), tempName); err != nil {
+		return err
 	}
+	return os.Rename(tempName, dest)
 }

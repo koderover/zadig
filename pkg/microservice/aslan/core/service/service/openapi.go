@@ -8,6 +8,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -39,6 +40,11 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 }
 
 func OpenAPILoadServiceFromCodeHost(username string, req *OpenAPILoadServiceFromCodeHostReq, logger *zap.SugaredLogger) error {
+	codehost, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(req.CodehostName)
+	if err != nil {
+		return e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("failed to get codehost by name %s: %s", req.CodehostName, err))
+	}
+
 	namespace := req.Namespace
 	if namespace == "" {
 		namespace = req.RepoOwner
@@ -50,7 +56,7 @@ func OpenAPILoadServiceFromCodeHost(username string, req *OpenAPILoadServiceFrom
 		ServicePaths: req.ServicePaths,
 	}
 
-	return LoadServiceFromCodeHost(username, req.CodehostID, req.RepoOwner, namespace, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, loadArgs, false, false, req.Production, logger)
+	return LoadServiceFromCodeHost(username, codehost.ID, req.RepoOwner, namespace, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, loadArgs, false, false, req.Production, logger)
 }
 
 func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
@@ -331,8 +337,12 @@ func OpenAPILoadHelmService(ctx *internalhandler.Context, projectKey string, req
 
 	switch createFrom := req.CreateFrom.(type) {
 	case *OpenAPICreateFromRepo:
+		codehost, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(createFrom.CodehostName)
+		if err != nil {
+			return nil, e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("failed to get codehost by name %s: %s", createFrom.CodehostName, err))
+		}
 		args.CreateFrom = &CreateFromRepo{
-			CodehostID: createFrom.CodehostID,
+			CodehostID: codehost.ID,
 			Owner:      createFrom.Owner,
 			Namespace:  createFrom.Namespace,
 			Repo:       createFrom.Repo,

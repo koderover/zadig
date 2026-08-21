@@ -17,7 +17,11 @@ limitations under the License.
 package fs_test
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +34,50 @@ type testParams struct {
 }
 
 var _ = Describe("Testing file", func() {
+	It("round-trips tar.gz contents and permissions", func() {
+		tempDir := GinkgoT().TempDir()
+		source := filepath.Join(tempDir, "source")
+		Expect(os.MkdirAll(source, 0755)).To(Succeed())
+		filePath := filepath.Join(source, "script.sh")
+		Expect(os.WriteFile(filePath, []byte("echo secure"), 0755)).To(Succeed())
+
+		archivePath := filepath.Join(tempDir, "cache.tar.gz")
+		Expect(fs.Tar(os.DirFS(source), archivePath)).To(Succeed())
+		destination := filepath.Join(tempDir, "destination")
+		Expect(fs.Untar(archivePath, destination)).To(Succeed())
+
+		contents, err := os.ReadFile(filepath.Join(destination, "script.sh"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(contents).To(Equal([]byte("echo secure")))
+		info, err := os.Stat(filepath.Join(destination, "script.sh"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0755)))
+	})
+
+	It("rejects archive entries that escape the destination", func() {
+		tempDir := GinkgoT().TempDir()
+		archivePath := filepath.Join(tempDir, "malicious.tar.gz")
+		archiveFile, err := os.Create(archivePath)
+		Expect(err).NotTo(HaveOccurred())
+		gzipWriter := gzip.NewWriter(archiveFile)
+		tarWriter := tar.NewWriter(gzipWriter)
+		contents := []byte("escaped")
+		Expect(tarWriter.WriteHeader(&tar.Header{
+			Name: "../escaped.txt",
+			Mode: 0644,
+			Size: int64(len(contents)),
+		})).To(Succeed())
+		_, err = tarWriter.Write(contents)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tarWriter.Close()).To(Succeed())
+		Expect(gzipWriter.Close()).To(Succeed())
+		Expect(archiveFile.Close()).To(Succeed())
+
+		destination := filepath.Join(tempDir, "destination")
+		Expect(fs.Untar(archivePath, destination)).To(MatchError(ContainSubstring("escapes destination")))
+		_, err = os.Stat(filepath.Join(tempDir, "escaped.txt"))
+		Expect(os.IsNotExist(err)).To(BeTrue())
+	})
 
 	DescribeTable("Testing ShortenFileBase",
 		func(p testParams) {

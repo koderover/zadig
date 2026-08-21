@@ -307,7 +307,16 @@ func initResourcesForExternalClusters() {
 }
 
 func initDinD() {
-	err := commonutil.SyncDinDForRegistries()
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if _, err = kube.EnsureDindTLSSecret(clientset, config.Namespace()); err != nil {
+		log.Fatal(err)
+	}
+
+	err = commonutil.SyncDinDForRegistries()
 	if err != nil {
 		log.Fatal(err)
 	}

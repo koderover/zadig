@@ -21,19 +21,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
-	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
@@ -869,17 +871,72 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 	return nil
 }
 
-func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string, proxy *Proxy) error {
-	chartClient, err := newHelmChartMuseumClient(
-		proxy,
-		cm.URL(repoEntry.URL),
-		cm.Username(repoEntry.Username),
-		cm.Password(repoEntry.Password),
-	)
+const chartMuseumPushTimeout = 10 * time.Minute
+
+func loadChartMuseumContextPath(indexFilePath string) (string, error) {
+	index, err := repo.LoadIndexFile(indexFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load chart repo index: %w", err)
+	}
+
+	contextPathValue, ok := index.ServerInfo["contextPath"]
+	if !ok {
+		return "", nil
+	}
+	contextPath, ok := contextPathValue.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid chart repo context path: expected string, got %T", contextPathValue)
+	}
+	return contextPath, nil
+}
+
+func (hClient *HelmClient) pushChartMuseum(ctx context.Context, repoEntry *repo.Entry, chartPath, contextPath string, proxy *Proxy) error {
+	chartClient := &http.Client{Timeout: chartMuseumPushTimeout}
+	if proxy.Enabled {
+		transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
+		if err != nil {
+			return fmt.Errorf("failed to new transport, err: %s", err)
+		}
+		chartClient.Transport = transport
+	}
+
+	u, err := url.Parse(repoEntry.URL)
 	if err != nil {
 		return err
 	}
-	resp, err := chartClient.UploadChartPackage(chartPath, false)
+	u.Path = path.Join(contextPath, "api", strings.TrimPrefix(u.Path, contextPath), "charts")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("chart", chartPath)
+	if err != nil {
+		return err
+	}
+	chartFile, err := os.Open(chartPath)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(part, chartFile); err != nil {
+		chartFile.Close()
+		return err
+	}
+	if err = chartFile.Close(); err != nil {
+		return err
+	}
+	if err = writer.Close(); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if repoEntry.Username != "" && repoEntry.Password != "" {
+		req.SetBasicAuth(repoEntry.Username, repoEntry.Password)
+	}
+
+	resp, err := chartClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to prepare pushing chart: %s, error: %w", chartPath, err)
 
@@ -977,11 +1034,17 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string, pr
 	} else if repoUrl.Scheme == registry.OCIScheme {
 		return hClient.pushOCIRegistry(repoEntry, chartPath)
 	} else {
-		_, err := hClient.UpdateChartRepo(repoEntry)
+		indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
 		if err != nil {
 			return err
 		}
-		return hClient.pushChartMuseum(repoEntry, chartPath, proxy)
+		contextPath, err := loadChartMuseumContextPath(indexFilePath)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), chartMuseumPushTimeout)
+		defer cancel()
+		return hClient.pushChartMuseum(ctx, repoEntry, chartPath, contextPath, proxy)
 	}
 }
 
@@ -1072,24 +1135,4 @@ type Proxy struct {
 	Enabled  bool
 	URL      string
 	ProxyURL string
-}
-
-// rewrite NewClient() in github.com/chartmuseum/helm-push/pkg/chartmuseum to support proxy
-func newHelmChartMuseumClient(proxy *Proxy, opts ...cm.Option) (*cm.Client, error) {
-	var client cm.Client
-	client.Client = &http.Client{}
-	client.Option(opts...)
-
-	if !proxy.Enabled {
-		return &client, nil
-	}
-
-	transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to new transport, err: %s", err)
-	}
-
-	client.Transport = transport
-
-	return &client, nil
 }
