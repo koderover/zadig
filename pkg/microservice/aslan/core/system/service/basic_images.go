@@ -98,7 +98,7 @@ func CreateBasicImage(args *commonmodels.BasicImage, log *zap.SugaredLogger) err
 		Value: args.Value,
 	}
 	resp, err := commonrepo.NewBasicImageColl().List(opt)
-	if err == nil && len(resp) != 0 {
+	if err == nil && hasBasicImageValueConflict(resp, "") {
 		log.Errorf("create BasicImage failed, value:%s has existed", args.Value)
 		return e.ErrCreateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
 	}
@@ -117,7 +117,7 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 		Value: args.Value,
 	}
 	resp, _ := commonrepo.NewBasicImageColl().List(opt)
-	if len(resp) != 0 {
+	if hasBasicImageValueConflict(resp, id) {
 		log.Errorf("update BasicImage failed, value:%s has existed", args.Value)
 		return e.ErrUpdateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
 	}
@@ -130,8 +130,22 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 	return nil
 }
 
+func hasBasicImageValueConflict(images []*commonmodels.BasicImage, currentID string) bool {
+	for _, image := range images {
+		if image.ID.Hex() != currentID {
+			return true
+		}
+	}
+	return false
+}
+
 func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 	// 检查该镜像是否被引用
+	if _, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{BasicImageID: id}); err == nil {
+		log.Errorf("BasicImage has been used by build template, image id:%s", id)
+		return e.ErrDeleteUsedBasicImage
+	}
+
 	buildOpt := &commonrepo.BuildListOption{BasicImageID: id}
 	builds, err := commonrepo.NewBuildColl().List(buildOpt)
 	if err == nil && len(builds) != 0 {
@@ -143,6 +157,17 @@ func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 	tests, err := commonrepo.NewTestingColl().List(testOpt)
 	if err == nil && len(tests) != 0 {
 		log.Errorf("BasicImage has been used by testing, image id:%s, product name:%s, testing name:%s", id, tests[0].ProductName, tests[0].Name)
+		return e.ErrDeleteUsedBasicImage
+	}
+
+	scannings, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{BasicImageID: id}, 0, 0)
+	if err == nil && len(scannings) != 0 {
+		log.Errorf("BasicImage has been used by scanning, image id:%s, project name:%s, scanning name:%s", id, scannings[0].ProjectName, scannings[0].Name)
+		return e.ErrDeleteUsedBasicImage
+	}
+
+	if _, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{BasicImageID: id}); err == nil {
+		log.Errorf("BasicImage has been used by scanning template, image id:%s", id)
 		return e.ErrDeleteUsedBasicImage
 	}
 

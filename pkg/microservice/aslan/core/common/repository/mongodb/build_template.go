@@ -32,8 +32,9 @@ import (
 )
 
 type BuildTemplateQueryOption struct {
-	ID   string
-	Name string
+	ID           string
+	Name         string
+	BasicImageID string
 }
 
 type BuildTemplateColl struct {
@@ -96,6 +97,9 @@ func (c *BuildTemplateColl) Find(opt *BuildTemplateQueryOption) (*models.BuildTe
 	}
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
+	}
+	if len(opt.BasicImageID) > 0 {
+		query["pre_build.image_id"] = opt.BasicImageID
 	}
 	resp := new(models.BuildTemplate)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
