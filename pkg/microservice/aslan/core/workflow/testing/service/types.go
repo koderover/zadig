@@ -54,6 +54,7 @@ type Scanning struct {
 	// Code Review Configs
 	ReviewIncludePaths []string                   `json:"review_include_paths"`
 	ReviewExcludePaths []string                   `json:"review_exclude_paths"`
+	ReviewFailOn       []string                   `json:"review_fail_on"`
 	ReviewRules        []*commonmodels.ReviewRule `json:"review_rules"`
 
 	// template IDs
@@ -263,6 +264,7 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		TemplateID:         args.TemplateID,
 		ReviewIncludePaths: args.ReviewIncludePaths,
 		ReviewExcludePaths: args.ReviewExcludePaths,
+		ReviewFailOn:       args.ReviewFailOn,
 		ReviewRules:        args.ReviewRules,
 	}
 }
@@ -294,6 +296,7 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		TemplateID:         scanning.TemplateID,
 		ReviewIncludePaths: scanning.ReviewIncludePaths,
 		ReviewExcludePaths: scanning.ReviewExcludePaths,
+		ReviewFailOn:       scanning.ReviewFailOn,
 		ReviewRules:        scanning.ReviewRules,
 	}
 }

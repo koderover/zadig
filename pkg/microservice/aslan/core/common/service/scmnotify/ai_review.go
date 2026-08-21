@@ -19,6 +19,7 @@ package scmnotify
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -28,20 +29,45 @@ import (
 
 const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 
+type aiReviewInlinePublishResult struct {
+	Published int
+	Fallback  []stepspec.AIReviewFinding
+}
+
 func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
 	if report == nil || prID <= 0 {
 		return nil
 	}
 	projectID := strings.TrimLeft(repoOwner+"/"+repoName, "/")
-	comment := formatAIReviewComment(report)
-	if err := s.Client.UpsertAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment); err != nil {
+	inlineResult := aiReviewInlinePublishResult{}
+	var inlineErr error
+	if len(report.Findings) > 0 {
+		inlineResult, inlineErr = s.Client.createAIReviewInlineComments(codehostID, projectID, repoOwner, repoName, prID, report)
+		if inlineErr != nil {
+			inlineResult = aiReviewInlinePublishResult{Fallback: report.Findings}
+			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
+		}
+	}
+	comment := formatAIReviewSummaryComment(report, inlineResult)
+	if err := s.Client.CreateAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment); err != nil {
 		return fmt.Errorf("publish AI review result: %w", err)
 	}
 	logger.Infof("published AI review result to %s #%d", projectID, prID)
+	if inlineErr != nil {
+		return fmt.Errorf("publish inline AI review comments: %w", inlineErr)
+	}
 	return nil
 }
 
 func formatAIReviewComment(report *stepspec.AIReviewReport) string {
+	return formatAIReviewCommentWithFindings(report, report.Findings, "Findings", -1)
+}
+
+func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
+	return formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的 Findings", inlineResult.Published)
+}
+
+func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings []stepspec.AIReviewFinding, heading string, inlinePublished int) string {
 	status := "✅ 审查通过"
 	switch {
 	case report.Incomplete || report.ExitCode == 2:
@@ -72,32 +98,17 @@ func formatAIReviewComment(report *stepspec.AIReviewReport) string {
 			report.Stats.BySeverity["low"],
 		)
 	}
+	if inlinePublished >= 0 && len(report.Findings) > 0 {
+		fmt.Fprintf(&builder, "- 行内评论：%d / %d\n", inlinePublished, len(report.Findings))
+	}
 
 	if len(report.Findings) == 0 {
 		builder.WriteString("\n未发现经过验证的问题。\n")
+	} else if inlinePublished >= 0 && len(findings) == 0 {
+		builder.WriteString("\n所有 finding 均已发布为行内评论。\n")
 	} else {
-		builder.WriteString("\n### Findings\n")
-		for i, finding := range report.Findings {
-			fmt.Fprintf(
-				&builder,
-				"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · confidence %.2f\n\n%s\n",
-				i+1,
-				strings.ToUpper(markdownText(finding.Severity)),
-				aiReviewFindingTitle(finding),
-				markdownInline(finding.File),
-				finding.StartLine,
-				finding.EndLine,
-				markdownInline(finding.Category),
-				finding.Confidence,
-				markdownText(finding.Problem),
-			)
-			if finding.Evidence != "" {
-				fmt.Fprintf(&builder, "\n**证据**\n\n%s\n", formatAIReviewEvidence(finding.Evidence, finding.File))
-			}
-			if finding.Suggestion != "" {
-				fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
-			}
-		}
+		fmt.Fprintf(&builder, "\n### %s\n", heading)
+		writeAIReviewFindings(&builder, findings)
 	}
 	if len(report.Errors) > 0 {
 		builder.WriteString("\n### Errors\n")
@@ -115,6 +126,104 @@ func formatAIReviewComment(report *stepspec.AIReviewReport) string {
 	}
 	builder.WriteString("\n" + aiReviewCommentMarker)
 	return builder.String()
+}
+
+func writeAIReviewFindings(builder *strings.Builder, findings []stepspec.AIReviewFinding) {
+	for i, finding := range findings {
+		fmt.Fprintf(
+			builder,
+			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · confidence %.2f\n\n%s\n",
+			i+1,
+			strings.ToUpper(markdownText(finding.Severity)),
+			aiReviewFindingTitle(finding),
+			markdownInline(finding.File),
+			finding.StartLine,
+			finding.EndLine,
+			markdownInline(finding.Category),
+			finding.Confidence,
+			markdownText(finding.Problem),
+		)
+		if finding.Evidence != "" {
+			fmt.Fprintf(builder, "\n**证据**\n\n%s\n", formatAIReviewEvidence(finding.Evidence, finding.File))
+		}
+		if finding.Suggestion != "" {
+			fmt.Fprintf(builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
+		}
+	}
+}
+
+func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
+	var builder strings.Builder
+	fmt.Fprintf(
+		&builder,
+		"**[%s] %s**\n\n`%s` · confidence %.2f\n\n%s\n",
+		strings.ToUpper(markdownText(finding.Severity)),
+		aiReviewFindingTitle(finding),
+		markdownInline(finding.Category),
+		finding.Confidence,
+		markdownText(finding.Problem),
+	)
+	if finding.Evidence != "" {
+		fmt.Fprintf(&builder, "\n**证据**\n\n%s\n", formatAIReviewEvidence(finding.Evidence, finding.File))
+	}
+	if finding.Suggestion != "" {
+		fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
+	}
+	builder.WriteString("\n" + aiReviewCommentMarker)
+	return builder.String()
+}
+
+func findAIReviewAddedLine(patch string, startLine, endLine int) (int, bool) {
+	if startLine <= 0 || endLine < startLine {
+		return 0, false
+	}
+	newLine := 0
+	inHunk := false
+	anchor := 0
+	for _, line := range strings.Split(strings.ReplaceAll(patch, "\r\n", "\n"), "\n") {
+		if strings.HasPrefix(line, "@@ ") {
+			parsed, ok := parseAIReviewHunkNewStart(line)
+			if !ok {
+				inHunk = false
+				continue
+			}
+			newLine = parsed
+			inHunk = true
+			continue
+		}
+		if !inHunk || line == "" {
+			continue
+		}
+		switch line[0] {
+		case '+':
+			if newLine >= startLine && newLine <= endLine {
+				anchor = newLine
+			}
+			newLine++
+		case ' ':
+			newLine++
+		case '-':
+			// Deleted lines do not advance the new-file line number.
+		case '\\':
+			// "No newline at end of file" marker.
+		default:
+			inHunk = false
+		}
+	}
+	return anchor, anchor > 0
+}
+
+func parseAIReviewHunkNewStart(header string) (int, bool) {
+	fields := strings.Fields(header)
+	if len(fields) < 3 || !strings.HasPrefix(fields[2], "+") {
+		return 0, false
+	}
+	value := strings.TrimPrefix(fields[2], "+")
+	if comma := strings.IndexByte(value, ','); comma >= 0 {
+		value = value[:comma]
+	}
+	line, err := strconv.Atoi(value)
+	return line, err == nil && line > 0
 }
 
 func aiReviewFindingTitle(finding stepspec.AIReviewFinding) string {
