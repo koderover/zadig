@@ -654,4 +654,3 @@ func CheckLarkAuth(c *gin.Context, ctx *internalhandler.Context) (err error) {
 
 	return nil
 }
-
