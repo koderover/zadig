@@ -301,13 +301,6 @@ func OpenAPIUpdateBuildTemplate(id string, req *OpenAPIBuildTemplateInput, userN
 	return nil
 }
 
-func OpenAPIDeleteBuildTemplate(id string, logger *zap.SugaredLogger) error {
-	if err := RemoveBuildTemplate(id, logger); err != nil {
-		return e.ErrDeleteTemplate.AddErr(err)
-	}
-	return nil
-}
-
 type resolvedOpenAPIBuildTemplate struct {
 	image                *commonmodels.BasicImage
 	advanced             *types.OpenAPIAdvancedSetting

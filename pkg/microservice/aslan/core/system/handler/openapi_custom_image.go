@@ -18,10 +18,12 @@ package handler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -87,8 +89,18 @@ func OpenAPICreateCustomImage(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid custom image request body")
 		return
 	}
+	if err := req.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "基础镜像", req.Label, req.Label, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = service.CreateCustomImageOpenAPI(req, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.CreateBasicImage(&commonmodels.BasicImage{
+		Label:     strings.TrimSpace(req.Label),
+		Value:     strings.TrimSpace(req.Value),
+		ImageFrom: commonmodels.ImageFromCustom,
+		ImageType: req.ImageType,
+		UpdateBy:  ctx.UserName,
+	}, ctx.Logger)
 }
 
 func OpenAPIUpdateCustomImage(c *gin.Context) {

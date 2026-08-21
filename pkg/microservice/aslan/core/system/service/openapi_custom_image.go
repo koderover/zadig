@@ -88,21 +88,6 @@ func GetCustomImageOpenAPI(id string, logger *zap.SugaredLogger) (*OpenAPICustom
 	return convertCustomImage(image), nil
 }
 
-func CreateCustomImageOpenAPI(req *OpenAPICustomImageReq, userName string, logger *zap.SugaredLogger) error {
-	if err := req.Validate(); err != nil {
-		return e.ErrInvalidParam.AddErr(err)
-	}
-
-	image := &commonmodels.BasicImage{
-		Label:     strings.TrimSpace(req.Label),
-		Value:     strings.TrimSpace(req.Value),
-		ImageFrom: commonmodels.ImageFromCustom,
-		ImageType: req.ImageType,
-		UpdateBy:  userName,
-	}
-	return CreateBasicImage(image, logger)
-}
-
 func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName string, logger *zap.SugaredLogger) error {
 	if err := req.Validate(); err != nil {
 		return e.ErrInvalidParam.AddErr(err)

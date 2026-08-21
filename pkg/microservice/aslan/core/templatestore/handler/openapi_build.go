@@ -153,5 +153,5 @@ func OpenAPIDeleteBuildTemplate(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板-构建", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = service.OpenAPIDeleteBuildTemplate(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }
