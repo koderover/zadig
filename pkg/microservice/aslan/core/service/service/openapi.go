@@ -123,15 +123,8 @@ func OpenAPIProductionUpdateServiceConfig(userName string, args *OpenAPIUpdateSe
 	if service.Source == setting.ServiceSourceTemplate && service.AutoSync {
 		return e.ErrUpdateService.AddDesc("service is created by template and auto_sync is true, can't update")
 	}
-	currentService, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: args.ProjectName,
-		ServiceName: args.ServiceName,
-	})
-	if err != nil {
-		return e.ErrUpdateService.AddDesc(err.Error())
-	}
-	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
-	svc.VariableYaml = currentService.VariableYaml
+	svc.ServiceVariableKVs = service.ServiceVariableKVs
+	svc.VariableYaml = service.VariableYaml
 
 	_, err = CreateServiceTemplate(userName, svc, true, true, log)
 	return err
@@ -147,9 +140,13 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		return e.ErrUpdateService.AddDesc(err.Error())
 	}
 
-	serviceKvs := make([]*commontypes.ServiceVariableKV, 0)
+	serviceKvs := make([]*commontypes.ServiceVariableKV, 0, len(service.ServiceVariableKVs))
 	for _, kv := range service.ServiceVariableKVs {
-		serviceKvs = append(serviceKvs, kv)
+		if kv == nil {
+			continue
+		}
+		copiedKV := *kv
+		serviceKvs = append(serviceKvs, &copiedKV)
 	}
 	for _, kv := range serviceKvs {
 		for _, newKv := range args.ServiceVariableKVs {
@@ -166,7 +163,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		logger.Errorf("failed to convert service variable kv to yaml, err: %v", err)
 		return fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
-	servceTmplObjectargs := &commonservice.ServiceTmplObject{
+	serviceTmplObjectArgs := &commonservice.ServiceTmplObject{
 		ProductName:        projectName,
 		ServiceName:        serviceName,
 		Username:           userName,
@@ -174,7 +171,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		VariableYaml:       yaml,
 	}
 
-	return UpdateServiceVariables(servceTmplObjectargs, false)
+	return UpdateServiceVariables(serviceTmplObjectArgs, false)
 }
 
 func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName string, args *OpenAPIUpdateServiceVariableRequest, logger *zap.SugaredLogger) error {
