@@ -67,7 +67,14 @@ func (c *ReleasePlanVersionColl) Create(ctx context.Context, args *models.Releas
 		return errors.New("nil ReleasePlanVersion")
 	}
 
-	_, err := c.InsertOne(ctx, args)
+	storedVersion, snapshots, err := prepareReleasePlanVersionForStorage(args)
+	if err != nil {
+		return err
+	}
+	if err := NewReleasePlanVersionSnapshotColl().Create(ctx, snapshots); err != nil {
+		return errors.Wrap(err, "create release plan version snapshots")
+	}
+	_, err = c.InsertOne(ctx, storedVersion)
 	return err
 }
 
@@ -76,10 +83,17 @@ func (c *ReleasePlanVersionColl) Upsert(ctx context.Context, args *models.Releas
 		return errors.New("nil ReleasePlanVersion")
 	}
 
-	_, err := c.ReplaceOne(ctx, bson.M{
+	storedVersion, snapshots, err := prepareReleasePlanVersionForStorage(args)
+	if err != nil {
+		return err
+	}
+	if err := NewReleasePlanVersionSnapshotColl().Upsert(ctx, snapshots); err != nil {
+		return errors.Wrap(err, "upsert release plan version snapshots")
+	}
+	_, err = c.ReplaceOne(ctx, bson.M{
 		"plan_id": args.PlanID,
 		"version": args.Version,
-	}, args, options.Replace().SetUpsert(true))
+	}, storedVersion, options.Replace().SetUpsert(true))
 	return err
 }
 
@@ -88,7 +102,10 @@ func (c *ReleasePlanVersionColl) Delete(ctx context.Context, planID string, vers
 		"plan_id": planID,
 		"version": version,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return NewReleasePlanVersionSnapshotColl().Delete(ctx, planID, version)
 }
 
 func (c *ReleasePlanVersionColl) Get(planID string, version int64) (*models.ReleasePlanVersion, error) {
@@ -97,7 +114,13 @@ func (c *ReleasePlanVersionColl) Get(planID string, version int64) (*models.Rele
 		"plan_id": planID,
 		"version": version,
 	}).Decode(resp)
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	if err := loadReleasePlanVersionSnapshots(context.Background(), resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *ReleasePlanVersionColl) GetLatestBySectionsBefore(planID string, sectionKeys []string, beforeVersion int64) (*models.ReleasePlanVersion, error) {
@@ -109,5 +132,22 @@ func (c *ReleasePlanVersionColl) GetLatestBySectionsBefore(planID string, sectio
 			"$in": sectionKeys,
 		},
 	}, options.FindOne().SetSort(bson.D{{Key: "version", Value: -1}})).Decode(resp)
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	if err := loadReleasePlanVersionSnapshots(context.Background(), resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func loadReleasePlanVersionSnapshots(ctx context.Context, version *models.ReleasePlanVersion) error {
+	if version.SnapshotStorage == "" {
+		return nil
+	}
+	snapshots, err := NewReleasePlanVersionSnapshotColl().List(ctx, version.PlanID, version.Version)
+	if err != nil {
+		return errors.Wrap(err, "list release plan version snapshots")
+	}
+	return restoreReleasePlanVersionSnapshots(version, snapshots)
 }

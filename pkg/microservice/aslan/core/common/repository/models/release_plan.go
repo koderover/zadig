@@ -154,10 +154,33 @@ type ReleasePlanVersion struct {
 	SectionType     string             `bson:"section_type,omitempty" json:"section_type,omitempty"`
 	Verb            string             `bson:"verb,omitempty" json:"verb,omitempty"`
 	BaseSnapshot    interface{}        `bson:"base_snapshot,omitempty" json:"base_snapshot,omitempty"`
-	Snapshot        interface{}        `bson:"snapshot" json:"snapshot"`
+	Snapshot        interface{}        `bson:"snapshot,omitempty" json:"snapshot"`
+	SnapshotStorage string             `bson:"snapshot_storage,omitempty" json:"-"`
+	HasBaseSnapshot bool               `bson:"has_base_snapshot,omitempty" json:"-"`
 	CreatedAt       int64              `bson:"created_at" json:"created_at"`
 }
 
 func (ReleasePlanVersion) TableName() string {
 	return "release_plan_version"
+}
+
+type ReleasePlanVersionSnapshotKind string
+
+const (
+	ReleasePlanVersionSnapshotKindBase    ReleasePlanVersionSnapshotKind = "base"
+	ReleasePlanVersionSnapshotKindCurrent ReleasePlanVersionSnapshotKind = "current"
+)
+
+type ReleasePlanVersionSnapshot struct {
+	ID           primitive.ObjectID             `bson:"_id,omitempty"`
+	PlanID       string                         `bson:"plan_id"`
+	Version      int64                          `bson:"version"`
+	Kind         ReleasePlanVersionSnapshotKind `bson:"kind"`
+	Data         []byte                         `bson:"data"`
+	OriginalSize int64                          `bson:"original_size"`
+	CreatedAt    int64                          `bson:"created_at"`
+}
+
+func (ReleasePlanVersionSnapshot) TableName() string {
+	return "release_plan_version_snapshot"
 }
