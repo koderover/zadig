@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/google/shlex"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
@@ -224,26 +226,34 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 func detectOpaqueExecution(command string) (string, bool) {
 	segments := strings.Split(command, "|")
 	for _, segment := range segments[1:] {
-		if isShellInterpreter(firstCommandExecutable(strings.Fields(segment))) {
+		fields, err := shlex.Split(segment)
+		if err != nil {
+			continue
+		}
+		executable, _ := unwrapCommandPrefixes(fields)
+		if isShellInterpreter(executable) {
 			return "remote_script_content_unavailable", true
 		}
 	}
 
-	fields := strings.Fields(segments[0])
-	first := firstCommandExecutable(fields)
-	if first == "" {
+	fields, err := shlex.Split(segments[0])
+	if err != nil {
 		return "", false
 	}
-	if first == "source" || first == "." {
-		if len(fields) > 1 {
+	executable, args := unwrapCommandPrefixes(fields)
+	if executable == "" {
+		return "", false
+	}
+	if executable == "source" || executable == "." {
+		if len(args) > 0 {
 			return "script_content_unavailable", true
 		}
 		return "", false
 	}
-	if isShellInterpreter(first) {
-		for i, field := range fields[1:] {
+	if isShellInterpreter(executable) {
+		for i, field := range args {
 			if field == "-c" || field == "-e" {
-				if i+2 < len(fields) && strings.HasPrefix(strings.Trim(fields[i+2], "'\""), "$") {
+				if i+1 < len(args) && strings.HasPrefix(args[i+1], "$") {
 					return "script_content_unavailable", true
 				}
 				return "", false
@@ -256,13 +266,15 @@ func detectOpaqueExecution(command string) (string, bool) {
 			}
 		}
 	}
-	if isScriptPath(first) {
+	if isScriptPath(executable) {
 		return "script_content_unavailable", true
 	}
 	return "", false
 }
 
-func firstCommandExecutable(fields []string) string {
+// unwrapCommandPrefixes returns the actual executable and its arguments after
+// removing leading environment assignments and env/sudo options.
+func unwrapCommandPrefixes(fields []string) (string, []string) {
 	prefixOptions := false
 	for i := 0; i < len(fields); i++ {
 		field := fields[i]
@@ -270,7 +282,7 @@ func firstCommandExecutable(fields []string) string {
 			prefixOptions = true
 			continue
 		}
-		if strings.Contains(field, "=") {
+		if isEnvironmentAssignment(field) {
 			continue
 		}
 		if prefixOptions && strings.HasPrefix(field, "-") {
@@ -281,9 +293,24 @@ func firstCommandExecutable(fields []string) string {
 			}
 			continue
 		}
-		return strings.TrimSpace(field)
+		return field, fields[i+1:]
 	}
-	return ""
+	return "", nil
+}
+
+func isEnvironmentAssignment(field string) bool {
+	name, _, ok := strings.Cut(field, "=")
+	if !ok || name == "" {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		ch := name[i]
+		if ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || i > 0 && ch >= '0' && ch <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func isShellInterpreter(value string) bool {
