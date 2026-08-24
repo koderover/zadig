@@ -130,12 +130,18 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		return "", fmt.Errorf("create chat completion failed: %w", err)
 	}
 	log.Debugf("ai completion took: %v", time.Since(now))
+	reasoningTokens := 0
+	if resp.Usage.CompletionTokensDetails != nil {
+		reasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
+	}
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf(
-			"openai response contains no completion choices: response_id=%s completion_tokens=%d total_tokens=%d",
+			"openai response contains no completion choices: response_id=%s prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
 			resp.ID,
+			resp.Usage.PromptTokens,
 			resp.Usage.CompletionTokens,
+			reasoningTokens,
 			resp.Usage.TotalTokens,
 		)
 	}
@@ -158,18 +164,20 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 
 	if opts.ErrorOnMaxTokens && isMaxTokensFinishReason(choice.FinishReason) {
 		return message, fmt.Errorf(
-			"%w: response_id=%s finish_reason=%s content_length=%d completion_tokens=%d total_tokens=%d",
+			"%w: response_id=%s finish_reason=%s content_length=%d prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
 			ErrMaxTokensExceeded,
 			resp.ID,
 			choice.FinishReason,
 			len(choice.Message.Content),
+			resp.Usage.PromptTokens,
 			resp.Usage.CompletionTokens,
+			reasoningTokens,
 			resp.Usage.TotalTokens,
 		)
 	}
 	if strings.TrimSpace(message) == "" {
 		return "", fmt.Errorf(
-			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t completion_tokens=%d total_tokens=%d",
+			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
 			resp.ID,
 			choice.FinishReason,
 			len(choice.Message.Content),
@@ -177,7 +185,9 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			len(choice.Message.ToolCalls),
 			choice.Message.FunctionCall != nil,
 			choice.Message.Refusal != "",
+			resp.Usage.PromptTokens,
 			resp.Usage.CompletionTokens,
+			reasoningTokens,
 			resp.Usage.TotalTokens,
 		)
 	}
