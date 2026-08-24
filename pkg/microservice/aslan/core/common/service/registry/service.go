@@ -40,6 +40,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/distribution/reference"
 	"github.com/docker/distribution"
+	// Register multi-platform and OCI manifest media types for registry content negotiation.
+	_ "github.com/docker/distribution/manifest/manifestlist"
+	_ "github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
