@@ -105,6 +105,30 @@ func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt,
 	return result, nil
 }
 
+func (c *TerminalAuditAIResultColl) UpdateLease(sessionID, runID string, leaseExpiresAt int64) error {
+	if sessionID == "" || runID == "" || leaseExpiresAt <= 0 {
+		return errors.New("terminal audit ai session id, run id and lease expiration are required")
+	}
+	now := time.Now().Unix()
+	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
+	defer cancel()
+	result, err := c.UpdateOne(ctx, bson.M{
+		"session_id": sessionID,
+		"run_id":     runID,
+		"status":     models.TerminalAuditAIStatusRunning,
+	}, bson.M{"$set": bson.M{
+		"lease_expires_at": leaseExpiresAt,
+		"updated_at":       now,
+	}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("terminal audit ai run %s no longer owns session %s", runID, sessionID)
+	}
+	return nil
+}
+
 func (c *TerminalAuditAIResultColl) Finish(result *models.TerminalAuditAIResult) error {
 	if result == nil || result.SessionID == "" || result.RunID == "" {
 		return errors.New("terminal audit ai result, session id and run id are required")
