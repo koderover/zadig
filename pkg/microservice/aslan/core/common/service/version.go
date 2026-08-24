@@ -512,19 +512,33 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 		}
 
+		rollbackImages := make(map[string]string, len(envSvcVersion.Service.Containers))
 		for _, rollbackContainer := range envSvcVersion.Service.Containers {
 			serviceModule := &commonmodels.DeployServiceModule{
-				ServiceModule: envSvcVersion.Service.ServiceName,
+				ServiceModule: rollbackContainer.Name,
 				Image:         rollbackContainer.Image,
 				ImageName:     rollbackContainer.ImageName,
 			}
 
-			replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, nil, log)
+			replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, nil, log)
 			if err != nil {
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+				rollbackErr := fmt.Errorf("failed to rollback service %s/%s/%s to revision %d, verify cluster state: %w", projectName, envName, serviceName, revision, err)
+				if len(rollbackImages) > 0 {
+					rollbackErr = fmt.Errorf("service %s/%s/%s was partially rolled back to revision %d (%d/%d modules); environment and environment version were not updated: %w", projectName, envName, serviceName, revision, len(rollbackImages), len(envSvcVersion.Service.Containers), err)
+				}
+				log.Error(rollbackErr)
+				return nil, e.ErrRollbackEnvServiceVersion.AddErr(rollbackErr)
 			}
+			rollbackImages[serviceModule.ServiceModule] = serviceModule.Image
 			rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, replaceResources...)
 			rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, relatedPodLabels...)
+		}
+		if len(rollbackImages) > 0 {
+			if err := commonutil.UpdateProductImage(env.EnvName, env.ProductName, serviceName, rollbackImages, detail, ctx.UserName, log); err != nil {
+				syncErr := fmt.Errorf("service %s/%s/%s was rolled back to revision %d in the cluster, but failed to sync environment and environment version: %w", projectName, envName, serviceName, revision, err)
+				log.Error(syncErr)
+				return nil, e.ErrRollbackEnvServiceVersion.AddErr(syncErr)
+			}
 		}
 	} else {
 		if envSvcVersion.Service.Type == setting.K8SDeployType {
@@ -565,19 +579,33 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 				}
 
+				rollbackImages := make(map[string]string, len(envSvcVersion.Service.Containers))
 				for _, rollbackContainer := range envSvcVersion.Service.Containers {
 					serviceModule := &commonmodels.DeployServiceModule{
-						ServiceModule: envSvcVersion.Service.ServiceName,
+						ServiceModule: rollbackContainer.Name,
 						Image:         rollbackContainer.Image,
 						ImageName:     rollbackContainer.ImageName,
 					}
 
-					replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, nil, log)
+					replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, nil, log)
 					if err != nil {
-						return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+						rollbackErr := fmt.Errorf("failed to rollback service %s/%s/%s to revision %d, verify cluster state: %w", projectName, envName, serviceName, revision, err)
+						if len(rollbackImages) > 0 {
+							rollbackErr = fmt.Errorf("service %s/%s/%s was partially rolled back to revision %d (%d/%d modules); environment and environment version were not updated: %w", projectName, envName, serviceName, revision, len(rollbackImages), len(envSvcVersion.Service.Containers), err)
+						}
+						log.Error(rollbackErr)
+						return nil, e.ErrRollbackEnvServiceVersion.AddErr(rollbackErr)
 					}
+					rollbackImages[serviceModule.ServiceModule] = serviceModule.Image
 					rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, replaceResources...)
 					rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, relatedPodLabels...)
+				}
+				if len(rollbackImages) > 0 {
+					if err := commonutil.UpdateProductImage(env.EnvName, env.ProductName, serviceName, rollbackImages, detail, ctx.UserName, log); err != nil {
+						syncErr := fmt.Errorf("service %s/%s/%s was rolled back to revision %d in the cluster, but failed to sync environment and environment version: %w", projectName, envName, serviceName, revision, err)
+						log.Error(syncErr)
+						return nil, e.ErrRollbackEnvServiceVersion.AddErr(syncErr)
+					}
 				}
 			} else {
 				fakeEnv := &commonmodels.Product{

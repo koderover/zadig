@@ -483,7 +483,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 	return nil
 }
 
-func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product, serviceName string, serviceModule *commonmodels.DeployServiceModule, detail, userName string, jobLogctx *joblog.JobLogContext, logger *zap.SugaredLogger) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
+func UpdateExternalServiceModule(ctx context.Context, kubeClient client.Client, clientSet *kubernetes.Clientset, resources []*kube.WorkloadResource, env *commonmodels.Product, serviceName string, serviceModule *commonmodels.DeployServiceModule, jobLogctx *joblog.JobLogContext, logger *zap.SugaredLogger) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
 	var replaced bool
 
 	deployments, daemonSets, statefulSets, cronJobs, betaCronJobs, jobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
@@ -773,9 +773,6 @@ Job:
 
 	if !replaced {
 		return nil, nil, fmt.Errorf("service %s container name %s is not found in env %s", serviceName, serviceModule.ServiceModule, env.EnvName)
-	}
-	if err := commonutil.UpdateProductImage(env.EnvName, env.ProductName, serviceName, map[string]string{serviceModule.ServiceModule: serviceModule.Image}, detail, userName, logger); err != nil {
-		return nil, nil, err
 	}
 	return replaceResources, relatedPodLabels, nil
 }
