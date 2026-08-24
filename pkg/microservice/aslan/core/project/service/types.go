@@ -19,6 +19,7 @@ package service
 import (
 	"errors"
 	"regexp"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -96,6 +97,81 @@ type OpenAPIProjectDetailResp struct {
 type OpenAPIProjectListResp struct {
 	Total    int             `json:"total"`
 	Projects []*ProjectBrief `json:"projects"`
+}
+
+type OpenAPIUpdateProjectReq struct {
+	ProjectName string `json:"project_name"`
+	Description string `json:"description"`
+	IsPublic    *bool  `json:"is_public"`
+}
+
+func (req OpenAPIUpdateProjectReq) Validate() error {
+	if strings.TrimSpace(req.ProjectName) == "" {
+		return errors.New("project_name cannot be empty")
+	}
+	if req.IsPublic == nil {
+		return errors.New("is_public cannot be empty")
+	}
+
+	return nil
+}
+
+type OpenAPIProjectGroupReq struct {
+	GroupName   string   `json:"group_name"`
+	ProjectKeys []string `json:"project_keys"`
+}
+
+func (req OpenAPIProjectGroupReq) Validate() error {
+	if strings.TrimSpace(req.GroupName) == "" {
+		return errors.New("group_name cannot be empty")
+	}
+
+	projectKeys := make(map[string]struct{})
+	for _, projectKey := range req.ProjectKeys {
+		if _, ok := projectKeys[projectKey]; ok {
+			return errors.New("project_keys cannot contain duplicate project keys")
+		}
+		projectKeys[projectKey] = struct{}{}
+	}
+
+	return nil
+}
+
+func (req OpenAPIProjectGroupReq) ValidateForUpdate() error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+	if req.ProjectKeys == nil {
+		return errors.New("project_keys is required")
+	}
+
+	return nil
+}
+
+type OpenAPIProjectGroupListResp struct {
+	Groups []*OpenAPIProjectGroupBrief `json:"groups"`
+}
+
+type OpenAPIProjectGroupBrief struct {
+	GroupID      string `json:"group_id"`
+	GroupName    string `json:"group_name"`
+	ProjectCount int    `json:"project_count"`
+}
+
+type OpenAPIProjectGroupDetailResp struct {
+	GroupID     string                        `json:"group_id"`
+	GroupName   string                        `json:"group_name"`
+	Projects    []*OpenAPIProjectGroupProject `json:"projects"`
+	CreatedTime int64                         `json:"created_time"`
+	CreatedBy   string                        `json:"created_by"`
+	UpdateTime  int64                         `json:"update_time"`
+	UpdateBy    string                        `json:"update_by"`
+}
+
+type OpenAPIProjectGroupProject struct {
+	ProjectKey  string `json:"project_key"`
+	ProjectName string `json:"project_name"`
+	DeployType  string `json:"deploy_type"`
 }
 
 type ProjectBrief struct {

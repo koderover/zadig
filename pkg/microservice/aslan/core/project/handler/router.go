@@ -128,11 +128,21 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	product := router.Group("project")
 	{
 		product.POST("", OpenAPICreateProductTemplate)
+		product.PUT("", OpenAPIUpdateProject)
 		product.POST("/init/yaml", OpenAPIInitializeYamlProject)
 		product.POST("/init/helm", OpenAPIInitializeHelmProject)
 		product.GET("", OpenAPIListProject)
 		product.GET("/detail", OpenAPIGetProjectDetail)
 		product.DELETE("", OpenAPIDeleteProject)
 		product.GET("/globalVariable", OpenAPIGetGlobalVariables)
+	}
+
+	group := router.Group("group")
+	{
+		group.GET("", OpenAPIListProjectGroups)
+		group.GET("/detail", OpenAPIGetProjectGroup)
+		group.POST("", OpenAPICreateProjectGroup)
+		group.PUT("", OpenAPIUpdateProjectGroup)
+		group.DELETE("", OpenAPIDeleteProjectGroup)
 	}
 }

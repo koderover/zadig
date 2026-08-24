@@ -20,8 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -36,6 +39,8 @@ import (
 	envService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	svcService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -432,6 +437,103 @@ func GetProjectDetailOpenAPI(projectName string, logger *zap.SugaredLogger) (*Op
 		CreateTime:  project.CreateTime,
 		CreatedBy:   project.UpdateBy,
 	}, nil
+}
+
+// UpdateProjectOpenAPI persists project metadata before synchronizing derived
+// permission and project-group data on a best-effort basis.
+func UpdateProjectOpenAPI(projectName, userName string, args *OpenAPIUpdateProjectReq, logger *zap.SugaredLogger) error {
+	name := strings.TrimSpace(args.ProjectName)
+	pinyin, pinyinFirstLetter := util.GetPinyinFromChinese(name)
+	err := templaterepo.NewProductColl().UpdateMetadata(projectName, &templaterepo.ProjectMetadataUpdate{
+		ProjectName:                  name,
+		ProjectNamePinyin:            pinyin,
+		ProjectNamePinyinFirstLetter: pinyinFirstLetter,
+		Description:                  args.Description,
+		Public:                       *args.IsPublic,
+		UpdateBy:                     userName,
+	})
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to update project %s, error: %s", projectName, err)
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+	if err := user.New().SetProjectVisibility(projectName, *args.IsPublic); err != nil {
+		logger.Warnf("failed to update project visibility binding, project: %s, error: %v", projectName, err)
+	}
+	if err := commonrepo.NewProjectGroupColl().UpdateProjectName(projectName, name); err != nil {
+		logger.Warnf("failed to update project group project name, project: %s, error: %v", projectName, err)
+	}
+	return nil
+}
+
+func ListProjectGroupsOpenAPI(logger *zap.SugaredLogger) (*OpenAPIProjectGroupListResp, error) {
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to list project groups, error: %s", err)
+		return nil, fmt.Errorf("failed to list project groups, error: %w", err)
+	}
+
+	return convertProjectGroupsToOpenAPI(groups), nil
+}
+
+func GetProjectGroupOpenAPI(groupID string, authorizedProjects []string, logger *zap.SugaredLogger) (*OpenAPIProjectGroupDetailResp, error) {
+	group, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: groupID})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrInvalidParam.AddDesc("project group not found")
+		}
+		logger.Errorf("OpenAPI: failed to find project group %s, error: %s", groupID, err)
+		return nil, fmt.Errorf("failed to find project group %s, error: %w", groupID, err)
+	}
+
+	return convertProjectGroupToOpenAPI(group, authorizedProjects), nil
+}
+
+func convertProjectGroupsToOpenAPI(groups []*commonmodels.ProjectGroup) *OpenAPIProjectGroupListResp {
+	resp := &OpenAPIProjectGroupListResp{
+		Groups: make([]*OpenAPIProjectGroupBrief, 0, len(groups)),
+	}
+	for _, group := range groups {
+		resp.Groups = append(resp.Groups, &OpenAPIProjectGroupBrief{
+			GroupID:      group.ID.Hex(),
+			GroupName:    group.Name,
+			ProjectCount: len(group.Projects),
+		})
+	}
+	sort.Slice(resp.Groups, func(i, j int) bool {
+		return resp.Groups[i].GroupName < resp.Groups[j].GroupName
+	})
+
+	return resp
+}
+
+func convertProjectGroupToOpenAPI(group *commonmodels.ProjectGroup, authorizedProjects []string) *OpenAPIProjectGroupDetailResp {
+	resp := &OpenAPIProjectGroupDetailResp{
+		GroupID:     group.ID.Hex(),
+		GroupName:   group.Name,
+		Projects:    make([]*OpenAPIProjectGroupProject, 0, len(group.Projects)),
+		CreatedTime: group.CreatedTime,
+		CreatedBy:   group.CreatedBy,
+		UpdateTime:  group.UpdateTime,
+		UpdateBy:    group.UpdateBy,
+	}
+	authorizedProjectSet := make(map[string]struct{}, len(authorizedProjects))
+	for _, project := range authorizedProjects {
+		authorizedProjectSet[project] = struct{}{}
+	}
+	for _, project := range group.Projects {
+		if authorizedProjects != nil {
+			if _, ok := authorizedProjectSet[project.ProjectKey]; !ok {
+				continue
+			}
+		}
+		resp.Projects = append(resp.Projects, &OpenAPIProjectGroupProject{
+			ProjectKey:  project.ProjectKey,
+			ProjectName: project.ProjectName,
+			DeployType:  project.ProjectDeployType,
+		})
+	}
+
+	return resp
 }
 
 func DeleteProjectOpenAPI(userName, requestID, projectName string, isDelete bool, logger *zap.SugaredLogger) error {
