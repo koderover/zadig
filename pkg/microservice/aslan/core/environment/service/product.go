@@ -270,6 +270,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	for _, svc := range templateServices {
 		templSvcMap[svc.ServiceName] = svc
 	}
+	latestTemplSvcMap, err := repository.GetMaxRevisionsServicesMap(prod.ProductName, prod.Production)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find latest services for env %s/%s: %w", prod.ProductName, envName, err)
+	}
 
 	for _, svcGroup := range prod.Services {
 		for _, svc := range svcGroup {
@@ -280,6 +284,26 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			}
 
 			svc.DeployStrategy = commonutil.GetServiceDeployStrategy(svc.ServiceName, prod.ServiceDeployStrategy)
+
+			latestTemplSvc, ok := latestTemplSvcMap[svc.ServiceName]
+			if !ok || (latestTemplSvc.Type != setting.K8SDeployType && latestTemplSvc.Type != setting.HelmDeployType) {
+				continue
+			}
+			modules, _, err := repository.ResolveServiceModules(context.Background(), prod.ProductName, svc.ServiceName, prod.Production, latestTemplSvc.Revision)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", prod.ProductName, svc.ServiceName, latestTemplSvc.Revision, err)
+			}
+			moduleNames := sets.NewString()
+			for _, module := range modules {
+				moduleNames.Insert(module.Name)
+			}
+			containers := svc.Containers[:0]
+			for _, container := range svc.Containers {
+				if container != nil && moduleNames.Has(container.Name) {
+					containers = append(containers, container)
+				}
+			}
+			svc.Containers = containers
 		}
 	}
 

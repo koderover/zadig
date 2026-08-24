@@ -1143,20 +1143,13 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	for _, svc := range productInfo.GetServiceMap() {
-		// productInfo overrides the default image only for modules that still
-		// exist in the latest service template. Services that only exist in the
-		// environment keep all of their modules.
-		modules, templateExists := svcModulesMap[svc.ServiceName]
-		if !templateExists {
-			modules = make(map[string]*commonmodels.Container)
-			svcModulesMap[svc.ServiceName] = modules
+		// prodcutInfo override default
+		if _, ok := svcModulesMap[svc.ServiceName]; !ok {
+			svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
 		}
 
 		for _, container := range svc.Containers {
-			if _, exists := modules[container.Name]; templateExists && !exists {
-				continue
-			}
-			modules[container.Name] = container
+			svcModulesMap[svc.ServiceName][container.Name] = container
 		}
 	}
 
