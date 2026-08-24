@@ -117,8 +117,8 @@ func (req OpenAPIUpdateProjectReq) Validate() error {
 }
 
 type OpenAPIProjectGroupReq struct {
-	GroupName   string    `json:"group_name"`
-	ProjectKeys *[]string `json:"project_keys"`
+	GroupName   string   `json:"group_name"`
+	ProjectKeys []string `json:"project_keys"`
 }
 
 func (req OpenAPIProjectGroupReq) Validate() error {
@@ -127,13 +127,11 @@ func (req OpenAPIProjectGroupReq) Validate() error {
 	}
 
 	projectKeys := make(map[string]struct{})
-	if req.ProjectKeys != nil {
-		for _, projectKey := range *req.ProjectKeys {
-			if _, ok := projectKeys[projectKey]; ok {
-				return errors.New("project_keys cannot contain duplicate project keys")
-			}
-			projectKeys[projectKey] = struct{}{}
+	for _, projectKey := range req.ProjectKeys {
+		if _, ok := projectKeys[projectKey]; ok {
+			return errors.New("project_keys cannot contain duplicate project keys")
 		}
+		projectKeys[projectKey] = struct{}{}
 	}
 
 	return nil

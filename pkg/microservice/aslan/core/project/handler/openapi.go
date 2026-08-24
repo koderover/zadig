@@ -370,13 +370,9 @@ func OpenAPICreateProjectGroup(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	projectKeys := make([]string, 0)
-	if args.ProjectKeys != nil {
-		projectKeys = *args.ProjectKeys
-	}
 	ctx.RespErr = service.CreateProjectGroup(&service.ProjectGroupArgs{
 		GroupName:   strings.TrimSpace(args.GroupName),
-		ProjectKeys: projectKeys,
+		ProjectKeys: args.ProjectKeys,
 	}, ctx.UserName, ctx.Logger)
 }
 
@@ -424,7 +420,7 @@ func OpenAPIUpdateProjectGroup(c *gin.Context) {
 	ctx.RespErr = service.UpdateProjectGroup(&service.ProjectGroupArgs{
 		GroupID:     groupID,
 		GroupName:   strings.TrimSpace(args.GroupName),
-		ProjectKeys: *args.ProjectKeys,
+		ProjectKeys: args.ProjectKeys,
 	}, ctx.UserName, ctx.Logger)
 }
 
