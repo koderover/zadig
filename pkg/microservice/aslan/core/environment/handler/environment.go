@@ -18,6 +18,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -1516,7 +1518,43 @@ func GetEnvironment(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
+	productResp, err := service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	latestTemplSvcMap, err := repository.GetMaxRevisionsServicesMap(projectKey, production)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to find latest services for env %s/%s: %w", projectKey, envName, err)
+		return
+	}
+	for _, svcGroup := range productResp.Services {
+		for _, svc := range svcGroup {
+			latestTemplSvc, ok := latestTemplSvcMap[svc.ServiceName]
+			if !ok || (latestTemplSvc.Type != setting.K8SDeployType && latestTemplSvc.Type != setting.HelmDeployType) {
+				continue
+			}
+			modules, _, err := repository.ResolveServiceModules(context.Background(), projectKey, svc.ServiceName, production, latestTemplSvc.Revision)
+			if err != nil {
+				ctx.RespErr = fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", projectKey, svc.ServiceName, latestTemplSvc.Revision, err)
+				return
+			}
+			moduleNames := sets.NewString()
+			for _, module := range modules {
+				moduleNames.Insert(module.Name)
+			}
+			containers := svc.Containers[:0]
+			for _, container := range svc.Containers {
+				if container != nil && moduleNames.Has(container.Name) {
+					containers = append(containers, container)
+				}
+			}
+			svc.Containers = containers
+		}
+	}
+
+	ctx.Resp = productResp
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
