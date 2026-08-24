@@ -8,10 +8,30 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	terminalEscapeByte byte = '\x1b'
+	terminalDeleteByte byte = '\x7f'
+
+	// A bracket-led terminal control sequence ends with a byte in this protocol-defined range.
+	controlSequenceFinalByteMin byte = 0x40
+	controlSequenceFinalByteMax byte = 0x7e
+	escapeSequenceTypeIndex          = 1 // Byte immediately following ESC.
+	escapeSequencePrefixLength       = 2 // ESC followed by the sequence type, such as '[' or ']'.
+	cursorPositionQuery              = "\x1b[6n"
+
+	// Bound memory retained while an interactive command is starting or a command is being entered.
+	maxDeferredInputBytes = 64 * 1024
+	maxCommandBytes       = 64 * 1024
+	// Keep enough recent output to recognize sequences or shell prompts split across WebSocket messages.
+	maxInteractiveOutputTailBytes = 256
+)
+
 var (
 	// Terminals wrap pasted text with these markers so it can be distinguished from typed input.
 	bracketedPasteStart = []byte("\x1b[200~")
 	bracketedPasteEnd   = []byte("\x1b[201~")
+	// Title, clipboard, and device-control payloads end with ESC followed by a backslash.
+	terminalStringEnd = []byte{terminalEscapeByte, '\\'}
 
 	// Full-screen programs such as vim and top use these sequences to enter and leave the alternate screen.
 	alternateScreenEnterSequences = []string{"\x1b[?1049h", "\x1b[?1047h", "\x1b[?47h"}
@@ -19,13 +39,6 @@ var (
 
 	// These messages indicate that a full-screen command failed and normal shell input should resume.
 	interactiveCommandFailureHints = []string{"not found", "No such file or directory"}
-)
-
-const (
-	// maxDeferredInputBytes bounds input retained while interactive mode is still undetermined.
-	maxDeferredInputBytes = 64 * 1024
-	// maxCommandBytes bounds a single command before it is discarded from audit extraction.
-	maxCommandBytes = 64 * 1024
 )
 
 type ExtractedCommand struct {
@@ -39,6 +52,8 @@ type deferredInputChunk struct {
 	offset time.Duration
 }
 
+// CommandExtractor reconstructs shell commands from raw PTY input. It removes terminal
+// control sequences and pauses command extraction while a full-screen program is active.
 type CommandExtractor struct {
 	buffer                 []byte
 	seq                    int64
@@ -56,6 +71,8 @@ type CommandExtractor struct {
 }
 
 func (e *CommandExtractor) Consume(data string, offset time.Duration) []ExtractedCommand {
+	// PTY input can split one control sequence across multiple WebSocket messages,
+	// so parsing state is retained between Consume calls.
 	if e.interactiveMode {
 		return nil
 	}
@@ -138,15 +155,15 @@ func (e *CommandExtractor) flush() []ExtractedCommand {
 // consumePastedByte intentionally keeps ESC as command content while bracketed paste is active.
 func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
 	switch ch {
-	case 0x1b:
+	case terminalEscapeByte:
 		e.inEscape = true
 		e.escapeBuffer = append(e.escapeBuffer[:0], ch)
 	case '\r', '\n':
 		commands = e.flushCommand(offset, commands)
-	case 0x08, 0x7f:
+	case '\b', terminalDeleteByte:
 		e.buffer = removeLastRune(e.buffer)
 	default:
-		if ch >= 0x20 || ch == '\t' {
+		if ch >= ' ' || ch == '\t' {
 			e.appendCommandByte(ch)
 		}
 	}
@@ -155,16 +172,16 @@ func (e *CommandExtractor) consumePlainByte(ch byte, offset time.Duration, comma
 
 func (e *CommandExtractor) consumeEscapeByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
 	e.escapeBuffer = append(e.escapeBuffer, ch)
-	if len(e.escapeBuffer) < 2 {
+	if len(e.escapeBuffer) < escapeSequencePrefixLength {
 		return commands
 	}
 
-	switch e.escapeBuffer[1] {
-	case '[': // CSI: terminated by a final byte in 0x40-0x7e.
-		if len(e.escapeBuffer) == 2 {
+	switch e.escapeBuffer[escapeSequenceTypeIndex] {
+	case '[': // Bracket-led terminal control sequence, terminated by a protocol-defined final byte.
+		if len(e.escapeBuffer) == escapeSequencePrefixLength {
 			return commands
 		}
-		if !isEscapeTerminator(ch) {
+		if !isControlSequenceFinalByte(ch) {
 			if len(e.escapeBuffer) > len(bracketedPasteStart) {
 				e.escapeBuffer = e.escapeBuffer[:len(bracketedPasteStart)]
 			}
@@ -176,17 +193,17 @@ func (e *CommandExtractor) consumeEscapeByte(ch byte, offset time.Duration, comm
 		}
 		e.resetEscape()
 		return commands
-	case ']', 'P': // OSC/DCS payload is not command content; both end with ST, OSC also accepts BEL.
-		if e.escapeEndsWithST() || e.escapeBuffer[1] == ']' && ch == 0x07 {
+	case ']', 'P': // Terminal metadata or device-control payload, not command content.
+		if e.escapeEndsWithStringTerminator() || e.escapeBuffer[escapeSequenceTypeIndex] == ']' && ch == '\a' {
 			e.resetEscape()
 			return commands
 		}
-		if len(e.escapeBuffer) > 3 {
-			e.escapeBuffer = append(e.escapeBuffer[:2], e.escapeBuffer[len(e.escapeBuffer)-1])
+		if len(e.escapeBuffer) > escapeSequencePrefixLength+1 {
+			e.escapeBuffer = append(e.escapeBuffer[:escapeSequencePrefixLength], e.escapeBuffer[len(e.escapeBuffer)-1])
 		}
 		return commands
-	case 'O': // SS3: consumes exactly one following payload byte.
-		if len(e.escapeBuffer) < 3 {
+	case 'O': // Function and keypad key sequence, which contains one payload byte.
+		if len(e.escapeBuffer) < escapeSequencePrefixLength+1 {
 			return commands
 		}
 		e.resetEscape()
@@ -203,7 +220,7 @@ func (e *CommandExtractor) consumeBracketedPasteByte(ch byte, offset time.Durati
 	if len(e.pasteEscapeBuffer) > 0 {
 		return e.consumePasteEscapeByte(ch, offset, commands)
 	}
-	if ch == 0x1b {
+	if ch == terminalEscapeByte {
 		e.pasteEscapeBuffer = append(e.pasteEscapeBuffer[:0], ch)
 		return commands
 	}
@@ -229,14 +246,14 @@ func (e *CommandExtractor) consumePasteEscapeByte(ch byte, offset time.Duration,
 
 func (e *CommandExtractor) consumePastedByte(ch byte, offset time.Duration, commands []ExtractedCommand) []ExtractedCommand {
 	switch ch {
-	case 0x1b:
+	case terminalEscapeByte:
 		e.appendCommandByte(ch)
 	case '\r', '\n':
 		commands = e.flushCommand(offset, commands)
-	case 0x08, 0x7f:
+	case '\b', terminalDeleteByte:
 		e.buffer = removeLastRune(e.buffer)
 	default:
-		if ch >= 0x20 || ch == '\t' {
+		if ch >= ' ' || ch == '\t' {
 			e.appendCommandByte(ch)
 		}
 	}
@@ -286,11 +303,8 @@ func (e *CommandExtractor) resetEscape() {
 	e.escapeBuffer = nil
 }
 
-// escapeEndsWithST reports whether the escape buffer ends with the two-byte
-// String Terminator (ESC \), used to close OSC and DCS sequences.
-func (e *CommandExtractor) escapeEndsWithST() bool {
-	n := len(e.escapeBuffer)
-	return n >= 2 && e.escapeBuffer[n-2] == 0x1b && e.escapeBuffer[n-1] == '\\'
+func (e *CommandExtractor) escapeEndsWithStringTerminator() bool {
+	return bytes.HasSuffix(e.escapeBuffer, terminalStringEnd)
 }
 
 func removeLastRune(data []byte) []byte {
@@ -301,8 +315,8 @@ func removeLastRune(data []byte) []byte {
 	return data[:len(data)-size]
 }
 
-func isEscapeTerminator(ch byte) bool {
-	return ch >= 0x40 && ch <= 0x7e
+func isControlSequenceFinalByte(ch byte) bool {
+	return ch >= controlSequenceFinalByteMin && ch <= controlSequenceFinalByteMax
 }
 
 func containsAny(data string, targets []string) bool {
@@ -319,7 +333,7 @@ func looksLikeShellPrompt(data string) bool {
 	if idx := strings.LastIndex(line, "\n"); idx >= 0 {
 		line = line[idx+1:]
 	}
-	line = strings.TrimSuffix(line, "\x1b[6n")
+	line = strings.TrimSuffix(line, cursorPositionQuery)
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return false
@@ -331,10 +345,9 @@ func looksLikeShellPrompt(data string) bool {
 }
 
 func (e *CommandExtractor) appendOutputTail(data string) {
-	const maxTailLen = 256
 	e.outputTail += data
-	if len(e.outputTail) > maxTailLen {
-		e.outputTail = strings.Clone(e.outputTail[len(e.outputTail)-maxTailLen:])
+	if len(e.outputTail) > maxInteractiveOutputTailBytes {
+		e.outputTail = strings.Clone(e.outputTail[len(e.outputTail)-maxInteractiveOutputTailBytes:])
 	}
 }
 
