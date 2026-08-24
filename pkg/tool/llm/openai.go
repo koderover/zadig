@@ -127,7 +127,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	resp, err := c.client.CreateChatCompletion(requestCtx, request)
 	if err != nil {
 		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
-		return "", fmt.Errorf("create chat completion failed: %w", err)
+		return "", fmt.Errorf("create chat completion failed: %w", normalizeOpenAICompletionError(err))
 	}
 	log.Debugf("ai completion took: %v", time.Since(now))
 	reasoningTokens := 0
@@ -137,7 +137,8 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf(
-			"openai response contains no completion choices: response_id=%s prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
+			"%w: openai response contains no completion choices: response_id=%s prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
+			ErrEmptyCompletionResponse,
 			resp.ID,
 			resp.Usage.PromptTokens,
 			resp.Usage.CompletionTokens,
@@ -177,7 +178,8 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 	if strings.TrimSpace(message) == "" {
 		return "", fmt.Errorf(
-			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
+			"%w: openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
+			ErrEmptyCompletionResponse,
 			resp.ID,
 			choice.FinishReason,
 			len(choice.Message.Content),
@@ -192,6 +194,18 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		)
 	}
 	return message, nil
+}
+
+func normalizeOpenAICompletionError(err error) error {
+	var apiErr *openai.APIError
+	if errors.As(err, &apiErr) && apiErr.HTTPStatusCode > 0 {
+		return newCompletionHTTPError(apiErr.HTTPStatusCode, err)
+	}
+	var requestErr *openai.RequestError
+	if errors.As(err, &requestErr) && requestErr.HTTPStatusCode > 0 {
+		return newCompletionHTTPError(requestErr.HTTPStatusCode, err)
+	}
+	return err
 }
 
 func isMaxTokensFinishReason(finishReason openai.FinishReason) bool {

@@ -33,7 +33,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/llmservice"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -41,7 +41,6 @@ import (
 )
 
 const (
-	terminalAuditAIPromptVersion            = 1
 	maxTerminalAuditAIChunkRunes            = 12000
 	terminalAuditAICompletionMaxTokens      = 8192
 	terminalAuditAICompletionRetryMaxTokens = 12000
@@ -50,15 +49,13 @@ const (
 	terminalAuditAIRequestTimeout           = 5 * time.Minute
 	terminalAuditAIChunkTimeout             = terminalAuditAICompletionMaxAttempts * terminalAuditAIRequestTimeout
 	terminalAuditAIPreparationLease         = 5 * time.Minute
-	terminalAuditAIExecutionGrace           = time.Minute
 	terminalAuditAIFinishLeaseGrace         = time.Minute
 	maxTerminalAuditAIConcurrentChunks      = 3
 	// maxTerminalAuditAICommands caps how many commands are loaded from MongoDB for
 	// AI analysis. Sessions exceeding this limit are marked coverage=partial.
 	maxTerminalAuditAICommands = 500
 	// maxTerminalAuditAIChunks caps the number of LLM calls per analysis.
-	// Normal chunks are bounded by maxTerminalAuditAIChunkRunes; an oversized
-	// logical record occupies one chunk by itself instead of being split.
+	// Every chunk is bounded by maxTerminalAuditAIChunkRunes.
 	maxTerminalAuditAIChunks = 20
 	// Bound the cast data loaded before it is packed into LLM requests.
 	maxTerminalAuditAIEvidenceRunes = maxTerminalAuditAIChunks * maxTerminalAuditAIChunkRunes
@@ -104,7 +101,7 @@ var terminalAuditAIRedactors = []struct {
 	{regexp.MustCompile(`(?i)(https?://[^/\s:@]+:)[^@\s/]+@`), `${1}[REDACTED]@`},
 }
 
-func AnalyzeTerminalSession(ctx context.Context, sessionID string) (*commonmodels.TerminalAuditAIResult, error) {
+func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResult, error) {
 	log.Infof("terminal audit ai requested: session_id=%s", sessionID)
 	session, err := terminalaudit.GetSession(sessionID)
 	if err != nil {
@@ -133,27 +130,22 @@ func AnalyzeTerminalSession(ctx context.Context, sessionID string) (*commonmodel
 	}
 	log.Infof("terminal audit ai started: session_id=%s run_id=%s preparation_lease=%s", sessionID, result.RunID, terminalAuditAIPreparationLease)
 
-	// The audit result is polled separately, so a disconnected POST must not cancel the analysis.
-	analysisCtx := context.WithoutCancel(ctx)
-	err = runTerminalSessionAudit(analysisCtx, session, result, repo)
-	if err != nil {
-		result.Status = commonmodels.TerminalAuditAIStatusFailed
-		result.ErrorMessage = err.Error()
-		log.Errorf("terminal audit ai failed: session_id=%s run_id=%s duration=%s err=%v", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), err)
-	} else {
-		result.Status = commonmodels.TerminalAuditAIStatusSucceeded
-		log.Infof("terminal audit ai succeeded: session_id=%s run_id=%s duration=%s model=%s total_commands=%d analyzed_commands=%d findings=%d input_tokens=%d", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), result.Model, result.TotalCommandCount, result.AnalyzedCommandCount, len(result.Findings), result.TokenNum)
-	}
-	if finishErr := repo.Finish(result); finishErr != nil {
-		log.Errorf("terminal audit ai failed to save result: session_id=%s run_id=%s status=%s err=%v", sessionID, result.RunID, result.Status, finishErr)
+	analysisResult := *result
+	go func() {
+		result := &analysisResult
+		err := runTerminalSessionAudit(context.Background(), session, result, repo)
 		if err != nil {
-			return nil, fmt.Errorf("%v; save terminal audit ai failure: %w", err, finishErr)
+			result.Status = commonmodels.TerminalAuditAIStatusFailed
+			result.ErrorMessage = err.Error()
+			log.Errorf("terminal audit ai failed: session_id=%s run_id=%s duration=%s err=%v", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), err)
+		} else {
+			result.Status = commonmodels.TerminalAuditAIStatusSucceeded
+			log.Infof("terminal audit ai succeeded: session_id=%s run_id=%s duration=%s model=%s total_commands=%d analyzed_commands=%d findings=%d input_tokens=%d", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), result.Model, result.TotalCommandCount, result.AnalyzedCommandCount, len(result.Findings), result.TokenNum)
 		}
-		return nil, fmt.Errorf("save terminal audit ai result: %w", finishErr)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("analyze terminal session with ai: %w", err)
-	}
+		if finishErr := repo.Finish(result); finishErr != nil {
+			log.Errorf("terminal audit ai failed to save result: session_id=%s run_id=%s status=%s analysis_err=%v err=%v", sessionID, result.RunID, result.Status, err, finishErr)
+		}
+	}()
 	return result, nil
 }
 
@@ -162,8 +154,7 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		SessionID: session.SessionID,
 		PageNum:   1,
 		PageSize:  maxTerminalAuditAICommands + 1,
-		SortAsc:   true,
-	})
+	}, true)
 	if err != nil {
 		return fmt.Errorf("list terminal commands: %w", err)
 	}
@@ -190,72 +181,83 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 	if total > maxTerminalAuditAICommands || chunksTruncated {
 		evidence.Coverage = terminalaudit.AuditEvidenceCoveragePartial
 	}
-	// Each concurrency wave may consume the full per-chunk timeout.
-	chunkWaves := (len(chunks) + maxTerminalAuditAIConcurrentChunks - 1) / maxTerminalAuditAIConcurrentChunks
-	executionTimeout := time.Duration(chunkWaves)*terminalAuditAIChunkTimeout + terminalAuditAIExecutionGrace
-	leaseExpiresAt := time.Now().Add(executionTimeout + terminalAuditAIFinishLeaseGrace).Unix()
+	leaseWindow := terminalAuditAIChunkTimeout + terminalAuditAIFinishLeaseGrace
+	leaseExpiresAt := time.Now().Add(leaseWindow).Unix()
 	if err := repo.UpdateLease(session.SessionID, result.RunID, leaseExpiresAt); err != nil {
 		return fmt.Errorf("update terminal audit ai lease: %w", err)
 	}
 	result.LeaseExpiresAt = leaseExpiresAt
-	executionCtx, cancel := context.WithTimeout(ctx, executionTimeout)
-	defer cancel()
-
 	result.Coverage = string(evidence.Coverage)
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
-	client, err := llmservice.GetDefaultLLMClient(executionCtx)
+	client, err := llmservice.GetDefaultLLMClient(ctx)
 	if err != nil {
 		return err
 	}
 	result.Model = client.GetModel()
-	result.PromptVersion = terminalAuditAIPromptVersion
-	log.Infof("terminal audit ai prepared: session_id=%s run_id=%s integration=%s model=%s total_commands=%d loaded_commands=%d covered_commands=%d chunks=%d chunk_concurrency=%d chunk_timeout=%s execution_timeout=%s completion_attempts=%d coverage=%s chunks_truncated=%t", session.SessionID, result.RunID, client.GetName(), result.Model, total, len(commands), coveredCommands, len(chunks), maxTerminalAuditAIConcurrentChunks, terminalAuditAIChunkTimeout, executionTimeout, terminalAuditAICompletionMaxAttempts, evidence.Coverage, chunksTruncated)
+	log.Infof("terminal audit ai prepared: session_id=%s run_id=%s integration=%s model=%s total_commands=%d loaded_commands=%d covered_commands=%d chunks=%d chunk_concurrency=%d chunk_timeout=%s lease_window=%s completion_attempts=%d coverage=%s chunks_truncated=%t", session.SessionID, result.RunID, client.GetName(), result.Model, total, len(commands), coveredCommands, len(chunks), maxTerminalAuditAIConcurrentChunks, terminalAuditAIChunkTimeout, leaseWindow, terminalAuditAICompletionMaxAttempts, evidence.Coverage, chunksTruncated)
 
 	result.RiskLevel = "low"
 	chunkResults := make([]*terminalAuditAIAnswer, len(chunks))
 	chunkTokenNums := make([]int, len(chunks))
-	group, groupCtx := errgroup.WithContext(executionCtx)
-	group.SetLimit(maxTerminalAuditAIConcurrentChunks)
-	// Each chunk contains complete command records and can be analyzed independently.
-	// Bound concurrency protects the model provider; results are merged in chunk order below.
+	chunkGroups := make([][]int, 0, len(chunks))
+	lastSerialGroup := -1
 	for i, chunk := range chunks {
-		i, chunk := i, chunk
+		if chunk.serialGroup != lastSerialGroup {
+			chunkGroups = append(chunkGroups, nil)
+			lastSerialGroup = chunk.serialGroup
+		}
+		chunkGroups[len(chunkGroups)-1] = append(chunkGroups[len(chunkGroups)-1], i)
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(maxTerminalAuditAIConcurrentChunks)
+	// Chunks from one oversized record stay serial; independent records run concurrently.
+	for _, chunkIndexes := range chunkGroups {
+		chunkIndexes := chunkIndexes
 		group.Go(func() error {
-			chunkCtx, cancel := context.WithTimeout(groupCtx, terminalAuditAIChunkTimeout)
-			defer cancel()
-			allowedSeqs := make([]int64, 0, len(chunk.commands))
-			for seq := range chunk.commands {
-				allowedSeqs = append(allowedSeqs, seq)
-			}
-			slices.Sort(allowedSeqs)
-			allowedSeqsJSON, _ := json.Marshal(allowedSeqs)
-			prompt := fmt.Sprintf(terminalAuditAIPrompt, sessionMetadataJSON, evidence.Coverage, i+1, len(chunks), allowedSeqsJSON, chunk.evidence)
-			chunkTokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model)
-			if tokenErr == nil {
-				chunkTokenNums[i] = chunkTokenNum
-			}
-			chunkStartedAt := time.Now()
-			log.Infof("terminal audit ai chunk started: session_id=%s run_id=%s chunk=%d/%d command_seqs=%v prompt_bytes=%d input_tokens=%d token_count_err=%v", session.SessionID, result.RunID, i+1, len(chunks), allowedSeqs, len(prompt), chunkTokenNum, tokenErr)
-			parsed, _, err := llmservice.CompleteWithRetry(chunkCtx, client, prompt, terminalAuditAICompletionMaxRetries, func(attempt int) []llm.ParamOption {
-				maxTokens := terminalAuditAICompletionMaxTokens
-				if attempt > 0 {
-					maxTokens = terminalAuditAICompletionRetryMaxTokens
+			for _, i := range chunkIndexes {
+				chunk := chunks[i]
+				leaseExpiresAt := time.Now().Add(leaseWindow).Unix()
+				if err := repo.UpdateLease(session.SessionID, result.RunID, leaseExpiresAt); err != nil {
+					return fmt.Errorf("renew terminal audit ai lease for chunk %d: %w", i+1, err)
 				}
-				return []llm.ParamOption{
-					llm.WithTemperature(0.1),
-					llm.WithMaxTokens(maxTokens),
-					llm.WithErrorOnMaxTokens(),
-					llm.WithRequestTimeout(terminalAuditAIRequestTimeout),
+				chunkCtx, cancel := context.WithTimeout(groupCtx, terminalAuditAIChunkTimeout)
+				allowedSeqs := make([]int64, 0, len(chunk.commands))
+				for seq := range chunk.commands {
+					allowedSeqs = append(allowedSeqs, seq)
 				}
-			}, func(answer string) (*terminalAuditAIAnswer, error) {
-				return parseAndValidateTerminalAuditAIAnswer(answer, chunk.commands)
-			})
-			if err != nil {
-				log.Errorf("terminal audit ai chunk failed: session_id=%s run_id=%s chunk=%d/%d duration=%s context_err=%v err=%v", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), chunkCtx.Err(), err)
-				return fmt.Errorf("complete terminal audit ai for chunk %d: %w", i+1, err)
+				slices.Sort(allowedSeqs)
+				allowedSeqsJSON, _ := json.Marshal(allowedSeqs)
+				prompt := fmt.Sprintf(terminalAuditAIPrompt, sessionMetadataJSON, evidence.Coverage, i+1, len(chunks), allowedSeqsJSON, chunk.evidence)
+				chunkTokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model)
+				if tokenErr == nil {
+					chunkTokenNums[i] = chunkTokenNum
+				}
+				chunkStartedAt := time.Now()
+				log.Infof("terminal audit ai chunk started: session_id=%s run_id=%s chunk=%d/%d command_seqs=%v prompt_bytes=%d input_tokens=%d token_count_err=%v", session.SessionID, result.RunID, i+1, len(chunks), allowedSeqs, len(prompt), chunkTokenNum, tokenErr)
+				parsed, _, err := llmservice.CompleteWithRetry(chunkCtx, client, prompt, terminalAuditAICompletionMaxRetries, func(attempt int) []llm.ParamOption {
+					maxTokens := terminalAuditAICompletionMaxTokens
+					if attempt > 0 {
+						maxTokens = terminalAuditAICompletionRetryMaxTokens
+					}
+					return []llm.ParamOption{
+						llm.WithTemperature(0.1),
+						llm.WithMaxTokens(maxTokens),
+						llm.WithErrorOnMaxTokens(),
+						llm.WithRequestTimeout(terminalAuditAIRequestTimeout),
+					}
+				}, func(answer string) (*terminalAuditAIAnswer, error) {
+					return parseAndValidateTerminalAuditAIAnswer(answer, chunk.commands)
+				})
+				contextErr := chunkCtx.Err()
+				cancel()
+				if err != nil {
+					log.Errorf("terminal audit ai chunk failed: session_id=%s run_id=%s chunk=%d/%d duration=%s context_err=%v err=%v", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), contextErr, err)
+					return fmt.Errorf("complete terminal audit ai for chunk %d: %w", i+1, err)
+				}
+				log.Infof("terminal audit ai chunk succeeded: session_id=%s run_id=%s chunk=%d/%d duration=%s risk_level=%s findings=%d", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), parsed.RiskLevel, len(parsed.Findings))
+				chunkResults[i] = parsed
 			}
-			log.Infof("terminal audit ai chunk succeeded: session_id=%s run_id=%s chunk=%d/%d duration=%s risk_level=%s findings=%d", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), parsed.RiskLevel, len(parsed.Findings))
-			chunkResults[i] = parsed
 			return nil
 		})
 	}
@@ -306,19 +308,22 @@ func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAI
 	return result, nil
 }
 
-// buildTerminalAuditAIChunks serializes and atomically packs one logical record
-// at a time. Oversized records occupy a chunk by themselves.
+// buildTerminalAuditAIChunks packs complete records when possible and splits
+// oversized records into bounded chunks that share one serial group.
 func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (chunks []terminalAuditAIChunk, coveredCommands int, truncated bool) {
 	chunks = make([]terminalAuditAIChunk, 0, maxTerminalAuditAIChunks)
 	var chunk strings.Builder
 	chunkCommands := make(map[int64]string)
 	chunkRunes := 0
+	nextSerialGroup := 0
 
 	flushChunk := func() {
 		chunks = append(chunks, terminalAuditAIChunk{
-			evidence: chunk.String(),
-			commands: chunkCommands,
+			evidence:    chunk.String(),
+			commands:    chunkCommands,
+			serialGroup: nextSerialGroup,
 		})
+		nextSerialGroup++
 		chunk.Reset()
 		chunkCommands = make(map[int64]string)
 		chunkRunes = 0
@@ -332,6 +337,30 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 
 		record := fmt.Sprintf("[%s]\n%s", label, data)
 		recordRunes := utf8.RuneCountInString(record)
+		if recordRunes > maxTerminalAuditAIChunkRunes {
+			if chunk.Len() > 0 {
+				flushChunk()
+			}
+			parts := splitTerminalAuditAIRecord(label, data)
+			remainingChunks := maxTerminalAuditAIChunks - len(chunks)
+			if len(parts) > remainingChunks {
+				parts = parts[:remainingChunks]
+				truncated = true
+			}
+			if len(parts) == 0 {
+				return false
+			}
+			serialGroup := nextSerialGroup
+			nextSerialGroup++
+			for _, part := range parts {
+				commands := make(map[int64]string)
+				if command != nil {
+					commands[command.Seq] = command.Command
+				}
+				chunks = append(chunks, terminalAuditAIChunk{evidence: part, commands: commands, serialGroup: serialGroup})
+			}
+			return true
+		}
 		separatorRunes := 0
 		if chunk.Len() > 0 {
 			separatorRunes = 2
@@ -342,14 +371,6 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 				truncated = true
 				return false
 			}
-		}
-		if recordRunes > maxTerminalAuditAIChunkRunes {
-			commands := make(map[int64]string)
-			if command != nil {
-				commands[command.Seq] = command.Command
-			}
-			chunks = append(chunks, terminalAuditAIChunk{evidence: record, commands: commands})
-			return true
 		}
 		if chunk.Len() > 0 {
 			chunk.WriteString("\n\n")
@@ -389,6 +410,21 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 	return chunks, coveredCommands, truncated
 }
 
+func splitTerminalAuditAIRecord(label, data string) []string {
+	dataRunes := []rune(data)
+	parts := make([]string, 0, len(dataRunes)/maxTerminalAuditAIChunkRunes+1)
+	for part := 1; len(dataRunes) > 0; part++ {
+		prefix := fmt.Sprintf("[%s continuation=%d]\n", label, part)
+		payloadRunes := maxTerminalAuditAIChunkRunes - utf8.RuneCountInString(prefix)
+		if payloadRunes > len(dataRunes) {
+			payloadRunes = len(dataRunes)
+		}
+		parts = append(parts, prefix+string(dataRunes[:payloadRunes]))
+		dataRunes = dataRunes[payloadRunes:]
+	}
+	return parts
+}
+
 func sanitizeTerminalAuditEvidenceForAI(evidence *terminalaudit.TerminalAuditEvidence) {
 	sessionFields := []*string{
 		&evidence.Session.SessionID, &evidence.Session.Username, &evidence.Session.Account,
@@ -423,8 +459,9 @@ type terminalAuditAIAnswer struct {
 }
 
 type terminalAuditAIChunk struct {
-	evidence string
-	commands map[int64]string
+	evidence    string
+	commands    map[int64]string
+	serialGroup int
 }
 
 func parseAndValidateTerminalAuditAIAnswer(answer string, commands map[int64]string) (*terminalAuditAIAnswer, error) {

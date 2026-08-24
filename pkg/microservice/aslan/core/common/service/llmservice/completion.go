@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-// CompleteWithRetry retries completion, empty response, and parse failures unless the parent context is canceled or times out.
+// CompleteWithRetry retries transient completion errors, empty responses, and parse failures.
 func CompleteWithRetry[T any](
 	ctx context.Context,
 	client llm.ILLM,
@@ -56,7 +56,11 @@ func CompleteWithRetry[T any](
 				return result, answer, err
 			}
 			lastErr = fmt.Errorf("llm completion failed: %w", err)
-			log.Warnf("llm completion attempt failed: integration=%s model=%s attempt=%d/%d duration=%s will_retry=%t err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), attempt < maxRetries, lastErr)
+			willRetry := attempt < maxRetries && llm.IsRetryableCompletionError(err)
+			log.Warnf("llm completion attempt failed: integration=%s model=%s attempt=%d/%d duration=%s will_retry=%t err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), willRetry, lastErr)
+			if !willRetry {
+				return result, answer, lastErr
+			}
 			continue
 		}
 		if strings.TrimSpace(answer) == "" {

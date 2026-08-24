@@ -112,8 +112,6 @@ type TerminalCommandListArgs struct {
 	EndTime     int64  `form:"endTime" json:"endTime"`
 	PageNum     int64  `form:"pageNum" json:"pageNum"`
 	PageSize    int64  `form:"pageSize" json:"pageSize"`
-	// SortAsc is an internal repository option; the command list API remains descending by default.
-	SortAsc bool `form:"-" json:"-"`
 }
 
 type TerminalAuditAIStatus string
@@ -141,7 +139,6 @@ type TerminalAuditAIResult struct {
 	Findings             []TerminalAuditAIFinding `bson:"findings"         json:"findings"`
 	Coverage             string                   `bson:"coverage"         json:"coverage"`
 	Model                string                   `bson:"model"            json:"model"`
-	PromptVersion        int                      `bson:"prompt_version"   json:"prompt_version"`
 	TokenNum             int                      `bson:"token_num"        json:"token_num"`
 	AnalyzedCommandCount int64                    `bson:"analyzed_command_count" json:"analyzed_command_count"`
 	TotalCommandCount    int64                    `bson:"total_command_count" json:"total_command_count"`

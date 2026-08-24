@@ -135,7 +135,7 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 	return nil
 }
 
-func (e *CommandExtractor) flush() []ExtractedCommand {
+func (e *CommandExtractor) Flush() []ExtractedCommand {
 	commands := make([]ExtractedCommand, 0)
 	// Replaying deferred input can discover another interactive command and queue
 	// more input, so drain until no pending input remains.

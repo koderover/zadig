@@ -159,14 +159,14 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		if readErr != nil {
-			return "", fmt.Errorf("anthropic request failed with status %d", resp.StatusCode)
+			return "", newCompletionHTTPError(resp.StatusCode, fmt.Errorf("anthropic request failed with status %d", resp.StatusCode))
 		}
-		return "", fmt.Errorf("anthropic request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", newCompletionHTTPError(resp.StatusCode, fmt.Errorf("anthropic request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
 	}
 
 	response := new(anthropicMessageResponse)
 	if err := json.NewDecoder(resp.Body).Decode(response); err != nil {
-		return "", fmt.Errorf("decode anthropic response: %w", err)
+		return "", fmt.Errorf("%w: decode anthropic response: %v", ErrInvalidCompletion, err)
 	}
 	var result strings.Builder
 	textBlocks := 0
@@ -193,7 +193,8 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 	}
 	if strings.TrimSpace(result.String()) == "" {
 		return "", fmt.Errorf(
-			"anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
+			"%w: anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
+			ErrEmptyCompletionResponse,
 			response.ID,
 			response.StopReason,
 			len(response.Content),

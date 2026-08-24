@@ -16,6 +16,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	terminalcore "github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -32,8 +34,10 @@ const (
 	// flush buffered events and close the upload pipe.
 	closeWriterTimeout = 5 * time.Second
 	// closePersistTimeout bounds how long Close waits for pending command
-	// persistence goroutines.
-	closePersistTimeout = 5 * time.Second
+	// persistence to drain.
+	closePersistTimeout = 10 * time.Second
+	// commandPersistQueueCapacity bounds pending command batches when MongoDB is slow.
+	commandPersistQueueCapacity = 256
 	// closeUploadTimeout bounds how long Close waits for the object-storage
 	// upload to finish before abandoning it.
 	closeUploadTimeout = 10 * time.Second
@@ -44,16 +48,17 @@ const (
 type asciicastRecorder struct {
 	mu          sync.Mutex
 	errMu       sync.Mutex
-	persistWG   sync.WaitGroup
 	session     *models.TerminalSession
 	startedAt   time.Time
-	inputMask   *streamSanitizer
-	outputMask  *streamSanitizer
-	extractor   *CommandExtractor
+	inputMask   terminalio.Sanitizer
+	outputMask  terminalio.Sanitizer
+	extractor   *terminalcore.CommandExtractor
 	writer      *bufio.Writer
 	pipeWriter  *io.PipeWriter
 	writeCh     chan []byte
 	writerDone  chan struct{}
+	persistCh   chan commandPersistBatch
+	persistDone chan struct{}
 	uploadDone  chan struct{}
 	fileSize    atomic.Int64
 	recordErr   error
@@ -64,6 +69,11 @@ type asciicastRecorder struct {
 	sessionColl *commonrepo.TerminalSessionColl
 	commandColl *commonrepo.TerminalCommandColl
 	live        *livePublisher
+}
+
+type commandPersistBatch struct {
+	commands   []*models.TerminalCommand
+	activityAt int64
 }
 
 type castHeader struct {
@@ -147,12 +157,14 @@ func newRecorder(meta *SessionMeta) (*asciicastRecorder, error) {
 	recorder := &asciicastRecorder{
 		session:     session,
 		startedAt:   startedAt,
-		inputMask:   NewSanitizer(meta.Secrets),
-		outputMask:  NewSanitizer(meta.Secrets),
-		extractor:   &CommandExtractor{},
+		inputMask:   terminalcore.NewSanitizer(meta.Secrets),
+		outputMask:  terminalcore.NewSanitizer(meta.Secrets),
+		extractor:   &terminalcore.CommandExtractor{},
 		pipeWriter:  pipeWriter,
 		writeCh:     make(chan []byte, writeQueueCapacity),
 		writerDone:  make(chan struct{}),
+		persistCh:   make(chan commandPersistBatch, commandPersistQueueCapacity),
+		persistDone: make(chan struct{}),
 		uploadDone:  uploadDone,
 		sessionColl: sessionColl,
 		commandColl: commonrepo.NewTerminalCommandColl(),
@@ -191,8 +203,46 @@ func newRecorder(meta *SessionMeta) (*asciicastRecorder, error) {
 		return nil, err
 	}
 	go recorder.runWriter()
+	go recorder.runCommandPersistor()
 	log.Infof("create terminal audit recorder success, sessionID=%s storageID=%s bucket=%s objectKey=%s", session.SessionID, storageID, storage.Bucket, session.ObjectKey)
 	return recorder, nil
+}
+
+func (r *asciicastRecorder) runCommandPersistor() {
+	defer close(r.persistDone)
+	persistFailed := false
+	for batch := range r.persistCh {
+		commands := batch.commands
+		activityAt := batch.activityAt
+		collecting := true
+		for collecting {
+			select {
+			case next, ok := <-r.persistCh:
+				if !ok {
+					collecting = false
+					break
+				}
+				commands = append(commands, next.commands...)
+				if next.activityAt > activityAt {
+					activityAt = next.activityAt
+				}
+			default:
+				collecting = false
+			}
+		}
+		if persistFailed {
+			continue
+		}
+		if err := r.commandColl.CreateMany(commands); err != nil {
+			r.degrade(err)
+			persistFailed = true
+			continue
+		}
+		if err := r.sessionColl.UpdateActivity(r.session.SessionID, int64(len(commands)), activityAt); err != nil {
+			r.degrade(err)
+			persistFailed = true
+		}
+	}
 }
 
 // runWriter is the sole writer to bufio.Writer after startup. It drains the
@@ -266,7 +316,7 @@ func (r *asciicastRecorder) RecordResize(cols, rows uint16) {
 	r.writeEvent("r", fmt.Sprintf("%dx%d", cols, rows))
 }
 
-func (r *asciicastRecorder) persistCommands(commands []ExtractedCommand) {
+func (r *asciicastRecorder) persistCommands(commands []terminalcore.ExtractedCommand) {
 	if len(commands) == 0 {
 		return
 	}
@@ -290,17 +340,11 @@ func (r *asciicastRecorder) persistCommands(commands []ExtractedCommand) {
 			CreatedAt:    now,
 		})
 	}
-	r.persistWG.Add(1)
-	go func(commands []*models.TerminalCommand, commandCount int64, activityAt int64) {
-		defer r.persistWG.Done()
-		if err := r.commandColl.CreateMany(commands); err != nil {
-			r.degrade(err)
-			return
-		}
-		if err := r.sessionColl.UpdateActivity(r.session.SessionID, commandCount, activityAt); err != nil {
-			r.degrade(err)
-		}
-	}(commandModels, int64(len(commands)), now)
+	select {
+	case r.persistCh <- commandPersistBatch{commands: commandModels, activityAt: now}:
+	default:
+		r.degrade(fmt.Errorf("terminal audit command persistence buffer full for session %s", r.session.SessionID))
+	}
 }
 
 func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
@@ -310,9 +354,10 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 		if !r.degraded.Load() {
 			r.recordInput(r.inputMask.Flush())
 			r.recordOutput(r.outputMask.Flush())
-			r.persistCommands(r.extractor.flush())
+			r.persistCommands(r.extractor.Flush())
 		}
 		close(r.writeCh)
+		close(r.persistCh)
 		r.mu.Unlock()
 
 		// Bounded wait for the writer goroutine to flush buffered events and
@@ -326,13 +371,8 @@ func (r *asciicastRecorder) Close(status models.TerminalSessionStatus) error {
 
 		r.live.close()
 
-		persistDone := make(chan struct{})
-		go func() {
-			r.persistWG.Wait()
-			close(persistDone)
-		}()
 		select {
-		case <-persistDone:
+		case <-r.persistDone:
 		case <-time.After(closePersistTimeout):
 			r.degrade(fmt.Errorf("terminal audit command persistence timed out for session %s", r.session.SessionID))
 		}

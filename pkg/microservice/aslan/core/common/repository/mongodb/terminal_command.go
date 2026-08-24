@@ -86,7 +86,7 @@ func (c *TerminalCommandColl) CreateMany(commands []*models.TerminalCommand) err
 	return err
 }
 
-func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs) ([]*models.TerminalCommand, int64, error) {
+func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs, sortAsc bool) ([]*models.TerminalCommand, int64, error) {
 	resp := make([]*models.TerminalCommand, 0)
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
 	defer cancel()
@@ -121,7 +121,7 @@ func (c *TerminalCommandColl) List(args *models.TerminalCommandListArgs) ([]*mod
 	}
 
 	sortDirection := -1
-	if args.SortAsc {
+	if sortAsc {
 		sortDirection = 1
 	}
 	opts := options.Find().SetSort(bson.D{

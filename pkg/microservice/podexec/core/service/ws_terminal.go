@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
@@ -72,10 +71,10 @@ type TerminalSession struct {
 	closeOnce sync.Once
 	writeMu   sync.Mutex
 	closeErr  error
-	SessionID string
-	Recorder  terminalio.Recorder
-	// OutputSanitizer preserves workflow debug's existing display masking.
-	OutputSanitizer terminalio.Sanitizer
+	sessionID string
+	recorder  terminalio.Recorder
+	// outputSanitizer preserves workflow debug's existing display masking.
+	outputSanitizer terminalio.Sanitizer
 }
 
 func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
@@ -87,15 +86,14 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		wsConn:   conn,
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
-		Recorder: terminalio.NopRecorder{},
+		recorder: terminalio.NopRecorder{},
 	}
 	return session, nil
 }
 
-func (t *TerminalSession) SetupAudit(audit *terminalaudit.AuditSession) {
-	t.SessionID = audit.SessionID
-	t.Recorder = audit
-	log.Infof("terminal session audit attached, sessionID=%s", t.SessionID)
+func (t *TerminalSession) attachAudit(sessionID string, recorder terminalio.Recorder) {
+	t.sessionID = sessionID
+	t.recorder = recorder
 }
 
 // Done done
@@ -117,22 +115,22 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
-		log.Errorf("read message err: sessionID=%s err=%v", t.SessionID, err)
+		log.Errorf("read message err: sessionID=%s err=%v", t.sessionID, err)
 		_ = t.Close()
 		return 0, io.EOF
 	}
 	var msg TerminalMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
-		log.Errorf("read parse message err: sessionID=%s err=%v", t.SessionID, err)
+		log.Errorf("read parse message err: sessionID=%s err=%v", t.sessionID, err)
 		_ = t.Close()
 		return 0, err
 	}
 	switch msg.Operation {
 	case "stdin":
-		t.Recorder.RecordInput(msg.Data)
+		t.recorder.RecordInput(msg.Data)
 		return copy(p, msg.Data), nil
 	case "resize":
-		t.Recorder.RecordResize(msg.Cols, msg.Rows)
+		t.recorder.RecordResize(msg.Cols, msg.Rows)
 		select {
 		case t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}:
 			return 0, nil
@@ -140,7 +138,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 			return 0, io.EOF
 		}
 	default:
-		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.SessionID)
+		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.sessionID)
 		_ = t.Close()
 		return 0, fmt.Errorf("unknown message type '%s'", msg.Operation)
 	}
@@ -149,9 +147,9 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 // Write called from remotecommand whenever there is any output
 func (t *TerminalSession) Write(p []byte) (int, error) {
 	output := string(p)
-	t.Recorder.RecordOutput(output)
-	if t.OutputSanitizer != nil {
-		output = t.OutputSanitizer.Mask(output)
+	t.recorder.RecordOutput(output)
+	if t.outputSanitizer != nil {
+		output = t.outputSanitizer.Mask(output)
 	}
 	if err := t.writeOutput(output); err != nil {
 		_ = t.Close()
@@ -176,7 +174,7 @@ func (t *TerminalSession) writeOutput(output string) error {
 		return err
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Errorf("write message err: sessionID=%s err=%v", t.SessionID, err)
+		log.Errorf("write message err: sessionID=%s err=%v", t.sessionID, err)
 		return err
 	}
 	return nil
@@ -186,13 +184,13 @@ func (t *TerminalSession) writeOutput(output string) error {
 func (t *TerminalSession) Close() error {
 	t.closeOnce.Do(func() {
 		close(t.doneChan)
-		if t.OutputSanitizer != nil {
-			_ = t.writeOutput(t.OutputSanitizer.Flush())
+		if t.outputSanitizer != nil {
+			_ = t.writeOutput(t.outputSanitizer.Flush())
 		}
 		t.writeMu.Lock()
 		t.closeErr = t.wsConn.Close()
 		t.writeMu.Unlock()
-		log.Infof("close terminal session, sessionID=%s err=%v", t.SessionID, t.closeErr)
+		log.Infof("close terminal session, sessionID=%s err=%v", t.sessionID, t.closeErr)
 	})
 	return t.closeErr
 }

@@ -24,8 +24,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 

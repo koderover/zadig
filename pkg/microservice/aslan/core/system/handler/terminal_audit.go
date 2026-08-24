@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -94,7 +94,7 @@ func AnalyzeTerminalSession(c *gin.Context) {
 	if !authorized {
 		return
 	}
-	ctx.Resp, ctx.RespErr = systemservice.AnalyzeTerminalSession(c.Request.Context(), c.Param("sessionID"))
+	ctx.Resp, ctx.RespErr = systemservice.AnalyzeTerminalSession(c.Param("sessionID"))
 }
 
 func GetTerminalSessionAIResult(c *gin.Context) {

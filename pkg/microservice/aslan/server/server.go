@@ -25,8 +25,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )

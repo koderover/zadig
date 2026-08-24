@@ -21,10 +21,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	auditservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
@@ -82,7 +85,7 @@ func ServeWs(c *gin.Context) {
 	}
 	initialCols, initialRows := readTerminalSizeFromQuery(c)
 	finalStatus := commonmodels.TerminalSessionStatusFinished
-	var audit *terminalaudit.AuditSession
+	var audit *auditservice.AuditSession
 	defer func() {
 		_ = pty.Close()
 		if audit == nil {
@@ -116,7 +119,7 @@ func ServeWs(c *gin.Context) {
 	if secretErr != nil {
 		log.Warnf("collect pod secret values for terminal audit failed, continuing without audit: %v", secretErr)
 	} else {
-		meta := &terminalaudit.SessionMeta{
+		meta := &auditservice.SessionMeta{
 			SessionType:   commonmodels.TerminalSessionTypePodExec,
 			Protocol:      "k8s-exec",
 			UserID:        ctx.UserID,
@@ -137,7 +140,7 @@ func ServeWs(c *gin.Context) {
 			InitialRows:   initialRows,
 			Secrets:       secrets,
 		}
-		session, auditErr := terminalaudit.NewAuditSession(meta, func() {
+		session, auditErr := auditservice.NewAuditSession(meta, func() {
 			_ = pty.Close()
 		})
 		if auditErr != nil {
@@ -145,13 +148,13 @@ func ServeWs(c *gin.Context) {
 		} else {
 			audit = session
 			log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
-			pty.SetupAudit(audit)
+			pty.attachAudit(audit.SessionID, audit)
 		}
 	}
 
-	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.SessionID, clusterID, namespace, podName, containerName)
+	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.sessionID, clusterID, namespace, podName, containerName)
 	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
-	log.Infof("finish pod exec stream, sessionID=%s err=%v", pty.SessionID, err)
+	log.Infof("finish pod exec stream, sessionID=%s err=%v", pty.sessionID, err)
 	if err == nil || isExpectedTerminalClose(err) {
 		return
 	}
@@ -223,7 +226,7 @@ FOR:
 	}
 	initialCols, initialRows := readTerminalSizeFromQuery(c)
 	finalStatus := commonmodels.TerminalSessionStatusFinished
-	var audit *terminalaudit.AuditSession
+	var audit *auditservice.AuditSession
 	defer func() {
 		_ = pty.Close()
 		if audit == nil {
@@ -275,9 +278,9 @@ FOR:
 
 	// Browser-side credential masking must apply regardless of whether audit
 	// recording is available.
-	pty.OutputSanitizer = terminalaudit.NewSanitizer(credValues)
+	pty.outputSanitizer = terminalaudit.NewSanitizer(credValues)
 
-	meta := &terminalaudit.SessionMeta{
+	meta := &auditservice.SessionMeta{
 		SessionType:   commonmodels.TerminalSessionTypeWorkflowDebug,
 		Protocol:      "k8s-exec",
 		UserID:        ctx.UserID,
@@ -299,14 +302,14 @@ FOR:
 		InitialRows:   initialRows,
 		Secrets:       credValues,
 	}
-	session, auditErr := terminalaudit.NewAuditSession(meta, func() {
+	session, auditErr := auditservice.NewAuditSession(meta, func() {
 		_ = pty.Close()
 	})
 	if auditErr != nil {
 		log.Errorf("create workflow terminal audit recorder failed, continuing without audit: %v", auditErr)
 	} else {
 		audit = session
-		pty.SetupAudit(audit)
+		pty.attachAudit(audit.SessionID, audit)
 	}
 
 	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, containerName)
@@ -328,14 +331,11 @@ func readTerminalSizeFromQuery(c *gin.Context) (int, int) {
 }
 
 func isExpectedTerminalClose(err error) bool {
-	if errors.Is(err, io.EOF) {
+	if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || errors.Is(err, net.ErrClosed) || errors.Is(err, websocket.ErrCloseSent) {
 		return true
 	}
-	errText := strings.ToLower(err.Error())
-	return strings.Contains(errText, "websocket: close") ||
-		strings.Contains(errText, "close sent") ||
-		strings.Contains(errText, "use of closed network connection") ||
-		strings.Contains(errText, "next reader")
+	var closeErr *websocket.CloseError
+	return errors.As(err, &closeErr)
 }
 
 func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interface, pod *corev1.Pod, namespace, containerName string) ([]string, error) {

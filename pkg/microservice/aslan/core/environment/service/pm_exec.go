@@ -27,7 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"

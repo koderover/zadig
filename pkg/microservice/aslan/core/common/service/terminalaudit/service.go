@@ -50,7 +50,7 @@ func ListCommands(args *models.TerminalCommandListArgs) (*CommandListResponse, e
 	if err := normalizePagination(&args.PageNum, &args.PageSize); err != nil {
 		return nil, err
 	}
-	commands, total, err := commonrepo.NewTerminalCommandColl().List(args)
+	commands, total, err := commonrepo.NewTerminalCommandColl().List(args, false)
 	if err != nil {
 		return nil, err
 	}

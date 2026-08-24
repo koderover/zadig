@@ -69,7 +69,6 @@ func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt,
 			"findings":               []models.TerminalAuditAIFinding{},
 			"coverage":               "",
 			"model":                  "",
-			"prompt_version":         0,
 			"token_num":              0,
 			"analyzed_command_count": 0,
 			"total_command_count":    0,
@@ -116,10 +115,10 @@ func (c *TerminalAuditAIResultColl) UpdateLease(sessionID, runID string, leaseEx
 		"session_id": sessionID,
 		"run_id":     runID,
 		"status":     models.TerminalAuditAIStatusRunning,
-	}, bson.M{"$set": bson.M{
-		"lease_expires_at": leaseExpiresAt,
-		"updated_at":       now,
-	}})
+	}, bson.M{
+		"$max": bson.M{"lease_expires_at": leaseExpiresAt},
+		"$set": bson.M{"updated_at": now},
+	})
 	if err != nil {
 		return err
 	}
@@ -145,7 +144,6 @@ func (c *TerminalAuditAIResultColl) Finish(result *models.TerminalAuditAIResult)
 		"findings":               result.Findings,
 		"coverage":               result.Coverage,
 		"model":                  result.Model,
-		"prompt_version":         result.PromptVersion,
 		"token_num":              result.TokenNum,
 		"analyzed_command_count": result.AnalyzedCommandCount,
 		"total_command_count":    result.TotalCommandCount,
