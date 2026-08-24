@@ -276,6 +276,10 @@ func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAI
 	if err != nil {
 		return nil, err
 	}
+	if result.Status == commonmodels.TerminalAuditAIStatusRunning && result.LeaseExpiresAt <= time.Now().Unix() {
+		result.Status = commonmodels.TerminalAuditAIStatusFailed
+		result.ErrorMessage = "terminal audit ai analysis expired"
+	}
 	return result, nil
 }
 
