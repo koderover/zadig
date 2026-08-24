@@ -426,9 +426,7 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 	imageMap := make(map[string]string)
 	for _, image := range images {
 		name := commonutil.ExtractImageName(image)
-		if _, ok := imageMap[name]; !ok {
-			imageMap[name] = image
-		}
+		imageMap[name] = image
 	}
 
 	valuesMap := make(map[string]interface{})
