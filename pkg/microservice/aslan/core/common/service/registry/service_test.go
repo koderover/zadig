@@ -17,8 +17,65 @@ limitations under the License.
 package registry
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	_ "github.com/koderover/zadig/v2/pkg/util/testing"
+	"go.uber.org/zap"
 )
+
+func TestV2RegistryServiceCheckOCIImageExist(t *testing.T) {
+	const (
+		repository           = "test/service2"
+		tag                  = "20260821094907-91-main"
+		ociManifestMediaType = "application/vnd.oci.image.manifest.v1+json"
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/":
+			w.WriteHeader(http.StatusOK)
+		case fmt.Sprintf("/v2/%s/manifests/%s", repository, tag):
+			if !headerContains(r.Header.Values("Accept"), ociManifestMediaType) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"errors":[{"code":"MANIFEST_UNKNOWN","message":"manifest unknown"}]}`))
+				return
+			}
+			w.Header().Set("Content-Type", ociManifestMediaType)
+			w.Header().Set("Docker-Content-Digest", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+			w.Header().Set("Content-Length", "1")
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	service := NewV2Service("", false, "")
+	exists, err := service.CheckImageExist(CheckImageExistOption{
+		Endpoint: Endpoint{Addr: server.URL},
+		Image:    repository,
+		Tag:      tag,
+	}, zap.NewNop().Sugar())
+	if err != nil {
+		t.Fatalf("CheckImageExist() error = %v", err)
+	}
+	if !exists {
+		t.Fatal("CheckImageExist() = false, want true for an OCI image")
+	}
+}
+
+func headerContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
 
 //func Test_v2RegistryService_ListRepoImages(t *testing.T) {
 //	assert := require.New(t)
