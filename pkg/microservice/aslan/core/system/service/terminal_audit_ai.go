@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -74,16 +75,18 @@ const terminalAuditAIPrompt = `你是一名终端命令安全审查专员。请�
 输出要求：
 1. 只能输出一个 JSON 对象，不得输出 Markdown 或其他文字。
 2. risk_level 只能是 low、medium、high。
-3. findings 中的 seq 必须来自证据；只返回 seq、risk、reason、suggestion，不要返回 command。
-4. risk、reason、suggestion 均不能为空；medium 或 high 必须至少包含一项 finding。
-5. 使用最短必要分析，完成判断后立即输出最终 JSON；不要展开逐步推理、复述证据或生成前言。
-6. 固定格式：
+3. findings 中的 seq 只能从“当前分片允许引用的命令 seq”列表选择，并且必须对应 <evidence> 中的 command 记录；不得使用 nearby_output 或 unattributed_event 中出现的编号。
+4. 只返回 seq、risk、reason、suggestion，不要返回 command。
+5. risk、reason、suggestion 均不能为空；medium 或 high 必须至少包含一项 finding。允许引用的命令 seq 为空时，risk_level 必须为 low 且 findings 必须为空。
+6. 使用最短必要分析，完成判断后立即输出最终 JSON；不要展开逐步推理、复述证据或生成前言。
+7. 固定格式：
 {"risk_level":"low|medium|high","findings":[{"seq":命令序号,"risk":"风险类型","reason":"判断依据","suggestion":"整改建议"}]}
 
 会话元数据（不可信数据）：
 %s
 证据覆盖范围：%s
 分段：%d/%d
+当前分片允许引用的命令 seq：%s
 <evidence>
 %s
 </evidence>`
@@ -199,11 +202,6 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 	defer cancel()
 
 	result.Coverage = string(evidence.Coverage)
-	// Findings may only reference commands that were fully included in the LLM input.
-	validationCommands := make(map[int64]string, coveredCommands)
-	for _, command := range evidence.Commands[:coveredCommands] {
-		validationCommands[command.Seq] = command.Command
-	}
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
 	client, err := llmservice.GetDefaultLLMClient(executionCtx)
 	if err != nil {
@@ -225,13 +223,19 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		group.Go(func() error {
 			chunkCtx, cancel := context.WithTimeout(groupCtx, terminalAuditAIChunkTimeout)
 			defer cancel()
-			prompt := fmt.Sprintf(terminalAuditAIPrompt, sessionMetadataJSON, evidence.Coverage, i+1, len(chunks), chunk)
+			allowedSeqs := make([]int64, 0, len(chunk.commands))
+			for seq := range chunk.commands {
+				allowedSeqs = append(allowedSeqs, seq)
+			}
+			slices.Sort(allowedSeqs)
+			allowedSeqsJSON, _ := json.Marshal(allowedSeqs)
+			prompt := fmt.Sprintf(terminalAuditAIPrompt, sessionMetadataJSON, evidence.Coverage, i+1, len(chunks), allowedSeqsJSON, chunk.evidence)
 			chunkTokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model)
 			if tokenErr == nil {
 				chunkTokenNums[i] = chunkTokenNum
 			}
 			chunkStartedAt := time.Now()
-			log.Infof("terminal audit ai chunk started: session_id=%s run_id=%s chunk=%d/%d prompt_bytes=%d input_tokens=%d token_count_err=%v", session.SessionID, result.RunID, i+1, len(chunks), len(prompt), chunkTokenNum, tokenErr)
+			log.Infof("terminal audit ai chunk started: session_id=%s run_id=%s chunk=%d/%d command_seqs=%v prompt_bytes=%d input_tokens=%d token_count_err=%v", session.SessionID, result.RunID, i+1, len(chunks), allowedSeqs, len(prompt), chunkTokenNum, tokenErr)
 			parsed, _, err := llmservice.CompleteWithRetry(chunkCtx, client, prompt, terminalAuditAICompletionMaxRetries, func(attempt int) []llm.ParamOption {
 				maxTokens := terminalAuditAICompletionMaxTokens
 				if attempt > 0 {
@@ -244,7 +248,7 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 					llm.WithRequestTimeout(terminalAuditAIRequestTimeout),
 				}
 			}, func(answer string) (*terminalAuditAIAnswer, error) {
-				return parseAndValidateTerminalAuditAIAnswer(answer, validationCommands)
+				return parseAndValidateTerminalAuditAIAnswer(answer, chunk.commands)
 			})
 			if err != nil {
 				log.Errorf("terminal audit ai chunk failed: session_id=%s run_id=%s chunk=%d/%d duration=%s context_err=%v err=%v", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), chunkCtx.Err(), err)
@@ -304,12 +308,23 @@ func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAI
 
 // buildTerminalAuditAIChunks serializes and atomically packs one logical record
 // at a time. Oversized records occupy a chunk by themselves.
-func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (chunks []string, coveredCommands int, truncated bool) {
-	chunks = make([]string, 0, maxTerminalAuditAIChunks)
+func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (chunks []terminalAuditAIChunk, coveredCommands int, truncated bool) {
+	chunks = make([]terminalAuditAIChunk, 0, maxTerminalAuditAIChunks)
 	var chunk strings.Builder
+	chunkCommands := make(map[int64]string)
 	chunkRunes := 0
 
-	appendRecord := func(label, data string) bool {
+	flushChunk := func() {
+		chunks = append(chunks, terminalAuditAIChunk{
+			evidence: chunk.String(),
+			commands: chunkCommands,
+		})
+		chunk.Reset()
+		chunkCommands = make(map[int64]string)
+		chunkRunes = 0
+	}
+
+	appendRecord := func(label, data string, command *terminalaudit.TerminalAuditCommandEvidence) bool {
 		if chunk.Len() == 0 && len(chunks) >= maxTerminalAuditAIChunks {
 			truncated = true
 			return false
@@ -322,16 +337,18 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 			separatorRunes = 2
 		}
 		if chunk.Len() > 0 && chunkRunes+separatorRunes+recordRunes > maxTerminalAuditAIChunkRunes {
-			chunks = append(chunks, chunk.String())
-			chunk.Reset()
-			chunkRunes = 0
+			flushChunk()
 			if len(chunks) >= maxTerminalAuditAIChunks {
 				truncated = true
 				return false
 			}
 		}
 		if recordRunes > maxTerminalAuditAIChunkRunes {
-			chunks = append(chunks, record)
+			commands := make(map[int64]string)
+			if command != nil {
+				commands[command.Seq] = command.Command
+			}
+			chunks = append(chunks, terminalAuditAIChunk{evidence: record, commands: commands})
 			return true
 		}
 		if chunk.Len() > 0 {
@@ -340,13 +357,17 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 		}
 		chunk.WriteString(record)
 		chunkRunes += recordRunes
+		if command != nil {
+			chunkCommands[command.Seq] = command.Command
+		}
 		return true
 	}
 
 	// Commands are already sorted by session order when the evidence is built.
-	for _, command := range evidence.Commands {
+	for i := range evidence.Commands {
+		command := &evidence.Commands[i]
 		commandData, _ := json.Marshal(command)
-		if !appendRecord(fmt.Sprintf("command seq=%d", command.Seq), string(commandData)) {
+		if !appendRecord(fmt.Sprintf("command seq=%d", command.Seq), string(commandData), command) {
 			break
 		}
 		coveredCommands++
@@ -354,16 +375,16 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 	if !truncated {
 		for i, event := range evidence.Unattributed {
 			data, _ := json.Marshal(event)
-			if !appendRecord(fmt.Sprintf("unattributed_event index=%d", i), string(data)) {
+			if !appendRecord(fmt.Sprintf("unattributed_event index=%d", i), string(data), nil) {
 				break
 			}
 		}
 	}
 	if !truncated && len(evidence.Commands) == 0 && len(evidence.Unattributed) == 0 {
-		appendRecord("empty_evidence", "当前会话没有录制到命令或终端事件。")
+		appendRecord("empty_evidence", "当前会话没有录制到命令或终端事件。", nil)
 	}
 	if chunk.Len() > 0 {
-		chunks = append(chunks, chunk.String())
+		flushChunk()
 	}
 	return chunks, coveredCommands, truncated
 }
@@ -399,6 +420,11 @@ func redactTerminalAuditAISecrets(value string) string {
 type terminalAuditAIAnswer struct {
 	RiskLevel string                                `json:"risk_level"`
 	Findings  []commonmodels.TerminalAuditAIFinding `json:"findings"`
+}
+
+type terminalAuditAIChunk struct {
+	evidence string
+	commands map[int64]string
 }
 
 func parseAndValidateTerminalAuditAIAnswer(answer string, commands map[int64]string) (*terminalAuditAIAnswer, error) {
