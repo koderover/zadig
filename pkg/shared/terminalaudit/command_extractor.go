@@ -9,11 +9,16 @@ import (
 )
 
 var (
-	bracketedPasteStart    = []byte{0x1b, '[', '2', '0', '0', '~'}
-	bracketedPasteEnd      = []byte{0x1b, '[', '2', '0', '1', '~'}
-	interactiveEnterSeq    = []string{"\x1b[?1049h", "\x1b[?1047h", "\x1b[?47h"}
-	interactiveExitSeq     = []string{"\x1b[?1049l", "\x1b[?1047l", "\x1b[?47l"}
-	interactiveRejectHints = []string{"not found", "No such file or directory"}
+	// Terminals wrap pasted text with these markers so it can be distinguished from typed input.
+	bracketedPasteStart = []byte("\x1b[200~")
+	bracketedPasteEnd   = []byte("\x1b[201~")
+
+	// Full-screen programs such as vim and top use these sequences to enter and leave the alternate screen.
+	alternateScreenEnterSequences = []string{"\x1b[?1049h", "\x1b[?1047h", "\x1b[?47h"}
+	alternateScreenExitSequences  = []string{"\x1b[?1049l", "\x1b[?1047l", "\x1b[?47l"}
+
+	// These messages indicate that a full-screen command failed and normal shell input should resume.
+	interactiveCommandFailureHints = []string{"not found", "No such file or directory"}
 )
 
 const (
@@ -90,7 +95,7 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		return nil
 	}
 	e.appendOutputTail(data)
-	if e.pendingInteractive && containsAny(e.outputTail, interactiveEnterSeq) {
+	if e.pendingInteractive && containsAny(e.outputTail, alternateScreenEnterSequences) {
 		e.pendingInteractive = false
 		e.pendingInputs = nil
 		e.pendingInputBytes = 0
@@ -98,7 +103,7 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		e.interactiveMode = true
 		return nil
 	}
-	if e.pendingInteractive && (containsAny(e.outputTail, interactiveRejectHints) || looksLikeShellPrompt(e.outputTail)) {
+	if e.pendingInteractive && (containsAny(e.outputTail, interactiveCommandFailureHints) || looksLikeShellPrompt(e.outputTail)) {
 		pendingInputs := e.pendingInputs
 		e.pendingInteractive = false
 		e.pendingInputs = nil
@@ -107,7 +112,7 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		e.outputTail = ""
 		return e.replayDeferredInputs(pendingInputs)
 	}
-	if e.interactiveMode && containsAny(e.outputTail, interactiveExitSeq) {
+	if e.interactiveMode && containsAny(e.outputTail, alternateScreenExitSequences) {
 		e.interactiveMode = false
 	}
 	return nil
