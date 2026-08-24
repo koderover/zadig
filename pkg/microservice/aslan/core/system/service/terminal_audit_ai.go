@@ -41,7 +41,6 @@ const (
 	terminalAuditAIAnalysisTimeout          = 10 * time.Minute
 	terminalAuditAIPromptVersion            = 1
 	maxTerminalAuditAIChunkRunes            = 12000
-	maxTerminalAuditAIRecordRunes           = 6000
 	terminalAuditAICompletionMaxTokens      = 8192
 	terminalAuditAICompletionRetryMaxTokens = 12000
 	terminalAuditAICompletionMaxRetries     = 3
@@ -49,12 +48,10 @@ const (
 	// AI analysis. Sessions exceeding this limit are marked coverage=partial.
 	maxTerminalAuditAICommands = 500
 	// maxTerminalAuditAIChunks caps the number of sequential LLM calls per analysis.
-	// Each chunk is at most maxTerminalAuditAIChunkRunes runes; exceeding the cap
-	// also marks coverage=partial.
+	// Normal chunks are bounded by maxTerminalAuditAIChunkRunes; an oversized
+	// logical record occupies one chunk by itself instead of being split.
 	maxTerminalAuditAIChunks = 20
-	// Stop reading cast data once it could fill every allowed chunk. Prompt labels
-	// and JSON encoding consume part of the same chunk budget, so the packer may
-	// still stop earlier and mark the evidence partial.
+	// Bound the cast data loaded before it is packed into LLM requests.
 	maxTerminalAuditAIEvidenceRunes = maxTerminalAuditAIChunks * maxTerminalAuditAIChunkRunes
 )
 
@@ -241,69 +238,51 @@ func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAI
 	return result, nil
 }
 
-// buildTerminalAuditAIChunks serializes and packs one record at a time. It
-// never materializes the complete records list and reports truncation whenever
-// evidence remains after the chunk limit is reached.
+// buildTerminalAuditAIChunks serializes and atomically packs one logical record
+// at a time. Oversized records occupy a chunk by themselves.
 func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (chunks []string, coveredCommands int, truncated bool) {
 	chunks = make([]string, 0, maxTerminalAuditAIChunks)
 	var chunk strings.Builder
 	chunkRunes := 0
 
-	// appendRecord splits an oversized logical record and immediately packs each
-	// part into the current chunk, keeping memory bounded by the evidence budget.
 	appendRecord := func(label, data string) bool {
-		runes := []rune(data)
-		partCount := (len(runes) + maxTerminalAuditAIRecordRunes - 1) / maxTerminalAuditAIRecordRunes
-		if partCount == 0 {
-			partCount = 1
+		if chunk.Len() == 0 && len(chunks) >= maxTerminalAuditAIChunks {
+			truncated = true
+			return false
 		}
-		for part := 0; part < partCount; part++ {
-			start := part * maxTerminalAuditAIRecordRunes
-			end := start + maxTerminalAuditAIRecordRunes
-			if end > len(runes) {
-				end = len(runes)
-			}
-			record := fmt.Sprintf("[%s part=%d/%d]\n%s", label, part+1, partCount, string(runes[start:end]))
-			recordRunes := utf8.RuneCountInString(record)
-			separatorRunes := 0
-			if chunk.Len() > 0 {
-				separatorRunes = 2
-			}
-			if chunk.Len() > 0 && chunkRunes+separatorRunes+recordRunes > maxTerminalAuditAIChunkRunes {
-				chunks = append(chunks, chunk.String())
-				chunk.Reset()
-				chunkRunes = 0
-				if len(chunks) >= maxTerminalAuditAIChunks {
-					truncated = true
-					return false
-				}
-			}
-			if chunk.Len() > 0 {
-				chunk.WriteString("\n\n")
-				chunkRunes += 2
-			}
-			chunk.WriteString(record)
-			chunkRunes += recordRunes
+
+		record := fmt.Sprintf("[%s]\n%s", label, data)
+		recordRunes := utf8.RuneCountInString(record)
+		separatorRunes := 0
+		if chunk.Len() > 0 {
+			separatorRunes = 2
 		}
+		if chunk.Len() > 0 && chunkRunes+separatorRunes+recordRunes > maxTerminalAuditAIChunkRunes {
+			chunks = append(chunks, chunk.String())
+			chunk.Reset()
+			chunkRunes = 0
+			if len(chunks) >= maxTerminalAuditAIChunks {
+				truncated = true
+				return false
+			}
+		}
+		if recordRunes > maxTerminalAuditAIChunkRunes {
+			chunks = append(chunks, record)
+			return true
+		}
+		if chunk.Len() > 0 {
+			chunk.WriteString("\n\n")
+			chunkRunes += 2
+		}
+		chunk.WriteString(record)
+		chunkRunes += recordRunes
 		return true
 	}
 
-	// Keep each command and its nearby output atomic by serializing them as one record.
+	// Commands are already sorted by session order when the evidence is built.
 	for _, command := range evidence.Commands {
-		// appendRecord can seal one or more chunks before discovering that the
-		// command does not fit. This checkpoint restores the exact state before the
-		// command, avoiding partial evidence and an inflated analyzed count.
-		checkpointChunkCount := len(chunks)
-		checkpointChunk := chunk.String()
-		checkpointChunkRunes := chunkRunes
-
 		commandData, _ := json.Marshal(command)
 		if !appendRecord(fmt.Sprintf("command seq=%d", command.Seq), string(commandData)) {
-			chunks = chunks[:checkpointChunkCount]
-			chunk.Reset()
-			chunk.WriteString(checkpointChunk)
-			chunkRunes = checkpointChunkRunes
-			truncated = true
 			break
 		}
 		coveredCommands++
