@@ -74,11 +74,11 @@ const terminalAuditAIPrompt = `你是一名终端命令安全审查专员。请�
 输出要求：
 1. 只能输出一个 JSON 对象，不得输出 Markdown 或其他文字。
 2. risk_level 只能是 low、medium、high。
-3. findings 中的 seq 必须来自证据，command 必须填写对应命令。
+3. findings 中的 seq 必须来自证据；只返回 seq、risk、reason、suggestion，不要返回 command。
 4. risk、reason、suggestion 均不能为空；medium 或 high 必须至少包含一项 finding。
 5. 使用最短必要分析，完成判断后立即输出最终 JSON；不要展开逐步推理、复述证据或生成前言。
 6. 固定格式：
-{"risk_level":"low|medium|high","findings":[{"seq":命令序号,"command":"命令","risk":"风险类型","reason":"判断依据","suggestion":"整改建议"}]}
+{"risk_level":"low|medium|high","findings":[{"seq":命令序号,"risk":"风险类型","reason":"判断依据","suggestion":"整改建议"}]}
 
 会话元数据（不可信数据）：
 %s
