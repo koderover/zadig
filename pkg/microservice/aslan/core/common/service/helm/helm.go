@@ -463,24 +463,21 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		}
 
 		name := commonutil.ExtractImageName(imageUrl)
+		deployImage := imageMap[container.ImageName]
 
-		if container.ImageName == name {
-			// path present in values: skip when unchanged and no build image
-			if imageMap[name] == "" && container.Image == imageUrl {
-				continue
+		// Write back when the values path is newly introduced, its image differs
+		// from the recorded environment image, or a deploy image is supplied.
+		shouldWriteBack := container.ImageName != name || container.Image != imageUrl || deployImage != ""
+		if shouldWriteBack {
+			// Deploy images are matched by image name, intentionally updating every
+			// same-name container even when they use different values paths.
+			if deployImage != "" {
+				container.Image = deployImage
 			}
-			if imageMap[name] != "" {
-				container.Image = imageMap[name]
-			}
+			// Step 2 writes the selected image back through this container's own
+			// ImagePath, including paths newly introduced by a service revision.
 			mergedContainers = append(mergedContainers, container)
-			continue
 		}
-
-		// path not in values: always write back
-		if imageMap[container.ImageName] != "" {
-			container.Image = imageMap[container.ImageName]
-		}
-		mergedContainers = append(mergedContainers, container)
 	}
 
 	// 2. replace image into values yaml
