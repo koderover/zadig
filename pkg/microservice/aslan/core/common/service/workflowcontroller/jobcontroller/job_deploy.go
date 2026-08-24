@@ -604,15 +604,20 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	}
 
 	errList := new(multierror.Error)
+	updatedImages := make(map[string]string, len(c.jobTaskSpec.ServiceAndImages))
+	mutex := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
 		wg.Add(1)
 		go func(serviceModule *commonmodels.DeployServiceModule) {
 			defer wg.Done()
-			replaceResources, relatedPodLabels, err := UpdateExternalServiceModule(ctx, c.kubeClient, c.clientSet, resources, env, c.jobTaskSpec.ServiceName, serviceModule, "", c.workflowCtx.WorkflowTaskCreatorUsername, jobTaskctx, c.logger)
+			replaceResources, relatedPodLabels, err := UpdateExternalServiceModule(ctx, c.kubeClient, c.clientSet, resources, env, c.jobTaskSpec.ServiceName, serviceModule, jobTaskctx, c.logger)
+			mutex.Lock()
+			defer mutex.Unlock()
 			if err != nil {
 				errList = multierror.Append(errList, err)
 			} else {
+				updatedImages[serviceModule.ServiceModule] = serviceModule.Image
 				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, replaceResources...)
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, relatedPodLabels...)
 			}
@@ -620,7 +625,15 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	}
 	wg.Wait()
 	if err := errList.ErrorOrNil(); err != nil {
-		return err
+		if len(updatedImages) > 0 {
+			return fmt.Errorf("service %s/%s/%s images were partially updated (%d/%d modules); environment and environment version were not updated: %w", env.ProductName, env.EnvName, c.jobTaskSpec.ServiceName, len(updatedImages), len(c.jobTaskSpec.ServiceAndImages), err)
+		}
+		return fmt.Errorf("failed to update images for service %s/%s/%s, verify cluster state: %w", env.ProductName, env.EnvName, c.jobTaskSpec.ServiceName, err)
+	}
+	if len(updatedImages) > 0 {
+		if err := commonutil.UpdateProductImage(env.EnvName, env.ProductName, c.jobTaskSpec.ServiceName, updatedImages, "", c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
+			return fmt.Errorf("service %s/%s/%s images were updated in the cluster, but failed to sync environment and environment version: %w", env.ProductName, env.EnvName, c.jobTaskSpec.ServiceName, err)
+		}
 	}
 	return nil
 }
