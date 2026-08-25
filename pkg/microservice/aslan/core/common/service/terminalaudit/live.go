@@ -185,9 +185,8 @@ func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {
 		cancel()
 		return nil, nil, err
 	}
-	var data string
 	for attempt := 0; attempt < liveStateReadRetries; attempt++ {
-		data, err = redis.GetString(liveStateKey(sessionID))
+		_, err = redis.GetString(liveStateKey(sessionID))
 		if err == nil {
 			break
 		}
@@ -198,12 +197,6 @@ func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {
 		}
 		time.Sleep(liveStateReadRetryDelay)
 	}
-	if data == "" {
-		closeRedisSubscription()
-		cancel()
-		return nil, nil, fmt.Errorf("live terminal session is not ready")
-	}
-
 	frames := make(chan string, livePublishBufferSize)
 	done := make(chan struct{})
 	var closeOnce sync.Once
@@ -245,7 +238,7 @@ func relayLiveMessages(
 				return
 			}
 			resetTimer(timer, timeout)
-			if payload == liveMessageHeartbeat || payload == "" {
+			if payload == liveMessageHeartbeat {
 				continue
 			}
 			select {

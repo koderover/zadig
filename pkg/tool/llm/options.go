@@ -26,6 +26,21 @@ func newCompletionHTTPError(statusCode int, err error) error {
 	return &completionHTTPError{statusCode: statusCode, err: err}
 }
 
+type completionResponseError struct {
+	kind error
+	err  error
+}
+
+func (e *completionResponseError) Error() string { return e.err.Error() }
+func (e *completionResponseError) Unwrap() error { return e.err }
+func (e *completionResponseError) Is(target error) bool {
+	return target == e.kind || errors.Is(e.err, target)
+}
+
+func newCompletionResponseError(kind, err error) error {
+	return &completionResponseError{kind: kind, err: err}
+}
+
 func IsRetryableCompletionError(err error) bool {
 	if err == nil {
 		return false

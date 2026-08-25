@@ -50,9 +50,6 @@ func (c *TerminalAuditAIResultColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt, leaseExpiresAt int64) (*models.TerminalAuditAIResult, error) {
-	if sessionID == "" || runID == "" {
-		return nil, errors.New("terminal audit ai session id and run id are required")
-	}
 	filter := bson.M{
 		"session_id": sessionID,
 		"$or": bson.A{
@@ -83,10 +80,6 @@ func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt,
 			"session_id": sessionID,
 			"created_at": startedAt,
 		},
-		"$unset": bson.M{
-			"prompt": "",
-			"answer": "",
-		},
 	}
 	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
@@ -105,9 +98,6 @@ func (c *TerminalAuditAIResultColl) TryStart(sessionID, runID string, startedAt,
 }
 
 func (c *TerminalAuditAIResultColl) UpdateLease(sessionID, runID string, leaseExpiresAt int64) error {
-	if sessionID == "" || runID == "" || leaseExpiresAt <= 0 {
-		return errors.New("terminal audit ai session id, run id and lease expiration are required")
-	}
 	now := time.Now().Unix()
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
 	defer cancel()
@@ -129,14 +119,9 @@ func (c *TerminalAuditAIResultColl) UpdateLease(sessionID, runID string, leaseEx
 }
 
 func (c *TerminalAuditAIResultColl) Finish(result *models.TerminalAuditAIResult) error {
-	if result == nil || result.SessionID == "" || result.RunID == "" {
-		return errors.New("terminal audit ai result, session id and run id are required")
-	}
 	now := time.Now().Unix()
 	result.UpdatedAt = now
-	if result.FinishedAt == 0 {
-		result.FinishedAt = now
-	}
+	result.FinishedAt = now
 	update := bson.M{"$set": bson.M{
 		"status":                 result.Status,
 		"risk_level":             result.RiskLevel,

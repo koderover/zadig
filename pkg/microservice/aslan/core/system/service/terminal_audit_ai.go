@@ -112,11 +112,6 @@ func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResu
 		log.Warnf("terminal audit ai rejected running session: session_id=%s", sessionID)
 		return nil, e.NewWithDesc(e.ErrInvalidParam, "terminal session is still running")
 	}
-	if session.ObjectKey == "" {
-		log.Warnf("terminal audit ai cast file unavailable: session_id=%s", sessionID)
-		return nil, e.NewWithDesc(e.ErrNotFound, "terminal cast file is not available")
-	}
-
 	now := time.Now()
 	repo := commonrepo.NewTerminalAuditAIResultColl()
 	result, err := repo.TryStart(sessionID, uuid.NewString(), now.Unix(), now.Add(terminalAuditAIPreparationLease).Unix())
@@ -470,7 +465,7 @@ func parseAndValidateTerminalAuditAIAnswer(answer string, commands map[int64]str
 		return nil, fmt.Errorf("decode ai answer json: %w", err)
 	}
 	if parsed.Findings == nil {
-		parsed.Findings = make([]commonmodels.TerminalAuditAIFinding, 0)
+		return nil, errors.New("ai answer findings are required")
 	}
 	switch parsed.RiskLevel {
 	case "low", "medium", "high":

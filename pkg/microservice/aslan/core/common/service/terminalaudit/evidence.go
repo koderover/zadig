@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -70,30 +69,6 @@ type TerminalAuditEvent struct {
 // at most maxDataRunes runes of cast event data. A non-negative endOffsetMS
 // stops parsing before the first command excluded by the caller.
 func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*models.TerminalCommand, cast io.Reader, maxDataRunes int, endOffsetMS int64) (*TerminalAuditEvidence, error) {
-	if maxDataRunes <= 0 {
-		return nil, errors.New("terminal audit evidence data limit must be positive")
-	}
-	if session == nil {
-		return nil, errors.New("terminal session is nil")
-	}
-	if cast == nil {
-		return nil, errors.New("terminal cast reader is nil")
-	}
-
-	sortedCommands := make([]*models.TerminalCommand, 0, len(commands))
-	for _, command := range commands {
-		if command == nil {
-			return nil, errors.New("terminal command is nil")
-		}
-		sortedCommands = append(sortedCommands, command)
-	}
-	sort.SliceStable(sortedCommands, func(i, j int) bool {
-		if sortedCommands[i].TimeOffsetMS == sortedCommands[j].TimeOffsetMS {
-			return sortedCommands[i].Seq < sortedCommands[j].Seq
-		}
-		return sortedCommands[i].TimeOffsetMS < sortedCommands[j].TimeOffsetMS
-	})
-
 	evidence := &TerminalAuditEvidence{
 		Session: TerminalAuditSessionEvidence{
 			SessionID:     session.SessionID,
@@ -116,10 +91,10 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 			PodName:       session.PodName,
 			ContainerName: session.ContainerName,
 		},
-		Commands: make([]TerminalAuditCommandEvidence, 0, len(sortedCommands)),
+		Commands: make([]TerminalAuditCommandEvidence, 0, len(commands)),
 		Coverage: AuditEvidenceCoverageComplete,
 	}
-	for _, command := range sortedCommands {
+	for _, command := range commands {
 		commandEvidence := TerminalAuditCommandEvidence{
 			Seq:          command.Seq,
 			TimeOffsetMS: command.TimeOffsetMS,

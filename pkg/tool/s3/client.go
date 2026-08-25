@@ -258,12 +258,10 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 func (c *Client) UploadReader(bucketName string, body io.Reader, objectKey string, contentType string) error {
 	uploader := s3manager.NewUploaderWithClient(c.S3)
 	input := &s3manager.UploadInput{
-		Body:   body,
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(objectKey),
-	}
-	if contentType != "" {
-		input.ContentType = aws.String(contentType)
+		Body:        body,
+		Bucket:      aws.String(bucketName),
+		Key:         aws.String(objectKey),
+		ContentType: aws.String(contentType),
 	}
 	_, err := uploader.Upload(input)
 	return err

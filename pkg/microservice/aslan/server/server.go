@@ -33,7 +33,6 @@ import (
 
 func Serve(ctx context.Context) error {
 	terminalaudit.SetProcessContext(ctx)
-	defer terminalaudit.SetProcessContext(context.Background())
 
 	go func() {
 		if err := client.Start(ctx); err != nil {

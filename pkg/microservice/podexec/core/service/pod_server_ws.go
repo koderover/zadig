@@ -60,15 +60,12 @@ func ServeWs(c *gin.Context) {
 	containerName := c.Param("containerName")
 
 	if podName == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName can't be empty,please check!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("containerName can't be empty,please check!")
 		return
 	}
 	log.Infof("exec containerName: %s, pod: %s", containerName, podName)
 
 	productName := c.Query("projectName")
-	if productName == "" {
-		productName = c.Param("productName")
-	}
 	envName := c.Param("envName")
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
@@ -259,9 +256,6 @@ FOR:
 		logger.Errorf("debug workflow failed: pod status is %s", pod.Status.Phase)
 		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法启动调试终端", pod.Status.Phase))
 	}
-	if len(pod.Spec.Containers) == 0 {
-		return e.ErrGetDebugShell.AddDesc("调试 Pod 中没有可用容器")
-	}
 	containerName := pod.Spec.Containers[0].Name
 
 	var envs []string
@@ -335,7 +329,10 @@ func isExpectedTerminalClose(err error) bool {
 		return true
 	}
 	var closeErr *websocket.CloseError
-	return errors.As(err, &closeErr)
+	if !errors.As(err, &closeErr) {
+		return false
+	}
+	return closeErr.Code == websocket.CloseNormalClosure || closeErr.Code == websocket.CloseGoingAway
 }
 
 func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interface, pod *corev1.Pod, namespace, containerName string) ([]string, error) {

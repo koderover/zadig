@@ -3,7 +3,6 @@ package terminalaudit
 import (
 	"errors"
 	"fmt"
-	"math"
 
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -22,12 +21,7 @@ const (
 )
 
 func ListSessions(args *models.TerminalSessionListArgs) (*SessionListResponse, error) {
-	if args == nil {
-		args = &models.TerminalSessionListArgs{}
-	}
-	if err := normalizePagination(&args.PageNum, &args.PageSize); err != nil {
-		return nil, err
-	}
+	normalizePagination(&args.PageNum, &args.PageSize)
 	sessions, total, err := commonrepo.NewTerminalSessionColl().List(args)
 	if err != nil {
 		return nil, err
@@ -44,12 +38,7 @@ func GetSession(sessionID string) (*models.TerminalSession, error) {
 }
 
 func ListCommands(args *models.TerminalCommandListArgs) (*CommandListResponse, error) {
-	if args == nil {
-		args = &models.TerminalCommandListArgs{}
-	}
-	if err := normalizePagination(&args.PageNum, &args.PageSize); err != nil {
-		return nil, err
-	}
+	normalizePagination(&args.PageNum, &args.PageSize)
 	commands, total, err := commonrepo.NewTerminalCommandColl().List(args, false)
 	if err != nil {
 		return nil, err
@@ -62,10 +51,6 @@ func GetCastStream(sessionID string) (*CastFileStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	if session.ObjectKey == "" {
-		return nil, e.NewWithDesc(e.ErrNotFound, "cast file is not available")
-	}
-
 	store, err := getSessionStorage(session)
 	if err != nil {
 		return nil, err
@@ -74,11 +59,7 @@ func GetCastStream(sessionID string) (*CastFileStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	bucket := session.Bucket
-	if bucket == "" {
-		bucket = store.Bucket
-	}
-	object, err := client.GetFile(bucket, session.ObjectKey, &s3tool.DownloadOption{IgnoreNotExistError: false, RetryNum: 2})
+	object, err := client.GetFile(session.Bucket, session.ObjectKey, &s3tool.DownloadOption{IgnoreNotExistError: false, RetryNum: 2})
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +96,7 @@ func WatchSession(sessionID string) (<-chan string, func(), error) {
 	return subscribeToLiveFrames(sessionID)
 }
 
-func normalizePagination(pageNum, pageSize *int64) error {
+func normalizePagination(pageNum, pageSize *int64) {
 	if *pageNum <= 0 {
 		*pageNum = 1
 	}
@@ -125,19 +106,11 @@ func normalizePagination(pageNum, pageSize *int64) error {
 	if *pageSize > maxTerminalAuditPageSize {
 		*pageSize = maxTerminalAuditPageSize
 	}
-	// Guard the skip calculation in repository List methods against int64 overflow.
-	if *pageNum-1 > math.MaxInt64 / *pageSize {
-		return e.NewWithDesc(e.ErrInvalidParam, "pageNum is too large")
-	}
-	return nil
 }
 
 func getSessionStorage(session *models.TerminalSession) (*s3service.S3, error) {
 	if session.StorageID == internalStorageID {
 		return s3service.FindInternalS3(), nil
 	}
-	if session.StorageID != "" {
-		return s3service.FindS3ById(session.StorageID)
-	}
-	return s3service.FindDefaultS3()
+	return s3service.FindS3ById(session.StorageID)
 }

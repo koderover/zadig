@@ -11,22 +11,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-var (
-	processContextMu sync.RWMutex
-	processContext   = context.Background()
-)
+var processContext context.Context
 
 // SetProcessContext updates the parent context used by active terminal sessions.
 func SetProcessContext(ctx context.Context) {
-	processContextMu.Lock()
 	processContext = ctx
-	processContextMu.Unlock()
-}
-
-func processLifecycleContext() context.Context {
-	processContextMu.RLock()
-	defer processContextMu.RUnlock()
-	return processContext
 }
 
 type AuditSession struct {
@@ -71,7 +60,6 @@ type activeSession struct {
 var activeSessions sync.Map
 
 func registerActiveSession(sessionID string, terminate func()) error {
-	processContext := processLifecycleContext()
 	sessionContext, cancel := context.WithCancel(processContext)
 	terminateMessages, closeTerminate, err := subscribeRedis(sessionContext, cache.NewRedisCache(config.RedisCommonCacheTokenDB()), liveTerminateChannel(sessionID))
 	if err != nil {
@@ -128,9 +116,7 @@ func (s *activeSession) abort() {
 	terminate := s.terminate
 	s.mu.Unlock()
 	s.terminateOnce.Do(func() {
-		if terminate != nil {
-			terminate()
-		}
+		terminate()
 	})
 }
 

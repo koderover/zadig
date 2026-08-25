@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -90,19 +89,6 @@ func (c *TerminalSessionColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *TerminalSessionColl) Create(session *models.TerminalSession) error {
-	if session == nil {
-		return fmt.Errorf("terminal session is nil")
-	}
-	now := time.Now().Unix()
-	if session.CreatedAt == 0 {
-		session.CreatedAt = now
-	}
-	if session.UpdatedAt == 0 {
-		session.UpdatedAt = now
-	}
-	if session.LastActivityAt == 0 {
-		session.LastActivityAt = session.StartedAt
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
 	defer cancel()
 	_, err := c.InsertOne(ctx, session)
@@ -126,9 +112,7 @@ func (c *TerminalSessionColl) UpdateActivity(sessionID string, commandCountDelta
 			"updated_at": time.Now().Unix(),
 		},
 		"$max": bson.M{"last_activity_at": lastActivityAt},
-	}
-	if commandCountDelta != 0 {
-		update["$inc"] = bson.M{"command_count": commandCountDelta}
+		"$inc": bson.M{"command_count": commandCountDelta},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)
 	defer cancel()
@@ -137,9 +121,6 @@ func (c *TerminalSessionColl) UpdateActivity(sessionID string, commandCountDelta
 }
 
 func (c *TerminalSessionColl) CloseSession(args *CloseSessionArgs) error {
-	if args == nil {
-		return fmt.Errorf("close terminal session arguments are nil")
-	}
 	update := bson.M{
 		"$set": bson.M{
 			"status":           args.Status,

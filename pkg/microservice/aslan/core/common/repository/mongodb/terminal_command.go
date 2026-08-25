@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -70,14 +69,8 @@ func (c *TerminalCommandColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *TerminalCommandColl) CreateMany(commands []*models.TerminalCommand) error {
-	if len(commands) == 0 {
-		return nil
-	}
 	docs := make([]interface{}, 0, len(commands))
 	for _, command := range commands {
-		if command == nil {
-			return fmt.Errorf("terminal command is nil")
-		}
 		docs = append(docs, command)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), terminalAuditMongoTimeout)

@@ -86,9 +86,6 @@ type castHeader struct {
 }
 
 func newRecorder(meta *SessionMeta) (*asciicastRecorder, error) {
-	if meta == nil {
-		return nil, fmt.Errorf("terminal session meta is nil")
-	}
 	startedAt := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), auditStorageLookupTimeout)
 	defer cancel()

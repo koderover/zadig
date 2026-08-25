@@ -103,13 +103,6 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 	if resp.VMInfo != nil {
 		hostName = resp.VMInfo.HostName
 	}
-	targetName := resp.Name
-	if targetName == "" {
-		targetName = hostName
-	}
-	if targetName == "" {
-		targetName = resp.IP
-	}
 	meta := &terminalaudit.SessionMeta{
 		SessionType:  commonmodels.TerminalSessionTypeSSH,
 		Protocol:     "ssh",
@@ -117,7 +110,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		ProjectName:  productName,
 		EnvName:      envName,
 		ServiceName:  serviceName,
-		TargetName:   targetName,
+		TargetName:   resp.Name,
 		RemoteAddr:   resp.IP,
 		LoginAccount: resp.UserName,
 		HostID:       hostId,
@@ -145,7 +138,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 		}
 	}()
 
-	var recorder terminalio.Recorder
+	recorder := terminalio.Recorder(terminalio.NopRecorder{})
 	if audit != nil {
 		recorder = audit
 	}

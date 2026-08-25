@@ -66,9 +66,6 @@ type SshConn struct {
 }
 
 func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
-	if recorder == nil {
-		recorder = terminalio.NopRecorder{}
-	}
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
@@ -118,12 +115,13 @@ func (ssConn *SshConn) ReadWsMessage(wsConn *websocket.Conn, stopCh chan bool) {
 
 			switch wsMsgObj.Operation {
 			case wsMsgResize:
-				if wsMsgObj.Cols <= 0 || wsMsgObj.Cols > math.MaxUint16 || wsMsgObj.Rows <= 0 || wsMsgObj.Rows > math.MaxUint16 {
-					continue
-				}
-				ssConn.WsWriter.recorder.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
-				if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
-					log.Error("resize windows err:", err)
+				if wsMsgObj.Cols > 0 && wsMsgObj.Rows > 0 {
+					if wsMsgObj.Cols <= math.MaxUint16 && wsMsgObj.Rows <= math.MaxUint16 {
+						ssConn.WsWriter.recorder.RecordResize(uint16(wsMsgObj.Cols), uint16(wsMsgObj.Rows))
+					}
+					if err := ssConn.SshSession.WindowChange(wsMsgObj.Rows, wsMsgObj.Cols); err != nil {
+						log.Error("resize windows err:", err)
+					}
 				}
 			case wsMsgStdin:
 				ssConn.WsWriter.recorder.RecordInput(wsMsgObj.Data)
@@ -179,8 +177,6 @@ func setStop(ch chan bool) {
 }
 
 func flushWsWriter(w *wsBufferWriter, wsConn *websocket.Conn) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	if w.buffer.Len() != 0 {
 		msg, err := json.Marshal(wsMessage{
 			Operation: wsMsgStdout,

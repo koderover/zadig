@@ -60,7 +60,7 @@ type PtyHandler interface {
 	io.Reader
 	io.Writer
 	remotecommand.TerminalSizeQueue
-	Done() <-chan struct{}
+	Done() chan struct{}
 }
 
 // TerminalSession implements PtyHandler
@@ -97,7 +97,7 @@ func (t *TerminalSession) attachAudit(sessionID string, recorder terminalio.Reco
 }
 
 // Done done
-func (t *TerminalSession) Done() <-chan struct{} {
+func (t *TerminalSession) Done() chan struct{} {
 	return t.doneChan
 }
 
@@ -116,13 +116,14 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
 		log.Errorf("read message err: sessionID=%s err=%v", t.sessionID, err)
-		_ = t.Close()
-		return 0, io.EOF
+		if isExpectedTerminalClose(err) {
+			return 0, io.EOF
+		}
+		return 0, err
 	}
 	var msg TerminalMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
 		log.Errorf("read parse message err: sessionID=%s err=%v", t.sessionID, err)
-		_ = t.Close()
 		return 0, err
 	}
 	switch msg.Operation {
@@ -139,7 +140,6 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 		}
 	default:
 		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.sessionID)
-		_ = t.Close()
 		return 0, fmt.Errorf("unknown message type '%s'", msg.Operation)
 	}
 }
@@ -152,7 +152,6 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		output = t.outputSanitizer.Mask(output)
 	}
 	if err := t.writeOutput(output); err != nil {
-		_ = t.Close()
 		return 0, err
 	}
 	return len(p), nil

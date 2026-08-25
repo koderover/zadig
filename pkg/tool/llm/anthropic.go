@@ -166,7 +166,7 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 
 	response := new(anthropicMessageResponse)
 	if err := json.NewDecoder(resp.Body).Decode(response); err != nil {
-		return "", fmt.Errorf("%w: decode anthropic response: %v", ErrInvalidCompletion, err)
+		return "", newCompletionResponseError(ErrInvalidCompletion, fmt.Errorf("decode anthropic response: %w", err))
 	}
 	var result strings.Builder
 	textBlocks := 0
@@ -192,9 +192,8 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 		)
 	}
 	if strings.TrimSpace(result.String()) == "" {
-		return "", fmt.Errorf(
-			"%w: anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
-			ErrEmptyCompletionResponse,
+		return "", newCompletionResponseError(ErrEmptyCompletionResponse, fmt.Errorf(
+			"anthropic response contains no usable text content: response_id=%s stop_reason=%s content_blocks=%d text_blocks=%d text_length=%d tool_use_blocks=%d input_tokens=%d output_tokens=%d",
 			response.ID,
 			response.StopReason,
 			len(response.Content),
@@ -203,7 +202,7 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 			toolUseBlocks,
 			response.Usage.InputTokens,
 			response.Usage.OutputTokens,
-		)
+		))
 	}
 	return result.String(), nil
 }

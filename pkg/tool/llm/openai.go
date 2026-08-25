@@ -136,15 +136,14 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf(
-			"%w: openai response contains no completion choices: response_id=%s prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
-			ErrEmptyCompletionResponse,
+		return "", newCompletionResponseError(ErrEmptyCompletionResponse, fmt.Errorf(
+			"openai response contains no completion choices: response_id=%s prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
 			resp.ID,
 			resp.Usage.PromptTokens,
 			resp.Usage.CompletionTokens,
 			reasoningTokens,
 			resp.Usage.TotalTokens,
-		)
+		))
 	}
 	choice := resp.Choices[0]
 	thinkStartTag := "<think>"
@@ -177,9 +176,8 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		)
 	}
 	if strings.TrimSpace(message) == "" {
-		return "", fmt.Errorf(
-			"%w: openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
-			ErrEmptyCompletionResponse,
+		return "", newCompletionResponseError(ErrEmptyCompletionResponse, fmt.Errorf(
+			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t prompt_tokens=%d completion_tokens=%d reasoning_tokens=%d total_tokens=%d",
 			resp.ID,
 			choice.FinishReason,
 			len(choice.Message.Content),
@@ -191,7 +189,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			resp.Usage.CompletionTokens,
 			reasoningTokens,
 			resp.Usage.TotalTokens,
-		)
+		))
 	}
 	return message, nil
 }
