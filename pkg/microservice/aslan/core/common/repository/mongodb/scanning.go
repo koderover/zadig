@@ -36,7 +36,6 @@ type ScanningListOption struct {
 	ProjectName   string
 	ScanningNames []string
 	TemplateID    string
-	BasicImageID  string
 }
 
 type ScanningColl struct {
@@ -128,10 +127,6 @@ func (c *ScanningColl) List(listOption *ScanningListOption, pageNum, pageSize in
 
 		if len(listOption.TemplateID) > 0 {
 			query["template_id"] = listOption.TemplateID
-		}
-
-		if len(listOption.BasicImageID) > 0 {
-			query["image_id"] = listOption.BasicImageID
 		}
 	}
 

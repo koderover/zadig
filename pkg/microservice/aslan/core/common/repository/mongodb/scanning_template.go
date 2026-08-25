@@ -33,9 +33,8 @@ import (
 )
 
 type ScanningTemplateQueryOption struct {
-	ID           string
-	Name         string
-	BasicImageID string
+	ID   string
+	Name string
 }
 
 type ScanningTemplateColl struct {
@@ -91,9 +90,6 @@ func (c *ScanningTemplateColl) Find(opt *ScanningTemplateQueryOption) (*models.S
 	}
 	if len(opt.Name) > 0 {
 		query["name"] = opt.Name
-	}
-	if len(opt.BasicImageID) > 0 {
-		query["image_id"] = opt.BasicImageID
 	}
 	resp := new(models.ScanningTemplate)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
