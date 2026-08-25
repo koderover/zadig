@@ -157,23 +157,6 @@ func validateAdvancedSetting(infrastructure string, advanced *types.OpenAPIAdvan
 	if err := validateStorages(advanced.Storages); err != nil {
 		return err
 	}
-	keyValues := []struct {
-		name   string
-		values []*types.KeyValue
-	}{
-		{name: "custom_annotations", values: advanced.CustomAnnotations},
-		{name: "custom_labels", values: advanced.CustomLabels},
-	}
-	for _, group := range keyValues {
-		for i, value := range group.values {
-			if value == nil || strings.TrimSpace(value.Key) == "" {
-				return fmt.Errorf("advanced_settings.%s[%d].key cannot be empty", group.name, i)
-			}
-			if _, ok := value.Value.(string); !ok {
-				return fmt.Errorf("advanced_settings.%s[%d].value must be a string", group.name, i)
-			}
-		}
-	}
 	return nil
 }
 
