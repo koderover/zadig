@@ -226,13 +226,21 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 }
 
 func applyRepos(base, input []*types.Repository) []*types.Repository {
+	type repoKey struct {
+		key          string
+		checkoutPath string
+	}
+
 	resp := make([]*types.Repository, 0)
-	customRepoMap := make(map[string]*types.Repository)
+	customRepoMap := make(map[repoKey]*types.Repository)
 	for _, repo := range input {
 		if repo.RepoNamespace == "" {
 			repo.RepoNamespace = repo.RepoOwner
 		}
-		customRepoMap[repo.GetKey()] = repo
+		customRepoMap[repoKey{key: repo.GetKey()}] = repo
+		if repo.CheckoutPath != "" {
+			customRepoMap[repoKey{key: repo.GetKey(), checkoutPath: repo.CheckoutPath}] = repo
+		}
 	}
 	for _, repo := range base {
 		item := new(types.Repository)
@@ -240,8 +248,12 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 		if item.RepoNamespace == "" {
 			item.RepoNamespace = item.RepoOwner
 		}
+		cv, ok := customRepoMap[repoKey{key: repo.GetKey(), checkoutPath: repo.CheckoutPath}]
+		if !ok {
+			cv, ok = customRepoMap[repoKey{key: repo.GetKey()}]
+		}
 		// user can only set default branch in custom workflow.
-		if cv, ok := customRepoMap[repo.GetKey()]; ok {
+		if ok {
 			item.Branch = cv.Branch
 			item.MergeBranches = cv.MergeBranches
 			item.Tag = cv.Tag
