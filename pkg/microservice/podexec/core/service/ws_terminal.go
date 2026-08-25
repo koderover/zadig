@@ -48,6 +48,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+const EndOfTransmission = "\u0004"
+
 // TerminalMessage is the messaging protocol between ShellController and TerminalSession.
 type TerminalMessage struct {
 	Operation string `json:"operation"`
@@ -119,12 +121,12 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 		if isExpectedTerminalClose(err) {
 			return 0, io.EOF
 		}
-		return 0, err
+		return copy(p, EndOfTransmission), err
 	}
 	var msg TerminalMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
 		log.Errorf("read parse message err: sessionID=%s err=%v", t.sessionID, err)
-		return 0, err
+		return copy(p, EndOfTransmission), err
 	}
 	switch msg.Operation {
 	case "stdin":
@@ -140,7 +142,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 		}
 	default:
 		log.Errorf("unknown message type '%s', sessionID=%s", msg.Operation, t.sessionID)
-		return 0, fmt.Errorf("unknown message type '%s'", msg.Operation)
+		return copy(p, EndOfTransmission), fmt.Errorf("unknown message type '%s'", msg.Operation)
 	}
 }
 
@@ -195,7 +197,7 @@ func (t *TerminalSession) Close() error {
 }
 
 // 验证是否存在
-func ValidatePod(kubeClient kubernetes.Interface, namespace, podName, containerName string) (*corev1.Pod, error) {
+func ValidatePod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (*corev1.Pod, error) {
 	pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
