@@ -43,7 +43,8 @@ type ReleasePlan struct {
 
 	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
 
-	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
+	Jobs        []*ReleaseJob           `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
+	JobSpecsRef *ReleasePlanJobSpecsRef `bson:"job_specs_ref,omitempty" yaml:"-" json:"-"`
 
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 
@@ -96,6 +97,29 @@ type ReleaseJob struct {
 	Spec      interface{}               `bson:"spec,omitempty" yaml:"spec,omitempty"         json:"spec,omitempty"`
 
 	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
+}
+
+type ReleasePlanJobSpecsRef struct {
+	StorageID      primitive.ObjectID `bson:"storage_id"`
+	Encoding       string             `bson:"encoding"`
+	ChunkCount     int32              `bson:"chunk_count"`
+	OriginalSize   int64              `bson:"original_size"`
+	CompressedSize int64              `bson:"compressed_size"`
+	SHA256         string             `bson:"sha256"`
+	ContentSHA256  string             `bson:"content_sha256"`
+}
+
+type ReleasePlanJobSpecChunk struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty"`
+	StorageID primitive.ObjectID `bson:"storage_id"`
+	PlanID    string             `bson:"plan_id"`
+	Sequence  int32              `bson:"sequence"`
+	Data      []byte             `bson:"data"`
+	CreatedAt int64              `bson:"created_at"`
+}
+
+func (ReleasePlanJobSpecChunk) TableName() string {
+	return "release_plan_job_spec_chunk"
 }
 
 type ReleaseJobRuntime struct {

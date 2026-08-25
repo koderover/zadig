@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -90,8 +91,20 @@ func (c *ReleasePlanColl) Create(ctx context.Context, args *models.ReleasePlan) 
 		return "", errors.New("nil ReleasePlan")
 	}
 
-	res, err := c.InsertOne(ctx, args)
+	storedPlan, chunks, err := prepareReleasePlanForStorage(args, nil)
 	if err != nil {
+		return "", err
+	}
+	chunkColl := NewReleasePlanJobSpecChunkColl()
+	if len(chunks) > 0 {
+		if err := chunkColl.Create(ctx, chunks); err != nil {
+			return "", errors.Wrap(err, "create release plan job spec chunks")
+		}
+	}
+
+	res, err := c.InsertOne(ctx, storedPlan)
+	if err != nil {
+		cleanupReleasePlanJobSpecChunks(ctx, chunkColl, storedPlan.JobSpecsRef, "create release plan")
 		return "", err
 	}
 	id, ok := res.InsertedID.(primitive.ObjectID)
@@ -109,8 +122,20 @@ func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models
 
 	query := bson.M{"_id": id}
 	result := new(models.ReleasePlan)
-	err = c.FindOne(ctx, query).Decode(result)
-	return result, err
+	if err := c.FindOne(ctx, query).Decode(result); err != nil {
+		return nil, err
+	}
+	if result.JobSpecsRef == nil {
+		return result, nil
+	}
+	chunks, err := NewReleasePlanJobSpecChunkColl().List(ctx, idString, result.JobSpecsRef.StorageID)
+	if err != nil {
+		return nil, errors.Wrap(err, "list release plan job spec chunks")
+	}
+	if err := restoreReleasePlanJobSpecs(result, chunks); err != nil {
+		return nil, errors.Wrap(err, "restore release plan job specs")
+	}
+	return result, nil
 }
 
 func (c *ReleasePlanColl) GetVersionByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {
@@ -139,10 +164,32 @@ func (c *ReleasePlanColl) UpdateByID(ctx context.Context, idString string, args 
 		return fmt.Errorf("invalid id")
 	}
 
+	storedPlan, chunks, err := prepareReleasePlanForStorage(args, args.JobSpecsRef)
+	if err != nil {
+		return err
+	}
+	chunkColl := NewReleasePlanJobSpecChunkColl()
+	if len(chunks) > 0 {
+		if err := chunkColl.Create(ctx, chunks); err != nil {
+			return errors.Wrap(err, "create release plan job spec chunks")
+		}
+	}
+
 	query := bson.M{"_id": id}
-	change := bson.M{"$set": args}
-	_, err = c.UpdateOne(ctx, query, change)
-	return err
+	change := bson.M{"$set": storedPlan}
+	if storedPlan.JobSpecsRef == nil {
+		change["$unset"] = bson.M{"job_specs_ref": ""}
+	}
+	if _, err = c.UpdateOne(ctx, query, change); err != nil {
+		if len(chunks) > 0 {
+			cleanupReleasePlanJobSpecChunks(ctx, chunkColl, storedPlan.JobSpecsRef, "update release plan")
+		}
+		return err
+	}
+	if args.JobSpecsRef != nil && (storedPlan.JobSpecsRef == nil || args.JobSpecsRef.StorageID != storedPlan.JobSpecsRef.StorageID) {
+		cleanupReleasePlanJobSpecChunks(ctx, chunkColl, args.JobSpecsRef, "replace release plan job specs")
+	}
+	return nil
 }
 
 func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error {
@@ -152,8 +199,25 @@ func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error
 	}
 
 	query := bson.M{"_id": id}
-	_, err = c.DeleteOne(ctx, query)
-	return err
+	result := new(models.ReleasePlan)
+	err = c.FindOneAndDelete(ctx, query, options.FindOneAndDelete().SetProjection(bson.M{"job_specs_ref": 1})).Decode(result)
+	if err == mongo.ErrNoDocuments {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cleanupReleasePlanJobSpecChunks(ctx, NewReleasePlanJobSpecChunkColl(), result.JobSpecsRef, "delete release plan")
+	return nil
+}
+
+func cleanupReleasePlanJobSpecChunks(ctx context.Context, coll *ReleasePlanJobSpecChunkColl, ref *models.ReleasePlanJobSpecsRef, operation string) {
+	if ref == nil {
+		return
+	}
+	if err := coll.Delete(ctx, ref.StorageID); err != nil {
+		log.SugaredLogger().Warnf("failed to clean up release plan job spec chunks after %s: %v", operation, err)
+	}
 }
 
 type SortReleasePlanBy string
