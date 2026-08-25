@@ -118,6 +118,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
 		log.Errorf("read message err: sessionID=%s err=%v", t.sessionID, err)
+		_ = t.Close()
 		if isExpectedTerminalClose(err) {
 			return 0, io.EOF
 		}
