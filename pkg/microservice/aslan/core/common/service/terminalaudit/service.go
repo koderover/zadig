@@ -16,12 +16,14 @@ import (
 )
 
 const (
-	defaultTerminalAuditPageSize int64 = 20
-	maxTerminalAuditPageSize     int64 = 100
+	defaultTerminalSessionPageSize int64 = 20
+	maxTerminalSessionPageSize     int64 = 200
+	defaultTerminalCommandPageSize int64 = 1000
+	maxTerminalCommandPageSize     int64 = 1000
 )
 
 func ListSessions(args *models.TerminalSessionListArgs) (*SessionListResponse, error) {
-	normalizePagination(&args.PageNum, &args.PageSize)
+	normalizePagination(&args.PageNum, &args.PageSize, defaultTerminalSessionPageSize, maxTerminalSessionPageSize)
 	sessions, total, err := commonrepo.NewTerminalSessionColl().List(args)
 	if err != nil {
 		return nil, err
@@ -38,7 +40,7 @@ func GetSession(sessionID string) (*models.TerminalSession, error) {
 }
 
 func ListCommands(args *models.TerminalCommandListArgs) (*CommandListResponse, error) {
-	normalizePagination(&args.PageNum, &args.PageSize)
+	normalizePagination(&args.PageNum, &args.PageSize, defaultTerminalCommandPageSize, maxTerminalCommandPageSize)
 	commands, total, err := commonrepo.NewTerminalCommandColl().List(args, false)
 	if err != nil {
 		return nil, err
@@ -96,15 +98,15 @@ func WatchSession(sessionID string) (<-chan string, func(), error) {
 	return subscribeToLiveFrames(sessionID)
 }
 
-func normalizePagination(pageNum, pageSize *int64) {
+func normalizePagination(pageNum, pageSize *int64, defaultPageSize, maxPageSize int64) {
 	if *pageNum <= 0 {
 		*pageNum = 1
 	}
 	if *pageSize <= 0 {
-		*pageSize = defaultTerminalAuditPageSize
+		*pageSize = defaultPageSize
 	}
-	if *pageSize > maxTerminalAuditPageSize {
-		*pageSize = maxTerminalAuditPageSize
+	if *pageSize > maxPageSize {
+		*pageSize = maxPageSize
 	}
 }
 
