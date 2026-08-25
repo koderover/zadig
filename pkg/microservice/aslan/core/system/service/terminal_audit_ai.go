@@ -102,28 +102,22 @@ var terminalAuditAIRedactors = []struct {
 }
 
 func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResult, error) {
-	log.Infof("terminal audit ai requested: session_id=%s", sessionID)
 	session, err := terminalaudit.GetSession(sessionID)
 	if err != nil {
-		log.Errorf("terminal audit ai failed to load session: session_id=%s err=%v", sessionID, err)
 		return nil, err
 	}
 	if session.Status == commonmodels.TerminalSessionStatusRunning {
-		log.Warnf("terminal audit ai rejected running session: session_id=%s", sessionID)
 		return nil, e.NewWithDesc(e.ErrInvalidParam, "terminal session is still running")
 	}
 	now := time.Now()
 	repo := commonrepo.NewTerminalAuditAIResultColl()
 	result, err := repo.TryStart(sessionID, uuid.NewString(), now.Unix(), now.Add(terminalAuditAIPreparationLease).Unix())
 	if errors.Is(err, commonrepo.ErrTerminalAuditAIAlreadyRunning) {
-		log.Infof("terminal audit ai already running: session_id=%s", sessionID)
 		return repo.FindBySessionID(sessionID)
 	}
 	if err != nil {
-		log.Errorf("terminal audit ai failed to start: session_id=%s err=%v", sessionID, err)
 		return nil, fmt.Errorf("start terminal audit ai analysis: %w", err)
 	}
-	log.Infof("terminal audit ai started: session_id=%s run_id=%s preparation_lease=%s", sessionID, result.RunID, terminalAuditAIPreparationLease)
 
 	analysisResult := *result
 	go func() {
@@ -132,10 +126,8 @@ func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResu
 		if err != nil {
 			result.Status = commonmodels.TerminalAuditAIStatusFailed
 			result.ErrorMessage = err.Error()
-			log.Errorf("terminal audit ai failed: session_id=%s run_id=%s duration=%s err=%v", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), err)
 		} else {
 			result.Status = commonmodels.TerminalAuditAIStatusSucceeded
-			log.Infof("terminal audit ai succeeded: session_id=%s run_id=%s duration=%s model=%s total_commands=%d analyzed_commands=%d findings=%d input_tokens=%d", sessionID, result.RunID, time.Since(now).Round(time.Millisecond), result.Model, result.TotalCommandCount, result.AnalyzedCommandCount, len(result.Findings), result.TokenNum)
 		}
 		if finishErr := repo.Finish(result); finishErr != nil {
 			log.Errorf("terminal audit ai failed to save result: session_id=%s run_id=%s status=%s analysis_err=%v err=%v", sessionID, result.RunID, result.Status, err, finishErr)
@@ -189,7 +181,6 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		return err
 	}
 	result.Model = client.GetModel()
-	log.Infof("terminal audit ai prepared: session_id=%s run_id=%s integration=%s model=%s total_commands=%d loaded_commands=%d covered_commands=%d chunks=%d chunk_concurrency=%d chunk_timeout=%s lease_window=%s completion_attempts=%d coverage=%s chunks_truncated=%t", session.SessionID, result.RunID, client.GetName(), result.Model, total, len(commands), coveredCommands, len(chunks), maxTerminalAuditAIConcurrentChunks, terminalAuditAIChunkTimeout, leaseWindow, terminalAuditAICompletionMaxAttempts, evidence.Coverage, chunksTruncated)
 
 	result.RiskLevel = "low"
 	chunkResults := make([]*terminalAuditAIAnswer, len(chunks))
@@ -224,12 +215,9 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 				slices.Sort(allowedSeqs)
 				allowedSeqsJSON, _ := json.Marshal(allowedSeqs)
 				prompt := fmt.Sprintf(terminalAuditAIPrompt, sessionMetadataJSON, evidence.Coverage, i+1, len(chunks), allowedSeqsJSON, chunk.evidence)
-				chunkTokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model)
-				if tokenErr == nil {
-					chunkTokenNums[i] = chunkTokenNum
+				if tokenNum, tokenErr := llm.NumTokensFromPrompt(prompt, result.Model); tokenErr == nil {
+					chunkTokenNums[i] = tokenNum
 				}
-				chunkStartedAt := time.Now()
-				log.Infof("terminal audit ai chunk started: session_id=%s run_id=%s chunk=%d/%d command_seqs=%v prompt_bytes=%d input_tokens=%d token_count_err=%v", session.SessionID, result.RunID, i+1, len(chunks), allowedSeqs, len(prompt), chunkTokenNum, tokenErr)
 				parsed, _, err := llmservice.CompleteWithRetry(chunkCtx, client, prompt, terminalAuditAICompletionMaxRetries, func(attempt int) []llm.ParamOption {
 					maxTokens := terminalAuditAICompletionMaxTokens
 					if attempt > 0 {
@@ -244,13 +232,10 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 				}, func(answer string) (*terminalAuditAIAnswer, error) {
 					return parseAndValidateTerminalAuditAIAnswer(answer, chunk.commands)
 				})
-				contextErr := chunkCtx.Err()
 				cancel()
 				if err != nil {
-					log.Errorf("terminal audit ai chunk failed: session_id=%s run_id=%s chunk=%d/%d duration=%s context_err=%v err=%v", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), contextErr, err)
 					return fmt.Errorf("complete terminal audit ai for chunk %d: %w", i+1, err)
 				}
-				log.Infof("terminal audit ai chunk succeeded: session_id=%s run_id=%s chunk=%d/%d duration=%s risk_level=%s findings=%d", session.SessionID, result.RunID, i+1, len(chunks), time.Since(chunkStartedAt).Round(time.Millisecond), parsed.RiskLevel, len(parsed.Findings))
 				chunkResults[i] = parsed
 			}
 			return nil

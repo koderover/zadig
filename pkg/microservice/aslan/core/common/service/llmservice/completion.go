@@ -21,10 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // CompleteWithRetry retries transient completion errors, empty responses, and parse failures.
@@ -40,42 +38,31 @@ func CompleteWithRetry[T any](
 	var answer string
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		attemptStartedAt := time.Now()
-		attemptNumber := attempt + 1
-		totalAttempts := maxRetries + 1
 		if err := ctx.Err(); err != nil {
-			log.Warnf("llm completion stopped before attempt: integration=%s model=%s attempt=%d/%d err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, err)
 			return result, answer, err
 		}
 
-		log.Infof("llm completion attempt started: integration=%s model=%s attempt=%d/%d prompt_bytes=%d", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, len(prompt))
 		answer, err := client.GetCompletion(ctx, prompt, optionsForAttempt(attempt)...)
 		if err != nil {
 			if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				log.Warnf("llm completion attempt canceled: integration=%s model=%s attempt=%d/%d duration=%s context_err=%v err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), ctx.Err(), err)
 				return result, answer, err
 			}
 			lastErr = fmt.Errorf("llm completion failed: %w", err)
-			willRetry := attempt < maxRetries && llm.IsRetryableCompletionError(err)
-			log.Warnf("llm completion attempt failed: integration=%s model=%s attempt=%d/%d duration=%s will_retry=%t err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), willRetry, lastErr)
-			if !willRetry {
+			if attempt == maxRetries || !llm.IsRetryableCompletionError(err) {
 				return result, answer, lastErr
 			}
 			continue
 		}
 		if strings.TrimSpace(answer) == "" {
 			lastErr = errors.New("llm completion returned empty response")
-			log.Warnf("llm completion attempt returned empty response: integration=%s model=%s attempt=%d/%d duration=%s will_retry=%t", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), attempt < maxRetries)
 			continue
 		}
 
 		parsed, err := parse(answer)
 		if err == nil {
-			log.Infof("llm completion attempt succeeded: integration=%s model=%s attempt=%d/%d duration=%s response_bytes=%d", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), len(answer))
 			return parsed, answer, nil
 		}
 		lastErr = fmt.Errorf("parse llm result failed: %w", err)
-		log.Warnf("llm completion attempt returned invalid result: integration=%s model=%s attempt=%d/%d duration=%s response_bytes=%d will_retry=%t err=%v", client.GetName(), client.GetModel(), attemptNumber, totalAttempts, time.Since(attemptStartedAt).Round(time.Millisecond), len(answer), attempt < maxRetries, lastErr)
 	}
 	return result, answer, lastErr
 }
