@@ -1524,20 +1524,14 @@ func GetEnvironment(c *gin.Context) {
 		return
 	}
 
-	latestTemplSvcMap, err := repository.GetMaxRevisionsServicesMap(projectKey, production)
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("failed to find latest services for env %s/%s: %w", projectKey, envName, err)
-		return
-	}
 	for _, svcGroup := range productResp.Services {
 		for _, svc := range svcGroup {
-			latestTemplSvc, ok := latestTemplSvcMap[svc.ServiceName]
-			if !ok || (latestTemplSvc.Type != setting.K8SDeployType && latestTemplSvc.Type != setting.HelmDeployType) {
+			if svc.Type != setting.K8SDeployType && svc.Type != setting.HelmDeployType {
 				continue
 			}
-			modules, _, err := repository.ResolveServiceModules(context.Background(), projectKey, svc.ServiceName, production, latestTemplSvc.Revision)
+			modules, _, err := repository.ResolveServiceModules(context.Background(), projectKey, svc.ServiceName, production, svc.Revision)
 			if err != nil {
-				ctx.RespErr = fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", projectKey, svc.ServiceName, latestTemplSvc.Revision, err)
+				ctx.RespErr = fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", projectKey, svc.ServiceName, svc.Revision, err)
 				return
 			}
 			moduleNames := sets.NewString()
