@@ -83,6 +83,7 @@ func (gpem *githubPushEventMatcheForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		TargetBranch:  hookRepo.Branch,
 		CommitID:      *gpem.event.HeadCommit.ID,
 		CommitMessage: *gpem.event.HeadCommit.Message,
+		AuthorName:    gpem.event.HeadCommit.GetAuthor().GetName(),
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}

@@ -73,9 +73,11 @@ func (gpem *giteePushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Mai
 }
 
 func (gpem *giteePushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
-	commitMessage := ""
+	commitMessage, authorName := "", ""
 	if len(gpem.event.Commits) > 0 {
-		commitMessage = gpem.event.Commits[len(gpem.event.Commits)-1].Message
+		commit := gpem.event.Commits[len(gpem.event.Commits)-1]
+		commitMessage = commit.Message
+		authorName = commit.Author.Name
 	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
@@ -86,6 +88,7 @@ func (gpem *giteePushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		TargetBranch:  hookRepo.Branch,
 		CommitID:      gpem.event.After,
 		CommitMessage: commitMessage,
+		AuthorName:    authorName,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
