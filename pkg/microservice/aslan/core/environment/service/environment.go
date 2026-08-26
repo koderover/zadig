@@ -1781,7 +1781,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
 		overrideValue := arg.OverrideYaml
 		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
-			currentValuesMap, err := helmservice.GetValuesMapFromString(currentYaml)
+			envValuesMap, err := helmservice.GetValuesMapFromString(prodSvc.GetServiceRender().GetOverrideYaml())
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate env values map, err: %s", err)
 			}
@@ -1791,7 +1791,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 				return nil, fmt.Errorf("failed to generate user supplied values map, err: %s", err)
 			}
 
-			finalValuesMap := helmservice.MergeHelmValues(currentValuesMap, userSuppliedValueMap)
+			finalValuesMap := helmservice.MergeHelmValues(envValuesMap, userSuppliedValueMap)
 			finalYamlBytes, err := yaml.Marshal(finalValuesMap)
 			if err != nil {
 				return nil, fmt.Errorf("failed to calculate final values string, err: %s", err)
