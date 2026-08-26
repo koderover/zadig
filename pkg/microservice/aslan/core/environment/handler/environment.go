@@ -18,7 +18,6 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -1518,37 +1516,7 @@ func GetEnvironment(c *gin.Context) {
 		}
 	}
 
-	productResp, err := service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-
-	for _, svcGroup := range productResp.Services {
-		for _, svc := range svcGroup {
-			if svc.Type != setting.K8SDeployType && svc.Type != setting.HelmDeployType {
-				continue
-			}
-			modules, _, err := repository.ResolveServiceModules(context.Background(), projectKey, svc.ServiceName, production, svc.Revision)
-			if err != nil {
-				ctx.RespErr = fmt.Errorf("failed to resolve modules for %s/%s rev %d: %w", projectKey, svc.ServiceName, svc.Revision, err)
-				return
-			}
-			moduleNames := sets.NewString()
-			for _, module := range modules {
-				moduleNames.Insert(module.Name)
-			}
-			containers := make([]*commonmodels.Container, 0, len(svc.Containers))
-			for _, container := range svc.Containers {
-				if container != nil && moduleNames.Has(container.Name) {
-					containers = append(containers, container)
-				}
-			}
-			svc.Containers = containers
-		}
-	}
-
-	ctx.Resp = productResp
+	ctx.Resp, ctx.RespErr = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
