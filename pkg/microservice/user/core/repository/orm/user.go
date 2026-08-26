@@ -157,7 +157,7 @@ func ListUsersByLoginTime(page int, perPage int, name string, order setting.List
 	)
 
 	query := db.Model(&models.User{}).
-		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) as last_login_time").
+		Select("user.uid, user.name, user.account, user.identity_type, user.email, user.phone, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) as last_login_time").
 		Where("user.name LIKE ?", "%"+name+"%").
 		Joins("LEFT JOIN user_login on user_login.uid = user.uid")
 	query = applyMFAEnabledJoinFilter(query, mfaEnabled)
@@ -188,7 +188,7 @@ func ListUsersByNameAndRoleWithLoginTime(page int, perPage int, name string, rol
 	var users []models.UserWithLoginTime
 	roleUIDSubQuery := uidSubQueryByRoles(roles, namespace, db)
 	query := db.Model(&models.User{}).
-		Select("user.uid, user.name, user.account, user.identity_type, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) AS last_login_time").
+		Select("user.uid, user.name, user.account, user.identity_type, user.email, user.phone, user.api_token_enabled, "+userMFAEnabledSelectExpr+", IFNULL(user_login.last_login_time, 0) AS last_login_time").
 		Joins("LEFT JOIN user_login ON user_login.uid = user.uid").
 		Where("user.uid IN (?)", roleUIDSubQuery).
 		Where("user.name LIKE ?", "%"+name+"%")
