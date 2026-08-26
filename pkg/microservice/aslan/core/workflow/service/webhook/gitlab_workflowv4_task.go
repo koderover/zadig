@@ -107,6 +107,7 @@ func (gmem *gitlabMergeEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmo
 		PR:            gmem.event.ObjectAttributes.IID,
 		CommitID:      gmem.event.ObjectAttributes.LastCommit.ID,
 		CommitMessage: gmem.event.ObjectAttributes.LastCommit.Message,
+		AuthorName:    gmem.event.ObjectAttributes.LastCommit.Author.Name,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -218,9 +219,11 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Ma
 }
 
 func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
-	commitMessage := ""
+	commitMessage, authorName := "", ""
 	if len(gpem.event.Commits) > 0 {
-		commitMessage = gpem.event.Commits[len(gpem.event.Commits)-1].Message
+		commit := gpem.event.Commits[len(gpem.event.Commits)-1]
+		commitMessage = commit.Message
+		authorName = commit.Author.Name
 	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
@@ -231,6 +234,7 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmod
 		TargetBranch:  hookRepo.Branch,
 		CommitID:      gpem.event.After,
 		CommitMessage: commitMessage,
+		AuthorName:    authorName,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
@@ -268,6 +272,10 @@ func (gtem gitlabTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 }
 
 func (gpem *gitlabTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	authorName := ""
+	if len(gpem.event.Commits) > 0 {
+		authorName = gpem.event.Commits[len(gpem.event.Commits)-1].Author.Name
+	}
 	return &types.Repository{
 		CodehostID:    hookRepo.CodehostID,
 		RepoName:      hookRepo.RepoName,
@@ -276,6 +284,7 @@ func (gpem *gitlabTagEventMatcherForWorkflowV4) GetHookRepo(hookRepo *commonmode
 		Branch:        hookRepo.Branch,
 		TargetBranch:  hookRepo.Branch,
 		Tag:           hookRepo.Tag,
+		AuthorName:    authorName,
 		Committer:     hookRepo.Committer,
 		Source:        hookRepo.Source,
 	}
