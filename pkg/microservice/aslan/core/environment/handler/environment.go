@@ -1538,7 +1538,7 @@ func GetEnvironment(c *gin.Context) {
 			for _, module := range modules {
 				moduleNames.Insert(module.Name)
 			}
-			containers := svc.Containers[:0]
+			containers := make([]*commonmodels.Container, 0, len(svc.Containers))
 			for _, container := range svc.Containers {
 				if container != nil && moduleNames.Has(container.Name) {
 					containers = append(containers, container)
