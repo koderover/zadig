@@ -120,7 +120,7 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		e.interactiveMode = true
 		return nil
 	}
-	if e.pendingInteractive && (containsAny(e.outputTail, interactiveCommandFailureHints) || looksLikeShellPrompt(e.outputTail)) {
+	if e.pendingInteractive && containsAny(e.outputTail, interactiveCommandFailureHints) {
 		pendingInputs := e.pendingInputs
 		e.pendingInteractive = false
 		e.pendingInputs = nil
@@ -128,6 +128,14 @@ func (e *CommandExtractor) ObserveOutput(data string) []ExtractedCommand {
 		e.discardingPendingInput = false
 		e.outputTail = ""
 		return e.replayDeferredInputs(pendingInputs)
+	}
+	if e.pendingInteractive && looksLikeShellPrompt(e.outputTail) {
+		e.pendingInteractive = false
+		e.pendingInputs = nil
+		e.pendingInputBytes = 0
+		e.discardingPendingInput = false
+		e.outputTail = ""
+		return nil
 	}
 	if e.interactiveMode && containsAny(e.outputTail, alternateScreenExitSequences) {
 		e.interactiveMode = false
