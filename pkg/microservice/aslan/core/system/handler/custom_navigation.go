@@ -63,8 +63,7 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 // isProfessionalLicenseRequiredKey returns true if the given key requires a professional license
 func isProfessionalLicenseRequiredKey(key config.NavigationItemKey) bool {
 	switch key {
-	case config.NavigationKeyWorkflows,
-		config.NavigationKeyDataInsight:
+	case config.NavigationKeyWorkflows:
 		return true
 	default:
 		return false
