@@ -267,7 +267,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				continue
 			}
 			wj := wrapper.Job(job)
-			_, ready, _ := kube.GetSelectedPodsInfo(labels.SelectorFromSet(job.Spec.Selector.MatchLabels), inf, wj.ImageInfos(), log)
+			_, ready, _ := kube.GetSelectedPodsInfo(labels.SelectorFromSet(job.Spec.Selector.MatchLabels), inf, wj.ImageInfos(), setting.Job, job.UID, log)
 			ret = append(ret, &commonservice.Workload{
 				Name:       wj.Name,
 				Spec:       wj.Spec.Template,
