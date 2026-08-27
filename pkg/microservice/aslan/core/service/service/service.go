@@ -1143,14 +1143,6 @@ func DeleteServiceTemplate(serviceName, serviceType, productName string, product
 		}
 	}
 	commonservice.DeleteServiceWebhookByName(serviceName, productName, production, log)
-
-	// Cascade service_module records (manual + auto, all revisions). The
-	// service template itself is soft-deleted (status=Deleting) above, but
-	// from the module perspective the service is gone — a future re-create
-	// will repopulate auto records and the user can re-add manual ones.
-	if err := repository.DeleteAllServiceModulesForService(context.Background(), productName, serviceName, production); err != nil {
-		log.Warnf("service_module: failed to cascade-delete records for %s/%s: %s", productName, serviceName, err)
-	}
 	return nil
 }
 
