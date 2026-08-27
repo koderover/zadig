@@ -671,7 +671,7 @@ func hasReleasePlanWorkflowSnapshotJobSpecFields(job map[string]interface{}) boo
 		}
 	case config.JobZadigDeploy:
 		if env, ok := getStringField(spec, "env"); ok && env != "" {
-			return hasReleasePlanWorkflowSnapshotKey(spec, "env_options")
+			return true
 		}
 		if hasReleasePlanWorkflowSnapshotKey(spec, "services") {
 			return true
@@ -864,7 +864,14 @@ func buildReleasePlanWorkflowJobsInputSnapshot(path string, value interface{}) i
 			jobResp["service_modules"] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "service_modules"), serviceModules)
 		}
 		if spec, exists := jobMap["spec"]; exists {
-			jobResp["spec"] = filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "spec"), spec)
+			filteredSpec := filterReleasePlanWorkflowInputValueAtPath(joinReleasePlanWorkflowInputPath(path, "spec"), spec)
+			// Keep selected deployment values, but omit editor candidates from version snapshots.
+			if jobType, ok := getStringField(jobMap, "type"); ok && config.JobType(jobType) == config.JobZadigDeploy {
+				if specMap, ok := getMapField(filteredSpec); ok {
+					delete(specMap, "env_options")
+				}
+			}
+			jobResp["spec"] = filteredSpec
 		}
 		if len(jobResp) > 0 {
 			resp = append(resp, jobResp)
