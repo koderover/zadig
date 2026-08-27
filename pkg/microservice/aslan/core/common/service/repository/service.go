@@ -44,7 +44,7 @@ func ServiceCollWithSession(production bool, session mongo.Session) IServiceColl
 
 // serviceCollWithModuleSync wraps an IServiceColl with side-effects that keep
 // the service_module collection in sync. The wrapper is transparent for
-// reads; Create / Delete are intercepted to mirror auto records into the new
+// reads; Create is intercepted to mirror auto records into the new
 // table (best-effort during Phase 3 — old field stays authoritative).
 //
 // Caveat: the wrapped writes here happen outside the mongo session if the
@@ -67,11 +67,6 @@ func (s *serviceCollWithModuleSync) Create(args *models.Service) error {
 func (s *serviceCollWithModuleSync) Delete(serviceName, serviceType, productName, status string, revision int64) error {
 	if err := s.IServiceColl.Delete(serviceName, serviceType, productName, status, revision); err != nil {
 		return err
-	}
-	if revision > 0 {
-		if dErr := DeleteAutoServiceModulesForRevision(context.Background(), productName, serviceName, s.production, revision); dErr != nil {
-			log.Warnf("service_module: Delete failed to drop auto records for %s/%s rev %d: %s", productName, serviceName, revision, dErr)
-		}
 	}
 	return nil
 }
@@ -207,15 +202,6 @@ func Delete(serviceName, serviceType, productName, status string, revision int64
 	}
 	if err != nil {
 		return err
-	}
-	// Per-revision delete — drop the matching auto records, leave manual alone.
-	// Revision 0 means "all revisions" in some callers; skip the new-table
-	// cleanup in that case to avoid wiping cross-revision auto data, which
-	// DeleteAllServiceModulesForService should handle instead.
-	if revision > 0 {
-		if dErr := DeleteAutoServiceModulesForRevision(context.Background(), productName, serviceName, production, revision); dErr != nil {
-			log.Warnf("service_module: failed to delete auto records for %s/%s rev %d: %s", productName, serviceName, revision, dErr)
-		}
 	}
 	return nil
 }
