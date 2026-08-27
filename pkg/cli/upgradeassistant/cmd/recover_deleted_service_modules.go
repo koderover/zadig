@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"sigs.k8s.io/yaml"
 )
 
 type deletedServiceForModuleRecovery struct {
@@ -42,6 +43,7 @@ type deletedServiceForModuleRecovery struct {
 	Yaml         string                    `bson:"yaml,omitempty"`
 	VariableYaml string                    `bson:"variable_yaml,omitempty"`
 	Containers   []*commonmodels.Container `bson:"containers,omitempty"`
+	HelmChart    *commonmodels.HelmChart   `bson:"helm_chart,omitempty"`
 }
 
 func init() {
@@ -99,7 +101,7 @@ func recoverDeletedServiceModules(
 ) (int, int, error) {
 	cursor, err := serviceColl.Find(ctx, bson.M{
 		"status": setting.ProductStatusDeleting,
-		"type":   setting.K8SDeployType,
+		"type":   bson.M{"$in": []string{setting.K8SDeployType, setting.HelmDeployType}},
 	})
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to list deleted services from %s: %s", label, err)
@@ -137,27 +139,52 @@ func recoverDeletedServiceModules(
 			Yaml:         service.Yaml,
 			VariableYaml: service.VariableYaml,
 			Containers:   service.Containers,
+			HelmChart:    service.HelmChart,
 		}
 		if len(svc.Containers) == 0 {
-			if strings.TrimSpace(svc.Yaml) == "" {
-				log.Errorf("deleted service %s/%s revision %d has no YAML to recover modules from", service.ProductName, service.ServiceName, service.Revision)
-				skipped++
-				continue
-			}
-			// Render go-template variables before parsing, mirroring
-			// ensureServiceTmpl, so services created from templates resolve the
-			// same way they did when their modules were originally synced.
-			rendered, err := commonutil.RenderK8sSvcYaml(svc.Yaml, svc.ProductName, svc.ServiceName, svc.VariableYaml)
-			if err != nil {
-				log.Errorf("failed to render deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
-				skipped++
-				continue
-			}
-			svc.KubeYamls = util.SplitYaml(util.ReplaceWrapLine(rendered))
-			if err := commonutil.SetCurrentContainerImages(svc); err != nil {
-				log.Errorf("failed to parse deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
-				skipped++
-				continue
+			if svc.Type == setting.HelmDeployType {
+				if svc.HelmChart == nil || strings.TrimSpace(svc.HelmChart.ValuesYaml) == "" {
+					log.Errorf("deleted service %s/%s revision %d has no values.yaml to recover modules from", service.ProductName, service.ServiceName, service.Revision)
+					skipped++
+					continue
+				}
+				// Mirror createOrUpdateHelmService: helm services resolve their
+				// modules from the merged values.yaml using the project's image
+				// search rules.
+				valuesMap := make(map[string]interface{})
+				if err := yaml.Unmarshal([]byte(svc.HelmChart.ValuesYaml), &valuesMap); err != nil {
+					log.Errorf("failed to parse values.yaml of deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
+					skipped++
+					continue
+				}
+				containers, err := commonutil.ParseImagesForProductService(valuesMap, svc.ServiceName, svc.ProductName)
+				if err != nil {
+					log.Errorf("failed to parse containers of deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
+					skipped++
+					continue
+				}
+				svc.Containers = containers
+			} else {
+				if strings.TrimSpace(svc.Yaml) == "" {
+					log.Errorf("deleted service %s/%s revision %d has no YAML to recover modules from", service.ProductName, service.ServiceName, service.Revision)
+					skipped++
+					continue
+				}
+				// Render go-template variables before parsing, mirroring
+				// ensureServiceTmpl, so services created from templates resolve the
+				// same way they did when their modules were originally synced.
+				rendered, err := commonutil.RenderK8sSvcYaml(svc.Yaml, svc.ProductName, svc.ServiceName, svc.VariableYaml)
+				if err != nil {
+					log.Errorf("failed to render deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
+					skipped++
+					continue
+				}
+				svc.KubeYamls = util.SplitYaml(util.ReplaceWrapLine(rendered))
+				if err := commonutil.SetCurrentContainerImages(svc); err != nil {
+					log.Errorf("failed to parse deleted service %s/%s revision %d: %s", service.ProductName, service.ServiceName, service.Revision, err)
+					skipped++
+					continue
+				}
 			}
 		}
 		if len(svc.Containers) == 0 {
