@@ -25,9 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -59,9 +57,6 @@ func (j AIJobController) SetWorkflow(wf *commonmodels.WorkflowV4) { j.workflow =
 func (j AIJobController) GetSpec() interface{} { return j.jobSpec }
 
 func (j AIJobController) Validate(isExecution bool) error {
-	if err := util.CheckZadigEnterpriseLicense(); err != nil {
-		return e.ErrLicenseInvalid.AddDesc("")
-	}
 	if err := validateAIJobSpec(j.jobSpec); err != nil {
 		return err
 	}
