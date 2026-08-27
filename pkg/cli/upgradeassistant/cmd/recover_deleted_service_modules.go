@@ -51,6 +51,9 @@ func init() {
 var recoverDeletedServiceModulesCmd = &cobra.Command{
 	Use:   "recover-deleted-service-modules",
 	Short: "Recover auto service modules removed with deleted service templates",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return preRun()
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		testRecovered, testSkipped, err := recoverDeletedServiceModules(
@@ -79,6 +82,11 @@ var recoverDeletedServiceModulesCmd = &cobra.Command{
 			log.Warnf("skipped recovering modules for %d deleted service revisions; inspect the logs above", testSkipped+prodSkipped)
 		}
 		return nil
+	},
+	PostRun: func(cmd *cobra.Command, args []string) {
+		if err := postRun(); err != nil {
+			log.Errorf("failed to close mongo connection: %s", err)
+		}
 	},
 }
 
