@@ -17,6 +17,10 @@ limitations under the License.
 package llm
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -25,6 +29,10 @@ import (
 type headerTransport struct {
 	base    http.RoundTripper
 	headers map[string]string
+}
+
+type omitModelTransport struct {
+	base http.RoundTripper
 }
 
 func newHTTPClient(proxy string, headers map[string]string, timeout time.Duration) (*http.Client, error) {
@@ -51,5 +59,32 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	for key, value := range t.headers {
 		cloned.Header.Set(key, value)
 	}
+	return t.base.RoundTrip(cloned)
+}
+
+func (t *omitModelTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read request body: %w", err)
+	}
+	_ = req.Body.Close()
+
+	payload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("decode request body: %w", err)
+	}
+	delete(payload, "model")
+	body, err = json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode request body: %w", err)
+	}
+
+	cloned := req.Clone(req.Context())
+	cloned.Body = io.NopCloser(bytes.NewReader(body))
+	cloned.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(body)), nil
+	}
+	cloned.ContentLength = int64(len(body))
+	cloned.Header.Del("Content-Length")
 	return t.base.RoundTrip(cloned)
 }

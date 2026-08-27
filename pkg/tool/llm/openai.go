@@ -70,6 +70,9 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 	if err != nil {
 		return fmt.Errorf("could not build the openai http client: %w", err)
 	}
+	if config.OmitModel {
+		httpClient.Transport = &omitModelTransport{base: httpClient.Transport}
+	}
 	defaultConfig.HTTPClient = httpClient
 
 	client := openai.NewClientWithConfig(defaultConfig)
