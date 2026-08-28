@@ -67,7 +67,12 @@ func ServeWs(c *gin.Context) {
 
 	productName := c.Query("projectName")
 	envName := c.Param("envName")
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	production := strings.HasPrefix(c.FullPath(), "/api/podexec/production/")
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
 	if err != nil {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("failed to find product %s/%s, err: %s", productName, envName, err))
 		return
@@ -124,7 +129,7 @@ func ServeWs(c *gin.Context) {
 			Account:       ctx.Account,
 			ProjectName:   productName,
 			EnvName:       envName,
-			ServiceName:   pod.Labels[setting.ServiceLabel],
+			ServiceName:   resolvePodServiceName(kubeCli, productInfo, pod),
 			TargetName:    fmt.Sprintf("%s/%s", podName, containerName),
 			RemoteAddr:    pod.Status.PodIP,
 			ClusterID:     clusterID,
@@ -162,6 +167,64 @@ func ServeWs(c *gin.Context) {
 
 	ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
 	return
+}
+
+func resolvePodServiceName(kubeCli kubernetes.Interface, productInfo *commonmodels.Product, pod *corev1.Pod) string {
+	if pod == nil || productInfo == nil {
+		return ""
+	}
+	if serviceName := strings.TrimSpace(pod.Labels[setting.ServiceLabel]); serviceName != "" {
+		return serviceName
+	}
+
+	kind, name := podWorkloadReference(kubeCli, pod)
+	if kind == "" || name == "" {
+		return ""
+	}
+	for _, service := range productInfo.GetSvcList() {
+		if service == nil {
+			continue
+		}
+		for _, resource := range service.Resources {
+			if resource != nil && resource.Kind == kind && resource.Name == name {
+				return service.ServiceName
+			}
+		}
+	}
+	return ""
+}
+
+func podWorkloadReference(kubeCli kubernetes.Interface, pod *corev1.Pod) (string, string) {
+	if pod == nil || kubeCli == nil {
+		return "", ""
+	}
+	var owner *metav1.OwnerReference
+	for i := range pod.OwnerReferences {
+		if ownerRef := &pod.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {
+			owner = ownerRef
+			break
+		}
+	}
+	if owner == nil && len(pod.OwnerReferences) > 0 {
+		owner = &pod.OwnerReferences[0]
+	}
+	if owner == nil {
+		return "", ""
+	}
+	if owner.Kind != "ReplicaSet" {
+		return owner.Kind, owner.Name
+	}
+
+	replicaset, err := kubeCli.AppsV1().ReplicaSets(pod.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
+	if err != nil {
+		return owner.Kind, owner.Name
+	}
+	for i := range replicaset.OwnerReferences {
+		if ownerRef := &replicaset.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {
+			return ownerRef.Kind, ownerRef.Name
+		}
+	}
+	return owner.Kind, owner.Name
 }
 
 func DebugWorkflow(c *gin.Context) {
