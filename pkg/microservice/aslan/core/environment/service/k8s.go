@@ -136,11 +136,12 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		newProductSvc.Revision = currentProductSvc.Revision
 	} else {
 		latestSvcRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: newProductSvc.ServiceName,
-			ProductName: newProductSvc.ProductName,
+			ServiceName:   newProductSvc.ServiceName,
+			ProductName:   newProductSvc.ProductName,
+			ExcludeStatus: setting.ProductStatusDeleting,
 		}, prodinfo.Production)
 		if err != nil {
-			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
+			return e.ErrUpdateService.AddErr(fmt.Errorf("最新服务配置查询失败: %s, err: %s", newProductSvc.ServiceName, err))
 		}
 		newProductSvc.Revision = latestSvcRevision.Revision
 

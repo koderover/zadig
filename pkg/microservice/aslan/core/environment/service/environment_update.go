@@ -243,11 +243,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 		if updateRevisionSvcSet.Has(svcRender.ServiceName) {
 			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ProductName: exitedProd.ProductName,
-				ServiceName: svcRender.ServiceName,
+				ProductName:   exitedProd.ProductName,
+				ServiceName:   svcRender.ServiceName,
+				ExcludeStatus: setting.ProductStatusDeleting,
 			}, exitedProd.Production)
 			if err != nil {
-				fmtErr := fmt.Errorf("failed to get latest service template %s, err: %v", svcRender.ServiceName, err)
+				fmtErr := fmt.Errorf("最新服务配置查询失败: %s, err: %v", svcRender.ServiceName, err)
 				log.Error(fmtErr)
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
