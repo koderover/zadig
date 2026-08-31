@@ -18,6 +18,7 @@ package job
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -764,6 +765,11 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 
 	if j.jobSpec.DeployType == setting.HelmDeployType {
+		serviceVariableConfigMap := make(map[string][]*commonmodels.DeployVariableConfig)
+		for _, serviceConfig := range j.jobSpec.ServiceVariableConfig {
+			serviceVariableConfigMap[serviceConfig.ServiceName] = serviceConfig.VariableConfigs
+		}
+
 		for jobSubTaskID, svc := range j.jobSpec.Services {
 			var serviceRevision int64
 			var autoSyncFlag bool
@@ -809,6 +815,12 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				IsProduction:                 j.jobSpec.Production,
 				ValueMergeStrategy:           svc.ValueMergeStrategy,
 				MaxHistory:                   templateProduct.ReleaseMaxHistory,
+			}
+			if slices.Contains(j.jobSpec.DeployContents, config.DeployVars) {
+				jobTaskSpec.OverrideKVs, err = mergeHelmOverrideKVs(svc.OverrideKVs, serviceVariableConfigMap[svc.ServiceName])
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge override values for service %s: %w", svc.ServiceName, err)
+				}
 			}
 
 			for _, module := range svc.Modules {
@@ -1417,6 +1429,42 @@ func filterKVsByConfig(serviceName string, originKVs []*commontypes.RenderVariab
 	}
 
 	return resp
+}
+
+func mergeHelmOverrideKVs(origin string, configs []*commonmodels.DeployVariableConfig) (string, error) {
+	kvs := make([]*commonservice.KVPair, 0)
+	if origin != "" {
+		if err := json.Unmarshal([]byte(origin), &kvs); err != nil {
+			return "", err
+		}
+	}
+
+	for _, config := range configs {
+		if config.Source != "other" {
+			continue
+		}
+
+		updated := false
+		for i := len(kvs) - 1; i >= 0; i-- {
+			if kvs[i].Key == config.VariableKey {
+				kvs[i].Value = config.Value
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			kvs = append(kvs, &commonservice.KVPair{Key: config.VariableKey, Value: config.Value})
+		}
+	}
+
+	if len(kvs) == 0 && origin == "" {
+		return "", nil
+	}
+	data, err := json.Marshal(kvs)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func checkServiceExistsInEnv(serviceMap map[string]*commonmodels.ProductService, serviceName, env string) error {
