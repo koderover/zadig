@@ -2384,7 +2384,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 	}
 	for _, chartValue := range args.ChartValues {
 		if !serviceNameSet.Has(chartValue.ServiceName) {
-			return envStatuses, fmt.Errorf("failed to find service: %s in product template", chartValue.ServiceName)
+			return envStatuses, fmt.Errorf("项目中未找到服务配置: %s", chartValue.ServiceName)
 		}
 	}
 
