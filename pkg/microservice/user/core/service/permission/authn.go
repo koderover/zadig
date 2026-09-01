@@ -282,6 +282,13 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 		if isInternalTokenClaims(claims) {
 			return claims, true, nil
 		}
+		if claims.TokenUse == login.OAuthTokenUseCLIAccess {
+			if err := login.NewOAuthService().ValidateSession(claims.SessionID, claims.UID); err != nil {
+				log.Errorf("Failed to validate OAuth session, uid: %s, err: %s", claims.UID, err)
+				return nil, false, err
+			}
+			return claims, true, nil
+		}
 
 		// short-lived login token: validate against redis cache
 		if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {

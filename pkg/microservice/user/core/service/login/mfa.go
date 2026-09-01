@@ -530,6 +530,9 @@ func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger)
 		return nil, fmt.Errorf("invalid mfa verification code")
 	}
 
+	if err := NewOAuthService().RevokeUserSessions(uid); err != nil {
+		return nil, fmt.Errorf("failed to revoke OAuth sessions before disabling mfa: %w", err)
+	}
 	if err := orm.DeleteUserMFA(uid, repository.DB); err != nil {
 		return nil, err
 	}
@@ -541,7 +544,6 @@ func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger)
 			logger.Warnf("failed to clear user token cache during mfa disable, uid: %s, err: %v", uid, err)
 		}
 	}
-
 	user, err := issueLoginTokenByUID(uid, false, logger)
 	if err != nil {
 		return nil, err
@@ -643,6 +645,9 @@ func GetUserMFAStatus(uid string, logger *zap.SugaredLogger) (*UserMFAStatus, er
 func ResetUserMFA(uid string, logger *zap.SugaredLogger) error {
 	if uid == "" {
 		return fmt.Errorf("uid is empty")
+	}
+	if err := NewOAuthService().RevokeUserSessions(uid); err != nil {
+		return fmt.Errorf("failed to revoke OAuth sessions before resetting mfa: %w", err)
 	}
 	if err := orm.DeleteUserMFA(uid, repository.DB); err != nil {
 		return err

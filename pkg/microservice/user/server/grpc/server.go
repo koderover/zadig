@@ -57,6 +57,9 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 	body := request.GetAttributes().GetRequest().GetHttp().GetBody()
 	headers := request.GetAttributes().GetRequest().GetHttp().GetHeaders()
 	method := request.GetAttributes().GetRequest().GetHttp().GetMethod()
+	if strings.HasPrefix(stripQuery(requestPath), "/oauth/") {
+		body = ""
+	}
 
 	isPublicRequest := permission.IsPublicURL(requestPath, method)
 
@@ -130,7 +133,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 			}
 
 			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
-			if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
+			if claims.TokenUse != loginsvc.OAuthTokenUseCLIAccess && claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 				// check if the given token is removed from the cache
 				token, err := cache.NewRedisCache(config.RedisUserTokenDB()).GetString(claims.UID)
 				if err != nil {
@@ -185,6 +188,9 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 	}
 
 allowed:
+	if claims != nil && claims.TokenUse == loginsvc.OAuthTokenUseCLIAccess {
+		userToken = ""
+	}
 	resp := &ext_authz_v3.CheckResponse{}
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
