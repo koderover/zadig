@@ -132,7 +132,6 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 	if total > maxTerminalAuditAICommands || chunksTruncated {
 		evidence.Coverage = terminalaudit.AuditEvidenceCoveragePartial
 	}
-	result.Coverage = string(evidence.Coverage)
 
 	chunkResults, err := analyzeTerminalAuditChunks(ctx, session, result, repo, evidence, chunks)
 	if err != nil {
@@ -178,12 +177,14 @@ func analyzeTerminalAuditChunks(ctx context.Context, session *commonmodels.Termi
 		return nil, fmt.Errorf("update terminal audit ai lease: %w", err)
 	}
 	result.LeaseExpiresAt = leaseExpiresAt
+	result.Coverage = string(evidence.Coverage)
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
 	client, err := llmservice.GetDefaultLLMClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 	result.Model = client.GetModel()
+	result.RiskLevel = "low"
 
 	chunkResults := make([]*terminalAuditAIAnswer, len(chunks))
 	chunkTokenNums := make([]int, len(chunks))
@@ -254,7 +255,6 @@ func analyzeTerminalAuditChunks(ctx context.Context, session *commonmodels.Termi
 }
 
 func mergeTerminalAuditAIResults(result *commonmodels.TerminalAuditAIResult, chunkResults []*terminalAuditAIAnswer, coveredCommands int) {
-	result.RiskLevel = "low"
 	seenFindings := make(map[string]struct{})
 	for _, parsed := range chunkResults {
 		if parsed.RiskLevel == "high" || parsed.RiskLevel == "medium" && result.RiskLevel == "low" {
