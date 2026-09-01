@@ -49,7 +49,7 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 		return nil, err
 	}
 	now := time.Now().UTC()
-	accessToken, err := createOAuthAccessToken(session, now)
+	accessToken, accessTTL, err := createOAuthAccessToken(session, now)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 		return nil, err
 	}
 	return &OAuthTokenResponse{
-		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(oauthAccessTokenTTL / time.Second),
+		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(accessTTL / time.Second),
 		RefreshToken: newRefreshToken, Scope: OAuthCLIScope,
 	}, nil
 }
@@ -127,7 +127,7 @@ func (s *OAuthService) createOAuthSession(device *oauthDevice) (*OAuthTokenRespo
 		User:      *device.User,
 		ExpiresAt: now.Add(oauthSessionTTL),
 	}
-	accessToken, err := createOAuthAccessToken(session, now)
+	accessToken, accessTTL, err := createOAuthAccessToken(session, now)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (s *OAuthService) createOAuthSession(device *oauthDevice) (*OAuthTokenRespo
 		return nil, err
 	}
 	return &OAuthTokenResponse{
-		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(oauthAccessTokenTTL / time.Second),
+		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(accessTTL / time.Second),
 		RefreshToken: refreshToken, Scope: OAuthCLIScope,
 	}, nil
 }
@@ -178,8 +178,12 @@ func (s *OAuthService) deleteSession(sessionID string) error {
 	return s.cache.RemoveElementsFromSet(oauthKey("user-sessions", session.User.UID), []string{sessionID})
 }
 
-func createOAuthAccessToken(session *oauthSession, now time.Time) (string, error) {
-	return CreateToken(&Claims{
+func createOAuthAccessToken(session *oauthSession, now time.Time) (string, time.Duration, error) {
+	accessTTL := oauthAccessTokenTTL
+	if remaining := session.ExpiresAt.Sub(now); remaining < accessTTL {
+		accessTTL = remaining
+	}
+	token, err := CreateToken(&Claims{
 		Name:              session.User.Name,
 		UID:               session.User.UID,
 		PreferredUsername: session.User.Account,
@@ -189,7 +193,8 @@ func createOAuthAccessToken(session *oauthSession, now time.Time) (string, error
 		SessionID:         session.ID,
 		FederatedClaims:   FederatedClaims{ConnectorId: session.User.IdentityType, UserId: session.User.Account},
 		StandardClaims: jwt.StandardClaims{
-			Audience: setting.ProductName, IssuedAt: now.Unix(), ExpiresAt: now.Add(oauthAccessTokenTTL).Unix(),
+			Audience: setting.ProductName, IssuedAt: now.Unix(), ExpiresAt: now.Add(accessTTL).Unix(),
 		},
 	})
+	return token, accessTTL, err
 }
