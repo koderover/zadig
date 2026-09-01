@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -27,7 +28,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
@@ -109,9 +109,6 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 	if len(opt) > 0 && opt[0] != nil {
 		session.SecretEnvs = opt[0].SecretEnvs
 		session.Type = opt[0].Type
-		if session.Type == Workflow {
-			session.outputSanitizer = terminalaudit.NewSanitizer(opt[0].SecretEnvs)
-		}
 	}
 	return session, nil
 }
@@ -197,6 +194,11 @@ func (t *TerminalSession) writeOutput(output string) error {
 	if err != nil {
 		log.Errorf("write parse message err: %v", err)
 		return err
+	}
+	if t.outputSanitizer == nil && t.Type == Workflow {
+		for _, secretEnv := range t.SecretEnvs {
+			msg = bytes.ReplaceAll(msg, []byte(secretEnv), []byte("********"))
+		}
 	}
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Errorf("write message err: sessionID=%s err=%v", t.sessionID, err)
