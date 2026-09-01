@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
@@ -37,14 +36,28 @@ type approvalArgs struct {
 	Decision string `json:"decision"`
 }
 
+type deviceAuthorizationArgs struct {
+	ClientID   string `form:"client_id"`
+	Scope      string `form:"scope"`
+	DeviceName string `form:"device_name"`
+}
+
 func DeviceAuthorization(c *gin.Context) {
-	args := new(login.OAuthDeviceAuthorizationArgs)
+	args := new(deviceAuthorizationArgs)
 	if err := c.ShouldBind(args); err != nil {
 		writeOAuthError(c, &login.OAuthError{Code: login.OAuthErrorInvalidRequest, Description: err.Error()})
 		return
 	}
-	verificationURI := strings.TrimRight(configbase.SystemAddress(), "/") + "/oauth/device"
-	response, err := login.NewOAuthService().CreateDeviceAuthorization(args, verificationURI)
+	if err := validateClientID(args.ClientID); err != nil {
+		writeOAuthError(c, err)
+		return
+	}
+	scope := strings.Join(strings.Fields(args.Scope), " ")
+	if scope != login.OAuthCLIScope && scope != "offline_access zadig.api" {
+		writeOAuthError(c, &login.OAuthError{Code: login.OAuthErrorInvalidRequest, Description: "scope must be zadig.api offline_access"})
+		return
+	}
+	response, err := login.NewOAuthService().CreateDeviceAuthorization(strings.TrimSpace(args.DeviceName))
 	if err != nil {
 		writeOAuthError(c, err)
 		return
@@ -72,7 +85,7 @@ func DecideDeviceAuthorization(c *gin.Context) {
 		writeBrowserError(c, &login.OAuthError{Code: login.OAuthErrorInvalidRequest, Description: err.Error()})
 		return
 	}
-	err := login.NewOAuthService().DecideDeviceAuthorization(c.Param("userCode"), args.Decision, login.OAuthUser{
+	status, err := login.NewOAuthService().DecideDeviceAuthorization(c.Param("userCode"), args.Decision, login.OAuthUser{
 		UID:          ctx.UserID,
 		Name:         ctx.UserName,
 		Account:      ctx.Account,
@@ -83,23 +96,23 @@ func DecideDeviceAuthorization(c *gin.Context) {
 		writeBrowserError(c, err)
 		return
 	}
-	status := login.OAuthDeviceStatusDenied
-	if args.Decision == login.OAuthDecisionApprove {
-		status = login.OAuthDeviceStatusApproved
-	}
 	c.JSON(http.StatusOK, gin.H{"status": status})
 }
 
 func Token(c *gin.Context) {
+	if err := validateClientID(c.PostForm("client_id")); err != nil {
+		writeOAuthError(c, err)
+		return
+	}
 	var (
 		response *login.OAuthTokenResponse
 		err      error
 	)
 	switch c.PostForm("grant_type") {
 	case deviceCodeGrantType:
-		response, err = login.NewOAuthService().ExchangeDeviceCode(c.PostForm("client_id"), c.PostForm("device_code"))
+		response, err = login.NewOAuthService().ExchangeDeviceCode(c.PostForm("device_code"))
 	case refreshTokenGrant:
-		response, err = login.NewOAuthService().RefreshToken(c.PostForm("client_id"), c.PostForm("refresh_token"))
+		response, err = login.NewOAuthService().RefreshToken(c.PostForm("refresh_token"))
 	default:
 		err = &login.OAuthError{Code: "unsupported_grant_type", Description: "unsupported grant_type"}
 	}
@@ -111,11 +124,22 @@ func Token(c *gin.Context) {
 }
 
 func Revoke(c *gin.Context) {
-	if err := login.NewOAuthService().RevokeToken(c.PostForm("client_id"), c.PostForm("token")); err != nil {
+	if err := validateClientID(c.PostForm("client_id")); err != nil {
+		writeOAuthError(c, err)
+		return
+	}
+	if err := login.NewOAuthService().RevokeToken(c.PostForm("token")); err != nil {
 		writeOAuthError(c, err)
 		return
 	}
 	c.Data(http.StatusOK, "application/json", nil)
+}
+
+func validateClientID(clientID string) error {
+	if clientID != login.OAuthCLIClientID {
+		return &login.OAuthError{Code: login.OAuthErrorInvalidClient, Description: "unsupported client_id"}
+	}
+	return nil
 }
 
 func writeOAuthError(c *gin.Context, err error) {

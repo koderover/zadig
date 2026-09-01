@@ -30,35 +30,37 @@ import (
 )
 
 const (
-	OAuthCLIClientID          = "zadig-cli"
-	OAuthCLIScope             = "zadig.api offline_access"
-	OAuthTokenUseCLIAccess    = "cli_access"
-	OAuthDeviceStatusPending  = "pending"
-	OAuthDeviceStatusApproved = "approved"
-	OAuthDeviceStatusDenied   = "denied"
-	OAuthDecisionApprove      = "approve"
-	OAuthDecisionDeny         = "deny"
+	OAuthCLIClientID       = "zadig-cli"
+	OAuthCLIScope          = "zadig.api offline_access"
+	OAuthTokenUseCLIAccess = "cli_access"
 
-	OAuthErrorInvalidRequest       = "invalid_request"
-	OAuthErrorInvalidClient        = "invalid_client"
-	OAuthErrorInvalidGrant         = "invalid_grant"
-	OAuthErrorAuthorizationPending = "authorization_pending"
-	OAuthErrorSlowDown             = "slow_down"
-	OAuthErrorAccessDenied         = "access_denied"
-	OAuthErrorExpiredToken         = "expired_token"
+	OAuthErrorInvalidRequest = "invalid_request"
+	OAuthErrorInvalidClient  = "invalid_client"
 
-	OAuthDeviceAuthorizationTTL = 10 * time.Minute
-	OAuthDevicePollInterval     = 5 * time.Second
-	OAuthAccessTokenTTL         = time.Hour
-	OAuthRefreshTokenTTL        = 30 * 24 * time.Hour
-	OAuthSessionTTL             = 180 * 24 * time.Hour
+	oauthDeviceStatusPending  = "pending"
+	oauthDeviceStatusApproved = "approved"
+	oauthDeviceStatusDenied   = "denied"
+	oauthDecisionApprove      = "approve"
+	oauthDecisionDeny         = "deny"
+
+	oauthErrorInvalidGrant         = "invalid_grant"
+	oauthErrorAuthorizationPending = "authorization_pending"
+	oauthErrorSlowDown             = "slow_down"
+	oauthErrorAccessDenied         = "access_denied"
+	oauthErrorExpiredToken         = "expired_token"
+
+	oauthDeviceAuthorizationTTL = 10 * time.Minute
+	oauthDevicePollInterval     = 5 * time.Second
+	oauthAccessTokenTTL         = time.Hour
+	oauthRefreshTokenTTL        = 30 * 24 * time.Hour
+	oauthSessionTTL             = 180 * 24 * time.Hour
 
 	oauthRedisKeyPrefix = "zadig:oauth:"
 )
 
 var (
 	ErrOAuthAuthorizationNotFound = errors.New("oauth device authorization not found")
-	ErrOAuthInvalidSession        = errors.New("oauth session is invalid")
+	errOAuthInvalidSession        = errors.New("oauth session is invalid")
 )
 
 type OAuthError struct {
@@ -68,12 +70,6 @@ type OAuthError struct {
 
 func (e *OAuthError) Error() string {
 	return e.Code + ": " + e.Description
-}
-
-type OAuthDeviceAuthorizationArgs struct {
-	ClientID   string `form:"client_id"`
-	Scope      string `form:"scope"`
-	DeviceName string `form:"device_name"`
 }
 
 type OAuthDeviceAuthorizationResponse struct {
@@ -112,8 +108,6 @@ type OAuthUser struct {
 type oauthDevice struct {
 	DeviceCodeHash string     `json:"device_code_hash"`
 	UserCode       string     `json:"user_code"`
-	ClientID       string     `json:"client_id"`
-	Scope          string     `json:"scope"`
 	DeviceName     string     `json:"device_name"`
 	Status         string     `json:"status"`
 	User           *OAuthUser `json:"user,omitempty"`
@@ -122,8 +116,6 @@ type oauthDevice struct {
 
 type oauthSession struct {
 	ID        string    `json:"id"`
-	ClientID  string    `json:"client_id"`
-	Scope     string    `json:"scope"`
 	User      OAuthUser `json:"user"`
 	ExpiresAt time.Time `json:"expires_at"`
 }

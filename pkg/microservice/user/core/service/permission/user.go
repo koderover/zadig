@@ -801,6 +801,7 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 	if err := zadigCache.NewRedisCache(config.RedisUserTokenDB()).Delete(uid); err != nil {
 		logger.Warnf("failed to invalidate token for deleted user %s: %v", uid, err)
 	}
+
 	return nil
 }
 

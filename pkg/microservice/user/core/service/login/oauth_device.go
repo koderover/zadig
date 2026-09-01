@@ -25,60 +25,44 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 )
 
-func (s *OAuthService) CreateDeviceAuthorization(args *OAuthDeviceAuthorizationArgs, verificationURI string) (*OAuthDeviceAuthorizationResponse, error) {
-	if args == nil || strings.TrimSpace(args.ClientID) != OAuthCLIClientID {
-		return nil, &OAuthError{Code: OAuthErrorInvalidClient, Description: "unsupported client_id"}
-	}
-	scope := strings.Join(strings.Fields(args.Scope), " ")
-	if scope != OAuthCLIScope && scope != "offline_access zadig.api" {
-		return nil, &OAuthError{Code: OAuthErrorInvalidRequest, Description: "scope must be zadig.api offline_access"}
-	}
-	if verificationURI == "" || len(args.DeviceName) > 128 {
-		return nil, &OAuthError{Code: OAuthErrorInvalidRequest, Description: "invalid authorization request"}
-	}
+func (s *OAuthService) CreateDeviceAuthorization(deviceName string) (*OAuthDeviceAuthorizationResponse, error) {
 	deviceCode, err := randomOAuthValue(32)
 	if err != nil {
 		return nil, err
 	}
 	device := &oauthDevice{
 		DeviceCodeHash: hashOAuthValue(deviceCode),
-		ClientID:       OAuthCLIClientID,
-		Scope:          OAuthCLIScope,
-		DeviceName:     strings.TrimSpace(args.DeviceName),
-		Status:         OAuthDeviceStatusPending,
-		ExpiresAt:      time.Now().UTC().Add(OAuthDeviceAuthorizationTTL),
+		DeviceName:     deviceName,
+		Status:         oauthDeviceStatusPending,
+		ExpiresAt:      time.Now().UTC().Add(oauthDeviceAuthorizationTTL),
 	}
-	created := false
-	for attempt := 0; attempt < 5; attempt++ {
-		device.UserCode, err = randomOAuthUserCode()
-		if err != nil {
-			return nil, err
-		}
-		reserved, reserveErr := s.cache.WriteIfNotExists(oauthKey("user-code", device.UserCode), device.DeviceCodeHash, OAuthDeviceAuthorizationTTL)
-		if reserveErr != nil {
-			return nil, reserveErr
-		}
-		if reserved {
-			if err = s.writeDevice(device); err != nil {
-				_ = s.cache.Delete(oauthKey("user-code", device.UserCode))
-				return nil, err
-			}
-			created = true
-			break
-		}
+	device.UserCode, err = randomOAuthUserCode()
+	if err != nil {
+		return nil, err
 	}
-	if !created {
+	reserved, err := s.cache.WriteIfNotExists(oauthKey("user-code", device.UserCode), device.DeviceCodeHash, oauthDeviceAuthorizationTTL)
+	if err != nil {
+		return nil, err
+	}
+	if !reserved {
 		return nil, fmt.Errorf("failed to allocate OAuth user code")
 	}
+	if err := s.writeDevice(device); err != nil {
+		_ = s.cache.Delete(oauthKey("user-code", device.UserCode))
+		return nil, err
+	}
+	verificationURI := strings.TrimRight(configbase.SystemAddress(), "/") + "/oauth/device"
 	return &OAuthDeviceAuthorizationResponse{
 		DeviceCode:              deviceCode,
 		UserCode:                device.UserCode,
 		VerificationURI:         verificationURI,
 		VerificationURIComplete: verificationURI + "?code=" + url.QueryEscape(device.UserCode),
-		ExpiresIn:               int64(OAuthDeviceAuthorizationTTL / time.Second),
-		Interval:                int64(OAuthDevicePollInterval / time.Second),
+		ExpiresIn:               int64(oauthDeviceAuthorizationTTL / time.Second),
+		Interval:                int64(oauthDevicePollInterval / time.Second),
 	}, nil
 }
 
@@ -96,73 +80,67 @@ func (s *OAuthService) GetDeviceAuthorization(userCode string) (*OAuthDeviceAuth
 	}, nil
 }
 
-func (s *OAuthService) DecideDeviceAuthorization(userCode, decision string, user OAuthUser) error {
-	if decision != OAuthDecisionApprove && decision != OAuthDecisionDeny {
-		return &OAuthError{Code: OAuthErrorInvalidRequest, Description: "decision must be approve or deny"}
-	}
-	if decision == OAuthDecisionApprove && user.UID == "" {
-		return &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authenticated user is required"}
+func (s *OAuthService) DecideDeviceAuthorization(userCode, decision string, user OAuthUser) (string, error) {
+	if decision != oauthDecisionApprove && decision != oauthDecisionDeny {
+		return "", &OAuthError{Code: OAuthErrorInvalidRequest, Description: "decision must be approve or deny"}
 	}
 	device, err := s.deviceByUserCode(userCode)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if device.Status != OAuthDeviceStatusPending {
-		return &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authorization request has already been decided"}
+	if device.Status != oauthDeviceStatusPending {
+		return "", &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authorization request has already been decided"}
 	}
 	decisionKey := oauthKey("decision", device.DeviceCodeHash)
 	decided, err := s.cache.WriteIfNotExists(decisionKey, "1", time.Until(device.ExpiresAt))
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !decided {
-		return &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authorization request has already been decided"}
+		return "", &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authorization request has already been decided"}
 	}
 	switch decision {
-	case OAuthDecisionApprove:
-		device.Status, device.User = OAuthDeviceStatusApproved, &user
-	case OAuthDecisionDeny:
-		device.Status = OAuthDeviceStatusDenied
+	case oauthDecisionApprove:
+		device.Status, device.User = oauthDeviceStatusApproved, &user
+	case oauthDecisionDeny:
+		device.Status = oauthDeviceStatusDenied
 	}
 	if err := s.writeDevice(device); err != nil {
 		_ = s.cache.Delete(decisionKey)
-		return err
+		return "", err
 	}
-	return nil
+	return device.Status, nil
 }
 
-func (s *OAuthService) ExchangeDeviceCode(clientID, deviceCode string) (*OAuthTokenResponse, error) {
-	if clientID != OAuthCLIClientID {
-		return nil, &OAuthError{Code: OAuthErrorInvalidClient, Description: "unsupported client_id"}
-	}
+func (s *OAuthService) ExchangeDeviceCode(deviceCode string) (*OAuthTokenResponse, error) {
 	if deviceCode == "" {
 		return nil, &OAuthError{Code: OAuthErrorInvalidRequest, Description: "device_code is required"}
 	}
 	hash := hashOAuthValue(deviceCode)
 	device, err := s.deviceByHash(hash)
 	if errors.Is(err, ErrOAuthAuthorizationNotFound) {
-		return nil, &OAuthError{Code: OAuthErrorExpiredToken, Description: "device code is invalid or expired"}
+		return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or expired"}
 	}
 	if err != nil {
 		return nil, err
 	}
-	allowed, err := s.cache.WriteIfNotExists(oauthKey("poll", hash), "1", OAuthDevicePollInterval)
+	allowed, err := s.cache.WriteIfNotExists(oauthKey("poll", hash), "1", oauthDevicePollInterval)
 	if err != nil {
 		return nil, err
 	}
 	if !allowed {
-		return nil, &OAuthError{Code: OAuthErrorSlowDown, Description: "polling too frequently"}
+		return nil, &OAuthError{Code: oauthErrorSlowDown, Description: "polling too frequently"}
 	}
 	switch device.Status {
-	case OAuthDeviceStatusPending:
-		return nil, &OAuthError{Code: OAuthErrorAuthorizationPending, Description: "authorization is pending"}
-	case OAuthDeviceStatusDenied:
+	case oauthDeviceStatusPending:
+		return nil, &OAuthError{Code: oauthErrorAuthorizationPending, Description: "authorization is pending"}
+	case oauthDeviceStatusDenied:
 		s.deleteDevice(device)
-		return nil, &OAuthError{Code: OAuthErrorAccessDenied, Description: "authorization was denied"}
-	case OAuthDeviceStatusApproved:
+		return nil, &OAuthError{Code: oauthErrorAccessDenied, Description: "authorization was denied"}
+	case oauthDeviceStatusApproved:
 		payload, err := s.cache.TakeString(oauthKey("device", hash))
 		if errors.Is(err, redis.Nil) {
-			return nil, &OAuthError{Code: OAuthErrorExpiredToken, Description: "device code is invalid or already used"}
+			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or already used"}
 		}
 		if err != nil {
 			return nil, err
@@ -176,7 +154,7 @@ func (s *OAuthService) ExchangeDeviceCode(clientID, deviceCode string) (*OAuthTo
 		}
 		return tokens, err
 	default:
-		return nil, &OAuthError{Code: OAuthErrorInvalidGrant, Description: "invalid authorization state"}
+		return nil, &OAuthError{Code: oauthErrorInvalidGrant, Description: "invalid authorization state"}
 	}
 }
 

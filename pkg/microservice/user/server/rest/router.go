@@ -22,7 +22,7 @@ import (
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	new(handler.OAuthRouter).Inject(router.Group(""))
+	new(handler.OAuthRouter).Inject(router)
 
 	for name, r := range map[string]injector{
 		"/openapi/": new(handler.OpenAPIRouter),

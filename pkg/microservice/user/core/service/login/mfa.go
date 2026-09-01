@@ -544,6 +544,7 @@ func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger)
 			logger.Warnf("failed to clear user token cache during mfa disable, uid: %s, err: %v", uid, err)
 		}
 	}
+
 	user, err := issueLoginTokenByUID(uid, false, logger)
 	if err != nil {
 		return nil, err
