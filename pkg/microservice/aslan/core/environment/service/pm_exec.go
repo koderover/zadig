@@ -48,7 +48,17 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, productName, serviceName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
+// ConnectSshPmExec keeps the original public API for existing callers.
+func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
+	return connectSshPmExec(c, username, "", "", envName, productName, "", ip, hostId, cols, rows, log)
+}
+
+// ConnectSshPmExecWithIdentity starts an SSH terminal and includes caller identity in the audit record.
+func ConnectSshPmExecWithIdentity(c *gin.Context, username, userID, account, envName, productName, serviceName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
+	return connectSshPmExec(c, username, userID, account, envName, productName, serviceName, ip, hostId, cols, rows, log)
+}
+
+func connectSshPmExec(c *gin.Context, username, userID, account, envName, productName, serviceName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("ws upgrade err:%s", err)
@@ -142,7 +152,7 @@ func ConnectSshPmExec(c *gin.Context, username, userID, account, envName, produc
 	if audit != nil {
 		recorder = audit
 	}
-	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli, recorder)
+	sshConn, err := wsconn.NewSshConnWithRecorder(cols, rows, sshCli, recorder)
 	if err != nil {
 		log.Errorf("NewSshConn err:%s", err)
 		e.ErrLoginPm.AddErr(err)

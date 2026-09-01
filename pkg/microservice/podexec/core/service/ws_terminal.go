@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/shared/terminalio"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
@@ -65,21 +66,35 @@ type PtyHandler interface {
 	Done() chan struct{}
 }
 
+type TerminalSessionType string
+
+const (
+	Environment TerminalSessionType = "env"
+	Workflow    TerminalSessionType = "workflow"
+)
+
 // TerminalSession implements PtyHandler
 type TerminalSession struct {
-	wsConn    *websocket.Conn
-	sizeChan  chan remotecommand.TerminalSize
-	doneChan  chan struct{}
-	closeOnce sync.Once
-	writeMu   sync.Mutex
-	closeErr  error
-	sessionID string
-	recorder  terminalio.Recorder
+	wsConn     *websocket.Conn
+	sizeChan   chan remotecommand.TerminalSize
+	doneChan   chan struct{}
+	closeOnce  sync.Once
+	writeMu    sync.Mutex
+	closeErr   error
+	sessionID  string
+	recorder   terminalio.Recorder
+	SecretEnvs []string
+	Type       TerminalSessionType
 	// outputSanitizer preserves workflow debug's existing display masking.
 	outputSanitizer terminalio.Sanitizer
 }
 
-func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalSession, error) {
+type TerminalSessionOption struct {
+	SecretEnvs []string
+	Type       TerminalSessionType
+}
+
+func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader http.Header, opt ...*TerminalSessionOption) (*TerminalSession, error) {
 	conn, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return nil, err
@@ -89,6 +104,14 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
 		recorder: terminalio.NopRecorder{},
+		Type:     Environment,
+	}
+	if len(opt) > 0 && opt[0] != nil {
+		session.SecretEnvs = opt[0].SecretEnvs
+		session.Type = opt[0].Type
+		if session.Type == Workflow {
+			session.outputSanitizer = terminalaudit.NewSanitizer(opt[0].SecretEnvs)
+		}
 	}
 	return session, nil
 }
@@ -198,7 +221,12 @@ func (t *TerminalSession) Close() error {
 }
 
 // 验证是否存在
-func ValidatePod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (*corev1.Pod, error) {
+func ValidatePod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (bool, error) {
+	_, err := getValidatedPod(kubeClient, namespace, podName, containerName)
+	return err == nil, err
+}
+
+func getValidatedPod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (*corev1.Pod, error) {
 	pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

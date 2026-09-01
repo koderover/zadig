@@ -21,11 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
@@ -89,19 +86,6 @@ const terminalAuditAIPrompt = `你是一名终端命令安全审查专员。请�
 %s
 </evidence>`
 
-var terminalAuditAIRedactors = []struct {
-	pattern     *regexp.Regexp
-	replacement string
-}{
-	{regexp.MustCompile(`(?is)-----BEGIN [^-\r\n]*PRIVATE KEY-----.*?(?:-----END [^-\r\n]*PRIVATE KEY-----|$)`), `[REDACTED PRIVATE KEY]`},
-	{regexp.MustCompile(`(?i)(authorization\s*:\s*(?:bearer|basic)\s+)[^\s'"]+`), `${1}[REDACTED]`},
-	{regexp.MustCompile(`(?i)(cookie\s*:\s*)[^\r\n'"]+`), `${1}[REDACTED]`},
-	{regexp.MustCompile(`(?i)(["']?(?:api[_-]?(?:key|token)|access[_-]?token|password|passwd|token|secret)["']?\s*[:=]\s*)("[^"]*(?:"|$)|'[^']*(?:'|$)|[^\s,;&'"]+)`), `${1}[REDACTED]`},
-	{regexp.MustCompile(`(?i)(--(?:password|passwd|token|secret|api[_-]?key)(?:=|\s+))("[^"]*"|'[^']*'|[^\s]+)`), `${1}[REDACTED]`},
-	{regexp.MustCompile(`(?i)(\bcurl\b[^\r\n]*?\s(?:-u|--user)(?:=|\s+)["']?[^:\s"']+:)([^@\s"']+)`), `${1}[REDACTED]`},
-	{regexp.MustCompile(`(?i)(https?://[^/\s:@]+:)[^@\s/]+@`), `${1}[REDACTED]@`},
-}
-
 func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResult, error) {
 	session, err := terminalaudit.GetSession(sessionID)
 	if err != nil {
@@ -138,15 +122,35 @@ func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResu
 }
 
 func runTerminalSessionAudit(ctx context.Context, session *commonmodels.TerminalSession, result *commonmodels.TerminalAuditAIResult, repo *commonrepo.TerminalAuditAIResultColl) error {
+	evidence, total, err := loadTerminalAuditEvidence(session)
+	if err != nil {
+		return err
+	}
+	result.TotalCommandCount = total
+
+	chunks, coveredCommands, chunksTruncated := buildTerminalAuditAIChunks(evidence)
+	if total > maxTerminalAuditAICommands || chunksTruncated {
+		evidence.Coverage = terminalaudit.AuditEvidenceCoveragePartial
+	}
+	result.Coverage = string(evidence.Coverage)
+
+	chunkResults, err := analyzeTerminalAuditChunks(ctx, session, result, repo, evidence, chunks)
+	if err != nil {
+		return err
+	}
+	mergeTerminalAuditAIResults(result, chunkResults, coveredCommands)
+	return nil
+}
+
+func loadTerminalAuditEvidence(session *commonmodels.TerminalSession) (*terminalaudit.TerminalAuditEvidence, int64, error) {
 	commands, total, err := commonrepo.NewTerminalCommandColl().List(&commonmodels.TerminalCommandListArgs{
 		SessionID: session.SessionID,
 		PageNum:   1,
 		PageSize:  maxTerminalAuditAICommands + 1,
 	}, true)
 	if err != nil {
-		return fmt.Errorf("list terminal commands: %w", err)
+		return nil, 0, fmt.Errorf("list terminal commands: %w", err)
 	}
-	result.TotalCommandCount = total
 	castEndOffsetMS := int64(-1)
 	if len(commands) > maxTerminalAuditAICommands {
 		castEndOffsetMS = commands[maxTerminalAuditAICommands].TimeOffsetMS
@@ -155,35 +159,32 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 
 	stream, err := terminalaudit.GetCastStream(session.SessionID)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	defer stream.Body.Close()
 
 	evidence, err := terminalaudit.BuildTerminalAuditEvidence(session, commands, stream.Body, maxTerminalAuditAIEvidenceRunes, castEndOffsetMS)
 	if err != nil {
-		return fmt.Errorf("build terminal audit evidence: %w", err)
+		return nil, 0, fmt.Errorf("build terminal audit evidence: %w", err)
 	}
 	sanitizeTerminalAuditEvidenceForAI(evidence)
+	return evidence, total, nil
+}
 
-	chunks, coveredCommands, chunksTruncated := buildTerminalAuditAIChunks(evidence)
-	if total > maxTerminalAuditAICommands || chunksTruncated {
-		evidence.Coverage = terminalaudit.AuditEvidenceCoveragePartial
-	}
+func analyzeTerminalAuditChunks(ctx context.Context, session *commonmodels.TerminalSession, result *commonmodels.TerminalAuditAIResult, repo *commonrepo.TerminalAuditAIResultColl, evidence *terminalaudit.TerminalAuditEvidence, chunks []terminalAuditAIChunk) ([]*terminalAuditAIAnswer, error) {
 	leaseWindow := terminalAuditAIChunkTimeout + terminalAuditAIFinishLeaseGrace
 	leaseExpiresAt := time.Now().Add(leaseWindow).Unix()
 	if err := repo.UpdateLease(session.SessionID, result.RunID, leaseExpiresAt); err != nil {
-		return fmt.Errorf("update terminal audit ai lease: %w", err)
+		return nil, fmt.Errorf("update terminal audit ai lease: %w", err)
 	}
 	result.LeaseExpiresAt = leaseExpiresAt
-	result.Coverage = string(evidence.Coverage)
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
 	client, err := llmservice.GetDefaultLLMClient(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	result.Model = client.GetModel()
 
-	result.RiskLevel = "low"
 	chunkResults := make([]*terminalAuditAIAnswer, len(chunks))
 	chunkTokenNums := make([]int, len(chunks))
 	chunkGroups := make([][]int, 0, len(chunks))
@@ -247,9 +248,13 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 		result.TokenNum += tokenNum
 	}
 	if waitErr != nil {
-		return waitErr
+		return nil, waitErr
 	}
+	return chunkResults, nil
+}
 
+func mergeTerminalAuditAIResults(result *commonmodels.TerminalAuditAIResult, chunkResults []*terminalAuditAIAnswer, coveredCommands int) {
+	result.RiskLevel = "low"
 	seenFindings := make(map[string]struct{})
 	for _, parsed := range chunkResults {
 		if parsed.RiskLevel == "high" || parsed.RiskLevel == "medium" && result.RiskLevel == "low" {
@@ -271,7 +276,6 @@ func runTerminalSessionAudit(ctx context.Context, session *commonmodels.Terminal
 	} else {
 		result.Summary = fmt.Sprintf("已审查 %d 条终端命令，发现 %d 项风险。", result.AnalyzedCommandCount, len(result.Findings))
 	}
-	return nil
 }
 
 func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAIResult, error) {
@@ -287,194 +291,4 @@ func GetTerminalSessionAIResult(sessionID string) (*commonmodels.TerminalAuditAI
 		result.ErrorMessage = "terminal audit ai analysis expired"
 	}
 	return result, nil
-}
-
-// buildTerminalAuditAIChunks packs complete records when possible and splits
-// oversized records into bounded chunks that share one serial group.
-func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (chunks []terminalAuditAIChunk, coveredCommands int, truncated bool) {
-	chunks = make([]terminalAuditAIChunk, 0, maxTerminalAuditAIChunks)
-	var chunk strings.Builder
-	chunkCommands := make(map[int64]string)
-	chunkRunes := 0
-	nextSerialGroup := 0
-
-	flushChunk := func() {
-		chunks = append(chunks, terminalAuditAIChunk{
-			evidence:    chunk.String(),
-			commands:    chunkCommands,
-			serialGroup: nextSerialGroup,
-		})
-		nextSerialGroup++
-		chunk.Reset()
-		chunkCommands = make(map[int64]string)
-		chunkRunes = 0
-	}
-
-	appendRecord := func(label, data string, command *terminalaudit.TerminalAuditCommandEvidence) bool {
-		if chunk.Len() == 0 && len(chunks) >= maxTerminalAuditAIChunks {
-			truncated = true
-			return false
-		}
-
-		record := fmt.Sprintf("[%s]\n%s", label, data)
-		recordRunes := utf8.RuneCountInString(record)
-		if recordRunes > maxTerminalAuditAIChunkRunes {
-			if chunk.Len() > 0 {
-				flushChunk()
-			}
-			parts := splitTerminalAuditAIRecord(label, data)
-			remainingChunks := maxTerminalAuditAIChunks - len(chunks)
-			if len(parts) > remainingChunks {
-				parts = parts[:remainingChunks]
-				truncated = true
-			}
-			if len(parts) == 0 {
-				return false
-			}
-			serialGroup := nextSerialGroup
-			nextSerialGroup++
-			for _, part := range parts {
-				commands := make(map[int64]string)
-				if command != nil {
-					commands[command.Seq] = command.Command
-				}
-				chunks = append(chunks, terminalAuditAIChunk{evidence: part, commands: commands, serialGroup: serialGroup})
-			}
-			return true
-		}
-		separatorRunes := 0
-		if chunk.Len() > 0 {
-			separatorRunes = 2
-		}
-		if chunk.Len() > 0 && chunkRunes+separatorRunes+recordRunes > maxTerminalAuditAIChunkRunes {
-			flushChunk()
-			if len(chunks) >= maxTerminalAuditAIChunks {
-				truncated = true
-				return false
-			}
-		}
-		if chunk.Len() > 0 {
-			chunk.WriteString("\n\n")
-			chunkRunes += 2
-		}
-		chunk.WriteString(record)
-		chunkRunes += recordRunes
-		if command != nil {
-			chunkCommands[command.Seq] = command.Command
-		}
-		return true
-	}
-
-	// Commands are already sorted by session order when the evidence is built.
-	for i := range evidence.Commands {
-		command := &evidence.Commands[i]
-		commandData, _ := json.Marshal(command)
-		if !appendRecord(fmt.Sprintf("command seq=%d", command.Seq), string(commandData), command) {
-			break
-		}
-		coveredCommands++
-	}
-	if !truncated {
-		for i, event := range evidence.Unattributed {
-			data, _ := json.Marshal(event)
-			if !appendRecord(fmt.Sprintf("unattributed_event index=%d", i), string(data), nil) {
-				break
-			}
-		}
-	}
-	if !truncated && len(evidence.Commands) == 0 && len(evidence.Unattributed) == 0 {
-		appendRecord("empty_evidence", "当前会话没有录制到命令或终端事件。", nil)
-	}
-	if chunk.Len() > 0 {
-		flushChunk()
-	}
-	return chunks, coveredCommands, truncated
-}
-
-func splitTerminalAuditAIRecord(label, data string) []string {
-	dataRunes := []rune(data)
-	parts := make([]string, 0, len(dataRunes)/maxTerminalAuditAIChunkRunes+1)
-	for part := 1; len(dataRunes) > 0; part++ {
-		prefix := fmt.Sprintf("[%s continuation=%d]\n", label, part)
-		payloadRunes := maxTerminalAuditAIChunkRunes - utf8.RuneCountInString(prefix)
-		if payloadRunes > len(dataRunes) {
-			payloadRunes = len(dataRunes)
-		}
-		parts = append(parts, prefix+string(dataRunes[:payloadRunes]))
-		dataRunes = dataRunes[payloadRunes:]
-	}
-	return parts
-}
-
-func sanitizeTerminalAuditEvidenceForAI(evidence *terminalaudit.TerminalAuditEvidence) {
-	sessionFields := []*string{
-		&evidence.Session.SessionID, &evidence.Session.Username, &evidence.Session.Account,
-		&evidence.Session.ProjectName, &evidence.Session.EnvName, &evidence.Session.ServiceName,
-		&evidence.Session.WorkflowName, &evidence.Session.JobName, &evidence.Session.TargetName,
-		&evidence.Session.Protocol, &evidence.Session.RemoteAddr, &evidence.Session.LoginAccount,
-		&evidence.Session.HostName, &evidence.Session.HostIP, &evidence.Session.Namespace,
-		&evidence.Session.PodName, &evidence.Session.ContainerName,
-	}
-	for _, field := range sessionFields {
-		*field = redactTerminalAuditAISecrets(*field)
-	}
-	for i := range evidence.Commands {
-		evidence.Commands[i].Command = redactTerminalAuditAISecrets(evidence.Commands[i].Command)
-		evidence.Commands[i].Output = redactTerminalAuditAISecrets(evidence.Commands[i].Output)
-	}
-	for i := range evidence.Unattributed {
-		evidence.Unattributed[i].Data = redactTerminalAuditAISecrets(evidence.Unattributed[i].Data)
-	}
-}
-
-func redactTerminalAuditAISecrets(value string) string {
-	for _, redactor := range terminalAuditAIRedactors {
-		value = redactor.pattern.ReplaceAllString(value, redactor.replacement)
-	}
-	return value
-}
-
-type terminalAuditAIAnswer struct {
-	RiskLevel string                                `json:"risk_level"`
-	Findings  []commonmodels.TerminalAuditAIFinding `json:"findings"`
-}
-
-type terminalAuditAIChunk struct {
-	evidence    string
-	commands    map[int64]string
-	serialGroup int
-}
-
-func parseAndValidateTerminalAuditAIAnswer(answer string, commands map[int64]string) (*terminalAuditAIAnswer, error) {
-	parsed := new(terminalAuditAIAnswer)
-	if err := json.Unmarshal([]byte(llmservice.ExtractJSONCodeBlock(answer)), parsed); err != nil {
-		return nil, fmt.Errorf("decode ai answer json: %w", err)
-	}
-	if parsed.Findings == nil {
-		return nil, errors.New("ai answer findings are required")
-	}
-	switch parsed.RiskLevel {
-	case "low", "medium", "high":
-	default:
-		return nil, fmt.Errorf("invalid risk_level %q, want low, medium or high", parsed.RiskLevel)
-	}
-	if parsed.RiskLevel != "low" && len(parsed.Findings) == 0 {
-		return nil, fmt.Errorf("risk_level %s requires at least one finding", parsed.RiskLevel)
-	}
-
-	for i := range parsed.Findings {
-		finding := &parsed.Findings[i]
-		command, ok := commands[finding.Seq]
-		if !ok {
-			return nil, fmt.Errorf("finding references unknown command seq %d", finding.Seq)
-		}
-		finding.Risk = strings.TrimSpace(finding.Risk)
-		finding.Reason = strings.TrimSpace(finding.Reason)
-		finding.Suggestion = strings.TrimSpace(finding.Suggestion)
-		if finding.Risk == "" || finding.Reason == "" || finding.Suggestion == "" {
-			return nil, fmt.Errorf("finding for command seq %d has an empty risk, reason or suggestion", finding.Seq)
-		}
-		finding.Command = command
-	}
-	return parsed, nil
 }

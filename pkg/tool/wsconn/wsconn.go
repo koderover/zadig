@@ -65,7 +65,17 @@ type SshConn struct {
 	SshSession *ssh.Session
 }
 
-func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
+// NewSshConn keeps the original public API for existing callers.
+func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
+	return newSshConn(cols, rows, sshClient, terminalio.NopRecorder{})
+}
+
+// NewSshConnWithRecorder starts an SSH connection and records terminal I/O.
+func NewSshConnWithRecorder(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
+	return newSshConn(cols, rows, sshClient, recorder)
+}
+
+func newSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err
@@ -76,6 +86,9 @@ func NewSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recor
 		return nil, err
 	}
 
+	if recorder == nil {
+		recorder = terminalio.NopRecorder{}
+	}
 	wsWriter := &wsBufferWriter{recorder: recorder}
 	sshSession.Stdout = wsWriter
 	sshSession.Stderr = wsWriter
