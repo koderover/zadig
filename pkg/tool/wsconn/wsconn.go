@@ -86,9 +86,6 @@ func newSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recor
 		return nil, err
 	}
 
-	if recorder == nil {
-		recorder = terminalio.NopRecorder{}
-	}
 	wsWriter := &wsBufferWriter{recorder: recorder}
 	sshSession.Stdout = wsWriter
 	sshSession.Stderr = wsWriter

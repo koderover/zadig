@@ -224,7 +224,7 @@ func readTerminalSizeFromQuery(c *gin.Context) (int, int) {
 }
 
 func isExpectedTerminalClose(err error) bool {
-	if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) || errors.Is(err, net.ErrClosed) || errors.Is(err, websocket.ErrCloseSent) {
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 		return true
 	}
 	var closeErr *websocket.CloseError

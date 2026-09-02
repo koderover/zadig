@@ -106,7 +106,7 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request, responseHeader h
 		recorder: terminalio.NopRecorder{},
 		Type:     Environment,
 	}
-	if len(opt) > 0 && opt[0] != nil {
+	if len(opt) > 0 {
 		session.SecretEnvs = opt[0].SecretEnvs
 		session.Type = opt[0].Type
 	}

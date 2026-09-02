@@ -97,7 +97,6 @@ type livePublisher struct {
 	sessionID string
 	frames    chan string
 	stop      chan struct{}
-	closeOnce sync.Once
 	enqueueMu sync.Mutex
 	closed    bool
 	ready     atomic.Bool
@@ -169,12 +168,10 @@ func (p *livePublisher) finish() {
 }
 
 func (p *livePublisher) close() {
-	p.closeOnce.Do(func() {
-		p.enqueueMu.Lock()
-		p.closed = true
-		close(p.stop)
-		p.enqueueMu.Unlock()
-	})
+	p.enqueueMu.Lock()
+	p.closed = true
+	close(p.stop)
+	p.enqueueMu.Unlock()
 }
 
 func subscribeToLiveFrames(sessionID string) (<-chan string, func(), error) {

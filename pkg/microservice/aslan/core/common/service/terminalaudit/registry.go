@@ -53,7 +53,6 @@ type activeSession struct {
 	done            chan struct{}
 	terminateCancel context.CancelFunc
 	closeTerminate  func()
-	closeOnce       sync.Once
 }
 
 // activeSessions tracks live terminal sessions separately from persisted audit records.
@@ -102,7 +101,9 @@ func unregisterActiveSession(sessionID string, defaultStatus models.TerminalSess
 	}
 	session := value.(*activeSession)
 	status := session.closeWithStatus(defaultStatus)
-	session.close()
+	close(session.done)
+	session.terminateCancel()
+	session.closeTerminate()
 	return status
 }
 
@@ -128,12 +129,4 @@ func (s *activeSession) closeWithStatus(defaultStatus models.TerminalSessionStat
 		return models.TerminalSessionStatusAborted
 	}
 	return defaultStatus
-}
-
-func (s *activeSession) close() {
-	s.closeOnce.Do(func() {
-		close(s.done)
-		s.terminateCancel()
-		s.closeTerminate()
-	})
 }

@@ -18,7 +18,6 @@ package llmservice
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -53,11 +52,6 @@ func CompleteWithRetry[T any](
 			}
 			continue
 		}
-		if strings.TrimSpace(answer) == "" {
-			lastErr = errors.New("llm completion returned empty response")
-			continue
-		}
-
 		parsed, err := parse(answer)
 		if err == nil {
 			return parsed, answer, nil

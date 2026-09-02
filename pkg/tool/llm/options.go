@@ -42,9 +42,6 @@ func newCompletionResponseError(kind, err error) error {
 }
 
 func IsRetryableCompletionError(err error) bool {
-	if err == nil {
-		return false
-	}
 	if errors.Is(err, ErrMaxTokensExceeded) ||
 		errors.Is(err, ErrEmptyCompletionResponse) ||
 		errors.Is(err, ErrInvalidCompletion) ||
