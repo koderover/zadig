@@ -477,14 +477,23 @@ func convertBuildTemplateToOpenAPI(template *commonmodels.BuildTemplate) (*OpenA
 		AdvancedSetting: advanced,
 	}
 	if template.PostBuild != nil && template.PostBuild.DockerBuild != nil {
+		dockerBuild := template.PostBuild.DockerBuild
+		templateName := ""
+		if dockerBuild.Source == setting.DockerfileSourceTemplate {
+			dockerfileTemplate, err := commonrepo.NewDockerfileTemplateColl().GetById(dockerBuild.TemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find dockerfile template %s, error: %w", dockerBuild.TemplateID, err)
+			}
+			templateName = dockerfileTemplate.Name
+		}
 		input.DockerBuildStep = &types.OpenAPIDockerBuildStep{
-			BuildContextDir:     template.PostBuild.DockerBuild.WorkDir,
-			DockerfileSource:    template.PostBuild.DockerBuild.Source,
-			DockerfileDirectory: template.PostBuild.DockerBuild.DockerFile,
-			TemplateName:        template.PostBuild.DockerBuild.TemplateName,
-			BuildArgs:           template.PostBuild.DockerBuild.BuildArgs,
-			EnableBuildkit:      template.PostBuild.DockerBuild.EnableBuildkit,
-			Platforms:           template.PostBuild.DockerBuild.Platform,
+			BuildContextDir:     dockerBuild.WorkDir,
+			DockerfileSource:    dockerBuild.Source,
+			DockerfileDirectory: dockerBuild.DockerFile,
+			TemplateName:        templateName,
+			BuildArgs:           dockerBuild.BuildArgs,
+			EnableBuildkit:      dockerBuild.EnableBuildkit,
+			Platforms:           dockerBuild.Platform,
 		}
 	}
 	return &OpenAPIBuildTemplateDetail{

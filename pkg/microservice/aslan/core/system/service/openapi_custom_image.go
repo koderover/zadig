@@ -33,7 +33,6 @@ type OpenAPICustomImage struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
 	Value      string `json:"value"`
-	ImageType  string `json:"image_type"`
 	CreateTime int64  `json:"create_time"`
 	UpdateTime int64  `json:"update_time"`
 	UpdateBy   string `json:"update_by"`
@@ -44,9 +43,8 @@ type OpenAPICustomImageListResp struct {
 }
 
 type OpenAPICustomImageReq struct {
-	Label     string `json:"label"`
-	Value     string `json:"value"`
-	ImageType string `json:"image_type"`
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 func (req OpenAPICustomImageReq) Validate() error {
@@ -55,9 +53,6 @@ func (req OpenAPICustomImageReq) Validate() error {
 	}
 	if strings.TrimSpace(req.Value) == "" {
 		return fmt.Errorf("value cannot be empty")
-	}
-	if req.ImageType != "" && req.ImageType != "sonar" {
-		return fmt.Errorf("image_type must be empty or sonar")
 	}
 	return nil
 }
@@ -100,7 +95,6 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 	image.Label = strings.TrimSpace(req.Label)
 	image.Value = strings.TrimSpace(req.Value)
-	image.ImageType = req.ImageType
 	image.UpdateBy = userName
 	return UpdateBasicImage(id, image, logger)
 }
@@ -128,7 +122,6 @@ func convertCustomImage(image *commonmodels.BasicImage) *OpenAPICustomImage {
 		ID:         image.ID.Hex(),
 		Label:      image.Label,
 		Value:      image.Value,
-		ImageType:  image.ImageType,
 		CreateTime: image.CreateTime,
 		UpdateTime: image.UpdateTime,
 		UpdateBy:   image.UpdateBy,
