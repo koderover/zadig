@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"io"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -24,13 +22,7 @@ func GetHelmVariableFields(c *gin.Context) {
 		return
 	}
 
-	args := new(workflow.HelmVariableFieldsRequest)
-	if err := c.ShouldBindYAML(args); err != nil && err != io.EOF {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
 	production := c.Query("production") == "true"
 	envName := c.Query("envName")
-	ctx.Resp, ctx.RespErr = workflow.GetHelmVariableFields(projectName, serviceName, envName, production, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetHelmVariableFields(projectName, serviceName, envName, production, ctx.Logger)
 }

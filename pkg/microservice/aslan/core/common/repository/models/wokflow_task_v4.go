@@ -303,7 +303,7 @@ type JobTaskHelmDeploySpec struct {
 	KeyVals        []*ServiceKeyVal        `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
 	// VariableYaml stores the variable YAML provided by user
 	VariableYaml string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
-	// OverrideKVs stores Helm --set values as a JSON-encoded key-value list.
+	// OverrideKVs stores Helm kv values as a JSON-encoded key-value list.
 	OverrideKVs string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	// IsProduction added since 1.18, indicator of production environment deployment job
 	IsProduction bool   `bson:"is_production" yaml:"is_production" json:"is_production"`

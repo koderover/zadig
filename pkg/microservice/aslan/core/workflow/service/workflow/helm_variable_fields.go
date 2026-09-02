@@ -7,30 +7,20 @@ import (
 	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	servicerepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 )
 
-type HelmVariableFieldsRequest struct {
-	OverrideYaml   string                  `json:"overrideYaml" yaml:"overrideYaml"`
-	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty" yaml:"overrideValues,omitempty"`
-}
-
 type HelmVariableFieldsResponse struct {
 	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
 }
 
-// GetHelmVariableFields resolves template values and optional environment and
-// request overrides. The template is the source of truth when the service has
-// not been created in the environment yet.
-func GetHelmVariableFields(projectName, serviceName, envName string, production bool, args *HelmVariableFieldsRequest, logger *zap.SugaredLogger) (*HelmVariableFieldsResponse, error) {
-	if args == nil {
-		args = &HelmVariableFieldsRequest{}
-	}
-
+// GetHelmVariableFields resolves template values and optional environment
+// values. The template is the source of truth when the service has not been
+// created in the environment yet.
+func GetHelmVariableFields(projectName, serviceName, envName string, production bool, logger *zap.SugaredLogger) (*HelmVariableFieldsResponse, error) {
 	templateService, err := servicerepo.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: projectName,
@@ -65,12 +55,6 @@ func GetHelmVariableFields(projectName, serviceName, envName string, production 
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to merge environment helm values")
 		}
-	}
-
-	overrideValues := (&commonservice.HelmSvcRenderArg{OverrideValues: args.OverrideValues}).ToOverrideValueString()
-	valuesYAML, err = helmclient.MergeOverrideValues(valuesYAML, "", args.OverrideYaml, overrideValues, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to merge request helm values")
 	}
 
 	response, err := helmVariableFlatMapFromYAML(valuesYAML)
