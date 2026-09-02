@@ -166,9 +166,6 @@ func ServeWs(c *gin.Context) {
 }
 
 func resolvePodServiceName(kubeCli kubernetes.Interface, productInfo *commonmodels.Product, pod *corev1.Pod) string {
-	if pod == nil || productInfo == nil {
-		return ""
-	}
 	if serviceName := strings.TrimSpace(pod.Labels[setting.ServiceLabel]); serviceName != "" {
 		return serviceName
 	}
@@ -191,9 +188,6 @@ func resolvePodServiceName(kubeCli kubernetes.Interface, productInfo *commonmode
 }
 
 func podWorkloadReference(kubeCli kubernetes.Interface, pod *corev1.Pod) (string, string) {
-	if pod == nil || kubeCli == nil {
-		return "", ""
-	}
 	var owner *metav1.OwnerReference
 	for i := range pod.OwnerReferences {
 		if ownerRef := &pod.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {

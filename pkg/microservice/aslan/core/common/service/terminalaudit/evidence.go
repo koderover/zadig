@@ -170,7 +170,7 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 
 		eventRunes := utf8.RuneCountInString(data)
 		truncated := eventRunes > remainingRunes
-		if eventRunes > remainingRunes {
+		if truncated {
 			data = string([]rune(data)[:remainingRunes])
 			eventRunes = remainingRunes
 		}

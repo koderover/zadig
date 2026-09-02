@@ -48,9 +48,6 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 				parts = parts[:remainingChunks]
 				truncated = true
 			}
-			if len(parts) == 0 {
-				return false
-			}
 			serialGroup := nextSerialGroup
 			nextSerialGroup++
 			for _, part := range parts {

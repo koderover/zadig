@@ -44,7 +44,7 @@ func CompleteWithRetry[T any](
 
 		answer, err := client.GetCompletion(ctx, prompt, optionsForAttempt(attempt)...)
 		if err != nil {
-			if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			if ctx.Err() != nil {
 				return result, answer, err
 			}
 			lastErr = fmt.Errorf("llm completion failed: %w", err)
