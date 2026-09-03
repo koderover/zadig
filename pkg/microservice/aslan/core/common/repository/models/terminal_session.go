@@ -20,22 +20,31 @@ const (
 )
 
 type TerminalSessionContext struct {
-	ProjectName  string `bson:"project_name"  json:"project_name"`
-	EnvName      string `bson:"env_name"      json:"env_name"`
-	ServiceName  string `bson:"service_name"  json:"service_name"`
+	ProjectName string `bson:"project_name" json:"project_name"`
+	EnvName     string `bson:"env_name"     json:"env_name"`
+	ServiceName string `bson:"service_name" json:"service_name"`
+}
+
+type TerminalSessionWorkflowContext struct {
 	WorkflowName string `bson:"workflow_name" json:"workflow_name"`
 	JobName      string `bson:"job_name"      json:"job_name"`
 	TaskID       int64  `bson:"task_id"       json:"task_id"`
 }
 
 type TerminalSessionTarget struct {
-	TargetName    string `bson:"target_name"    json:"target_name"`
-	Protocol      string `bson:"protocol"       json:"protocol"`
-	RemoteAddr    string `bson:"remote_addr"    json:"remote_addr"`
-	LoginAccount  string `bson:"login_account"  json:"login_account"`
-	HostID        string `bson:"host_id"        json:"host_id"`
-	HostName      string `bson:"host_name"      json:"host_name"`
-	HostIP        string `bson:"host_ip"        json:"host_ip"`
+	TargetName string `bson:"target_name" json:"target_name"`
+	Protocol   string `bson:"protocol"    json:"protocol"`
+	RemoteAddr string `bson:"remote_addr" json:"remote_addr"`
+}
+
+type TerminalSessionSSHTarget struct {
+	LoginAccount string `bson:"login_account" json:"login_account"`
+	HostID       string `bson:"host_id"       json:"host_id"`
+	HostName     string `bson:"host_name"     json:"host_name"`
+	HostIP       string `bson:"host_ip"       json:"host_ip"`
+}
+
+type TerminalSessionKubernetesTarget struct {
 	ClusterID     string `bson:"cluster_id"     json:"cluster_id"`
 	Namespace     string `bson:"namespace"      json:"namespace"`
 	PodName       string `bson:"pod_name"       json:"pod_name"`
@@ -66,8 +75,11 @@ type TerminalSession struct {
 	Username    string                `bson:"username"      json:"username"`
 	Account     string                `bson:"account"       json:"account"`
 
-	TerminalSessionContext `bson:",inline" json:",inline"`
-	TerminalSessionTarget  `bson:",inline" json:",inline"`
+	TerminalSessionContext          `bson:",inline" json:",inline"`
+	TerminalSessionWorkflowContext  `bson:",inline" json:",inline"`
+	TerminalSessionTarget           `bson:",inline" json:",inline"`
+	TerminalSessionSSHTarget        `bson:",inline" json:",inline"`
+	TerminalSessionKubernetesTarget `bson:",inline" json:",inline"`
 
 	ClientIP  string `bson:"client_ip"  json:"client_ip"`
 	UserAgent string `bson:"user_agent" json:"user_agent"`
