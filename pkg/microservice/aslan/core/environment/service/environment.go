@@ -3093,15 +3093,12 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	if prevSvc == nil {
 		fakeTemplateSvc := &commonmodels.Service{ServiceName: newService.ServiceName, ProductName: newService.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
-		// Merge instead of overwrite. fakeTemplateSvc.Containers is the
-		// auto set re-parsed from the just-rendered YAML — authoritative
-		// for env-resolved image values on Deployment/StatefulSet/etc.
-		// newService.Containers came in from the caller already carrying
-		// manual modules (CRD/DaemonSet declarations), so blindly clobbering
-		// it would drop those manuals — and for ConfigMap/CRD-only services
-		// fakeTemplateSvc.Containers is empty, which would persist an empty
-		// Containers slice into ProductService and break later renders.
-		newService.Containers = commonutil.FoldManualModulesInto(fakeTemplateSvc.Containers, newService.Containers)
+		// Keep the revision's module list (service_module) authoritative: a
+		// container that only appears in the rendered YAML — e.g. a deleted
+		// component still present in the template — is intentionally not added
+		// back. The YAML is used only to refresh images for containers that
+		// already exist in the module list.
+		commonutil.OverrideContainerImagesByName(newService.Containers, fakeTemplateSvc.Containers)
 	}
 
 	preResourceYaml := ""
