@@ -79,7 +79,10 @@ func (c *DockerfileTemplateColl) Update(idString string, obj *models.DockerfileT
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": obj}
 
-	_, err = c.UpdateOne(context.TODO(), filter, update)
+	result, err := c.UpdateOne(context.TODO(), filter, update)
+	if err == nil && result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
 	return err
 }
 
@@ -138,6 +141,9 @@ func (c *DockerfileTemplateColl) DeleteByID(idstring string) error {
 	}
 	query := bson.M{"_id": id}
 
-	_, err = c.DeleteOne(context.TODO(), query)
+	result, err := c.DeleteOne(context.TODO(), query)
+	if err == nil && result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
 	return err
 }

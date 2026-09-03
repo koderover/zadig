@@ -58,10 +58,9 @@ func (req OpenAPICustomImageReq) Validate() error {
 }
 
 func ListCustomImagesOpenAPI(logger *zap.SugaredLogger) (*OpenAPICustomImageListResp, error) {
-	images, err := commonrepo.NewBasicImageColl().List(&commonrepo.BasicImageOpt{ImageFrom: commonmodels.ImageFromCustom})
+	images, err := ListBasicImages(commonmodels.ImageFromCustom, "", logger)
 	if err != nil {
-		logger.Errorf("OpenAPI: failed to list custom images, error: %s", err)
-		return nil, e.ErrListBasicImages.AddErr(err)
+		return nil, err
 	}
 
 	resp := &OpenAPICustomImageListResp{CustomImages: make([]*OpenAPICustomImage, 0, len(images))}
@@ -90,6 +89,9 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 	image, err := findCustomImage(id)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return e.ErrNotFound.AddErr(err)
+		}
 		return e.ErrUpdateBasicImage.AddErr(err)
 	}
 
@@ -101,6 +103,9 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 func DeleteCustomImageOpenAPI(id string, logger *zap.SugaredLogger) error {
 	if _, err := findCustomImage(id); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return e.ErrNotFound.AddErr(err)
+		}
 		return e.ErrDeleteBasicImage.AddErr(err)
 	}
 	return DeleteBasicImage(id, logger)
@@ -111,8 +116,8 @@ func findCustomImage(id string) (*commonmodels.BasicImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if image.ImageFrom != commonmodels.ImageFromCustom {
-		return nil, fmt.Errorf("image %s is not a custom image", id)
+	if image.ImageFrom != commonmodels.ImageFromCustom || image.ImageType == "sonar" {
+		return nil, mongo.ErrNoDocuments
 	}
 	return image, nil
 }

@@ -17,11 +17,13 @@ limitations under the License.
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
@@ -83,6 +85,9 @@ func OpenAPIGetDockerfileTemplate(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.RespErr = template.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
+	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
+		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	}
 }
 
 func OpenAPICreateDockerfileTemplate(c *gin.Context) {
@@ -157,6 +162,9 @@ func OpenAPIUpdateDockerfileTemplate(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "模板库-Dockerfile", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger)
+	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
+		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	}
 }
 
 func OpenAPIDeleteDockerfileTemplate(c *gin.Context) {
@@ -177,4 +185,7 @@ func OpenAPIDeleteDockerfileTemplate(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板库-Dockerfile", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger)
+	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
+		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	}
 }
