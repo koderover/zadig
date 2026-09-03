@@ -11,7 +11,9 @@ func TestBuildTerminalAuditEvidenceFromCommands(t *testing.T) {
 		SessionID:   "session-1",
 		SessionType: models.TerminalSessionTypePodExec,
 		Username:    "user-1",
-		ProjectName: "project-1",
+		TerminalSessionContext: models.TerminalSessionContext{
+			ProjectName: "project-1",
+		},
 	}
 	commands := []*models.TerminalCommand{
 		{Seq: 1, Command: "kubectl get pods", TimeOffsetMS: 1000},
