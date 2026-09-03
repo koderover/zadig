@@ -39,6 +39,7 @@ import (
 	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -1598,8 +1599,16 @@ func GetDeploymentWorkloadResource(d *appsv1.Deployment, informer informers.Shar
 	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels), informer)
 	if err != nil {
 		log.Warnf("Failed to get pods, err: %s", err)
+		return wrapper.Deployment(d).WorkloadResource(nil)
 	}
 
+	replicaSets, err := informer.Apps().V1().ReplicaSets().Lister().ReplicaSets(d.Namespace).List(labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels))
+	if err != nil {
+		log.Warnf("Failed to get replica sets for deployment %s, err: %s", d.Name, err)
+		return wrapper.Deployment(d).WorkloadResource(nil)
+	}
+
+	pods = kube.FilterDeploymentPodsByOwner(d, replicaSets, pods)
 	return wrapper.Deployment(d).WorkloadResource(pods)
 }
 
@@ -1609,6 +1618,7 @@ func GetCloneSetWorkloadResource(d *v1alpha1.CloneSet, informer informers.Shared
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
 
+	pods = kube.FilterPodsByControllerUID(pods, d.UID)
 	return wrapper.CloneSet(d).WorkloadResource(pods)
 }
 
@@ -1618,6 +1628,7 @@ func GetDaemonSetWorkloadResource(daemonSet *appsv1.DaemonSet, informer informer
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
 
+	pods = kube.FilterPodsByControllerUID(pods, daemonSet.UID)
 	return wrapper.DaemonSet(daemonSet).WorkloadResource(pods)
 }
 
@@ -1627,6 +1638,7 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
 
+	pods = kube.FilterPodsByControllerUID(pods, sts.UID)
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
 }
 
@@ -1636,26 +1648,25 @@ func getJobWorkloadResource(job *batchv1.Job, informer informers.SharedInformerF
 		log.Warnf("Failed to get pods, err: %s", err)
 	}
 
+	pods = kube.FilterPodsByControllerUID(pods, job.UID)
 	return wrapper.Job(job).WorkloadResource(pods)
 }
 
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
 	cronJobName := wrapper.CronJob(cornJob, cronJobBeta).Name
+	var cronJobUID k8stypes.UID
+	if cornJob != nil {
+		cronJobUID = cornJob.UID
+	} else if cronJobBeta != nil {
+		cronJobUID = cronJobBeta.UID
+	}
 	jobs, err := informer.Batch().V1().Jobs().Lister().List(labels.NewSelector())
 	if err != nil {
 		log.Errorf("failed to list jobs, err: %s", err)
 		return nil
 	}
 	// find jobs created by particular cronjob
-	matchJobs := make([]*batchv1.Job, 0)
-	for _, job := range jobs {
-		for _, owner := range job.OwnerReferences {
-			if owner.Name == cronJobName && owner.Kind == setting.CronJob {
-				matchJobs = append(matchJobs, job)
-				break
-			}
-		}
-	}
+	matchJobs := kube.FilterJobsByControllerUID(jobs, cronJobUID)
 
 	pods := make([]*corev1.Pod, 0)
 	for _, job := range matchJobs {
@@ -1664,6 +1675,7 @@ func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.C
 			log.Errorf("failed to find related pods for cronjob: %s, err: %s", cronJobName, err)
 			continue
 		}
+		cronGeneratedPods = kube.FilterPodsByControllerUID(cronGeneratedPods, job.UID)
 		pods = append(pods, cronGeneratedPods...)
 	}
 
