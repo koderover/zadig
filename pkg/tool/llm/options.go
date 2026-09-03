@@ -1,11 +1,67 @@
 package llm
 
 import (
+	"context"
 	"errors"
+	"net"
+	"net/http"
 	"time"
 )
 
-var ErrMaxTokensExceeded = errors.New("llm completion reached max tokens")
+var (
+	ErrMaxTokensExceeded       = errors.New("llm completion reached max tokens")
+	ErrEmptyCompletionResponse = errors.New("llm completion returned no usable response")
+	ErrInvalidCompletion       = errors.New("llm completion returned an invalid response")
+)
+
+type completionHTTPError struct {
+	statusCode int
+	err        error
+}
+
+func (e *completionHTTPError) Error() string { return e.err.Error() }
+func (e *completionHTTPError) Unwrap() error { return e.err }
+
+func newCompletionHTTPError(statusCode int, err error) error {
+	return &completionHTTPError{statusCode: statusCode, err: err}
+}
+
+type completionResponseError struct {
+	kind error
+	err  error
+}
+
+func (e *completionResponseError) Error() string { return e.err.Error() }
+func (e *completionResponseError) Unwrap() error { return e.err }
+func (e *completionResponseError) Is(target error) bool {
+	return target == e.kind || errors.Is(e.err, target)
+}
+
+func newCompletionResponseError(kind, err error) error {
+	return &completionResponseError{kind: kind, err: err}
+}
+
+func IsRetryableCompletionError(err error) bool {
+	if errors.Is(err, ErrMaxTokensExceeded) ||
+		errors.Is(err, ErrEmptyCompletionResponse) ||
+		errors.Is(err, ErrInvalidCompletion) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var httpErr *completionHTTPError
+	if !errors.As(err, &httpErr) {
+		return false
+	}
+	return httpErr.statusCode == http.StatusRequestTimeout ||
+		httpErr.statusCode == http.StatusConflict ||
+		httpErr.statusCode == http.StatusTooEarly ||
+		httpErr.statusCode == http.StatusTooManyRequests ||
+		httpErr.statusCode >= http.StatusInternalServerError
+}
 
 // ParamOption is a function that configures a CallOptions.
 type ParamOption func(*ParamOptions)

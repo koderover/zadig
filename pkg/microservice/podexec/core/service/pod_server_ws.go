@@ -17,21 +17,28 @@ limitations under the License.
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	auditservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -56,7 +63,12 @@ func ServeWs(c *gin.Context) {
 
 	productName := c.Query("projectName")
 	envName := c.Param("envName")
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	production := strings.HasPrefix(c.FullPath(), "/api/podexec/production/")
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
 	if err != nil {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("failed to find product %s/%s, err: %s", productName, envName, err))
 		return
@@ -69,9 +81,17 @@ func ServeWs(c *gin.Context) {
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
 		return
 	}
+	initialCols, initialRows := readTerminalSizeFromQuery(c)
+	finalStatus := commonmodels.TerminalSessionStatusFinished
+	var audit *auditservice.AuditSession
 	defer func() {
-		log.Info("close session.")
 		_ = pty.Close()
+		if audit == nil {
+			return
+		}
+		if err := audit.Close(finalStatus); err != nil {
+			log.Errorf("close terminal audit recorder failed: %v", err)
+		}
 	}()
 
 	kubeCli, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
@@ -79,143 +99,224 @@ func ServeWs(c *gin.Context) {
 		msg := fmt.Sprintf("get kubecli err :%v", err)
 		log.Errorf(msg)
 		_, _ = pty.Write([]byte(msg))
-		pty.Done()
 
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
 		return
 	}
 
-	ok, err := ValidatePod(kubeCli, namespace, podName, containerName)
-	if !ok {
+	pod, err := getValidatedPod(kubeCli, namespace, podName, containerName)
+	if err != nil {
 		msg := fmt.Sprintf("Validate pod error! err: %v", err)
 		log.Errorf(msg)
 		_, _ = pty.Write([]byte(msg))
-		pty.Done()
 
 		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
+	secrets, secretErr := collectContainerSecretValues(c.Request.Context(), kubeCli, pod, namespace, containerName)
+	if secretErr != nil {
+		log.Warnf("collect pod secret values for terminal audit failed, continuing without audit: %v", secretErr)
+	} else {
+		meta := &auditservice.SessionMeta{
+			SessionType:   commonmodels.TerminalSessionTypePodExec,
+			Protocol:      "k8s-exec",
+			UserID:        ctx.UserID,
+			Username:      ctx.UserName,
+			Account:       ctx.Account,
+			ProjectName:   productName,
+			EnvName:       envName,
+			ServiceName:   resolvePodServiceName(kubeCli, productInfo, pod),
+			TargetName:    fmt.Sprintf("%s/%s", podName, containerName),
+			RemoteAddr:    pod.Status.PodIP,
+			ClusterID:     clusterID,
+			Namespace:     namespace,
+			PodName:       podName,
+			ContainerName: containerName,
+			ClientIP:      c.ClientIP(),
+			UserAgent:     c.Request.UserAgent(),
+			InitialCols:   initialCols,
+			InitialRows:   initialRows,
+			Secrets:       secrets,
+		}
+		session, auditErr := auditservice.NewAuditSession(meta, func() {
+			_ = pty.Close()
+		})
+		if auditErr != nil {
+			log.Errorf("create podexec terminal audit recorder failed, continuing without audit: %v", auditErr)
+		} else {
+			audit = session
+			log.Infof("created podexec terminal audit session, sessionID=%s project=%s env=%s pod=%s container=%s", audit.SessionID, productName, envName, podName, containerName)
+			pty.attachAudit(audit.SessionID, audit)
+		}
+	}
 
+	log.Infof("start pod exec stream, sessionID=%s clusterID=%s namespace=%s pod=%s container=%s", pty.sessionID, clusterID, namespace, podName, containerName)
 	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
-	if err != nil {
-		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
-
-		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
+	log.Infof("finish pod exec stream, sessionID=%s err=%v", pty.sessionID, err)
+	if err == nil || isExpectedTerminalClose(err) {
 		return
 	}
-}
+	finalStatus = commonmodels.TerminalSessionStatusFailed
+	msg := fmt.Sprintf("Exec to pod error! err: %v", err)
+	log.Errorf(msg)
+	_, _ = pty.Write([]byte(msg))
 
-func DebugWorkflow(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	logger := ctx.Logger
-	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("无效 task ID")
-		return
-	}
-
-	ctx.RespErr = debugWorkflow(c, c.Param("workflowName"), c.Param("jobName"), taskID, logger)
+	ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
 	return
 }
 
-func debugWorkflow(c *gin.Context, workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) error {
-	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
-	if err != nil {
-		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to find task: %s", err))
-	}
-	if workflowTask.Finished() {
-		return e.ErrStopDebugShell.AddDesc("task has been finished")
+func resolvePodServiceName(kubeCli kubernetes.Interface, productInfo *commonmodels.Product, pod *corev1.Pod) string {
+	if serviceName := strings.TrimSpace(pod.Labels[setting.ServiceLabel]); serviceName != "" {
+		return serviceName
 	}
 
-	var task *commonmodels.JobTask
-FOR:
-	for _, stage := range workflowTask.Stages {
-		for _, jobTask := range stage.Jobs {
-			if jobTask.Name == jobName {
-				task = jobTask
-				break FOR
+	kind, name := podWorkloadReference(kubeCli, pod)
+	if kind == "" || name == "" {
+		return ""
+	}
+	for _, service := range productInfo.GetSvcList() {
+		if service == nil {
+			continue
+		}
+		for _, resource := range service.Resources {
+			if resource != nil && resource.Kind == kind && resource.Name == name {
+				return service.ServiceName
 			}
 		}
 	}
-	if task == nil {
-		logger.Error("debug workflow failed: not found job")
-		return e.ErrInvalidParam.AddDesc("Job不存在")
-	}
-	log.Infof("DebugWorkflow: %s, %s, %d", workflowName, jobName, taskID)
+	return ""
+}
 
-	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-		logger.Errorf("debug workflow failed: IToi %v", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败")
+func podWorkloadReference(kubeCli kubernetes.Interface, pod *corev1.Pod) (string, string) {
+	var owner *metav1.OwnerReference
+	for i := range pod.OwnerReferences {
+		if ownerRef := &pod.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {
+			owner = ownerRef
+			break
+		}
+	}
+	if owner == nil && len(pod.OwnerReferences) > 0 {
+		owner = &pod.OwnerReferences[0]
+	}
+	if owner == nil {
+		return "", ""
+	}
+	if owner.Kind != "ReplicaSet" {
+		return owner.Kind, owner.Name
 	}
 
-	pty, err := NewTerminalSession(c.Writer, c.Request, nil, &TerminalSessionOption{
-		SecretEnvs: func() (secrets []string) {
-			for _, v := range jobTaskSpec.Properties.Envs {
-				if v.IsCredential {
-					secrets = append(secrets, v.Value)
+	replicaset, err := kubeCli.AppsV1().ReplicaSets(pod.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
+	if err != nil {
+		return owner.Kind, owner.Name
+	}
+	for i := range replicaset.OwnerReferences {
+		if ownerRef := &replicaset.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {
+			return ownerRef.Kind, ownerRef.Name
+		}
+	}
+	return owner.Kind, owner.Name
+}
+
+func readTerminalSizeFromQuery(c *gin.Context) (int, int) {
+	cols, _ := strconv.Atoi(c.Query("cols"))
+	rows, _ := strconv.Atoi(c.Query("rows"))
+	return cols, rows
+}
+
+func isExpectedTerminalClose(err error) bool {
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		return false
+	}
+	return closeErr.Code == websocket.CloseNormalClosure || closeErr.Code == websocket.CloseGoingAway
+}
+
+func collectContainerSecretValues(ctx context.Context, kubeCli kubernetes.Interface, pod *corev1.Pod, namespace, containerName string) ([]string, error) {
+	var envFrom []corev1.EnvFromSource
+	var envs []corev1.EnvVar
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == containerName {
+			envFrom, envs = pod.Spec.Containers[i].EnvFrom, pod.Spec.Containers[i].Env
+			break
+		}
+	}
+	if envFrom == nil && envs == nil {
+		for i := range pod.Spec.EphemeralContainers {
+			if pod.Spec.EphemeralContainers[i].Name == containerName {
+				envFrom, envs = pod.Spec.EphemeralContainers[i].EnvFrom, pod.Spec.EphemeralContainers[i].Env
+				break
+			}
+		}
+	}
+
+	type secretRequest struct {
+		optional bool
+		all      bool
+		keys     map[string]struct{}
+	}
+	requests := make(map[string]*secretRequest)
+	for _, source := range envFrom {
+		if source.SecretRef == nil || source.SecretRef.Name == "" {
+			continue
+		}
+		name := source.SecretRef.Name
+		optional := source.SecretRef.Optional != nil && *source.SecretRef.Optional
+		request, ok := requests[name]
+		if !ok {
+			request = &secretRequest{optional: optional}
+			requests[name] = request
+		} else if !optional {
+			request.optional = false
+		}
+		request.all = true
+	}
+	for _, envVar := range envs {
+		if envVar.ValueFrom == nil || envVar.ValueFrom.SecretKeyRef == nil {
+			continue
+		}
+		ref := envVar.ValueFrom.SecretKeyRef
+		if ref.Name == "" || ref.Key == "" {
+			continue
+		}
+		optional := ref.Optional != nil && *ref.Optional
+		request, ok := requests[ref.Name]
+		if !ok {
+			request = &secretRequest{optional: optional, keys: make(map[string]struct{})}
+			requests[ref.Name] = request
+		} else if !optional {
+			request.optional = false
+		}
+		if request.keys == nil {
+			request.keys = make(map[string]struct{})
+		}
+		request.keys[ref.Key] = struct{}{}
+	}
+
+	secretValues := make([]string, 0)
+	for name, request := range requests {
+		secret, err := kubeCli.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if request.optional && apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, fmt.Errorf("get secret %s: %w", name, err)
+		}
+		if request.all {
+			for _, value := range secret.Data {
+				if len(value) > 0 {
+					secretValues = append(secretValues, string(value))
 				}
 			}
-			return secrets
-		}(),
-		Type: Workflow,
-	})
-	if err != nil {
-		log.Errorf("get pty failed: %v", err)
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("get pty failed: %v", err))
+			continue
+		}
+		for key := range request.keys {
+			if value := secret.Data[key]; len(value) > 0 {
+				secretValues = append(secretValues, string(value))
+			}
+		}
 	}
-	defer func() {
-		log.Info("close session.")
-		_ = pty.Close()
-	}()
-
-	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("debug workflow failed: get kube client error: %s", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client")
-	}
-
-	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
-	if err != nil {
-		logger.Errorf("debug workflow failed: list pods %v", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: ListPods")
-	}
-	if len(pods) == 0 {
-		logger.Error("debug workflow failed: list pods num 0")
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: ListPods num 0")
-	}
-	pod := pods[0]
-	switch pod.Status.Phase {
-	case corev1.PodRunning:
-	default:
-		logger.Errorf("debug workflow failed: pod status is %s", pod.Status.Phase)
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法启动调试终端", pod.Status.Phase))
-	}
-
-	var envs []string
-	for _, env := range jobTaskSpec.Properties.Envs {
-		removeDquoteVal := strings.ReplaceAll(env.Value, `"`, `\"`)
-		removeBquoteVal := strings.ReplaceAll(removeDquoteVal, "`", "\\`")
-		envs = append(envs, fmt.Sprintf("%s=\"%s\"", env.Key, removeBquoteVal))
-	}
-	script := ""
-	if len(envs) != 0 {
-		script += "env " + strings.Join(envs, " ") + " "
-	}
-	script += "bash\n"
-
-	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
-	if err != nil {
-		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
-		log.Errorf(msg)
-		_, _ = pty.Write([]byte(msg))
-		pty.Done()
-
-		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
-	}
-	return nil
+	return secretValues, nil
 }

@@ -205,6 +205,9 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewEnvInfoColl(),
 		commonrepo.NewApprovalTicketColl(),
 		commonrepo.NewWorkflowTaskRevertColl(),
+		commonrepo.NewTerminalSessionColl(),
+		commonrepo.NewTerminalCommandColl(),
+		commonrepo.NewTerminalAuditAIResultColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
