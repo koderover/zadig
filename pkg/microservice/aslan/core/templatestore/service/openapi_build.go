@@ -433,9 +433,22 @@ func convertBuildTemplateToOpenAPI(template *commonmodels.BuildTemplate) (*OpenA
 	if err != nil {
 		return nil, fmt.Errorf("failed to find build image %s, error: %w", template.PreBuild.ImageID, err)
 	}
+	resourceSpec := template.PreBuild.ResReqSpec
+	switch template.PreBuild.ResReq {
+	case setting.HighRequest:
+		resourceSpec = setting.HighRequestSpec
+	case setting.MediumRequest:
+		resourceSpec = setting.MediumRequestSpec
+	case setting.LowRequest:
+		resourceSpec = setting.LowRequestSpec
+	case setting.MinRequest:
+		resourceSpec = setting.MinRequestSpec
+	case setting.DefaultRequest:
+		resourceSpec = setting.DefaultRequestSpec
+	}
 	advanced := &types.OpenAPIAdvancedSetting{
 		Timeout:             int64(template.Timeout),
-		Spec:                template.PreBuild.ResReqSpec,
+		Spec:                resourceSpec,
 		UseHostDockerDaemon: template.PreBuild.UseHostDockerDaemon,
 		PrivilegedMode:      template.EnablePrivilegedMode,
 		CustomAnnotations:   convertOpenAPIKeyValues(template.PreBuild.CustomAnnotations),
