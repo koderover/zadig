@@ -303,10 +303,6 @@ func resolveOpenAPIBuildTemplate(req *OpenAPIBuildTemplateInput) (*resolvedOpenA
 		// Keep omitted advanced settings aligned with the default build configuration.
 		resolved.advanced = &types.OpenAPIAdvancedSetting{
 			Timeout: 60,
-			Spec: setting.RequestSpec{
-				CpuLimit:    1000,
-				MemoryLimit: 512,
-			},
 			Storages: &types.OpenAPIStorages{
 				StoragesProperties: []*types.NFSProperties{},
 			},
@@ -370,11 +366,13 @@ func applyOpenAPIBuildTemplate(template *commonmodels.BuildTemplate, req *OpenAP
 	preBuild.ImageID = resolved.image.ID.Hex()
 	preBuild.Installs = openapitool.ToBuildInstalls(req.Installs)
 	preBuild.Envs = convertOpenAPIBuildTemplateParameters(req.Parameters)
-	preBuild.ResReq = advanced.Spec.FindResourceRequestType()
 	if resolved.defaultAdvanced {
 		preBuild.ResReq = setting.LowRequest
+		preBuild.ResReqSpec = setting.LowRequestSpec
+	} else {
+		preBuild.ResReq = advanced.Spec.FindResourceRequestType()
+		preBuild.ResReqSpec = advanced.Spec
 	}
-	preBuild.ResReqSpec = advanced.Spec
 	preBuild.ClusterID = resolved.clusterID
 	preBuild.StrategyID = resolved.strategyID
 	preBuild.UseHostDockerDaemon = advanced.UseHostDockerDaemon
