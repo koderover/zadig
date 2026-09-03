@@ -51,10 +51,7 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 			serialGroup := nextSerialGroup
 			nextSerialGroup++
 			for _, part := range parts {
-				commands := make(map[int64]string)
-				if command != nil {
-					commands[command.Seq] = command.Command
-				}
+				commands := map[int64]string{command.Seq: command.Command}
 				chunks = append(chunks, terminalAuditAIChunk{evidence: part, commands: commands, serialGroup: serialGroup})
 			}
 			return true
@@ -76,9 +73,7 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 		}
 		chunk.WriteString(record)
 		chunkRunes += recordRunes
-		if command != nil {
-			chunkCommands[command.Seq] = command.Command
-		}
+		chunkCommands[command.Seq] = command.Command
 		return true
 	}
 
@@ -90,17 +85,6 @@ func buildTerminalAuditAIChunks(evidence *terminalaudit.TerminalAuditEvidence) (
 			break
 		}
 		coveredCommands++
-	}
-	if !truncated {
-		for i, event := range evidence.Unattributed {
-			data, _ := json.Marshal(event)
-			if !appendRecord(fmt.Sprintf("unattributed_event index=%d", i), string(data), nil) {
-				break
-			}
-		}
-	}
-	if !truncated && len(evidence.Commands) == 0 && len(evidence.Unattributed) == 0 {
-		appendRecord("empty_evidence", "当前会话没有录制到命令或终端事件。", nil)
 	}
 	if chunk.Len() > 0 {
 		flushChunk()

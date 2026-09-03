@@ -41,10 +41,6 @@ func sanitizeTerminalAuditEvidenceForAI(evidence *terminalaudit.TerminalAuditEvi
 	}
 	for i := range evidence.Commands {
 		evidence.Commands[i].Command = redactTerminalAuditAISecrets(evidence.Commands[i].Command)
-		evidence.Commands[i].Output = redactTerminalAuditAISecrets(evidence.Commands[i].Output)
-	}
-	for i := range evidence.Unattributed {
-		evidence.Unattributed[i].Data = redactTerminalAuditAISecrets(evidence.Unattributed[i].Data)
 	}
 }
 

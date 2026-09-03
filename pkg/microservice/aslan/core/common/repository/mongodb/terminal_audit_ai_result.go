@@ -34,18 +34,11 @@ func NewTerminalAuditAIResultColl() *TerminalAuditAIResultColl {
 func (c *TerminalAuditAIResultColl) GetCollectionName() string { return c.coll }
 
 func (c *TerminalAuditAIResultColl) EnsureIndex(ctx context.Context) error {
-	indexes := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "session_id", Value: 1}},
-			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys:    bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}},
-			Options: options.Index().SetUnique(false),
-		},
+	index := mongo.IndexModel{
+		Keys:    bson.D{{Key: "session_id", Value: 1}},
+		Options: options.Index().SetUnique(true),
 	}
-
-	_, err := c.Indexes().CreateMany(ctx, indexes, mongotool.CreateIndexOptions(ctx))
+	_, err := c.Indexes().CreateOne(ctx, index, mongotool.CreateIndexOptions(ctx))
 	return err
 }
 

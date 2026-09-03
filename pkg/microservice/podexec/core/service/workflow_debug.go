@@ -14,7 +14,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	auditservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/shared/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
@@ -63,7 +62,7 @@ FOR:
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
 		logger.Errorf("debug workflow failed: IToi %v", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败")
+		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("启动调试终端意外失败: parse job spec: %v", err))
 	}
 
 	var credValues []string
@@ -73,7 +72,10 @@ FOR:
 		}
 	}
 
-	pty, err := NewTerminalSession(c.Writer, c.Request, nil)
+	pty, err := NewTerminalSession(c.Writer, c.Request, nil, &TerminalSessionOption{
+		SecretEnvs: credValues,
+		Type:       Workflow,
+	})
 	if err != nil {
 		log.Errorf("get pty failed: %v", err)
 		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("get pty failed: %v", err))
@@ -124,10 +126,6 @@ FOR:
 		script += "env " + strings.Join(envs, " ") + " "
 	}
 	script += "bash\n"
-
-	// Browser-side credential masking must apply regardless of whether audit
-	// recording is available.
-	pty.outputSanitizer = terminalaudit.NewSanitizer(credValues)
 
 	meta := &auditservice.SessionMeta{
 		SessionType:   commonmodels.TerminalSessionTypeWorkflowDebug,

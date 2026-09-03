@@ -67,15 +67,11 @@ type SshConn struct {
 
 // NewSshConn keeps the original public API for existing callers.
 func NewSshConn(cols, rows int, sshClient *ssh.Client) (*SshConn, error) {
-	return newSshConn(cols, rows, sshClient, terminalio.NopRecorder{})
+	return NewSshConnWithRecorder(cols, rows, sshClient, terminalio.NopRecorder{})
 }
 
 // NewSshConnWithRecorder starts an SSH connection and records terminal I/O.
 func NewSshConnWithRecorder(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
-	return newSshConn(cols, rows, sshClient, recorder)
-}
-
-func newSshConn(cols, rows int, sshClient *ssh.Client, recorder terminalio.Recorder) (*SshConn, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
 		return nil, err

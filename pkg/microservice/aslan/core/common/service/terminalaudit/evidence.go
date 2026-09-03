@@ -1,13 +1,7 @@
 package terminalaudit
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/google/shlex"
 
@@ -24,10 +18,9 @@ const (
 // TerminalAuditEvidence contains the terminal data that can be reviewed without
 // making assumptions about commands whose source files were not recorded.
 type TerminalAuditEvidence struct {
-	Session      TerminalAuditSessionEvidence   `json:"session"`
-	Commands     []TerminalAuditCommandEvidence `json:"commands"`
-	Unattributed []TerminalAuditEvent           `json:"unattributed"`
-	Coverage     AuditEvidenceCoverage          `json:"coverage"`
+	Session  TerminalAuditSessionEvidence   `json:"session"`
+	Commands []TerminalAuditCommandEvidence `json:"commands"`
+	Coverage AuditEvidenceCoverage          `json:"coverage"`
 }
 
 type TerminalAuditSessionEvidence struct {
@@ -56,20 +49,12 @@ type TerminalAuditCommandEvidence struct {
 	Seq             int64  `json:"seq"`
 	TimeOffsetMS    int64  `json:"time_offset_ms"`
 	Command         string `json:"command"`
-	Output          string `json:"nearby_output"`
 	OpaqueExecution string `json:"opaque_execution,omitempty"`
 }
 
-type TerminalAuditEvent struct {
-	OffsetMS int64  `json:"offset_ms"`
-	Type     string `json:"type"`
-	Data     string `json:"data"`
-}
-
-// BuildTerminalAuditEvidence builds a deterministic snapshot while retaining
-// at most maxDataRunes runes of cast event data. A non-negative endOffsetMS
-// stops parsing before the first command excluded by the caller.
-func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*models.TerminalCommand, cast io.Reader, maxDataRunes int, endOffsetMS int64) (*TerminalAuditEvidence, error) {
+// BuildTerminalAuditEvidence builds the AI audit input from persisted session
+// metadata and commands. Terminal recordings are reserved for playback.
+func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*models.TerminalCommand) *TerminalAuditEvidence {
 	evidence := &TerminalAuditEvidence{
 		Session: TerminalAuditSessionEvidence{
 			SessionID:     session.SessionID,
@@ -107,96 +92,7 @@ func BuildTerminalAuditEvidence(session *models.TerminalSession, commands []*mod
 		}
 		evidence.Commands = append(evidence.Commands, commandEvidence)
 	}
-
-	decoder := json.NewDecoder(cast)
-	var raw json.RawMessage
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, fmt.Errorf("decode asciicast header: %w", err)
-	}
-	var header castHeader
-	if err := json.Unmarshal(raw, &header); err != nil {
-		return nil, fmt.Errorf("decode asciicast header: %w", err)
-	}
-	if header.Version != 2 {
-		return nil, fmt.Errorf("unsupported asciicast version %d", header.Version)
-	}
-
-	outputBuilders := make([]strings.Builder, len(evidence.Commands))
-	retainedDataRunes := 0
-	for {
-		if err := decoder.Decode(&raw); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("decode asciicast event: %w", err)
-		}
-
-		var parts []json.RawMessage
-		if err := json.Unmarshal(raw, &parts); err != nil {
-			return nil, fmt.Errorf("decode asciicast event: %w", err)
-		}
-		if len(parts) != 3 {
-			return nil, fmt.Errorf("invalid asciicast event: expected 3 fields, got %d", len(parts))
-		}
-
-		var typ string
-		if err := json.Unmarshal(parts[1], &typ); err != nil {
-			return nil, fmt.Errorf("decode asciicast event type: %w", err)
-		}
-		if typ != "i" && typ != "o" && typ != "r" {
-			continue
-		}
-		var offset float64
-		if err := json.Unmarshal(parts[0], &offset); err != nil {
-			return nil, fmt.Errorf("decode asciicast event offset: %w", err)
-		}
-		offsetMS := int64(offset*1000 + 0.5)
-		if endOffsetMS >= 0 && offsetMS >= endOffsetMS {
-			evidence.Coverage = AuditEvidenceCoveragePartial
-			break
-		}
-		var data string
-		if err := json.Unmarshal(parts[2], &data); err != nil {
-			return nil, fmt.Errorf("decode asciicast event data: %w", err)
-		}
-
-		// The budget is shared by attributed output and unattributed events. Once
-		// exhausted, stop decoding the stream so memory usage no longer follows the
-		// total cast file size.
-		remainingRunes := maxDataRunes - retainedDataRunes
-		if remainingRunes == 0 {
-			evidence.Coverage = AuditEvidenceCoveragePartial
-			break
-		}
-
-		eventRunes := utf8.RuneCountInString(data)
-		truncated := eventRunes > remainingRunes
-		if truncated {
-			data = string([]rune(data)[:remainingRunes])
-			eventRunes = remainingRunes
-		}
-		retainedDataRunes += eventRunes
-
-		commandIndex := sort.Search(len(evidence.Commands), func(i int) bool {
-			return evidence.Commands[i].TimeOffsetMS > offsetMS
-		}) - 1
-		if typ == "o" && commandIndex >= 0 {
-			outputBuilders[commandIndex].WriteString(data)
-		} else {
-			evidence.Unattributed = append(evidence.Unattributed, TerminalAuditEvent{
-				OffsetMS: offsetMS,
-				Type:     typ,
-				Data:     data,
-			})
-		}
-		if truncated {
-			evidence.Coverage = AuditEvidenceCoveragePartial
-			break
-		}
-	}
-	for i := range evidence.Commands {
-		evidence.Commands[i].Output = outputBuilders[i].String()
-	}
-	return evidence, nil
+	return evidence
 }
 
 func detectOpaqueExecution(command string) (string, bool) {

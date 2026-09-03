@@ -44,9 +44,9 @@ const (
 	terminalWatchPongWait   = 60 * time.Second
 )
 
-// WatchTerminalSession streams an active session to a read-only administrator.
+// WatchTerminalSession streams an active session to an authorized auditor.
 func WatchTerminalSession(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	if !authorized {
 		internalhandler.JSONResponse(c, ctx)
 		return

@@ -15,7 +15,7 @@ import (
 )
 
 func ListTerminalSessions(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -30,7 +30,7 @@ func ListTerminalSessions(c *gin.Context) {
 }
 
 func GetTerminalSession(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -39,7 +39,7 @@ func GetTerminalSession(c *gin.Context) {
 }
 
 func GetTerminalCast(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	if !authorized {
 		internalhandler.JSONResponse(c, ctx)
 		return
@@ -65,7 +65,7 @@ func GetTerminalCast(c *gin.Context) {
 }
 
 func ListTerminalCommands(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -80,7 +80,7 @@ func ListTerminalCommands(c *gin.Context) {
 }
 
 func TerminateTerminalSession(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -89,7 +89,7 @@ func TerminateTerminalSession(c *gin.Context) {
 }
 
 func AnalyzeTerminalSession(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -98,7 +98,7 @@ func AnalyzeTerminalSession(c *gin.Context) {
 }
 
 func GetTerminalSessionAIResult(c *gin.Context) {
-	ctx, authorized := newTerminalAuditAdminContext(c)
+	ctx, authorized := newTerminalAuditContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if !authorized {
 		return
@@ -106,14 +106,14 @@ func GetTerminalSessionAIResult(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = systemservice.GetTerminalSessionAIResult(c.Param("sessionID"))
 }
 
-func newTerminalAuditAdminContext(c *gin.Context) (*internalhandler.Context, bool) {
+func newTerminalAuditContext(c *gin.Context) (*internalhandler.Context, bool) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return ctx, false
 	}
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
 		ctx.UnAuthorized = true
 		return ctx, false
 	}
