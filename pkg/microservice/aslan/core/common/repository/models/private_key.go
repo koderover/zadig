@@ -44,6 +44,7 @@ type PrivateKey struct {
 	Provider     int8                 `bson:"provider"               json:"provider"`
 	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
 	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
+	Projects     []string             `bson:"projects"               json:"projects"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 	// ScheduleWorkflow equals to true means this vm is agent type, false means this vm is ssh type
 	ScheduleWorkflow bool     `bson:"schedule_workflow"      json:"schedule_workflow"`
