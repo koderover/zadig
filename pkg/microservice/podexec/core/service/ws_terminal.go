@@ -211,12 +211,8 @@ func (t *TerminalSession) writeOutput(output string) error {
 func (t *TerminalSession) Close() error {
 	t.closeOnce.Do(func() {
 		close(t.doneChan)
-		if t.outputSanitizer != nil {
-			_ = t.writeOutput(t.outputSanitizer.Flush())
-		}
-		t.writeMu.Lock()
+		// Close directly so it can interrupt a blocked WriteMessage.
 		t.closeErr = t.wsConn.Close()
-		t.writeMu.Unlock()
 		log.Infof("close terminal session, sessionID=%s err=%v", t.sessionID, t.closeErr)
 	})
 	return t.closeErr
