@@ -65,7 +65,9 @@ func OpenAPIListDockerfileTemplates(c *gin.Context) {
 	}
 	templates, total, err := templateservice.ListDockerfileTemplate(query.PageNum, query.PageSize, ctx.Logger)
 	ctx.Resp = &openAPIDockerfileTemplateList{Total: total, DockerfileTemplates: templates}
-	ctx.RespErr = err
+	if err != nil {
+		ctx.RespErr = e.ErrListTemplate.AddErr(err)
+	}
 }
 
 func OpenAPIGetDockerfileTemplate(c *gin.Context) {
@@ -87,6 +89,8 @@ func OpenAPIGetDockerfileTemplate(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = template.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
 	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
 		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	} else if ctx.RespErr != nil {
+		ctx.RespErr = e.ErrGetTemplate.AddErr(ctx.RespErr)
 	}
 }
 
@@ -122,7 +126,9 @@ func OpenAPICreateDockerfileTemplate(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新建", "模板库-Dockerfile", req.Name, req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = templateservice.CreateDockerfileTemplate(req, ctx.Logger)
+	if err := templateservice.CreateDockerfileTemplate(req, ctx.Logger); err != nil {
+		ctx.RespErr = e.ErrCreateTemplate.AddErr(err)
+	}
 }
 
 func OpenAPIUpdateDockerfileTemplate(c *gin.Context) {
@@ -161,9 +167,8 @@ func OpenAPIUpdateDockerfileTemplate(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "模板库-Dockerfile", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger)
-	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
-		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	if err := templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger); err != nil {
+		ctx.RespErr = e.ErrUpdateTemplate.AddErr(err)
 	}
 }
 
@@ -184,8 +189,7 @@ func OpenAPIDeleteDockerfileTemplate(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板库-Dockerfile", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
-	ctx.RespErr = templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger)
-	if errors.Is(ctx.RespErr, mongo.ErrNoDocuments) {
-		ctx.RespErr = e.ErrNotFound.AddErr(ctx.RespErr)
+	if err := templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger); err != nil {
+		ctx.RespErr = e.ErrDeleteTemplate.AddErr(err)
 	}
 }

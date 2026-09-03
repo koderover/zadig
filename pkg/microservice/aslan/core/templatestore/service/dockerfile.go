@@ -72,9 +72,6 @@ func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([
 }
 
 func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
-	if _, err := commonrepo.NewDockerfileTemplateColl().GetById(id); err != nil {
-		return err
-	}
 	ref, err := commonrepo.NewBuildColl().GetDockerfileTemplateReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for template id: %s, the error is: %s", id, err)

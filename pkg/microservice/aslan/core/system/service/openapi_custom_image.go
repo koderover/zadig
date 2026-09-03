@@ -89,9 +89,6 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 	image, err := findCustomImage(id)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return e.ErrNotFound.AddErr(err)
-		}
 		return e.ErrUpdateBasicImage.AddErr(err)
 	}
 
@@ -103,9 +100,6 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 func DeleteCustomImageOpenAPI(id string, logger *zap.SugaredLogger) error {
 	if _, err := findCustomImage(id); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return e.ErrNotFound.AddErr(err)
-		}
 		return e.ErrDeleteBasicImage.AddErr(err)
 	}
 	return DeleteBasicImage(id, logger)
@@ -117,7 +111,7 @@ func findCustomImage(id string) (*commonmodels.BasicImage, error) {
 		return nil, err
 	}
 	if image.ImageFrom != commonmodels.ImageFromCustom || image.ImageType == "sonar" {
-		return nil, mongo.ErrNoDocuments
+		return nil, fmt.Errorf("image %s is not a custom image", id)
 	}
 	return image, nil
 }
