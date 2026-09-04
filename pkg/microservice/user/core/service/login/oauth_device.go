@@ -72,7 +72,7 @@ func (s *OAuthService) GetDeviceAuthorization(userCode string) (*OAuthDeviceAuth
 		return nil, err
 	}
 	return &OAuthDeviceAuthorizationInfo{
-		ClientName: "Zadig CLI",
+		ClientName: OAuthLocalClientName,
 		DeviceName: device.DeviceName,
 		UserCode:   device.UserCode,
 		ExpiresAt:  device.ExpiresAt,
@@ -138,21 +138,34 @@ func (s *OAuthService) ExchangeDeviceCode(deviceCode string) (*OAuthTokenRespons
 		s.deleteDevice(device)
 		return nil, &OAuthError{Code: oauthErrorAccessDenied, Description: "authorization was denied"}
 	case oauthDeviceStatusApproved:
-		payload, err := s.cache.TakeString(oauthKey("device", hash))
-		if errors.Is(err, redis.Nil) {
-			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or already used"}
-		}
+		exchangeKey := oauthKey("exchange", hash)
+		claimed, err := s.cache.WriteIfNotExists(exchangeKey, "1", time.Until(device.ExpiresAt))
 		if err != nil {
 			return nil, err
 		}
+		if !claimed {
+			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or already used"}
+		}
+		payload, err := s.cache.GetString(oauthKey("device", hash))
+		if errors.Is(err, redis.Nil) {
+			_ = s.cache.Delete(exchangeKey)
+			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or already used"}
+		}
+		if err != nil {
+			_ = s.cache.Delete(exchangeKey)
+			return nil, err
+		}
 		if err := json.Unmarshal([]byte(payload), device); err != nil {
+			_ = s.cache.Delete(exchangeKey)
 			return nil, err
 		}
 		tokens, err := s.createOAuthSession(device)
-		if err == nil {
-			s.deleteDevice(device)
+		if err != nil {
+			_ = s.cache.Delete(exchangeKey)
+			return nil, err
 		}
-		return tokens, err
+		s.deleteDevice(device)
+		return tokens, nil
 	default:
 		return nil, &OAuthError{Code: oauthErrorInvalidGrant, Description: "invalid authorization state"}
 	}
