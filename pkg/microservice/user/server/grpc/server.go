@@ -133,7 +133,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 			}
 
 			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
-			if claims.TokenUse != loginsvc.OAuthTokenUseCLIAccess && claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
+			if claims.TokenUse != loginsvc.OAuthLocalTokenUseAccess && claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 				// check if the given token is removed from the cache
 				token, err := cache.NewRedisCache(config.RedisUserTokenDB()).GetString(claims.UID)
 				if err != nil {
@@ -188,7 +188,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 	}
 
 allowed:
-	if claims != nil && claims.TokenUse == loginsvc.OAuthTokenUseCLIAccess {
+	if claims != nil && claims.TokenUse == loginsvc.OAuthLocalTokenUseAccess {
 		userToken = ""
 	}
 	resp := &ext_authz_v3.CheckResponse{}

@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	OAuthCLIClientID       = "zadig-cli"
-	OAuthCLIScope          = "zadig.api offline_access"
-	OAuthTokenUseCLIAccess = "cli_access"
+	OAuthLocalClientID       = "zadig-cli"
+	OAuthLocalClientName     = "Zadig CLI / MCP"
+	OAuthLocalClientScope    = "zadig.api offline_access"
+	OAuthLocalTokenUseAccess = "cli_access"
 
 	OAuthErrorInvalidRequest = "invalid_request"
 	OAuthErrorInvalidClient  = "invalid_client"

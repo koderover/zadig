@@ -62,7 +62,7 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 	}
 	return &OAuthTokenResponse{
 		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(accessTTL / time.Second),
-		RefreshToken: newRefreshToken, Scope: OAuthCLIScope,
+		RefreshToken: newRefreshToken, Scope: OAuthLocalClientScope,
 	}, nil
 }
 
@@ -146,7 +146,7 @@ func (s *OAuthService) createOAuthSession(device *oauthDevice) (*OAuthTokenRespo
 	}
 	return &OAuthTokenResponse{
 		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(accessTTL / time.Second),
-		RefreshToken: refreshToken, Scope: OAuthCLIScope,
+		RefreshToken: refreshToken, Scope: OAuthLocalClientScope,
 	}, nil
 }
 
@@ -188,8 +188,8 @@ func createOAuthAccessToken(session *oauthSession, now time.Time) (string, time.
 		UID:               session.User.UID,
 		PreferredUsername: session.User.Account,
 		MFAVerified:       session.User.MFAVerified,
-		TokenUse:          OAuthTokenUseCLIAccess,
-		ClientID:          OAuthCLIClientID,
+		TokenUse:          OAuthLocalTokenUseAccess,
+		ClientID:          OAuthLocalClientID,
 		SessionID:         session.ID,
 		FederatedClaims:   FederatedClaims{ConnectorId: session.User.IdentityType, UserId: session.User.Account},
 		StandardClaims: jwt.StandardClaims{

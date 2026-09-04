@@ -282,7 +282,7 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 		if isInternalTokenClaims(claims) {
 			return claims, true, nil
 		}
-		if claims.TokenUse == login.OAuthTokenUseCLIAccess {
+		if claims.TokenUse == login.OAuthLocalTokenUseAccess {
 			if err := login.NewOAuthService().ValidateSession(claims.SessionID, claims.UID); err != nil {
 				log.Errorf("Failed to validate OAuth session, uid: %s, err: %s", claims.UID, err)
 				return nil, false, err

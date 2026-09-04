@@ -53,7 +53,7 @@ func DeviceAuthorization(c *gin.Context) {
 		return
 	}
 	scope := strings.Join(strings.Fields(args.Scope), " ")
-	if scope != login.OAuthCLIScope && scope != "offline_access zadig.api" {
+	if scope != login.OAuthLocalClientScope && scope != "offline_access zadig.api" {
 		writeOAuthError(c, &login.OAuthError{Code: login.OAuthErrorInvalidRequest, Description: "scope must be zadig.api offline_access"})
 		return
 	}
@@ -136,7 +136,7 @@ func Revoke(c *gin.Context) {
 }
 
 func validateClientID(clientID string) error {
-	if clientID != login.OAuthCLIClientID {
+	if clientID != login.OAuthLocalClientID {
 		return &login.OAuthError{Code: login.OAuthErrorInvalidClient, Description: "unsupported client_id"}
 	}
 	return nil
