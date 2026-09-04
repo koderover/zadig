@@ -111,6 +111,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	dockerfiles := router.Group("dockerfiles")
+	{
+		dockerfiles.GET("", OpenAPIListDockerfileTemplates)
+		dockerfiles.GET("/:id", OpenAPIGetDockerfileTemplate)
+		dockerfiles.POST("", OpenAPICreateDockerfileTemplate)
+		dockerfiles.PUT("/:id", OpenAPIUpdateDockerfileTemplate)
+		dockerfiles.DELETE("/:id", OpenAPIDeleteDockerfileTemplate)
+	}
+
 	charts := router.Group("charts")
 	{
 		charts.GET("", OpenAPIListChartTemplates)

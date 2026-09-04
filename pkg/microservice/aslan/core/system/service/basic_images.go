@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -135,6 +137,16 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 
 func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 	// 检查该镜像是否被引用
+	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{BasicImageID: id})
+	if err == nil {
+		log.Errorf("BasicImage has been used by build template, image id:%s, build template name:%s", id, buildTemplate.Name)
+		return e.ErrDeleteUsedBasicImage
+	}
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		log.Errorf("Failed to check build template references for image id:%s, error:%v", id, err)
+		return e.ErrDeleteBasicImage.AddErr(err)
+	}
+
 	buildOpt := &commonrepo.BuildListOption{BasicImageID: id}
 	builds, err := commonrepo.NewBuildColl().List(buildOpt)
 	if err == nil && len(builds) != 0 {

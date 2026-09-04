@@ -22,6 +22,7 @@ import (
 
 	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -78,6 +79,14 @@ func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
 	}
 	if len(ref) > 0 {
 		return errors.New("this template is in use")
+	}
+	_, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{DockerfileTemplateID: id})
+	if err == nil {
+		return errors.New("this template is in use")
+	}
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		logger.Errorf("Failed to get build template reference for dockerfile template id: %s, the error is: %s", id, err)
+		return err
 	}
 	err = commonrepo.NewDockerfileTemplateColl().DeleteByID(id)
 	if err != nil {

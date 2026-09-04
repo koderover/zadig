@@ -98,7 +98,6 @@ func OpenAPICreateCustomImage(c *gin.Context) {
 		Label:     strings.TrimSpace(req.Label),
 		Value:     strings.TrimSpace(req.Value),
 		ImageFrom: commonmodels.ImageFromCustom,
-		ImageType: req.ImageType,
 		UpdateBy:  ctx.UserName,
 	}, ctx.Logger)
 }

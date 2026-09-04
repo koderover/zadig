@@ -151,7 +151,7 @@ func validateAdvancedSetting(infrastructure string, advanced *types.OpenAPIAdvan
 	if err := commonutil.CheckDefineResourceParam(spec.FindResourceRequestType(), spec); err != nil {
 		return fmt.Errorf("invalid advanced_settings.resource_spec: %w", err)
 	}
-	if advanced.CacheSetting != nil && advanced.CacheSetting.Enabled && advanced.CacheSetting.CacheDir != "" && strings.TrimSpace(advanced.CacheSetting.CacheDir) == "" {
+	if advanced.CacheSetting != nil && advanced.CacheSetting.Enabled && strings.TrimSpace(advanced.CacheSetting.CacheDir) == "" {
 		return fmt.Errorf("advanced_settings.cache_setting.cache_dir cannot be empty when cache is enabled")
 	}
 	if err := validateStorages(advanced.Storages); err != nil {
@@ -303,10 +303,6 @@ func resolveOpenAPIBuildTemplate(req *OpenAPIBuildTemplateInput) (*resolvedOpenA
 		// Keep omitted advanced settings aligned with the default build configuration.
 		resolved.advanced = &types.OpenAPIAdvancedSetting{
 			Timeout: 60,
-			Spec: setting.RequestSpec{
-				CpuLimit:    1000,
-				MemoryLimit: 512,
-			},
 			Storages: &types.OpenAPIStorages{
 				StoragesProperties: []*types.NFSProperties{},
 			},
@@ -370,11 +366,13 @@ func applyOpenAPIBuildTemplate(template *commonmodels.BuildTemplate, req *OpenAP
 	preBuild.ImageID = resolved.image.ID.Hex()
 	preBuild.Installs = openapitool.ToBuildInstalls(req.Installs)
 	preBuild.Envs = convertOpenAPIBuildTemplateParameters(req.Parameters)
-	preBuild.ResReq = advanced.Spec.FindResourceRequestType()
 	if resolved.defaultAdvanced {
 		preBuild.ResReq = setting.LowRequest
+		preBuild.ResReqSpec = setting.LowRequestSpec
+	} else {
+		preBuild.ResReq = advanced.Spec.FindResourceRequestType()
+		preBuild.ResReqSpec = advanced.Spec
 	}
-	preBuild.ResReqSpec = advanced.Spec
 	preBuild.ClusterID = resolved.clusterID
 	preBuild.StrategyID = resolved.strategyID
 	preBuild.UseHostDockerDaemon = advanced.UseHostDockerDaemon
@@ -435,9 +433,22 @@ func convertBuildTemplateToOpenAPI(template *commonmodels.BuildTemplate) (*OpenA
 	if err != nil {
 		return nil, fmt.Errorf("failed to find build image %s, error: %w", template.PreBuild.ImageID, err)
 	}
+	resourceSpec := template.PreBuild.ResReqSpec
+	switch template.PreBuild.ResReq {
+	case setting.HighRequest:
+		resourceSpec = setting.HighRequestSpec
+	case setting.MediumRequest:
+		resourceSpec = setting.MediumRequestSpec
+	case setting.LowRequest:
+		resourceSpec = setting.LowRequestSpec
+	case setting.MinRequest:
+		resourceSpec = setting.MinRequestSpec
+	case setting.DefaultRequest:
+		resourceSpec = setting.DefaultRequestSpec
+	}
 	advanced := &types.OpenAPIAdvancedSetting{
 		Timeout:             int64(template.Timeout),
-		Spec:                template.PreBuild.ResReqSpec,
+		Spec:                resourceSpec,
 		UseHostDockerDaemon: template.PreBuild.UseHostDockerDaemon,
 		PrivilegedMode:      template.EnablePrivilegedMode,
 		CustomAnnotations:   convertOpenAPIKeyValues(template.PreBuild.CustomAnnotations),
@@ -477,14 +488,23 @@ func convertBuildTemplateToOpenAPI(template *commonmodels.BuildTemplate) (*OpenA
 		AdvancedSetting: advanced,
 	}
 	if template.PostBuild != nil && template.PostBuild.DockerBuild != nil {
+		dockerBuild := template.PostBuild.DockerBuild
+		templateName := ""
+		if dockerBuild.Source == setting.DockerfileSourceTemplate {
+			dockerfileTemplate, err := commonrepo.NewDockerfileTemplateColl().GetById(dockerBuild.TemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find dockerfile template %s, error: %w", dockerBuild.TemplateID, err)
+			}
+			templateName = dockerfileTemplate.Name
+		}
 		input.DockerBuildStep = &types.OpenAPIDockerBuildStep{
-			BuildContextDir:     template.PostBuild.DockerBuild.WorkDir,
-			DockerfileSource:    template.PostBuild.DockerBuild.Source,
-			DockerfileDirectory: template.PostBuild.DockerBuild.DockerFile,
-			TemplateName:        template.PostBuild.DockerBuild.TemplateName,
-			BuildArgs:           template.PostBuild.DockerBuild.BuildArgs,
-			EnableBuildkit:      template.PostBuild.DockerBuild.EnableBuildkit,
-			Platforms:           template.PostBuild.DockerBuild.Platform,
+			BuildContextDir:     dockerBuild.WorkDir,
+			DockerfileSource:    dockerBuild.Source,
+			DockerfileDirectory: dockerBuild.DockerFile,
+			TemplateName:        templateName,
+			BuildArgs:           dockerBuild.BuildArgs,
+			EnableBuildkit:      dockerBuild.EnableBuildkit,
+			Platforms:           dockerBuild.Platform,
 		}
 	}
 	return &OpenAPIBuildTemplateDetail{
