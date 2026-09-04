@@ -74,6 +74,10 @@ func (c *RedisCache) SetNX(key, val string, ttl time.Duration) error {
 	return err
 }
 
+func (c *RedisCache) WriteIfNotExists(key, val string, ttl time.Duration) (bool, error) {
+	return c.redisClient.SetNX(context.TODO(), key, val, ttl).Result()
+}
+
 func (c *RedisCache) Exists(key string) (bool, error) {
 	exists, err := c.redisClient.Exists(context.TODO(), key).Result()
 	if err != nil {
@@ -89,6 +93,10 @@ func (c *RedisCache) Exists(key string) (bool, error) {
 
 func (c *RedisCache) GetString(key string) (string, error) {
 	return c.redisClient.Get(context.TODO(), key).Result()
+}
+
+func (c *RedisCache) TakeString(key string) (string, error) {
+	return c.redisClient.GetDel(context.TODO(), key).Result()
 }
 
 func (c *RedisCache) MGet(keys []string) ([]interface{}, error) {

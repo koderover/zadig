@@ -750,6 +750,10 @@ func getLoginId(user *models.User, loginType config.LoginType) string {
 }
 
 func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
+	if err := login.NewOAuthService().RevokeUserSessions(uid); err != nil {
+		return fmt.Errorf("failed to revoke OAuth sessions for deleted user %s: %w", uid, err)
+	}
+
 	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -1017,6 +1021,9 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		return fmt.Errorf("failed to revoke OAuth sessions before password update: %w", err)
+	}
 	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
@@ -1048,6 +1055,9 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 	userLogin := &models.UserLogin{
 		UID:      user.UID,
 		Password: string(hashedPassword),
+	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		return fmt.Errorf("failed to revoke OAuth sessions before password reset: %w", err)
 	}
 	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {

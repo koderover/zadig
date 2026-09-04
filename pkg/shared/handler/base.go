@@ -52,6 +52,7 @@ type Context struct {
 	UserName     string
 	UserID       string
 	IdentityType string
+	MFAVerified  bool
 	RequestID    string
 	Resources    *user.AuthorizedResources
 	LarkPlugin   *LarkPluginContext
@@ -126,6 +127,7 @@ func NewContext(c *gin.Context) *Context {
 		UserID:       claims.UID,
 		Account:      claims.Account,
 		IdentityType: claims.FederatedClaims.ConnectorId,
+		MFAVerified:  claims.MFAVerified,
 		Logger:       ginzap.WithContext(c).Sugar(),
 		RequestID:    c.GetString(setting.RequestID),
 	}

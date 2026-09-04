@@ -33,6 +33,9 @@ type Claims struct {
 	UID               string          `json:"uid"`
 	PreferredUsername string          `json:"preferred_username"`
 	MFAVerified       bool            `json:"mfa_verified"`
+	TokenUse          string          `json:"token_use,omitempty"`
+	ClientID          string          `json:"client_id,omitempty"`
+	SessionID         string          `json:"session_id,omitempty"`
 	FederatedClaims   FederatedClaims `json:"federated_claims"`
 	jwt.StandardClaims
 }
