@@ -192,6 +192,7 @@ type ZadigDeployJobPreviewSpec struct {
 	YamlContent        string                 `bson:"yaml_content"                 json:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
+	OverrideKVs      string `bson:"override_kvs" json:"override_kvs" yaml:"override_kvs"`
 	// VariableKVs new since 1.18, only used for k8s
 	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"         yaml:"variable_kvs"`
 	OriginRevision     int64                           `bson:"origin_revision"              json:"origin_revision"      yaml:"origin_revision"`
@@ -3126,6 +3127,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.DeployContents = taskJobSpec.DeployContents
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
+			spec.OverrideKVs = taskJobSpec.OverrideKVs
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.ValueMergeStrategy = taskJobSpec.ValueMergeStrategy
 			spec.OriginRevision = taskJobSpec.OriginRevision
