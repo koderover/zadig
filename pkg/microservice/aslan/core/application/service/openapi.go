@@ -31,78 +31,129 @@ import (
 )
 
 type OpenAPIApplicationRepositoryRequest struct {
+	// 代码源名称
 	CodehostName string `json:"codehost_name"`
-	RepoOwner    string `json:"repo_owner"`
-	RepoName     string `json:"repo_name"`
+	// 仓库所属用户或组织
+	RepoOwner string `json:"repo_owner"`
+	// 仓库名称
+	RepoName string `json:"repo_name"`
 }
 
 type OpenAPIApplicationRepository struct {
-	CodehostID int    `json:"codehost_id"`
-	RepoOwner  string `json:"repo_owner"`
-	RepoName   string `json:"repo_name"`
+	// 代码源 ID
+	CodehostID int `json:"codehost_id"`
+	// 仓库所属用户或组织
+	RepoOwner string `json:"repo_owner"`
+	// 仓库名称
+	RepoName string `json:"repo_name"`
 }
 
 type OpenAPIApplicationRequest struct {
-	Name                  string                               `json:"name"`
-	Key                   string                               `json:"key"`
-	Project               string                               `json:"project"`
-	Type                  string                               `json:"type"`
-	Owner                 string                               `json:"owner"`
-	Description           string                               `json:"description"`
-	Repository            *OpenAPIApplicationRepositoryRequest `json:"repository,omitempty"`
-	TestingServiceName    string                               `json:"testing_service_name"`
-	ProductionServiceName string                               `json:"production_service_name"`
-	CustomFields          map[string]interface{}               `json:"custom_fields"`
+	// 应用名称，必填
+	Name string `json:"name"`
+	// 应用唯一键，必填，创建后不可修改
+	Key string `json:"key"`
+	// 关联项目标识，必填
+	Project string `json:"project"`
+	// 应用类型，例如 service、component、application、library
+	Type string `json:"type"`
+	// 应用负责人用户 ID
+	Owner string `json:"owner"`
+	// 应用描述
+	Description string `json:"description"`
+	// 关联代码仓库；传入时 codehost_name、repo_owner、repo_name 必填
+	Repository *OpenAPIApplicationRepositoryRequest `json:"repository,omitempty"`
+	// 关联的测试服务名称
+	TestingServiceName string `json:"testing_service_name"`
+	// 关联的生产服务名称
+	ProductionServiceName string `json:"production_service_name"`
+	// 自定义字段，键来自业务模型字段定义
+	CustomFields map[string]interface{} `json:"custom_fields"`
 }
 
 type OpenAPIApplication struct {
-	ID                    string                        `json:"id"`
-	Name                  string                        `json:"name"`
-	Key                   string                        `json:"key"`
-	Project               string                        `json:"project"`
-	Type                  string                        `json:"type"`
-	Owner                 string                        `json:"owner"`
-	Description           string                        `json:"description"`
-	Repository            *OpenAPIApplicationRepository `json:"repository,omitempty"`
-	TestingServiceName    string                        `json:"testing_service_name"`
-	ProductionServiceName string                        `json:"production_service_name"`
-	CustomFields          map[string]interface{}        `json:"custom_fields"`
-	CreateTime            int64                         `json:"create_time"`
-	UpdateTime            int64                         `json:"update_time"`
+	// 应用 ID
+	ID string `json:"id"`
+	// 应用名称
+	Name string `json:"name"`
+	// 应用唯一键
+	Key string `json:"key"`
+	// 关联项目标识
+	Project string `json:"project"`
+	// 应用类型
+	Type string `json:"type"`
+	// 应用负责人用户 ID
+	Owner string `json:"owner"`
+	// 应用描述
+	Description string `json:"description"`
+	// 关联代码仓库
+	Repository *OpenAPIApplicationRepository `json:"repository,omitempty"`
+	// 关联的测试服务名称
+	TestingServiceName string `json:"testing_service_name"`
+	// 关联的生产服务名称
+	ProductionServiceName string `json:"production_service_name"`
+	// 自定义字段
+	CustomFields map[string]interface{} `json:"custom_fields"`
+	// 创建时间，Unix 时间戳，单位为秒
+	CreateTime int64 `json:"create_time"`
+	// 更新时间，Unix 时间戳，单位为秒
+	UpdateTime int64 `json:"update_time"`
 }
 
 type OpenAPIApplicationFilter struct {
-	Field string      `json:"field"`
-	Verb  string      `json:"verb"`
+	// 过滤字段；自定义字段格式为 custom_fields.{field_key}
+	Field string `json:"field"`
+	// 过滤操作符，具体取值取决于字段类型
+	Verb string `json:"verb"`
+	// 过滤值，类型必须与字段定义类型匹配
 	Value interface{} `json:"value"`
 }
 
 type OpenAPISearchApplicationsRequest struct {
-	Page      int64                       `json:"page"`
-	PageSize  int64                       `json:"page_size"`
-	Query     string                      `json:"query"`
-	Filters   []*OpenAPIApplicationFilter `json:"filters"`
-	SortBy    string                      `json:"sort_by"`
-	SortOrder string                      `json:"sort_order"`
+	// 页码，从 1 开始，默认 1
+	Page int64 `json:"page"`
+	// 每页数量，默认 20
+	PageSize int64 `json:"page_size"`
+	// 按应用名称或唯一键进行不区分大小写的模糊查询
+	Query string `json:"query"`
+	// 过滤条件列表
+	Filters []*OpenAPIApplicationFilter `json:"filters"`
+	// 排序字段，默认 update_time
+	SortBy string `json:"sort_by"`
+	// 排序方向，可选 asc、desc，默认 asc
+	SortOrder string `json:"sort_order"`
 }
 
 type OpenAPISearchApplicationsResponse struct {
-	Items    []*OpenAPIApplication `json:"items"`
-	Page     int64                 `json:"page"`
-	PageSize int64                 `json:"page_size"`
-	Total    int64                 `json:"total"`
+	// 当前页应用列表
+	Items []*OpenAPIApplication `json:"items"`
+	// 当前页码
+	Page int64 `json:"page"`
+	// 每页数量
+	PageSize int64 `json:"page_size"`
+	// 符合查询条件的应用总数
+	Total int64 `json:"total"`
 }
 
 type OpenAPIFieldDefinitionRequest struct {
-	Key         string                            `json:"key"`
-	Name        string                            `json:"name"`
-	Type        config.ApplicationCustomFieldType `json:"type"`
-	Default     interface{}                       `json:"default"`
-	Options     []string                          `json:"options,omitempty"`
-	Unique      bool                              `json:"unique"`
-	Required    bool                              `json:"required"`
-	ShowInList  bool                              `json:"show_in_list"`
-	Description string                            `json:"description"`
+	// 字段唯一键，对应 custom_fields.{key}
+	Key string `json:"key"`
+	// 字段展示名称
+	Name string `json:"name"`
+	// 字段类型
+	Type config.ApplicationCustomFieldType `json:"type"`
+	// 默认值，类型必须与 type 匹配
+	Default interface{} `json:"default"`
+	// 单选或多选字段的可选项
+	Options []string `json:"options,omitempty"`
+	// 是否要求字段值唯一
+	Unique bool `json:"unique"`
+	// 是否必填
+	Required bool `json:"required"`
+	// 是否在应用列表中展示
+	ShowInList bool `json:"show_in_list"`
+	// 字段描述
+	Description string `json:"description"`
 }
 
 type OpenAPIFieldDefinition = commonmodels.ApplicationFieldDefinition
