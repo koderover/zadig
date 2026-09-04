@@ -1582,6 +1582,67 @@ type GetHelmValuesDifferenceResp struct {
 	LatestManifestFiles  []*kube.HelmManifestFile `json:"latest_manifest_files"`
 }
 
+// mergeEstimatedOverrideValues keeps environment values, overlays request
+// values, and finally applies source=other expressions for the target service.
+// Expressions are intentionally left unresolved because this endpoint is also
+// used before a workflow has produced its runtime context.
+func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*commonservice.KVPair, serviceConfigs []*commonmodels.DeployServiceVariableConfig, serviceName string) (string, error) {
+	requestOrigin := ""
+	if len(requestValues) > 0 {
+		data, err := json.Marshal(requestValues)
+		if err != nil {
+			return "", err
+		}
+		requestOrigin = string(data)
+	}
+
+	mergedOrigin, err := helmservice.MergeOverrideKVStrings(environmentOrigin, requestOrigin)
+	if err != nil {
+		return "", err
+	}
+
+	var merged []*commonservice.KVPair
+	if mergedOrigin != "" {
+		if err := json.Unmarshal([]byte(mergedOrigin), &merged); err != nil {
+			return "", err
+		}
+	}
+	upsert := func(kv *commonservice.KVPair) {
+		if kv == nil || kv.Key == "" {
+			return
+		}
+		for i := len(merged) - 1; i >= 0; i-- {
+			if merged[i].Key == kv.Key {
+				merged[i].Value = kv.Value
+				return
+			}
+		}
+		merged = append(merged, kv)
+	}
+
+	changed := false
+	for _, serviceConfig := range serviceConfigs {
+		if serviceConfig == nil || serviceConfig.ServiceName != serviceName {
+			continue
+		}
+		for _, config := range serviceConfig.VariableConfigs {
+			if config != nil && config.Source == "other" && config.VariableKey != "" {
+				upsert(&commonservice.KVPair{Key: config.VariableKey, Value: config.Value})
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return mergedOrigin, nil
+	}
+
+	data, err := json.Marshal(merged)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
 		prodSvc        *commonmodels.ProductService
@@ -1739,8 +1800,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
 
-		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-		overrideValues, err := helmservice.MergeOverrideKVStrings(prodSvc.GetServiceRender().OverrideValues, tempArg.ToOverrideValueString())
+		overrideValues, err := mergeEstimatedOverrideValues(prodSvc.GetServiceRender().OverrideValues, arg.OverrideValues, arg.ServiceVariableConfig, serviceOrReleaseName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge environment override values, err: %s", err)
 		}
@@ -1782,8 +1842,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 	} else {
 		latestReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
 
-		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-		overrideValues, err := helmservice.MergeOverrideKVStrings(prodSvc.GetServiceRender().OverrideValues, tempArg.ToOverrideValueString())
+		overrideValues, err := mergeEstimatedOverrideValues(prodSvc.GetServiceRender().OverrideValues, arg.OverrideValues, arg.ServiceVariableConfig, serviceOrReleaseName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge environment override values, err: %s", err)
 		}
