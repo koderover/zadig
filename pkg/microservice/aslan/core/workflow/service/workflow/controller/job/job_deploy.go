@@ -817,7 +817,19 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				MaxHistory:                   templateProduct.ReleaseMaxHistory,
 			}
 			if slices.Contains(j.jobSpec.DeployContents, config.DeployVars) {
-				jobTaskSpec.OverrideKVs, err = mergeHelmOverrideKVs(svc.OverrideKVs, serviceVariableConfigMap[svc.ServiceName])
+				// The environment render is the source of truth for existing Helm
+				// override values. The workflow payload may omit values that are not
+				// exposed as configurable variables, so merge it on top of the
+				// environment values before applying `other` references.
+				envOverrideKVs := ""
+				if envSvc := productServiceMap[svc.ServiceName]; envSvc != nil {
+					envOverrideKVs = envSvc.GetServiceRender().OverrideValues
+				}
+				jobTaskSpec.OverrideKVs, err = mergeHelmOverrideKVsWithEnvironment(
+					envOverrideKVs,
+					svc.OverrideKVs,
+					serviceVariableConfigMap[svc.ServiceName],
+				)
 				if err != nil {
 					return nil, fmt.Errorf("failed to merge override values for service %s: %w", svc.ServiceName, err)
 				}
@@ -1432,32 +1444,57 @@ func filterKVsByConfig(serviceName string, originKVs []*commontypes.RenderVariab
 }
 
 func mergeHelmOverrideKVs(origin string, configs []*commonmodels.DeployVariableConfig) (string, error) {
+	return mergeHelmOverrideKVsWithEnvironment("", origin, configs)
+}
+
+// mergeHelmOverrideKVsWithEnvironment builds the task override values in
+// precedence order: environment values, workflow-supplied values, and then
+// source=other variable references. This keeps environment-only keys when the
+// frontend does not include them in the workflow payload.
+func mergeHelmOverrideKVsWithEnvironment(environmentOrigin, taskOrigin string, configs []*commonmodels.DeployVariableConfig) (string, error) {
 	kvs := make([]*commonservice.KVPair, 0)
-	if origin != "" {
-		if err := json.Unmarshal([]byte(origin), &kvs); err != nil {
-			return "", err
+	upsert := func(kv *commonservice.KVPair) {
+		for i := len(kvs) - 1; i >= 0; i-- {
+			if kvs[i].Key == kv.Key {
+				kvs[i].Value = kv.Value
+				return
+			}
 		}
+		kvs = append(kvs, kv)
+	}
+	decodeAndUpsert := func(origin string) error {
+		if origin == "" {
+			return nil
+		}
+		originKVs := make([]*commonservice.KVPair, 0)
+		if err := json.Unmarshal([]byte(origin), &originKVs); err != nil {
+			return err
+		}
+		for _, kv := range originKVs {
+			if kv != nil && kv.Key != "" {
+				upsert(kv)
+			}
+		}
+		return nil
+	}
+
+	if err := decodeAndUpsert(environmentOrigin); err != nil {
+		return "", err
+	}
+	if err := decodeAndUpsert(taskOrigin); err != nil {
+		return "", err
 	}
 
 	for _, config := range configs {
 		if config.Source != "other" {
 			continue
 		}
-
-		updated := false
-		for i := len(kvs) - 1; i >= 0; i-- {
-			if kvs[i].Key == config.VariableKey {
-				kvs[i].Value = config.Value
-				updated = true
-				break
-			}
-		}
-		if !updated {
-			kvs = append(kvs, &commonservice.KVPair{Key: config.VariableKey, Value: config.Value})
+		if config.VariableKey != "" {
+			upsert(&commonservice.KVPair{Key: config.VariableKey, Value: config.Value})
 		}
 	}
 
-	if len(kvs) == 0 && origin == "" {
+	if len(kvs) == 0 && environmentOrigin == "" && taskOrigin == "" {
 		return "", nil
 	}
 	data, err := json.Marshal(kvs)
