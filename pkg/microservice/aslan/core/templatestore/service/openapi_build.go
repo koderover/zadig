@@ -151,7 +151,7 @@ func validateAdvancedSetting(infrastructure string, advanced *types.OpenAPIAdvan
 	if err := commonutil.CheckDefineResourceParam(spec.FindResourceRequestType(), spec); err != nil {
 		return fmt.Errorf("invalid advanced_settings.resource_spec: %w", err)
 	}
-	if advanced.CacheSetting != nil && advanced.CacheSetting.Enabled && advanced.CacheSetting.CacheDir != "" && strings.TrimSpace(advanced.CacheSetting.CacheDir) == "" {
+	if advanced.CacheSetting != nil && advanced.CacheSetting.Enabled && strings.TrimSpace(advanced.CacheSetting.CacheDir) == "" {
 		return fmt.Errorf("advanced_settings.cache_setting.cache_dir cannot be empty when cache is enabled")
 	}
 	if err := validateStorages(advanced.Storages); err != nil {
