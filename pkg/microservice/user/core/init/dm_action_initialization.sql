@@ -67,7 +67,6 @@ VALUES
     ('删除', 'delete_template', 'Template', 2),
     ('查看', 'get_release_plan', 'ReleasePlan', 2),
     ('新建', 'create_release_plan', 'ReleasePlan', 2),
-    ('编辑', 'edit_release_plan', 'ReleasePlan', 2),
     ('删除', 'delete_release_plan', 'ReleasePlan', 2),
     ('查看', 'get_business_directory', 'BusinessDirectory', 2),
     ('新建', 'create_business_directory', 'BusinessDirectory', 2),
