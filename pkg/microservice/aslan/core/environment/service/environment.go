@@ -1740,8 +1740,12 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		}
 
 		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		overrideValues, err := helmservice.MergeOverrideKVStrings(prodSvc.GetServiceRender().OverrideValues, tempArg.ToOverrideValueString())
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge environment override values, err: %s", err)
+		}
 		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
-		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+		prodSvc.GetServiceRender().OverrideValues = overrideValues
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
 		mergedYaml, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
@@ -1779,6 +1783,10 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		latestReleaseName = util.GeneReleaseName(latestTmplSvc.GetReleaseNaming(), projectName, prod.Namespace, envName, latestTmplSvc.ServiceName)
 
 		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		overrideValues, err := helmservice.MergeOverrideKVStrings(prodSvc.GetServiceRender().OverrideValues, tempArg.ToOverrideValueString())
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge environment override values, err: %s", err)
+		}
 		overrideValue := arg.OverrideYaml
 		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
 			envValuesMap, err := helmservice.GetValuesMapFromString(prodSvc.GetServiceRender().GetOverrideYaml())
@@ -1800,7 +1808,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		}
 
 		prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
-		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+		prodSvc.GetServiceRender().OverrideValues = overrideValues
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
 		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
