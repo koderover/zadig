@@ -57,9 +57,13 @@ func (c *S3StorageColl) GetCollectionName() string {
 }
 
 func (c *S3StorageColl) FindDefault() (*models.S3Storage, error) {
+	return c.FindDefaultWithContext(context.TODO())
+}
+
+func (c *S3StorageColl) FindDefaultWithContext(ctx context.Context) (*models.S3Storage, error) {
 	query := bson.M{"is_default": true}
 	storage := new(models.S3Storage)
-	err := c.FindOne(context.TODO(), query).Decode(storage)
+	err := c.FindOne(ctx, query).Decode(storage)
 	if err != nil {
 		return nil, err
 	}

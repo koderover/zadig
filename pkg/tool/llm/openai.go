@@ -130,17 +130,17 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	resp, err := c.client.CreateChatCompletion(requestCtx, request)
 	if err != nil {
 		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
-		return "", fmt.Errorf("create chat completion failed: %w", err)
+		return "", fmt.Errorf("create chat completion failed: %w", normalizeOpenAICompletionError(err))
 	}
 	log.Debugf("ai completion took: %v", time.Since(now))
 
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf(
+		return "", newCompletionResponseError(ErrEmptyCompletionResponse, fmt.Errorf(
 			"openai response contains no completion choices: response_id=%s completion_tokens=%d total_tokens=%d",
 			resp.ID,
 			resp.Usage.CompletionTokens,
 			resp.Usage.TotalTokens,
-		)
+		))
 	}
 	choice := resp.Choices[0]
 	thinkStartTag := "<think>"
@@ -171,7 +171,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		)
 	}
 	if strings.TrimSpace(message) == "" {
-		return "", fmt.Errorf(
+		return "", newCompletionResponseError(ErrEmptyCompletionResponse, fmt.Errorf(
 			"openai response contains no usable text content: response_id=%s finish_reason=%s content_length=%d content_parts=%d tool_calls=%d function_call=%t refusal=%t completion_tokens=%d total_tokens=%d",
 			resp.ID,
 			choice.FinishReason,
@@ -182,9 +182,21 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			choice.Message.Refusal != "",
 			resp.Usage.CompletionTokens,
 			resp.Usage.TotalTokens,
-		)
+		))
 	}
 	return message, nil
+}
+
+func normalizeOpenAICompletionError(err error) error {
+	var apiErr *openai.APIError
+	if errors.As(err, &apiErr) && apiErr.HTTPStatusCode > 0 {
+		return newCompletionHTTPError(apiErr.HTTPStatusCode, err)
+	}
+	var requestErr *openai.RequestError
+	if errors.As(err, &requestErr) && requestErr.HTTPStatusCode > 0 {
+		return newCompletionHTTPError(requestErr.HTTPStatusCode, err)
+	}
+	return err
 }
 
 func isMaxTokensFinishReason(finishReason openai.FinishReason) bool {
