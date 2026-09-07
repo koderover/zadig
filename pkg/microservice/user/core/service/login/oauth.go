@@ -52,9 +52,9 @@ const (
 
 	oauthDeviceAuthorizationTTL = 10 * time.Minute
 	oauthDevicePollInterval     = 5 * time.Second
-	oauthAccessTokenTTL         = time.Hour
-	oauthRefreshTokenTTL        = 30 * 24 * time.Hour
-	oauthSessionTTL             = 180 * 24 * time.Hour
+	oauthAccessTokenTTL         = 2 * time.Hour
+	oauthRefreshTokenTTL        = 7 * 24 * time.Hour
+	oauthSessionTTL             = 365 * 24 * time.Hour
 
 	oauthRedisKeyPrefix = "zadig:oauth:"
 )
