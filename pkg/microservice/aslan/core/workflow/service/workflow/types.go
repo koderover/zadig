@@ -558,6 +558,7 @@ func openAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 					} else {
 						// Release-plan and standalone testing APIs retain their existing override semantics.
 						repo.Branch = inputRepo.Branch
+						repo.Tag = inputRepo.Tag
 						repo.PR = inputRepo.PR
 						repo.PRs = inputRepo.PRs
 						repo.EnableCommit = inputRepo.EnableCommit

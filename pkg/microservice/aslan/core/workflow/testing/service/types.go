@@ -327,7 +327,7 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 			if strings.TrimSpace(repo.CommitID) == "" {
 				return false, fmt.Errorf("repo_info[%d] commit_id cannot be empty when enable_commit is true", i)
 			}
-		} else if strings.TrimSpace(repo.Branch) == "" {
+		} else if strings.TrimSpace(repo.Branch) == "" && strings.TrimSpace(repo.Tag) == "" {
 			return false, fmt.Errorf("repo_info[%d] branch cannot be empty when enable_commit is false", i)
 		}
 		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)
