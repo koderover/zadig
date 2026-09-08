@@ -28,6 +28,10 @@ func HubAgentToken() string {
 	return viper.GetString(setting.HubAgentToken)
 }
 
+func AslanAgentToken() string {
+	return viper.GetString(setting.AslanAgentToken)
+}
+
 func HubServerBaseAddr() string {
 	return viper.GetString(setting.HubServerBaseAddr)
 }

@@ -18,6 +18,7 @@ package systemconfig
 
 import (
 	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
@@ -30,7 +31,8 @@ type Client struct {
 func New() *Client {
 	host := config.AslanServiceAddress()
 	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
+		httpclient.SetHostURL(host+"/api/v1"),
+		servicetoken.HeaderOption(),
 	)
 
 	return &Client{

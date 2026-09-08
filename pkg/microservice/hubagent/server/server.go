@@ -27,7 +27,6 @@ import (
 	config2 "github.com/koderover/zadig/v2/pkg/microservice/hubagent/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/core/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/server/rest"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -96,11 +95,7 @@ func Serve(ctx context.Context) error {
 }
 
 func initResource() {
-	token, err := login.GetInternalToken("hub-agent")
-	if err != nil {
-		log.Fatalf("failed to get internal token, err: %s", err)
-	}
-	client := aslan.NewExternal(config2.AslanBaseAddr(), token)
+	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
 
 	scheduleWorkflow := config2.ScheduleWorkflow()
 	if scheduleWorkflow == "" {
@@ -114,7 +109,7 @@ func initResource() {
 	}
 
 	if schedule {
-		ls, err := client.ListRegistries()
+		ls, err := client.ListRegistries(config2.AslanAgentToken())
 		if err != nil {
 			log.Fatalf("failed to list registries from zadig server, error: %s", err)
 		}
