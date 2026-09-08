@@ -26,6 +26,7 @@ import (
 	commonmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -961,10 +962,14 @@ type ZadigDeployJobInput struct {
 }
 
 type ServiceDeployArgs struct {
-	ServiceModule      string                    `json:"service_module"`
-	ServiceName        string                    `json:"service_name"`
-	ImageName          string                    `json:"image_name"`
-	ValueMergeStrategy config.ValueMergeStrategy `json:"value_merge_strategy,omitempty"`
+	ServiceModule      string                          `json:"service_module"`
+	ServiceName        string                          `json:"service_name"`
+	ImageName          string                          `json:"image_name"`
+	UpdateConfig       bool                            `json:"update_config"`
+	VariableKVs        []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	OverrideKVs        string                          `json:"override_kvs"`
+	VariableYaml       string                          `json:"variable_yaml"`
+	ValueMergeStrategy config.ValueMergeStrategy       `json:"value_merge_strategy,omitempty"`
 }
 
 func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -985,7 +990,8 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 			service.ValueMergeStrategy = inputSvc.ValueMergeStrategy
 		} else {
 			basicInfo := commonmodels.DeployBasicInfo{
-				ServiceName: inputSvc.ServiceName,
+				ServiceName:  inputSvc.ServiceName,
+				UpdateConfig: inputSvc.UpdateConfig,
 				Modules: append([]*commonmodels.DeployModuleInfo{}, &commonmodels.DeployModuleInfo{
 					Image:         inputSvc.ImageName,
 					ServiceModule: inputSvc.ServiceModule,
@@ -994,6 +1000,9 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 			serviceMap[inputSvc.ServiceName] = &commonmodels.DeployServiceInfo{
 				DeployBasicInfo: basicInfo,
 				DeployVariableInfo: commonmodels.DeployVariableInfo{
+					VariableKVs:        inputSvc.VariableKVs,
+					OverrideKVs:        inputSvc.OverrideKVs,
+					VariableYaml:       inputSvc.VariableYaml,
 					ValueMergeStrategy: inputSvc.ValueMergeStrategy,
 				},
 			}
