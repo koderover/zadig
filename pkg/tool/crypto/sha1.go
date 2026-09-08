@@ -18,11 +18,18 @@ package crypto
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 )
 
 func Sha1(b []byte) string {
 	s := sha1.New()
+	s.Write(b)
+	return hex.EncodeToString(s.Sum(nil))
+}
+
+func Sha256(b []byte) string {
+	s := sha256.New()
 	s.Write(b)
 	return hex.EncodeToString(s.Sum(nil))
 }

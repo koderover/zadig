@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -78,6 +79,7 @@ func InitExistedCronjob(client *client.Client, scheduler *cronlib.CronSchduler, 
 	cl := httpclient.New(
 		httpclient.SetRetryCount(100),
 		httpclient.SetRetryWaitTime(PullInterval),
+		servicetoken.HeaderOption(),
 	)
 	go func() {
 		_, err := cl.Get(listAPI, httpclient.SetResult(&jobList))

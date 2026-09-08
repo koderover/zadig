@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	userpermission "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -328,7 +330,13 @@ rules:
 		return
 	}
 
-	agentCmd := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy"`, serverURL, clusterResp.ID.Hex())
+	downloadToken, _, err := userpermission.NewClusterAgentDownloadToken(clusterResp.ID.Hex())
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to create cluster agent download token: %w", err)
+		return
+	}
+	agentCmd := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy&%s=%s"`,
+		serverURL, clusterResp.ID.Hex(), userpermission.ClusterAgentDownloadTokenQuery, url.QueryEscape(downloadToken))
 
 	resp := service.OpenAPICreateClusterResponse{
 		Cluster: &service.OpenAPICluster{

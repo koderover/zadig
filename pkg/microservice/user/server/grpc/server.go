@@ -36,6 +36,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	loginsvc "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -62,6 +64,27 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 
 	userToken := ""
 	var claims *loginsvc.Claims
+	if requestURL, err := url.Parse(requestPath); err == nil && method == http.MethodGet {
+		if clusterID, ok := permission.ClusterIDFromAgentYamlPath(requestURL.Path); ok {
+			downloadToken := requestURL.Query().Get(permission.ClusterAgentDownloadTokenQuery)
+			if downloadToken != "" {
+				valid, err := permission.ValidateClusterAgentDownloadToken(clusterID, downloadToken)
+				if err == nil && valid {
+					requestPath = requestURL.Path
+					goto allowed
+				}
+				return denyRequest(
+					requestURL.Path,
+					method,
+					body,
+					http.StatusUnauthorized,
+					"invalid cluster agent download token",
+					"",
+					err,
+				), nil
+			}
+		}
+	}
 
 	if !isPublicRequest {
 		if headers["authorization"] != "" {
@@ -99,6 +122,22 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 
 		// if no token is provided, respond with 401 unauthorized
 		if userToken == "" {
+			internalToken := headers[strings.ToLower(setting.InternalServiceTokenHeader)]
+			if internalToken != "" {
+				if _, err := servicetoken.ValidateServiceToken(internalToken); err == nil {
+					goto allowed
+				} else {
+					return denyRequest(
+						requestPath,
+						method,
+						body,
+						http.StatusUnauthorized,
+						"invalid internal service token",
+						"",
+						err,
+					), nil
+				}
+			}
 			return denyRequest(
 				requestPath,
 				method,
@@ -122,11 +161,6 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 					"",
 					err,
 				), nil
-			}
-
-			// validate if internal token
-			if isInternalToken(claims) {
-				goto allowed
 			}
 
 			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
@@ -192,7 +226,6 @@ allowed:
 		zap.String("path", requestPath),
 		zap.String("method", method),
 		zap.String("body", body),
-		zap.String("token", userToken),
 	)
 
 	return resp, nil
@@ -263,18 +296,6 @@ func isMFAGateBypassURL(requestPath, method string) bool {
 func stripQuery(path string) string {
 	segments := strings.Split(path, "?")
 	return segments[0]
-}
-
-func isInternalToken(claims *loginsvc.Claims) bool {
-	if claims == nil {
-		return false
-	}
-	return claims.ExpiresAt == 0 &&
-		(claims.Name == "aslan" && claims.PreferredUsername == "aslan" && claims.FederatedClaims.UserId == "aslan" && claims.Email == "aslan@koderover.com" ||
-			claims.Name == "user" && claims.PreferredUsername == "user" && claims.FederatedClaims.UserId == "user" && claims.Email == "user@koderover.com" ||
-			claims.Name == "cron" && claims.PreferredUsername == "cron" && claims.FederatedClaims.UserId == "cron" && claims.Email == "cron@koderover.com" ||
-			claims.Name == "hub-agent" && claims.PreferredUsername == "hub-agent" && claims.FederatedClaims.UserId == "hub-agent" && claims.Email == "hub-agent@koderover.com" ||
-			claims.Name == "hub-server" && claims.PreferredUsername == "hub-server" && claims.FederatedClaims.UserId == "hub-server" && claims.Email == "hub-server@koderover.com")
 }
 
 func denyRequest(requestPath, method, body string, statusCode int, reason, responseReason string, err error) *ext_authz_v3.CheckResponse {
