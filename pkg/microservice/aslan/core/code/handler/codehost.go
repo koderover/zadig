@@ -155,7 +155,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	repoOwner := c.Query("repoOwner")
+	repoOwner := c.Request.URL.Query().Get("repoOwner")
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
@@ -211,7 +211,7 @@ func CodeHostGetTagList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	repoOwner := c.Query("repoOwner")
+	repoOwner := c.Request.URL.Query().Get("repoOwner")
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
@@ -245,7 +245,7 @@ func CodeHostGetPRList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	repoOwner := c.Query("repoOwner")
+	repoOwner := c.Request.URL.Query().Get("repoOwner")
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 
 	args := new(CodeHostGetPageNateListArgs)
@@ -267,7 +267,7 @@ func CodeHostGetPRList(c *gin.Context) {
 		return
 	}
 
-	targetBr := c.Query("targetBranch")
+	targetBr := c.Request.URL.Query().Get("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
 	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, c.GetBool(openAPIFetchAllKey), ctx.Logger)
