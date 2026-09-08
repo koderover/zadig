@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -134,6 +135,8 @@ type CodeHostGetPageNateListArgs struct {
 	Key     string `json:"key"          form:"key"`
 }
 
+const openAPIFetchAllKey = "openapiFetchAll"
+
 // @Summary 获取代码仓库分支列表
 // @Description
 // @Tags 	code
@@ -181,6 +184,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 		args.Key,
 		args.Page,
 		args.PerPage,
+		c.GetBool(openAPIFetchAllKey),
 		ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListBranches, util.FormatCodeHostErrorWithDefault("Failed to fetch branches. Please check if the repository exists and you have access permissions", err))
@@ -228,7 +232,7 @@ func CodeHostGetTagList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	tags, err := service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
+	tags, err := service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, c.GetBool(openAPIFetchAllKey), ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListTags, util.FormatCodeHostErrorWithDefault("Failed to fetch tags. Please check if the repository exists and you have access permissions", err))
 		return
@@ -266,12 +270,66 @@ func CodeHostGetPRList(c *gin.Context) {
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
+	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, c.GetBool(openAPIFetchAllKey), ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListPrs, util.FormatCodeHostErrorWithDefault("Failed to fetch pull requests. Please verify repository access and permissions", err))
 		return
 	}
 	ctx.Resp = prs
+}
+
+func authorizeOpenAPICodehost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() {
+		if ctx.RespErr != nil || ctx.UnAuthorized {
+			internalhandler.JSONResponse(c, ctx)
+			c.Abort()
+		}
+	}()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
+	projectKey, codehostName := c.Query("projectKey"), c.Param("codehostName")
+	namespace, repoName := c.Query("repoNamespace"), c.Query("repoName")
+	if projectKey == "" || codehostName == "" || namespace == "" || repoName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey, codehostName, repoNamespace and repoName are required")
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+	codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(projectKey)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	codehostID := 0
+	for _, codehost := range codehosts {
+		if codehost.Alias == codehostName {
+			if codehostID != 0 {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("multiple code hosts with this name are available in project")
+				return
+			}
+			codehostID = codehost.ID
+		}
+	}
+	if codehostID == 0 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("codehost is not available in project")
+		return
+	}
+	c.Params = append(c.Params, gin.Param{Key: "codehostId", Value: strconv.Itoa(codehostID)})
+	query := c.Request.URL.Query()
+	query.Del("page")
+	query.Del("per_page")
+	query.Del("key")
+	query.Del("targetBranch")
+	query.Set("repoOwner", namespace)
+	c.Request.URL.RawQuery = query.Encode()
+	c.Set(openAPIFetchAllKey, true)
 }
 
 func CodeHostGetCommits(c *gin.Context) {

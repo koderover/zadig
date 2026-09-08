@@ -17,9 +17,9 @@ limitations under the License.
 package workflow
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -40,10 +39,13 @@ import (
 // used for openAPI
 func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustomWorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
 	// first we generate a detailed workflow.
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(args.WorkflowName)
+	workflow, err := FindWorkflowV4RenderedForExecution(args.WorkflowName, log)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", args.WorkflowName, err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+	if workflow.Project != args.ProjectName {
+		return nil, e.ErrInvalidParam.AddDesc("workflow does not belong to the specified project")
 	}
 
 	if workflow.EnableApprovalTicket {
@@ -51,52 +53,30 @@ func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustom
 	}
 
 	workflowController := controller.CreateWorkflowController(workflow)
-
 	if err := workflowController.SetPreset(nil); err != nil {
-		log.Errorf("cannot get workflow %s preset, the error is: %v", args.WorkflowName, err)
-		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+		return nil, e.ErrPresetWorkflow.AddErr(err)
 	}
-
-	if err := fillWorkflowV4(workflow, log); err != nil {
+	if err := ensureWorkflowV4Resp("", workflow, log); err != nil {
 		return nil, err
 	}
+	workflow.Remark = args.Remark
 
-	err = UpdateWorkflowParam(workflow.Params, args.Params)
+	err = UpdateProjectWorkflowParam(workflow.Params, args.Params, args.ProjectName)
 	if err != nil {
-		return nil, err
+		return nil, e.ErrInvalidParam.AddErr(err)
+	}
+	if err := workflowController.RenderWorkflowDynamicParams(0, username, username, userID, nil); err != nil {
+		return nil, e.ErrPresetWorkflow.AddErr(err)
+	}
+	if err := validateOpenAPIWorkflowChoices(workflow.Params); err != nil {
+		return nil, e.ErrInvalidParam.AddErr(err)
 	}
 
-	inputMap := make(map[string]interface{})
-	for _, input := range args.Inputs {
-		inputMap[input.JobName] = input.Parameters
+	if err := updateOpenAPIWorkflowJobs(workflow, args.Inputs); err != nil {
+		return nil, e.ErrInvalidParam.AddErr(err)
 	}
-
-	for _, stage := range workflow.Stages {
-		jobList := make([]*commonmodels.Job, 0)
-		for _, job := range stage.Jobs {
-			// if a job is found, add it to the job creation list
-			if inputParam, ok := inputMap[job.Name]; ok {
-				updater, err := GetInputUpdater(job, inputParam, workflow)
-				if err != nil {
-					return nil, err
-				}
-
-				jobBytes, _ := json.Marshal(job)
-				log.Debugf("job: %s", string(jobBytes))
-				newJob, err := updater.UpdateJobSpec(job)
-				if err != nil {
-					log.Errorf("Failed to update jobspec for job: %s, error: %s", job.Name, err)
-					return nil, fmt.Errorf("failed to update jobspec for job: %s, err: %w", job.Name, err)
-				}
-
-				job.Skipped = false
-				jobList = append(jobList, newJob)
-			} else {
-				job.Skipped = true
-				jobList = append(jobList, job)
-			}
-		}
-		stage.Jobs = jobList
+	if err := ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowController, log); err != nil {
+		return nil, e.ErrCreateTask.AddErr(err)
 	}
 
 	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
@@ -105,6 +85,45 @@ func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustom
 		SkipWorkflowUpdate: true,
 		NotifyInput:        args.NotifyInputs,
 	}, workflow, log)
+}
+
+func updateOpenAPIWorkflowJobs(workflow *commonmodels.WorkflowV4, inputs []*CreateCustomTaskJobInput) error {
+	inputMap := make(map[string]interface{}, len(inputs))
+	for _, input := range inputs {
+		if input == nil || input.JobName == "" {
+			return errors.New("job_name is required")
+		}
+		if _, exists := inputMap[input.JobName]; exists {
+			return fmt.Errorf("duplicate job input: %s", input.JobName)
+		}
+		inputMap[input.JobName] = input.Parameters
+	}
+
+	for _, stage := range workflow.Stages {
+		for i, job := range stage.Jobs {
+			if inputParam, ok := inputMap[job.Name]; ok {
+				updater, err := getInputUpdater(job, inputParam, workflow, true)
+				if err != nil {
+					return err
+				}
+
+				newJob, err := updater.UpdateJobSpec(job)
+				if err != nil {
+					return fmt.Errorf("failed to update jobspec for job: %s, err: %w", job.Name, err)
+				}
+
+				newJob.Skipped = false
+				stage.Jobs[i] = newJob
+				delete(inputMap, job.Name)
+			} else {
+				job.Skipped = true
+			}
+		}
+	}
+	for name := range inputMap {
+		return fmt.Errorf("job not found in workflow: %s", name)
+	}
+	return nil
 }
 
 func UpdateWorkflowParam(workflowParams []*commonmodels.Param, inputParams []*CreateCustomTaskParam) error {
@@ -116,9 +135,7 @@ func UpdateWorkflowParam(workflowParams []*commonmodels.Param, inputParams []*Cr
 	for _, argParam := range inputParams {
 		if workflowParam, ok := workflowParamMap[argParam.Name]; ok {
 			switch workflowParam.ParamsType {
-			case "string":
-				workflowParam.Value = argParam.Value
-			case "text":
+			case "string", "text":
 				workflowParam.Value = argParam.Value
 			case "choice":
 				choiceOptionSet := sets.NewString(workflowParam.ChoiceOption...)
@@ -147,6 +164,185 @@ func UpdateWorkflowParam(workflowParams []*commonmodels.Param, inputParams []*Cr
 	}
 
 	return nil
+}
+
+func UpdateProjectWorkflowParam(workflowParams []*commonmodels.Param, inputParams []*CreateCustomTaskParam, projectKey string) error {
+	workflowParamMap := make(map[string]*commonmodels.Param)
+	for _, param := range workflowParams {
+		workflowParamMap[param.Name] = param
+	}
+
+	for _, argParam := range inputParams {
+		if workflowParam, ok := workflowParamMap[argParam.Name]; ok {
+			switch workflowParam.ParamsType {
+			case "string", "text", "choice":
+				workflowParam.Value = argParam.Value
+			case "multi-select":
+				workflowParam.ChoiceValue = argParam.ChoiceValue
+			case "file":
+				workflowParam.FileID, workflowParam.FileName, workflowParam.FilePath = argParam.FileID, argParam.FileName, argParam.FilePath
+			case "repo":
+				if argParam.Repo == nil || workflowParam.Repo == nil {
+					return fmt.Errorf("repo value is required for param %s", argParam.Name)
+				}
+				if err := validateOpenAPIRepositoryRef(argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, false, ""); err != nil {
+					return fmt.Errorf("invalid repo value for param %s: %w", argParam.Name, err)
+				}
+				codehosts, err := getCodeHostInfoMapByNames([]string{argParam.Repo.CodeHostName}, projectKey)
+				if err != nil {
+					return err
+				}
+				repoInfo := codehosts[argParam.Repo.CodeHostName]
+				if workflowParam.Repo.CodehostID != repoInfo.ID || workflowParam.Repo.GetRepoNamespace() != argParam.Repo.RepoNamespace || workflowParam.Repo.RepoName != argParam.Repo.RepoName {
+					return fmt.Errorf("repository %s/%s from codehost %s not found in workflow", argParam.Repo.RepoNamespace, argParam.Repo.RepoName, argParam.Repo.CodeHostName)
+				}
+				updateOpenAPIRepositoryRef(workflowParam.Repo, argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, false, "")
+			}
+		} else {
+			return fmt.Errorf("param %s not found in workflow", argParam.Name)
+		}
+	}
+
+	return nil
+}
+
+func validateOpenAPIWorkflowChoices(params []*commonmodels.Param) error {
+	for _, param := range params {
+		var values []string
+		switch param.ParamsType {
+		case "choice":
+			if param.Value != "" {
+				values = []string{param.Value}
+			}
+		case "multi-select":
+			values = param.ChoiceValue
+		default:
+			continue
+		}
+		options := sets.NewString(param.ChoiceOption...)
+		for _, value := range values {
+			if !options.Has(value) {
+				return fmt.Errorf("invalid choice value for param %s", param.Name)
+			}
+		}
+	}
+	return nil
+}
+
+func OpenAPIPrepareCustomWorkflowTask(projectKey, workflowKey, userID, username string, log *zap.SugaredLogger) (map[string]interface{}, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowKey)
+	if err != nil {
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+	if workflow.Project != projectKey {
+		return nil, e.ErrInvalidParam.AddDesc("workflow does not belong to the specified project")
+	}
+	if workflow.EnableApprovalTicket {
+		return nil, e.ErrCreateTask.AddDesc("workflow need approval ticket to run, which is not supported by openAPI right now.")
+	}
+	workflow, err = GetWorkflowV4Preset("", workflowKey, userID, username, "", log)
+	if err != nil {
+		return nil, err
+	}
+	workflow.NotifyCtls = nil
+	codehosts, err := mongodb.NewCodehostColl().AvailableCodeHost(projectKey)
+	if err != nil {
+		return nil, err
+	}
+	codehostNames := make(map[int]string, len(codehosts))
+	codehostNameCount := make(map[string]int, len(codehosts))
+	for _, codehost := range codehosts {
+		codehostNames[codehost.ID] = codehost.Alias
+		codehostNameCount[codehost.Alias]++
+	}
+	ambiguousCodehostNames := make(map[string]struct{})
+	for name, count := range codehostNameCount {
+		if count > 1 {
+			ambiguousCodehostNames[name] = struct{}{}
+		}
+	}
+
+	resp := make(map[string]interface{})
+	if err := commonmodels.IToi(workflow, &resp); err != nil {
+		return nil, err
+	}
+	if err := sanitizeOpenAPIWorkflowPreset(resp, codehostNames, ambiguousCodehostNames); err != nil {
+		return nil, e.ErrInvalidParam.AddDesc(err.Error())
+	}
+	return resp, nil
+}
+
+func sanitizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]string, ambiguousCodehostNames map[string]struct{}) error {
+	switch value := value.(type) {
+	case []interface{}:
+		for _, item := range value {
+			if err := sanitizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
+				return err
+			}
+		}
+	case map[string]interface{}:
+		if namespace, ok := value["repo_namespace"].(string); ok && namespace == "" {
+			if owner, _ := value["repo_owner"].(string); owner != "" {
+				value["repo_namespace"] = owner
+			}
+		}
+		if rawCodehostID, ok := value["codehost_id"].(float64); ok && rawCodehostID != 0 {
+			codehostID := int(rawCodehostID)
+			codehostName, ok := codehostNames[codehostID]
+			if !ok {
+				return fmt.Errorf("code host with ID %d is not available in project", codehostID)
+			}
+			if _, ambiguous := ambiguousCodehostNames[codehostName]; ambiguous {
+				return fmt.Errorf("multiple code hosts named %s are available in project", codehostName)
+			}
+			value["codehost_name"] = codehostName
+		}
+		if credential, _ := value["is_credential"].(bool); credential {
+			paramType, _ := value["type"].(string)
+			switch paramType {
+			case "multi-select":
+				choiceValue, _ := value["choice_value"].([]interface{})
+				value["has_value"] = len(choiceValue) > 0
+			case "file":
+				fileID, _ := value["file_id"].(string)
+				filePath, _ := value["file_path"].(string)
+				value["has_value"] = fileID != "" || filePath != ""
+			default:
+				credentialValue, _ := value["value"].(string)
+				defaultValue, _ := value["default"].(string)
+				value["has_value"] = credentialValue != "" || defaultValue != ""
+			}
+			value["value"], value["default"], value["file_id"], value["file_path"] = "", "", "", ""
+			value["choice_value"] = []interface{}{}
+			value["choice_option"] = []interface{}{}
+		}
+		if _, hasToken := value["token"]; hasToken {
+			if _, hasAddress := value["address"]; hasAddress {
+				value["address"] = ""
+			}
+		}
+		for key := range value {
+			if isOpenAPIWorkflowPresetCredential(key) {
+				value[key] = ""
+			}
+		}
+		for _, item := range value {
+			if err := sanitizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isOpenAPIWorkflowPresetCredential(key string) bool {
+	key = strings.ToLower(key)
+	switch key {
+	case "password", "token", "access_key", "secret_key", "ak", "sk", "api_key", "private_key", "ssh_key", "hook_address":
+		return true
+	}
+	return strings.HasSuffix(key, "_password") || strings.HasSuffix(key, "_token") ||
+		strings.HasSuffix(key, "_secret") || strings.HasSuffix(key, "_webhook")
 }
 
 func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*OpenAPIWorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
@@ -268,68 +464,11 @@ func OpenAPIGetWorkflowViews(projectName string, logger *zap.SugaredLogger) ([]*
 	return resp, nil
 }
 
-func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType == config.JobZadigBuild {
-				spec := &commonmodels.ZadigBuildJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				for _, build := range spec.ServiceAndBuilds {
-					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-					if err != nil {
-						logger.Errorf(err.Error())
-						return e.ErrFindWorkflow.AddErr(err)
-					}
-					kvs := buildInfo.PreBuild.Envs
-					if buildInfo.TemplateID != "" {
-						var templateEnvs commonmodels.KeyValList
-						buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-							ID: buildInfo.TemplateID,
-						})
-						// if template not found, envs are empty, but do not block user.
-						if err != nil {
-							logger.Error("build job: %s, template not found", buildInfo.Name)
-						} else {
-							templateEnvs = buildTemplate.PreBuild.Envs
-						}
-
-						for _, target := range buildInfo.Targets {
-							if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-								kvs = target.Envs
-							}
-						}
-						// if build template update any keyvals, merge it.
-						kvs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), kvs.ToRuntimeList()).ToKVList()
-					}
-					build.KeyVals = commonservice.MergeBuildEnvs(kvs.ToRuntimeList(), build.KeyVals)
-				}
-				job.Spec = spec
-			}
-			if job.JobType == config.JobFreestyle {
-				spec := &commonmodels.FreestyleJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				job.Spec = spec
-			}
-			if job.JobType == config.JobPlugin {
-				spec := &commonmodels.PluginJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				job.Spec = spec
-			}
-		}
-	}
-	return nil
+func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonmodels.WorkflowV4) (CustomJobInput, error) {
+	return getInputUpdater(job, input, workflow, false)
 }
 
-func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonmodels.WorkflowV4) (CustomJobInput, error) {
+func getInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonmodels.WorkflowV4, useProjectCodehosts bool) (CustomJobInput, error) {
 	switch job.JobType {
 	case config.JobPlugin:
 		updater := new(PluginJobInput)
@@ -338,12 +477,17 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 	case config.JobFreestyle:
 		updater := new(FreestyleJobInput)
 		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
-			workflow: workflow,
+			workflow:            workflow,
+			useProjectCodehosts: useProjectCodehosts,
 		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err
 	case config.JobZadigBuild:
 		updater := new(ZadigBuildJobInput)
+		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
+			workflow:            workflow,
+			useProjectCodehosts: useProjectCodehosts,
+		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err
 	case config.JobZadigDeploy:
@@ -369,7 +513,8 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 	case config.JobZadigTesting:
 		updater := new(ZadigTestingJobInput)
 		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
-			workflow: workflow,
+			workflow:            workflow,
+			useProjectCodehosts: useProjectCodehosts,
 		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err
@@ -388,7 +533,8 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 	case config.JobZadigScanning:
 		updater := new(ZadigScanningJobInput)
 		updater.OpenAPIBasicInfo = &OpenAPIBasicInfo{
-			workflow: workflow,
+			workflow:            workflow,
+			useProjectCodehosts: useProjectCodehosts,
 		}
 		err := commonmodels.IToi(input, updater)
 		return updater, err

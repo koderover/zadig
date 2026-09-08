@@ -197,6 +197,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		custom.DELETE("", OpenAPIDeleteCustomWorkflowV4)
 		custom.PUT("/:name", UpdateWorkflowV4)
 		custom.GET("/:name/detail", OpenAPIGetCustomWorkflowV4)
+		custom.GET("/:name/task/prepare", OpenAPIPrepareCustomWorkflowTask)
 		custom.POST("/:name/task/:taskID", OpenAPIRetryCustomWorkflowTaskV4)
 		custom.PUT("/:name/task/:taskID", OpenAPIUpdateWorkflowV4TaskRemark)
 		custom.GET("/:name/task/:taskID/manual-exec", OpenAPIGetManualExecWorkflowTaskV4Context)

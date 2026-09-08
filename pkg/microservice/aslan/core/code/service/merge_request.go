@@ -25,7 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 )
 
-func CodeHostListPRs(codeHostID int, projectName, namespace, targetBranch string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
+func CodeHostListPRs(codeHostID int, projectName, namespace, targetBranch string, key string, page, perPage int, fetchAll bool, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Errorf("get code host info err:%s", err)
@@ -46,6 +46,7 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBranch string
 		Page:         page,
 		PerPage:      perPage,
 		TargetBranch: targetBranch,
+		FetchAll:     fetchAll,
 	})
 	if err != nil {
 		log.Errorf("list prs err:%s", err)

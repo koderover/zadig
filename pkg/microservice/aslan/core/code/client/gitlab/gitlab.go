@@ -54,7 +54,7 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 	bList, err := c.Client.ListBranches(opt.Namespace, opt.ProjectName, opt.Key, &gitlab.ListOptions{
 		Page:          opt.Page,
 		PerPage:       opt.PerPage,
-		NoPaginated:   true,
+		NoPaginated:   !opt.FetchAll,
 		MatchBranches: opt.MatchBranches,
 	})
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 	tags, err := c.Client.ListTags(opt.Namespace, opt.ProjectName, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,
-		NoPaginated: true,
+		NoPaginated: !opt.FetchAll,
 	}, opt.Key)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	prs, err := c.Client.ListOpenedProjectMergeRequests(opt.Namespace, opt.ProjectName, opt.TargetBranch, opt.Key, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,
-		NoPaginated: true,
+		NoPaginated: !opt.FetchAll,
 	})
 	if err != nil {
 		return nil, err

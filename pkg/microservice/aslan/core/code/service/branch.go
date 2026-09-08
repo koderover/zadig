@@ -24,7 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 )
 
-func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.Branch, error) {
+func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, fetchAll bool, log *zap.SugaredLogger) ([]*client.Branch, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Errorf("get code host info err:%s", err)
@@ -37,7 +37,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 		return nil, err
 	}
 
-	br, err := cli.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage})
+	br, err := cli.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage, FetchAll: fetchAll})
 	if err != nil {
 		log.Errorf("list branch err:%s", err)
 		return nil, err

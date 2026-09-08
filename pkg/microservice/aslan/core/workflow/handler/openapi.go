@@ -35,28 +35,55 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+	if args.ProjectName == "" || args.WorkflowName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("project_key and workflow_key are required")
+		return
+	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "工作流任务", args.WorkflowName, args.WorkflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
 
-	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Workflow.Execute {
-			// check if the permission is given by collaboration mode
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeWorkflow, args.WorkflowName, types.WorkflowActionRun)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
+	if !authorizeWorkflowRun(ctx, args.ProjectName, args.WorkflowName) {
+		return
 	}
 
 	ctx.Resp, ctx.RespErr = workflowservice.CreateCustomWorkflowTask(ctx.UserName, ctx.UserID, args, ctx.Logger)
+}
+
+func OpenAPIPrepareCustomWorkflowTask(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = err
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, workflowKey := c.Query("projectKey"), c.Param("name")
+	if projectKey == "" || workflowKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey and workflowKey are required")
+		return
+	}
+	if !authorizeWorkflowRun(ctx, projectKey, workflowKey) {
+		return
+	}
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIPrepareCustomWorkflowTask(projectKey, workflowKey, ctx.UserID, ctx.UserName, ctx.Logger)
+}
+
+func authorizeWorkflowRun(ctx *internalhandler.Context, projectKey, workflowKey string) bool {
+	if ctx.Resources.IsSystemAdmin {
+		return true
+	}
+	projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+	if !ok {
+		ctx.UnAuthorized = true
+		return false
+	}
+	if projectAuth.IsProjectAdmin || projectAuth.Workflow.Execute {
+		return true
+	}
+	permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, workflowKey, types.WorkflowActionRun)
+	ctx.UnAuthorized = err != nil || !permitted
+	return !ctx.UnAuthorized
 }
 
 func OpenAPICreateWorkflowView(c *gin.Context) {

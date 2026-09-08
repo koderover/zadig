@@ -134,6 +134,7 @@ func (args *workflowCreateArgs) clear() {
 type OpenAPICreateCustomWorkflowTaskArgs struct {
 	WorkflowName string                         `json:"workflow_key"`
 	ProjectName  string                         `json:"project_key"`
+	Remark       string                         `json:"remark"`
 	Params       []*CreateCustomTaskParam       `json:"parameters"`
 	Inputs       []*CreateCustomTaskJobInput    `json:"inputs"`
 	NotifyInputs []*CreateCustomTaskNotifyInput `json:"notify_inputs"`
@@ -212,10 +213,14 @@ type CreateCustomTaskMailNotificationConfig struct {
 }
 
 type CreateCustomTaskParam struct {
-	Name       string                   `bson:"name"               json:"name"                  yaml:"name"`
-	ParamsType config.WorkflowParamType `bson:"type"               json:"type"                  yaml:"type"`
-	Value      string                   `bson:"value"              json:"value"                 yaml:"value,omitempty"`
-	Repo       *CreateCustomTaskRepoArg `bson:"repo"               json:"repo"                  yaml:"repo,omitempty"`
+	Name        string                   `bson:"name"          json:"name"                  yaml:"name"`
+	ParamsType  config.WorkflowParamType `bson:"type"          json:"type"                  yaml:"type"`
+	Value       string                   `bson:"value"         json:"value"                 yaml:"value,omitempty"`
+	ChoiceValue []string                 `bson:"choice_value"  json:"choice_value"          yaml:"choice_value,omitempty"`
+	Repo        *CreateCustomTaskRepoArg `bson:"repo"          json:"repo"                  yaml:"repo,omitempty"`
+	FileID      string                   `bson:"file_id"       json:"file_id"               yaml:"file_id,omitempty"`
+	FileName    string                   `bson:"file_name"     json:"file_name"             yaml:"file_name,omitempty"`
+	FilePath    string                   `bson:"file_path"     json:"file_path"             yaml:"file_path,omitempty"`
 }
 
 type CreateCustomTaskRepoArg struct {
@@ -223,6 +228,7 @@ type CreateCustomTaskRepoArg struct {
 	RepoNamespace string `bson:"repo_namespace"     json:"repo_namespace"       yaml:"repo_namespace"`
 	RepoName      string `bson:"repo_name"          json:"repo_name"            yaml:"repo_name"`
 	Branch        string `bson:"branch"             json:"branch"               yaml:"branch"`
+	Tag           string `bson:"tag"                json:"tag"                  yaml:"tag"`
 	PRs           []int  `bson:"prs"                json:"prs"                  yaml:"prs"`
 }
 
@@ -253,7 +259,40 @@ func (c *OpenAPICreateProductWorkflowTaskArgs) Validate() (bool, error) {
 }
 
 type OpenAPIBasicInfo struct {
-	workflow *commonmodels.WorkflowV4
+	workflow            *commonmodels.WorkflowV4
+	useProjectCodehosts bool
+}
+
+func (p *OpenAPIBasicInfo) codeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codehostmodels.CodeHost, error) {
+	if p.useProjectCodehosts {
+		return getProjectCodeHostInfoMap(repoInputs, p.workflow.Project)
+	}
+	return getCodeHostInfoMap(repoInputs)
+}
+
+func (p *OpenAPIBasicInfo) repositories(originalRepos []*types.Repository, repoInputs []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
+	if !p.useProjectCodehosts {
+		return OpenAPIRepoInputToRepository(originalRepos, repoInputs)
+	}
+	if len(repoInputs) == 0 {
+		return originalRepos, nil
+	}
+	codehosts, err := getProjectCodeHostInfoMap(repoInputs, p.workflow.Project)
+	if err != nil {
+		return nil, err
+	}
+	return openAPIRepoInputToRepository(originalRepos, repoInputs, codehosts, true)
+}
+
+func (p *OpenAPIBasicInfo) freestyleRepositories(originalRepos []*types.Repository, repoInputs []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
+	if len(repoInputs) == 0 {
+		return originalRepos, nil
+	}
+	codehosts, err := p.codeHostInfoMap(repoInputs)
+	if err != nil {
+		return nil, err
+	}
+	return openAPIFreestyleRepoInputToRepository(repoInputs, codehosts, p.useProjectCodehosts), nil
 }
 
 type CreateProductTaskJobInput struct {
@@ -351,7 +390,96 @@ func OpenAPIKVInputToKeyValList(originalKvs commonmodels.RuntimeKeyValList, kvIn
 	return newKVs
 }
 
-// getCodeHostInfoMap 批量获取并缓存 CodeHost 信息
+func getCodeHostInfoMapByNames(codehostNames []string, projectKey string) (map[string]*codehostmodels.CodeHost, error) {
+	if len(codehostNames) == 0 {
+		return nil, nil
+	}
+	codehosts, err := mongodb.NewCodehostColl().AvailableCodeHost(projectKey)
+	if err != nil {
+		return nil, err
+	}
+	wanted := make(map[string]struct{}, len(codehostNames))
+	for _, name := range codehostNames {
+		wanted[name] = struct{}{}
+	}
+	result := make(map[string]*codehostmodels.CodeHost, len(wanted))
+	for _, codehost := range codehosts {
+		if _, ok := wanted[codehost.Alias]; !ok {
+			continue
+		}
+		if _, ok := result[codehost.Alias]; ok {
+			return nil, fmt.Errorf("multiple code hosts named %s are available in project %s", codehost.Alias, projectKey)
+		}
+		result[codehost.Alias] = codehost
+	}
+	for name := range wanted {
+		if _, ok := result[name]; !ok {
+			return nil, errors.New("failed to find code host with name:" + name)
+		}
+	}
+	return result, nil
+}
+
+func validateOpenAPIRepositoryRef(branch, tag string, pr int, prs []int, enableCommit bool, commitID string) error {
+	if pr < 0 {
+		return errors.New("pull request ID cannot be negative")
+	}
+	for _, id := range prs {
+		if id <= 0 {
+			return errors.New("pull request IDs must be greater than zero")
+		}
+	}
+
+	if pr > 0 && len(prs) > 0 {
+		return errors.New("pr and prs cannot be specified together")
+	}
+	if (pr > 0 || len(prs) > 0) && branch == "" {
+		return errors.New("branch is required when pull request IDs are specified")
+	}
+	if enableCommit != (commitID != "") {
+		return errors.New("enable_commit and commit_id must be specified together")
+	}
+
+	modeCount := 0
+	if branch != "" || pr > 0 || len(prs) > 0 {
+		modeCount++
+	}
+	if tag != "" {
+		modeCount++
+	}
+	if enableCommit {
+		modeCount++
+	}
+	if modeCount != 1 {
+		return errors.New("branch, tag, pull request and commit modes are mutually exclusive")
+	}
+	return nil
+}
+
+func normalizeOpenAPIRepositoryInput(input *types.OpenAPIRepoInput) error {
+	if input.PR <= 0 {
+		return nil
+	}
+	if len(input.PRs) > 0 {
+		return errors.New("pr and prs cannot be specified together")
+	}
+	input.PRs = []int{input.PR}
+	input.PR = 0
+	return nil
+}
+
+func updateOpenAPIRepositoryRef(repo *types.Repository, branch, tag string, pr int, prs []int, enableCommit bool, commitID string) {
+	repo.Branch = branch
+	repo.Tag = tag
+	repo.PR = pr
+	repo.PRs = prs
+	repo.EnableCommit = enableCommit
+	repo.CommitID = commitID
+	repo.MergeBranches = nil
+	repo.TargetBranch = ""
+	repo.CheckoutRef = ""
+}
+
 func getCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codehostmodels.CodeHost, error) {
 	repoInfoMap := make(map[string]*codehostmodels.CodeHost)
 	for _, inputRepo := range repoInputs {
@@ -367,6 +495,34 @@ func getCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codeh
 	return repoInfoMap, nil
 }
 
+func getProjectCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput, projectKey string) (map[string]*codehostmodels.CodeHost, error) {
+	codehostNames := make([]string, 0, len(repoInputs))
+	for i, inputRepo := range repoInputs {
+		if inputRepo == nil {
+			return nil, fmt.Errorf("repo_info[%d] cannot be empty", i)
+		}
+		codehostNames = append(codehostNames, inputRepo.CodeHostName)
+	}
+	result, err := getCodeHostInfoMapByNames(codehostNames, projectKey)
+	if err != nil {
+		return nil, err
+	}
+	for _, inputRepo := range repoInputs {
+		if result[inputRepo.CodeHostName].Type != "perforce" {
+			if err := normalizeOpenAPIRepositoryInput(inputRepo); err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(inputRepo.RepoNamespace) == "" || strings.TrimSpace(inputRepo.RepoName) == "" {
+				return nil, errors.New("repo_namespace and repo_name are required")
+			}
+			if err := validateOpenAPIRepositoryRef(inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID); err != nil {
+				return nil, fmt.Errorf("invalid repository %s/%s: %w", inputRepo.RepoNamespace, inputRepo.RepoName, err)
+			}
+		}
+	}
+	return result, nil
+}
+
 func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
 	if len(repoInpus) == 0 {
 		return originalRepos, nil
@@ -378,10 +534,15 @@ func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 		return nil, err
 	}
 
+	return openAPIRepoInputToRepository(originalRepos, repoInpus, repoInfoMap, false)
+}
+
+func openAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus []*types.OpenAPIRepoInput, repoInfoMap map[string]*codehostmodels.CodeHost, projectScoped bool) ([]*types.Repository, error) {
 	newRepo := make([]*types.Repository, 0)
+	matched := make([]bool, len(repoInpus))
 
 	for _, repo := range originalRepos {
-		for _, inputRepo := range repoInpus {
+		for i, inputRepo := range repoInpus {
 			repoInfo := repoInfoMap[inputRepo.CodeHostName]
 			if repo.CodehostID != repoInfo.ID {
 				continue
@@ -389,12 +550,18 @@ func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 
 			if repoInfo.Type != "perforce" {
 				if repo.GetRepoNamespace() == inputRepo.RepoNamespace && repo.RepoName == inputRepo.RepoName {
-					repo.Branch = inputRepo.Branch
-					repo.PR = inputRepo.PR
-					repo.PRs = inputRepo.PRs
-					repo.EnableCommit = inputRepo.EnableCommit
-					repo.CommitID = inputRepo.CommitID
+					if projectScoped {
+						updateOpenAPIRepositoryRef(repo, inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID)
+					} else {
+						// Release-plan and standalone testing APIs retain their existing override semantics.
+						repo.Branch = inputRepo.Branch
+						repo.PR = inputRepo.PR
+						repo.PRs = inputRepo.PRs
+						repo.EnableCommit = inputRepo.EnableCommit
+						repo.CommitID = inputRepo.CommitID
+					}
 					newRepo = append(newRepo, repo)
+					matched[i] = true
 				}
 			} else {
 				var depotType string
@@ -416,23 +583,21 @@ func OpenAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 					ChangeListID: inputRepo.ChangelistID,
 					ShelveID:     inputRepo.ShelveID,
 				})
+				matched[i] = true
 			}
+		}
+	}
+	for i, ok := range matched {
+		if !ok && projectScoped {
+			inputRepo := repoInpus[i]
+			return nil, fmt.Errorf("repository %s/%s from codehost %s not found in job", inputRepo.RepoNamespace, inputRepo.RepoName, inputRepo.CodeHostName)
 		}
 	}
 
 	return newRepo, nil
 }
 
-func OpenAPIFreestyleRepoInputToRepository(originalRepos []*types.Repository, repoInpus []*types.OpenAPIRepoInput) ([]*types.Repository, error) {
-	if len(repoInpus) == 0 {
-		return originalRepos, nil
-	}
-
-	repoInfoMap, err := getCodeHostInfoMap(repoInpus)
-	if err != nil {
-		return nil, err
-	}
-
+func openAPIFreestyleRepoInputToRepository(repoInpus []*types.OpenAPIRepoInput, repoInfoMap map[string]*codehostmodels.CodeHost, includeTag bool) []*types.Repository {
 	newRepo := make([]*types.Repository, 0)
 	for _, inputRepo := range repoInpus {
 		repoInfo := repoInfoMap[inputRepo.CodeHostName]
@@ -442,7 +607,7 @@ func OpenAPIFreestyleRepoInputToRepository(originalRepos []*types.Repository, re
 			if remoteName == "" {
 				remoteName = "origin"
 			}
-			newRepo = append(newRepo, &types.Repository{
+			repo := &types.Repository{
 				Source:        repoInfo.Type,
 				RepoOwner:     inputRepo.RepoNamespace,
 				RepoNamespace: inputRepo.RepoNamespace,
@@ -456,7 +621,11 @@ func OpenAPIFreestyleRepoInputToRepository(originalRepos []*types.Repository, re
 				RemoteName:    remoteName,
 				CheckoutPath:  inputRepo.CheckoutPath,
 				SubModules:    inputRepo.SubModules,
-			})
+			}
+			if includeTag {
+				repo.Tag = inputRepo.Tag
+			}
+			newRepo = append(newRepo, repo)
 		} else {
 			var depotType string
 			if inputRepo.Stream != "" {
@@ -480,7 +649,7 @@ func OpenAPIFreestyleRepoInputToRepository(originalRepos []*types.Repository, re
 		}
 	}
 
-	return newRepo, nil
+	return newRepo
 }
 
 func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -498,7 +667,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 		} else {
 			services := make([]*commonmodels.FreeStyleServiceInfo, 0)
 			for _, service := range p.Services {
-				newRepos, err := OpenAPIFreestyleRepoInputToRepository(newSpec.Repos, service.RepoInfo)
+				newRepos, err := p.freestyleRepositories(newSpec.Repos, service.RepoInfo)
 				if err != nil {
 					return nil, err
 				}
@@ -517,7 +686,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 		newSpec.Envs = OpenAPIKVInputToKeyValList(newSpec.Envs, p.KVs)
 
-		newRepos, err := OpenAPIFreestyleRepoInputToRepository(newSpec.Repos, p.RepoInfo)
+		newRepos, err := p.freestyleRepositories(newSpec.Repos, p.RepoInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -563,7 +732,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := p.freestyleRepositories(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -595,7 +764,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := p.freestyleRepositories(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -627,7 +796,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := p.freestyleRepositories(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -659,7 +828,7 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 					}
 
 					if _, ok := serviceInputMap[target.GetKey()]; ok {
-						newRepos, err := OpenAPIFreestyleRepoInputToRepository(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
+						newRepos, err := p.freestyleRepositories(jobSpec.Repos, serviceInputMap[target.GetKey()].RepoInfo)
 						if err != nil {
 							return err
 						}
@@ -680,6 +849,8 @@ func (p *FreestyleJobInput) getReferredJobTargets(jobSpec *commonmodels.Freestyl
 }
 
 type ZadigBuildJobInput struct {
+	*OpenAPIBasicInfo
+
 	Registry    string                           `json:"registry"`
 	ServiceList []*types.OpenAPIServiceBuildArgs `json:"service_list"`
 }
@@ -688,6 +859,17 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 	newSpec := new(commonmodels.ZadigBuildJobSpec)
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigBuildJobSpec")
+	}
+	if p.useProjectCodehosts {
+		configured := make(map[string]bool, len(newSpec.ServiceAndBuildsOptions))
+		for _, service := range newSpec.ServiceAndBuildsOptions {
+			configured[service.GetKey()] = true
+		}
+		for _, service := range p.ServiceList {
+			if service == nil || !configured[service.ServiceName+"-"+service.ServiceModule] {
+				return nil, errors.New("service_list contains a target not configured in build job")
+			}
+		}
 	}
 
 	// first convert registry name into registry id
@@ -716,23 +898,37 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 		for _, inputSvc := range p.ServiceList {
 			// if the service & service module match, we do the update logic
 			if inputSvc.ServiceName == svcBuild.ServiceName && inputSvc.ServiceModule == svcBuild.ServiceModule {
+				repoInfoMap, err := p.codeHostInfoMap(inputSvc.RepoInfo)
+				if err != nil {
+					return nil, err
+				}
 				// update build repo info with input build info
 				for _, inputRepo := range inputSvc.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
-					if err != nil {
-						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
-					}
+					repoInfo := repoInfoMap[inputRepo.CodeHostName]
 
+					matched := false
 					for _, buildRepo := range svcBuild.Repos {
-						if buildRepo.CodehostID == repoInfo.ID {
-							if buildRepo.RepoNamespace == inputRepo.RepoNamespace && buildRepo.RepoName == inputRepo.RepoName {
-								buildRepo.Branch = inputRepo.Branch
-								buildRepo.PR = inputRepo.PR
-								buildRepo.PRs = inputRepo.PRs
-								buildRepo.EnableCommit = inputRepo.EnableCommit
-								buildRepo.CommitID = inputRepo.CommitID
-							}
+						repoNamespace := buildRepo.RepoNamespace
+						if p.useProjectCodehosts {
+							repoNamespace = buildRepo.GetRepoNamespace()
 						}
+						if buildRepo.CodehostID != repoInfo.ID || repoNamespace != inputRepo.RepoNamespace || buildRepo.RepoName != inputRepo.RepoName {
+							continue
+						}
+						if !p.useProjectCodehosts {
+							buildRepo.Branch = inputRepo.Branch
+							buildRepo.PR = inputRepo.PR
+							buildRepo.PRs = inputRepo.PRs
+							buildRepo.EnableCommit = inputRepo.EnableCommit
+							buildRepo.CommitID = inputRepo.CommitID
+						} else {
+							updateOpenAPIRepositoryRef(buildRepo, inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID)
+						}
+						matched = true
+						break
+					}
+					if !matched && p.useProjectCodehosts {
+						return nil, fmt.Errorf("repository %s/%s from codehost %s not found in build", inputRepo.RepoNamespace, inputRepo.RepoName, inputRepo.CodeHostName)
 					}
 				}
 
@@ -949,7 +1145,7 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 			for _, inputService := range p.ServiceList {
 				for _, configService := range newSpec.ServiceAndTests {
 					if configService.ServiceName == inputService.ServiceName && configService.ServiceModule == inputService.ServiceModule {
-						newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+						newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 						if err != nil {
 							return nil, err
 						}
@@ -968,7 +1164,7 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 				if inputTesting.TestingName == testing.Name {
 					testing.KeyVals = OpenAPIKVInputToKeyValList(testing.KeyVals, inputTesting.Inputs)
 
-					newRepos, err := OpenAPIRepoInputToRepository(testing.Repos, inputTesting.RepoInfo)
+					newRepos, err := p.repositories(testing.Repos, inputTesting.RepoInfo)
 					if err != nil {
 						return nil, err
 					}
@@ -1016,7 +1212,7 @@ func (p *ZadigTestingJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadig
 						if configService, ok := serviceConfigMap[build.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1043,7 +1239,7 @@ func (p *ZadigTestingJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadig
 						if configService, ok := serviceConfigMap[serviceAndTest.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1070,7 +1266,7 @@ func (p *ZadigTestingJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadig
 						if configService, ok := serviceConfigMap[serviceAndScanning.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1097,7 +1293,7 @@ func (p *ZadigTestingJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadig
 						if configService, ok := serviceConfigMap[service.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1275,7 +1471,7 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 			for _, inputService := range p.ServiceList {
 				for _, configService := range newSpec.ServiceAndScannings {
 					if configService.ServiceName == inputService.ServiceName && configService.ServiceModule == inputService.ServiceModule {
-						newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+						newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 						if err != nil {
 							return nil, err
 						}
@@ -1295,7 +1491,7 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 				if inputScanning.ScanningName == scanning.Name {
 					scanning.KeyVals = OpenAPIKVInputToKeyValList(scanning.KeyVals, inputScanning.Inputs)
 
-					newRepos, err := OpenAPIRepoInputToRepository(scanning.Repos, inputScanning.RepoInfo)
+					newRepos, err := p.repositories(scanning.Repos, inputScanning.RepoInfo)
 					if err != nil {
 						return nil, err
 					}
@@ -1343,7 +1539,7 @@ func (p *ZadigScanningJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadi
 						if configService, ok := serviceConfigMap[build.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1371,7 +1567,7 @@ func (p *ZadigScanningJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadi
 						if configService, ok := serviceConfigMap[serviceAndTest.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1398,7 +1594,7 @@ func (p *ZadigScanningJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadi
 						if configService, ok := serviceConfigMap[serviceAndScanning.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
@@ -1425,7 +1621,7 @@ func (p *ZadigScanningJobInput) getReferredJobTargets(jobSpec *commonmodels.Zadi
 						if configService, ok := serviceConfigMap[service.GetKey()]; ok {
 							configService.KeyVals = OpenAPIKVInputToKeyValList(configService.KeyVals, inputService.Inputs)
 
-							newRepos, err := OpenAPIRepoInputToRepository(configService.Repos, inputService.RepoInfo)
+							newRepos, err := p.repositories(configService.Repos, inputService.RepoInfo)
 							if err != nil {
 								return err
 							}
