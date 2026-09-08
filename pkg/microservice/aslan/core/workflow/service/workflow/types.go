@@ -231,6 +231,8 @@ type CreateCustomTaskRepoArg struct {
 	Branch        string `bson:"branch"             json:"branch"               yaml:"branch"`
 	Tag           string `bson:"tag"                json:"tag"                  yaml:"tag"`
 	PRs           []int  `bson:"prs"                json:"prs"                  yaml:"prs"`
+	EnableCommit  bool   `bson:"enable_commit"      json:"enable_commit"        yaml:"enable_commit"`
+	CommitID      string `bson:"commit_id"          json:"commit_id"            yaml:"commit_id"`
 }
 
 type CreateCustomTaskJobInput struct {

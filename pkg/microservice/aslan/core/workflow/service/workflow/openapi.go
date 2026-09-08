@@ -185,7 +185,7 @@ func UpdateProjectWorkflowParam(workflowParams []*commonmodels.Param, inputParam
 				if argParam.Repo == nil || workflowParam.Repo == nil {
 					return fmt.Errorf("repo value is required for param %s", argParam.Name)
 				}
-				if err := validateOpenAPIRepositoryRef(argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, false, ""); err != nil {
+				if err := validateOpenAPIRepositoryRef(argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, argParam.Repo.EnableCommit, argParam.Repo.CommitID); err != nil {
 					return fmt.Errorf("invalid repo value for param %s: %w", argParam.Name, err)
 				}
 				codehosts, err := getCodeHostInfoMapByNames([]string{argParam.Repo.CodeHostName}, projectKey)
@@ -196,7 +196,7 @@ func UpdateProjectWorkflowParam(workflowParams []*commonmodels.Param, inputParam
 				if workflowParam.Repo.CodehostID != repoInfo.ID || workflowParam.Repo.GetRepoNamespace() != argParam.Repo.RepoNamespace || workflowParam.Repo.RepoName != argParam.Repo.RepoName {
 					return fmt.Errorf("repository %s/%s from codehost %s not found in workflow", argParam.Repo.RepoNamespace, argParam.Repo.RepoName, argParam.Repo.CodeHostName)
 				}
-				updateOpenAPIRepositoryRef(workflowParam.Repo, argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, false, "")
+				updateOpenAPIRepositoryRef(workflowParam.Repo, argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, argParam.Repo.EnableCommit, argParam.Repo.CommitID)
 			}
 		} else {
 			return fmt.Errorf("param %s not found in workflow", argParam.Name)
