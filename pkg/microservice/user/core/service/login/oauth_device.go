@@ -44,7 +44,7 @@ func (s *OAuthService) CreateDeviceAuthorization(deviceName string) (*OAuthDevic
 	if err != nil {
 		return nil, err
 	}
-	reserved, err := s.cache.WriteIfNotExists(oauthKey("user-code", device.UserCode), device.DeviceCodeHash, oauthDeviceAuthorizationTTL)
+	reserved, err := s.cache.SetNX(oauthKey("user-code", device.UserCode), device.DeviceCodeHash, oauthDeviceAuthorizationTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (s *OAuthService) DecideDeviceAuthorization(userCode, decision string, user
 		return "", &OAuthError{Code: OAuthErrorInvalidRequest, Description: "authorization request has already been decided"}
 	}
 	decisionKey := oauthKey("decision", device.DeviceCodeHash)
-	decided, err := s.cache.WriteIfNotExists(decisionKey, "1", time.Until(device.ExpiresAt))
+	decided, err := s.cache.SetNX(decisionKey, "1", time.Until(device.ExpiresAt))
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +124,7 @@ func (s *OAuthService) ExchangeDeviceCode(deviceCode string) (*OAuthTokenRespons
 	if err != nil {
 		return nil, err
 	}
-	allowed, err := s.cache.WriteIfNotExists(oauthKey("poll", hash), "1", oauthDevicePollInterval)
+	allowed, err := s.cache.SetNX(oauthKey("poll", hash), "1", oauthDevicePollInterval)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *OAuthService) ExchangeDeviceCode(deviceCode string) (*OAuthTokenRespons
 		return nil, &OAuthError{Code: oauthErrorAccessDenied, Description: "authorization was denied"}
 	case oauthDeviceStatusApproved:
 		exchangeKey := oauthKey("exchange", hash)
-		claimed, err := s.cache.WriteIfNotExists(exchangeKey, "1", time.Until(device.ExpiresAt))
+		claimed, err := s.cache.SetNX(exchangeKey, "1", time.Until(device.ExpiresAt))
 		if err != nil {
 			return nil, err
 		}

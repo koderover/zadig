@@ -30,7 +30,7 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 	if refreshToken == "" {
 		return nil, &OAuthError{Code: OAuthErrorInvalidRequest, Description: "refresh_token is required"}
 	}
-	sessionID, err := s.cache.TakeString(oauthKey("refresh", hashOAuthValue(refreshToken)))
+	sessionID, err := s.cache.GetDelString(oauthKey("refresh", hashOAuthValue(refreshToken)))
 	if errors.Is(err, redis.Nil) {
 		return nil, &OAuthError{Code: oauthErrorInvalidGrant, Description: "refresh token is invalid or expired"}
 	}

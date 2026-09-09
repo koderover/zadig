@@ -107,7 +107,7 @@ func (c *Client) getAccessToken(skipCache bool) (string, error) {
 	}
 
 	expirationTime := time.Duration(resp.ExpiresIn - expireThreshold)
-	err = redisCache.SetNX(accessTokenKey, resp.AccessToken, expirationTime*time.Second)
+	_, err = redisCache.SetNX(accessTokenKey, resp.AccessToken, expirationTime*time.Second)
 	if err != nil {
 		log.Warn("failed to save the created workwx access token into redis, err: %s", err)
 	}
