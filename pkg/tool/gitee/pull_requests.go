@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"gitee.com/openeuler/go-gitee/gitee"
+	"github.com/antihax/optional"
 )
 
 func (c *Client) GetPullRequest(ctx context.Context, owner string, repo string, number int) (gitee.PullRequest, error) {
@@ -31,13 +32,24 @@ func (c *Client) GetPullRequest(ctx context.Context, owner string, repo string, 
 	return pr, err
 }
 
-func (c *Client) ListPullRequests(ctx context.Context, owner string, repo string, opts *gitee.GetV5ReposOwnerRepoPullsOpts) ([]gitee.PullRequest, error) {
-	prs, _, err := c.PullRequestsApi.GetV5ReposOwnerRepoPulls(ctx, owner, repo, opts)
-	if err != nil {
-		return nil, err
+func (c *Client) ListPullRequests(ctx context.Context, owner string, repo string, fetchAll bool) ([]gitee.PullRequest, error) {
+	opts := &gitee.GetV5ReposOwnerRepoPullsOpts{PerPage: optional.NewInt32(100)}
+	prs := make([]gitee.PullRequest, 0)
+	for page := int32(1); ; page++ {
+		if fetchAll {
+			opts.Page = optional.NewInt32(page)
+		}
+		result, _, err := c.PullRequestsApi.GetV5ReposOwnerRepoPulls(ctx, owner, repo, opts)
+		if err != nil {
+			return nil, err
+		}
+		prs = append(prs, result...)
+		if !fetchAll || len(result) < 100 {
+			break
+		}
 	}
 
-	return prs, err
+	return prs, nil
 }
 
 func (c *Client) ListCommitsForPR(ctx context.Context, owner string, repo string, number int, opts *gitee.GetV5ReposOwnerRepoPullsNumberCommitsOpts) ([]gitee.PullRequestCommits, error) {

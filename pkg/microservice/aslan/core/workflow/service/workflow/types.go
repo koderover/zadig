@@ -291,11 +291,14 @@ func (p *OpenAPIBasicInfo) freestyleRepositories(originalRepos []*types.Reposito
 	if len(repoInputs) == 0 {
 		return originalRepos, nil
 	}
+	if p.useProjectCodehosts {
+		return p.repositories(originalRepos, repoInputs)
+	}
 	codehosts, err := p.codeHostInfoMap(repoInputs)
 	if err != nil {
 		return nil, err
 	}
-	return openAPIFreestyleRepoInputToRepository(repoInputs, codehosts, p.useProjectCodehosts), nil
+	return openAPIFreestyleRepoInputToRepository(repoInputs, codehosts), nil
 }
 
 type CreateProductTaskJobInput struct {
@@ -423,7 +426,7 @@ func getCodeHostInfoMapByNames(codehostNames []string, projectKey string) (map[s
 	return result, nil
 }
 
-func validateOpenAPIRepositoryRef(branch, tag string, pr int, prs []int, enableCommit bool, commitID string) error {
+func ValidateOpenAPIRepositoryRef(branch, tag string, pr int, prs []int, enableCommit bool, commitID string) error {
 	if pr < 0 {
 		return errors.New("pull request ID cannot be negative")
 	}
@@ -518,7 +521,7 @@ func getProjectCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput, projectKey 
 			if strings.TrimSpace(inputRepo.RepoNamespace) == "" || strings.TrimSpace(inputRepo.RepoName) == "" {
 				return nil, errors.New("repo_namespace and repo_name are required")
 			}
-			if err := validateOpenAPIRepositoryRef(inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID); err != nil {
+			if err := ValidateOpenAPIRepositoryRef(inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID); err != nil {
 				return nil, fmt.Errorf("invalid repository %s/%s: %w", inputRepo.RepoNamespace, inputRepo.RepoName, err)
 			}
 		}
@@ -601,7 +604,7 @@ func openAPIRepoInputToRepository(originalRepos []*types.Repository, repoInpus [
 	return newRepo, nil
 }
 
-func openAPIFreestyleRepoInputToRepository(repoInpus []*types.OpenAPIRepoInput, repoInfoMap map[string]*codehostmodels.CodeHost, includeTag bool) []*types.Repository {
+func openAPIFreestyleRepoInputToRepository(repoInpus []*types.OpenAPIRepoInput, repoInfoMap map[string]*codehostmodels.CodeHost) []*types.Repository {
 	newRepo := make([]*types.Repository, 0)
 	for _, inputRepo := range repoInpus {
 		repoInfo := repoInfoMap[inputRepo.CodeHostName]
@@ -611,7 +614,7 @@ func openAPIFreestyleRepoInputToRepository(repoInpus []*types.OpenAPIRepoInput, 
 			if remoteName == "" {
 				remoteName = "origin"
 			}
-			repo := &types.Repository{
+			newRepo = append(newRepo, &types.Repository{
 				Source:        repoInfo.Type,
 				RepoOwner:     inputRepo.RepoNamespace,
 				RepoNamespace: inputRepo.RepoNamespace,
@@ -625,11 +628,7 @@ func openAPIFreestyleRepoInputToRepository(repoInpus []*types.OpenAPIRepoInput, 
 				RemoteName:    remoteName,
 				CheckoutPath:  inputRepo.CheckoutPath,
 				SubModules:    inputRepo.SubModules,
-			}
-			if includeTag {
-				repo.Tag = inputRepo.Tag
-			}
-			newRepo = append(newRepo, repo)
+			})
 		} else {
 			var depotType string
 			if inputRepo.Stream != "" {
@@ -661,6 +660,13 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.FreestyleJobSpec")
 	}
+	if p.useProjectCodehosts && newSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		for _, service := range p.Services {
+			if service == nil {
+				return nil, errors.New("services contains an empty target")
+			}
+		}
+	}
 
 	if newSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		if newSpec.ServiceSource == config.SourceFromJob {
@@ -686,6 +692,23 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 				})
 			}
 			newSpec.Services = services
+		}
+		if p.useProjectCodehosts {
+			configured := make(map[string]bool, len(newSpec.Services))
+			for _, service := range newSpec.Services {
+				configured[service.GetKey()] = true
+			}
+			if newSpec.ServiceSource != config.SourceFromJob {
+				configured = make(map[string]bool, len(newSpec.DefaultServices))
+				for _, service := range newSpec.DefaultServices {
+					configured[service.GetKey()] = true
+				}
+			}
+			for _, service := range p.Services {
+				if !configured[service.ServiceName+"-"+service.ServiceModule] {
+					return nil, errors.New("services contains a target not configured in freestyle job")
+				}
+			}
 		}
 	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 		newSpec.Envs = OpenAPIKVInputToKeyValList(newSpec.Envs, p.KVs)
@@ -1145,6 +1168,34 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigTestingJobSpec")
 	}
+	if p.useProjectCodehosts {
+		configured := make(map[string]bool)
+		if newSpec.TestType == config.ServiceTestType {
+			services := newSpec.ServiceAndTests
+			if newSpec.Source == config.SourceFromJob {
+				services = newSpec.ServiceTestOptions
+			}
+			for _, service := range services {
+				configured[service.GetKey()] = true
+			}
+			for _, service := range p.ServiceList {
+				if !configured[service.GetKey()] {
+					return nil, errors.New("service_list contains a target not configured in testing job")
+				}
+			}
+		} else {
+			for _, testing := range newSpec.TestModuleOptions {
+				if testing != nil {
+					configured[testing.Name] = true
+				}
+			}
+			for _, testing := range p.TestingList {
+				if testing == nil || !configured[testing.TestingName] {
+					return nil, errors.New("testing_list contains a target not configured in testing job")
+				}
+			}
+		}
+	}
 
 	if newSpec.TestType == config.ServiceTestType {
 		if newSpec.Source == config.SourceFromJob {
@@ -1185,7 +1236,6 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 			}
 		}
 	}
-
 	job.Spec = newSpec
 
 	return job, nil
@@ -1471,6 +1521,34 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigScanningJobSpec")
 	}
+	if p.useProjectCodehosts {
+		configured := make(map[string]bool)
+		if newSpec.ScanningType == config.ServiceScanningType {
+			services := newSpec.ServiceAndScannings
+			if newSpec.Source == config.SourceFromJob {
+				services = newSpec.ServiceScanningOptions
+			}
+			for _, service := range services {
+				configured[service.GetKey()] = true
+			}
+			for _, service := range p.ServiceList {
+				if !configured[service.GetKey()] {
+					return nil, errors.New("service_list contains a target not configured in scanning job")
+				}
+			}
+		} else {
+			for _, scanning := range newSpec.ScanningOptions {
+				if scanning != nil {
+					configured[scanning.Name] = true
+				}
+			}
+			for _, scanning := range p.ScanningList {
+				if scanning == nil || !configured[scanning.ScanningName] {
+					return nil, errors.New("scanning_list contains a target not configured in scanning job")
+				}
+			}
+		}
+	}
 
 	if newSpec.ScanningType == config.ServiceScanningType {
 		if newSpec.Source == config.SourceFromJob {
@@ -1512,7 +1590,6 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 			}
 		}
 	}
-
 	job.Spec = newSpec
 
 	return job, nil
