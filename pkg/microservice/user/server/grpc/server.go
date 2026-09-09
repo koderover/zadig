@@ -188,8 +188,9 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 	}
 
 allowed:
+	tokenForLog := userToken
 	if claims != nil && claims.TokenUse == loginsvc.OAuthLocalTokenUseAccess {
-		userToken = ""
+		tokenForLog = ""
 	}
 	resp := &ext_authz_v3.CheckResponse{}
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
@@ -198,7 +199,7 @@ allowed:
 		zap.String("path", requestPath),
 		zap.String("method", method),
 		zap.String("body", body),
-		zap.String("token", userToken),
+		zap.String("token", tokenForLog),
 	)
 
 	return resp, nil
