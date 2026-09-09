@@ -48,7 +48,7 @@ func CreateUserGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -99,7 +99,7 @@ func OpenApiListUserGroups(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -189,7 +189,7 @@ func GetUserGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -213,7 +213,7 @@ func UpdateUserGroupInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -248,7 +248,7 @@ func DeleteUserGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -285,7 +285,7 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -320,7 +320,7 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// this is local, so we simply generate user auth info from service
-	err := GenerateUserAuthInfo(ctx)
+	err := GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)

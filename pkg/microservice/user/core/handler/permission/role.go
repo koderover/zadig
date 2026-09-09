@@ -134,7 +134,7 @@ func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		return
 	}
 
-	err = userhandler.GenerateUserAuthInfo(ctx)
+	err = userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -206,7 +206,7 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		return
 	}
 
-	err = userhandler.GenerateUserAuthInfo(ctx)
+	err = userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -316,7 +316,7 @@ func OpenAPIListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -382,7 +382,7 @@ func OpenAPIGetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -483,7 +483,7 @@ func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		return
 	}
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
