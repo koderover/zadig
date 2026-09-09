@@ -19,6 +19,7 @@ package kube
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -62,6 +63,45 @@ type Service struct {
 	*multicluster.Agent
 
 	coll *mongodb.K8SClusterColl
+}
+
+func newAgentToken() (string, error) {
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(random), nil
+}
+
+func (s *Service) ensureAgentToken(id string, cluster *models.K8SCluster) error {
+	if cluster.AgentToken != "" {
+		return nil
+	}
+
+	// recover the plaintext token from its encrypted form persisted in mongodb
+	if cluster.AgentTokenEnc != "" {
+		token, err := crypto.AesDecrypt(cluster.AgentTokenEnc)
+		if err != nil {
+			return err
+		}
+		cluster.AgentToken = token
+		return nil
+	}
+
+	token, err := newAgentToken()
+	if err != nil {
+		return err
+	}
+	encToken, err := crypto.AesEncrypt(token)
+	if err != nil {
+		return err
+	}
+	stored, err := s.coll.EnsureAgentToken(id, encToken, crypto.Sha256([]byte(token)))
+	if err != nil {
+		return err
+	}
+	cluster.AgentToken, err = crypto.AesDecrypt(stored)
+	return err
 }
 
 func NewService(hubServerAddr string) (*Service, error) {
@@ -121,6 +161,9 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	err = s.coll.Create(cluster, id)
 	if err != nil {
 		return nil, e.ErrCreateCluster.AddErr(err)
+	}
+	if err := s.ensureAgentToken(cluster.ID.Hex(), cluster); err != nil {
+		return nil, err
 	}
 
 	if cluster.Type == setting.KubeConfigClusterType {
@@ -218,7 +261,6 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 		logger.Errorf("failed to get cluster by id %s %v", id, err)
 		return nil, e.ErrClusterNotFound.AddErr(err)
 	}
-
 	token, err := crypto.AesEncrypt(cluster.ID.Hex())
 	if err != nil {
 		return nil, err
@@ -257,6 +299,15 @@ func (s *Service) GetClusterByToken(token string, logger *zap.SugaredLogger) (*m
 	return s.GetCluster(id, logger)
 }
 
+func (s *Service) GetClusterByAgentToken(token string, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
+	cluster, err := s.coll.GetByAgentToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetCluster(cluster.ID.Hex(), logger)
+}
+
 func (s *Service) ListConnectedClusters(logger *zap.SugaredLogger) ([]*models.K8SCluster, error) {
 	clusters, err := s.coll.FindConnectedClusters()
 	if err != nil {
@@ -284,6 +335,9 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		err     error
 	)
 	if cluster, err = s.GetCluster(id, logger); err != nil {
+		return nil, err
+	}
+	if err = s.ensureAgentToken(id, cluster); err != nil {
 		return nil, err
 	}
 
@@ -356,6 +410,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:        agentImage,
 			ClientToken:          token,
+			AslanAgentToken:      cluster.AgentToken,
 			HubServerBaseAddr:    hubBase.String(),
 			AslanBaseAddr:        serverURL,
 			UseDeployment:        useDeployment,
@@ -376,12 +431,12 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			DisableHostNetwork:   cluster.AdvancedConfig.AgentDisableHostNetwork,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
-			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
 			HubAgentImage:        agentImage,
 			ClientToken:          token,
+			AslanAgentToken:      cluster.AgentToken,
 			HubServerBaseAddr:    hubBase.String(),
 			AslanBaseAddr:        serverURL,
 			UseDeployment:        useDeployment,
@@ -402,7 +457,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DisableHostNetwork:   cluster.AdvancedConfig.AgentDisableHostNetwork,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
-			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	}
 
@@ -460,8 +514,13 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 }
 
 func ResolveDindNamespace(cluster *models.K8SCluster) string {
-	if cluster != nil && cluster.Local {
-		return config.Namespace()
+	if cluster != nil {
+		if cluster.Local {
+			return config.Namespace()
+		}
+		if cluster.Namespace != "" {
+			return cluster.Namespace
+		}
 	}
 	return setting.AttachedClusterNamespace
 }
@@ -707,6 +766,7 @@ func ValidateClusterRoleYAML(k8sYaml string, logger *zap.SugaredLogger) error {
 type TemplateSchema struct {
 	HubAgentImage        string
 	ClientToken          string
+	AslanAgentToken      string
 	HubServerBaseAddr    string
 	Namespace            string
 	UseDeployment        bool
@@ -724,7 +784,6 @@ type TemplateSchema struct {
 	EnableIRSA           bool
 	IRSARoleARN          string
 	ImagePullPolicy      string
-	SecretKey            string
 	NodeSelector         string
 	Toleration           string
 	Affinity             string
@@ -748,17 +807,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: koderover-agent
-
----
-
-apiVersion: v1
-data:
-  aesKey: {{.SecretKey}}
-kind: Secret
-metadata:
-  name: zadig-aes-key
-  namespace: koderover-agent
-type: Opaque
 
 ---
 
@@ -847,17 +895,14 @@ spec:
         image: {{.HubAgentImage}}
         imagePullPolicy: {{.ImagePullPolicy}}
         env:
-        - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              key: aesKey
-              name: zadig-aes-key
         - name: AGENT_NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
+        - name: ASLAN_AGENT_TOKEN
+          value: "{{.AslanAgentToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
@@ -902,16 +947,6 @@ metadata:
 
 ---
 
-apiVersion: v1
-data:
-  aesKey: {{.SecretKey}}
-kind: Secret
-metadata:
-  name: zadig-aes-key
-  namespace: {{.Namespace}}
-type: Opaque
-
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -1043,17 +1078,14 @@ spec:
         image: {{.HubAgentImage}}
         imagePullPolicy: {{.ImagePullPolicy}}
         env:
-        - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              key: aesKey
-              name: zadig-aes-key
         - name: AGENT_NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
+        - name: ASLAN_AGENT_TOKEN
+          value: "{{.AslanAgentToken}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR

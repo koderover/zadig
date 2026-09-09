@@ -19,6 +19,7 @@ package aslan
 import (
 	"crypto/tls"
 
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
@@ -32,7 +33,8 @@ type Client struct {
 
 func New(host string) *Client {
 	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api"),
+		httpclient.SetHostURL(host+"/api"),
+		servicetoken.HeaderOption(),
 	)
 
 	return &Client{

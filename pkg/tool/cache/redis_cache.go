@@ -51,6 +51,21 @@ func NewRedisCache(db int) *RedisCache {
 	return &RedisCache{redisClient: redisClient}
 }
 
+// NewIsolatedRedisCache creates a client that is not shared with the package-level cache.
+func NewIsolatedRedisCache(db int) *RedisCache {
+	redisConfig := &redis.Options{
+		Addr: fmt.Sprintf("%s:%d", config.RedisHost(), config.RedisPort()),
+		DB:   db,
+	}
+	if config.RedisUserName() != "" {
+		redisConfig.Username = config.RedisUserName()
+	}
+	if config.RedisPassword() != "" {
+		redisConfig.Password = config.RedisPassword()
+	}
+	return &RedisCache{redisClient: redis.NewClient(redisConfig)}
+}
+
 func (c *RedisCache) Write(key, val string, ttl time.Duration) error {
 	_, err := c.redisClient.Set(context.TODO(), key, val, ttl).Result()
 	return err
@@ -116,6 +131,18 @@ func (c *RedisCache) HGetAllString(key string) (map[string]string, error) {
 
 func (c *RedisCache) Delete(key string) error {
 	return c.redisClient.Del(context.TODO(), key).Err()
+}
+
+// CompareAndDelete deletes key only when its value matches expected.
+func (c *RedisCache) CompareAndDelete(key, expected string) (bool, error) {
+	const script = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0`
+
+	deleted, err := c.redisClient.Eval(context.TODO(), script, []string{key}, expected).Int()
+	return deleted == 1, err
 }
 
 func (c *RedisCache) HDelete(key, field string) error {

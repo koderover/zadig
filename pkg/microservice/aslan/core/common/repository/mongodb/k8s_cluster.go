@@ -19,14 +19,15 @@ package mongodb
 import (
 	"context"
 
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -108,6 +109,42 @@ func (c *K8SClusterColl) Get(id string) (*models.K8SCluster, error) {
 	err = c.FindOne(context.TODO(), query).Decode(res)
 
 	return res, err
+}
+
+func (c *K8SClusterColl) EnsureAgentToken(id, encToken, hash string) (string, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return "", err
+	}
+
+	res := &models.K8SCluster{}
+	err = c.FindOneAndUpdate(
+		context.TODO(),
+		bson.M{
+			"_id": oid,
+			"$or": []bson.M{
+				{"agent_token_hash": bson.M{"$exists": false}},
+				{"agent_token_hash": ""},
+			},
+		},
+		bson.M{"$set": bson.M{
+			"agent_token_enc":  encToken,
+			"agent_token_hash": hash,
+		}},
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(res)
+	if err == nil {
+		return res.AgentTokenEnc, nil
+	}
+	if err != mongo.ErrNoDocuments {
+		return "", err
+	}
+
+	res, err = c.Get(id)
+	if err != nil {
+		return "", err
+	}
+	return res.AgentTokenEnc, nil
 }
 
 func (c *K8SClusterColl) HasDuplicateName(id, name string) (bool, error) {
@@ -299,6 +336,16 @@ func (c *K8SClusterColl) GetByToken(token string) (*models.K8SCluster, error) {
 	}
 
 	return c.Get(id)
+}
+
+func (c *K8SClusterColl) GetByAgentToken(token string) (*models.K8SCluster, error) {
+	if token == "" {
+		return nil, mongo.ErrNoDocuments
+	}
+
+	res := &models.K8SCluster{}
+	err := c.FindOne(context.TODO(), bson.M{"agent_token_hash": crypto.Sha256([]byte(token))}).Decode(res)
+	return res, err
 }
 
 func (c *K8SClusterColl) FindActiveClusters() ([]*models.K8SCluster, error) {

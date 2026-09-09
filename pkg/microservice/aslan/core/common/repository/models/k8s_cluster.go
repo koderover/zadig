@@ -38,6 +38,9 @@ type K8SCluster struct {
 	CreatedAt              int64                    `json:"createdAt"                 bson:"createdAt"`
 	CreatedBy              string                   `json:"createdBy"                 bson:"createdBy"`
 	Disconnected           bool                     `json:"-"                         bson:"disconnected"`
+	AgentToken             string                   `json:"-"                         bson:"-"`
+	AgentTokenEnc          string                   `json:"-"                         bson:"agent_token_enc,omitempty"`
+	AgentTokenHash         string                   `json:"-"                         bson:"agent_token_hash,omitempty"`
 	Token                  string                   `json:"token"                     bson:"-"`
 	Provider               int8                     `json:"provider"                  bson:"provider"`
 	Local                  bool                     `json:"local"                     bson:"local"`

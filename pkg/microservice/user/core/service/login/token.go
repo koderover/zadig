@@ -17,13 +17,9 @@ limitations under the License.
 package login
 
 import (
-	"fmt"
-
 	"github.com/golang-jwt/jwt"
 
 	"github.com/koderover/zadig/v2/pkg/config"
-	userconfig "github.com/koderover/zadig/v2/pkg/microservice/user/config"
-	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 type Claims struct {
@@ -43,30 +39,6 @@ type FederatedClaims struct {
 }
 
 func CreateToken(claims *Claims) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(config.SecretKey()))
-	if err != nil {
-		return "", err
-	}
-	return tokenString, nil
-}
-
-func GetInternalToken(name string) (string, error) {
-	claims := &Claims{
-		Name:              name,
-		UID:               "",
-		Email:             fmt.Sprintf("%s@koderover.com", name),
-		PreferredUsername: name,
-		MFAVerified:       true,
-		StandardClaims: jwt.StandardClaims{
-			Audience:  setting.ProductName,
-			ExpiresAt: 0,
-		},
-		FederatedClaims: FederatedClaims{
-			ConnectorId: userconfig.SystemIdentityType,
-			UserId:      name,
-		},
-	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(config.SecretKey()))
 	if err != nil {
