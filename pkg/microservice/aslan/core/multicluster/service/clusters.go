@@ -1010,12 +1010,12 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
 				if err = kubeClient.Get(context.TODO(), client.ObjectKey{
 					Name:      types.DindStatefulSetName,
-					Namespace: setting.AttachedClusterNamespace,
+					Namespace: dindNamespace,
 				}, &appsv1.StatefulSet{}); err != nil {
-					logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
+					logger.Infof("failed to get dind from %s, start to create dind", dindNamespace)
 					err = updater.CreateOrPatchUnstructured(u, kubeClient)
 				} else {
-					err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+					err = UpgradeDind(kubeClient, clusterInfo, dindNamespace)
 				}
 			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
 				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)

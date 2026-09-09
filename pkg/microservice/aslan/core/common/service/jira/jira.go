@@ -26,6 +26,7 @@ import (
 	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/jira"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -44,7 +45,11 @@ type JiraInfo struct {
 }
 
 func GetJiraInfo() (*JiraInfo, error) {
-	resp, err := req.C().R().Get(config.AslanServiceAddress() + "/api/system/project_management")
+	token, err := servicetoken.CurrentInternalToken()
+	if err != nil {
+		return nil, errors.Wrap(err, "get internal service token")
+	}
+	resp, err := req.C().R().SetHeader(setting.InternalServiceTokenHeader, token).Get(config.AslanServiceAddress() + "/api/system/project_management")
 	if err != nil {
 		log.Errorf("GetJiraInfo: send request error %v", err)
 		return nil, errors.Wrap(err, "send request")

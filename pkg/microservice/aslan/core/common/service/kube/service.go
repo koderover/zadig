@@ -514,8 +514,13 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 }
 
 func ResolveDindNamespace(cluster *models.K8SCluster) string {
-	if cluster != nil && cluster.Local {
-		return config.Namespace()
+	if cluster != nil {
+		if cluster.Local {
+			return config.Namespace()
+		}
+		if cluster.Namespace != "" {
+			return cluster.Namespace
+		}
 	}
 	return setting.AttachedClusterNamespace
 }
