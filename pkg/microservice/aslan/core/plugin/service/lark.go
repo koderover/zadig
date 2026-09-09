@@ -147,10 +147,20 @@ type UpdateLarkWorkflowConfigRequest struct {
 }
 
 func UpdateLarkWorkflowConfig(ctx *internalhandler.Context, req *UpdateLarkWorkflowConfigRequest) error {
+	validatedWorkflows := sets.New[string]()
 	updateWorkitemTypeKeySet := sets.Set[string]{}
 	for _, config := range req.Configs {
 		config.WorkspaceID = req.WorkspaceID
 		updateWorkitemTypeKeySet.Insert(config.WorkItemTypeKey)
+		for _, node := range config.Nodes {
+			if node == nil || node.WorkflowName == "" || validatedWorkflows.Has(node.WorkflowName) {
+				continue
+			}
+			if err := validateWorkflowForLarkPlugin(node.WorkflowName); err != nil {
+				return err
+			}
+			validatedWorkflows.Insert(node.WorkflowName)
+		}
 	}
 
 	origConfigs, err := mongodb.NewLarkPluginWorkflowConfigColl().Get(req.WorkspaceID)
@@ -713,6 +723,46 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 						EnvAlias:   commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(task.ProjectName, deploy.Env, envMap)),
 					}
 					updateDeployEnvs(env)
+				case aslanconfig.JobZadigVMDeploy:
+					deploy := new(commonmodels.ZadigVMDeployJobSpec)
+					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+						return nil, fmt.Errorf("failed to convert job spec to vm deploy job spec: %w", err)
+					}
+
+					for _, svc := range deploy.ServiceAndVMDeploys {
+						sm := &commonmodels.ServiceWithModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: svc.ServiceModule,
+						}
+						updateServiceModules(sm)
+
+						for _, repo := range svc.Repos {
+							updateRepos(repo)
+						}
+					}
+					env := &commonmodels.WorkflowEnv{
+						EnvName:    deploy.Env,
+						Production: deploy.Production,
+						EnvAlias:   commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(task.ProjectName, deploy.Env, envMap)),
+					}
+					updateDeployEnvs(env)
+				case aslanconfig.JobZadigTesting:
+					test := new(commonmodels.ZadigTestingJobSpec)
+					if err := commonmodels.IToi(job.Spec, test); err != nil {
+						return nil, fmt.Errorf("failed to convert job spec to test job spec: %w", err)
+					}
+
+					for _, serviceAndTest := range test.ServiceAndTests {
+						sm := &commonmodels.ServiceWithModule{
+							ServiceName:   serviceAndTest.ServiceName,
+							ServiceModule: serviceAndTest.ServiceModule,
+						}
+						updateServiceModules(sm)
+
+						for _, repo := range serviceAndTest.Repos {
+							updateRepos(repo)
+						}
+					}
 				}
 			}
 		}
@@ -751,6 +801,27 @@ func ListLarkWorkitemWorkflowTask(ctx *internalhandler.Context, workItemTypeKey,
 						}
 						imageSet.Insert(serviceAndImage.Image)
 						images = append(images, serviceAndImage.Image)
+					}
+				case string(aslanconfig.JobZadigVMDeploy):
+					taskSpec := new(commonmodels.JobTaskFreestyleSpec)
+					if err := commonmodels.IToi(jobTask.Spec, taskSpec); err != nil {
+						return nil, fmt.Errorf("failed to convert job spec to vm deploy job spec: %w", err)
+					}
+
+					image := ""
+					for _, env := range taskSpec.Properties.Envs {
+						if env.Key == "IMAGE" {
+							image = env.Value
+							break
+						}
+					}
+
+					if jobTask.Status == aslanconfig.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
+						if imageSet.Has(image) {
+							continue
+						}
+						imageSet.Insert(image)
+						images = append(images, image)
 					}
 				}
 			}
