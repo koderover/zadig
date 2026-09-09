@@ -33,7 +33,6 @@ type OpenAPICustomImage struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
 	Value      string `json:"value"`
-	ImageType  string `json:"image_type"`
 	CreateTime int64  `json:"create_time"`
 	UpdateTime int64  `json:"update_time"`
 	UpdateBy   string `json:"update_by"`
@@ -44,9 +43,8 @@ type OpenAPICustomImageListResp struct {
 }
 
 type OpenAPICustomImageReq struct {
-	Label     string `json:"label"`
-	Value     string `json:"value"`
-	ImageType string `json:"image_type"`
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 func (req OpenAPICustomImageReq) Validate() error {
@@ -56,17 +54,13 @@ func (req OpenAPICustomImageReq) Validate() error {
 	if strings.TrimSpace(req.Value) == "" {
 		return fmt.Errorf("value cannot be empty")
 	}
-	if req.ImageType != "" && req.ImageType != "sonar" {
-		return fmt.Errorf("image_type must be empty or sonar")
-	}
 	return nil
 }
 
 func ListCustomImagesOpenAPI(logger *zap.SugaredLogger) (*OpenAPICustomImageListResp, error) {
-	images, err := commonrepo.NewBasicImageColl().List(&commonrepo.BasicImageOpt{ImageFrom: commonmodels.ImageFromCustom})
+	images, err := ListBasicImages(commonmodels.ImageFromCustom, "", logger)
 	if err != nil {
-		logger.Errorf("OpenAPI: failed to list custom images, error: %s", err)
-		return nil, e.ErrListBasicImages.AddErr(err)
+		return nil, err
 	}
 
 	resp := &OpenAPICustomImageListResp{CustomImages: make([]*OpenAPICustomImage, 0, len(images))}
@@ -100,7 +94,6 @@ func UpdateCustomImageOpenAPI(id string, req *OpenAPICustomImageReq, userName st
 
 	image.Label = strings.TrimSpace(req.Label)
 	image.Value = strings.TrimSpace(req.Value)
-	image.ImageType = req.ImageType
 	image.UpdateBy = userName
 	return UpdateBasicImage(id, image, logger)
 }
@@ -117,7 +110,7 @@ func findCustomImage(id string) (*commonmodels.BasicImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if image.ImageFrom != commonmodels.ImageFromCustom {
+	if image.ImageFrom != commonmodels.ImageFromCustom || image.ImageType == "sonar" {
 		return nil, fmt.Errorf("image %s is not a custom image", id)
 	}
 	return image, nil
@@ -128,7 +121,6 @@ func convertCustomImage(image *commonmodels.BasicImage) *OpenAPICustomImage {
 		ID:         image.ID.Hex(),
 		Label:      image.Label,
 		Value:      image.Value,
-		ImageType:  image.ImageType,
 		CreateTime: image.CreateTime,
 		UpdateTime: image.UpdateTime,
 		UpdateBy:   image.UpdateBy,
