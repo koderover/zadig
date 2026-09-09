@@ -328,8 +328,14 @@ func UpdateServicesGroupInEnv(productName, envName string, index int, group []*m
 			if productSvcMap[svc] != nil {
 				productSvcMap[svc].UpdateTime = time.Now().Unix()
 				newGroup = append(newGroup, productSvcMap[svc])
+				delete(productSvcMap, svc)
 			}
 		}
+	}
+	// Orchestration controls order, not membership. Preserve unlisted services.
+	for _, service := range productSvcMap {
+		service.UpdateTime = time.Now().Unix()
+		newGroup = append(newGroup, service)
 	}
 	// append chart services to the last group
 	for _, service := range productChartSvcMap {
