@@ -750,10 +750,6 @@ func getLoginId(user *models.User, loginType config.LoginType) string {
 }
 
 func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
-	if err := login.NewOAuthService().RevokeUserSessions(uid); err != nil {
-		return fmt.Errorf("failed to revoke OAuth sessions for deleted user %s: %w", uid, err)
-	}
-
 	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -792,6 +788,10 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 	}
 	if err := tx.Commit().Error; err != nil {
 		return err
+	}
+
+	if err := login.NewOAuthService().RevokeUserSessions(uid); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions for deleted user %s: %v", uid, err)
 	}
 
 	if err := login.SyncUserMFAEnabledCache(uid, false); err != nil {
@@ -1021,13 +1021,13 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
-	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
-		return fmt.Errorf("failed to revoke OAuth sessions before password update: %w", err)
-	}
 	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
+	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions after password update, uid: %s, err: %v", user.UID, err)
 	}
 	return nil
 }
@@ -1056,13 +1056,13 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
-	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
-		return fmt.Errorf("failed to revoke OAuth sessions before password reset: %w", err)
-	}
 	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
+	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions after password reset, uid: %s, err: %v", user.UID, err)
 	}
 	return nil
 }
