@@ -35,9 +35,8 @@ import (
 
 // GetUserAuthInfo get user auth info
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
-	// system calls
 	if uid == "" {
-		return generateAdminRoleResource(), nil
+		return nil, fmt.Errorf("empty user ID")
 	}
 
 	isSystemAdmin, err := checkUserIsSystemAdmin(uid, repository.DB)

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KodeRover Authors.
+Copyright 2026 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package aslan
+package servicetoken
 
 import (
+	"fmt"
+
+	"github.com/go-resty/resty/v2"
+
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
-func (c *Client) ListRegistries(token string) ([]*RegistryInfo, error) {
-	url := "/cluster/agent/registries"
-	res := make([]*RegistryInfo, 0)
-
-	_, err := c.Get(url,
-		httpclient.SetHeader(setting.Token, token),
-		httpclient.SetResult(&res),
-	)
-	if err != nil {
-		return nil, err
+// HeaderOption adds the current service's persisted token to internal HTTP requests.
+func HeaderOption() httpclient.ClientFunc {
+	return func(c *httpclient.Client) {
+		c.Client.OnBeforeRequest(func(_ *resty.Client, request *resty.Request) error {
+			token, err := CurrentInternalToken()
+			if err != nil {
+				return fmt.Errorf("failed to get internal service token: %w", err)
+			}
+			request.SetHeader(setting.InternalServiceTokenHeader, token)
+			return nil
+		})
 	}
-
-	return res, nil
 }

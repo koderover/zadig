@@ -32,16 +32,15 @@ import (
 )
 
 const (
-	larkWebhookURLRegExp         = `^\/api\/aslan\/system\/lark\/\w+\/webhook$`
-	dingTalkWebhookURLRegExp     = `^\/api\/aslan\/system\/dingtalk\/\w+\/webhook$`
-	workwxWebhookURLRegExp       = `^\/api\/aslan\/system\/workwx\/\w+\/webhook$`
-	getClusterAgentYamlURLRegExp = `^\/api\/aslan\/cluster\/agent\/\w+\/agent.yaml$`
-	envWorkloadUrlRegExp         = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/workloads\/k8services$`
-	envShareEnableURLRegExp      = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/enable\/ready$`
-	envShareDisableURLRegExp     = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/disable\/ready$`
-	serviceDeployableURLRegExp   = `^\/api\/aslan\/service\/services\/[\w-]+\/environments\/deployable$`
-	generalWebhookURLRegExp      = `^\/api\/aslan\/workflow\/v4\/generalhook\/[\w-]+\/[^/]+\/webhook$`
-	codeHostAuthURLRegExp        = `^\/api\/v1\/codehosts\/\w+\/auth$`
+	larkWebhookURLRegExp       = `^\/api\/aslan\/system\/lark\/\w+\/webhook$`
+	dingTalkWebhookURLRegExp   = `^\/api\/aslan\/system\/dingtalk\/\w+\/webhook$`
+	workwxWebhookURLRegExp     = `^\/api\/aslan\/system\/workwx\/\w+\/webhook$`
+	envWorkloadUrlRegExp       = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/workloads\/k8services$`
+	envShareEnableURLRegExp    = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/enable\/ready$`
+	envShareDisableURLRegExp   = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/disable\/ready$`
+	serviceDeployableURLRegExp = `^\/api\/aslan\/service\/services\/[\w-]+\/environments\/deployable$`
+	generalWebhookURLRegExp    = `^\/api\/aslan\/workflow\/v4\/generalhook\/[\w-]+\/[^/]+\/webhook$`
+	codeHostAuthURLRegExp      = `^\/api\/v1\/codehosts\/\w+\/auth$`
 	// workflowTestTaskReportURLRegExp = `^\/api\/aslan\/testing\/report\/workflowv4\/[\w-]+\/id\/\w+\/job\/[^/]+$`
 	// testingTaskReportURLRegExp      = `^\/api\/aslan\/testing\/testtask\/[\w-]+\/\w+\/[^/]+$`
 )
@@ -139,6 +138,10 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	if realPath == "/api/aslan/cluster/agent/registries" && method == http.MethodGet {
+		return true
+	}
+
 	if realPath == "/api/v1/login" && (method == http.MethodGet || method == http.MethodPost) {
 		return true
 	}
@@ -226,11 +229,6 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
-	match, _ = regexp.MatchString(getClusterAgentYamlURLRegExp, realPath)
-	if match && method == http.MethodGet {
-		return true
-	}
-
 	match, _ = regexp.MatchString(codeHostAuthURLRegExp, realPath)
 	if match && method == http.MethodGet {
 		return true
@@ -278,11 +276,6 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 	}
 
 	if claims, ok := token.Claims.(*login.Claims); ok && token.Valid {
-		// internal tokens bypass runtime revocation checks
-		if isInternalTokenClaims(claims) {
-			return claims, true, nil
-		}
-
 		// short-lived login token: validate against redis cache
 		if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 			cachedToken, err := cache.NewRedisCache(userConfig.RedisUserTokenDB()).GetString(claims.UID)
@@ -313,13 +306,4 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 		log.Errorf("invalid token detected")
 		return nil, false, fmt.Errorf("invalid token")
 	}
-}
-
-func isInternalTokenClaims(claims *login.Claims) bool {
-	return claims.ExpiresAt == 0 &&
-		(claims.Name == "aslan" && claims.PreferredUsername == "aslan" && claims.FederatedClaims.UserId == "aslan" && claims.Email == "aslan@koderover.com" ||
-			claims.Name == "user" && claims.PreferredUsername == "user" && claims.FederatedClaims.UserId == "user" && claims.Email == "user@koderover.com" ||
-			claims.Name == "cron" && claims.PreferredUsername == "cron" && claims.FederatedClaims.UserId == "cron" && claims.Email == "cron@koderover.com" ||
-			claims.Name == "hub-agent" && claims.PreferredUsername == "hub-agent" && claims.FederatedClaims.UserId == "hub-agent" && claims.Email == "hub-agent@koderover.com" ||
-			claims.Name == "hub-server" && claims.PreferredUsername == "hub-server" && claims.FederatedClaims.UserId == "hub-server" && claims.Email == "hub-server@koderover.com")
 }

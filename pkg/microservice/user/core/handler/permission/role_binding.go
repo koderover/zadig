@@ -37,7 +37,7 @@ func OpenAPIListRoleBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)

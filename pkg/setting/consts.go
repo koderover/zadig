@@ -78,13 +78,17 @@ const (
 
 	// hubagent
 	HubAgentToken         = "HUB_AGENT_TOKEN"
+	AslanAgentToken       = "ASLAN_AGENT_TOKEN"
 	HubServerBaseAddr     = "HUB_SERVER_BASE_ADDR"
 	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 	KubernetesServicePort = "KUBERNETES_SERVICE_PORT"
 	Token                 = "X-API-Tunnel-Token"
 	Params                = "X-API-Tunnel-Params"
 	AslanBaseAddr         = "ASLAN_BASE_ADDR"
-	ScheduleWorkflow      = "SCHEDULE_WORKFLOW"
+
+	// internal service token
+	InternalServiceTokenHeader = "X-Internal-Service-Token"
+	ScheduleWorkflow           = "SCHEDULE_WORKFLOW"
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"

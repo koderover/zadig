@@ -26,7 +26,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	Agent := router.Group("agent")
 	{
+		Agent.GET("/registries", ListRegistriesForAgent)
 		Agent.GET("/:id/agent.yaml", GetClusterYaml("/api/hub"))
+		Agent.POST("/:id/agent.yaml/token", CreateClusterYamlDownloadToken)
 		Agent.GET("/:id/upgrade", UpgradeAgent)
 	}
 

@@ -18,6 +18,7 @@ package aslan
 
 import (
 	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
@@ -31,7 +32,8 @@ func New() *Client {
 	host := config.AslanServiceAddress()
 
 	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api"),
+		httpclient.SetHostURL(host+"/api"),
+		servicetoken.HeaderOption(),
 	)
 
 	return &Client{
