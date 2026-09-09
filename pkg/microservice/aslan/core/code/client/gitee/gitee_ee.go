@@ -19,8 +19,6 @@ package gitee
 import (
 	"context"
 
-	giteeClient "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/antihax/optional"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -94,9 +92,7 @@ func (c *EEClient) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 }
 
 func (c *EEClient) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
-	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, &giteeClient.GetV5ReposOwnerRepoPullsOpts{
-		PerPage: optional.NewInt32(100),
-	})
+	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, opt.FetchAll)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +105,7 @@ func (c *EEClient) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 			Number:         int(o.Number),
 			AuthorUsername: o.User.Login,
 			Title:          o.Title,
-			SourceBranch:   o.Base.Ref,
+			SourceBranch:   o.Head.Ref,
 			TargetBranch:   o.Base.Ref,
 		})
 	}

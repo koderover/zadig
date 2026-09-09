@@ -52,6 +52,7 @@ type ListOpt struct {
 	PerPage       int
 	TargetBranch  string
 	MatchBranches bool
+	FetchAll      bool
 }
 
 type Branch struct {

@@ -323,11 +323,10 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 		if strings.TrimSpace(repo.CodeHostName) == "" || strings.TrimSpace(repo.RepoNamespace) == "" || strings.TrimSpace(repo.RepoName) == "" {
 			return false, fmt.Errorf("repo_info[%d] codehost_name, repo_namespace and repo_name cannot be empty", i)
 		}
-		if repo.EnableCommit {
-			if strings.TrimSpace(repo.CommitID) == "" {
-				return false, fmt.Errorf("repo_info[%d] commit_id cannot be empty when enable_commit is true", i)
-			}
-		} else if strings.TrimSpace(repo.Branch) == "" {
+		if repo.EnableCommit && strings.TrimSpace(repo.CommitID) == "" {
+			return false, fmt.Errorf("repo_info[%d] commit_id cannot be empty when enable_commit is true", i)
+		}
+		if !repo.EnableCommit && strings.TrimSpace(repo.Branch) == "" && strings.TrimSpace(repo.Tag) == "" {
 			return false, fmt.Errorf("repo_info[%d] branch cannot be empty when enable_commit is false", i)
 		}
 		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)

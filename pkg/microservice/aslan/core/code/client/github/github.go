@@ -104,11 +104,24 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 }
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
-	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, &github2.PullRequestListOptions{
-		ListOptions: github2.ListOptions{PerPage: 100},
-	})
-	if err != nil {
-		return nil, err
+	options := &github2.PullRequestListOptions{ListOptions: github2.ListOptions{PerPage: 100}}
+	var prs []*github2.PullRequest
+	if !opt.FetchAll {
+		var err error
+		prs, err = c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, options)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for page := 1; page > 0; {
+			options.Page = page
+			result, response, err := c.Client.PullRequests.List(context.TODO(), opt.Namespace, opt.ProjectName, options)
+			if err != nil {
+				return nil, err
+			}
+			prs = append(prs, result...)
+			page = response.NextPage
+		}
 	}
 	var res []*client.PullRequest
 	for _, o := range prs {
