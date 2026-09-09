@@ -50,7 +50,7 @@ func InitializeProject(c *gin.Context) {
 		return
 	}
 
-	err = userhandler.GenerateUserAuthInfo(ctx)
+	err = userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -81,7 +81,7 @@ func DeleteProjectRoles(c *gin.Context) {
 		return
 	}
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
@@ -112,7 +112,7 @@ func SetProjectVisibility(c *gin.Context) {
 		return
 	}
 
-	err := userhandler.GenerateUserAuthInfo(ctx)
+	err := userhandler.GenerateUserAuthInfo(c, ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
 		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)

@@ -22,10 +22,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	userservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
+
+var validateServiceToken = servicetoken.ValidateServiceToken
 
 func GetUserAuthInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -202,7 +206,15 @@ func ListAuthorizedEnvs(c *gin.Context) {
 	}
 }
 
-func GenerateUserAuthInfo(ctx *internalhandler.Context) error {
+func GenerateUserAuthInfo(c *gin.Context, ctx *internalhandler.Context) error {
+	if ctx.UserID == "" {
+		if _, err := validateServiceToken(c.GetHeader(setting.InternalServiceTokenHeader)); err != nil {
+			return fmt.Errorf("failed to validate internal service token: %w", err)
+		}
+		ctx.Resources = &user.AuthorizedResources{IsSystemAdmin: true}
+		return nil
+	}
+
 	resourceAuthInfo, err := userservice.GetUserAuthInfo(ctx.UserID, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("Failed to generate user auth info for userID: %s, error is: %s", ctx.UserID, err)
