@@ -188,7 +188,7 @@ func UpdateProjectWorkflowParam(workflowParams []*commonmodels.Param, inputParam
 				if argParam.Repo == nil || workflowParam.Repo == nil {
 					return fmt.Errorf("repo value is required for param %s", argParam.Name)
 				}
-				if err := ValidateOpenAPIRepositoryRef(argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, argParam.Repo.EnableCommit, argParam.Repo.CommitID); err != nil {
+				if err := validateOpenAPIRepositoryRef(argParam.Repo.Branch, argParam.Repo.Tag, 0, argParam.Repo.PRs, argParam.Repo.EnableCommit, argParam.Repo.CommitID); err != nil {
 					return fmt.Errorf("invalid repo value for param %s: %w", argParam.Name, err)
 				}
 				codehosts, err := getCodeHostInfoMapByNames([]string{argParam.Repo.CodeHostName}, projectKey)

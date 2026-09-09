@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -329,9 +328,6 @@ func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 		}
 		if !repo.EnableCommit && strings.TrimSpace(repo.Branch) == "" && strings.TrimSpace(repo.Tag) == "" {
 			return false, fmt.Errorf("repo_info[%d] branch cannot be empty when enable_commit is false", i)
-		}
-		if err := workflowservice.ValidateOpenAPIRepositoryRef(repo.Branch, repo.Tag, repo.PR, repo.PRs, repo.EnableCommit, repo.CommitID); err != nil {
-			return false, fmt.Errorf("repo_info[%d] is invalid: %w", i, err)
 		}
 		repository := strings.TrimSpace(repo.CodeHostName) + "\n" + strings.TrimSpace(repo.RepoNamespace) + "\n" + strings.TrimSpace(repo.RepoName)
 		if _, ok := repositories[repository]; ok {

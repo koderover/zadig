@@ -426,7 +426,7 @@ func getCodeHostInfoMapByNames(codehostNames []string, projectKey string) (map[s
 	return result, nil
 }
 
-func ValidateOpenAPIRepositoryRef(branch, tag string, pr int, prs []int, enableCommit bool, commitID string) error {
+func validateOpenAPIRepositoryRef(branch, tag string, pr int, prs []int, enableCommit bool, commitID string) error {
 	if pr < 0 {
 		return errors.New("pull request ID cannot be negative")
 	}
@@ -521,7 +521,7 @@ func getProjectCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput, projectKey 
 			if strings.TrimSpace(inputRepo.RepoNamespace) == "" || strings.TrimSpace(inputRepo.RepoName) == "" {
 				return nil, errors.New("repo_namespace and repo_name are required")
 			}
-			if err := ValidateOpenAPIRepositoryRef(inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID); err != nil {
+			if err := validateOpenAPIRepositoryRef(inputRepo.Branch, inputRepo.Tag, inputRepo.PR, inputRepo.PRs, inputRepo.EnableCommit, inputRepo.CommitID); err != nil {
 				return nil, fmt.Errorf("invalid repository %s/%s: %w", inputRepo.RepoNamespace, inputRepo.RepoName, err)
 			}
 		}
