@@ -22,18 +22,18 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-type OpenAPIBuildToolList struct {
-	BuildTools []*types.OpenAPIToolItem `json:"build_tools"`
+type OpenAPISoftwarePackageList struct {
+	SoftwarePackages []*types.OpenAPIToolItem `json:"software_packages"`
 }
 
-func OpenAPIListBuildTools(logger *zap.SugaredLogger) (*OpenAPIBuildToolList, error) {
+func OpenAPIListSoftwarePackages(logger *zap.SugaredLogger) (*OpenAPISoftwarePackageList, error) {
 	installs, err := ListAvaiableInstalls(logger)
 	if err != nil {
 		return nil, err
 	}
-	resp := &OpenAPIBuildToolList{BuildTools: make([]*types.OpenAPIToolItem, 0, len(installs))}
+	resp := &OpenAPISoftwarePackageList{SoftwarePackages: make([]*types.OpenAPIToolItem, 0, len(installs))}
 	for _, install := range installs {
-		resp.BuildTools = append(resp.BuildTools, &types.OpenAPIToolItem{Name: install.Name, Version: install.Version})
+		resp.SoftwarePackages = append(resp.SoftwarePackages, &types.OpenAPIToolItem{Name: install.Name, Version: install.Version})
 	}
 	return resp, nil
 }

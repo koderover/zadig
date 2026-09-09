@@ -25,7 +25,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
-func OpenAPIListBuildTools(c *gin.Context) {
+func OpenAPIListSoftwarePackages(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -33,5 +33,5 @@ func OpenAPIListBuildTools(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.OpenAPIListBuildTools(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListSoftwarePackages(ctx.Logger)
 }
