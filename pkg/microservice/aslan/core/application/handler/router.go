@@ -45,3 +45,26 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		fields.DELETE("/:id", DeleteFieldDefinition)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	applications := router.Group("applications")
+	{
+		applications.POST("/search", OpenAPISearchApplications)
+		applications.POST("/bulk", OpenAPIBulkCreateApplications)
+		applications.POST("", OpenAPICreateApplication)
+		applications.GET("/:id", OpenAPIGetApplication)
+		applications.PUT("/:id", OpenAPIUpdateApplication)
+		applications.DELETE("/:id", OpenAPIDeleteApplication)
+		applications.GET("/:id/envs", OpenAPIListApplicationEnvs)
+	}
+
+	fields := router.Group("fields")
+	{
+		fields.GET("", OpenAPIListFieldDefinitions)
+		fields.POST("", OpenAPICreateFieldDefinition)
+		fields.PUT("/:id", OpenAPIUpdateFieldDefinition)
+		fields.DELETE("/:id", OpenAPIDeleteFieldDefinition)
+	}
+}
