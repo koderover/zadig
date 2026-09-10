@@ -1183,7 +1183,6 @@ func (j ScanningJobController) toAIReviewJobTask(
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_REPO_DIR", Value: repoDir},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_REMOTE_NAME", Value: repo.RemoteName},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_TARGET_BRANCH", Value: targetBranch},
-		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_PR", Value: strconv.Itoa(repo.PR)},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_OUTPUT_LANGUAGE", Value: systemConfig.OutputLanguage},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_QUALITY_GATE_ENABLED", Value: strconv.FormatBool(scanningInfo.CheckQualityGate)},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_FAIL_ON", Value: aiReviewFailOnValue(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn)},
@@ -1240,23 +1239,14 @@ REPORT_PATH="$PWD/.zadig-review/zadig-review-report.json"
 printf '%s' "$ZADIG_AI_REVIEW_RULES_B64" | base64 -d > "$RULE_FILE"
 REMOTE_NAME="$ZADIG_AI_REVIEW_REMOTE_NAME"
 TARGET_BRANCH="$ZADIG_AI_REVIEW_TARGET_BRANCH"
-PR_BRANCH="pr$ZADIG_AI_REVIEW_PR"
+TO_COMMIT="$(git rev-parse HEAD)"
 set --
 if [ -n "$ZADIG_AI_REVIEW_FAIL_ON" ]; then
   set -- --fail-on "$ZADIG_AI_REVIEW_FAIL_ON"
 fi
-#if ! git rev-parse --verify "$PR_BRANCH^{commit}" >/dev/null 2>&1; then
-#  echo "AI review failed: pull or merge request branch $PR_BRANCH was not fetched" >&2
-#  exit 2
-#fi
-#git fetch --no-tags "$REMOTE_NAME" "refs/heads/$TARGET_BRANCH:refs/remotes/$REMOTE_NAME/$TARGET_BRANCH" --deepen=500
-#if ! git merge-base "$REMOTE_NAME/$TARGET_BRANCH" "$PR_BRANCH" >/dev/null 2>&1; then
-#  echo "AI review failed: no merge-base found within the fetched history (maximum deepen: 500 commits)" >&2
-#  exit 2
-#fi
 if zadig-review-agent review \
   --from "$REMOTE_NAME/$TARGET_BRANCH" \
-  --to "$PR_BRANCH" \
+  --to "$TO_COMMIT" \
   --rule "$RULE_FILE" \
   --language "$ZADIG_AI_REVIEW_OUTPUT_LANGUAGE" \
   "$@" \
