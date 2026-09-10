@@ -166,6 +166,14 @@ type ImagePathSpec struct {
 	Tag       string `bson:"tag,omitempty"            json:"tag,omitempty"`
 }
 
+// GetKey returns a stable identity for one image location in Helm values.
+func (i *ImagePathSpec) GetKey() string {
+	if i == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s\x00%s\x00%s\x00%s", i.Repo, i.Namespace, i.Image, i.Tag)
+}
+
 // Container ...
 type Container struct {
 	Name      string                `bson:"name"                          json:"name"`
@@ -173,6 +181,19 @@ type Container struct {
 	Image     string                `bson:"image"                         json:"image"`
 	ImageName string                `bson:"image_name,omitempty"          json:"image_name,omitempty"`
 	ImagePath *ImagePathSpec        `bson:"image_path,omitempty"          json:"image_path,omitempty"`
+}
+
+// GetKey distinguishes containers with the same name at different Helm
+// values paths. For non-Helm containers, the nil image path keeps the legacy
+// name-only identity.
+func (c *Container) GetKey() string {
+	if c == nil {
+		return ""
+	}
+	if c.ImagePath == nil {
+		return c.Name
+	}
+	return fmt.Sprintf("%s\x00%s", c.Name, c.ImagePath.GetKey())
 }
 
 // ServiceTmplPipeResp ...router
