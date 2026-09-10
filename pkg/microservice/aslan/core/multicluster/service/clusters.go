@@ -911,6 +911,11 @@ func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) (
 	return s.GetYaml(id, config.HubAgentImage(), serverURL, hubURI, useDeployment, logger)
 }
 
+func GetClusterByAgentToken(token string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
+	s, _ := kube.NewService("")
+	return s.GetClusterByAgentToken(token, logger)
+}
+
 func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	s, err := kube.NewService("")
 	if err != nil {
@@ -1005,12 +1010,12 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
 				if err = kubeClient.Get(context.TODO(), client.ObjectKey{
 					Name:      types.DindStatefulSetName,
-					Namespace: setting.AttachedClusterNamespace,
+					Namespace: dindNamespace,
 				}, &appsv1.StatefulSet{}); err != nil {
-					logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
+					logger.Infof("failed to get dind from %s, start to create dind", dindNamespace)
 					err = updater.CreateOrPatchUnstructured(u, kubeClient)
 				} else {
-					err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+					err = UpgradeDind(kubeClient, clusterInfo, dindNamespace)
 				}
 			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
 				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)
@@ -1024,6 +1029,12 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 				continue
 			}
 		}
+		if len(errList.Errors) == 0 {
+			if err = removeLegacyAgentJWTSecret(clientset, dindNamespace); err != nil {
+				logger.Errorf("failed to remove legacy JWT signing key from cluster %s: %s", clusterInfo.Name, err)
+				errList = multierror.Append(errList, err)
+			}
+		}
 		updateHubagentErrorMsg := ""
 		if len(errList.Errors) > 0 {
 			updateHubagentErrorMsg = errList.Error()
@@ -1031,6 +1042,53 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 
 		return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
 	}
+}
+
+func removeLegacyAgentJWTSecret(clientset kubernetes.Interface, namespace string) error {
+	ctx := context.Background()
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, "koderover-agent-node-agent", metav1.GetOptions{})
+	if err == nil {
+		if removeSecretKeyEnv(deployment.Spec.Template.Spec.Containers) {
+			if _, err = clientset.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	daemonSet, err := clientset.AppsV1().DaemonSets(namespace).Get(ctx, "koderover-agent-node-agent", metav1.GetOptions{})
+	if err == nil {
+		if removeSecretKeyEnv(daemonSet.Spec.Template.Spec.Containers) {
+			if _, err = clientset.AppsV1().DaemonSets(namespace).Update(ctx, daemonSet, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	err = clientset.CoreV1().Secrets(namespace).Delete(ctx, "zadig-aes-key", metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func removeSecretKeyEnv(containers []corev1.Container) bool {
+	modified := false
+	for i := range containers {
+		env := containers[i].Env[:0]
+		for _, item := range containers[i].Env {
+			if item.Name == setting.ENVSecretKey {
+				modified = true
+				continue
+			}
+			env = append(env, item)
+		}
+		containers[i].Env = env
+	}
+	return modified
 }
 
 func buildConfigs(args *commonmodels.K8SCluster) error {
@@ -1298,9 +1356,25 @@ func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, origi
 
 					volumeMounts = append(volumeMounts, volumeMount)
 				}
-				container.VolumeMounts = volumeMounts
+				container.VolumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:      types.DindMountName,
+					MountPath: types.DindMountPath,
+				})
 				dindSts.Spec.Template.Spec.Containers[i] = container
 			}
+
+			volumes := []corev1.Volume{}
+			for _, volume := range dindSts.Spec.Template.Spec.Volumes {
+				if volume.Name != types.DindMountName {
+					volumes = append(volumes, volume)
+				}
+			}
+			dindSts.Spec.Template.Spec.Volumes = append(volumes, corev1.Volume{
+				Name: types.DindMountName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			})
 
 			volumeClaimTemplates := []corev1.PersistentVolumeClaim{}
 			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {

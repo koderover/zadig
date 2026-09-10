@@ -51,6 +51,21 @@ func NewRedisCache(db int) *RedisCache {
 	return &RedisCache{redisClient: redisClient}
 }
 
+// NewIsolatedRedisCache creates a client that is not shared with the package-level cache.
+func NewIsolatedRedisCache(db int) *RedisCache {
+	redisConfig := &redis.Options{
+		Addr: fmt.Sprintf("%s:%d", config.RedisHost(), config.RedisPort()),
+		DB:   db,
+	}
+	if config.RedisUserName() != "" {
+		redisConfig.Username = config.RedisUserName()
+	}
+	if config.RedisPassword() != "" {
+		redisConfig.Password = config.RedisPassword()
+	}
+	return &RedisCache{redisClient: redis.NewClient(redisConfig)}
+}
+
 func (c *RedisCache) Write(key, val string, ttl time.Duration) error {
 	_, err := c.redisClient.Set(context.TODO(), key, val, ttl).Result()
 	return err
@@ -121,6 +136,18 @@ func (c *RedisCache) Delete(key string) error {
 	return c.redisClient.Del(context.TODO(), key).Err()
 }
 
+// CompareAndDelete deletes key only when its value matches expected.
+func (c *RedisCache) CompareAndDelete(key, expected string) (bool, error) {
+	const script = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0`
+
+	deleted, err := c.redisClient.Eval(context.TODO(), script, []string{key}, expected).Int()
+	return deleted == 1, err
+}
+
 func (c *RedisCache) HDelete(key, field string) error {
 	_, err := c.redisClient.HDel(context.Background(), key, field).Result()
 	return err
@@ -130,9 +157,24 @@ func (c *RedisCache) Publish(channel, message string) error {
 	return c.redisClient.Publish(context.Background(), channel, message).Err()
 }
 
+func (c *RedisCache) PublishCount(channel, message string) (int64, error) {
+	return c.redisClient.Publish(context.Background(), channel, message).Result()
+}
+
 func (c *RedisCache) Subscribe(channel string) (<-chan *redis.Message, func() error) {
 	sub := c.redisClient.Subscribe(context.Background(), channel)
 	return sub.Channel(), sub.Close
+}
+
+func (c *RedisCache) SubscribeContext(ctx context.Context, channel string) (<-chan *redis.Message, func() error, error) {
+	sub := c.redisClient.Subscribe(ctx, channel)
+	readyCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if _, err := sub.Receive(readyCtx); err != nil {
+		_ = sub.Close()
+		return nil, nil, err
+	}
+	return sub.Channel(), sub.Close, nil
 }
 
 func (c *RedisCache) FlushDBAsync() error {

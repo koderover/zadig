@@ -17,6 +17,7 @@ limitations under the License.
 package s3
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type S3 struct {
@@ -120,19 +122,34 @@ func FindDefaultS3() (*S3, error) {
 	storage, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
 		log.Warnf("Failed to find default s3 in db, err: %s", err)
-		return &S3{
-			S3Storage: &models.S3Storage{
-				Ak:       config.S3StorageAK(),
-				Sk:       config.S3StorageSK(),
-				Endpoint: getEndpoint(),
-				Bucket:   config.S3StorageBucket(),
-				Insecure: config.S3StorageProtocol() == "http",
-				Provider: setting.ProviderSourceSystemDefault,
-			},
-		}, nil
+		return systemDefaultS3(), nil
 	}
 
 	return &S3{S3Storage: storage}, nil
+}
+
+func FindDefaultS3WithContext(ctx context.Context) (*S3, error) {
+	storage, err := commonrepo.NewS3StorageColl().FindDefaultWithContext(ctx)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return systemDefaultS3(), nil
+		}
+		return nil, err
+	}
+	return &S3{S3Storage: storage}, nil
+}
+
+func systemDefaultS3() *S3 {
+	return &S3{
+		S3Storage: &models.S3Storage{
+			Ak:       config.S3StorageAK(),
+			Sk:       config.S3StorageSK(),
+			Endpoint: getEndpoint(),
+			Bucket:   config.S3StorageBucket(),
+			Insecure: config.S3StorageProtocol() == "http",
+			Provider: setting.ProviderSourceSystemDefault,
+		},
+	}
 }
 
 func getEndpoint() string {

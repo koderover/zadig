@@ -119,6 +119,11 @@ func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) e
 		}
 	}
 
+	if err := tx.Where("action = ? AND resource = ?", "edit_release_plan", "ReleasePlan").Delete(&usermodels.Action{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to remove obsolete release plan edit action, err: %s", err)
+	}
+
 	if err := tx.Commit().Error; err != nil {
 		return fmt.Errorf("failed to commit migration 5.0.0 permissions, err: %s", err)
 	}

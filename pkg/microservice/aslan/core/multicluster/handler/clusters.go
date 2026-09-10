@@ -18,13 +18,19 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
+	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	userpermission "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -497,9 +503,28 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 			if ctx.RespErr != nil {
 				c.JSON(e.ErrorMessage(ctx.RespErr))
 				c.Abort()
-				return
 			}
 		}()
+
+		downloadToken := c.Query(userpermission.ClusterAgentDownloadTokenQuery)
+		if downloadToken == "" {
+			var err error
+			ctx, err = internalhandler.NewContextWithAuthorization(c)
+			if err != nil {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+			if !ctx.Resources.IsSystemAdmin {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+		} else {
+			valid, err := userpermission.ValidateClusterAgentDownloadToken(c.Param("id"), downloadToken)
+			if err != nil || !valid {
+				c.AbortWithStatus(http.StatusUnauthorized)
+				return
+			}
+		}
 
 		yaml, err := service.GetYaml(
 			c.Param("id"),
@@ -513,9 +538,73 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 			return
 		}
 
+		if downloadToken != "" {
+			valid, err := userpermission.ConsumeClusterAgentDownloadToken(c.Param("id"), downloadToken)
+			if err != nil || !valid {
+				c.AbortWithStatus(http.StatusUnauthorized)
+				return
+			}
+		}
+
+		c.Header("Cache-Control", "no-store")
 		c.Data(200, "text/plain", yaml)
 		c.Abort()
 	}
+}
+
+type clusterYamlDownloadTokenResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expires_at"`
+	Command   string `json:"command"`
+}
+
+func CreateClusterYamlDownloadToken(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin &&
+		!ctx.Resources.SystemActions.ClusterManagement.Create &&
+		!ctx.Resources.SystemActions.ClusterManagement.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if _, err := service.GetCluster(c.Param("id"), ctx.Logger); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	serverURL, err := commonservice.GetSystemServerURL()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	token, expiresAt, err := userpermission.NewClusterAgentDownloadToken(c.Param("id"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	command := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy&%s=%s"`,
+		serverURL, c.Param("id"), userpermission.ClusterAgentDownloadTokenQuery, url.QueryEscape(token))
+	ctx.Resp = &clusterYamlDownloadTokenResponse{Token: token, ExpiresAt: expiresAt, Command: command}
+}
+
+func ListRegistriesForAgent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	cluster, err := service.GetClusterByAgentToken(c.GetHeader(setting.Token), ctx.Logger)
+	if err != nil || cluster.Disconnected || cluster.Status == setting.Disconnected {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = systemservice.ListRegistriesByProject("", ctx.Logger)
 }
 
 func UpgradeAgent(c *gin.Context) {

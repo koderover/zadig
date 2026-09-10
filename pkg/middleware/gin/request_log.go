@@ -32,7 +32,15 @@ import (
 
 const timeISO8601 = "2006-01-02T15:04:05.000Z0700"
 
-var sensitiveHeaders = sets.NewString("authorization", "cookie", "token", "session")
+var sensitiveHeaders = sets.NewString(
+	"authorization",
+	"cookie",
+	"token",
+	"session",
+	strings.ToLower(setting.InternalServiceTokenHeader),
+	strings.ToLower(setting.Token),
+	strings.ToLower(setting.Params),
+)
 
 func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {

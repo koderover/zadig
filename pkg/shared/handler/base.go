@@ -36,6 +36,7 @@ import (
 	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/shared/servicetoken"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
@@ -137,11 +138,20 @@ func NewContext(c *gin.Context) *Context {
 // This function should only be called when one need authorization information for api caller.
 func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 	logger := ginzap.WithContext(c).Sugar()
-	var resourceAuthInfo *user.AuthorizedResources
-	var err error
 	resp := NewContext(c)
-	// there is a case where the request does not have token (system call), in this case we will have admin access
-	resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
+
+	// A request without a user token is an internal (pod-to-pod) service call. It must present a
+	// valid internal service token; we no longer grant admin on an empty user id.
+	if resp.UserID == "" {
+		if _, err := servicetoken.ValidateServiceToken(c.GetHeader(setting.InternalServiceTokenHeader)); err != nil {
+			logger.Warnf("failed to validate internal service token, error: %s", err)
+			return resp, err
+		}
+		resp.Resources = &user.AuthorizedResources{IsSystemAdmin: true}
+		return resp, nil
+	}
+
+	resourceAuthInfo, err := user.New().GetUserAuthInfo(resp.UserID)
 	if err != nil {
 		logger.Errorf("failed to generate user authorization info, error: %s", err)
 		return resp, err

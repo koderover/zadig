@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/informers"
@@ -664,6 +665,7 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
+	UID               k8stypes.UID               `json:"-"`
 	EnvName           string                     `json:"env_name"`
 	Name              string                     `json:"name"`
 	Type              string                     `json:"type"`
@@ -725,6 +727,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, &Workload{
+			UID:        v.UID,
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
 			Selector:   v.Spec.Selector,
@@ -742,6 +745,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 	}
 	for _, v := range daemonSets {
 		workLoads = append(workLoads, &Workload{
+			UID:        v.UID,
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
 			Selector:   v.Spec.Selector,
@@ -759,6 +763,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 	}
 	for _, v := range statefulSets {
 		workLoads = append(workLoads, &Workload{
+			UID:        v.UID,
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
 			Selector:   v.Spec.Selector,
@@ -915,10 +920,10 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 			Status:       setting.PodRunning,
 		}
 
-		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet {
+		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet || workload.Type == setting.DaemonSet {
 			selector := labels.SelectorFromSet(workload.Selector.MatchLabels)
 			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-			productRespInfo.Status, productRespInfo.Ready, _ = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
+			productRespInfo.Status, productRespInfo.Ready, _ = kube.GetSelectedPodsInfo(selector, informer, workload.Images, workload.Type, workload.UID, log)
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 			}

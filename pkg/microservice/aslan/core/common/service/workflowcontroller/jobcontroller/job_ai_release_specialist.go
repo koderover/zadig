@@ -325,37 +325,13 @@ func buildAIReleaseSpecialistCompletionOptions(ctx context.Context, client llm.I
 }
 
 func completeAIReleaseSpecialist(ctx context.Context, client llm.ILLM, prompt string) (*commonmodels.AIReleaseSpecialistResult, string, error) {
-	var answer string
-	var lastErr error
-	for attempt := 0; attempt <= aiReleaseSpecialistCompletionMaxRetries; attempt++ {
-		if err := ctx.Err(); err != nil {
-			return nil, answer, err
-		}
-
+	return llmservice.CompleteWithRetry(ctx, client, prompt, aiReleaseSpecialistCompletionMaxRetries, func(attempt int) []llm.ParamOption {
 		maxTokens := aiReleaseSpecialistCompletionMaxTokens
 		if attempt > 0 {
 			maxTokens = aiReleaseSpecialistCompletionRetryMaxTokens
 		}
-		answer, err := client.GetCompletion(ctx, prompt, buildAIReleaseSpecialistCompletionOptions(ctx, client, maxTokens)...)
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return nil, answer, err
-			}
-			lastErr = fmt.Errorf("llm completion failed: %w", err)
-			continue
-		}
-		if strings.TrimSpace(answer) == "" {
-			lastErr = errors.New("llm completion returned empty response")
-			continue
-		}
-
-		result, err := ParseAIReleaseSpecialistResult(answer)
-		if err == nil {
-			return result, answer, nil
-		}
-		lastErr = fmt.Errorf("parse llm result failed: %w", err)
-	}
-	return nil, answer, lastErr
+		return buildAIReleaseSpecialistCompletionOptions(ctx, client, maxTokens)
+	}, ParseAIReleaseSpecialistResult)
 }
 
 func buildAIReleaseSpecialistRulePlanCompletionOptions(ctx context.Context, client llm.ILLM, maxTokens int) []llm.ParamOption {
@@ -2544,7 +2520,7 @@ func ParseAIReleaseSpecialistRulePlan(answer string) (*commonmodels.AIReleaseSpe
 		Rules                   []*commonmodels.AIReleaseSpecialistRulePlanRule `json:"rules"`
 		UnsupportedRequirements []string                                        `json:"unsupported_requirements"`
 	}{}
-	if err := json.Unmarshal([]byte(extractJSONCodeBlock(strings.TrimSpace(answer))), &response); err != nil {
+	if err := json.Unmarshal([]byte(llmservice.ExtractJSONCodeBlock(answer)), &response); err != nil {
 		return nil, fmt.Errorf("parse rule plan failed: %w", err)
 	}
 	unsupportedRequirements := uniquePreserveOrder(response.UnsupportedRequirements)
@@ -3145,7 +3121,7 @@ func validateAIReleaseSpecialistRuleValue(metric aiReleaseSpecialistRuleMetric, 
 
 func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpecialistResult, error) {
 	rawText := strings.TrimSpace(answer)
-	jsonText := extractJSONCodeBlock(rawText)
+	jsonText := llmservice.ExtractJSONCodeBlock(rawText)
 	result := &commonmodels.AIReleaseSpecialistResult{}
 	if err := json.Unmarshal([]byte(jsonText), result); err != nil {
 		return nil, err
@@ -3170,26 +3146,6 @@ func ParseAIReleaseSpecialistResult(answer string) (*commonmodels.AIReleaseSpeci
 	}
 	result.Markdown = renderAIReleaseSpecialistResultMarkdown(result)
 	return result, nil
-}
-
-func extractJSONCodeBlock(text string) string {
-	trimmed := strings.TrimSpace(text)
-	if strings.HasPrefix(trimmed, "```json") {
-		trimmed = strings.TrimPrefix(trimmed, "```json")
-		trimmed = strings.TrimSpace(trimmed)
-		if strings.HasSuffix(trimmed, "```") {
-			trimmed = strings.TrimSuffix(trimmed, "```")
-		}
-		return strings.TrimSpace(trimmed)
-	}
-	if strings.HasPrefix(trimmed, "```") {
-		trimmed = strings.TrimPrefix(trimmed, "```")
-		trimmed = strings.TrimSpace(trimmed)
-		if strings.HasSuffix(trimmed, "```") {
-			trimmed = strings.TrimSuffix(trimmed, "```")
-		}
-	}
-	return strings.TrimSpace(trimmed)
 }
 
 func normalizeAIResultValue(value string) string {

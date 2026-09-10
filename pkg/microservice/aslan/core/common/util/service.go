@@ -111,6 +111,29 @@ func FoldManualModulesInto(autos []*commonmodels.Container, manuals []*commonmod
 	return autos
 }
 
+// OverrideContainerImagesByName updates image fields for containers already
+// present in the target slice. Overrides with unknown names or unresolved
+// images are ignored.
+func OverrideContainerImagesByName(containers, overrides []*commonmodels.Container) {
+	containerByName := make(map[string]*commonmodels.Container, len(containers))
+	for _, container := range containers {
+		if container == nil || container.Name == "" {
+			continue
+		}
+		containerByName[container.Name] = container
+	}
+
+	for _, override := range overrides {
+		if override == nil || override.Image == "" || IsModuleImagePlaceholder(override.Image) {
+			continue
+		}
+		if container, ok := containerByName[override.Name]; ok {
+			container.Image = override.Image
+			container.ImageName = override.ImageName
+		}
+	}
+}
+
 func GetServiceDeployStrategy(serviceName string, strategyMap map[string]setting.ServiceDeployStrategy) setting.ServiceDeployStrategy {
 	if strategyMap == nil {
 		return setting.ServiceDeployStrategyDeploy

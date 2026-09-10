@@ -16,13 +16,17 @@ limitations under the License.
 
 package aslan
 
-import "github.com/koderover/zadig/v2/pkg/tool/httpclient"
+import (
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+)
 
-func (c *Client) ListRegistries() ([]*RegistryInfo, error) {
-	url := "/system/registry/project"
+func (c *Client) ListRegistries(token string) ([]*RegistryInfo, error) {
+	url := "/cluster/agent/registries"
 	res := make([]*RegistryInfo, 0)
 
 	_, err := c.Get(url,
+		httpclient.SetHeader(setting.Token, token),
 		httpclient.SetResult(&res),
 	)
 	if err != nil {

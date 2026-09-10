@@ -25,12 +25,15 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func Serve(ctx context.Context) error {
+	terminalaudit.SetProcessContext(ctx)
+
 	go func() {
 		if err := client.Start(ctx); err != nil {
 			panic(err)
