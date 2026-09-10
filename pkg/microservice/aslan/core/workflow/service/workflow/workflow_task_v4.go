@@ -277,6 +277,15 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(uid, nil, workflow)
+	if err != nil {
+		log.Errorf("failed to get environment permission for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+	if err := filterWorkflowEnvironmentOptions(workflow, environmentPermission); err != nil {
+		log.Errorf("failed to filter environment options for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
 
 	// Render workflow dynamic params
 	if err := workflowCtrl.RenderWorkflowDynamicParams(0, username, username, uid, nil); err != nil {
@@ -495,6 +504,7 @@ type CreateWorkflowTaskV4Args struct {
 	Name                   string
 	Account                string
 	UserID                 string
+	Resources              *user.AuthorizedResources
 	Type                   config.CustomWorkflowTaskType
 	ValidateRemarkRequired bool
 	ApprovalTicketID       string
@@ -694,6 +704,15 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			log.Errorf("failed to validate workflow task args, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
+	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(args.UserID, args.Resources, workflowCtrl.WorkflowV4)
+	if err != nil {
+		log.Errorf("failed to get environment permission for workflow task, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
+	if err := validateWorkflowEnvironmentSelection(workflowCtrl.WorkflowV4, environmentPermission); err != nil {
+		log.Errorf("failed to validate workflow environment permission, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
 	}
 	if err := commonutil.FilterWorkflowPayloadVariables(workflow); err != nil {
 		log.Errorf("filter workflow payload variables error: %v", err)
