@@ -277,7 +277,7 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
-	environmentPermission, err := getWorkflowEnvironmentPermission(uid, nil, workflow)
+	environmentPermission, err := getWorkflowEnvironmentPermission(uid, workflow)
 	if err != nil {
 		log.Errorf("failed to get environment permission for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -504,7 +504,6 @@ type CreateWorkflowTaskV4Args struct {
 	Name                   string
 	Account                string
 	UserID                 string
-	Resources              *user.AuthorizedResources
 	Type                   config.CustomWorkflowTaskType
 	ValidateRemarkRequired bool
 	ApprovalTicketID       string
@@ -705,7 +704,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 	}
-	environmentPermission, err := getWorkflowEnvironmentPermission(args.UserID, args.Resources, workflowCtrl.WorkflowV4)
+	environmentPermission, err := getWorkflowEnvironmentPermission(args.UserID, workflowCtrl.WorkflowV4)
 	if err != nil {
 		log.Errorf("failed to get environment permission for workflow task, error: %s", err)
 		return nil, e.ErrCreateTask.AddErr(err)
