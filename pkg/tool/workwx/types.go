@@ -254,6 +254,54 @@ type ApprovalDetail struct {
 		UserID       string `json:"userid"`
 		DepartmentID string `json:"partyid"`
 	} `json:"applyer"`
+	Records []*ApprovalRecord `json:"sp_record"`
+}
+
+type ApprovalRecord struct {
+	Status       ApprovalNodeStatus      `json:"sp_status"`
+	ApproverAttr ApprovalRel             `json:"approverattr"`
+	Details      []*ApprovalRecordDetail `json:"details"`
+}
+
+type ApprovalRecordDetail struct {
+	Approver struct {
+		UserID string `json:"userid"`
+	} `json:"approver"`
+	Speech    string                `json:"speech"`
+	Status    ApprovalSubNodeStatus `json:"sp_status"`
+	Timestamp int64                 `json:"sptime"`
+}
+
+func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
+	nodes := make([]*ApprovalNode, 0, len(d.Records))
+	for _, record := range d.Records {
+		if record == nil {
+			continue
+		}
+
+		node := &ApprovalNode{
+			Type:     ApprovalTypeApprove,
+			ApvRel:   record.ApproverAttr,
+			Status:   record.Status,
+			SubNodes: make([]*ApprovalSubNode, 0, len(record.Details)),
+		}
+		for _, detail := range record.Details {
+			if detail == nil {
+				continue
+			}
+
+			subNode := &ApprovalSubNode{
+				Speech:    detail.Speech,
+				Status:    detail.Status,
+				Timestamp: detail.Timestamp,
+			}
+			subNode.UserInfo.UserID = detail.Approver.UserID
+			node.SubNodes = append(node.SubNodes, subNode)
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes
 }
 
 type EncryptedWebhookMessage struct {

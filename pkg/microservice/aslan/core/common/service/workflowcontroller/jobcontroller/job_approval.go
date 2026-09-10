@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -809,6 +810,11 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 			}
 			if detail == nil {
 				continue
+			}
+			approvalNodeDetails := detail.ApprovalNodeDetails()
+			if !reflect.DeepEqual(spec.WorkWXApproval.ApprovalNodeDetails, approvalNodeDetails) {
+				spec.WorkWXApproval.ApprovalNodeDetails = approvalNodeDetails
+				ack()
 			}
 
 			switch detail.Status {
