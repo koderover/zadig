@@ -100,7 +100,6 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		Name:                   ctx.UserName,
 		Account:                ctx.Account,
 		UserID:                 ctx.UserID,
-		Resources:              ctx.Resources,
 		ApprovalTicketID:       ticketID,
 		ValidateRemarkRequired: true,
 	}, args, ctx.Logger)

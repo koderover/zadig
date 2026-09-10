@@ -34,29 +34,17 @@ type workflowEnvironmentPermission struct {
 	readableEnvironments      sets.String
 }
 
-func getWorkflowEnvironmentPermission(userID string, authorizedResources *user.AuthorizedResources, workflow *commonmodels.WorkflowV4) (*workflowEnvironmentPermission, error) {
-	if !hasEnvironmentJob(workflow) {
+func getWorkflowEnvironmentPermission(userID string, workflow *commonmodels.WorkflowV4) (*workflowEnvironmentPermission, error) {
+	if userID == "" || !hasEnvironmentJob(workflow) {
 		return nil, nil
 	}
 
-	// authorizedResources == nil means the caller has not resolved the user's authorization info
-	// yet. When there is no user id either, this is an in-process system trigger (webhook, workflow
-	// trigger, release plan, ...), where the environment is fixed by configuration rather than
-	// selected by a user, so there is nothing to restrict. An empty user id is NOT granted admin
-	// here: callers that already resolved authorization (e.g. NewContextWithAuthorization) pass it
-	// in, and empty-user-id requests are handled by their internal-token validation.
+	authorizedResources, err := user.New().GetUserAuthInfo(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user authorization info: %w", err)
+	}
 	if authorizedResources == nil {
-		if userID == "" {
-			return nil, nil
-		}
-		var err error
-		authorizedResources, err = user.New().GetUserAuthInfo(userID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get user authorization info: %w", err)
-		}
-		if authorizedResources == nil {
-			return nil, fmt.Errorf("empty user authorization info")
-		}
+		return nil, fmt.Errorf("empty user authorization info")
 	}
 
 	permission := &workflowEnvironmentPermission{readableEnvironments: sets.NewString()}
