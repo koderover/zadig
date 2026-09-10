@@ -29,6 +29,7 @@ import (
 	models2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // Large JSON/YAML bodies can consume substantially more memory while parsing.
@@ -238,7 +239,7 @@ func maskOperationLogValue(value interface{}) bool {
 				}
 			}
 
-			if isSensitiveOperationLogIdentifier(key) || sensitiveNode && isOperationLogSensitiveValueKey(key) {
+			if util.IsSensitiveKey(key) || sensitiveNode && isOperationLogSensitiveValueKey(key) {
 				if shouldMaskOperationLogFieldValue(item) {
 					typedValue[key] = setting.MaskValue
 					changed = true
@@ -272,7 +273,7 @@ func isOperationLogSensitiveNode(value map[string]interface{}) bool {
 	}
 
 	for _, identifierKey := range []string{"key", "name", "variable_key"} {
-		if identifier, ok := value[identifierKey].(string); ok && isSensitiveOperationLogIdentifier(identifier) {
+		if identifier, ok := value[identifierKey].(string); ok && util.IsSensitiveKey(identifier) {
 			return true
 		}
 	}
@@ -310,88 +311,8 @@ func maskOperationLogYAML(requestBody string) (string, bool, error) {
 }
 
 func isOperationLogSensitiveValueKey(key string) bool {
-	normalized := normalizeOperationLogIdentifier(key)
+	normalized := util.NormalizeSensitiveKey(key)
 	return normalized == "value" || normalized == "default" || normalized == "choice_value"
-}
-
-func isSensitiveOperationLogIdentifier(identifier string) bool {
-	normalized := normalizeOperationLogIdentifier(identifier)
-	if normalized == "" {
-		return false
-	}
-	if normalized == "encryption" {
-		return true
-	}
-
-	for _, suffix := range []string{"password", "passwd", "token", "secret", "credential"} {
-		if strings.HasSuffix(normalized, suffix) {
-			return true
-		}
-	}
-	for _, suffix := range []string{"pwd", "ak", "sk"} {
-		if hasNormalizedOperationLogSuffix(normalized, suffix) {
-			return true
-		}
-	}
-	for _, suffix := range []string{"api_key", "access_key", "access_key_id", "secret_key", "private_key", "connection_string", "apikey", "accesskey", "accesskeyid", "secretkey", "privatekey", "connectionstring"} {
-		if hasNormalizedOperationLogSuffix(normalized, suffix) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasNormalizedOperationLogSuffix(identifier, suffix string) bool {
-	return identifier == suffix || strings.HasSuffix(identifier, "_"+suffix)
-}
-
-func normalizeOperationLogIdentifier(identifier string) string {
-	if identifier == "" {
-		return ""
-	}
-	alreadyNormalized := true
-	for i := 0; i < len(identifier); i++ {
-		current := identifier[i]
-		if (current >= 'a' && current <= 'z') || (current >= '0' && current <= '9') {
-			continue
-		}
-		if current != '_' || i == 0 || i+1 == len(identifier) || identifier[i-1] == '_' {
-			alreadyNormalized = false
-			break
-		}
-	}
-	if alreadyNormalized {
-		return identifier
-	}
-
-	var builder strings.Builder
-	builder.Grow(len(identifier) + 4)
-	lastSeparator := true
-	for i := 0; i < len(identifier); i++ {
-		current := identifier[i]
-		if !isASCIIAlphaNumeric(current) {
-			if !lastSeparator && builder.Len() > 0 {
-				builder.WriteByte('_')
-				lastSeparator = true
-			}
-			continue
-		}
-
-		if current >= 'A' && current <= 'Z' {
-			previousIsLowerOrDigit := i > 0 && (identifier[i-1] >= 'a' && identifier[i-1] <= 'z' || identifier[i-1] >= '0' && identifier[i-1] <= '9')
-			nextIsLower := i+1 < len(identifier) && identifier[i+1] >= 'a' && identifier[i+1] <= 'z'
-			previousIsUpper := i > 0 && identifier[i-1] >= 'A' && identifier[i-1] <= 'Z'
-			if !lastSeparator && (previousIsLowerOrDigit || previousIsUpper && nextIsLower) {
-				builder.WriteByte('_')
-			}
-			current = asciiLower(current)
-		}
-		builder.WriteByte(current)
-		lastSeparator = false
-	}
-
-	normalized := builder.String()
-	return strings.TrimSuffix(normalized, "_")
 }
 
 func isASCIIAlphaNumeric(value byte) bool {
