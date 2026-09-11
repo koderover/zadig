@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -782,6 +783,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		return config.StatusFailed, fmt.Errorf("create approval instance failed, error: %s", err)
 	}
 	spec.WorkWXApproval.InstanceID = instanceID
+	spec.WorkWXApproval.ApprovalNodeDetails = workwx.PendingApprovalNodeDetails(approval.ApprovalNodes)
 	ack()
 	log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
 
@@ -809,6 +811,11 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 			}
 			if detail == nil {
 				continue
+			}
+			approvalNodeDetails := detail.ApprovalNodeDetails()
+			if len(approvalNodeDetails) > 0 && !reflect.DeepEqual(spec.WorkWXApproval.ApprovalNodeDetails, approvalNodeDetails) {
+				spec.WorkWXApproval.ApprovalNodeDetails = approvalNodeDetails
+				ack()
 			}
 
 			switch detail.Status {
