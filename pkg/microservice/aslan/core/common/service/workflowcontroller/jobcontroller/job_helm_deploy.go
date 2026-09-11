@@ -18,7 +18,9 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -46,6 +48,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
+
+var helmVariableRegexp = regexp.MustCompile(config.VariableRegEx)
 
 type HelmDeployJobCtl struct {
 	job         *commonmodels.JobTask
@@ -150,6 +154,15 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 	newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
 	productInfo.ServiceDeployStrategy[c.jobTaskSpec.ServiceName] = setting.ServiceDeployStrategyDeploy
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) && c.jobTaskSpec.OverrideKVs != "" {
+		overrideKVs, err := renderHelmOverrideKVs(c.jobTaskSpec.OverrideKVs, c.workflowCtx.GlobalContextGetAll())
+		if err != nil {
+			logError(c.job, err.Error(), c.logger)
+			return
+		}
+		c.jobTaskSpec.OverrideKVs = overrideKVs
+		newEnvService.GetServiceRender().OverrideValues = overrideKVs
+	}
 
 	// calc final values yaml
 	finalValuesYaml := ""
@@ -529,4 +542,38 @@ func (c *HelmDeployJobCtl) getVarsYaml() (string, error) {
 		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
 	}
 	return kube.GenerateYamlFromKV(vars)
+}
+
+func renderHelmOverrideKVs(origin string, variables map[string]string) (string, error) {
+	var kvs []*helmtool.KV
+	if err := json.Unmarshal([]byte(origin), &kvs); err != nil {
+		return "", fmt.Errorf("failed to decode helm override values: %w", err)
+	}
+
+	for _, kv := range kvs {
+		value, ok := kv.Value.(string)
+		if !ok {
+			continue
+		}
+		unresolved := ""
+		rendered := helmVariableRegexp.ReplaceAllStringFunc(value, func(ref string) string {
+			key := strings.TrimSuffix(strings.TrimPrefix(ref, "{{."), "}}")
+			resolved, ok := variables[key]
+			if !ok {
+				unresolved = ref
+				return ref
+			}
+			return resolved
+		})
+		if unresolved != "" {
+			return "", fmt.Errorf("unresolved helm override variable %s", unresolved)
+		}
+		kv.Value = rendered
+	}
+
+	rendered, err := json.Marshal(kvs)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode helm override values: %w", err)
+	}
+	return string(rendered), nil
 }
