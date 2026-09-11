@@ -193,6 +193,9 @@ func YamlToServiceVariableKV(yamlStr string, origKVs []*ServiceVariableKV) ([]*S
 
 	origKVMap := make(map[string]*ServiceVariableKV, 0)
 	for _, kv := range origKVs {
+		if kv == nil {
+			continue
+		}
 		origKVMap[kv.Key] = kv
 	}
 
