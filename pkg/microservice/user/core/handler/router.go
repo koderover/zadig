@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/login"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/oauth"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/permission"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 )
@@ -145,6 +146,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 			internalPolicyApis.POST("setProjectVisibility", permission.SetProjectVisibility)
 		}
 	}
+}
+
+type OAuthRouter struct{}
+
+func (*OAuthRouter) Inject(router *gin.RouterGroup) {
+	router.POST("/oauth/device/authorization", oauth.DeviceAuthorization)
+	router.POST("/oauth/token", oauth.Token)
+	router.POST("/oauth/revoke", oauth.Revoke)
+	router.GET("/api/oauth/device/authorizations/:userCode", oauth.GetDeviceAuthorization)
+	router.POST("/api/oauth/device/authorizations/:userCode/approval", oauth.DecideDeviceAuthorization)
 }
 
 type OpenAPIRouter struct{}

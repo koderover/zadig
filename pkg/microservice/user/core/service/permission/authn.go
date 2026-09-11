@@ -276,6 +276,14 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 	}
 
 	if claims, ok := token.Claims.(*login.Claims); ok && token.Valid {
+		if claims.TokenUse == login.OAuthLocalTokenUseAccess {
+			if err := login.NewOAuthService().ValidateSession(claims.SessionID, claims.UID); err != nil {
+				log.Errorf("Failed to validate OAuth session, uid: %s, err: %s", claims.UID, err)
+				return nil, false, err
+			}
+			return claims, true, nil
+		}
+
 		// short-lived login token: validate against redis cache
 		if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 			cachedToken, err := cache.NewRedisCache(userConfig.RedisUserTokenDB()).GetString(claims.UID)

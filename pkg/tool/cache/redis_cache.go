@@ -84,9 +84,8 @@ func (c *RedisCache) HWrite(key, field, val string, ttl time.Duration) error {
 	return err
 }
 
-func (c *RedisCache) SetNX(key, val string, ttl time.Duration) error {
-	_, err := c.redisClient.SetNX(context.TODO(), key, val, ttl).Result()
-	return err
+func (c *RedisCache) SetNX(key, val string, ttl time.Duration) (bool, error) {
+	return c.redisClient.SetNX(context.TODO(), key, val, ttl).Result()
 }
 
 func (c *RedisCache) Exists(key string) (bool, error) {
@@ -143,6 +142,26 @@ return 0`
 
 	deleted, err := c.redisClient.Eval(context.TODO(), script, []string{key}, expected).Int()
 	return deleted == 1, err
+}
+
+// RotateKeyWithGrace writes the replacement key and limits the old key to a fixed retry window.
+func (c *RedisCache) RotateKeyWithGrace(oldKey, newKey, value string, newTTL, gracePeriod time.Duration) (bool, error) {
+	const script = `
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+  return 0
+end
+redis.call("SET", KEYS[2], ARGV[1], "PX", ARGV[2])
+local ttl = redis.call("PTTL", KEYS[1])
+local grace = tonumber(ARGV[3])
+if ttl < 0 or ttl > grace then
+  redis.call("PEXPIRE", KEYS[1], grace)
+end
+return 1`
+
+	rotated, err := c.redisClient.Eval(
+		context.TODO(), script, []string{oldKey, newKey}, value, newTTL.Milliseconds(), gracePeriod.Milliseconds(),
+	).Int()
+	return rotated == 1, err
 }
 
 func (c *RedisCache) HDelete(key, field string) error {
