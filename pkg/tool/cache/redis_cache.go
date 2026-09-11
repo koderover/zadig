@@ -105,10 +105,6 @@ func (c *RedisCache) GetString(key string) (string, error) {
 	return c.redisClient.Get(context.TODO(), key).Result()
 }
 
-func (c *RedisCache) GetDelString(key string) (string, error) {
-	return c.redisClient.GetDel(context.TODO(), key).Result()
-}
-
 func (c *RedisCache) MGet(keys []string) ([]interface{}, error) {
 	if len(keys) == 0 {
 		return []interface{}{}, nil
@@ -146,6 +142,26 @@ return 0`
 
 	deleted, err := c.redisClient.Eval(context.TODO(), script, []string{key}, expected).Int()
 	return deleted == 1, err
+}
+
+// RotateKeyWithGrace writes the replacement key and limits the old key to a fixed retry window.
+func (c *RedisCache) RotateKeyWithGrace(oldKey, newKey, value string, newTTL, gracePeriod time.Duration) (bool, error) {
+	const script = `
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+  return 0
+end
+redis.call("SET", KEYS[2], ARGV[1], "PX", ARGV[2])
+local ttl = redis.call("PTTL", KEYS[1])
+local grace = tonumber(ARGV[3])
+if ttl < 0 or ttl > grace then
+  redis.call("PEXPIRE", KEYS[1], grace)
+end
+return 1`
+
+	rotated, err := c.redisClient.Eval(
+		context.TODO(), script, []string{oldKey, newKey}, value, newTTL.Milliseconds(), gracePeriod.Milliseconds(),
+	).Int()
+	return rotated == 1, err
 }
 
 func (c *RedisCache) HDelete(key, field string) error {

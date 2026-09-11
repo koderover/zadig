@@ -30,7 +30,8 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 	if refreshToken == "" {
 		return nil, &OAuthError{Code: OAuthErrorInvalidRequest, Description: "refresh_token is required"}
 	}
-	sessionID, err := s.cache.GetDelString(oauthKey("refresh", hashOAuthValue(refreshToken)))
+	refreshTokenKey := oauthKey("refresh", hashOAuthValue(refreshToken))
+	sessionID, err := s.cache.GetString(refreshTokenKey)
 	if errors.Is(err, redis.Nil) {
 		return nil, &OAuthError{Code: oauthErrorInvalidGrant, Description: "refresh token is invalid or expired"}
 	}
@@ -57,8 +58,18 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 	if remaining := session.ExpiresAt.Sub(now); remaining < refreshTTL {
 		refreshTTL = remaining
 	}
-	if err := s.cache.Write(oauthKey("refresh", hashOAuthValue(newRefreshToken)), session.ID, refreshTTL); err != nil {
+	rotated, err := s.cache.RotateKeyWithGrace(
+		refreshTokenKey,
+		oauthKey("refresh", hashOAuthValue(newRefreshToken)),
+		session.ID,
+		refreshTTL,
+		oauthRefreshTokenGracePeriod,
+	)
+	if err != nil {
 		return nil, err
+	}
+	if !rotated {
+		return nil, &OAuthError{Code: oauthErrorInvalidGrant, Description: "refresh token is invalid or expired"}
 	}
 	return &OAuthTokenResponse{
 		AccessToken: accessToken, TokenType: "Bearer", ExpiresIn: int64(accessTTL / time.Second),

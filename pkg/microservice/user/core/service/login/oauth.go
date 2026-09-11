@@ -50,11 +50,12 @@ const (
 	oauthErrorAccessDenied         = "access_denied"
 	oauthErrorExpiredToken         = "expired_token"
 
-	oauthDeviceAuthorizationTTL = 10 * time.Minute
-	oauthDevicePollInterval     = 5 * time.Second
-	oauthAccessTokenTTL         = 2 * time.Hour
-	oauthRefreshTokenTTL        = 7 * 24 * time.Hour
-	oauthSessionTTL             = 365 * 24 * time.Hour
+	oauthDeviceAuthorizationTTL  = 10 * time.Minute
+	oauthDevicePollInterval      = 5 * time.Second
+	oauthAccessTokenTTL          = 2 * time.Hour
+	oauthRefreshTokenTTL         = 7 * 24 * time.Hour
+	oauthRefreshTokenGracePeriod = time.Minute
+	oauthSessionTTL              = 365 * 24 * time.Hour
 
 	oauthRedisKeyPrefix = "zadig:oauth:"
 )
