@@ -272,6 +272,43 @@ type ApprovalRecordDetail struct {
 	Timestamp int64                 `json:"sptime"`
 }
 
+func PendingApprovalNodeDetails(nodes []*ApprovalNode) []*ApprovalNode {
+	details := make([]*ApprovalNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+
+		detail := &ApprovalNode{
+			Type:     node.Type,
+			ApvRel:   node.ApvRel,
+			Status:   ApprovalNodeStatusWaiting,
+			SubNodes: make([]*ApprovalSubNode, 0, len(node.UserID)),
+		}
+		for _, userID := range node.UserID {
+			subNode := &ApprovalSubNode{Status: ApprovalSubNodeStatusWaiting}
+			subNode.UserInfo.UserID = userID
+			detail.SubNodes = append(detail.SubNodes, subNode)
+		}
+		details = append(details, detail)
+	}
+
+	return details
+}
+
+func approvalRelFromRecord(attr ApprovalRel) ApprovalRel {
+	// sp_record.approverattr uses 1 for OR and 2 for AND, while
+	// process.apv_rel (and Zadig) uses 1 for AND and 2 for OR.
+	switch attr {
+	case ApprovalRelAnd:
+		return ApprovalRelOr
+	case ApprovalRelOr:
+		return ApprovalRelAnd
+	default:
+		return attr
+	}
+}
+
 func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
 	nodes := make([]*ApprovalNode, 0, len(d.Records))
 	for _, record := range d.Records {
@@ -281,7 +318,7 @@ func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
 
 		node := &ApprovalNode{
 			Type:     ApprovalTypeApprove,
-			ApvRel:   record.ApproverAttr,
+			ApvRel:   approvalRelFromRecord(record.ApproverAttr),
 			Status:   record.Status,
 			SubNodes: make([]*ApprovalSubNode, 0, len(record.Details)),
 		}
