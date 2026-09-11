@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -1069,11 +1070,15 @@ func GetHelmChartManifest(env *commonmodels.Product, service *commonmodels.Servi
 	}
 
 	releaseName := util.GeneReleaseName(service.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, service.ServiceName)
+	variableRegexp := regexp.MustCompile(config.VariableRegEx)
+	placeholderRegexp := regexp.MustCompile(config.ReplacedTempVariableRegEx)
 	chartSpec := &helmclient.ChartSpec{
 		ReleaseName: releaseName,
 		ChartName:   chartPath,
 		Version:     chartVersion,
-		ValuesYaml:  valuesYaml,
+		// A chart may render a value without quoting it. Mask unresolved workflow
+		// expressions while Helm validates the manifest, then restore them below.
+		ValuesYaml: variableRegexp.ReplaceAllString(valuesYaml, "TEMP_PLACEHOLDER_$1"),
 	}
 
 	var templateOptions *helmclient.HelmTemplateOptions
@@ -1085,6 +1090,7 @@ func GetHelmChartManifest(env *commonmodels.Product, service *commonmodels.Servi
 	if err != nil {
 		return nil, fmt.Errorf("failed to template chart %s/%s, chartPath: %s, err: %s", chartName, chartVersion, chartPath, err)
 	}
+	manifestBytes = placeholderRegexp.ReplaceAll(manifestBytes, []byte("{{.$1}}"))
 
 	sourceContentMap := map[string]string{}
 	manifestFiles := make([]*HelmManifestFile, 0)
