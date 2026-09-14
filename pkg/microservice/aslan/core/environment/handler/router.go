@@ -361,6 +361,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		helm.POST("/:name/services", OpenAPIAddHelmServicesToEnv)
 
 		helm.GET("/:name/services/:serviceName/values", OpenAPIGetHelmServiceValues)
+		helm.GET("/:name/services/:serviceName/release/values", OpenAPIGetHelmReleaseValues)
 		helm.POST("/:name/services/:serviceName/values/preview", OpenAPIPreviewHelmServiceValues)
 		helm.PUT("/:name/services/:serviceName/values", OpenAPIUpdateHelmServiceValues)
 		helm.GET("/:name/services/:serviceName/values-source", OpenAPIGetHelmValuesSource)
@@ -368,6 +369,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		helm.DELETE("/:name/services/:serviceName/values-source", OpenAPIDeleteHelmValuesSource)
 
 		helm.GET("/production/:name/services/:serviceName/values", OpenAPIGetProductionHelmServiceValues)
+		helm.GET("/production/:name/services/:serviceName/release/values", OpenAPIGetProductionHelmReleaseValues)
 		helm.POST("/production/:name/services/:serviceName/values/preview", OpenAPIPreviewProductionHelmServiceValues)
 		helm.PUT("/production/:name/services/:serviceName/values", OpenAPIUpdateProductionHelmServiceValues)
 		helm.GET("/production/:name/services/:serviceName/values-source", OpenAPIGetProductionHelmValuesSource)

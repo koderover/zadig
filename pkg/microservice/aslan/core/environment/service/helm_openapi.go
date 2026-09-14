@@ -31,7 +31,6 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -42,11 +41,14 @@ import (
 )
 
 type OpenAPIHelmServiceValues struct {
-	ReleaseName         string                  `json:"release_name"`
-	Revision            int64                   `json:"revision"`
-	ValuesYAML          string                  `json:"values_yaml"`
-	EffectiveValuesYAML string                  `json:"effective_values_yaml"`
-	OverrideKVs         []*commonservice.KVPair `json:"override_kvs"`
+	ReleaseName string                  `json:"release_name"`
+	Revision    int64                   `json:"revision"`
+	ValuesYAML  string                  `json:"values_yaml"`
+	OverrideKVs []*commonservice.KVPair `json:"override_kvs"`
+}
+
+type OpenAPIHelmReleaseValues struct {
+	ValuesYAML string `json:"values_yaml"`
 }
 
 type OpenAPIHelmValuesSource struct {
@@ -145,38 +147,16 @@ func GetHelmServiceValuesOpenAPI(projectKey, envName, serviceName string, produc
 	if err != nil {
 		return nil, e.ErrGetEnv.AddErr(err)
 	}
-	if templateService.HelmChart == nil {
-		return nil, e.ErrGetEnv.AddDesc("Helm chart data is empty")
-	}
-	// Use the same stored configuration and image overrides as the preview.
-	helmDeployService := helmservice.NewHelmDeployService()
-	mergedValues, err := helmDeployService.GenMergedValues(productService, product.DefaultValues, nil)
-	if err != nil {
-		return nil, e.ErrGetEnv.AddErr(err)
-	}
-	effectiveValues, err := helmDeployService.GeneFullValues(templateService.HelmChart.ValuesYaml, mergedValues)
-	if err != nil {
-		return nil, e.ErrGetEnv.AddErr(err)
-	}
-	valuesYAML, err := commonutil.MaskSensitiveValuesYAML(renderArg.OverrideYaml)
-	if err != nil {
-		return nil, e.ErrGetEnv.AddDesc(fmt.Sprintf("failed to mask Values YAML: %s", err))
-	}
-	effectiveValuesYAML, err := commonutil.MaskSensitiveValuesYAML(effectiveValues)
-	if err != nil {
-		return nil, e.ErrGetEnv.AddDesc(fmt.Sprintf("failed to mask effective Values YAML: %s", err))
-	}
 	revision, err := getOpenAPIHelmValuesRevision(projectKey, envName, serviceName, production)
 	if err != nil {
 		return nil, err
 	}
 
 	return &OpenAPIHelmServiceValues{
-		ReleaseName:         util.GeneReleaseName(templateService.GetReleaseNaming(), productService.ProductName, product.Namespace, envName, serviceName),
-		Revision:            revision,
-		ValuesYAML:          valuesYAML,
-		EffectiveValuesYAML: effectiveValuesYAML,
-		OverrideKVs:         MaskOpenAPIOverrideKVs(renderArg.OverrideValues),
+		ReleaseName: util.GeneReleaseName(templateService.GetReleaseNaming(), productService.ProductName, product.Namespace, envName, serviceName),
+		Revision:    revision,
+		ValuesYAML:  renderArg.OverrideYaml,
+		OverrideKVs: renderArg.OverrideValues,
 	}, nil
 }
 
@@ -270,19 +250,11 @@ func PreviewHelmServiceValuesOpenAPI(projectKey, envName, serviceName string, pr
 	if err != nil {
 		return nil, e.ErrUpdateEnv.AddErr(err)
 	}
-	current, err := commonutil.MaskSensitiveValuesYAML(estimated.Current)
-	if err != nil {
-		return nil, e.ErrUpdateEnv.AddErr(err)
-	}
-	latest, err := commonutil.MaskSensitiveValuesYAML(estimated.Latest)
-	if err != nil {
-		return nil, e.ErrUpdateEnv.AddErr(err)
-	}
 	return &OpenAPIHelmValuesPreview{
 		CurrentReleaseName: estimated.CurrentReleaseName,
 		LatestReleaseName:  estimated.LatestReleaseName,
-		CurrentValuesYAML:  current,
-		LatestValuesYAML:   latest,
+		CurrentValuesYAML:  estimated.Current,
+		LatestValuesYAML:   estimated.Latest,
 	}, nil
 }
 
@@ -344,10 +316,7 @@ func buildOpenAPIHelmRenderArg(productService *commonmodels.ProductService, req 
 		if render.OverrideYaml.AutoSync {
 			return nil, e.ErrInvalidParam.AddDesc("values_yaml cannot be used while automatic Values synchronization is enabled")
 		}
-		valuesYAML, err := commonutil.RestoreMaskedSensitiveValuesYAML(arg.OverrideYaml, *req.ValuesYAML)
-		if err != nil {
-			return nil, e.ErrInvalidParam.AddErr(err)
-		}
+		valuesYAML := *req.ValuesYAML
 		if req.ValueMergeStrategy == string(config.ValueMergeStrategyReuseValue) {
 			currentValues, err := helmservice.GetValuesMapFromString(arg.OverrideYaml)
 			if err != nil {
@@ -385,11 +354,7 @@ func buildOpenAPIHelmRenderArg(productService *commonmodels.ProductService, req 
 		arg.ValuesData.AutoSyncYaml = valuesYAML
 	}
 	if req.OverrideKVs != nil {
-		overrideKVs, err := restoreMaskedOpenAPIOverrideKVs(arg.OverrideValues, *req.OverrideKVs)
-		if err != nil {
-			return nil, e.ErrInvalidParam.AddErr(err)
-		}
-		arg.OverrideValues = overrideKVs
+		arg.OverrideValues = *req.OverrideKVs
 	}
 	if _, err := helmtool.MergeOverrideValues("", "", arg.OverrideYaml, arg.ToOverrideValueString(), nil); err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid Helm Values: %s", err))
@@ -441,43 +406,6 @@ func validateOpenAPIOverrideKVs(kvs []*commonservice.KVPair) error {
 		}
 	}
 	return nil
-}
-
-func restoreMaskedOpenAPIOverrideKVs(current, updated []*commonservice.KVPair) ([]*commonservice.KVPair, error) {
-	currentByKey := make(map[string]interface{}, len(current))
-	for _, kv := range current {
-		if kv != nil {
-			currentByKey[kv.Key] = kv.Value
-		}
-	}
-	result := make([]*commonservice.KVPair, 0, len(updated))
-	for _, kv := range updated {
-		copied := &commonservice.KVPair{Key: kv.Key, Value: kv.Value}
-		if commonutil.IsSensitiveValuesKey(kv.Key) && kv.Value == setting.MaskValue {
-			currentValue, ok := currentByKey[kv.Key]
-			if !ok {
-				return nil, fmt.Errorf("masked sensitive value %q does not exist in current override_kvs", kv.Key)
-			}
-			copied.Value = currentValue
-		}
-		result = append(result, copied)
-	}
-	return result, nil
-}
-
-func MaskOpenAPIOverrideKVs(kvs []*commonservice.KVPair) []*commonservice.KVPair {
-	result := make([]*commonservice.KVPair, 0, len(kvs))
-	for _, kv := range kvs {
-		if kv == nil {
-			continue
-		}
-		value := kv.Value
-		if commonutil.IsSensitiveValuesKey(kv.Key) && value != nil {
-			value = setting.MaskValue
-		}
-		result = append(result, &commonservice.KVPair{Key: kv.Key, Value: value})
-	}
-	return result
 }
 
 func checkOpenAPIHelmValuesRevision(projectKey, envName, serviceName string, production bool, expected int64) error {
