@@ -310,11 +310,13 @@ func (u *ManagerUpdater) Verb() string {
 }
 
 type CreateReleaseJobUpdater struct {
-	Name      string                    `json:"name"`
-	Type      config.ReleasePlanJobType `json:"type"`
-	Manager   string                    `json:"manager"`
-	ManagerID string                    `json:"manager_id"`
-	Spec      interface{}               `json:"spec"`
+	Name            string                    `json:"name"`
+	Type            config.ReleasePlanJobType `json:"type"`
+	Manager         string                    `json:"manager"`
+	ManagerID       string                    `json:"manager_id"`
+	ManagerIDs      []string                  `json:"manager_ids"`
+	ManagerGroupIDs []string                  `json:"manager_group_ids"`
+	Spec            interface{}               `json:"spec"`
 }
 
 func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobUpdater, error) {
@@ -327,12 +329,14 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	job := &models.ReleaseJob{
-		ID:        uuid.New().String(),
-		Name:      u.Name,
-		Manager:   u.Manager,
-		ManagerID: u.ManagerID,
-		Type:      u.Type,
-		Spec:      u.Spec,
+		ID:              uuid.New().String(),
+		Name:            u.Name,
+		Manager:         u.Manager,
+		ManagerID:       u.ManagerID,
+		ManagerIDs:      u.ManagerIDs,
+		ManagerGroupIDs: u.ManagerGroupIDs,
+		Type:            u.Type,
+		Spec:            u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
 	return nil
@@ -360,12 +364,15 @@ func (u *CreateReleaseJobUpdater) Verb() string {
 }
 
 type UpdateReleaseJobUpdater struct {
-	ID        string                    `json:"id"`
-	Name      string                    `json:"name"`
-	Manager   string                    `json:"manager"`
-	ManagerID string                    `json:"manager_id"`
-	Type      config.ReleasePlanJobType `json:"type"`
-	Spec      interface{}               `json:"spec"`
+	ID              string                    `json:"id"`
+	Name            string                    `json:"name"`
+	Manager         string                    `json:"manager"`
+	ManagerID       string                    `json:"manager_id"`
+	ManagerIDs      []string                  `json:"manager_ids"`
+	ManagerGroupIDs []string                  `json:"manager_group_ids"`
+	Type            config.ReleasePlanJobType `json:"type"`
+	Spec            interface{}               `json:"spec"`
+	ownerFields     releaseJobOwnerFields
 }
 
 func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobUpdater, error) {
@@ -373,6 +380,7 @@ func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobU
 	if err := models.IToi(args.Spec, &updater); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
 	}
+	updater.ownerFields = releaseJobOwnerFieldPresence(args.Spec)
 	return &updater, nil
 }
 
@@ -383,8 +391,15 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			job.Manager = u.Manager
-			job.ManagerID = u.ManagerID
+			if u.ownerFields.managerIDs || u.ownerFields.managerGroupIDs {
+				job.Manager = u.Manager
+				job.ManagerID = u.ManagerID
+				job.ManagerIDs = u.ManagerIDs
+				job.ManagerGroupIDs = u.ManagerGroupIDs
+			} else if u.ownerFields.manager || u.ownerFields.managerID {
+				job.Manager = u.Manager
+				job.ManagerID = u.ManagerID
+			}
 			job.Spec = u.Spec
 			job.Updated = true
 			return nil

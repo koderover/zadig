@@ -405,12 +405,14 @@ func buildReleasePlanJobInputSnapshot(job *models.ReleaseJob) (interface{}, erro
 	}
 
 	return map[string]interface{}{
-		"id":         job.ID,
-		"name":       job.Name,
-		"manager":    job.Manager,
-		"manager_id": job.ManagerID,
-		"type":       job.Type,
-		"spec":       spec,
+		"id":                job.ID,
+		"name":              job.Name,
+		"manager":           job.Manager,
+		"manager_id":        job.ManagerID,
+		"manager_ids":       job.ManagerIDs,
+		"manager_group_ids": job.ManagerGroupIDs,
+		"type":              job.Type,
+		"spec":              spec,
 	}, nil
 }
 
