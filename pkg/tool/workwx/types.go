@@ -18,7 +18,6 @@ package workwx
 
 import (
 	"fmt"
-	"reflect"
 )
 
 const (
@@ -341,29 +340,28 @@ func approvalNodeEqual(left, right *ApprovalNode) bool {
 		return left == right
 	}
 
-	leftNode, rightNode := *left, *right
-	leftNode.SubNodes, rightNode.SubNodes = nil, nil
-	if !reflect.DeepEqual(leftNode, rightNode) || len(left.SubNodes) != len(right.SubNodes) {
+	if left.Type != right.Type || left.ApvRel != right.ApvRel || left.Status != right.Status || len(left.SubNodes) != len(right.SubNodes) {
 		return false
 	}
 
-	matchedSubNodes := make([]bool, len(right.SubNodes))
-	for _, leftSubNode := range left.SubNodes {
-		matched := false
-		for index, rightSubNode := range right.SubNodes {
-			if matchedSubNodes[index] || !reflect.DeepEqual(leftSubNode, rightSubNode) {
-				continue
-			}
-			matchedSubNodes[index] = true
-			matched = true
-			break
-		}
-		if !matched {
+	for i := range left.SubNodes {
+		if !approvalSubNodeEqual(left.SubNodes[i], right.SubNodes[i]) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func approvalSubNodeEqual(left, right *ApprovalSubNode) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.UserInfo.UserID == right.UserInfo.UserID &&
+		left.Speech == right.Speech &&
+		left.Status == right.Status &&
+		left.Timestamp == right.Timestamp
 }
 
 func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
