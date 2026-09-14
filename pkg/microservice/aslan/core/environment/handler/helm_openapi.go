@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	envservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -47,10 +48,38 @@ func handleOpenAPIGetHelmServiceValues(c *gin.Context, production bool) {
 		return
 	}
 	projectKey, envName, serviceName, valid := validateOpenAPIHelmValuesParams(c, ctx)
-	if !valid || !authorizeOpenAPIHelmValues(ctx, projectKey, envName, production, false) || !checkOpenAPIHelmValuesLicense(ctx, production) {
+	if !valid || !validateOpenAPIHelmServiceType(c, ctx) || !authorizeOpenAPIHelmValues(ctx, projectKey, envName, production, false) || !checkOpenAPIHelmValuesLicense(ctx, production) {
 		return
 	}
 	ctx.Resp, ctx.RespErr = envservice.GetHelmServiceValuesOpenAPI(projectKey, envName, serviceName, production)
+}
+
+func OpenAPIGetHelmReleaseValues(c *gin.Context) {
+	handleOpenAPIGetHelmReleaseValues(c, false)
+}
+
+func OpenAPIGetProductionHelmReleaseValues(c *gin.Context) {
+	handleOpenAPIGetHelmReleaseValues(c, true)
+}
+
+func handleOpenAPIGetHelmReleaseValues(c *gin.Context, production bool) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	projectKey, envName, serviceName, valid := validateOpenAPIHelmValuesParams(c, ctx)
+	if !valid || !validateOpenAPIHelmServiceType(c, ctx) || !authorizeOpenAPIHelmValues(ctx, projectKey, envName, production, false) || !checkOpenAPIHelmValuesLicense(ctx, production) {
+		return
+	}
+	values, err := commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
+	if err != nil {
+		ctx.RespErr = e.ErrGetEnv.AddErr(err)
+		return
+	}
+	ctx.Resp = &envservice.OpenAPIHelmReleaseValues{ValuesYAML: values.ValuesYaml}
 }
 
 func OpenAPIGetHelmValuesSource(c *gin.Context) {
@@ -190,20 +219,7 @@ func handleOpenAPIHelmServiceValuesUpdate(c *gin.Context, production, preview bo
 		return
 	}
 
-	logReq := *req
-	if req.ValuesYAML != nil {
-		masked, err := commonutil.MaskSensitiveValuesYAML(*req.ValuesYAML)
-		if err != nil {
-			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid values_yaml: %s", err))
-			return
-		}
-		logReq.ValuesYAML = &masked
-	}
-	if req.OverrideKVs != nil {
-		maskedKVs := envservice.MaskOpenAPIOverrideKVs(*req.OverrideKVs)
-		logReq.OverrideKVs = &maskedKVs
-	}
-	data, _ := json.Marshal(&logReq)
+	data, _ := json.Marshal(req)
 	detail := fmt.Sprintf("%s:%s", envName, serviceName)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "更新服务", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 	ctx.RespErr = envservice.UpdateHelmServiceValuesOpenAPI(projectKey, envName, serviceName, ctx.UserName, ctx.RequestID, production, req, ctx.Logger)
@@ -229,6 +245,15 @@ func validateOpenAPIHelmValuesParams(c *gin.Context, ctx *internalhandler.Contex
 		return "", "", "", false
 	}
 	return projectKey, envName, serviceName, true
+}
+
+func validateOpenAPIHelmServiceType(c *gin.Context, ctx *internalhandler.Context) bool {
+	serviceType, specified := c.GetQuery("type")
+	if specified && serviceType != "service" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("type must be service")
+		return false
+	}
+	return true
 }
 
 func authorizeOpenAPIHelmValues(ctx *internalhandler.Context, projectKey, envName string, production, edit bool) bool {

@@ -18,16 +18,13 @@ package service
 
 import (
 	"fmt"
-	"time"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"go.uber.org/zap"
 )
@@ -54,9 +51,9 @@ type OpenAPIHelmServiceContainer struct {
 }
 
 type OpenAPIHelmTemplateSourceDetail struct {
-	TemplateName string `json:"template_name"`
-	Customized   bool   `json:"customized"`
-	AutoSync     bool   `json:"auto_sync"`
+	TemplateName           string `json:"template_name"`
+	ValuesEdited           bool   `json:"values_edited"`
+	TemplateAutoSyncActive bool   `json:"template_auto_sync_active"`
 }
 
 type OpenAPIHelmRepoSourceDetail struct {
@@ -78,14 +75,10 @@ type OpenAPIHelmChartRepoSourceDetail struct {
 }
 
 type OpenAPIUpdateHelmServiceReq struct {
-	ExpectedRevision int64  `json:"expected_revision"`
-	ValuesYAML       string `json:"values_yaml"`
+	ValuesYAML string `json:"values_yaml"`
 }
 
 func (r *OpenAPIUpdateHelmServiceReq) Validate() error {
-	if r.ExpectedRevision <= 0 {
-		return fmt.Errorf("expected_revision must be greater than 0")
-	}
 	if r.ValuesYAML == "" {
 		return fmt.Errorf("values_yaml cannot be empty")
 	}
@@ -110,10 +103,6 @@ func GetHelmServiceOpenAPI(projectKey, serviceName string, production bool, logg
 		return nil, e.ErrGetService.AddDesc("Helm chart data is empty")
 	}
 
-	valuesYAML, err := commonutil.MaskSensitiveValuesYAML(svc.HelmChart.ValuesYaml)
-	if err != nil {
-		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to mask Values YAML: %s", err))
-	}
 	containers, err := commonservice.ResolveServiceTemplateContainers(svc, production)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
@@ -132,7 +121,7 @@ func GetHelmServiceOpenAPI(projectKey, serviceName string, production bool, logg
 		Revision:      svc.Revision,
 		ChartName:     svc.HelmChart.Name,
 		ChartVersion:  svc.HelmChart.Version,
-		ValuesYAML:    valuesYAML,
+		ValuesYAML:    svc.HelmChart.ValuesYaml,
 		ReleaseNaming: svc.GetReleaseNaming(),
 		Containers:    openAPIHelmServiceContainers(containers),
 		CreatedBy:     svc.CreateBy,
@@ -151,35 +140,12 @@ func openAPIHelmServiceContainers(containers []*commonmodels.Container) []*OpenA
 	return result
 }
 
-func UpdateHelmServiceOpenAPI(projectKey, serviceName, userName, requestID string, production bool, req *OpenAPIUpdateHelmServiceReq, logger *zap.SugaredLogger) (*OpenAPIUpdateHelmServiceResp, error) {
-	lock := cache.NewRedisLockWithExpiry(fmt.Sprintf("openapi_helm_service_update:%s:%s:%t", projectKey, serviceName, production), 30*time.Minute)
-	if err := lock.Lock(); err != nil {
-		return nil, e.ErrUpdateService.AddErr(fmt.Errorf("failed to acquire service update lock: %w", err))
-	}
-	defer lock.Unlock()
-
-	current, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ProductName: projectKey, ServiceName: serviceName, Type: setting.HelmDeployType, ExcludeStatus: setting.ProductStatusDeleting}, production)
-	if err != nil {
-		return nil, e.ErrUpdateService.AddErr(err)
-	}
-	if current.Source != setting.SourceFromChartTemplate && current.Source != setting.SourceFromCustomEdit {
-		return nil, e.ErrInvalidParam.AddDesc("only Helm services created from a chart template can be updated")
-	}
-	if current.Revision != req.ExpectedRevision {
-		return nil, e.NewHTTPError(409, "Conflict", fmt.Sprintf("expected_revision %d does not match current revision %d", req.ExpectedRevision, current.Revision))
-	}
-	if current.HelmChart == nil {
-		return nil, e.ErrUpdateService.AddDesc("Helm chart data is empty")
-	}
-	valuesYAML, err := commonutil.RestoreMaskedSensitiveValuesYAML(current.HelmChart.ValuesYaml, req.ValuesYAML)
-	if err != nil {
-		return nil, e.ErrInvalidParam.AddErr(err)
-	}
-
-	err = EditFileContent(serviceName, projectKey, userName, requestID, &HelmChartEditInfo{
-		FilePath:    setting.ValuesYaml,
-		FileContent: valuesYAML,
-		Production:  production,
+func UpdateHelmServiceOpenAPI(projectKey, serviceName, userName, requestID string, production bool, req *OpenAPIUpdateHelmServiceReq, expectedRevision *int64, logger *zap.SugaredLogger) (*OpenAPIUpdateHelmServiceResp, error) {
+	err := EditFileContent(serviceName, projectKey, userName, requestID, &HelmChartEditInfo{
+		FilePath:         setting.ValuesYaml,
+		FileContent:      req.ValuesYAML,
+		Production:       production,
+		expectedRevision: expectedRevision,
 	}, logger)
 	if err != nil {
 		return nil, err
@@ -211,7 +177,11 @@ func openAPIHelmServiceSourceDetail(svc *commonmodels.Service) (interface{}, err
 		if err != nil {
 			return nil, err
 		}
-		return &OpenAPIHelmTemplateSourceDetail{TemplateName: createFrom.TemplateName, Customized: svc.Source == setting.SourceFromCustomEdit, AutoSync: svc.AutoSync}, nil
+		return &OpenAPIHelmTemplateSourceDetail{
+			TemplateName:           createFrom.TemplateName,
+			ValuesEdited:           svc.Source == setting.SourceFromCustomEdit,
+			TemplateAutoSyncActive: svc.Source == setting.SourceFromChartTemplate && svc.AutoSync,
+		}, nil
 	case setting.SourceFromChartRepo:
 		createFrom := new(commonmodels.CreateFromChartRepo)
 		if err := commonmodels.IToi(svc.CreateFrom, createFrom); err != nil {

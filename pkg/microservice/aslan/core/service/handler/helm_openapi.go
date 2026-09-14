@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -65,7 +66,11 @@ func handleGetHelmServiceOpenAPI(c *gin.Context, production bool) {
 			return
 		}
 	}
-	ctx.Resp, ctx.RespErr = svcservice.GetHelmServiceOpenAPI(projectKey, serviceName, production, ctx.Logger)
+	detail, err := svcservice.GetHelmServiceOpenAPI(projectKey, serviceName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = detail, err
+	if err == nil {
+		c.Header("ETag", fmt.Sprintf("\"%d\"", detail.Revision))
+	}
 }
 
 func UpdateHelmServiceOpenAPI(c *gin.Context) {
@@ -98,6 +103,11 @@ func handleUpdateHelmServiceOpenAPI(c *gin.Context, production bool) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+	expectedRevision, err := parseHelmServiceIfMatch(c.GetHeader("If-Match"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
 	if !authorizeHelmServiceOpenAPI(ctx, projectKey, production, helmServiceActionEdit) {
 		return
 	}
@@ -108,19 +118,28 @@ func handleUpdateHelmServiceOpenAPI(c *gin.Context, production bool) {
 		}
 	}
 
-	maskedValues, err := commonutil.MaskSensitiveValuesYAML(req.ValuesYAML)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid values_yaml: %s", err))
-		return
-	}
-	logBody, _ := json.Marshal(&svcservice.OpenAPIUpdateHelmServiceReq{ExpectedRevision: req.ExpectedRevision, ValuesYAML: maskedValues})
+	logBody, _ := json.Marshal(req)
 	function := "项目管理-测试服务"
 	if production {
 		function = "项目管理-生产服务"
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "更新", function, serviceName, serviceName, string(logBody), types.RequestBodyTypeJSON, ctx.Logger)
 
-	ctx.Resp, ctx.RespErr = svcservice.UpdateHelmServiceOpenAPI(projectKey, serviceName, ctx.UserName, ctx.RequestID, production, req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.UpdateHelmServiceOpenAPI(projectKey, serviceName, ctx.UserName, ctx.RequestID, production, req, expectedRevision, ctx.Logger)
+}
+
+func parseHelmServiceIfMatch(header string) (*int64, error) {
+	if header == "" {
+		return nil, nil
+	}
+	if len(header) < 3 || header[0] != '"' || header[len(header)-1] != '"' {
+		return nil, fmt.Errorf("If-Match must contain one quoted service revision")
+	}
+	revision, err := strconv.ParseInt(header[1:len(header)-1], 10, 64)
+	if err != nil || revision <= 0 || header != fmt.Sprintf("\"%d\"", revision) {
+		return nil, fmt.Errorf("If-Match must contain one quoted positive service revision")
+	}
+	return &revision, nil
 }
 
 func DeleteHelmServiceOpenAPI(c *gin.Context) {
