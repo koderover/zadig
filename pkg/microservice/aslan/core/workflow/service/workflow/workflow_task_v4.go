@@ -704,15 +704,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 	}
-	environmentPermission, err := getWorkflowEnvironmentPermission(args.UserID, workflowCtrl.WorkflowV4)
-	if err != nil {
-		log.Errorf("failed to get environment permission for workflow task, error: %s", err)
-		return nil, e.ErrCreateTask.AddErr(err)
-	}
-	if err := validateWorkflowEnvironmentSelection(workflowCtrl.WorkflowV4, environmentPermission); err != nil {
-		log.Errorf("failed to validate workflow environment permission, error: %s", err)
-		return nil, e.ErrCreateTask.AddErr(err)
-	}
 	if err := commonutil.FilterWorkflowPayloadVariables(workflow); err != nil {
 		log.Errorf("filter workflow payload variables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
