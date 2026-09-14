@@ -34,6 +34,7 @@ const (
 	OAuthLocalClientName     = "Zadig CLI / MCP"
 	OAuthLocalClientScope    = "zadig.api offline_access"
 	OAuthLocalTokenUseAccess = "cli_access"
+	oauthUserVersionKey      = "user-version"
 
 	OAuthErrorInvalidRequest = "invalid_request"
 	OAuthErrorInvalidClient  = "invalid_client"
@@ -50,12 +51,11 @@ const (
 	oauthErrorAccessDenied         = "access_denied"
 	oauthErrorExpiredToken         = "expired_token"
 
-	oauthDeviceAuthorizationTTL  = 10 * time.Minute
-	oauthDevicePollInterval      = 5 * time.Second
-	oauthAccessTokenTTL          = 2 * time.Hour
-	oauthRefreshTokenTTL         = 7 * 24 * time.Hour
-	oauthRefreshTokenGracePeriod = time.Minute
-	oauthSessionTTL              = 365 * 24 * time.Hour
+	oauthDeviceAuthorizationTTL = 10 * time.Minute
+	oauthDevicePollInterval     = 5 * time.Second
+	oauthAccessTokenTTL         = 2 * time.Hour
+	oauthRefreshTokenTTL        = 7 * 24 * time.Hour
+	oauthSessionTTL             = 365 * 24 * time.Hour
 
 	oauthRedisKeyPrefix = "zadig:oauth:"
 )
@@ -100,11 +100,12 @@ type OAuthTokenResponse struct {
 }
 
 type OAuthUser struct {
-	UID          string `json:"uid"`
-	Name         string `json:"name"`
-	Account      string `json:"account"`
-	IdentityType string `json:"identity_type"`
-	MFAVerified  bool   `json:"mfa_verified"`
+	UID             string `json:"uid"`
+	Name            string `json:"name"`
+	Account         string `json:"account"`
+	IdentityType    string `json:"identity_type"`
+	MFAVerified     bool   `json:"mfa_verified"`
+	SecurityVersion string `json:"security_version,omitempty"`
 }
 
 type oauthDevice struct {

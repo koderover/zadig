@@ -58,12 +58,11 @@ func (s *OAuthService) RefreshToken(refreshToken string) (*OAuthTokenResponse, e
 	if remaining := session.ExpiresAt.Sub(now); remaining < refreshTTL {
 		refreshTTL = remaining
 	}
-	rotated, err := s.cache.RotateKeyWithGrace(
+	rotated, err := s.cache.RotateKey(
 		refreshTokenKey,
 		oauthKey("refresh", hashOAuthValue(newRefreshToken)),
 		session.ID,
 		refreshTTL,
-		oauthRefreshTokenGracePeriod,
 	)
 	if err != nil {
 		return nil, err
@@ -107,6 +106,8 @@ func (s *OAuthService) ValidateSession(sessionID, uid string) error {
 }
 
 func (s *OAuthService) RevokeUserSessions(uid string) error {
+	// Advance the version before deleting sessions so an in-flight device exchange cannot create a usable session.
+	_, versionErr := s.cache.Increment(oauthKey(oauthUserVersionKey, uid))
 	key := oauthKey("user-sessions", uid)
 	sessionIDs, err := s.cache.ListSetMembers(key)
 	if err != nil {
@@ -117,7 +118,10 @@ func (s *OAuthService) RevokeUserSessions(uid string) error {
 			return err
 		}
 	}
-	return s.cache.Delete(key)
+	if err := s.cache.Delete(key); err != nil {
+		return err
+	}
+	return versionErr
 }
 
 func (s *OAuthService) createOAuthSession(device *oauthDevice) (*OAuthTokenResponse, error) {
@@ -162,6 +166,21 @@ func (s *OAuthService) createOAuthSession(device *oauthDevice) (*OAuthTokenRespo
 }
 
 func (s *OAuthService) session(sessionID string) (*oauthSession, error) {
+	session, err := s.readSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	valid, err := s.securityVersionMatches(session.User)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, errOAuthInvalidSession
+	}
+	return session, nil
+}
+
+func (s *OAuthService) readSession(sessionID string) (*oauthSession, error) {
 	session := new(oauthSession)
 	if err := s.readJSON(oauthKey("session", sessionID), session); err != nil {
 		if errors.Is(err, ErrOAuthAuthorizationNotFound) {
@@ -175,8 +194,24 @@ func (s *OAuthService) session(sessionID string) (*oauthSession, error) {
 	return session, nil
 }
 
+func (s *OAuthService) userSecurityVersion(uid string) (string, error) {
+	version, err := s.cache.GetString(oauthKey(oauthUserVersionKey, uid))
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	return version, err
+}
+
+func (s *OAuthService) securityVersionMatches(user OAuthUser) (bool, error) {
+	version, err := s.userSecurityVersion(user.UID)
+	if err != nil {
+		return false, err
+	}
+	return version == user.SecurityVersion, nil
+}
+
 func (s *OAuthService) deleteSession(sessionID string) error {
-	session, err := s.session(sessionID)
+	session, err := s.readSession(sessionID)
 	if errors.Is(err, errOAuthInvalidSession) {
 		return nil
 	}

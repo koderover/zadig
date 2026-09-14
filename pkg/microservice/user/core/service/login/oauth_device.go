@@ -101,6 +101,11 @@ func (s *OAuthService) DecideDeviceAuthorization(userCode, decision string, user
 	}
 	switch decision {
 	case oauthDecisionApprove:
+		user.SecurityVersion, err = s.userSecurityVersion(user.UID)
+		if err != nil {
+			_ = s.cache.Delete(decisionKey)
+			return "", err
+		}
 		device.Status, device.User = oauthDeviceStatusApproved, &user
 	case oauthDecisionDeny:
 		device.Status = oauthDeviceStatusDenied
@@ -158,6 +163,19 @@ func (s *OAuthService) ExchangeDeviceCode(deviceCode string) (*OAuthTokenRespons
 		if err := json.Unmarshal([]byte(payload), device); err != nil {
 			_ = s.cache.Delete(exchangeKey)
 			return nil, err
+		}
+		if device.User == nil {
+			_ = s.cache.Delete(exchangeKey)
+			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or expired"}
+		}
+		valid, err := s.securityVersionMatches(*device.User)
+		if err != nil {
+			_ = s.cache.Delete(exchangeKey)
+			return nil, err
+		}
+		if !valid {
+			s.deleteDevice(device)
+			return nil, &OAuthError{Code: oauthErrorExpiredToken, Description: "device code is invalid or expired"}
 		}
 		tokens, err := s.createOAuthSession(device)
 		if err != nil {

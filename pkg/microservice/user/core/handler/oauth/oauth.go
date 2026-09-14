@@ -24,7 +24,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 const (
@@ -75,9 +76,22 @@ func GetDeviceAuthorization(c *gin.Context) {
 }
 
 func DecideDeviceAuthorization(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	if ctx.UserID == "" {
+	token := c.Query("token")
+	if authorization := c.GetHeader(setting.AuthorizationHeader); authorization != "" {
+		parts := strings.Split(authorization, " ")
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" || (token != "" && token != parts[1]) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "invalid authorization token"})
+			return
+		}
+		token = parts[1]
+	}
+	if token == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authenticated user is required"})
+		return
+	}
+	claims, valid, err := permission.ValidateToken(token)
+	if err != nil || !valid || claims == nil || claims.UID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "invalid authorization token"})
 		return
 	}
 	args := new(approvalArgs)
@@ -86,11 +100,11 @@ func DecideDeviceAuthorization(c *gin.Context) {
 		return
 	}
 	status, err := login.NewOAuthService().DecideDeviceAuthorization(c.Param("userCode"), args.Decision, login.OAuthUser{
-		UID:          ctx.UserID,
-		Name:         ctx.UserName,
-		Account:      ctx.Account,
-		IdentityType: ctx.IdentityType,
-		MFAVerified:  ctx.MFAVerified,
+		UID:          claims.UID,
+		Name:         claims.Name,
+		Account:      claims.PreferredUsername,
+		IdentityType: claims.FederatedClaims.ConnectorId,
+		MFAVerified:  claims.MFAVerified,
 	})
 	if err != nil {
 		writeBrowserError(c, err)
