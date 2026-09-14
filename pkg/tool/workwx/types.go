@@ -16,7 +16,10 @@
 
 package workwx
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 const (
 	getAccessTokenAPI               = "cgi-bin/gettoken"
@@ -307,6 +310,60 @@ func approvalRelFromRecord(attr ApprovalRel) ApprovalRel {
 	default:
 		return attr
 	}
+}
+
+func ApprovalNodeDetailsEqual(left, right []*ApprovalNode) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	matchedNodes := make([]bool, len(right))
+	for _, leftNode := range left {
+		matched := false
+		for index, rightNode := range right {
+			if matchedNodes[index] || !approvalNodeEqual(leftNode, rightNode) {
+				continue
+			}
+			matchedNodes[index] = true
+			matched = true
+			break
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
+}
+
+func approvalNodeEqual(left, right *ApprovalNode) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	leftNode, rightNode := *left, *right
+	leftNode.SubNodes, rightNode.SubNodes = nil, nil
+	if !reflect.DeepEqual(leftNode, rightNode) || len(left.SubNodes) != len(right.SubNodes) {
+		return false
+	}
+
+	matchedSubNodes := make([]bool, len(right.SubNodes))
+	for _, leftSubNode := range left.SubNodes {
+		matched := false
+		for index, rightSubNode := range right.SubNodes {
+			if matchedSubNodes[index] || !reflect.DeepEqual(leftSubNode, rightSubNode) {
+				continue
+			}
+			matchedSubNodes[index] = true
+			matched = true
+			break
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
