@@ -26,7 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 )
 
-func GetServiceRuntimeResources(resources []*commonmodels.ServiceResource, namespace string, versionLessThan121 bool, informer informers.SharedInformerFactory, logger *zap.SugaredLogger) ([]*internalresource.Workload, []*internalresource.CronJob) {
+func GetServiceRuntimeResources(resources []*commonmodels.ServiceResource, namespace string, cronJobVersionLessThan121 *bool, informer informers.SharedInformerFactory, logger *zap.SugaredLogger) ([]*internalresource.Workload, []*internalresource.CronJob) {
 	workloads := make([]*internalresource.Workload, 0)
 	cronJobs := make([]*internalresource.CronJob, 0)
 	for _, resource := range resources {
@@ -36,28 +36,51 @@ func GetServiceRuntimeResources(resources []*commonmodels.ServiceResource, names
 		switch resource.Kind {
 		case setting.Deployment:
 			deployment, err := getter.GetDeploymentByNameWithCache(resource.Name, namespace, informer)
-			if err == nil {
-				workloads = append(workloads, GetDeploymentWorkloadResource(deployment, informer, logger))
+			if err != nil {
+				logger.Warnf("failed to get deployment %s/%s: %s", namespace, resource.Name, err)
+				continue
+			}
+			if workload := GetDeploymentWorkloadResource(deployment, informer, logger); workload != nil {
+				workloads = append(workloads, workload)
 			}
 		case setting.DaemonSet:
 			daemonSet, err := getter.GetDaemonSetByNameWithCache(resource.Name, namespace, informer)
-			if err == nil {
-				workloads = append(workloads, GetDaemonSetWorkloadResource(daemonSet, informer, logger))
+			if err != nil {
+				logger.Warnf("failed to get daemonset %s/%s: %s", namespace, resource.Name, err)
+				continue
+			}
+			if workload := GetDaemonSetWorkloadResource(daemonSet, informer, logger); workload != nil {
+				workloads = append(workloads, workload)
 			}
 		case setting.StatefulSet:
 			statefulSet, err := getter.GetStatefulSetByNameWWithCache(resource.Name, namespace, informer)
-			if err == nil {
-				workloads = append(workloads, getStatefulSetWorkloadResource(statefulSet, informer, logger))
+			if err != nil {
+				logger.Warnf("failed to get statefulset %s/%s: %s", namespace, resource.Name, err)
+				continue
+			}
+			if workload := getStatefulSetWorkloadResource(statefulSet, informer, logger); workload != nil {
+				workloads = append(workloads, workload)
 			}
 		case setting.Job:
 			job, err := getter.GetJobByNameWithCache(resource.Name, namespace, informer)
-			if err == nil {
-				workloads = append(workloads, getJobWorkloadResource(job, informer, logger))
+			if err != nil {
+				logger.Warnf("failed to get job %s/%s: %s", namespace, resource.Name, err)
+				continue
+			}
+			if workload := getJobWorkloadResource(job, informer, logger); workload != nil {
+				workloads = append(workloads, workload)
 			}
 		case setting.CronJob:
-			cronJob, cronJobBeta, err := getter.GetCronJobByNameWithCache(resource.Name, namespace, informer, versionLessThan121)
-			if err == nil {
-				cronJobs = append(cronJobs, getCronJobWorkLoadResource(cronJob, cronJobBeta, informer, logger))
+			if cronJobVersionLessThan121 == nil {
+				continue
+			}
+			cronJob, cronJobBeta, err := getter.GetCronJobByNameWithCache(resource.Name, namespace, informer, *cronJobVersionLessThan121)
+			if err != nil {
+				logger.Warnf("failed to get cronjob %s/%s: %s", namespace, resource.Name, err)
+				continue
+			}
+			if cronJobResource := getCronJobWorkLoadResource(cronJob, cronJobBeta, informer, logger); cronJobResource != nil {
+				cronJobs = append(cronJobs, cronJobResource)
 			}
 		}
 	}

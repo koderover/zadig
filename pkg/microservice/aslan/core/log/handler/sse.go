@@ -105,7 +105,8 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), false, true, tails, sinceSeconds, logger)
+			production := false
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), &production, true, tails, sinceSeconds, logger)
 		}, logger)
 	} else {
 		// authorization checks
@@ -127,7 +128,8 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, true, tails, sinceSeconds, logger)
+			production := true
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), &production, true, tails, sinceSeconds, logger)
 		}, logger)
 	}
 
@@ -439,7 +441,7 @@ func OpenAPIGetContainerLogsSSE(c *gin.Context) {
 	}
 
 	internalhandler.Stream(c, func(streamContext context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(streamContext, streamChan, envName, productName, podName, containerName, production, true, tails, sinceSeconds, logger)
+		logservice.ContainerLogStream(streamContext, streamChan, envName, productName, podName, containerName, &production, true, tails, sinceSeconds, logger)
 	}, logger)
 }
 
