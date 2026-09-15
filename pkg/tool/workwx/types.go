@@ -16,7 +16,9 @@
 
 package workwx
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	getAccessTokenAPI               = "cgi-bin/gettoken"
@@ -254,6 +256,144 @@ type ApprovalDetail struct {
 		UserID       string `json:"userid"`
 		DepartmentID string `json:"partyid"`
 	} `json:"applyer"`
+	Records []*ApprovalRecord `json:"sp_record"`
+}
+
+type ApprovalRecord struct {
+	Status       ApprovalNodeStatus      `json:"sp_status"`
+	ApproverAttr ApprovalRel             `json:"approverattr"`
+	Details      []*ApprovalRecordDetail `json:"details"`
+}
+
+type ApprovalRecordDetail struct {
+	Approver struct {
+		UserID string `json:"userid"`
+	} `json:"approver"`
+	Speech    string                `json:"speech"`
+	Status    ApprovalSubNodeStatus `json:"sp_status"`
+	Timestamp int64                 `json:"sptime"`
+}
+
+func PendingApprovalNodeDetails(nodes []*ApprovalNode) []*ApprovalNode {
+	details := make([]*ApprovalNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+
+		detail := &ApprovalNode{
+			Type:     node.Type,
+			ApvRel:   node.ApvRel,
+			Status:   ApprovalNodeStatusWaiting,
+			SubNodes: make([]*ApprovalSubNode, 0, len(node.UserID)),
+		}
+		for _, userID := range node.UserID {
+			subNode := &ApprovalSubNode{Status: ApprovalSubNodeStatusWaiting}
+			subNode.UserInfo.UserID = userID
+			detail.SubNodes = append(detail.SubNodes, subNode)
+		}
+		details = append(details, detail)
+	}
+
+	return details
+}
+
+func approvalRelFromRecord(attr ApprovalRel) ApprovalRel {
+	// sp_record.approverattr uses 1 for OR and 2 for AND, while
+	// process.apv_rel (and Zadig) uses 1 for AND and 2 for OR.
+	switch attr {
+	case ApprovalRelAnd:
+		return ApprovalRelOr
+	case ApprovalRelOr:
+		return ApprovalRelAnd
+	default:
+		return attr
+	}
+}
+
+func ApprovalNodeDetailsEqual(left, right []*ApprovalNode) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	matchedNodes := make([]bool, len(right))
+	for _, leftNode := range left {
+		matched := false
+		for index, rightNode := range right {
+			if matchedNodes[index] || !approvalNodeEqual(leftNode, rightNode) {
+				continue
+			}
+			matchedNodes[index] = true
+			matched = true
+			break
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
+}
+
+func approvalNodeEqual(left, right *ApprovalNode) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	if left.Type != right.Type || left.ApvRel != right.ApvRel || left.Status != right.Status || len(left.SubNodes) != len(right.SubNodes) {
+		return false
+	}
+
+	for i := range left.SubNodes {
+		if !approvalSubNodeEqual(left.SubNodes[i], right.SubNodes[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func approvalSubNodeEqual(left, right *ApprovalSubNode) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.UserInfo.UserID == right.UserInfo.UserID &&
+		left.Speech == right.Speech &&
+		left.Status == right.Status &&
+		left.Timestamp == right.Timestamp
+}
+
+func (d *ApprovalDetail) ApprovalNodeDetails() []*ApprovalNode {
+	nodes := make([]*ApprovalNode, 0, len(d.Records))
+	for _, record := range d.Records {
+		if record == nil {
+			continue
+		}
+
+		node := &ApprovalNode{
+			Type:     ApprovalTypeApprove,
+			ApvRel:   approvalRelFromRecord(record.ApproverAttr),
+			Status:   record.Status,
+			SubNodes: make([]*ApprovalSubNode, 0, len(record.Details)),
+		}
+		for _, detail := range record.Details {
+			if detail == nil {
+				continue
+			}
+
+			subNode := &ApprovalSubNode{
+				Speech:    detail.Speech,
+				Status:    detail.Status,
+				Timestamp: detail.Timestamp,
+			}
+			subNode.UserInfo.UserID = detail.Approver.UserID
+			node.SubNodes = append(node.SubNodes, subNode)
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes
 }
 
 type EncryptedWebhookMessage struct {
