@@ -119,6 +119,42 @@ func filterWorkflowEnvironmentOptions(workflow *commonmodels.WorkflowV4, permiss
 	return nil
 }
 
+func validateWorkflowEnvironmentJobs(jobs []*commonmodels.Job, permission *workflowEnvironmentPermission) error {
+	if permission == nil {
+		return nil
+	}
+	for _, job := range jobs {
+		if job == nil || job.Skipped || !isEnvironmentJob(job.JobType) {
+			continue
+		}
+		spec, err := workflowJobSpec(job)
+		if err != nil {
+			return err
+		}
+		production, _ := spec["production"].(bool)
+		environment := environmentFromJobSpec(job.JobType, spec)
+		if environment != "" && !permission.isAllowed(environment, production) {
+			return fmt.Errorf("workflow task execution denied: job %s cannot use environment %s without environment permission", job.Name, environment)
+		}
+	}
+	return nil
+}
+
+func validateWorkflowEnvironmentSelection(workflow *commonmodels.WorkflowV4, permission *workflowEnvironmentPermission) error {
+	if workflow == nil {
+		return nil
+	}
+	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		if err := validateWorkflowEnvironmentJobs(stage.Jobs, permission); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func hasEnvironmentJob(workflow *commonmodels.WorkflowV4) bool {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {

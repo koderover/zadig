@@ -348,7 +348,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.CloneWorkflowTaskV4(workflowName, taskID, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CloneWorkflowTaskV4(workflowName, taskID, false, ctx.UserID, ctx.Logger)
 }
 
 func ViewWorkflowTaskV4(c *gin.Context) {
@@ -388,7 +388,7 @@ func ViewWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.CloneWorkflowTaskV4(workflowName, taskID, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CloneWorkflowTaskV4(workflowName, taskID, true, ctx.UserID, ctx.Logger)
 }
 
 func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
@@ -428,7 +428,7 @@ func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.GetManualExecWorkflowTaskV4Info(workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetManualExecWorkflowTaskV4Info(workflowName, taskID, ctx.UserID, ctx.Logger)
 }
 
 func RetryWorkflowTaskV4(c *gin.Context) {

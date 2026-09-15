@@ -704,6 +704,15 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
 	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(args.UserID, workflowCtrl.WorkflowV4)
+	if err != nil {
+		log.Errorf("failed to get environment permission for workflow task, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
+	if err := validateWorkflowEnvironmentSelection(workflowCtrl.WorkflowV4, environmentPermission); err != nil {
+		log.Errorf("failed to validate workflow environment permission, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
 	if err := commonutil.FilterWorkflowPayloadVariables(workflow); err != nil {
 		log.Errorf("filter workflow payload variables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
@@ -1012,7 +1021,7 @@ func buildWorkflowTaskRuntimeContext(task *commonmodels.WorkflowTask) (map[strin
 	return resp, nil
 }
 
-func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, userID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	originWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("find workflowV4 error: %s", err)
@@ -1040,10 +1049,19 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(userID, workflowCtrl.WorkflowV4)
+	if err != nil {
+		log.Errorf("failed to get environment permission for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddErr(err)
+	}
+	if err := filterWorkflowEnvironmentOptions(workflowCtrl.WorkflowV4, environmentPermission); err != nil {
+		log.Errorf("failed to filter environment options for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddErr(err)
+	}
 	return workflowCtrl.WorkflowV4, nil
 }
 
-func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, userID string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		logger.Errorf("find workflowV4 error: %s", err)
@@ -1065,6 +1083,15 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 	if err != nil {
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(userID, task.OriginWorkflowArgs)
+	if err != nil {
+		log.Errorf("failed to get environment permission for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrCloneTask.AddErr(err)
+	}
+	if err := filterWorkflowEnvironmentOptions(task.OriginWorkflowArgs, environmentPermission); err != nil {
+		log.Errorf("failed to filter environment options for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrCloneTask.AddErr(err)
 	}
 
 	task.OriginWorkflowArgs.NotifyCtls = originalWorkflow.NotifyCtls
@@ -1242,6 +1269,13 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 	if err := validateManualExecRequest(task, stageName, executorID, isSystemAdmin); err != nil {
 		return err
+	}
+	environmentPermission, err := getWorkflowEnvironmentPermission(executorID, task.WorkflowArgs)
+	if err != nil {
+		return e.ErrCreateTask.AddErr(err)
+	}
+	if err := validateWorkflowEnvironmentJobs(jobs, environmentPermission); err != nil {
+		return e.ErrCreateTask.AddErr(err)
 	}
 	return manualExecWorkflowTaskV4(task, workflowName, taskID, stageName, jobs, executorID, executorName, logger)
 }

@@ -78,7 +78,7 @@ func OpenAPIManualExecWorkflowTaskV4(workflowName, projectKey string, taskID int
 	if task.ProjectName != projectKey {
 		return errors.Errorf("workflow task project %s does not match projectKey %s", task.ProjectName, projectKey)
 	}
-	workflow, err := GetManualExecWorkflowTaskV4Info(workflowName, taskID, logger)
+	workflow, err := GetManualExecWorkflowTaskV4Info(workflowName, taskID, executorID, logger)
 	if err != nil {
 		return err
 	}
