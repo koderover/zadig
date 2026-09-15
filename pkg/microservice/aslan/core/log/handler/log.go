@@ -68,7 +68,7 @@ func GetContainerLogs(c *gin.Context) {
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(ctx1, streamChan, envName, productName, podName, containerName, c.Query("production") == "true", follow, tailLines, nil, ctx.Logger)
+		logservice.ContainerLogStream(ctx1, streamChan, envName, productName, podName, containerName, nil, follow, tailLines, nil, ctx.Logger)
 	}, ctx.Logger)
 }
 

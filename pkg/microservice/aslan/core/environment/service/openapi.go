@@ -17,11 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
+	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -194,7 +196,7 @@ func getHelmServiceRuntimeResources(env *commonmodels.Product, serviceName strin
 	}
 
 	releaseName := productService.ReleaseName
-	if productService.FromZadig() {
+	if releaseName == "" && productService.FromZadig() {
 		serviceReleaseNames, err := commonutil.GetServiceNameToReleaseNameMap(env)
 		if err != nil {
 			return nil, e.ErrGetService.AddErr(err)
@@ -204,6 +206,14 @@ func getHelmServiceRuntimeResources(env *commonmodels.Product, serviceName strin
 	if releaseName == "" {
 		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("release name is empty for service %s", serviceName))
 	}
+	serviceResp := &commonservice.SvcResp{
+		ServiceName: serviceName,
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+		Namespace:   env.Namespace,
+		EnvName:     env.EnvName,
+		ProductName: env.ProductName,
+	}
 
 	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
 	if err != nil {
@@ -211,6 +221,9 @@ func getHelmServiceRuntimeResources(env *commonmodels.Product, serviceName strin
 	}
 	release, err := helmClient.GetRelease(releaseName)
 	if err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return serviceResp, nil
+		}
 		return nil, e.ErrGetService.AddErr(err)
 	}
 	resources, err := kube.ManifestToResource(release.Manifest)
@@ -222,32 +235,28 @@ func getHelmServiceRuntimeResources(env *commonmodels.Product, serviceName strin
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
-	versionLessThan121 := false
+	var cronJobVersionLessThan121 *bool
 	for _, resource := range resources {
 		if resource == nil || resource.Kind != setting.CronJob {
 			continue
 		}
 		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 		if err != nil {
-			return nil, e.ErrGetService.AddErr(err)
+			logger.Warnf("failed to get Kubernetes clientset, skipping CronJob resources: %s", err)
+			break
 		}
 		version, err := clientset.Discovery().ServerVersion()
 		if err != nil {
-			return nil, e.ErrGetService.AddErr(err)
+			logger.Warnf("failed to determine Kubernetes server version, skipping CronJob resources: %s", err)
+			break
 		}
-		versionLessThan121 = kubeclient.VersionLessThan121(version)
+		versionLessThan121 := kubeclient.VersionLessThan121(version)
+		cronJobVersionLessThan121 = &versionLessThan121
 		break
 	}
 
-	workloads, cronJobs := commonservice.GetServiceRuntimeResources(resources, env.Namespace, versionLessThan121, informer, logger)
-	return &commonservice.SvcResp{
-		ServiceName: serviceName,
-		Scales:      workloads,
-		CronJobs:    cronJobs,
-		Namespace:   env.Namespace,
-		EnvName:     env.EnvName,
-		ProductName: env.ProductName,
-	}, nil
+	serviceResp.Scales, serviceResp.CronJobs = commonservice.GetServiceRuntimeResources(resources, env.Namespace, cronJobVersionLessThan121, informer, logger)
+	return serviceResp, nil
 }
 
 func buildOpenAPIListServicePodsResponse(serviceName string, serviceResp *commonservice.SvcResp) *OpenAPIListServicePodsResponse {
@@ -286,6 +295,8 @@ func appendOpenAPIServicePods(resp *OpenAPIListServicePodsResponse, seen map[str
 		for _, container := range pod.Containers {
 			images = append(images, container.Image)
 		}
+		// Keep an empty container list encoded as [] instead of null.
+		containers := append([]internalresource.Container{}, pod.Containers...)
 		resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
 			PodName:         pod.Name,
 			Status:          pod.Status,
@@ -294,7 +305,7 @@ func appendOpenAPIServicePods(resp *OpenAPIListServicePodsResponse, seen map[str
 			CreateTime:      pod.CreateTime,
 			IP:              pod.IP,
 			Images:          images,
-			Containers:      append([]internalresource.Container{}, pod.Containers...),
+			Containers:      containers,
 			WorkloadName:    workloadName,
 			WorkloadType:    workloadType,
 		})
