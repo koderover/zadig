@@ -74,6 +74,9 @@ func CreateCustomWorkflowTask(username, userID string, args *OpenAPICreateCustom
 	if err := updateOpenAPIWorkflowJobs(workflow, args.Inputs); err != nil {
 		return nil, e.ErrInvalidParam.AddErr(err)
 	}
+	if err := validateOpenAPIDeploySources(workflow); err != nil {
+		return nil, e.ErrInvalidParam.AddErr(err)
+	}
 	if err := ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowController, log); err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
@@ -121,6 +124,50 @@ func updateOpenAPIWorkflowJobs(workflow *commonmodels.WorkflowV4, inputs []*Crea
 	}
 	for name := range inputMap {
 		return fmt.Errorf("job not found in workflow: %s", name)
+	}
+	return nil
+}
+
+func validateOpenAPIDeploySources(workflow *commonmodels.WorkflowV4) error {
+	type sourceRef struct {
+		Source        config.DeploySourceType `json:"source"`
+		JobName       string                  `json:"job_name"`
+		OriginJobName string                  `json:"origin_job_name"`
+	}
+	jobs := make(map[string]*commonmodels.Job)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			jobs[job.Name] = job
+		}
+	}
+
+	for _, job := range jobs {
+		if job.Skipped || job.JobType != config.JobZadigDeploy {
+			continue
+		}
+		var spec sourceRef
+		if err := commonmodels.IToi(job.Spec, &spec); err != nil {
+			return fmt.Errorf("decode deploy job %s source: %w", job.Name, err)
+		}
+		seen := make(map[string]bool)
+		for spec.Source == config.SourceFromJob {
+			sourceName := spec.JobName
+			if spec.OriginJobName != "" {
+				sourceName = spec.OriginJobName
+			}
+			if seen[sourceName] {
+				return fmt.Errorf("deploy job %s has a cyclic source job reference to %s", job.Name, sourceName)
+			}
+			seen[sourceName] = true
+			sourceJob, ok := jobs[sourceName]
+			if !ok || sourceJob.Skipped {
+				return fmt.Errorf("deploy job %s references source job %s that is not selected", job.Name, sourceName)
+			}
+			spec = sourceRef{}
+			if err := commonmodels.IToi(sourceJob.Spec, &spec); err != nil {
+				return fmt.Errorf("decode source job %s: %w", sourceName, err)
+			}
+		}
 	}
 	return nil
 }
