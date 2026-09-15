@@ -179,7 +179,7 @@ func OpenAPIListServicePods(projectName, envName, serviceName string, production
 	if env.Source == setting.SourceFromHelm {
 		serviceResp, err = getHelmServiceRuntimeResources(env, serviceName, logger)
 	} else {
-		serviceResp, err = GetService(envName, projectName, serviceName, production, "", logger)
+		serviceResp, err = getService(env, serviceName, "", logger)
 	}
 	if err != nil {
 		return nil, err
