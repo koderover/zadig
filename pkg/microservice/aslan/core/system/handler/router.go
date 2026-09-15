@@ -639,6 +639,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	softwarePackages := router.Group("software_packages")
+	{
+		softwarePackages.GET("", OpenAPIListSoftwarePackages)
+	}
+
 	customImage := router.Group("custom_image")
 	{
 		customImage.GET("", OpenAPIListCustomImages)
