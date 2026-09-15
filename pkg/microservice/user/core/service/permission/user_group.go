@@ -255,8 +255,41 @@ func UpdateUserGroupInfo(groupID, name, description string, logger *zap.SugaredL
 }
 
 func DeleteUserGroup(groupID string, logger *zap.SugaredLogger) error {
+	users, err := orm.ListUsersByGroup(groupID, repository.DB)
+	if err != nil {
+		logger.Errorf("failed to list users in user group: %s, error: %s", groupID, err)
+		return err
+	}
+
 	// if no role is assigned to a user group, do a deletion
-	return orm.DeleteUserGroup(groupID, repository.DB)
+	if err := orm.DeleteUserGroup(groupID, repository.DB); err != nil {
+		logger.Errorf("failed to delete user group: %s, error: %s", groupID, err)
+		return err
+	}
+
+	userCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, groupID)
+	if err := userCache.Delete(gidRoleKey); err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(gidRoleKey, userCache)
+
+	for _, user := range users {
+		userGroupKey := fmt.Sprintf(userconfig.UserGroupCacheKeyFormat, user.UID)
+		if err := userCache.Delete(userGroupKey); err != nil {
+			log.Warnf("failed to flush uid: %s's group id cache, error: %s", user.UID, err)
+		}
+		go func(key string, redisCache *cache.RedisCache) {
+			time.Sleep(2 * time.Second)
+			redisCache.Delete(key)
+		}(userGroupKey, userCache)
+	}
+
+	return nil
 }
 
 func BulkAddUserToUserGroup(groupID string, uids []string, logger *zap.SugaredLogger) error {
