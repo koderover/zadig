@@ -183,33 +183,36 @@ func jobManagerAuth(planName, planManageID string, job *models.ReleaseJob, userN
 		return nil
 	}
 
-	if job.ManagerID == userID {
-		return nil
-	}
-	for _, managerID := range job.ManagerIDs {
-		if managerID == userID {
-			return nil
-		}
-	}
-	if len(job.ManagerGroupIDs) > 0 {
-		groups, err := user.New().GetUserGroupsByUid(userID)
-		if err != nil {
-			return errors.Wrap(err, "get user groups")
-		}
-		if groups != nil {
-			groupIDs := make(map[string]struct{}, len(groups.GroupList))
-			for _, group := range groups.GroupList {
-				groupIDs[group.ID] = struct{}{}
+	if len(job.ManagerIDs) > 0 || len(job.ManagerGroupIDs) > 0 {
+		for _, managerID := range job.ManagerIDs {
+			if managerID == userID {
+				return nil
 			}
-			for _, managerGroupID := range job.ManagerGroupIDs {
-				if _, ok := groupIDs[managerGroupID]; ok {
-					return nil
+		}
+		if len(job.ManagerGroupIDs) > 0 {
+			groups, err := user.New().GetUserGroupsByUid(userID)
+			if err != nil {
+				return errors.Wrap(err, "get user groups")
+			}
+			if groups != nil {
+				groupIDs := make(map[string]struct{}, len(groups.GroupList))
+				for _, group := range groups.GroupList {
+					groupIDs[group.ID] = struct{}{}
+				}
+				for _, managerGroupID := range job.ManagerGroupIDs {
+					if _, ok := groupIDs[managerGroupID]; ok {
+						return nil
+					}
 				}
 			}
 		}
+		return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
 	}
 
-	if job.ManagerID != "" || len(job.ManagerIDs) > 0 || len(job.ManagerGroupIDs) > 0 {
+	if job.ManagerID != "" {
+		if job.ManagerID == userID {
+			return nil
+		}
 		return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
 	}
 	if planManageID == "" {

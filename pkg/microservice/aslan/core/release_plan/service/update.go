@@ -381,6 +381,11 @@ func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobU
 		return nil, errors.Wrap(err, "invalid spec")
 	}
 	updater.ownerFields = releaseJobOwnerFieldPresence(args.Spec)
+	ownerFieldsSet := updater.ownerFields.manager || updater.ownerFields.managerID || updater.ownerFields.managerIDs || updater.ownerFields.managerGroupIDs
+	ownerFieldsComplete := updater.ownerFields.manager && updater.ownerFields.managerID && updater.ownerFields.managerIDs && updater.ownerFields.managerGroupIDs
+	if ownerFieldsSet && !ownerFieldsComplete {
+		return nil, errors.New("manager, manager_id, manager_ids and manager_group_ids must be provided together")
+	}
 	return &updater, nil
 }
 
@@ -391,14 +396,11 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			if u.ownerFields.managerIDs || u.ownerFields.managerGroupIDs {
+			if u.ownerFields.manager {
 				job.Manager = u.Manager
 				job.ManagerID = u.ManagerID
 				job.ManagerIDs = u.ManagerIDs
 				job.ManagerGroupIDs = u.ManagerGroupIDs
-			} else if u.ownerFields.manager || u.ownerFields.managerID {
-				job.Manager = u.Manager
-				job.ManagerID = u.ManagerID
 			}
 			job.Spec = u.Spec
 			job.Updated = true
