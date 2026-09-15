@@ -576,12 +576,14 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 		if err != nil {
 			return errors.Wrap(err, "parse release job")
 		}
-		ownerFields := releaseJobOwnerFieldPresence(args.Spec)
+		if !updater.ownerFields.manager {
+			break
+		}
 		for _, job := range plan.Jobs {
 			if job.ID != updater.ID {
 				continue
 			}
-			ownerChanged = releaseJobOwnerChanged(job, updater, ownerFields)
+			ownerChanged = releaseJobOwnerChanged(job, updater)
 			break
 		}
 	}
@@ -619,27 +621,17 @@ func releaseJobOwnerFieldPresence(spec interface{}) releaseJobOwnerFields {
 	return releaseJobOwnerFields{manager: manager, managerID: managerID, managerIDs: managerIDs, managerGroupIDs: managerGroupIDs}
 }
 
-func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater, fields releaseJobOwnerFields) bool {
-	if fields.manager && updater.Manager != job.Manager {
+func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater) bool {
+	if updater.Manager != job.Manager {
 		return true
 	}
-	if fields.managerID && updater.ManagerID != job.ManagerID {
+	if updater.ManagerID != job.ManagerID {
 		return true
 	}
-	if fields.managerIDs && !sameReleaseJobOwnerIDs(updater.ManagerIDs, effectiveManagerIDs(job)) {
+	if !sameReleaseJobOwnerIDs(updater.ManagerIDs, job.ManagerIDs) {
 		return true
 	}
-	return fields.managerGroupIDs && !sameReleaseJobOwnerIDs(updater.ManagerGroupIDs, job.ManagerGroupIDs)
-}
-
-func effectiveManagerIDs(job *models.ReleaseJob) []string {
-	if len(job.ManagerIDs) > 0 {
-		return job.ManagerIDs
-	}
-	if job.ManagerID != "" {
-		return []string{job.ManagerID}
-	}
-	return nil
+	return !sameReleaseJobOwnerIDs(updater.ManagerGroupIDs, job.ManagerGroupIDs)
 }
 
 func sameReleaseJobOwnerIDs(left, right []string) bool {

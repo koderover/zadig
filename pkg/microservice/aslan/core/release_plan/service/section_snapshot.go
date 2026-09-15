@@ -409,11 +409,21 @@ func buildReleasePlanJobInputSnapshot(job *models.ReleaseJob) (interface{}, erro
 		"name":              job.Name,
 		"manager":           job.Manager,
 		"manager_id":        job.ManagerID,
-		"manager_ids":       job.ManagerIDs,
-		"manager_group_ids": job.ManagerGroupIDs,
+		"manager_ids":       normalizeReleasePlanOwnerIDsForSnapshot(job.ManagerIDs),
+		"manager_group_ids": normalizeReleasePlanOwnerIDsForSnapshot(job.ManagerGroupIDs),
 		"type":              job.Type,
 		"spec":              spec,
 	}, nil
+}
+
+func normalizeReleasePlanOwnerIDsForSnapshot(ids []string) interface{} {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	normalized := append([]string(nil), ids...)
+	sort.Strings(normalized)
+	return sanitizeReleasePlanValue(normalized)
 }
 
 func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interface{}) (interface{}, error) {
