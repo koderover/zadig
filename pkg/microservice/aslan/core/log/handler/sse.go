@@ -105,7 +105,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), false, true, tails, sinceSeconds, logger)
 		}, logger)
 	} else {
 		// authorization checks
@@ -127,7 +127,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 		}
 
 		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, true, tails, sinceSeconds, logger)
 		}, logger)
 	}
 
@@ -331,28 +331,115 @@ func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 }
 
 // OpenAPIGetContainerLogsSSE streams container logs via SSE (OpenAPI).
-// Query params: envName, projectKey, tails (default 10), since (optional, e.g. 5m, 1h; Go duration).
+// @Summary 获取 Pod 容器日志
+// @Description 通过 SSE 获取指定 Pod 容器的日志
+// @Tags OpenAPI
+// @Produce text/event-stream
+// @Param podName path string true "Pod 名称"
+// @Param containerName path string true "容器名称"
+// @Param projectKey query string true "项目标识"
+// @Param envName query string true "环境标识"
+// @Param production query bool false "是否为生产环境"
+// @Param tails query int false "返回的日志行数，默认 200"
 // @Param since query string false "Only logs from the last duration, e.g. 5m, 1h (time.ParseDuration format)"
+// @Success 200 {string} string
+// @Router /openapi/logs/sse/pods/{podName}/containers/{containerName} [get]
 func OpenAPIGetContainerLogsSSE(c *gin.Context) {
 	logger := ginzap.WithContext(c).Sugar()
-
-	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		tails = int64(10)
-	}
-	sinceSeconds, err := parseSinceSeconds(c.Query("since"))
-	if err != nil {
-		ctx := internalhandler.NewContext(c)
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	envName := c.Query("envName")
 	productName := c.Query("projectKey")
+	podName := c.Param("podName")
+	containerName := c.Param("containerName")
+	if productName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+	if podName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+	if containerName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("containerName is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
 
-	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, sinceSeconds, logger)
+	tails := int64(200)
+	if value := c.Query("tails"); value != "" {
+		tails, err = strconv.ParseInt(value, 10, 64)
+		if err != nil || tails <= 0 {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("tails must be a positive integer")
+			internalhandler.JSONResponse(c, ctx)
+			return
+		}
+	}
+	sinceSeconds, err := parseSinceSeconds(c.Query("since"))
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	production := false
+	if value := c.Query("production"); value != "" {
+		production, err = strconv.ParseBool(value)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("production must be a boolean")
+			internalhandler.JSONResponse(c, ctx)
+			return
+		}
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectAuth, ok := ctx.Resources.ProjectAuthInfo[productName]
+		if !ok {
+			ctx.UnAuthorized = true
+			internalhandler.JSONResponse(c, ctx)
+			return
+		}
+		if production {
+			if !projectAuth.IsProjectAdmin && !projectAuth.ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					internalhandler.JSONResponse(c, ctx)
+					return
+				}
+			}
+		} else if !projectAuth.IsProjectAdmin && !projectAuth.Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				internalhandler.JSONResponse(c, ctx)
+				return
+			}
+		}
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			internalhandler.JSONResponse(c, ctx)
+			return
+		}
+	}
+
+	internalhandler.Stream(c, func(streamContext context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(streamContext, streamChan, envName, productName, podName, containerName, production, true, tails, sinceSeconds, logger)
 	}, logger)
 }
 
