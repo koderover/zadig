@@ -714,7 +714,7 @@ func CloneSprintWorkItemTask(ctx *handler.Context, workitemTaskID string) (*Clon
 	}
 	resp.SprintWorkItemIDs = task.SprintWorkItemIDs
 
-	workflow, err := workflowservice.CloneWorkflowTaskV4(task.WorkflowName, task.WorkflowTaskID, false, ctx.Logger)
+	workflow, err := workflowservice.CloneWorkflowTaskV4(task.WorkflowName, task.WorkflowTaskID, false, ctx.UserID, ctx.Logger)
 	if err != nil {
 		return nil, e.ErrCloneSprintWorkItemTask.AddErr(errors.Wrapf(err, "Clone workflow task %s/%d", task.WorkflowName, task.WorkflowTaskID))
 	}
