@@ -657,6 +657,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		reg.POST("", OpenAPICreateRegistry)
 		reg.GET("", OpenAPIListRegistry)
+		reg.GET("/project", OpenAPIListProjectRegistry)
 		reg.GET("/:id", OpenAPIGetRegistry)
 		reg.PUT("/:id", OpenAPIUpdateRegistry)
 	}
