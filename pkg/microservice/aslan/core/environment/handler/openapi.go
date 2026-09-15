@@ -29,10 +29,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
@@ -58,6 +60,13 @@ func generalOpenAPIRequestValidate(c *gin.Context) (string, string, error) {
 		return "", "", errors.New("envKey can't be empty")
 	}
 	return projectName, envName, nil
+}
+
+func openAPIProjectLookupError(projectKey string, err error) error {
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return e.NewWithDesc(e.ErrNotFound, fmt.Sprintf("%s: %s", e.ProductNotFoundErrMsg, projectKey))
+	}
+	return e.NewWithDesc(e.ErrGetProduct, err.Error())
 }
 
 func OpenAPIScaleWorkloads(c *gin.Context) {
@@ -1150,21 +1159,48 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 }
 
 func OpenAPIGetEnvDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
+		if !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !projectInfo.IsProjectAdmin && !projectInfo.Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIGetProductionEnvDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
@@ -1172,10 +1208,25 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		ctx.RespErr = err
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
+		if !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !projectInfo.IsProjectAdmin && !projectInfo.ProductionEnv.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, true, ctx.Logger)
@@ -1513,6 +1564,11 @@ func OpenAPIListEnvs(c *gin.Context) {
 		return
 	}
 
+	if _, err := templaterepo.NewProductColl().Find(projectKey); err != nil {
+		ctx.RespErr = openAPIProjectLookupError(projectKey, err)
+		return
+	}
+
 	hasPermission := false
 	envFilter := make([]string, 0)
 
@@ -1534,7 +1590,7 @@ func OpenAPIListEnvs(c *gin.Context) {
 	}
 
 	if !hasPermission {
-		ctx.Resp = []*service.OpenAPIListEnvBrief{}
+		ctx.UnAuthorized = true
 		return
 	}
 
@@ -1554,6 +1610,11 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+
+	if _, err := templaterepo.NewProductColl().Find(projectKey); err != nil {
+		ctx.RespErr = openAPIProjectLookupError(projectKey, err)
 		return
 	}
 
@@ -1578,7 +1639,7 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	}
 
 	if !hasPermission {
-		ctx.Resp = []*service.OpenAPIListEnvBrief{}
+		ctx.UnAuthorized = true
 		return
 	}
 
