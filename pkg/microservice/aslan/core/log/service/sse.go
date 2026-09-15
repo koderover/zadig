@@ -90,8 +90,8 @@ const (
 	LogTypeDeploy    LogType = "deploy"
 )
 
-func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, sinceSeconds *int64, log *zap.SugaredLogger) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, production, follow bool, tailLines int64, sinceSeconds *int64, log *zap.SugaredLogger) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: &production})
 	if err != nil {
 		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
 		return
