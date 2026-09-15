@@ -1174,6 +1174,11 @@ func OpenAPIGetEnvDetail(c *gin.Context) {
 		return
 	}
 
+	if _, err := templaterepo.NewProductColl().Find(projectName); err != nil {
+		ctx.RespErr = openAPIProjectLookupError(projectName, err)
+		return
+	}
+
 	if !ctx.Resources.IsSystemAdmin {
 		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
 		if !ok {
@@ -1208,6 +1213,11 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 		return
 	}
 
+	if _, err := templaterepo.NewProductColl().Find(projectName); err != nil {
+		ctx.RespErr = openAPIProjectLookupError(projectName, err)
+		return
+	}
+
 	if !ctx.Resources.IsSystemAdmin {
 		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
 		if !ok {
@@ -1221,12 +1231,12 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 				return
 			}
 		}
+	}
 
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.RespErr = err
-			return
-		}
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, true, ctx.Logger)
@@ -1633,7 +1643,7 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	}
 
 	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectKey)
-	if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
+	if !hasPermission && permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
 		hasPermission = true
 		envFilter = permittedEnv.ReadEnvList
 	}
