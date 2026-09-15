@@ -19,7 +19,6 @@ package workflow
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -247,7 +246,6 @@ func OpenAPIPrepareCustomWorkflowTask(projectKey, workflowKey, userID, username 
 	if err != nil {
 		return nil, err
 	}
-	workflow.NotifyCtls = nil
 	codehosts, err := mongodb.NewCodehostColl().AvailableCodeHost(projectKey)
 	if err != nil {
 		return nil, err
@@ -269,17 +267,17 @@ func OpenAPIPrepareCustomWorkflowTask(projectKey, workflowKey, userID, username 
 	if err := commonmodels.IToi(workflow, &resp); err != nil {
 		return nil, err
 	}
-	if err := sanitizeOpenAPIWorkflowPreset(resp, codehostNames, ambiguousCodehostNames); err != nil {
+	if err := normalizeOpenAPIWorkflowPreset(resp, codehostNames, ambiguousCodehostNames); err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	return resp, nil
 }
 
-func sanitizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]string, ambiguousCodehostNames map[string]struct{}) error {
+func normalizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]string, ambiguousCodehostNames map[string]struct{}) error {
 	switch value := value.(type) {
 	case []interface{}:
 		for _, item := range value {
-			if err := sanitizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
+			if err := normalizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
 				return err
 			}
 		}
@@ -300,52 +298,13 @@ func sanitizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]stri
 			}
 			value["codehost_name"] = codehostName
 		}
-		if credential, _ := value["is_credential"].(bool); credential {
-			paramType, _ := value["type"].(string)
-			switch paramType {
-			case "multi-select":
-				choiceValue, _ := value["choice_value"].([]interface{})
-				value["has_value"] = len(choiceValue) > 0
-			case "file":
-				fileID, _ := value["file_id"].(string)
-				filePath, _ := value["file_path"].(string)
-				value["has_value"] = fileID != "" || filePath != ""
-			default:
-				credentialValue, _ := value["value"].(string)
-				defaultValue, _ := value["default"].(string)
-				value["has_value"] = credentialValue != "" || defaultValue != ""
-			}
-			value["value"], value["default"], value["file_id"], value["file_path"] = "", "", "", ""
-			value["choice_value"] = []interface{}{}
-			value["choice_option"] = []interface{}{}
-		}
-		if _, hasToken := value["token"]; hasToken {
-			if _, hasAddress := value["address"]; hasAddress {
-				value["address"] = ""
-			}
-		}
-		for key := range value {
-			if isOpenAPIWorkflowPresetCredential(key) {
-				value[key] = ""
-			}
-		}
 		for _, item := range value {
-			if err := sanitizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
+			if err := normalizeOpenAPIWorkflowPreset(item, codehostNames, ambiguousCodehostNames); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-func isOpenAPIWorkflowPresetCredential(key string) bool {
-	key = strings.ToLower(key)
-	switch key {
-	case "password", "token", "access_key", "secret_key", "ak", "sk", "api_key", "private_key", "ssh_key", "hook_address":
-		return true
-	}
-	return strings.HasSuffix(key, "_password") || strings.HasSuffix(key, "_token") ||
-		strings.HasSuffix(key, "_secret") || strings.HasSuffix(key, "_webhook")
 }
 
 func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*OpenAPIWorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
