@@ -46,16 +46,23 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
-		if raw != "" {
-			path = path + "?" + raw
+		oauthRequest := strings.HasPrefix(path, "/oauth/") || strings.HasPrefix(path, "/api/oauth/")
+		if oauthRequest {
+			if strings.HasPrefix(path, "/api/oauth/device/authorizations/") {
+				path = "/api/oauth/device/authorizations/:userCode"
+				if strings.HasSuffix(c.Request.URL.Path, "/approval") {
+					path += "/approval"
+				}
+			}
+		} else if raw := c.Request.URL.RawQuery; raw != "" {
+			path += "?" + raw
 		}
 
 		var body []byte
 		headers := make(map[string]string)
 		// request body is a ReadCloser, it can be read only once.
 		if c.Request != nil {
-			if c.Request.Body != nil {
+			if c.Request.Body != nil && !oauthRequest {
 				var buf bytes.Buffer
 				tee := io.TeeReader(c.Request.Body, &buf)
 				body, _ = ioutil.ReadAll(tee)
