@@ -49,7 +49,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflowservice.CreateCustomWorkflowTask(ctx.UserName, ctx.UserID, args, ctx.Logger)
 }
 
-func OpenAPIPrepareCustomWorkflowTask(c *gin.Context) {
+func OpenAPIGetCustomWorkflowTaskPreset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -66,7 +66,7 @@ func OpenAPIPrepareCustomWorkflowTask(c *gin.Context) {
 	if !authorizeWorkflowRun(ctx, projectKey, workflowKey) {
 		return
 	}
-	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIPrepareCustomWorkflowTask(projectKey, workflowKey, ctx.UserID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowTaskPreset(projectKey, workflowKey, ctx.UserID, ctx.UserName, ctx.Logger)
 }
 
 func authorizeWorkflowRun(ctx *internalhandler.Context, projectKey, workflowKey string) bool {
