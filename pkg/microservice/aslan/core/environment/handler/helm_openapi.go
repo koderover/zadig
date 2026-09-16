@@ -49,6 +49,7 @@ func OpenAPIGetHelmServiceValues(c *gin.Context) {
 
 func OpenAPIGetHelmReleaseValues(c *gin.Context) {
 	production := c.Query("production") == "true"
+	allValues := c.Query("all_values") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -60,7 +61,7 @@ func OpenAPIGetHelmReleaseValues(c *gin.Context) {
 	if !valid || !validateOpenAPIHelmServiceType(c, ctx) || !authorizeOpenAPIHelmValues(ctx, projectKey, envName, production, false) || !checkOpenAPIHelmValuesLicense(ctx, production) {
 		return
 	}
-	values, err := commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
+	values, err := commonservice.GetChartValues(projectKey, envName, serviceName, false, production, allValues)
 	if err != nil {
 		ctx.RespErr = e.ErrGetEnv.AddErr(err)
 		return
