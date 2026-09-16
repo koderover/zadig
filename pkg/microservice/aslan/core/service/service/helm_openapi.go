@@ -26,6 +26,7 @@ import (
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
@@ -216,7 +217,10 @@ func openAPIHelmServiceSourceDetail(svc *commonmodels.Service) (interface{}, err
 }
 
 func openAPICodehostName(codehostID int) (string, error) {
-	codehost, err := codehostrepo.NewCodehostColl().GetCodeHostByID(codehostID, true)
+	codehost, err := codehostrepo.NewCodehostColl().GetCodeHostByID(codehostID, false)
+	if err == mongo.ErrNoDocuments {
+		return "", nil
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to find codehost: %w", err)
 	}
