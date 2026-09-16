@@ -19,7 +19,6 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -27,12 +26,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
@@ -140,15 +137,6 @@ func OpenAPIListProjectRegistry(c *gin.Context) {
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
-		return
-	}
-
-	if _, err := templaterepo.NewProductColl().Find(projectKey); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			ctx.RespErr = e.NewWithDesc(e.ErrNotFound, fmt.Sprintf("%s: %s", e.ProductNotFoundErrMsg, projectKey))
-			return
-		}
-		ctx.RespErr = e.NewWithDesc(e.ErrGetProduct, err.Error())
 		return
 	}
 
