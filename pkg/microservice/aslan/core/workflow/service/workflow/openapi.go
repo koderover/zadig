@@ -346,8 +346,13 @@ func normalizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]str
 						value[key] = ""
 					}
 				}
-			case "oauth_token", "username", "password", "ssh_key", "private_access_token":
-				value[key] = ""
+			}
+		}
+		if _, repository := value["repo_name"]; repository {
+			for _, key := range []string{"oauth_token", "username", "password", "ssh_key", "private_access_token"} {
+				if _, ok := value[key]; ok {
+					value[key] = ""
+				}
 			}
 		}
 		if namespace, ok := value["repo_namespace"].(string); ok && namespace == "" {
