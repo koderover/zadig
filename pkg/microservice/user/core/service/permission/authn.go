@@ -315,3 +315,15 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 		return nil, false, fmt.Errorf("invalid token")
 	}
 }
+
+func ValidateWebSessionToken(tokenString string) (*login.Claims, bool, error) {
+	claims, valid, err := ValidateToken(tokenString)
+	if err != nil || !valid || claims == nil {
+		return claims, false, err
+	}
+	cachedToken, err := cache.NewRedisCache(userConfig.RedisUserTokenDB()).GetString(claims.UID)
+	if err != nil {
+		return nil, false, err
+	}
+	return claims, cachedToken == tokenString, nil
+}

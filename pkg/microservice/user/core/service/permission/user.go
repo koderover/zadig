@@ -281,7 +281,6 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 			Email:             user.Email,
 			PreferredUsername: user.Account,
 			MFAVerified:       mfaRequired,
-			TokenUse:          login.TokenUseAPI,
 			StandardClaims: jwt.StandardClaims{
 				Audience: setting.ProductName,
 				//24*365*100=876000
@@ -392,7 +391,6 @@ func generatePermanentAPIToken(user *models.User, mfaVerified bool) (string, err
 		Email:             user.Email,
 		PreferredUsername: user.Account,
 		MFAVerified:       mfaVerified,
-		TokenUse:          login.TokenUseAPI,
 		StandardClaims: jwt.StandardClaims{
 			Audience: setting.ProductName,
 			// 24*365*100=876000

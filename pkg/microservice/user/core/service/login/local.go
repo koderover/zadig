@@ -319,7 +319,6 @@ func issueLoginToken(user *models.User, mfaVerified bool, logger *zap.SugaredLog
 		Email:             user.Email,
 		PreferredUsername: user.Account,
 		MFAVerified:       mfaVerified,
-		TokenUse:          TokenUseWeb,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix(),

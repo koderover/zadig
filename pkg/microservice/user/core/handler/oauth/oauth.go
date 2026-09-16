@@ -89,8 +89,8 @@ func DecideDeviceAuthorization(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authenticated user is required"})
 		return
 	}
-	claims, valid, err := permission.ValidateToken(token)
-	if err != nil || !valid || claims == nil || claims.UID == "" || claims.TokenUse != login.TokenUseWeb {
+	claims, valid, err := permission.ValidateWebSessionToken(token)
+	if err != nil || !valid || claims == nil || claims.UID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "invalid authorization token"})
 		return
 	}
