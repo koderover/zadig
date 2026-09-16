@@ -278,7 +278,7 @@ func validateOpenAPIWorkflowChoices(params []*commonmodels.Param) error {
 	return nil
 }
 
-func OpenAPIGetCustomWorkflowTaskPreset(projectKey, workflowKey, encryptedKey, userID, username string, log *zap.SugaredLogger) (map[string]interface{}, error) {
+func OpenAPIGetCustomWorkflowTaskPreset(encryptedKey, projectKey, workflowKey, userID, username string, log *zap.SugaredLogger) (map[string]interface{}, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowKey)
 	if err != nil {
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
@@ -329,6 +329,25 @@ func normalizeOpenAPIWorkflowPreset(value interface{}, codehostNames map[int]str
 			}
 		}
 	case map[string]interface{}:
+		credential, _ := value["is_credential"].(bool)
+		for key, current := range value {
+			switch key {
+			case "value", "default", "choice_value":
+				if credential {
+					if text, ok := current.(string); ok && text != "" {
+						value["has_value"] = true
+					}
+					if choices, ok := current.([]interface{}); ok && len(choices) > 0 {
+						value["has_value"] = true
+					}
+					if key == "choice_value" {
+						value[key] = []interface{}{}
+					} else {
+						value[key] = ""
+					}
+				}
+			}
+		}
 		if _, repository := value["repo_name"]; repository {
 			for _, key := range []string{"oauth_token", "username", "password", "ssh_key", "private_access_token"} {
 				if _, ok := value[key]; ok {

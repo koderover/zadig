@@ -653,11 +653,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		cli.GET("/context", OpenAPIGetCLIContext)
 	}
 
-	rsaKey := router.Group("rsaKey")
-	{
-		rsaKey.GET("/publicKey", GetRSAPublicKey)
-	}
-
 	reg := router.Group("registry")
 	{
 		reg.POST("", OpenAPICreateRegistry)

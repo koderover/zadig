@@ -1365,9 +1365,6 @@ func clearWorkflowV4Triggers(workflow *commonmodels.WorkflowV4) {
 func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	var buildMap sync.Map
 	var buildTemplateMap sync.Map
-	if err := commonservice.EncryptParams(encryptedKey, workflow.Params, logger); err != nil {
-		return err
-	}
 	for _, notify := range workflow.NotifyCtls {
 		err := notify.GenerateNewNotifyConfigWithOldData()
 		if err != nil {
@@ -1477,9 +1474,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				continue
 			}
 			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
-			if err := commonservice.EncryptKeyVals(encryptedKey, scanning.KeyVals, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		for _, scanning := range spec.ServiceScanningOptions {
 			projectName := scanning.ProjectName
@@ -1492,9 +1486,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				continue
 			}
 			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
-			if err := commonservice.EncryptKeyVals(encryptedKey, scanning.KeyVals, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		job.Spec = spec
 	}
@@ -1518,9 +1509,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				}
 			}
 			info.Params = commonservice.MergeParams(paramList, info.Params)
-			if err := commonservice.EncryptParams(encryptedKey, info.Params, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		for _, info := range spec.FixedWorkflowList {
 			workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
@@ -1536,9 +1524,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				}
 			}
 			info.Params = commonservice.MergeParams(paramList, info.Params)
-			if err := commonservice.EncryptParams(encryptedKey, info.Params, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		job.Spec = spec
 	}
@@ -1552,11 +1537,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		for _, service := range spec.Services {
-			if err := commonservice.EncryptKeyVals(encryptedKey, service.KeyVals, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
-		}
 		job.Spec = spec
 	}
 	if job.JobType == config.JobPlugin {
@@ -1568,18 +1548,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 		if err := commonservice.EncryptParams(encryptedKey, spec.Plugin.Inputs, logger); err != nil {
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
-		}
-		job.Spec = spec
-	}
-	if job.JobType == config.JobK8sPatch {
-		spec := &commonmodels.K8sPatchJobSpec{}
-		if err := commonmodels.IToi(job.Spec, spec); err != nil {
-			return e.ErrFindWorkflow.AddErr(err)
-		}
-		for _, item := range spec.PatchItems {
-			if err := commonservice.EncryptParams(encryptedKey, item.Params, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		job.Spec = spec
 	}
@@ -1597,9 +1565,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				continue
 			}
 			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
-			if err := commonservice.EncryptKeyVals(encryptedKey, testing.KeyVals, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 		for _, testing := range spec.TestModuleOptions {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
@@ -1608,9 +1573,6 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				continue
 			}
 			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
-			if err := commonservice.EncryptKeyVals(encryptedKey, testing.KeyVals, logger); err != nil {
-				return e.ErrFindWorkflow.AddErr(err)
-			}
 		}
 	}
 
