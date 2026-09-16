@@ -355,7 +355,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		return e.ErrEditHelmCharts.AddDesc(err.Error())
 	}
 	if param.expectedRevision != nil && svc.Revision != *param.expectedRevision {
-		return e.NewHTTPError(412, "Precondition Failed", fmt.Sprintf("service revision changed from %d to %d; fetch the latest service before editing", *param.expectedRevision, svc.Revision))
+		return e.NewHTTPError(409, "Conflict", fmt.Sprintf("expected_revision %d does not match current revision %d", *param.expectedRevision, svc.Revision))
 	}
 
 	if svc.Source != setting.SourceFromChartTemplate && svc.Source != setting.SourceFromCustomEdit {

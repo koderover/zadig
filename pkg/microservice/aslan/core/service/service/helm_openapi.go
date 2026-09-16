@@ -75,10 +75,14 @@ type OpenAPIHelmChartRepoSourceDetail struct {
 }
 
 type OpenAPIUpdateHelmServiceReq struct {
-	ValuesYAML string `json:"values_yaml"`
+	ExpectedRevision int64  `json:"expected_revision"`
+	ValuesYAML       string `json:"values_yaml"`
 }
 
 func (r *OpenAPIUpdateHelmServiceReq) Validate() error {
+	if r.ExpectedRevision <= 0 {
+		return fmt.Errorf("expected_revision must be greater than 0")
+	}
 	if r.ValuesYAML == "" {
 		return fmt.Errorf("values_yaml cannot be empty")
 	}
@@ -140,12 +144,12 @@ func openAPIHelmServiceContainers(containers []*commonmodels.Container) []*OpenA
 	return result
 }
 
-func UpdateHelmServiceOpenAPI(projectKey, serviceName, userName, requestID string, production bool, req *OpenAPIUpdateHelmServiceReq, expectedRevision *int64, logger *zap.SugaredLogger) (*OpenAPIUpdateHelmServiceResp, error) {
+func UpdateHelmServiceOpenAPI(projectKey, serviceName, userName, requestID string, production bool, req *OpenAPIUpdateHelmServiceReq, logger *zap.SugaredLogger) (*OpenAPIUpdateHelmServiceResp, error) {
 	err := EditFileContent(serviceName, projectKey, userName, requestID, &HelmChartEditInfo{
 		FilePath:         setting.ValuesYaml,
 		FileContent:      req.ValuesYAML,
 		Production:       production,
-		expectedRevision: expectedRevision,
+		expectedRevision: &req.ExpectedRevision,
 	}, logger)
 	if err != nil {
 		return nil, err

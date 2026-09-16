@@ -19,7 +19,6 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -59,11 +58,7 @@ func GetHelmServiceOpenAPI(c *gin.Context) {
 			return
 		}
 	}
-	detail, err := svcservice.GetHelmServiceOpenAPI(projectKey, serviceName, production, ctx.Logger)
-	ctx.Resp, ctx.RespErr = detail, err
-	if err == nil {
-		c.Header("ETag", fmt.Sprintf("\"%d\"", detail.Revision))
-	}
+	ctx.Resp, ctx.RespErr = svcservice.GetHelmServiceOpenAPI(projectKey, serviceName, production, ctx.Logger)
 }
 
 func UpdateHelmServiceOpenAPI(c *gin.Context) {
@@ -89,11 +84,6 @@ func UpdateHelmServiceOpenAPI(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	expectedRevision, err := parseHelmServiceIfMatch(c.GetHeader("If-Match"))
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
-		return
-	}
 	if !authorizeHelmServiceOpenAPI(ctx, projectKey, production, helmServiceActionEdit) {
 		return
 	}
@@ -111,21 +101,7 @@ func UpdateHelmServiceOpenAPI(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "更新", function, serviceName, serviceName, string(logBody), types.RequestBodyTypeJSON, ctx.Logger)
 
-	ctx.Resp, ctx.RespErr = svcservice.UpdateHelmServiceOpenAPI(projectKey, serviceName, ctx.UserName, ctx.RequestID, production, req, expectedRevision, ctx.Logger)
-}
-
-func parseHelmServiceIfMatch(header string) (*int64, error) {
-	if header == "" {
-		return nil, nil
-	}
-	if len(header) < 3 || header[0] != '"' || header[len(header)-1] != '"' {
-		return nil, fmt.Errorf("If-Match must contain one quoted service revision")
-	}
-	revision, err := strconv.ParseInt(header[1:len(header)-1], 10, 64)
-	if err != nil || revision <= 0 || header != fmt.Sprintf("\"%d\"", revision) {
-		return nil, fmt.Errorf("If-Match must contain one quoted positive service revision")
-	}
-	return &revision, nil
+	ctx.Resp, ctx.RespErr = svcservice.UpdateHelmServiceOpenAPI(projectKey, serviceName, ctx.UserName, ctx.RequestID, production, req, ctx.Logger)
 }
 
 func DeleteHelmServiceOpenAPI(c *gin.Context) {
