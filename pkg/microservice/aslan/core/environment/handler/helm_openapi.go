@@ -32,14 +32,7 @@ import (
 )
 
 func OpenAPIGetHelmServiceValues(c *gin.Context) {
-	handleOpenAPIGetHelmServiceValues(c, false)
-}
-
-func OpenAPIGetProductionHelmServiceValues(c *gin.Context) {
-	handleOpenAPIGetHelmServiceValues(c, true)
-}
-
-func handleOpenAPIGetHelmServiceValues(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -55,14 +48,7 @@ func handleOpenAPIGetHelmServiceValues(c *gin.Context, production bool) {
 }
 
 func OpenAPIGetHelmReleaseValues(c *gin.Context) {
-	handleOpenAPIGetHelmReleaseValues(c, false)
-}
-
-func OpenAPIGetProductionHelmReleaseValues(c *gin.Context) {
-	handleOpenAPIGetHelmReleaseValues(c, true)
-}
-
-func handleOpenAPIGetHelmReleaseValues(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -83,14 +69,7 @@ func handleOpenAPIGetHelmReleaseValues(c *gin.Context, production bool) {
 }
 
 func OpenAPIGetHelmValuesSource(c *gin.Context) {
-	handleOpenAPIGetHelmValuesSource(c, false)
-}
-
-func OpenAPIGetProductionHelmValuesSource(c *gin.Context) {
-	handleOpenAPIGetHelmValuesSource(c, true)
-}
-
-func handleOpenAPIGetHelmValuesSource(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -106,14 +85,7 @@ func handleOpenAPIGetHelmValuesSource(c *gin.Context, production bool) {
 }
 
 func OpenAPIUpdateHelmValuesSource(c *gin.Context) {
-	handleOpenAPIUpdateHelmValuesSource(c, false)
-}
-
-func OpenAPIUpdateProductionHelmValuesSource(c *gin.Context) {
-	handleOpenAPIUpdateHelmValuesSource(c, true)
-}
-
-func handleOpenAPIUpdateHelmValuesSource(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -147,14 +119,7 @@ func handleOpenAPIUpdateHelmValuesSource(c *gin.Context, production bool) {
 }
 
 func OpenAPIDeleteHelmValuesSource(c *gin.Context) {
-	handleOpenAPIDeleteHelmValuesSource(c, false)
-}
-
-func OpenAPIDeleteProductionHelmValuesSource(c *gin.Context) {
-	handleOpenAPIDeleteHelmValuesSource(c, true)
-}
-
-func handleOpenAPIDeleteHelmValuesSource(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -175,19 +140,11 @@ func handleOpenAPIDeleteHelmValuesSource(c *gin.Context, production bool) {
 }
 
 func OpenAPIPreviewHelmServiceValues(c *gin.Context) {
-	handleOpenAPIHelmServiceValuesUpdate(c, false, true)
-}
-
-func OpenAPIPreviewProductionHelmServiceValues(c *gin.Context) {
-	handleOpenAPIHelmServiceValuesUpdate(c, true, true)
+	handleOpenAPIHelmServiceValuesUpdate(c, c.Query("production") == "true", true)
 }
 
 func OpenAPIUpdateHelmServiceValues(c *gin.Context) {
-	handleOpenAPIHelmServiceValuesUpdate(c, false, false)
-}
-
-func OpenAPIUpdateProductionHelmServiceValues(c *gin.Context) {
-	handleOpenAPIHelmServiceValuesUpdate(c, true, false)
+	handleOpenAPIHelmServiceValuesUpdate(c, c.Query("production") == "true", false)
 }
 
 func handleOpenAPIHelmServiceValuesUpdate(c *gin.Context, production, preview bool) {

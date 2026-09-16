@@ -40,14 +40,7 @@ const (
 )
 
 func GetHelmServiceOpenAPI(c *gin.Context) {
-	handleGetHelmServiceOpenAPI(c, false)
-}
-
-func GetProductionHelmServiceOpenAPI(c *gin.Context) {
-	handleGetHelmServiceOpenAPI(c, true)
-}
-
-func handleGetHelmServiceOpenAPI(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -74,14 +67,7 @@ func handleGetHelmServiceOpenAPI(c *gin.Context, production bool) {
 }
 
 func UpdateHelmServiceOpenAPI(c *gin.Context) {
-	handleUpdateHelmServiceOpenAPI(c, false)
-}
-
-func UpdateProductionHelmServiceOpenAPI(c *gin.Context) {
-	handleUpdateHelmServiceOpenAPI(c, true)
-}
-
-func handleUpdateHelmServiceOpenAPI(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
@@ -143,14 +129,7 @@ func parseHelmServiceIfMatch(header string) (*int64, error) {
 }
 
 func DeleteHelmServiceOpenAPI(c *gin.Context) {
-	handleDeleteHelmServiceOpenAPI(c, false)
-}
-
-func DeleteProductionHelmServiceOpenAPI(c *gin.Context) {
-	handleDeleteHelmServiceOpenAPI(c, true)
-}
-
-func handleDeleteHelmServiceOpenAPI(c *gin.Context, production bool) {
+	production := c.Query("production") == "true"
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
