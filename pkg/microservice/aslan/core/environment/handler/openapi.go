@@ -29,12 +29,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
@@ -60,13 +58,6 @@ func generalOpenAPIRequestValidate(c *gin.Context) (string, string, error) {
 		return "", "", errors.New("envKey can't be empty")
 	}
 	return projectName, envName, nil
-}
-
-func openAPIProjectLookupError(projectKey string, err error) error {
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return e.NewWithDesc(e.ErrNotFound, fmt.Sprintf("%s: %s", e.ProductNotFoundErrMsg, projectKey))
-	}
-	return e.NewWithDesc(e.ErrGetProduct, err.Error())
 }
 
 func OpenAPIScaleWorkloads(c *gin.Context) {
@@ -1174,11 +1165,6 @@ func OpenAPIGetEnvDetail(c *gin.Context) {
 		return
 	}
 
-	if _, err := templaterepo.NewProductColl().Find(projectName); err != nil {
-		ctx.RespErr = openAPIProjectLookupError(projectName, err)
-		return
-	}
-
 	if !ctx.Resources.IsSystemAdmin {
 		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
 		if !ok {
@@ -1210,11 +1196,6 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	if _, err := templaterepo.NewProductColl().Find(projectName); err != nil {
-		ctx.RespErr = openAPIProjectLookupError(projectName, err)
 		return
 	}
 
@@ -1574,11 +1555,6 @@ func OpenAPIListEnvs(c *gin.Context) {
 		return
 	}
 
-	if _, err := templaterepo.NewProductColl().Find(projectKey); err != nil {
-		ctx.RespErr = openAPIProjectLookupError(projectKey, err)
-		return
-	}
-
 	hasPermission := false
 	envFilter := make([]string, 0)
 
@@ -1620,11 +1596,6 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
-		return
-	}
-
-	if _, err := templaterepo.NewProductColl().Find(projectKey); err != nil {
-		ctx.RespErr = openAPIProjectLookupError(projectKey, err)
 		return
 	}
 
