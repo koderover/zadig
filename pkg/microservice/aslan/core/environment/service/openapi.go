@@ -299,8 +299,10 @@ func appendOpenAPIServicePods(resp *OpenAPIListServicePodsResponse, seen map[str
 		for _, container := range pod.Containers {
 			images = append(images, container.Image)
 		}
-		// Keep an empty container list encoded as [] instead of null.
-		containers := append([]internalresource.Container{}, pod.Containers...)
+		containers := make([]OpenAPIServicePodContainerInfo, 0, len(pod.Containers))
+		for _, container := range pod.Containers {
+			containers = append(containers, OpenAPIServicePodContainerInfo{Name: container.Name})
+		}
 		resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
 			PodName:         pod.Name,
 			Status:          pod.Status,
