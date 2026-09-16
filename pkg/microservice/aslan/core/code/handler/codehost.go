@@ -135,8 +135,6 @@ type CodeHostGetPageNateListArgs struct {
 	Key     string `json:"key"          form:"key"`
 }
 
-const openAPIFetchAllKey = "openapiFetchAll"
-
 // @Summary 获取代码仓库分支列表
 // @Description
 // @Tags 	code
@@ -184,7 +182,6 @@ func CodeHostGetBranchList(c *gin.Context) {
 		args.Key,
 		args.Page,
 		args.PerPage,
-		c.GetBool(openAPIFetchAllKey),
 		ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListBranches, util.FormatCodeHostErrorWithDefault("Failed to fetch branches. Please check if the repository exists and you have access permissions", err))
@@ -232,7 +229,7 @@ func CodeHostGetTagList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	tags, err := service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, c.GetBool(openAPIFetchAllKey), ctx.Logger)
+	tags, err := service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListTags, util.FormatCodeHostErrorWithDefault("Failed to fetch tags. Please check if the repository exists and you have access permissions", err))
 		return
@@ -270,7 +267,7 @@ func CodeHostGetPRList(c *gin.Context) {
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, c.GetBool(openAPIFetchAllKey), ctx.Logger)
+	prs, err := service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = e.NewWithDesc(e.ErrCodehostListPrs, util.FormatCodeHostErrorWithDefault("Failed to fetch pull requests. Please verify repository access and permissions", err))
 		return
@@ -329,7 +326,6 @@ func authorizeOpenAPICodehost(c *gin.Context) {
 	query.Del("targetBranch")
 	query.Set("repoOwner", namespace)
 	c.Request.URL.RawQuery = query.Encode()
-	c.Set(openAPIFetchAllKey, true)
 }
 
 func CodeHostGetCommits(c *gin.Context) {
