@@ -359,6 +359,14 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		helm.POST("", OpenAPICreateHelmEnv)
 		helm.POST("/:name/services", OpenAPIAddHelmServicesToEnv)
+
+		helm.GET("/:name/services/:serviceName/values", OpenAPIGetHelmServiceValues)
+		helm.GET("/:name/services/:serviceName/release/values", OpenAPIGetHelmReleaseValues)
+		helm.POST("/:name/services/:serviceName/values/preview", OpenAPIPreviewHelmServiceValues)
+		helm.PUT("/:name/services/:serviceName/values", OpenAPIUpdateHelmServiceValues)
+		helm.GET("/:name/services/:serviceName/values-source", OpenAPIGetHelmValuesSource)
+		helm.PUT("/:name/services/:serviceName/values-source", OpenAPIUpdateHelmValuesSource)
+		helm.DELETE("/:name/services/:serviceName/values-source", OpenAPIDeleteHelmValuesSource)
 	}
 
 	kube := router.Group("kube")
