@@ -341,7 +341,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	if param.FilePath != setting.ValuesYaml {
 		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("only values.yaml can be edited"))
 	}
-	lock := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_service_edit:%s:%s:%t", productName, serviceName, param.Production), 30*time.Minute)
+	lock := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_service_edit:%s:%s:%t", productName, serviceName, param.Production), 5*time.Minute)
 	if err := lock.Lock(); err != nil {
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to acquire service edit lock: %w", err))
 	}
