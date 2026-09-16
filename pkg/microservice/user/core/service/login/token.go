@@ -36,6 +36,11 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
+const (
+	TokenUseWeb = "web_session"
+	TokenUseAPI = "api_token"
+)
+
 type FederatedClaims struct {
 	ConnectorId string `json:"connector_id"`
 	UserId      string `json:"user_id"`
