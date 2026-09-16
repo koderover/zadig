@@ -59,14 +59,19 @@ func OpenAPIGetCustomWorkflowTaskPreset(c *gin.Context) {
 	}
 
 	projectKey, workflowKey := c.Query("projectKey"), c.Param("name")
-	if projectKey == "" || workflowKey == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey and workflowKey are required")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
+		return
+	}
+	encryptedKey := c.Query("encryptedKey")
+	if encryptedKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("encryptedKey is required")
 		return
 	}
 	if !authorizeWorkflowRun(ctx, projectKey, workflowKey) {
 		return
 	}
-	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowTaskPreset(projectKey, workflowKey, ctx.UserID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowTaskPreset(projectKey, workflowKey, encryptedKey, ctx.UserID, ctx.UserName, ctx.Logger)
 }
 
 func authorizeWorkflowRun(ctx *internalhandler.Context, projectKey, workflowKey string) bool {
