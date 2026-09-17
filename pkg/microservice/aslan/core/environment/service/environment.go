@@ -1600,8 +1600,8 @@ type GetHelmValuesDifferenceResp struct {
 }
 
 // mergeEstimatedOverrideValues keeps the legacy request-only behavior when no
-// service variable config is supplied. Workflow Helm previews pass the config
-// slice (including an empty slice), so those previews also retain environment
+// service variable config contains entries. Workflow Helm previews pass the
+// current service config when configured, so those previews retain environment
 // override values and can append source=other expressions.
 func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*commonservice.KVPair, serviceConfigs []*commonmodels.DeployServiceVariableConfig, serviceName string) (string, error) {
 	requestOrigin := ""
@@ -1614,7 +1614,7 @@ func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*com
 	}
 
 	mergedOrigin := requestOrigin
-	if serviceConfigs != nil {
+	if len(serviceConfigs) > 0 {
 		var err error
 		mergedOrigin, err = helmservice.MergeOverrideKVStrings(environmentOrigin, requestOrigin)
 		if err != nil {
