@@ -1067,6 +1067,15 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	if err != nil {
 		return fmt.Errorf("GetMaxRevisionsServicesMap product: %s, error: %v", productName, err)
 	}
+	for _, chart := range overrideCharts {
+		if chart.EnvName != envName || chart.IsChartDeploy {
+			continue
+		}
+		service := templateSvcMap[chart.ServiceName]
+		if service == nil || service.HelmChart == nil {
+			return fmt.Errorf("project %s service %s has no Helm Chart configuration; fix the service before updating environment %s", productName, chart.ServiceName, envName)
+		}
+	}
 
 	// use service definition from service template, but keep the image info
 	addedReleaseNameSet := sets.NewString()
@@ -3410,7 +3419,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 // generate a new renderset and insert into db
 func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// default renderset created directly from the service template
-	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production)
+	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production, log)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err
