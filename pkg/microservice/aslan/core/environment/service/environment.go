@@ -2186,13 +2186,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 			changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
 			if err != nil {
-				log.Errorf("failed to sync yaml from source, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				log.Errorf("failed to sync yaml from source, project: %s, env: %s, serviceName: %s, err: %s", productName, envName, chartInfo.ServiceName, err)
 				return
 			}
 
 			if changed {
 				if err := commonservice.RefreshYamlSourceCommit(chartInfo.OverrideYaml, log); err != nil {
-					log.Warnf("failed to refresh Helm Values source commit, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+					log.Warnf("failed to refresh Helm Values source commit, project: %s, env: %s, serviceName: %s, err: %s", productName, envName, chartInfo.ServiceName, err)
 				}
 				updatedRcMapLock.Lock()
 				chartInfo.OverrideYaml.YamlContent = values
