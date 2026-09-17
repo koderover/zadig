@@ -1599,10 +1599,10 @@ type GetHelmValuesDifferenceResp struct {
 	LatestManifestFiles  []*kube.HelmManifestFile `json:"latest_manifest_files"`
 }
 
-// mergeEstimatedOverrideValues keeps environment values, overlays request
-// values, and finally applies source=other expressions for the target service.
-// Expressions are intentionally left unresolved because this endpoint is also
-// used before a workflow has produced its runtime context.
+// mergeEstimatedOverrideValues keeps the legacy request-only behavior when no
+// service variable config is supplied. Workflow Helm previews pass the config
+// slice (including an empty slice), so those previews also retain environment
+// override values and can append source=other expressions.
 func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*commonservice.KVPair, serviceConfigs []*commonmodels.DeployServiceVariableConfig, serviceName string) (string, error) {
 	requestOrigin := ""
 	if len(requestValues) > 0 {
@@ -1613,9 +1613,13 @@ func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*com
 		requestOrigin = string(data)
 	}
 
-	mergedOrigin, err := helmservice.MergeOverrideKVStrings(environmentOrigin, requestOrigin)
-	if err != nil {
-		return "", err
+	mergedOrigin := requestOrigin
+	if serviceConfigs != nil {
+		var err error
+		mergedOrigin, err = helmservice.MergeOverrideKVStrings(environmentOrigin, requestOrigin)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	var merged []*commonservice.KVPair
