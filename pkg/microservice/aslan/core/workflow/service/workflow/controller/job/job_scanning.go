@@ -47,8 +47,6 @@ type ScanningJobController struct {
 	jobSpec *commonmodels.ZadigScanningJobSpec
 }
 
-const aiReviewModelTimeout = "3m"
-
 func CreateScanningJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
 	spec := new(commonmodels.ZadigScanningJobSpec)
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -1126,7 +1124,6 @@ func (j ScanningJobController) toAIReviewJobTask(
 		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_NAME", Value: llmIntegration.Model},
 		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_ENDPOINT", Value: llmIntegration.BaseURL},
 		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_API_KEY", Value: llmIntegration.Token, IsCredential: true},
-		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_TIMEOUT", Value: aiReviewModelTimeout},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_RULES_B64", Value: base64.StdEncoding.EncodeToString(ruleJSON)},
 	)
 	if llmIntegration.EnableProxy {
