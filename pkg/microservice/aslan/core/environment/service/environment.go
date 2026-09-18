@@ -1518,20 +1518,12 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 			}
 		}
 		if latestTmplSvc == nil || latestTmplSvc.HelmChart == nil {
-			revision := int64(0)
-			if latestTmplSvc != nil {
-				revision = latestTmplSvc.Revision
-			}
-			err = fmt.Errorf("project %s environment %s service %s revision %d has no Helm Chart configuration", productName, envName, serviceOrReleaseName, revision)
+			err = fmt.Errorf("project %s environment %s service %s has no Helm Chart configuration", productName, envName, serviceOrReleaseName)
 			log.Errorf("%s", err)
 			return nil, nil, nil, nil, err
 		}
 		if currentTmplSvc == nil || currentTmplSvc.HelmChart == nil {
-			revision := int64(0)
-			if currentTmplSvc != nil {
-				revision = currentTmplSvc.Revision
-			}
-			err = fmt.Errorf("project %s environment %s service %s revision %d has no Helm Chart configuration", productName, envName, serviceOrReleaseName, revision)
+			err = fmt.Errorf("project %s environment %s service %s has no Helm Chart configuration", productName, envName, serviceOrReleaseName)
 			log.Errorf("%s", err)
 			return nil, nil, nil, nil, err
 		}
