@@ -1005,6 +1005,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	latestSvcTemplate.Containers = commonutil.FoldManualModulesInto(latestSvcTemplate.Containers, manualContainers)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
+
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
@@ -1105,6 +1106,14 @@ func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *t
 
 // RenderEnvService renders service with particular revision and service vars in environment
 func RenderEnvService(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService) (yaml string, err error) {
+	return renderEnvService(prod, serviceRender, service, true)
+}
+
+func RenderEnvServiceNotSetImages(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService) (yaml string, err error) {
+	return renderEnvService(prod, serviceRender, service, false)
+}
+
+func renderEnvService(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, setImages bool) (yaml string, err error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
 		ProductName: service.ProductName,
@@ -1121,10 +1130,18 @@ func RenderEnvService(prod *commonmodels.Product, serviceRender *template.Servic
 	if err != nil {
 		return "", err
 	}
-	return RenderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, cluster.Name)
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, cluster.Name, setImages)
 }
 
 func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service, clusterName string) (yaml string, err error) {
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, clusterName, true)
+}
+
+func RenderEnvServiceWithTemplNotSetImages(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service, clusterName string) (yaml string, err error) {
+	return renderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl, clusterName, false)
+}
+
+func renderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service, clusterName string, setImages bool) (yaml string, err error) {
 	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, serviceRender)
 	if err != nil {
@@ -1133,33 +1150,36 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *templa
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, clusterName, parsedYaml)
 
-	// Fold manual modules into service.Containers before substitution.
-	//
-	// service.Containers nominally reflects the env's runtime snapshot, but
-	// callers like buildPreviewCandidateOverrides clone a ProductService and
-	// only override Revision - Containers still reflect the OLD revision's
-	// state. When the new revision's YAML carries $<name>-image$ for a
-	// module that wasn't in the env before, substitution fails without this
-	// re-merge.
-	//
-	// For "true env snapshot" callers (e.g. genuinely rendering what's in
-	// env), the fold is a no-op when env state is consistent. The only
-	// observable difference is in the candidate-render path, which is what
-	// we want.
-	manualContainers, err := repository.ListManualServiceModules(context.Background(), prod.ProductName, service.ServiceName, prod.Production)
-	if err != nil {
-		return "", fmt.Errorf("failed to list manual service modules: %v", err)
-	}
-	allContainers := commonutil.FoldManualModulesInto(service.Containers, manualContainers)
+	if setImages {
+		// Fold manual modules into service.Containers before substitution.
+		//
+		// service.Containers nominally reflects the env's runtime snapshot, but
+		// callers like buildPreviewCandidateOverrides clone a ProductService and
+		// only override Revision - Containers still reflect the OLD revision's
+		// state. When the new revision's YAML carries $<name>-image$ for a
+		// module that wasn't in the env before, substitution fails without this
+		// re-merge.
+		//
+		// For "true env snapshot" callers (e.g. genuinely rendering what's in
+		// env), the fold is a no-op when env state is consistent. The only
+		// observable difference is in the candidate-render path, which is what
+		// we want.
+		manualContainers, err := repository.ListManualServiceModules(context.Background(), prod.ProductName, service.ServiceName, prod.Production)
+		if err != nil {
+			return "", fmt.Errorf("failed to list manual service modules: %v", err)
+		}
+		allContainers := commonutil.FoldManualModulesInto(service.Containers, manualContainers)
 
-	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, allContainers)
-	if err != nil {
-		return "", err
+		parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, allContainers)
+		if err != nil {
+			return "", err
+		}
+		parsedYaml, err = ParseModuleImageKeys(parsedYaml, allContainers, false)
+		if err != nil {
+			return "", err
+		}
 	}
-	parsedYaml, err = ParseModuleImageKeys(parsedYaml, allContainers, false)
-	if err != nil {
-		return "", err
-	}
+
 	return ApplyReplicaOverrides(parsedYaml, service.WorkLoads)
 }
 
