@@ -126,13 +126,14 @@ type ProductParams struct {
 }
 
 type EstimateValuesArg struct {
-	ChartRepo      string                  `json:"chartRepo,omitempty"`
-	ChartName      string                  `json:"chartName,omitempty"`
-	ChartVersion   string                  `json:"chartVersion,omitempty"`
-	DefaultValues  string                  `json:"defaultValues"`
-	OverrideYaml   string                  `json:"overrideYaml"`
-	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty"`
-	Production     bool                    `json:"-"`
+	ChartRepo             string                                      `json:"chartRepo,omitempty"`
+	ChartName             string                                      `json:"chartName,omitempty"`
+	ChartVersion          string                                      `json:"chartVersion,omitempty"`
+	DefaultValues         string                                      `json:"defaultValues"`
+	OverrideYaml          string                                      `json:"overrideYaml"`
+	OverrideValues        []*commonservice.KVPair                     `json:"overrideValues,omitempty"`
+	ServiceVariableConfig []*commonmodels.DeployServiceVariableConfig `json:"serviceVariableConfig,omitempty" yaml:"service_variable_config,omitempty"`
+	Production            bool                                        `json:"-"`
 }
 
 type EnvRenderChartArg struct {
