@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -571,7 +572,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	if err != nil {
 		return nil, fmt.Errorf("get keyvault envs error: %v", err)
 	}
-	allEnvs := append(envs, getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)...)
+	allEnvs := append(envs, getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name, scanningInfo.ScannerType)...)
 	allEnvs = append(allEnvs, keyvaultEnvs...)
 
 	jobTaskSpec.Properties = commonmodels.JobProperties{
@@ -1118,7 +1119,7 @@ func (j ScanningJobController) toAIReviewJobTask(
 		ExecutePolicy:  j.executePolicy,
 	}
 
-	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, infrastructure, scanningType, serviceName, serviceModule, scanning.Name)
+	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, infrastructure, scanningType, serviceName, serviceModule, scanning.Name, types.ScannerTypeAIReview)
 	envs = append(envs,
 		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_PROTOCOL", Value: string(llmIntegration.Protocol)},
 		&commonmodels.KeyVal{Key: "ZADIG_REVIEW_MODEL_NAME", Value: llmIntegration.Model},
@@ -1402,11 +1403,23 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 	return nil
 }
 
-func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure, scanningType, serviceName, serviceModule, scanningName string) []*commonmodels.KeyVal {
+func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure, scanningType, serviceName, serviceModule, scanningName string, scannerType types.ScannerType) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 
 	// basic envs
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
+	if scannerType == types.ScannerTypeAIReview {
+		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
+		if strings.HasPrefix(workflowName, prefix) {
+			scanningID := strings.TrimPrefix(workflowName, prefix)
+			for _, env := range ret {
+				if env.Key == "TASK_URL" {
+					env.Value = commonutil.ScanningTaskURL(configbase.SystemAddress(), project, scanningName, taskID, string(config.StatusRunning), scanningID, string(scannerType))
+					break
+				}
+			}
+		}
+	}
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
 
