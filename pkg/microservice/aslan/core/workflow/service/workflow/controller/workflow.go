@@ -515,6 +515,13 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 			taskID,
 			url.QueryEscape(w.workflowName()),
 		)
+		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
+		if strings.HasPrefix(w.workflowID(), prefix) {
+			scanningID := strings.TrimPrefix(w.workflowID(), prefix)
+			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err == nil {
+				detailURL = commonutil.ScanningTaskURL(configbase.SystemAddress(), w.Project, scanning.Name, taskID, string(config.StatusRunning), scanningID, string(scanning.ScannerType))
+			}
+		}
 	}
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.url", Value: detailURL, ParamsType: "string", IsCredential: false})
 

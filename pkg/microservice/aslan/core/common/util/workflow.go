@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -43,6 +44,15 @@ func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 }
 func GenScanningWorkflowName(scanningID string) string {
 	return fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
+}
+
+func ScanningTaskURL(baseURI, project, scanningName string, taskID int64, status, scanningID, scannerType string) string {
+	link := fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/task/%d?status=%s&id=%s",
+		baseURI, url.PathEscape(project), url.PathEscape(scanningName), taskID, url.QueryEscape(status), url.QueryEscape(scanningID))
+	if scannerType != "" {
+		link += "&scannerType=" + url.QueryEscape(scannerType)
+	}
+	return link
 }
 
 func GenTestingWorkflowName(testingName string) string {
