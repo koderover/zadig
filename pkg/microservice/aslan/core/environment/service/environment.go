@@ -1517,6 +1517,24 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 				return nil, nil, nil, nil, err
 			}
 		}
+		if latestTmplSvc == nil || latestTmplSvc.HelmChart == nil {
+			revision := int64(0)
+			if latestTmplSvc != nil {
+				revision = latestTmplSvc.Revision
+			}
+			err = fmt.Errorf("project %s environment %s service %s revision %d has no Helm Chart configuration", productName, envName, serviceOrReleaseName, revision)
+			log.Errorf("%s", err)
+			return nil, nil, nil, nil, err
+		}
+		if currentTmplSvc == nil || currentTmplSvc.HelmChart == nil {
+			revision := int64(0)
+			if currentTmplSvc != nil {
+				revision = currentTmplSvc.Revision
+			}
+			err = fmt.Errorf("project %s environment %s service %s revision %d has no Helm Chart configuration", productName, envName, serviceOrReleaseName, revision)
+			log.Errorf("%s", err)
+			return nil, nil, nil, nil, err
+		}
 
 		if prodSvc == nil {
 			containers, err := commonservice.ResolveServiceTemplateContainers(latestTmplSvc, production)
@@ -2918,6 +2936,14 @@ func GetEstimatedRenderCharts(productName, envName string, getSvcRenderArgs []*c
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
 		}
 		for _, singleService := range serviceList {
+			if singleService == nil || singleService.HelmChart == nil {
+				if singleService == nil {
+					log.Errorf("skip nil Helm service template, project: %s, env: %s", productName, envName)
+				} else {
+					log.Errorf("skip Helm service %s revision %d, project: %s, env: %s: Helm Chart configuration is missing", singleService.ServiceName, singleService.Revision, productName, envName)
+				}
+				continue
+			}
 			rcMap[singleService.ServiceName] = &commonservice.HelmSvcRenderArg{
 				EnvName:      envName,
 				ServiceName:  singleService.ServiceName,
