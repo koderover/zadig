@@ -631,9 +631,9 @@ func prepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayNam
 		envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 	}
 
-	url := getTaskLink(configbase.SystemAddress(), projectKey, workflowName, workflowDisplayName, taskID)
+	taskURL := getTaskLink(configbase.SystemAddress(), projectKey, workflowName, workflowDisplayName, taskID)
 
-	envs = append(envs, &commonmodels.KeyVal{Key: "TASK_URL", Value: url})
+	envs = append(envs, &commonmodels.KeyVal{Key: "TASK_URL", Value: taskURL})
 	envs = append(envs, &commonmodels.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(taskID, 10)})
 
 	return envs

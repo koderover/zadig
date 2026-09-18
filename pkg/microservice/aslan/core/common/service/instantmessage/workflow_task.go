@@ -1355,8 +1355,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		workflowNotification.PendingStageName = opts.PendingStageName
 	}
 
-	isScanningTask := task.Type == config.WorkflowTaskTypeScanning || strings.HasPrefix(task.WorkflowName, strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s"))
-	if isScanningTask {
+	if task.Type == config.WorkflowTaskTypeScanning {
 		workflowNotification.ScanningID = strings.TrimPrefix(task.WorkflowName, strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s"))
 		workflowNotification.ScanningName = task.WorkflowDisplayName
 		if scanning, err := commonrepo.NewScanningColl().GetByID(workflowNotification.ScanningID); err == nil {
@@ -1385,10 +1384,6 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 		TaskType:            task.Type,
 	}
-	if isScanningTask {
-		webhookNotify.TaskType = config.WorkflowTaskTypeScanning
-	}
-
 	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
@@ -1433,18 +1428,16 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	buttonContent := getText("notificationTextClickForMore", language)
 	workflowDetailURLTpl := ""
 	workflowDetailURL := ""
-	if isScanningTask {
+	switch task.Type {
+	case config.WorkflowTaskTypeScanning:
 		workflowDetailURL = commonutil.ScanningTaskURL(configbase.SystemAddress(), task.ProjectName, workflowNotification.ScanningName, task.TaskID, string(task.Status), workflowNotification.ScanningID, string(workflowNotification.ScannerType))
 		workflowDetailURLTpl = workflowDetailURL
-	} else {
-		switch task.Type {
-		case config.WorkflowTaskTypeTesting:
-			workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/function/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
-			workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", configbase.SystemAddress(), task.ProjectName, url.PathEscape(task.WorkflowDisplayName), task.TaskID)
-		default:
-			workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
-			workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
-		}
+	case config.WorkflowTaskTypeTesting:
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/function/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", configbase.SystemAddress(), task.ProjectName, url.PathEscape(task.WorkflowDisplayName), task.TaskID)
+	default:
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 	}
 	webhookNotify.DetailURL = workflowDetailURL
 	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURLTpl)
