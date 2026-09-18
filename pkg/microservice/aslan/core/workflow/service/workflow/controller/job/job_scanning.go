@@ -1408,15 +1408,13 @@ func getScanningJobVariables(repos []*types.Repository, taskID int64, project, w
 
 	// basic envs
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
-	if scannerType == types.ScannerTypeAIReview {
-		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
-		if strings.HasPrefix(workflowName, prefix) {
-			scanningID := strings.TrimPrefix(workflowName, prefix)
-			for _, env := range ret {
-				if env.Key == "TASK_URL" {
-					env.Value = commonutil.ScanningTaskURL(configbase.SystemAddress(), project, scanningName, taskID, string(config.StatusRunning), scanningID, string(scannerType))
-					break
-				}
+	prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
+	if strings.HasPrefix(workflowName, prefix) {
+		scanningID := strings.TrimPrefix(workflowName, prefix)
+		for _, env := range ret {
+			if env.Key == "TASK_URL" {
+				env.Value = commonutil.ScanningTaskURL(configbase.SystemAddress(), project, scanningName, taskID, string(config.StatusRunning), scanningID, string(scannerType))
+				break
 			}
 		}
 	}
