@@ -363,6 +363,10 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.OverrideResource = true
 	}
 
+	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage {
+		c.jobTaskSpec.OverrideResource = false
+	}
+
 	// if not only deploy image, we will redeploy service
 	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
 		logError(c.job, err.Error(), c.logger)
