@@ -27,7 +27,7 @@ import (
 
 // OpenAPIGetCLIContext returns the authenticated user and administrator-only Zadig metadata.
 // @Summary Get Zadig CLI context
-// @Description Returns the authenticated user and request ID. System administrators also receive edition, licensed features, and server version.
+// @Description Returns the authenticated user and request ID. System administrators also receive edition, licensed features, server_version from license status, and aslan_image_tag from the serving Pod (omitted when unavailable).
 // @Tags system
 // @Produce json
 // @Success 200 {object} service.CLIContextResponse
