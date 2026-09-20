@@ -92,8 +92,8 @@ type ReleaseJob struct {
 	Name            string                    `bson:"name"                     yaml:"name"                   json:"name"`
 	Manager         string                    `bson:"manager"                  yaml:"manager"                json:"manager"`
 	ManagerID       string                    `bson:"manager_id"               yaml:"manager_id"             json:"manager_id"`
-	ManagerIDs      []string                  `bson:"manager_ids,omitempty"     yaml:"manager_ids,omitempty"   json:"manager_ids,omitempty"`
-	ManagerGroupIDs []string                  `bson:"manager_group_ids,omitempty" yaml:"manager_group_ids,omitempty" json:"manager_group_ids,omitempty"`
+	ManagerIDs      []string                  `bson:"manager_ids,omitempty"     yaml:"manager_ids,omitempty"   json:"manager_ids"`
+	ManagerGroupIDs []string                  `bson:"manager_group_ids,omitempty" yaml:"manager_group_ids,omitempty" json:"manager_group_ids"`
 	Type            config.ReleasePlanJobType `bson:"type"                     yaml:"type"                   json:"type"`
 	Spec            interface{}               `bson:"spec,omitempty"           yaml:"spec,omitempty"         json:"spec,omitempty"`
 
