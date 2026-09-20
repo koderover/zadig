@@ -331,8 +331,6 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	job := &models.ReleaseJob{
 		ID:              uuid.New().String(),
 		Name:            u.Name,
-		Manager:         u.Manager,
-		ManagerID:       u.ManagerID,
 		ManagerIDs:      u.ManagerIDs,
 		ManagerGroupIDs: u.ManagerGroupIDs,
 		Type:            u.Type,
@@ -372,19 +370,12 @@ type UpdateReleaseJobUpdater struct {
 	ManagerGroupIDs []string                  `json:"manager_group_ids"`
 	Type            config.ReleasePlanJobType `json:"type"`
 	Spec            interface{}               `json:"spec"`
-	ownerFields     releaseJobOwnerFields
 }
 
 func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobUpdater, error) {
 	var updater UpdateReleaseJobUpdater
 	if err := models.IToi(args.Spec, &updater); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
-	}
-	updater.ownerFields = releaseJobOwnerFieldPresence(args.Spec)
-	ownerFieldsSet := updater.ownerFields.manager || updater.ownerFields.managerID || updater.ownerFields.managerIDs || updater.ownerFields.managerGroupIDs
-	ownerFieldsComplete := updater.ownerFields.manager && updater.ownerFields.managerID && updater.ownerFields.managerIDs && updater.ownerFields.managerGroupIDs
-	if ownerFieldsSet && !ownerFieldsComplete {
-		return nil, errors.New("manager, manager_id, manager_ids and manager_group_ids must be provided together")
 	}
 	return &updater, nil
 }
@@ -396,12 +387,8 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			if u.ownerFields.manager {
-				job.Manager = u.Manager
-				job.ManagerID = u.ManagerID
-				job.ManagerIDs = u.ManagerIDs
-				job.ManagerGroupIDs = u.ManagerGroupIDs
-			}
+			job.ManagerIDs = u.ManagerIDs
+			job.ManagerGroupIDs = u.ManagerGroupIDs
 			job.Spec = u.Spec
 			job.Updated = true
 			return nil

@@ -570,14 +570,11 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 		if err != nil {
 			return errors.Wrap(err, "parse release job")
 		}
-		ownerSet = updater.Manager != "" || updater.ManagerID != "" || len(updater.ManagerIDs) > 0 || len(updater.ManagerGroupIDs) > 0
+		ownerSet = len(updater.ManagerIDs) > 0 || len(updater.ManagerGroupIDs) > 0
 	case ActionUpdateReleaseJob:
 		updater, err := NewUpdateReleaseJobUpdater(args)
 		if err != nil {
 			return errors.Wrap(err, "parse release job")
-		}
-		if !updater.ownerFields.manager {
-			break
 		}
 		for _, job := range plan.Jobs {
 			if job.ID != updater.ID {
@@ -594,40 +591,9 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 	return nil
 }
 
-type releaseJobOwnerFields struct {
-	manager         bool
-	managerID       bool
-	managerIDs      bool
-	managerGroupIDs bool
-}
-
-func releaseJobOwnerFieldPresence(spec interface{}) releaseJobOwnerFields {
-	payload, err := json.Marshal(spec)
-	if err != nil {
-		return releaseJobOwnerFields{}
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(payload, &fields); err != nil {
-		return releaseJobOwnerFields{}
-	}
-	_, manager := fields["manager"]
-	_, managerID := fields["manager_id"]
-	_, managerIDs := fields["manager_ids"]
-	_, managerGroupIDs := fields["manager_group_ids"]
-	return releaseJobOwnerFields{manager: manager, managerID: managerID, managerIDs: managerIDs, managerGroupIDs: managerGroupIDs}
-}
-
 func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater) bool {
-	if updater.Manager != job.Manager {
-		return true
-	}
-	if updater.ManagerID != job.ManagerID {
-		return true
-	}
-	if !sameReleaseJobOwnerIDs(updater.ManagerIDs, job.ManagerIDs) {
-		return true
-	}
-	return !sameReleaseJobOwnerIDs(updater.ManagerGroupIDs, job.ManagerGroupIDs)
+	return !sameReleaseJobOwnerIDs(updater.ManagerIDs, job.ManagerIDs) ||
+		!sameReleaseJobOwnerIDs(updater.ManagerGroupIDs, job.ManagerGroupIDs)
 }
 
 func sameReleaseJobOwnerIDs(left, right []string) bool {
