@@ -26,7 +26,26 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 )
+
+func TestGitCheckUsesExplicitTaskURL(t *testing.T) {
+	taskURL := "https://zadig.example/v1/projects/detail/demo/scanner/detail/review/task/7?id=scan-id&scannerType=ai_review"
+	check := &githubservice.GitCheck{
+		TaskURL:     taskURL,
+		AslanURL:    "https://zadig.example",
+		ProductName: "demo",
+		PipeName:    "zadig-scanning-scan-id",
+		DisplayName: "review",
+		PipeType:    config.WorkflowTypeV4,
+		TaskID:      7,
+	}
+
+	require.Equal(t, taskURL, check.DetailsURL())
+
+	check.TaskURL = ""
+	require.Equal(t, "https://zadig.example/v1/projects/detail/demo/pipelines/custom/zadig-scanning-scan-id/7?display_name=review", check.DetailsURL())
+}
 
 var _ = Describe("Testing utils", func() {
 
