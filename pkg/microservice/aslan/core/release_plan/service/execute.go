@@ -183,24 +183,29 @@ func jobManagerAuth(planName, planManageID string, job *models.ReleaseJob, userN
 		return nil
 	}
 
-	if len(job.ManagerIDs) > 0 || len(job.ManagerGroupIDs) > 0 {
-		for _, managerID := range job.ManagerIDs {
-			if managerID == userID {
-				return nil
+	if len(job.Managers) > 0 {
+		managerGroupIDs := make(map[string]struct{})
+		for _, manager := range job.Managers {
+			if manager == nil {
+				continue
+			}
+			switch manager.IdentityType {
+			case "user":
+				if manager.UID == userID {
+					return nil
+				}
+			case "group":
+				managerGroupIDs[manager.GID] = struct{}{}
 			}
 		}
-		if len(job.ManagerGroupIDs) > 0 {
+		if len(managerGroupIDs) > 0 {
 			groups, err := user.New().GetUserGroupsByUid(userID)
 			if err != nil {
 				return errors.Wrap(err, "get user groups")
 			}
 			if groups != nil {
-				groupIDs := make(map[string]struct{}, len(groups.GroupList))
 				for _, group := range groups.GroupList {
-					groupIDs[group.ID] = struct{}{}
-				}
-				for _, managerGroupID := range job.ManagerGroupIDs {
-					if _, ok := groupIDs[managerGroupID]; ok {
+					if _, ok := managerGroupIDs[group.ID]; ok {
 						return nil
 					}
 				}
