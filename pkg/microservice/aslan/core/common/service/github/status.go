@@ -45,24 +45,29 @@ type StatusOptions struct {
 	ProductName string
 	PipeType    config.PipelineType
 	TaskID      int64
+	TaskURL     string
 }
 
 func (c *Client) UpdateCheckStatus(opt *StatusOptions) error {
 	sc := setting.ProductName + "/" + opt.DisplayName
+	taskURL := opt.TaskURL
+	if taskURL == "" {
+		taskURL = GetTaskLink(
+			opt.AslanURL,
+			opt.ProductName,
+			opt.PipeName,
+			opt.DisplayName,
+			opt.PipeType,
+			opt.TaskID,
+		)
+	}
 	_, err := c.CreateStatus(
 		context.TODO(), opt.Owner, opt.Repo, opt.Ref,
 		&github.RepoStatus{
 			State:       &opt.State,
 			Description: &opt.Description,
-			TargetURL: github.String(GetTaskLink(
-				opt.AslanURL,
-				opt.ProductName,
-				opt.PipeName,
-				opt.DisplayName,
-				opt.PipeType,
-				opt.TaskID,
-			)),
-			Context: &sc,
+			TargetURL:   github.String(taskURL),
+			Context:     &sc,
 		})
 	return err
 }
