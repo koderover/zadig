@@ -17,6 +17,8 @@
 package models
 
 import (
+	"encoding/json"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -98,6 +100,14 @@ type ReleaseJob struct {
 	Spec      interface{}               `bson:"spec,omitempty"           yaml:"spec,omitempty"         json:"spec,omitempty"`
 
 	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
+}
+
+func (r ReleaseJob) MarshalJSON() ([]byte, error) {
+	type releaseJob ReleaseJob
+	if r.Managers == nil {
+		r.Managers = []*types.Identity{}
+	}
+	return json.Marshal(releaseJob(r))
 }
 
 type ReleaseJobRuntime struct {
