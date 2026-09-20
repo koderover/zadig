@@ -77,7 +77,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
 	for _, job := range args.Jobs {
-		if (job.Manager != "" || job.ManagerID != "" || len(job.ManagerIDs) > 0 || len(job.ManagerGroupIDs) > 0) && c.UserID != args.ManagerID {
+		if (job.Manager != "" || job.ManagerID != "" || len(job.Managers) > 0) && c.UserID != args.ManagerID {
 			return errors.New("only the release plan manager can set release job owners")
 		}
 	}
@@ -570,7 +570,7 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 		if err != nil {
 			return errors.Wrap(err, "parse release job")
 		}
-		ownerSet = len(updater.ManagerIDs) > 0 || len(updater.ManagerGroupIDs) > 0
+		ownerSet = len(updater.Managers) > 0
 	case ActionUpdateReleaseJob:
 		updater, err := NewUpdateReleaseJobUpdater(args)
 		if err != nil {
@@ -592,25 +592,32 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 }
 
 func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater) bool {
-	return !sameReleaseJobOwnerIDs(updater.ManagerIDs, job.ManagerIDs) ||
-		!sameReleaseJobOwnerIDs(updater.ManagerGroupIDs, job.ManagerGroupIDs)
+	return !sameReleaseJobManagers(updater.Managers, job.Managers)
 }
 
-func sameReleaseJobOwnerIDs(left, right []string) bool {
+func sameReleaseJobManagers(left, right []*types.Identity) bool {
 	if len(left) != len(right) {
 		return false
 	}
-	ids := make(map[string]int, len(left))
-	for _, id := range left {
-		ids[id]++
+	managers := make(map[string]int, len(left))
+	for _, manager := range left {
+		managers[releaseJobManagerKey(manager)]++
 	}
-	for _, id := range right {
-		ids[id]--
-		if ids[id] < 0 {
+	for _, manager := range right {
+		key := releaseJobManagerKey(manager)
+		managers[key]--
+		if managers[key] < 0 {
 			return false
 		}
 	}
 	return true
+}
+
+func releaseJobManagerKey(manager *types.Identity) string {
+	if manager == nil {
+		return ""
+	}
+	return manager.IdentityType + "\x00" + manager.UID + "\x00" + manager.GID
 }
 
 func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, error) {
@@ -2100,13 +2107,12 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 	jobs := []*webhooknotify.ReleasePlanHookJob{}
 	for _, job := range plan.Jobs {
 		hookJob := &webhooknotify.ReleasePlanHookJob{
-			ID:              job.ID,
-			Name:            job.Name,
-			Manager:         job.Manager,
-			ManagerID:       job.ManagerID,
-			ManagerIDs:      job.ManagerIDs,
-			ManagerGroupIDs: job.ManagerGroupIDs,
-			Type:            job.Type,
+			ID:        job.ID,
+			Name:      job.Name,
+			Manager:   job.Manager,
+			ManagerID: job.ManagerID,
+			Managers:  job.Managers,
+			Type:      job.Type,
 			ReleasePlanHookJobRuntime: webhooknotify.ReleasePlanHookJobRuntime{
 				Status:       job.Status,
 				ExecutedBy:   job.ExecutedBy,
