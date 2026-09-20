@@ -77,7 +77,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
 	for _, job := range args.Jobs {
-		if hasReleaseJobOwner(job.Manager, job.ManagerID, job.ManagerIDs, job.ManagerGroupIDs) && c.UserID != args.ManagerID {
+		if (job.Manager != "" || job.ManagerID != "" || len(job.ManagerIDs) > 0 || len(job.ManagerGroupIDs) > 0) && c.UserID != args.ManagerID {
 			return errors.New("only the release plan manager can set release job owners")
 		}
 	}
@@ -570,7 +570,7 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 		if err != nil {
 			return errors.Wrap(err, "parse release job")
 		}
-		ownerSet = hasReleaseJobOwner(updater.Manager, updater.ManagerID, updater.ManagerIDs, updater.ManagerGroupIDs)
+		ownerSet = updater.Manager != "" || updater.ManagerID != "" || len(updater.ManagerIDs) > 0 || len(updater.ManagerGroupIDs) > 0
 	case ActionUpdateReleaseJob:
 		updater, err := NewUpdateReleaseJobUpdater(args)
 		if err != nil {
@@ -592,10 +592,6 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 		return errors.New("only the release plan manager can update release job owners")
 	}
 	return nil
-}
-
-func hasReleaseJobOwner(manager, managerID string, managerIDs, managerGroupIDs []string) bool {
-	return manager != "" || managerID != "" || len(managerIDs) > 0 || len(managerGroupIDs) > 0
 }
 
 type releaseJobOwnerFields struct {
