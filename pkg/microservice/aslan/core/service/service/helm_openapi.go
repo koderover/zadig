@@ -314,7 +314,7 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 		if err := validateOpenAPIRepoPath(valuesPath); err != nil {
 			return err
 		}
-		if !isOpenAPIHelmValuesFile(path.Base(valuesPath)) {
+		if !isOpenAPIHelmValuesPath(valuesPath) {
 			return fmt.Errorf("%s is not a values file", valuesPath)
 		}
 		if helmServiceNameFromValuesPath(valuesPath) == "" {
@@ -390,7 +390,7 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 		if treeNode == nil || treeNode.IsDir {
 			continue
 		}
-		if isOpenAPIHelmValuesFile(treeNode.Name) {
+		if isOpenAPIHelmValuesPath(treeNode.FullPath) {
 			valuesPaths = append(valuesPaths, treeNode.FullPath)
 		}
 	}
@@ -399,7 +399,7 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 }
 
 func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]string, error) {
-	if !isOpenAPIHelmValuesFile(path.Base(filePath)) {
+	if !isOpenAPIHelmValuesPath(filePath) {
 		return nil, fmt.Errorf("%s is not a values file", filePath)
 	}
 
@@ -428,6 +428,18 @@ func isOpenAPIHelmValuesFile(name string) bool {
 	}
 	ext := strings.ToLower(path.Ext(name))
 	return ext == ".yaml" || ext == ".yml"
+}
+
+func isOpenAPIHelmValuesPath(filePath string) bool {
+	if !isOpenAPIHelmValuesFile(path.Base(filePath)) {
+		return false
+	}
+	for _, segment := range strings.Split(path.Clean(filePath), "/") {
+		if strings.EqualFold(segment, "templates") {
+			return false
+		}
+	}
+	return true
 }
 
 // BulkCreateHelmServicesOpenAPI creates one Helm service per selected values file,
