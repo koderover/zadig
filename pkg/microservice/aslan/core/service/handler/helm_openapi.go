@@ -34,6 +34,7 @@ type helmServiceAction string
 
 const (
 	helmServiceActionView   helmServiceAction = "view"
+	helmServiceActionCreate helmServiceAction = "create"
 	helmServiceActionEdit   helmServiceAction = "edit"
 	helmServiceActionDelete helmServiceAction = "delete"
 )
@@ -168,6 +169,8 @@ func authorizeHelmServiceOpenAPI(ctx *internalhandler.Context, projectKey string
 		switch action {
 		case helmServiceActionView:
 			allowed = projectAuth.ProductionService.View
+		case helmServiceActionCreate:
+			allowed = projectAuth.ProductionService.Create
 		case helmServiceActionEdit:
 			allowed = projectAuth.ProductionService.Edit
 		case helmServiceActionDelete:
@@ -177,6 +180,8 @@ func authorizeHelmServiceOpenAPI(ctx *internalhandler.Context, projectKey string
 		switch action {
 		case helmServiceActionView:
 			allowed = projectAuth.Service.View
+		case helmServiceActionCreate:
+			allowed = projectAuth.Service.Create
 		case helmServiceActionEdit:
 			allowed = projectAuth.Service.Edit
 		case helmServiceActionDelete:
@@ -185,4 +190,105 @@ func authorizeHelmServiceOpenAPI(ctx *internalhandler.Context, projectKey string
 	}
 	ctx.UnAuthorized = !allowed
 	return allowed
+}
+
+// @summary 查询代码库中的 Values 配置
+// @description 扫描指定代码库路径，返回可导入为 Helm 服务的 Values 文件路径
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		 string								    true	"项目标识"
+// @Param   body 			body 		 svcservice.OpenAPIQueryHelmValuesReq   true 	"Values 配置查询参数"
+// @success 200 			{object}     svcservice.OpenAPIQueryHelmValuesResp
+// @router /openapi/service/helm/repository/values [post]
+func QueryHelmValuesOpenAPI(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	req := new(svcservice.OpenAPIQueryHelmValuesReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid query Helm values request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	// reading repo content only requires project membership, same as the codehost OpenAPI
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = svcservice.QueryHelmValuesOpenAPI(projectKey, req, ctx.Logger)
+}
+
+// @summary 批量创建 Helm 服务
+// @description 使用同一个 Helm 模板，为选中的每个 Values 文件创建一个 Helm 服务
+// @tags 	OpenAPI
+// @accept 	json
+// @produce json
+// @Param   projectKey		query		 string								        true	"项目标识"
+// @Param   production		query		 bool								        false	"是否创建生产服务，默认 false"
+// @Param   body 			body 		 svcservice.OpenAPIBulkCreateHelmServiceReq true 	"批量创建 Helm 服务参数"
+// @success 200 			{object}     svcservice.OpenAPILoadHelmServiceResp
+// @router /openapi/service/helm/bulk [post]
+func BulkCreateHelmServicesOpenAPI(c *gin.Context) {
+	production := c.Query("production") == "true"
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	req := new(svcservice.OpenAPIBulkCreateHelmServiceReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid bulk create Helm service request body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if !authorizeHelmServiceOpenAPI(ctx, projectKey, production, helmServiceActionCreate) {
+		return
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	logBody, _ := json.Marshal(req)
+	function := "项目管理-测试服务"
+	if production {
+		function = "项目管理-生产服务"
+	}
+	detail := fmt.Sprintf("模板名称:%s", req.TemplateName)
+	detailEn := fmt.Sprintf("Template Name: %s", req.TemplateName)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "新增", function, detail, detailEn, string(logBody), types.RequestBodyTypeJSON, ctx.Logger)
+
+	ctx.Resp, ctx.RespErr = svcservice.BulkCreateHelmServicesOpenAPI(ctx, projectKey, production, req)
 }
