@@ -1133,6 +1133,19 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		allServices = append(allServices, svcGroup)
 	}
 
+	// Deleting a service template must not implicitly remove it from existing environments.
+	templateServiceMap := templateProd.GetServiceMap()
+	for groupIndex, serviceGroup := range productResp.Services {
+		for len(allServices) <= groupIndex {
+			allServices = append(allServices, nil)
+		}
+		for _, svc := range serviceGroup {
+			if svc.FromZadig() && templateServiceMap[svc.ServiceName] == nil && !deletedSvcSet.Has(svc.ServiceName) {
+				allServices[groupIndex] = append(allServices[groupIndex], svc)
+			}
+		}
+	}
+
 	chartSvcMap := productResp.GetChartServiceMap()
 	for _, svc := range chartSvcMap {
 		if addedReleaseNameSet.Has(svc.ReleaseName) {
