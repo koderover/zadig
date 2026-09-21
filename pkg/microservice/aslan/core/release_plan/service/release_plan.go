@@ -77,12 +77,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
 	for _, job := range args.Jobs {
-		if (job.Manager != "" || job.ManagerID != "" || len(job.Managers) > 0) && c.UserID != args.ManagerID {
-			return errors.New("only the release plan manager can set release job owners")
-		}
-	}
-
-	for _, job := range args.Jobs {
 		// release job will be linted when we finish planning instead of saving
 		// if err := lintReleaseJob(job.Type, job.Spec); err != nil {
 		// 	return errors.Errorf("lintReleaseJob %s error: %v", job.Name, err)
@@ -558,7 +552,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 }
 
 func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan, args *UpdateReleasePlanArgs) error {
-	if args == nil || c.UserID == plan.ManagerID {
+	if args == nil || c.UserID == plan.ManagerID || (c.Resources != nil && c.Resources.IsSystemAdmin) {
 		return nil
 	}
 
@@ -586,7 +580,7 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 	}
 
 	if ownerSet || ownerChanged {
-		return errors.New("only the release plan manager can update release job owners")
+		return errors.New("only the release plan manager or system administrator can update release job owners")
 	}
 	return nil
 }
