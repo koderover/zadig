@@ -375,6 +375,10 @@ func QueryHelmValuesOpenAPI(projectKey string, req *OpenAPIQueryHelmValuesReq, l
 	return resp, nil
 }
 
+// listOpenAPIHelmValuesFiles lists the Values files directly inside a directory.
+// Subdirectories are not followed: one Values file describes one service, so a
+// caller points at the directory holding them, and walking a whole repository
+// would cost one code host request per directory.
 func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch, dir string) ([]string, error) {
 	treeNodes, err := getter.GetTree(owner, repo, dir, branch)
 	if err != nil {
@@ -383,21 +387,12 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 
 	valuesPaths := make([]string, 0, len(treeNodes))
 	for _, treeNode := range treeNodes {
-		if treeNode == nil {
+		if treeNode == nil || treeNode.IsDir {
 			continue
 		}
-		if !treeNode.IsDir {
-			if isOpenAPIHelmValuesFile(treeNode.Name) {
-				valuesPaths = append(valuesPaths, treeNode.FullPath)
-			}
-			continue
+		if isOpenAPIHelmValuesFile(treeNode.Name) {
+			valuesPaths = append(valuesPaths, treeNode.FullPath)
 		}
-
-		subPaths, err := listOpenAPIHelmValuesFiles(getter, owner, repo, branch, treeNode.FullPath)
-		if err != nil {
-			return nil, err
-		}
-		valuesPaths = append(valuesPaths, subPaths...)
 	}
 
 	return valuesPaths, nil
@@ -427,6 +422,10 @@ func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch
 }
 
 func isOpenAPIHelmValuesFile(name string) bool {
+	// Chart.yaml is Chart metadata, importing it would create a service named chart.
+	if strings.EqualFold(name, setting.ChartYaml) {
+		return false
+	}
 	ext := strings.ToLower(path.Ext(name))
 	return ext == ".yaml" || ext == ".yml"
 }
