@@ -1247,9 +1247,9 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	return resp, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, logger)
 }
 
-// HelmServiceNameFromValuesPath returns the name of the service created from a values
+// helmServiceNameFromValuesPath returns the name of the service created from a values
 // file, bulk creation names every service after its values file.
-func HelmServiceNameFromValuesPath(valuesPath string) string {
+func helmServiceNameFromValuesPath(valuesPath string) string {
 	serviceName := filepath.Base(valuesPath)
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
 	serviceName = strings.TrimSpace(serviceName)
@@ -1284,7 +1284,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		return nil, nil, err
 	}
 
-	serviceName := HelmServiceNameFromValuesPath(path)
+	serviceName := helmServiceNameFromValuesPath(path)
 
 	var to string
 	if args.Production {

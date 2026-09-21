@@ -317,7 +317,7 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 		if !isOpenAPIHelmValuesFile(path.Base(valuesPath)) {
 			return fmt.Errorf("%s is not a values file", valuesPath)
 		}
-		if HelmServiceNameFromValuesPath(valuesPath) == "" {
+		if helmServiceNameFromValuesPath(valuesPath) == "" {
 			return fmt.Errorf("values path %s has an empty service name", valuesPath)
 		}
 	}
@@ -458,7 +458,7 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 	conflicts := make([]*OpenAPIFailedHelmService, 0)
 	createdBy := make(map[string]string, len(req.ValuesPaths))
 	for _, valuesPath := range req.ValuesPaths {
-		serviceName := HelmServiceNameFromValuesPath(valuesPath)
+		serviceName := helmServiceNameFromValuesPath(valuesPath)
 		if firstPath, ok := createdBy[serviceName]; ok {
 			conflicts = append(conflicts, &OpenAPIFailedHelmService{
 				Path:  valuesPath,
