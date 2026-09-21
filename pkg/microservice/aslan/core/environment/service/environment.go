@@ -1664,6 +1664,28 @@ func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*com
 	return string(data), nil
 }
 
+func genEstimatedMergedValues(helmDeploySvc *helmservice.HelmDeployService, prodSvc *commonmodels.ProductService, defaultValues, requestOverrideYaml string) (string, error) {
+	requestValues, err := converter.YamlToFlatMap([]byte(requestOverrideYaml))
+	if err != nil {
+		return "", fmt.Errorf("failed to flatten request override yaml, err: %s", err)
+	}
+	for _, container := range prodSvc.Containers {
+		if container == nil || container.ImagePath == nil {
+			continue
+		}
+		imagePaths := []string{container.ImagePath.Repo, container.ImagePath.Namespace, container.ImagePath.Image, container.ImagePath.Tag}
+		for _, path := range imagePaths {
+			if path == "" {
+				continue
+			}
+			if _, ok := requestValues[path]; ok {
+				return helmtool.MergeOverrideValues("", defaultValues, prodSvc.GetServiceRender().GetOverrideYaml(), prodSvc.GetServiceRender().OverrideValues, nil)
+			}
+		}
+	}
+	return helmDeploySvc.GenMergedValues(prodSvc, defaultValues, nil)
+}
+
 func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName string, scene EstimateValuesScene, contextType EstimateContentType, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
 		prodSvc        *commonmodels.ProductService
@@ -1891,7 +1913,7 @@ func GenEstimatedValues(projectName, envName, namespace, serviceOrReleaseName st
 		prodSvc.GetServiceRender().OverrideValues = overrideValues
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+		yamlContent, err := genEstimatedMergedValues(helmDeploySvc, prodSvc, prod.DefaultValues, arg.OverrideYaml)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 		}
