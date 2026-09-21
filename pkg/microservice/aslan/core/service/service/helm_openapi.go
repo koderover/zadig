@@ -314,6 +314,12 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 		if err := validateOpenAPIRepoPath(valuesPath); err != nil {
 			return err
 		}
+		if !isOpenAPIHelmValuesFile(path.Base(valuesPath)) {
+			return fmt.Errorf("%s is not a values file", valuesPath)
+		}
+		if HelmServiceNameFromValuesPath(valuesPath) == "" {
+			return fmt.Errorf("values path %s has an empty service name", valuesPath)
+		}
 	}
 	return nil
 }
@@ -431,6 +437,19 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 	codehostID, err := openAPIAvailableCodehostID(projectKey, req.CodehostName)
 	if err != nil {
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
+	}
+	getter, err := fsservice.GetTreeGetter(codehostID)
+	if err != nil {
+		return nil, e.ErrLoadServiceTemplate.AddErr(err)
+	}
+	owner := req.Namespace
+	if owner == "" {
+		owner = req.Owner
+	}
+	for _, valuesPath := range req.ValuesPaths {
+		if _, err := checkOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath); err != nil {
+			return nil, e.ErrLoadServiceTemplate.AddErr(err)
+		}
 	}
 
 	// values files sharing a name would create the same service, and the creations run
