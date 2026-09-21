@@ -1247,6 +1247,15 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	return resp, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, logger)
 }
 
+// HelmServiceNameFromValuesPath returns the name of the service created from a values
+// file, bulk creation names every service after its values file.
+func HelmServiceNameFromValuesPath(valuesPath string) string {
+	serviceName := filepath.Base(valuesPath)
+	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
+	return strings.ToLower(serviceName)
+}
+
 // @Min TODO: handleSingleService is used by helm services creation from template
 // so all the helper function will currently use 'false' in the 'isProd' parameter.
 // note that the valuesPath will be empty if the values is not loaded from a git repo, use carefully.
@@ -1275,10 +1284,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		return nil, nil, err
 	}
 
-	serviceName := filepath.Base(path)
-	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
-	serviceName = strings.TrimSpace(serviceName)
-	serviceName = strings.ToLower(serviceName)
+	serviceName := HelmServiceNameFromValuesPath(path)
 
 	var to string
 	if args.Production {
