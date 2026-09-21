@@ -449,6 +449,10 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 	if err != nil {
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
 	}
+	if _, err := commonrepo.NewChartColl().Get(req.TemplateName); err != nil {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("chart template %s is not found", req.TemplateName))
+	}
+
 	getter, err := fsservice.GetTreeGetter(codehostID)
 	if err != nil {
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
