@@ -875,7 +875,8 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	query := bson.M{}
 	ands := make([]bson.M, 0)
 	if strings.TrimSpace(req.Query) != "" {
-		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": req.Query, "$options": "i"}}, {"key": bson.M{"$regex": req.Query, "$options": "i"}}}})
+		queryPattern := escapeRegex(req.Query)
+		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": queryPattern, "$options": "i"}}, {"key": bson.M{"$regex": queryPattern, "$options": "i"}}}})
 	}
 	if len(req.Filters) > 0 {
 		exprs, err := buildFilterQuery(req.Filters, defMap)
@@ -894,6 +895,12 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	sortBy := req.SortBy
 	if sortBy == "" {
 		sortBy = "update_time"
+	} else {
+		resolved, _, err := resolveField(sortBy, defMap)
+		if err != nil {
+			return nil, 0, err
+		}
+		sortBy = resolved
 	}
 	sort := bson.D{{Key: sortBy, Value: order}}
 	list, total, err := commonrepo.NewApplicationColl().List(context.Background(), &commonrepo.ApplicationListOptions{Query: query, Sort: sort, Page: req.Page, PageSize: req.PageSize})
