@@ -385,7 +385,13 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			job.Managers = u.Managers
+			if u.Managers != nil {
+				job.Managers = u.Managers
+				if len(u.Managers) == 0 {
+					job.Manager = ""
+					job.ManagerID = ""
+				}
+			}
 			job.Spec = u.Spec
 			job.Updated = true
 			return nil
