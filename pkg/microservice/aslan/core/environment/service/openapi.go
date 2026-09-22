@@ -17,23 +17,30 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
+	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 )
 
 func GetEnvDetail(projectName, envName string, production bool, logger *zap.SugaredLogger) (*OpenAPIEnvDetail, error) {
@@ -155,50 +162,156 @@ func OpenAPIRestartService(projectName, envName, serviceName string, production 
 }
 
 func OpenAPIListServicePods(projectName, envName, serviceName string, production bool, logger *zap.SugaredLogger) (*OpenAPIListServicePodsResponse, error) {
-	serviceResp, err := GetService(envName, projectName, serviceName, production, "", logger)
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	var serviceResp *commonservice.SvcResp
+	if env.Source == setting.SourceFromHelm {
+		serviceResp, err = getHelmServiceRuntimeResources(env, serviceName, logger)
+	} else {
+		serviceResp, err = getService(env, serviceName, "", logger)
+	}
 	if err != nil {
 		return nil, err
 	}
+	return buildOpenAPIListServicePodsResponse(serviceName, serviceResp), nil
+}
 
+func getHelmServiceRuntimeResources(env *commonmodels.Product, serviceName string, logger *zap.SugaredLogger) (*commonservice.SvcResp, error) {
+	var productService *commonmodels.ProductService
+	for _, service := range env.GetSvcList() {
+		if service.ServiceName == serviceName || (!service.FromZadig() && service.ReleaseName == serviceName) {
+			productService = service
+			break
+		}
+	}
+	if productService == nil {
+		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service %s in environment %s", serviceName, env.EnvName))
+	}
+
+	releaseName := productService.ReleaseName
+	if releaseName == "" && productService.FromZadig() {
+		serviceReleaseNames, err := commonutil.GetServiceNameToReleaseNameMap(env)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		releaseName = serviceReleaseNames[serviceName]
+	}
+	if releaseName == "" {
+		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("release name is empty for service %s", serviceName))
+	}
+	serviceResp := &commonservice.SvcResp{
+		ServiceName: serviceName,
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+		Namespace:   env.Namespace,
+		EnvName:     env.EnvName,
+		ProductName: env.ProductName,
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	release, err := helmClient.GetRelease(releaseName)
+	if err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return serviceResp, nil
+		}
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	resources, err := kube.ManifestToResource(release.Manifest)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	var cronJobVersionLessThan121 *bool
+	for _, resource := range resources {
+		if resource == nil || resource.Kind != setting.CronJob {
+			continue
+		}
+		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
+		if err != nil {
+			logger.Warnf("failed to get Kubernetes clientset, skipping CronJob resources: %s", err)
+			break
+		}
+		version, err := clientset.Discovery().ServerVersion()
+		if err != nil {
+			logger.Warnf("failed to determine Kubernetes server version, skipping CronJob resources: %s", err)
+			break
+		}
+		versionLessThan121 := kubeclient.VersionLessThan121(version)
+		cronJobVersionLessThan121 = &versionLessThan121
+		break
+	}
+
+	serviceResp.Scales, serviceResp.CronJobs = commonservice.GetServiceRuntimeResources(resources, env.Namespace, cronJobVersionLessThan121, informer, logger)
+	return serviceResp, nil
+}
+
+func buildOpenAPIListServicePodsResponse(serviceName string, serviceResp *commonservice.SvcResp) *OpenAPIListServicePodsResponse {
 	resp := &OpenAPIListServicePodsResponse{
 		ServiceName: serviceName,
 		Pods:        make([]*OpenAPIServicePodInfo, 0),
 	}
 	seen := make(map[string]struct{})
-
 	for _, scale := range serviceResp.Scales {
 		if scale == nil {
 			continue
 		}
-		for _, pod := range scale.Pods {
-			if pod == nil || pod.Name == "" {
-				continue
-			}
-			if _, ok := seen[pod.Name]; ok {
-				continue
-			}
-			seen[pod.Name] = struct{}{}
-
-			images := make([]string, 0, len(pod.Containers))
-			for _, c := range pod.Containers {
-				images = append(images, c.Image)
-			}
-
-			resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
-				PodName:         pod.Name,
-				Status:          pod.Status,
-				PodReady:        pod.PodReady,
-				ContainersReady: pod.ContainersReady,
-				CreateTime:      pod.CreateTime,
-				IP:              pod.IP,
-				Images:          images,
-				WorkloadName:    scale.Name,
-				WorkloadType:    scale.Type,
-			})
+		appendOpenAPIServicePods(resp, seen, scale.Name, scale.Type, scale.Pods)
+	}
+	for _, cronJob := range serviceResp.CronJobs {
+		if cronJob == nil {
+			continue
 		}
+		appendOpenAPIServicePods(resp, seen, cronJob.Name, setting.CronJob, cronJob.Pods)
 	}
 
-	return resp, nil
+	return resp
+}
+
+func appendOpenAPIServicePods(resp *OpenAPIListServicePodsResponse, seen map[string]struct{}, workloadName, workloadType string, pods []*internalresource.Pod) {
+	for _, pod := range pods {
+		if pod == nil || pod.Name == "" {
+			continue
+		}
+		if _, ok := seen[pod.Name]; ok {
+			continue
+		}
+		seen[pod.Name] = struct{}{}
+
+		images := make([]string, 0, len(pod.Containers))
+		for _, container := range pod.Containers {
+			images = append(images, container.Image)
+		}
+		containers := make([]OpenAPIServicePodContainerInfo, 0, len(pod.Containers))
+		for _, container := range pod.Containers {
+			containers = append(containers, OpenAPIServicePodContainerInfo{Name: container.Name})
+		}
+		resp.Pods = append(resp.Pods, &OpenAPIServicePodInfo{
+			PodName:         pod.Name,
+			Status:          pod.Status,
+			PodReady:        pod.PodReady,
+			ContainersReady: pod.ContainersReady,
+			CreateTime:      pod.CreateTime,
+			IP:              pod.IP,
+			Images:          images,
+			Containers:      containers,
+			WorkloadName:    workloadName,
+			WorkloadType:    workloadType,
+		})
+	}
 }
 
 func OpenAPIRestartServicePod(projectName, envName, podName string, production bool, logger *zap.SugaredLogger) (*OpenAPIRestartServicePodResponse, error) {
