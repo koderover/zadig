@@ -355,7 +355,15 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	}
 
 	switch et := event.(type) {
-	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
+	case *github.PullRequestEvent:
+		if !shouldTriggerByGithubPullRequestEvent(et) {
+			return nil
+		}
+		if err = TriggerTestByGithubEvent(et, string(payload), requestID, log); err != nil {
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.PushEvent, *github.CreateEvent:
 		if err = TriggerTestByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
@@ -389,7 +397,15 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 	log.Infof("[Webhook] event: %s delivery id: %s received for scanning trigger", hookType, deliveryID)
 
 	switch et := event.(type) {
-	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
+	case *github.PullRequestEvent:
+		if !shouldTriggerByGithubPullRequestEvent(et) {
+			return nil
+		}
+		if err = TriggerScanningByGithubEvent(et, string(payload), requestID, log); err != nil {
+			log.Errorf("TriggerScanningByGithubEvent error: %s", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.PushEvent, *github.CreateEvent:
 		if err = TriggerScanningByGithubEvent(et, string(payload), requestID, log); err != nil {
 			log.Errorf("TriggerScanningByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
@@ -426,7 +442,7 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent:
-		if *et.Action != "opened" && *et.Action != "synchronize" {
+		if !shouldTriggerByGithubPullRequestEvent(et) {
 			return nil
 		}
 		err = TriggerWorkflowV4ByGithubEvent(et, string(payload), baseURI, deliveryID, requestID, log)
@@ -448,6 +464,19 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 		}
 	}
 	return nil
+}
+
+func shouldTriggerByGithubPullRequestEvent(event *github.PullRequestEvent) bool {
+	if event == nil {
+		return false
+	}
+
+	switch event.GetAction() {
+	case "opened", "synchronize":
+		return true
+	default:
+		return false
+	}
 }
 
 const (
