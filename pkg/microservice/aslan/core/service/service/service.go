@@ -764,7 +764,7 @@ func UpdateServiceEnvStatus(args *commonservice.ServiceTmplObject) error {
 			validStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
 		}
 
-		envStatus, err := pm.GenerateEnvStatus(currentService.EnvConfigs, log.SugaredLogger())
+		envStatus, err := pm.GenerateEnvStatus(currentService.ProductName, currentService.EnvConfigs, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("failed to generate env status")
 			return err

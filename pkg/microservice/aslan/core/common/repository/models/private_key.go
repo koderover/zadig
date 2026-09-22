@@ -54,6 +54,21 @@ type PrivateKey struct {
 	Type             string   `bson:"type"                   json:"type"`
 }
 
+func (key *PrivateKey) IsAvailableToProject(projectName string) bool {
+	if key.ProjectName != "" {
+		return key.ProjectName == projectName
+	}
+	if key.Projects == nil {
+		return true
+	}
+	for _, project := range key.Projects {
+		if project == projectName || project == setting.AllProjects {
+			return true
+		}
+	}
+	return false
+}
+
 type VMInfo struct {
 	IP            string `bson:"ip"                   json:"ip"`
 	Platform      string `bson:"platform"             json:"platform"`

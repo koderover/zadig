@@ -125,7 +125,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			gp.ProductName = serviceTmpl.ProductName
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
-				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.ProductName, serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 				if err != nil {
 					return
 				}
@@ -206,7 +206,7 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 					newEnvConfigs = append(newEnvConfigs, envConfig)
 				}
 
-				changeEnvStatus, err := pm.GenerateEnvStatus(newEnvConfigs, log.NopSugaredLogger())
+				changeEnvStatus, err := pm.GenerateEnvStatus(productName, newEnvConfigs, log.NopSugaredLogger())
 				if err != nil {
 					log.Errorf("GenerateEnvStatus err:%s", err)
 					return err

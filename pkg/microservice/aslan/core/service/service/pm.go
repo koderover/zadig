@@ -74,7 +74,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	if err := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision); err != nil {
 		log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err)
 	}
-	envStatus, err := pm.GenerateEnvStatus(args.ServiceTmplObject.EnvConfigs, log)
+	envStatus, err := pm.GenerateEnvStatus(args.ServiceTmplObject.ProductName, args.ServiceTmplObject.EnvConfigs, log)
 	if err != nil {
 		log.Errorf("GenerateEnvStatus %s", err)
 		return err
