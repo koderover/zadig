@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"path"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -392,6 +394,13 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 			continue
 		}
 		if isOpenAPIHelmValuesPath(treeNode.FullPath) {
+			valid, err := openAPIHelmValuesContentValid(getter, owner, repo, branch, treeNode.FullPath)
+			if err != nil {
+				return nil, err
+			}
+			if !valid {
+				continue
+			}
 			valuesPaths = append(valuesPaths, treeNode.FullPath)
 		}
 	}
@@ -415,11 +424,39 @@ func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch
 
 	for _, treeNode := range treeNodes {
 		if treeNode != nil && !treeNode.IsDir && treeNode.FullPath == filePath {
+			valid, err := openAPIHelmValuesContentValid(getter, owner, repo, branch, filePath)
+			if err != nil {
+				return nil, err
+			}
+			if !valid {
+				return nil, fmt.Errorf("%s is not a valid Helm Values file", filePath)
+			}
 			return []string{filePath}, nil
 		}
 	}
 
 	return nil, fmt.Errorf("values file %s is not found in repo %s branch %s", filePath, repo, branch)
+}
+
+func openAPIHelmValuesContentValid(getter fsservice.TreeGetter, owner, repo, branch, filePath string) (bool, error) {
+	content, err := getter.GetFileContent(owner, repo, filePath, branch)
+	if err != nil {
+		return false, err
+	}
+	if len(bytes.TrimSpace(content)) == 0 || bytes.Contains(content, []byte("{{")) {
+		return false, nil
+	}
+	values, err := yamlutil.MergeAndUnmarshal([][]byte{content})
+	if err != nil || len(values) == 0 {
+		return false, nil
+	}
+	if _, ok := values["apiVersion"]; ok {
+		return false, nil
+	}
+	if _, ok := values["kind"]; ok {
+		return false, nil
+	}
+	return true, nil
 }
 
 func isOpenAPIHelmValuesFile(name string) bool {
