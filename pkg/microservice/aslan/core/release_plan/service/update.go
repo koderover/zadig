@@ -387,10 +387,8 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 			job.Name = u.Name
 			if u.Managers != nil {
 				job.Managers = u.Managers
-				if len(u.Managers) == 0 {
-					job.Manager = ""
-					job.ManagerID = ""
-				}
+				job.Manager = ""
+				job.ManagerID = ""
 			}
 			job.Spec = u.Spec
 			job.Updated = true
