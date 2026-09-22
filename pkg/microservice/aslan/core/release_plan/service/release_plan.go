@@ -586,7 +586,18 @@ func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan
 }
 
 func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater) bool {
-	return !sameReleaseJobManagers(updater.Managers, job.Managers)
+	if updater.Managers == nil {
+		return false
+	}
+
+	currentManagers := job.Managers
+	if len(currentManagers) == 0 && job.ManagerID != "" {
+		currentManagers = []*types.Identity{{
+			IdentityType: "user",
+			UID:          job.ManagerID,
+		}}
+	}
+	return !sameReleaseJobManagers(updater.Managers, currentManagers)
 }
 
 func sameReleaseJobManagers(left, right []*types.Identity) bool {
