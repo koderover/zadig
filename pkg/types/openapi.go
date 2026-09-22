@@ -31,6 +31,8 @@ type OpenAPIRepoInput struct {
 	RepoName string `json:"repo_name" binding:"required"`
 	// 分支名称
 	Branch string `json:"branch" binding:"required"`
+	// 标签名称
+	Tag string `json:"tag"`
 	// PR编号，构建中不支持
 	PR int `json:"pr"`
 	// PR列表，构建中不支持
