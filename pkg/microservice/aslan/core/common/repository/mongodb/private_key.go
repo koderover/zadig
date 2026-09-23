@@ -233,7 +233,7 @@ func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.Priva
 			bson.M{
 				"project_name": bson.M{"$exists": false},
 				"$or": bson.A{
-					bson.M{"projects": bson.M{"$exists": false}},
+					bson.M{"projects": nil},
 					bson.M{"projects": bson.M{"$in": bson.A{args.ProjectName, setting.AllProjects}}},
 				},
 			},

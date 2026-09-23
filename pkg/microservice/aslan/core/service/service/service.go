@@ -880,13 +880,13 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 	}
 	var privateKeys []*commonmodels.PrivateKey
 	for _, envConfig := range args.EnvConfigs {
-		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs, ProjectName: args.ProductName})
 		if err != nil {
 			log.Errorf("ListNameByArgs ids err:%s", err)
 			return err
 		}
 
-		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels, ProjectName: args.ProductName})
 		if err != nil {
 			log.Errorf("ListNameByArgs labels err:%s", err)
 			return err
