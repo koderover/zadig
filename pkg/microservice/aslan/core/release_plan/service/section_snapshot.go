@@ -21,6 +21,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const (
@@ -409,9 +410,22 @@ func buildReleasePlanJobInputSnapshot(job *models.ReleaseJob) (interface{}, erro
 		"name":       job.Name,
 		"manager":    job.Manager,
 		"manager_id": job.ManagerID,
+		"managers":   normalizeReleasePlanManagersForSnapshot(job.Managers),
 		"type":       job.Type,
 		"spec":       spec,
 	}, nil
+}
+
+func normalizeReleasePlanManagersForSnapshot(managers []*types.Identity) interface{} {
+	if len(managers) == 0 {
+		return nil
+	}
+
+	normalized := append([]*types.Identity(nil), managers...)
+	sort.Slice(normalized, func(i, j int) bool {
+		return releaseJobManagerKey(normalized[i]) < releaseJobManagerKey(normalized[j])
+	})
+	return sanitizeReleasePlanValue(normalized)
 }
 
 func buildReleasePlanJobInputSpec(jobType config.ReleasePlanJobType, spec interface{}) (interface{}, error) {
