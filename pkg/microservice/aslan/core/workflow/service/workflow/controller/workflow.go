@@ -518,7 +518,10 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
 		if strings.HasPrefix(w.workflowID(), prefix) {
 			scanningID := strings.TrimPrefix(w.workflowID(), prefix)
-			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err == nil {
+			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err != nil {
+				log.Warnf("failed to resolve scanning task link for workflow %s: %v", w.workflowID(), err)
+				detailURL = ""
+			} else {
 				detailURL = commonutil.ScanningTaskURL(configbase.SystemAddress(), w.Project, scanning.Name, taskID, string(config.StatusRunning), scanningID, string(scanning.ScannerType))
 			}
 		}
