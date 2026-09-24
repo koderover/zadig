@@ -143,10 +143,18 @@ func ToBuildInstalls(installs []*types.OpenAPIToolItem) []*models.Item {
 	return ret
 }
 
-func ToKeyValList(parameters []*types.ParameterSetting) models.KeyValList {
+// ToKeyValList converts OpenAPI build parameters into build envs. Optional fields
+// left out of a parameter keep the value of the existing env with the same key and type,
+// so clients unaware of those fields do not clear them on update.
+func ToKeyValList(parameters []*types.ParameterSetting, existing models.KeyValList) models.KeyValList {
+	existingMap := make(map[string]*models.KeyVal, len(existing))
+	for _, kv := range existing {
+		existingMap[kv.Key] = kv
+	}
+
 	ret := make([]*models.KeyVal, 0)
 	for _, parameter := range parameters {
-		ret = append(ret, &models.KeyVal{
+		kv := &models.KeyVal{
 			Key:          parameter.Key,
 			Value:        parameter.DefaultValue,
 			Type:         models.ParameterSettingType(parameter.Type),
@@ -154,9 +162,53 @@ func ToKeyValList(parameters []*types.ParameterSetting) models.KeyValList {
 			ChoiceValue:  parameter.ChoiceValue,
 			IsCredential: parameter.IsCredential,
 			Description:  parameter.Description,
-		})
+		}
+		if old, ok := existingMap[kv.Key]; ok && old.Type == kv.Type {
+			kv.Required = old.Required
+			kv.RegistryID = old.RegistryID
+			kv.Script = old.Script
+			kv.CallFunction = old.CallFunction
+			kv.FilePath = old.FilePath
+		}
+		if parameter.Required != nil {
+			kv.Required = *parameter.Required
+		}
+		if parameter.RegistryID != nil {
+			kv.RegistryID = *parameter.RegistryID
+		}
+		if parameter.Script != nil {
+			kv.Script = *parameter.Script
+		}
+		if parameter.CallFunction != nil {
+			kv.CallFunction = *parameter.CallFunction
+		}
+		if parameter.FilePath != nil {
+			kv.FilePath = *parameter.FilePath
+		}
+		ret = append(ret, kv)
 	}
 	return models.KeyValList(ret)
+}
+
+func ToOpenAPIBuildParameters(kvs models.KeyValList) []*types.OpenAPIBuildParameter {
+	ret := make([]*types.OpenAPIBuildParameter, 0, len(kvs))
+	for _, kv := range kvs {
+		ret = append(ret, &types.OpenAPIBuildParameter{
+			Key:          kv.Key,
+			Value:        kv.Value,
+			Type:         types.ParameterSettingType(kv.Type),
+			ChoiceOption: kv.ChoiceOption,
+			ChoiceValue:  kv.ChoiceValue,
+			IsCredential: kv.IsCredential,
+			Description:  kv.Description,
+			Required:     kv.Required,
+			RegistryID:   kv.RegistryID,
+			Script:       kv.Script,
+			CallFunction: kv.CallFunction,
+			FilePath:     kv.FilePath,
+		})
+	}
+	return ret
 }
 
 func ToKeyVals(keyValues []*types.KeyValue) []*util.KeyValue {

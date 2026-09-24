@@ -109,9 +109,14 @@ func generateBuildModuleFromOpenAPIRequest(ctx *internalhandler.Context, origina
 		build.Source = originalBuild.Source
 	}
 
+	var existingEnvs commonmodels.KeyValList
+	if originalBuild != nil && originalBuild.PreBuild != nil {
+		existingEnvs = originalBuild.PreBuild.Envs
+	}
+
 	prebuildInfo := &commonmodels.PreBuild{
 		BuildOS:  req.BuildOS,
-		Envs:     openapitool.ToKeyValList(req.Parameters),
+		Envs:     openapitool.ToKeyValList(req.Parameters, existingEnvs),
 		Installs: openapitool.ToBuildInstalls(req.Installs),
 	}
 
@@ -532,18 +537,7 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 					resp.Repos = append(resp.Repos, repo)
 				}
 
-				for _, kv := range svcBuild.Envs {
-					newKV := &commonmodels.ServiceKeyVal{
-						Key:          kv.Key,
-						Value:        kv.Value,
-						Type:         kv.Type,
-						ChoiceOption: kv.ChoiceOption,
-						ChoiceValue:  kv.ChoiceValue,
-						IsCredential: kv.IsCredential,
-					}
-
-					resp.Parameters = append(resp.Parameters, newKV)
-				}
+				resp.Parameters = openapitool.ToOpenAPIBuildParameters(svcBuild.Envs)
 
 				break
 			}
@@ -596,15 +590,7 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 	}
 
 	if len(resp.Parameters) == 0 {
-		resp.Parameters = make([]*commonmodels.ServiceKeyVal, 0)
-		for _, kv := range build.PreBuild.Envs {
-			resp.Parameters = append(resp.Parameters, &commonmodels.ServiceKeyVal{
-				Key:          kv.Key,
-				Value:        kv.Value,
-				Type:         kv.Type,
-				IsCredential: kv.IsCredential,
-			})
-		}
+		resp.Parameters = openapitool.ToOpenAPIBuildParameters(build.PreBuild.Envs)
 	}
 
 	resp.Outputs = build.Outputs

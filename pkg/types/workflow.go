@@ -50,6 +50,46 @@ type ParameterSetting struct {
 	IsCredential bool `json:"is_credential"`
 	// 参数描述
 	Description string `json:"description"`
+	// 以下字段不传时，更新构建会保留同名同类型参数的已有配置
+	// 是否必填
+	Required *bool `json:"required,omitempty"`
+	// 镜像仓库 ID，仅 image 类型使用
+	RegistryID *string `json:"registry_id,omitempty"`
+	// 动态变量代码块，仅 script 类型使用
+	Script *string `json:"script,omitempty"`
+	// 动态变量调用函数，仅 script 类型使用
+	CallFunction *string `json:"call_function,omitempty"`
+	// 文件路径，仅 file 类型使用
+	FilePath *string `json:"file_path,omitempty"`
+}
+
+// OpenAPIBuildParameter 是构建详情 OpenAPI 返回的自定义变量，字段与 ParameterSetting 对应，
+// 调用方可以把 value 填回 default_value 后原样写回。
+type OpenAPIBuildParameter struct {
+	// 参数名称
+	Key string `json:"key"`
+	// 参数值
+	Value string `json:"value"`
+	// 参数类型
+	Type ParameterSettingType `json:"type,omitempty"`
+	// 可选值列表
+	ChoiceOption []string `json:"choice_option,omitempty"`
+	// 多选值列表
+	ChoiceValue []string `json:"choice_value,omitempty"`
+	// 是否为敏感信息
+	IsCredential bool `json:"is_credential"`
+	// 参数描述
+	Description string `json:"description"`
+	// 是否必填
+	Required bool `json:"required"`
+	// 镜像仓库 ID，仅 image 类型使用
+	RegistryID string `json:"registry_id,omitempty"`
+	// 动态变量代码块，仅 script 类型使用
+	Script string `json:"script,omitempty"`
+	// 动态变量调用函数，仅 script 类型使用
+	CallFunction string `json:"call_function,omitempty"`
+	// 文件路径，仅 file 类型使用
+	FilePath string `json:"file_path,omitempty"`
 }
 
 type ExternalSetting struct {

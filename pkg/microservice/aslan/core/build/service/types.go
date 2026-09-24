@@ -123,7 +123,7 @@ type OpenAPIBuildDetailResp struct {
 	BuildEnv        *OpenAPIBuildEnv                  `json:"build_env"`
 	AdvancedSetting *types.OpenAPIAdvancedSetting     `json:"advanced_settings"`
 	BuildScript     string                            `json:"build_script"`
-	Parameters      []*commonmodels.ServiceKeyVal     `json:"parameters"`
+	Parameters      []*types.OpenAPIBuildParameter    `json:"parameters"`
 	Outputs         []*commonmodels.Output            `json:"outputs"`
 	PostBuild       *commonmodels.PostBuild           `json:"post_build"`
 }
