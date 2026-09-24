@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -112,11 +113,17 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 		query["name"] = args.Name
 	}
 
-	if args.ProjectName != "" {
-		query["project_name"] = args.ProjectName
-	}
-	if args.SystemOnly {
+	switch {
+	case args.SystemOnly:
 		query["project_name"] = bson.M{"$exists": false}
+	case args.ProjectName != "":
+		query["$or"] = bson.A{
+			bson.M{"project_name": args.ProjectName},
+			bson.M{
+				"project_name": bson.M{"$exists": false},
+				"projects":     bson.M{"$in": bson.A{args.ProjectName, setting.AllProjects}},
+			},
+		}
 	}
 
 	resp := make([]*models.PrivateKey, 0)
@@ -207,8 +214,9 @@ func (c *PrivateKeyColl) DeleteAll() error {
 }
 
 type ListHostIPArgs struct {
-	IDs    []string `json:"ids"`
-	Labels []string `json:"labels"`
+	IDs         []string `json:"ids"`
+	Labels      []string `json:"labels"`
+	ProjectName string   `json:"project_name"`
 }
 
 func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.PrivateKey, error) {
@@ -218,6 +226,18 @@ func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.Priva
 
 	if len(args.IDs) == 0 && len(args.Labels) == 0 {
 		return resp, nil
+	}
+	if args.ProjectName != "" {
+		query["$or"] = bson.A{
+			bson.M{"project_name": args.ProjectName},
+			bson.M{
+				"project_name": bson.M{"$exists": false},
+				"$or": bson.A{
+					bson.M{"projects": nil},
+					bson.M{"projects": bson.M{"$in": bson.A{args.ProjectName, setting.AllProjects}}},
+				},
+			},
+		}
 	}
 
 	if len(args.IDs) > 0 {

@@ -262,7 +262,7 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 			envConfigs = append(envConfigs, config)
 		}
 
-		envStatus, err := pm.GenerateEnvStatus(service.EnvConfigs, log)
+		envStatus, err := pm.GenerateEnvStatus(service.ProductName, service.EnvConfigs, log)
 		if err != nil {
 			log.Errorf("GenerateEnvStatus err:%s", err)
 			continue
