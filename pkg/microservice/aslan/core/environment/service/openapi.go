@@ -92,6 +92,7 @@ func GetEnvDetail(projectName, envName string, production bool, logger *zap.Suga
 			}
 			service := &OpenAPIServiceDetail{
 				ServiceName:    serv.ServiceName,
+				Revision:       serv.Revision,
 				DeployStrategy: deployStrategy,
 				Containers:     serv.Containers,
 				Type:           serv.Type,
