@@ -26,6 +26,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type PluginJobController struct {
@@ -160,6 +161,24 @@ func (j PluginJobController) SetRepoCommitInfo() error {
 
 func (j PluginJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
+	functionReferences := make(map[string]struct{})
+	for _, input := range j.jobSpec.Plugin.Inputs {
+		for _, reference := range util.FindVariableKeyRef(input.CallFunction) {
+			functionReferences[reference] = struct{}{}
+		}
+	}
+	for _, input := range j.jobSpec.Plugin.Inputs {
+		key := strings.Join([]string{"job", j.name, input.Name}, ".")
+		if _, ok := functionReferences[key]; !ok || input.ParamsType == "repo" || input.ParamsType == "file" {
+			continue
+		}
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          key,
+			Value:        input.GetValue(),
+			Type:         "string",
+			IsCredential: input.IsCredential,
+		})
+	}
 	if getRuntimeVariables {
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
