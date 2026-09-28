@@ -3123,7 +3123,8 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		return nil, nil
 	}
 
-	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)
+	serviceToRender := serviceForUpsertRender(newService, prevSvc)
+	parsedYaml, err := kube.RenderEnvService(env, serviceToRender.GetServiceRender(), serviceToRender)
 	if err != nil {
 		log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("newService template %s error: %v", newService.ServiceName, err))
@@ -3176,6 +3177,15 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
+}
+
+func serviceForUpsertRender(newService, prevSvc *commonmodels.ProductService) *commonmodels.ProductService {
+	if prevSvc != nil {
+		return newService
+	}
+	serviceCopy := *newService
+	serviceCopy.Containers = nil
+	return &serviceCopy
 }
 
 func getOldSvcYaml(env *commonmodels.Product,
