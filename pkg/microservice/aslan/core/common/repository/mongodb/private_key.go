@@ -116,6 +116,12 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 	switch {
 	case args.SystemOnly:
 		query["project_name"] = bson.M{"$exists": false}
+		if args.ProjectName != "" {
+			query["$or"] = bson.A{
+				bson.M{"projects": nil},
+				bson.M{"projects": bson.M{"$in": bson.A{args.ProjectName, setting.AllProjects}}},
+			}
+		}
 	case args.ProjectName != "":
 		query["$or"] = bson.A{
 			bson.M{"project_name": args.ProjectName},

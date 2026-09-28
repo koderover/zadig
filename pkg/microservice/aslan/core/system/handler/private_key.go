@@ -68,7 +68,7 @@ func ListPrivateKeys(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.RespErr = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), true, ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
