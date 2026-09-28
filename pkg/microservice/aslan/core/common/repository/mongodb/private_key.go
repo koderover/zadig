@@ -123,13 +123,7 @@ func (c *PrivateKeyColl) List(args *PrivateKeyArgs) ([]*models.PrivateKey, error
 			}
 		}
 	case args.ProjectName != "":
-		query["$or"] = bson.A{
-			bson.M{"project_name": args.ProjectName},
-			bson.M{
-				"project_name": bson.M{"$exists": false},
-				"projects":     bson.M{"$in": bson.A{args.ProjectName, setting.AllProjects}},
-			},
-		}
+		query["project_name"] = args.ProjectName
 	}
 
 	resp := make([]*models.PrivateKey, 0)
