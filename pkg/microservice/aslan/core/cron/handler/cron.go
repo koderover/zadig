@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	cronservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/cron/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
@@ -36,6 +37,12 @@ func CleanConfigmapCronJob(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	cronservice.CleanConfigmapCronJob(ctx.Logger)
+}
+
+func SyncAIReviewFeedback(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.RespErr = reviewfeedback.SyncDue(c.Request.Context(), 10)
 }
 
 // param type: cronjob的执行内容类型

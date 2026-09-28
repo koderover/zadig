@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
 	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
@@ -50,12 +51,17 @@ func NewClient() *Client {
 }
 
 func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
+	_, err := c.CreateAIReviewCommentWithID(codehostID, projectID, repoOwner, repoName, prID, comment)
+	return err
+}
+
+func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) (int64, error) {
 	if prID <= 0 {
-		return fmt.Errorf("invalid pull/merge request ID %d", prID)
+		return 0, fmt.Errorf("invalid pull/merge request ID %d", prID)
 	}
 	codeHostDetail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
-		return errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
+		return 0, errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
 	}
 
 	switch strings.ToLower(codeHostDetail.Type) {
@@ -69,21 +75,50 @@ func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, rep
 			codeHostDetail.DisableSSL,
 		)
 		if err != nil {
-			return fmt.Errorf("create gitlab client: %w", err)
+			return 0, fmt.Errorf("create gitlab client: %w", err)
 		}
-		return createGitLabAIReviewComment(cli.Client, projectID, prID, comment)
+		item, _, err := cli.Notes.CreateMergeRequestNote(projectID, prID, &gitlab.CreateMergeRequestNoteOptions{Body: &comment})
+		if err != nil {
+			return 0, fmt.Errorf("create GitLab merge request note: %w", err)
+		}
+		return int64(item.ID), nil
 	case setting.SourceFromGithub:
 		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
 		if err != nil {
-			return fmt.Errorf("create github app client: %w", err)
+			return 0, fmt.Errorf("create github app client: %w", err)
 		}
 		if cli == nil {
 			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
 		}
-		return createGitHubAIReviewComment(context.Background(), cli.Client.Client, repoOwner, repoName, prID, comment)
+		item, _, err := cli.Issues.CreateComment(context.Background(), repoOwner, repoName, prID, &githubapi.IssueComment{Body: &comment})
+		if err != nil {
+			return 0, fmt.Errorf("create GitHub pull request comment: %w", err)
+		}
+		return item.GetID(), nil
 	default:
-		return fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
+		return 0, fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
 	}
+}
+
+func (c *Client) isGitLab(codehostID int) bool {
+	host, err := systemconfig.New().GetCodeHost(codehostID)
+	return err == nil && strings.EqualFold(host.Type, setting.SourceFromGitlab)
+}
+
+func (c *Client) getAIReviewGitLabProjectID(codehostID int, project string, prID int) (int, error) {
+	host, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil || !strings.EqualFold(host.Type, setting.SourceFromGitlab) {
+		return 0, err
+	}
+	cli, err := gitlabtool.NewClient(host.ID, host.Address, host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL)
+	if err != nil {
+		return 0, err
+	}
+	mr, _, err := cli.MergeRequests.GetMergeRequest(project, prID, nil)
+	if err != nil {
+		return 0, err
+	}
+	return mr.ProjectID, nil
 }
 
 func (c *Client) createAIReviewInlineComments(codehostID int, projectID, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
@@ -170,7 +205,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	if len(comments) == 0 {
 		return result, nil
 	}
-	_, _, err = cli.PullRequests.CreateReview(ctx, repoOwner, repoName, prID, &githubapi.PullRequestReviewRequest{
+	review, _, err := cli.PullRequests.CreateReview(ctx, repoOwner, repoName, prID, &githubapi.PullRequestReviewRequest{
 		CommitID: githubapi.String(headSHA),
 		Event:    githubapi.String("COMMENT"),
 		Comments: comments,
@@ -179,6 +214,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 		return aiReviewInlinePublishResult{}, fmt.Errorf("create GitHub pull request review: %w", err)
 	}
 	result.Published = len(comments)
+	result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "review", CommentID: review.GetID(), ReviewID: review.GetID()})
 	return result, nil
 }
 
@@ -212,7 +248,7 @@ func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectI
 			result.Fallback = append(result.Fallback, finding)
 			continue
 		}
-		_, _, err := cli.Discussions.CreateMergeRequestDiscussion(
+		discussion, _, err := cli.Discussions.CreateMergeRequestDiscussion(
 			projectID,
 			prID,
 			&gitlab.CreateMergeRequestDiscussionOptions{
@@ -236,6 +272,9 @@ func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectI
 			continue
 		}
 		result.Published++
+		if len(discussion.Notes) > 0 {
+			result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "note", CommentID: int64(discussion.Notes[0].ID)})
+		}
 	}
 	return result, nil
 }

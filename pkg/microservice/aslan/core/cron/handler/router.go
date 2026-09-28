@@ -31,6 +31,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		cron.GET("/cleanjob", CleanJobCronJob)
 		cron.GET("/cleanconfigmap", CleanConfigmapCronJob)
+		cron.GET("/ai-review-feedback", SyncAIReviewFeedback)
 	}
 
 	cronjob := router.Group("cronjob")

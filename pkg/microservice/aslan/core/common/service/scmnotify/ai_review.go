@@ -17,13 +17,16 @@ limitations under the License.
 package scmnotify
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -32,6 +35,7 @@ const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 type aiReviewInlinePublishResult struct {
 	Published int
 	Fallback  []stepspec.AIReviewFinding
+	Comments  []reviewfeedback.PublishedComment
 }
 
 func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
@@ -44,13 +48,34 @@ func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName stri
 	if len(report.Findings) > 0 {
 		inlineResult, inlineErr = s.Client.createAIReviewInlineComments(codehostID, projectID, repoOwner, repoName, prID, report)
 		if inlineErr != nil {
-			inlineResult = aiReviewInlinePublishResult{Fallback: report.Findings}
+			if inlineResult.Published == 0 {
+				inlineResult = aiReviewInlinePublishResult{Fallback: report.Findings}
+			}
 			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	if err := s.Client.CreateAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment); err != nil {
-		return fmt.Errorf("publish AI review result: %w", err)
+	summaryID, err := s.Client.CreateAIReviewCommentWithID(codehostID, projectID, repoOwner, repoName, prID, comment)
+	summaryErr := err
+	kind := "issue"
+	if s.Client.isGitLab(codehostID) {
+		kind = "note"
+	}
+	comments := inlineResult.Comments
+	if summaryErr == nil {
+		comments = append(comments, reviewfeedback.PublishedComment{Kind: kind, CommentID: summaryID})
+	}
+	numericProjectID, err := s.Client.getAIReviewGitLabProjectID(codehostID, projectID, prID)
+	if err != nil {
+		logger.Warnf("resolve AI review GitLab project ID: %v", err)
+	}
+	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := reviewfeedback.Register(registerCtx, codehostID, numericProjectID, repoOwner, repoName, prID, comments); err != nil {
+		return fmt.Errorf("register AI review feedback comments: %w", err)
+	}
+	if summaryErr != nil {
+		return fmt.Errorf("publish AI review result: %w", summaryErr)
 	}
 	logger.Infof("published AI review result to %s #%d", projectID, prID)
 	if inlineErr != nil {
@@ -124,7 +149,7 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 		}
 		builder.WriteByte('\n')
 	}
-	builder.WriteString("\n" + aiReviewCommentMarker)
+	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker)
 	return builder.String()
 }
 
@@ -169,7 +194,7 @@ func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
 	if finding.Suggestion != "" {
 		fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
 	}
-	builder.WriteString("\n" + aiReviewCommentMarker)
+	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker)
 	return builder.String()
 }
 

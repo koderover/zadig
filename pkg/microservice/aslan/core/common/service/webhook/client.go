@@ -31,7 +31,7 @@ const (
 	TestingPrefix      = "testing-"
 	ScannerPrefix      = "scanning-"
 
-	taskTimeoutSecond = 10
+	taskTimeoutSecond = 180
 )
 
 type client struct {
@@ -49,26 +49,28 @@ type task struct {
 	owner, namespace, repo, address, token, ref, ak, sk, region string
 	from                                                        string
 	add, enableProxy, isManual, disbaleSSL                      bool
+	ensureGitLabWebhook                                         bool
 	err                                                         error
 	doneCh                                                      chan struct{}
 }
 
 type TaskOption struct {
-	ID          int
-	Name        string
-	Owner       string
-	Namespace   string
-	Repo        string
-	Address     string
-	Token       string
-	Ref         string
-	From        string
-	AK          string
-	SK          string
-	Region      string
-	IsManual    bool
-	EnableProxy bool
-	DisableSSL  bool
+	ID                  int
+	Name                string
+	Owner               string
+	Namespace           string
+	Repo                string
+	Address             string
+	Token               string
+	Ref                 string
+	From                string
+	AK                  string
+	SK                  string
+	Region              string
+	IsManual            bool
+	EnableProxy         bool
+	DisableSSL          bool
+	EnsureGitLabWebhook bool
 }
 
 func (c *client) AddWebHook(taskOption *TaskOption) error {
@@ -77,22 +79,23 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
-		ID:          taskOption.ID,
-		owner:       taskOption.Owner,
-		namespace:   taskOption.Namespace,
-		repo:        taskOption.Repo,
-		address:     taskOption.Address,
-		token:       taskOption.Token,
-		ref:         getFullReference(taskOption.Name, taskOption.Ref),
-		from:        taskOption.From,
-		add:         true,
-		enableProxy: taskOption.EnableProxy,
-		disbaleSSL:  taskOption.DisableSSL,
-		ak:          taskOption.AK,
-		sk:          taskOption.SK,
-		region:      taskOption.Region,
-		isManual:    taskOption.IsManual,
-		doneCh:      make(chan struct{}),
+		ID:                  taskOption.ID,
+		owner:               taskOption.Owner,
+		namespace:           taskOption.Namespace,
+		repo:                taskOption.Repo,
+		address:             taskOption.Address,
+		token:               taskOption.Token,
+		ref:                 getFullReference(taskOption.Name, taskOption.Ref),
+		from:                taskOption.From,
+		add:                 true,
+		enableProxy:         taskOption.EnableProxy,
+		disbaleSSL:          taskOption.DisableSSL,
+		ak:                  taskOption.AK,
+		sk:                  taskOption.SK,
+		region:              taskOption.Region,
+		isManual:            taskOption.IsManual,
+		ensureGitLabWebhook: taskOption.EnsureGitLabWebhook,
+		doneCh:              make(chan struct{}),
 	}
 
 	select {
