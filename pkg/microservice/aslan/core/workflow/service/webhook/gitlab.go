@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -49,13 +51,57 @@ type EventPush struct {
 	Body        string `json:"body"`
 }
 
+type gitlabEmojiHook struct {
+	MergeRequest struct {
+		IID int `json:"iid"`
+	} `json:"merge_request"`
+	ProjectID int    `json:"project_id"`
+	EventType string `json:"event_type"`
+	Project   struct {
+		WebURL string `json:"web_url"`
+	} `json:"project"`
+	ObjectAttributes struct {
+		ID            int64  `json:"id"`
+		Name          string `json:"name"`
+		AwardableType string `json:"awardable_type"`
+		AwardableID   int64  `json:"awardable_id"`
+	} `json:"object_attributes"`
+	Note struct {
+		NoteableType string `json:"noteable_type"`
+	} `json:"note"`
+}
+
+func (event gitlabEmojiHook) isReviewFeedback() bool {
+	return event.MergeRequest.IID > 0 && event.ObjectAttributes.ID > 0 && event.ProjectID > 0 && event.ObjectAttributes.AwardableID > 0 && event.Note.NoteableType == "MergeRequest" &&
+		(event.EventType == "award" || event.EventType == "revoke") && event.ObjectAttributes.AwardableType == "Note" &&
+		(event.ObjectAttributes.Name == "thumbsup" || event.ObjectAttributes.Name == "thumbsdown")
+}
+
 func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	start := time.Now()
 	token := req.Header.Get("X-Gitlab-Token")
 	secret := util.GetGitHookSecret()
 
 	if secret != "" && token != secret {
+		log.Errorw("gitlab webhook token verification failed", "event", req.Header.Get("X-Gitlab-Event"), "event_uuid", req.Header.Get("X-Gitlab-Event-UUID"))
 		return errors.New("token is illegal")
+	}
+	if req.Header.Get("X-Gitlab-Event") == "Emoji Hook" {
+		var event gitlabEmojiHook
+		if err := json.Unmarshal(payload, &event); err != nil {
+			log.Errorw("failed to parse gitlab emoji webhook", "event_uuid", req.Header.Get("X-Gitlab-Event-UUID"), "error", err)
+			return err
+		}
+		emojiLog := log.With("project_id", event.ProjectID, "note_id", event.ObjectAttributes.AwardableID,
+			"emoji_id", event.ObjectAttributes.ID, "emoji", event.ObjectAttributes.Name, "action", event.EventType,
+			"event_uuid", req.Header.Get("X-Gitlab-Event-UUID"), "pr", event.MergeRequest.IID)
+		emojiLog.Info("received gitlab emoji webhook")
+		if !event.isReviewFeedback() {
+			emojiLog.Infow("ignored gitlab emoji webhook", "reason", "unsupported action, target or emoji")
+			return nil
+		}
+		return reviewfeedback.ApplyGitLabReaction(req.Context(), reviewfeedback.Host(event.Project.WebURL),
+			event.ProjectID, event.MergeRequest.IID, event.ObjectAttributes.AwardableID, event.ObjectAttributes.ID, event.ObjectAttributes.Name, event.EventType, emojiLog)
 	}
 
 	eventType := gitlab.HookEventType(req)
@@ -118,6 +164,12 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		log.Infof("gitlab webhook updateYamlTemplateByGitlabPush cost %s", time.Since(yamlSyncStart))
 	case *gitlab.MergeEvent:
 		mergeEvent = event
+		if event.ObjectAttributes.Action == "close" || event.ObjectAttributes.Action == "merge" || event.ObjectAttributes.Action == "reopen" {
+			namespace, repoName := splitNamespace(event.Project.PathWithNamespace)
+			if err := reviewfeedback.SchedulePR(req.Context(), setting.SourceFromGitlab, reviewfeedback.Host(event.Project.WebURL), namespace, repoName, event.ObjectAttributes.IID, event.ObjectAttributes.Action); err != nil {
+				return err
+			}
+		}
 	case *gitlab.TagEvent:
 		tagEvent = event
 	}
@@ -699,4 +751,12 @@ func shouldIgnoreGitlabMRWebhook(ev *gitlab.MergeEvent) bool {
 	ignored := ev.ObjectAttributes.OldRev == ""
 	log.Debugf("evaluate gitlab mr webhook ignore: iid=%d action=%s has_oldrev=%t ignored=%t", ev.ObjectAttributes.IID, ev.ObjectAttributes.Action, ev.ObjectAttributes.OldRev != "", ignored)
 	return ignored
+}
+
+func splitNamespace(path string) (string, string) {
+	i := strings.LastIndex(path, "/")
+	if i < 0 {
+		return "", path
+	}
+	return path[:i], path[i+1:]
 }

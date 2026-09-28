@@ -1164,7 +1164,6 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			for _, kv := range kvs {
 				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
-					log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
 				} else {
 					log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
 				}
@@ -1437,7 +1436,6 @@ func manualExecWorkflowTaskV4(task *commonmodels.WorkflowTask, workflowName stri
 			for _, kv := range kvs {
 				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
-					log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
 				} else {
 					log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
 				}

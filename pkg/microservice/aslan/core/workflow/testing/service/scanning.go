@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -65,7 +66,8 @@ func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogge
 		return e.ErrCreateScanningModule.AddErr(err)
 	}
 
-	err = commonservice.ProcessWebhook(args.AdvancedSetting.HookCtl.Items, nil, webhook.ScannerPrefix+args.Name, log)
+	updatedHooks := scanningWebhookItems(args)
+	err = commonservice.ProcessWebhook(updatedHooks, nil, webhook.ScannerPrefix+args.Name, log, args.ScannerType == types.ScannerTypeAIReview && len(updatedHooks) > 0)
 	if err != nil {
 		return e.ErrCreateScanningModule.AddErr(err)
 	}
@@ -110,18 +112,12 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 		return e.ErrUpdateScanningModule.AddErr(err)
 	}
 
-	if scanning.AdvancedSetting.HookCtl.Enabled {
-		err = commonservice.ProcessWebhook(args.AdvancedSetting.HookCtl.Items, scanning.AdvancedSetting.HookCtl.Items, webhook.ScannerPrefix+args.Name, log)
-		if err != nil {
-			log.Errorf("failed to process webhook for scanning: %s, the error is: %s", args.Name, err)
-			return e.ErrUpdateScanningModule.AddErr(err)
-		}
-	} else {
-		err = commonservice.ProcessWebhook(args.AdvancedSetting.HookCtl.Items, nil, webhook.ScannerPrefix+args.Name, log)
-		if err != nil {
-			log.Errorf("failed to process webhook for scanning: %s, the error is: %s", args.Name, err)
-			return e.ErrUpdateScanningModule.AddErr(err)
-		}
+	updatedHooks := scanningWebhookItems(args)
+	currentHooks := scanningWebhookItems(&Scanning{ScannerType: scanning.ScannerType, Repos: scanning.Repos, AdvancedSetting: scanning.AdvancedSetting})
+	err = commonservice.ProcessWebhook(updatedHooks, currentHooks, webhook.ScannerPrefix+args.Name, log, args.ScannerType == types.ScannerTypeAIReview && len(updatedHooks) > 0)
+	if err != nil {
+		log.Errorf("failed to process webhook for scanning: %s, the error is: %s", args.Name, err)
+		return e.ErrUpdateScanningModule.AddErr(err)
 	}
 
 	scanningModule := ConvertToDBScanningModule(args)
@@ -135,6 +131,35 @@ func UpdateScanningModule(id, username string, args *Scanning, log *zap.SugaredL
 	}
 
 	return nil
+}
+
+func scanningWebhookItems(args *Scanning) []*commonmodels.ScanningHook {
+	var hooks []*commonmodels.ScanningHook
+	if args.AdvancedSetting != nil && args.AdvancedSetting.HookCtl != nil && args.AdvancedSetting.HookCtl.Enabled {
+		hooks = append(hooks, args.AdvancedSetting.HookCtl.Items...)
+	}
+	if args.ScannerType != types.ScannerTypeAIReview {
+		return hooks
+	}
+	// Feedback events are needed for manual reviews too. Select the repository
+	// independently of the automatic task trigger configuration.
+	for _, repo := range args.Repos {
+		if repo == nil || !strings.EqualFold(repo.Source, types.ProviderGitlab) {
+			continue
+		}
+		owner := repo.GetRepoNamespace()
+		found := false
+		for _, hook := range hooks {
+			if hook != nil && hook.CodehostID == repo.CodehostID && hook.RepoOwner == owner && hook.RepoName == repo.RepoName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			hooks = append(hooks, &commonmodels.ScanningHook{CodehostID: repo.CodehostID, Source: repo.Source, RepoOwner: owner, RepoName: repo.RepoName})
+		}
+	}
+	return hooks
 }
 
 func validateAIReviewScanningConfig(args *Scanning) error {
@@ -381,7 +406,8 @@ func DeleteScanningModuleByID(id string, log *zap.SugaredLogger) error {
 		return err
 	}
 
-	err = commonservice.ProcessWebhook(nil, scanning.AdvancedSetting.HookCtl.Items, webhook.ScannerPrefix+scanning.Name, log)
+	hooks := scanningWebhookItems(&Scanning{ScannerType: scanning.ScannerType, Repos: scanning.Repos, AdvancedSetting: scanning.AdvancedSetting})
+	err = commonservice.ProcessWebhook(nil, hooks, webhook.ScannerPrefix+scanning.Name, log)
 	if err != nil {
 		log.Errorf("failed to process webhook for scanning module: %s, the error is: %s", id, err)
 		return err

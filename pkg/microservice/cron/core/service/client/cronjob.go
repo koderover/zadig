@@ -18,6 +18,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -53,6 +54,31 @@ func (c *Client) TriggerCleanconfigmaps(log *zap.SugaredLogger) error {
 	if err != nil {
 		log.Errorf("trigger clean configmaps error :%v", err)
 	}
+	return err
+}
+
+func (c *Client) TriggerAIReviewFeedback(log *zap.SugaredLogger) (err error) {
+	defer func() {
+		if err != nil {
+			log.Warnf("sync AI review feedback: %v", err)
+		}
+	}()
+	url := fmt.Sprintf("%s/cron/cron/ai-review-feedback", c.APIBase)
+	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	response, err := c.Conn.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("sync AI review feedback: HTTP %d", response.StatusCode)
+	}
+	_, err = io.Copy(io.Discard, response.Body)
 	return err
 }
 

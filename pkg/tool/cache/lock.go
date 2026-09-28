@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -52,12 +53,21 @@ func NewRedisLockWithExpiry(key string, expiry time.Duration) *RedisLock {
 }
 
 func (lock *RedisLock) Lock() error {
-	err := lock.mutex.Lock()
+	return lock.LockContext(context.Background())
+}
+
+func (lock *RedisLock) LockContext(ctx context.Context) error {
+	err := lock.mutex.LockContext(ctx)
 	if err != nil {
 		if !strings.Contains(err.Error(), "lock already taken") {
 			log.Errorf("failed to acquire redis lock: %s, err: %s", lock.key, err)
 		}
 	}
+	return err
+}
+
+func (lock *RedisLock) UnlockContext(ctx context.Context) error {
+	_, err := lock.mutex.UnlockContext(ctx)
 	return err
 }
 
