@@ -50,11 +50,11 @@ type OpenAPIApplicationRepository struct {
 
 type OpenAPIApplicationRequest struct {
 	// 应用名称，必填
-	Name string `json:"name"`
+	Name string `json:"name" binding:"required"`
 	// 应用唯一键，必填，创建后不可修改
-	Key string `json:"key"`
+	Key string `json:"key" binding:"required"`
 	// 关联项目标识，必填
-	Project string `json:"project"`
+	Project string `json:"project" binding:"required"`
 	// 应用类型，例如 service、component、application、library
 	Type string `json:"type"`
 	// 应用负责人用户 ID
@@ -259,9 +259,22 @@ func CreateApplicationOpenAPI(req *OpenAPIApplicationRequest, logger *zap.Sugare
 }
 
 func BulkCreateApplicationsOpenAPI(reqs []*OpenAPIApplicationRequest, logger *zap.SugaredLogger) error {
+	codehostIDs := make(map[string]int)
+	resolveCodehostIDCached := func(name string) (int, error) {
+		if id, ok := codehostIDs[name]; ok {
+			return id, nil
+		}
+		id, err := resolveCodehostID(name)
+		if err != nil {
+			return 0, err
+		}
+		codehostIDs[name] = id
+		return id, nil
+	}
+
 	apps := make([]*commonmodels.Application, 0, len(reqs))
 	for _, req := range reqs {
-		app, err := applicationFromOpenAPI(req, resolveCodehostID)
+		app, err := applicationFromOpenAPI(req, resolveCodehostIDCached)
 		if err != nil {
 			return err
 		}
