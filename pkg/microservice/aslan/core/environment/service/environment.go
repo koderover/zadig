@@ -3181,8 +3181,11 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 
 func serviceForUpsertRender(newService, prevSvc *commonmodels.ProductService) *commonmodels.ProductService {
 	if prevSvc != nil {
+		// Keep existing container images, including workflow overrides.
 		return newService
 	}
+
+	// New services should keep images resolved from the rendered YAML.
 	serviceCopy := *newService
 	serviceCopy.Containers = nil
 	return &serviceCopy
