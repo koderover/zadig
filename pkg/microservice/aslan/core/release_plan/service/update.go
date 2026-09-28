@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const (
@@ -314,6 +315,7 @@ type CreateReleaseJobUpdater struct {
 	Type      config.ReleasePlanJobType `json:"type"`
 	Manager   string                    `json:"manager"`
 	ManagerID string                    `json:"manager_id"`
+	Managers  []*types.Identity         `json:"managers"`
 	Spec      interface{}               `json:"spec"`
 }
 
@@ -327,12 +329,11 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	job := &models.ReleaseJob{
-		ID:        uuid.New().String(),
-		Name:      u.Name,
-		Manager:   u.Manager,
-		ManagerID: u.ManagerID,
-		Type:      u.Type,
-		Spec:      u.Spec,
+		ID:       uuid.New().String(),
+		Name:     u.Name,
+		Managers: u.Managers,
+		Type:     u.Type,
+		Spec:     u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
 	return nil
@@ -364,6 +365,7 @@ type UpdateReleaseJobUpdater struct {
 	Name      string                    `json:"name"`
 	Manager   string                    `json:"manager"`
 	ManagerID string                    `json:"manager_id"`
+	Managers  []*types.Identity         `json:"managers"`
 	Type      config.ReleasePlanJobType `json:"type"`
 	Spec      interface{}               `json:"spec"`
 }
@@ -383,8 +385,11 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			job.Manager = u.Manager
-			job.ManagerID = u.ManagerID
+			if u.Managers != nil {
+				job.Managers = u.Managers
+				job.Manager = ""
+				job.ManagerID = ""
+			}
 			job.Spec = u.Spec
 			job.Updated = true
 			return nil
