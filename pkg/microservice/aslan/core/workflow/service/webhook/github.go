@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -953,4 +954,27 @@ func SyncYamlTemplateFromGithub(tmpl *commonmodels.YamlTemplate, latestCommitID,
 
 	log.Infof("End of sync yaml template %s from github path %s", tmpl.Name, tmpl.Path)
 	return nil
+}
+
+// ProcessGithubFeedbackHook handles lifecycle events independently of workflow trigger filters.
+func ProcessGithubFeedbackHook(payload []byte, req *http.Request) error {
+	if github.WebHookType(req) != "pull_request" {
+		return nil
+	}
+	if err := validateSecret(payload, []byte(util.GetGitHookSecret()), req); err != nil {
+		return err
+	}
+	parsed, err := github.ParseWebHook("pull_request", payload)
+	if err != nil {
+		return err
+	}
+	event, ok := parsed.(*github.PullRequestEvent)
+	if !ok {
+		return nil
+	}
+	if event.GetAction() != "closed" && event.GetAction() != "reopened" {
+		return nil
+	}
+	repository := event.GetRepo()
+	return reviewfeedback.SchedulePR(req.Context(), setting.SourceFromGithub, reviewfeedback.Host(repository.GetHTMLURL()), repository.GetOwner().GetLogin(), repository.GetName(), event.GetNumber(), event.GetAction())
 }
