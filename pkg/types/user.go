@@ -85,9 +85,9 @@ type UserSetting struct {
 }
 
 type Identity struct {
-	IdentityType string `json:"identity_type"`
-	UID          string `json:"uid,omitempty"`
-	GID          string `json:"gid,omitempty"`
+	IdentityType string `json:"identity_type" yaml:"identity_type"`
+	UID          string `json:"uid,omitempty" yaml:"uid,omitempty"`
+	GID          string `json:"gid,omitempty" yaml:"gid,omitempty"`
 }
 
 func GeneSystemUserBriefInfo() UserBriefInfo {
