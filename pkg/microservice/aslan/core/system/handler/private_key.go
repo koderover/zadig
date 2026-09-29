@@ -250,7 +250,7 @@ func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = service.ListLabels()
+	ctx.Resp, ctx.RespErr = service.ListLabels(c.Query("projectName"))
 }
 
 type privateKeyArgs struct {

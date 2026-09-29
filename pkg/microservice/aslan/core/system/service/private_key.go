@@ -324,13 +324,16 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListLabels() ([]string, error) {
+func ListLabels(projectName string) ([]string, error) {
 	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list vms: %v", err)
 	}
 	resp := make([]string, 0)
 	for _, vm := range vms {
+		if projectName != "" && !vm.IsAvailableToProject(projectName) {
+			continue
+		}
 		if vm.Agent == nil {
 			resp = append(resp, vm.Label)
 		}
