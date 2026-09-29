@@ -100,6 +100,8 @@ type OpenAPILoadHelmServiceResp struct {
 	SuccessServices []string `json:"successServices"`
 	// 创建失败的服务列表
 	FailedServices []*OpenAPIFailedHelmService `json:"failedServices"`
+	// 服务已创建但自动部署到环境失败时的错误信息
+	AutoDeployError string `json:"autoDeployError,omitempty"`
 }
 
 type OpenAPIFailedHelmService struct {
