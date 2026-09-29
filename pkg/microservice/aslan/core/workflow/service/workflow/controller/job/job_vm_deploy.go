@@ -352,7 +352,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		for _, sshID := range deployInfo.SSHs {
 			vm, ok := vmMap[sshID]
 			if !ok {
-				return resp, fmt.Errorf("find ssh host %s error: host not found", sshID)
+				continue
 			}
 			if !vm.IsAvailableToProject(j.workflow.Project) {
 				return resp, fmt.Errorf("host %s is outside project %s scope", vm.Name, j.workflow.Project)
