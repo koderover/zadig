@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 
 	githubapi "github.com/google/go-github/v35/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -14,16 +15,20 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Accessed only while workerMu is held. App transports refresh installation
-// tokens themselves; sharing clients avoids installation discovery per PR.
+// App transports refresh installation tokens themselves; the cache is shared
+// by scheduled collection and review-thread webhooks.
 type appClientCacheKey struct {
 	AppID                int
 	Owner, AppKey, Proxy string
 }
 
+var appClientMu sync.Mutex
+
 var appClients = map[appClientCacheKey]*githubapi.Client{}
 
 func newGitHubFeedbackClient(ctx context.Context, pr *models.AIReviewFeedback, host *systemconfig.CodeHost) (*githubapi.Client, error) {
+	appClientMu.Lock()
+	defer appClientMu.Unlock()
 	apps, err := repo.NewGithubAppColl().Find(ctx)
 	if err != nil {
 		return nil, err
@@ -62,6 +67,8 @@ func newGitHubFeedbackClient(ctx context.Context, pr *models.AIReviewFeedback, h
 
 // The next scheduled attempt rediscovers the installation after a request fails.
 func discardGitHubFeedbackClient(client *githubapi.Client) {
+	appClientMu.Lock()
+	defer appClientMu.Unlock()
 	for key, cached := range appClients {
 		if cached == client {
 			delete(appClients, key)
