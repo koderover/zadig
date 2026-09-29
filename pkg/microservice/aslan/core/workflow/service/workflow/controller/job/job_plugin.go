@@ -141,7 +141,11 @@ func (j PluginJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 	renderedParams := []*commonmodels.Param{}
 	for _, param := range j.jobSpec.Plugin.Inputs {
 		paramsKey := strings.Join([]string{"inputs", param.Name}, ".")
-		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
+		value := param.Value
+		if param.IsMultiValue() {
+			value = strings.Join(param.ChoiceValue, ",")
+		}
+		renderedParams = append(renderedParams, &commonmodels.Param{Name: paramsKey, Value: value, ParamsType: "string", IsCredential: false})
 	}
 	jobTaskSpec.Plugin = renderPlugin(jobTaskSpec.Plugin, renderedParams)
 

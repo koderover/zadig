@@ -379,7 +379,12 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 		buildInVarMap[kv.Key] = kv.Value
 	}
 
-	resp, err = workflowCtrl.GetDynamicVariableValues(jobName, serviceName, moduleName, key, buildInVarMap)
+	latestWorkflowSettings, err := FindWorkflowV4RenderedForExecution(workflow.Name, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find workflow's latest setting: %w", err)
+	}
+
+	resp, err = workflowCtrl.GetDynamicVariableValues(latestWorkflowSettings, jobName, serviceName, moduleName, key, buildInVarMap)
 	if err != nil {
 		err = fmt.Errorf("failed to render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)

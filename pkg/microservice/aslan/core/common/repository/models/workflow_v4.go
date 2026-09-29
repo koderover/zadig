@@ -1835,30 +1835,35 @@ type Param struct {
 	Name        string `bson:"name"             json:"name"             yaml:"name"`
 	Description string `bson:"description"      json:"description"      yaml:"description"`
 	// support string/text/choice/repo/file type
-	ParamsType   string                 `bson:"type"                      json:"type"                        yaml:"type"`
-	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
-	Repo         *types.Repository      `bson:"repo"                      json:"repo"                        yaml:"repo,omitempty"`
-	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
-	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
-	Script       string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
-	CallFunction string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
-	FileID       string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
-	FileName     string                 `bson:"file_name,omitempty"       json:"file_name,omitempty"         yaml:"file_name,omitempty"`
-	FilePath     string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
-	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
-	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
-	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
-	Required     bool                   `bson:"required,omitempty"        json:"required,omitempty"          yaml:"required,omitempty"`
+	ParamsType    string                 `bson:"type"                      json:"type"                        yaml:"type"`
+	Value         string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	Repo          *types.Repository      `bson:"repo"                      json:"repo"                        yaml:"repo,omitempty"`
+	ChoiceOption  []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	ChoiceValue   []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
+	IsMultiSelect bool                   `bson:"is_multi_select,omitempty" json:"is_multi_select,omitempty"    yaml:"is_multi_select,omitempty"`
+	Script        string                 `bson:"script,omitempty"          json:"script,omitempty"            yaml:"script,omitempty"`
+	CallFunction  string                 `bson:"call_function,omitempty"   json:"call_function,omitempty"     yaml:"call_function,omitempty"`
+	FileID        string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
+	FileName      string                 `bson:"file_name,omitempty"       json:"file_name,omitempty"         yaml:"file_name,omitempty"`
+	FilePath      string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
+	Default       string                 `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential  bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	Source        config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
+	Required      bool                   `bson:"required,omitempty"        json:"required,omitempty"          yaml:"required,omitempty"`
 }
 
 func (p *Param) GetValue() string {
-	if p.ParamsType == "multi-select" {
+	if p.IsMultiValue() {
 		return strings.Join(p.ChoiceValue, ",")
 	}
 	if p.ParamsType == "file" {
 		return p.GetFileValue()
 	}
 	return p.Value
+}
+
+func (p *Param) IsMultiValue() bool {
+	return p.ParamsType == string(MultiSelectType) || (p.ParamsType == string(Script) && p.IsMultiSelect)
 }
 
 // GetFileValue returns the file path with /zadig_files/ prefix using the actual fileName
