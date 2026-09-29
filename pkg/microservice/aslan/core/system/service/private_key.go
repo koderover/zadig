@@ -120,39 +120,25 @@ type CreatePrivateKeyResp struct {
 }
 
 // normalizePrivateKeyProjects returns the project scope to store for a host.
-// Project hosts have no scope, and an empty scope means the host is not available to any project.
-func normalizePrivateKeyProjects(projectName string, projects []string) ([]string, error) {
+// Project hosts have no scope, any scope containing all projects is stored as all projects,
+// and an empty scope means the host is not available to any project.
+func normalizePrivateKeyProjects(projectName string, projects []string) []string {
 	if projectName != "" {
-		return nil, nil
+		return nil
 	}
-
-	hasAllProjects := false
-	hasSpecificProject := false
 	for _, project := range projects {
 		if project == setting.AllProjects {
-			hasAllProjects = true
-		} else {
-			hasSpecificProject = true
+			return []string{setting.AllProjects}
 		}
 	}
-	if hasAllProjects && hasSpecificProject {
-		return nil, fmt.Errorf("%s cannot be combined with specific projects", setting.AllProjects)
-	}
-	if hasAllProjects {
-		return []string{setting.AllProjects}, nil
-	}
-	return projects, nil
+	return projects
 }
 
 func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*CreatePrivateKeyResp, error) {
 	if !config.CVMNameRegex.MatchString(args.Name) {
 		return nil, e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
-	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects)
-	if err != nil {
-		return nil, e.ErrCreatePrivateKey.AddDesc(err.Error())
-	}
-	args.Projects = projects
+	args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 
 	privateKeyArgs := &commonrepo.PrivateKeyArgs{
 		Name: args.Name,
@@ -173,7 +159,7 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*C
 		return nil, e.ErrCreatePrivateKey.AddDesc("IP is invalid")
 	}
 
-	err = commonrepo.NewPrivateKeyColl().Create(args)
+	err := commonrepo.NewPrivateKeyColl().Create(args)
 	if err != nil {
 		log.Errorf("failed to create privateKey, error: %s", err)
 		return nil, e.ErrCreatePrivateKey
@@ -193,11 +179,7 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 	if args.IP != "" && !util.IsValidIPv4(args.IP) {
 		return e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
 	}
-	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects)
-	if err != nil {
-		return e.ErrUpdatePrivateKey.AddDesc(err.Error())
-	}
-	args.Projects = projects
+	args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 
 	if vm.Agent != nil {
 		vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
@@ -351,11 +333,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
-			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
-			if err != nil {
-				return e.ErrBulkCreatePrivateKey.AddDesc(err.Error())
-			}
-			currentPrivateKey.Projects = projects
+			currentPrivateKey.Projects = normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				continue
@@ -373,11 +351,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
-			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
-			if err != nil {
-				return e.ErrBulkCreatePrivateKey.AddDesc(err.Error())
-			}
-			currentPrivateKey.Projects = projects
+			currentPrivateKey.Projects = normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 			currentPrivateKey.UpdateBy = username
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
