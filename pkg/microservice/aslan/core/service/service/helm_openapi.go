@@ -240,6 +240,8 @@ type OpenAPIHelmValuesScanPath struct {
 	IsDir bool   `json:"isDir"`
 }
 
+const maxOpenAPIHelmValuesPaths = 100
+
 type OpenAPIQueryHelmValuesReq struct {
 	CodehostName string                       `json:"codehostName"`
 	Owner        string                       `json:"owner"`
@@ -265,13 +267,18 @@ func (r *OpenAPIQueryHelmValuesReq) Validate() error {
 	if len(r.Paths) == 0 {
 		return fmt.Errorf("paths cannot be empty")
 	}
+	if len(r.Paths) > maxOpenAPIHelmValuesPaths {
+		return fmt.Errorf("paths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
+	}
 	for _, scanPath := range r.Paths {
 		if scanPath == nil || scanPath.Path == "" {
 			return fmt.Errorf("path cannot be empty")
 		}
-		if err := validateOpenAPIRepoPath(scanPath.Path); err != nil {
+		normalizedPath, err := normalizeOpenAPIRepoPath(scanPath.Path)
+		if err != nil {
 			return err
 		}
+		scanPath.Path = normalizedPath
 	}
 	return nil
 }
@@ -310,13 +317,19 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 	if len(r.ValuesPaths) == 0 {
 		return fmt.Errorf("valuesPaths cannot be empty")
 	}
-	for _, valuesPath := range r.ValuesPaths {
+	if len(r.ValuesPaths) > maxOpenAPIHelmValuesPaths {
+		return fmt.Errorf("valuesPaths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
+	}
+	for i, valuesPath := range r.ValuesPaths {
 		if valuesPath == "" {
 			return fmt.Errorf("values path cannot be empty")
 		}
-		if err := validateOpenAPIRepoPath(valuesPath); err != nil {
+		normalizedPath, err := normalizeOpenAPIRepoPath(valuesPath)
+		if err != nil {
 			return err
 		}
+		r.ValuesPaths[i] = normalizedPath
+		valuesPath = normalizedPath
 		if !isOpenAPIHelmValuesPath(valuesPath) {
 			return fmt.Errorf("%s is not a values file", valuesPath)
 		}
@@ -327,11 +340,16 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 	return nil
 }
 
-func validateOpenAPIRepoPath(repoPath string) error {
+func normalizeOpenAPIRepoPath(repoPath string) (string, error) {
 	if strings.HasPrefix(repoPath, "/") || strings.Contains(repoPath, "..") {
-		return fmt.Errorf("invalid path: %s", repoPath)
+		return "", fmt.Errorf("invalid path: %s", repoPath)
 	}
-	return nil
+
+	cleanedPath := path.Clean(repoPath)
+	if cleanedPath == "." {
+		return "", nil
+	}
+	return cleanedPath, nil
 }
 
 // QueryHelmValuesOpenAPI scans the given repo paths and returns the values files that
@@ -372,6 +390,9 @@ func QueryHelmValuesOpenAPI(projectKey string, req *OpenAPIQueryHelmValuesReq, l
 			}
 			visited.Insert(valuesPath)
 			resp.ValuesPaths = append(resp.ValuesPaths, valuesPath)
+			if len(resp.ValuesPaths) > maxOpenAPIHelmValuesPaths {
+				return nil, e.ErrListWorkspace.AddDesc(fmt.Sprintf("the number of values files cannot exceed %d", maxOpenAPIHelmValuesPaths))
+			}
 		}
 	}
 
@@ -394,14 +415,17 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 			continue
 		}
 		if isOpenAPIHelmValuesPath(treeNode.FullPath) {
-			valid, err := openAPIHelmValuesContentValid(getter, owner, repo, branch, treeNode.FullPath)
+			content, err := getter.GetFileContent(owner, repo, treeNode.FullPath, branch)
 			if err != nil {
 				return nil, err
 			}
-			if !valid {
+			if !openAPIHelmValuesContentValid(content) {
 				continue
 			}
 			valuesPaths = append(valuesPaths, treeNode.FullPath)
+			if len(valuesPaths) > maxOpenAPIHelmValuesPaths {
+				return nil, fmt.Errorf("the number of values files cannot exceed %d", maxOpenAPIHelmValuesPaths)
+			}
 		}
 	}
 
@@ -409,6 +433,13 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 }
 
 func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]string, error) {
+	if _, err := readOpenAPIHelmValuesFile(getter, owner, repo, branch, filePath); err != nil {
+		return nil, err
+	}
+	return []string{filePath}, nil
+}
+
+func readOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]byte, error) {
 	if !isOpenAPIHelmValuesPath(filePath) {
 		return nil, fmt.Errorf("%s is not a values file", filePath)
 	}
@@ -421,42 +452,42 @@ func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch
 	if err != nil {
 		return nil, err
 	}
-
+	found := false
 	for _, treeNode := range treeNodes {
 		if treeNode != nil && !treeNode.IsDir && treeNode.FullPath == filePath {
-			valid, err := openAPIHelmValuesContentValid(getter, owner, repo, branch, filePath)
-			if err != nil {
-				return nil, err
-			}
-			if !valid {
-				return nil, fmt.Errorf("%s is not a valid Helm Values file", filePath)
-			}
-			return []string{filePath}, nil
+			found = true
+			break
 		}
 	}
+	if !found {
+		return nil, fmt.Errorf("values file %s is not found in repo %s branch %s", filePath, repo, branch)
+	}
 
-	return nil, fmt.Errorf("values file %s is not found in repo %s branch %s", filePath, repo, branch)
-}
-
-func openAPIHelmValuesContentValid(getter fsservice.TreeGetter, owner, repo, branch, filePath string) (bool, error) {
 	content, err := getter.GetFileContent(owner, repo, filePath, branch)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
+	if !openAPIHelmValuesContentValid(content) {
+		return nil, fmt.Errorf("%s is not a valid Helm Values file", filePath)
+	}
+	return content, nil
+}
+
+func openAPIHelmValuesContentValid(content []byte) bool {
 	if len(bytes.TrimSpace(content)) == 0 || bytes.Contains(content, []byte("{{")) {
-		return false, nil
+		return false
 	}
 	values, err := yamlutil.MergeAndUnmarshal([][]byte{content})
 	if err != nil || len(values) == 0 {
-		return false, nil
+		return false
 	}
 	if _, ok := values["apiVersion"]; ok {
-		return false, nil
+		return false
 	}
 	if _, ok := values["kind"]; ok {
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func isOpenAPIHelmValuesFile(name string) bool {
@@ -502,10 +533,13 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 	if owner == "" {
 		owner = req.Owner
 	}
+	valuesContent := make(map[string][]byte, len(req.ValuesPaths))
 	for _, valuesPath := range req.ValuesPaths {
-		if _, err := checkOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath); err != nil {
+		content, err := readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath)
+		if err != nil {
 			return nil, e.ErrLoadServiceTemplate.AddErr(err)
 		}
+		valuesContent[valuesPath] = content
 	}
 
 	// values files sharing a name would create the same service, and the creations run
@@ -518,7 +552,7 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 		if firstPath, ok := createdBy[serviceName]; ok {
 			conflicts = append(conflicts, &OpenAPIFailedHelmService{
 				Path:  valuesPath,
-				Error: fmt.Sprintf("service:%s is already created from values file %s", serviceName, firstPath),
+				Error: fmt.Sprintf("service:%s conflicts with values file %s in the same request: duplicate service name", serviceName, firstPath),
 			})
 			continue
 		}
@@ -533,10 +567,11 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 		CreateFrom: &CreateFromChartTemplate{
 			TemplateName: req.TemplateName,
 		},
-		CreatedBy:  ctx.UserName,
-		RequestID:  ctx.RequestID,
-		AutoSync:   req.AutoSync,
-		Production: production,
+		CreatedBy:     ctx.UserName,
+		RequestID:     ctx.RequestID,
+		AutoSync:      req.AutoSync,
+		Production:    production,
+		ValuesContent: valuesContent,
 		ValuesData: &commonservice.ValuesDataArgs{
 			YamlSource: setting.SourceFromGitRepo,
 			GitRepoConfig: &commonservice.RepoConfig{

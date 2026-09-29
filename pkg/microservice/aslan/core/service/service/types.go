@@ -111,12 +111,13 @@ type OpenAPIFailedHelmService struct {
 
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
-	CreateFrom interface{}             `json:"createFrom"`
-	CreatedBy  string                  `json:"createdBy"`
-	RequestID  string                  `json:"-"`
-	ValuesData *service.ValuesDataArgs `json:"valuesData"`
-	AutoSync   bool                    `json:"auto_sync"`
-	Production bool                    `json:"production"`
+	CreateFrom    interface{}             `json:"createFrom"`
+	CreatedBy     string                  `json:"createdBy"`
+	RequestID     string                  `json:"-"`
+	ValuesData    *service.ValuesDataArgs `json:"valuesData"`
+	ValuesContent map[string][]byte       `json:"-"`
+	AutoSync      bool                    `json:"auto_sync"`
+	Production    bool                    `json:"production"`
 }
 
 type FailedService struct {

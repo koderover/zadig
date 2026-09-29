@@ -1261,16 +1261,20 @@ func helmServiceNameFromValuesPath(valuesPath string) string {
 // note that the valuesPath will be empty if the values is not loaded from a git repo, use carefully.
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath string, args *BulkHelmServiceCreationArgs,
 	templateChartData *ChartTemplateData, force bool, valuesPath string, logger *zap.SugaredLogger) (*templatemodels.ServiceRender, *commonmodels.Service, error) {
-	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
-		CodehostID: repoConfig.CodehostID,
-		Owner:      repoConfig.Owner,
-		Repo:       repoConfig.Repo,
-		Namespace:  repoConfig.Namespace,
-		Path:       path,
-		Branch:     repoConfig.Branch,
-	})
-	if err != nil {
-		return nil, nil, err
+	var err error
+	valuesYAML, ok := args.ValuesContent[path]
+	if !ok {
+		valuesYAML, err = fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+			CodehostID: repoConfig.CodehostID,
+			Owner:      repoConfig.Owner,
+			Repo:       repoConfig.Repo,
+			Namespace:  repoConfig.Namespace,
+			Path:       path,
+			Branch:     repoConfig.Branch,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	if len(valuesYAML) == 0 {
