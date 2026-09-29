@@ -32,9 +32,9 @@ func DefaultIngressClass() string {
 	return viper.GetString(setting.ENVDefaultIngressClass)
 }
 
-// AIReviewGitHubPollInterval defaults to six hours for empty or invalid values.
-func AIReviewGitHubPollInterval() time.Duration {
-	interval, err := time.ParseDuration(strings.TrimSpace(viper.GetString(setting.ENVAIReviewGitHubPollInterval)))
+// AIReviewGitPollInterval defaults to six hours for empty or invalid values.
+func AIReviewGitPollInterval() time.Duration {
+	interval, err := time.ParseDuration(strings.TrimSpace(viper.GetString(setting.ENVAIReviewGitPollInterval)))
 	if err != nil || interval <= 0 {
 		return 6 * time.Hour
 	}

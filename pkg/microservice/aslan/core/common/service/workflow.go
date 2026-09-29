@@ -60,14 +60,14 @@ func DisableCronjobForWorkflow(workflow *models.Workflow) error {
 	})
 }
 
-func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger, ensureGitLabWebhook ...bool) error {
+func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger, ensureAIReviewWebhook ...bool) error {
 	currentSet := toHookSet(currentHooks)
 	updatedSet := toHookSet(updatedHooks)
 	hooksToRemove := currentSet.Difference(updatedSet)
 	hooksToAdd := updatedSet.Difference(currentSet)
-	ensureGitLab := len(ensureGitLabWebhook) > 0 && ensureGitLabWebhook[0]
+	ensureAIReview := len(ensureAIReviewWebhook) > 0 && ensureAIReviewWebhook[0]
 	hooksToProcess := hooksToAdd
-	if ensureGitLab {
+	if ensureAIReview {
 		hooksToProcess = updatedSet
 	}
 
@@ -130,29 +130,29 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 				errs = multierror.Append(errs, err)
 				return
 			}
-			if !hooksToAdd.Has(wh) && ch.Type != setting.SourceFromGitlab {
+			if !hooksToAdd.Has(wh) && ch.Type != setting.SourceFromGitlab && ch.Type != setting.SourceFromGithub {
 				return
 			}
 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
-					ID:                  ch.ID,
-					Name:                wh.name,
-					Owner:               wh.owner,
-					Namespace:           wh.namespace,
-					Repo:                wh.repo,
-					Address:             ch.Address,
-					Token:               ch.AccessToken,
-					Ref:                 name,
-					AK:                  ch.AccessKey,
-					SK:                  ch.SecretKey,
-					Region:              ch.Region,
-					From:                ch.Type,
-					IsManual:            wh.IsManual,
-					DisableSSL:          ch.DisableSSL,
-					EnableProxy:         ch.EnableProxy,
-					EnsureGitLabWebhook: ensureGitLab && ch.Type == setting.SourceFromGitlab,
+					ID:                    ch.ID,
+					Name:                  wh.name,
+					Owner:                 wh.owner,
+					Namespace:             wh.namespace,
+					Repo:                  wh.repo,
+					Address:               ch.Address,
+					Token:                 ch.AccessToken,
+					Ref:                   name,
+					AK:                    ch.AccessKey,
+					SK:                    ch.SecretKey,
+					Region:                ch.Region,
+					From:                  ch.Type,
+					IsManual:              wh.IsManual,
+					DisableSSL:            ch.DisableSSL,
+					EnableProxy:           ch.EnableProxy,
+					EnsureAIReviewWebhook: ensureAIReview && (ch.Type == setting.SourceFromGitlab || ch.Type == setting.SourceFromGithub),
 				})
 				if err != nil {
 					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)

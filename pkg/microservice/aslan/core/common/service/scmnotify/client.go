@@ -105,20 +105,34 @@ func (c *Client) isGitLab(codehostID int) bool {
 	return err == nil && strings.EqualFold(host.Type, setting.SourceFromGitlab)
 }
 
-func (c *Client) getAIReviewGitLabProjectID(codehostID int, project string, prID int) (int, error) {
+func (c *Client) getAIReviewPRMetadata(codehostID int, project, owner, name string, prID int) (int, string, error) {
 	host, err := systemconfig.New().GetCodeHost(codehostID)
-	if err != nil || !strings.EqualFold(host.Type, setting.SourceFromGitlab) {
-		return 0, err
-	}
-	cli, err := gitlabtool.NewClient(host.ID, host.Address, host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	mr, _, err := cli.MergeRequests.GetMergeRequest(project, prID, nil)
+	if strings.EqualFold(host.Type, setting.SourceFromGitlab) {
+		cli, err := gitlabtool.NewClient(host.ID, host.Address, host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL)
+		if err != nil {
+			return 0, "", err
+		}
+		mr, _, err := cli.MergeRequests.GetMergeRequest(project, prID, nil)
+		if err != nil {
+			return 0, "", err
+		}
+		return mr.ProjectID, mr.Title, nil
+	}
+	cli, err := githubservice.GetGithubAppClientByOwner(owner)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return mr.ProjectID, nil
+	if cli == nil {
+		cli = githubservice.NewClient(host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy)
+	}
+	pull, _, err := cli.PullRequests.Get(context.Background(), owner, name, prID)
+	if err != nil {
+		return 0, "", err
+	}
+	return 0, pull.GetTitle(), nil
 }
 
 func (c *Client) createAIReviewInlineComments(codehostID int, projectID, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
@@ -163,9 +177,10 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	if err != nil {
 		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitHub pull request: %w", err)
 	}
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: pullRequest.GetTitle()}
 	headSHA := pullRequest.GetHead().GetSHA()
 	if headSHA == "" {
-		return aiReviewInlinePublishResult{}, fmt.Errorf("GitHub pull request head SHA is empty")
+		return result, fmt.Errorf("GitHub pull request head SHA is empty")
 	}
 
 	patches := make(map[string]string)
@@ -173,7 +188,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	for {
 		files, resp, err := cli.PullRequests.ListFiles(ctx, repoOwner, repoName, prID, options)
 		if err != nil {
-			return aiReviewInlinePublishResult{}, fmt.Errorf("list GitHub pull request files: %w", err)
+			return result, fmt.Errorf("list GitHub pull request files: %w", err)
 		}
 		for _, file := range files {
 			if file == nil {
@@ -187,7 +202,6 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 		options.Page = resp.NextPage
 	}
 
-	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0)}
 	comments := make([]*githubapi.DraftReviewComment, 0, len(report.Findings))
 	for _, finding := range report.Findings {
 		anchor, ok := findAIReviewAddedLine(patches[finding.File], finding.StartLine, finding.EndLine)
@@ -211,10 +225,14 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 		Comments: comments,
 	})
 	if err != nil {
-		return aiReviewInlinePublishResult{}, fmt.Errorf("create GitHub pull request review: %w", err)
+		return result, fmt.Errorf("create GitHub pull request review: %w", err)
 	}
 	result.Published = len(comments)
-	result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "review", CommentID: review.GetID(), ReviewID: review.GetID()})
+	result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "review", CommentID: review.GetID(), ReviewID: review.GetID(), InlineTotal: len(comments)})
+	result.Threads, err = reviewfeedback.ReadGitHubInlineThreads(ctx, cli, repoOwner, repoName, prID, review.GetID())
+	if err != nil && c.logger != nil {
+		c.logger.Warnf("failed to register GitHub inline comment IDs for review %d: %v", review.GetID(), err)
+	}
 	return result, nil
 }
 
@@ -223,8 +241,9 @@ func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectI
 	if err != nil {
 		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitLab merge request changes: %w", err)
 	}
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: mergeRequest.Title, ProjectID: mergeRequest.ProjectID}
 	if mergeRequest.DiffRefs.HeadSha == "" {
-		return aiReviewInlinePublishResult{}, fmt.Errorf("GitLab merge request head SHA is empty")
+		return result, fmt.Errorf("GitLab merge request head SHA is empty")
 	}
 
 	type gitLabPatch struct {
@@ -236,7 +255,6 @@ func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectI
 		patches[change.NewPath] = gitLabPatch{oldPath: change.OldPath, patch: change.Diff}
 	}
 
-	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0)}
 	for _, finding := range report.Findings {
 		filePatch, ok := patches[finding.File]
 		if !ok {
@@ -274,6 +292,7 @@ func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectI
 		result.Published++
 		if len(discussion.Notes) > 0 {
 			result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "note", CommentID: int64(discussion.Notes[0].ID)})
+			result.Threads = append(result.Threads, models.AIReviewInlineThread{CommentID: int64(discussion.Notes[0].ID), ThreadID: discussion.ID, Resolved: discussion.Notes[0].Resolved})
 		}
 	}
 	return result, nil

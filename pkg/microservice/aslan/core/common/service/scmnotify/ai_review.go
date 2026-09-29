@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -34,11 +35,14 @@ const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 
 type aiReviewInlinePublishResult struct {
 	Published int
+	Title     string
+	ProjectID int
+	Threads   []models.AIReviewInlineThread
 	Fallback  []stepspec.AIReviewFinding
 	Comments  []reviewfeedback.PublishedComment
 }
 
-func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
+func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
 	if report == nil || prID <= 0 {
 		return nil
 	}
@@ -49,7 +53,7 @@ func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName stri
 		inlineResult, inlineErr = s.Client.createAIReviewInlineComments(codehostID, projectID, repoOwner, repoName, prID, report)
 		if inlineErr != nil {
 			if inlineResult.Published == 0 {
-				inlineResult = aiReviewInlinePublishResult{Fallback: report.Findings}
+				inlineResult.Fallback = report.Findings
 			}
 			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
 		}
@@ -65,13 +69,16 @@ func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName stri
 	if summaryErr == nil {
 		comments = append(comments, reviewfeedback.PublishedComment{Kind: kind, CommentID: summaryID})
 	}
-	numericProjectID, err := s.Client.getAIReviewGitLabProjectID(codehostID, projectID, prID)
-	if err != nil {
-		logger.Warnf("resolve AI review GitLab project ID: %v", err)
+	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
+	if title == "" {
+		numericProjectID, title, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
+		if err != nil {
+			logger.Warnf("resolve AI review PR metadata: %v", err)
+		}
 	}
 	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := reviewfeedback.Register(registerCtx, codehostID, numericProjectID, repoOwner, repoName, prID, comments); err != nil {
+	if err := reviewfeedback.Register(registerCtx, projectName, title, codehostID, numericProjectID, repoOwner, repoName, prID, comments, inlineResult.Threads); err != nil {
 		return fmt.Errorf("register AI review feedback comments: %w", err)
 	}
 	if summaryErr != nil {
