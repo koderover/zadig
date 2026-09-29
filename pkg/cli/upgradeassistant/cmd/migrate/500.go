@@ -34,6 +34,7 @@ import (
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	userorm "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	permissionservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	pkgtypes "github.com/koderover/zadig/v2/pkg/types"
 	"gorm.io/gorm"
@@ -101,7 +102,36 @@ func V430ToV500() error {
 		return err
 	}
 
+	err = migratePrivateKeyProjectScope500(migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func migratePrivateKeyProjectScope500(migrationInfo *internalmodels.Migration) error {
+	if migrationInfo.Migration500PrivateKeyProjectScope {
+		return nil
+	}
+
+	filter := bson.M{
+		"projects": nil,
+		"$or": bson.A{
+			bson.M{"project_name": bson.M{"$exists": false}},
+			bson.M{"project_name": ""},
+		},
+	}
+	update := bson.M{"$set": bson.M{"projects": []string{setting.AllProjects}}}
+	result, err := commonrepo.NewPrivateKeyColl().UpdateMany(context.Background(), filter, update)
+	if err != nil {
+		return fmt.Errorf("failed to backfill private key project scope, err: %s", err)
+	}
+
+	log.Infof("migration 5.0.0: backfilled %d historical private keys with all-project scope", result.ModifiedCount)
+	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500PrivateKeyProjectScope): true,
+	})
 }
 
 func migrateLogOperationPermission500(migrationInfo *internalmodels.Migration) error {
