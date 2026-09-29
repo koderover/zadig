@@ -115,59 +115,20 @@ func migratePrivateKeyProjectScope500(migrationInfo *internalmodels.Migration) e
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	privateKeyColl := commonrepo.NewPrivateKeyColl()
-	cursor, err := privateKeyColl.Collection.Find(ctx, bson.M{
+	filter := bson.M{
+		"projects": nil,
 		"$or": bson.A{
-			bson.M{"projects": bson.M{"$exists": false}},
-			bson.M{"projects": nil},
-			bson.M{"projects": bson.A{}},
+			bson.M{"project_name": bson.M{"$exists": false}},
+			bson.M{"project_name": ""},
 		},
-	})
+	}
+	update := bson.M{"$set": bson.M{"projects": []string{setting.AllProjects}}}
+	result, err := commonrepo.NewPrivateKeyColl().UpdateMany(context.Background(), filter, update)
 	if err != nil {
-		return fmt.Errorf("failed to list private keys for project scope migration, err: %s", err)
-	}
-	defer cursor.Close(ctx)
-
-	operations := make([]mongo.WriteModel, 0, migration500ProgressEvery)
-	migrated := int64(0)
-	for cursor.Next(ctx) {
-		privateKey := new(commonmodels.PrivateKey)
-		if err := cursor.Decode(privateKey); err != nil {
-			return fmt.Errorf("failed to decode private key for project scope migration, err: %s", err)
-		}
-
-		projects := []string{setting.AllProjects}
-		if privateKey.ProjectName != "" {
-			projects = []string{privateKey.ProjectName}
-		}
-		operations = append(operations, mongo.NewUpdateOneModel().
-			SetFilter(bson.M{"_id": privateKey.ID}).
-			SetUpdate(bson.M{"$set": bson.M{"projects": projects}}))
-
-		if len(operations) == migration500ProgressEvery {
-			result, err := privateKeyColl.BulkWrite(ctx, operations)
-			if err != nil {
-				return fmt.Errorf("failed to backfill private key project scope, err: %s", err)
-			}
-			migrated += result.ModifiedCount
-			operations = operations[:0]
-		}
-	}
-	if err := cursor.Err(); err != nil {
-		return fmt.Errorf("private key project scope migration cursor error, err: %s", err)
-	}
-	if len(operations) > 0 {
-		result, err := privateKeyColl.BulkWrite(ctx, operations)
-		if err != nil {
-			return fmt.Errorf("failed to backfill private key project scope, err: %s", err)
-		}
-		migrated += result.ModifiedCount
+		return fmt.Errorf("failed to backfill private key project scope, err: %s", err)
 	}
 
-	log.Infof("migration 5.0.0: backfilled %d historical private keys with project scope", migrated)
+	log.Infof("migration 5.0.0: backfilled %d historical private keys with all-project scope", result.ModifiedCount)
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration500PrivateKeyProjectScope): true,
 	})
