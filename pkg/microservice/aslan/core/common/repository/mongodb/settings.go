@@ -250,8 +250,12 @@ func (c *SystemSettingColl) GetReleasePlanHookSetting() (*models.ReleasePlanHook
 
 	if resp.ReleasePlanHook == nil {
 		return &models.ReleasePlanHookSettings{
-			Enable: false,
+			Enable:       false,
+			CustomFields: []*models.ReleasePlanCustomFieldDefinition{},
 		}, nil
+	}
+	if resp.ReleasePlanHook.CustomFields == nil {
+		resp.ReleasePlanHook.CustomFields = []*models.ReleasePlanCustomFieldDefinition{}
 	}
 
 	return resp.ReleasePlanHook, nil

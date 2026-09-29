@@ -236,7 +236,8 @@ func hasReleasePlanEditPermission(ctx *internalhandler.Context, verb service.Upd
 
 	switch verb {
 	case service.ActionUpdateName, service.ActionUpdateManager, service.ActionUpdateTimeRange,
-		service.ActionUpdateScheduleExecuteTime, service.ActionUpdateDescription, service.ActionUpdateJiraSprint:
+		service.ActionUpdateScheduleExecuteTime, service.ActionUpdateDescription, service.ActionUpdateJiraSprint,
+		service.ActionUpdateCustomFields:
 		return ctx.Resources.SystemActions.ReleasePlan.EditMetadata, nil
 	case service.ActionUpdateApproval, service.ActionDeleteApproval:
 		return ctx.Resources.SystemActions.ReleasePlan.EditApproval, nil
@@ -608,6 +609,25 @@ func UpdateReleasePlanHookSetting(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.UpdateReleasePlanHookSetting(ctx, req)
+}
+
+func ListReleasePlanCustomFields(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+	ctx.Resp, ctx.RespErr = service.ListReleasePlanCustomFields()
 }
 
 // @Summary Release Plan Hook Callback

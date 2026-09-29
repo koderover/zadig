@@ -45,6 +45,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		v1.GET("/hook/setting", GetReleasePlanHookSetting)
 		v1.PUT("/hook/setting", UpdateReleasePlanHookSetting)
+		v1.GET("/custom_fields", ListReleasePlanCustomFields)
 		v1.POST("/hook/callback", ReleasePlanHookCallback)
 
 		v1.GET("/swag/placeholder", ReleasePlanSwagPlaceholder)
