@@ -61,10 +61,14 @@ func ProcessGitWebHook(c *gin.Context) {
 
 func processGithub(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	errs := &multierror.Error{}
-	if err := webhook.ProcessGithubFeedbackHook(payload, req); err != nil {
+	if err := webhook.ProcessGithubFeedbackHook(payload, req, log); err != nil {
+		log.Errorf("failed to process GitHub feedback webhook: %v", err)
 		errs = multierror.Append(errs, err)
 	}
 
+	if github.WebHookType(req) == "pull_request_review_thread" {
+		return errs.ErrorOrNil()
+	}
 	err := webhook.ProcessGithubWebHook(payload, req, requestID, log)
 	if err != nil {
 		log.Errorf("error happens to trigger workflow %v", err)

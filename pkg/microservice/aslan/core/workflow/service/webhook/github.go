@@ -957,7 +957,13 @@ func SyncYamlTemplateFromGithub(tmpl *commonmodels.YamlTemplate, latestCommitID,
 }
 
 // ProcessGithubFeedbackHook handles lifecycle events independently of workflow trigger filters.
-func ProcessGithubFeedbackHook(payload []byte, req *http.Request) error {
+func ProcessGithubFeedbackHook(payload []byte, req *http.Request, logger *zap.SugaredLogger) error {
+	if github.WebHookType(req) == "pull_request_review_thread" {
+		if err := validateSecret(payload, []byte(util.GetGitHookSecret()), req); err != nil {
+			return err
+		}
+		return processGitHubReviewThread(payload, req, logger)
+	}
 	if github.WebHookType(req) != "pull_request" {
 		return nil
 	}

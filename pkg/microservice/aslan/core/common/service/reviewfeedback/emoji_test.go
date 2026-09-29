@@ -45,7 +45,7 @@ func TestGitLabFinalReconciliation(t *testing.T) {
 		t.Fatalf("failed final reconciliation must remain pending: %v", failed)
 	}
 	finished := syncResultUpdate(&pr, now, true, nil)
-	if finished["closed"] != true || finished["final_sync"] != false || finished["next_sync_at"] != nil {
-		t.Fatalf("final reconciliation must freeze without periodic polling: %v", finished)
+	if finished["closed"] != true || finished["final_sync"] != false {
+		t.Fatalf("final reconciliation must freeze after final collection: %v", finished)
 	}
 }

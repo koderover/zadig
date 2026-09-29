@@ -70,3 +70,20 @@ func (c *AIReviewFeedbackColl) AddComments(ctx context.Context, key bson.M, comm
 	}
 	return nil
 }
+
+func (c *AIReviewFeedbackColl) AddInlineThreads(ctx context.Context, key bson.M, threads []models.AIReviewInlineThread) error {
+	for _, thread := range threads {
+		if thread.CommentID <= 0 {
+			continue
+		}
+		filter := bson.M{}
+		for field, value := range key {
+			filter[field] = value
+		}
+		filter["inline_threads.comment_id"] = bson.M{"$ne": thread.CommentID}
+		if _, err := c.UpdateOne(ctx, filter, bson.M{"$push": bson.M{"inline_threads": thread}, "$inc": bson.M{"revision": int64(1)}}); err != nil {
+			return err
+		}
+	}
+	return nil
+}

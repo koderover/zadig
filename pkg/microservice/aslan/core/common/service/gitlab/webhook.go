@@ -34,13 +34,23 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	return EnsureManagedEmojiHook(ctx, c.Client.Client, owner+"/"+repo, gitservice.WebHookURL())
 }
 
+type managedEmojiHook struct {
+	gitlab.ProjectHook
+	EmojiEvents bool `json:"emoji_events"`
+}
+
 // EnsureManagedEmojiHook adds Emoji events to existing Zadig hooks, or creates
 // a hook with the usual workflow events and Emoji events when none exists.
 func EnsureManagedEmojiHook(ctx context.Context, cli *gitlab.Client, project, hookURL string) (string, error) {
 	var hookID int
 	opts := &gitlab.ListProjectHooksOptions{PerPage: 100}
 	for {
-		hooks, resp, err := cli.Projects.ListProjectHooks(project, opts, gitlab.WithContext(ctx))
+		req, err := cli.NewRequest("GET", fmt.Sprintf("projects/%s/hooks", gitlab.PathEscape(project)), opts, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
+		if err != nil {
+			return "", err
+		}
+		var hooks []managedEmojiHook
+		resp, err := cli.Do(req, &hooks)
 		if err != nil {
 			return "", err
 		}
@@ -49,12 +59,19 @@ func EnsureManagedEmojiHook(ctx context.Context, cli *gitlab.Client, project, ho
 				continue
 			}
 			hookID = hook.ID
+			if hook.EmojiEvents {
+				continue
+			}
 			req, err := cli.NewRequest("PUT", fmt.Sprintf("projects/%s/hooks/%d", gitlab.PathEscape(project), hook.ID), map[string]interface{}{"url": hook.URL, "emoji_events": true}, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
 			if err != nil {
 				return "", err
 			}
-			if _, err = cli.Do(req, nil); err != nil {
+			var updated managedEmojiHook
+			if _, err = cli.Do(req, &updated); err != nil {
 				return "", err
+			}
+			if !updated.EmojiEvents {
+				return "", fmt.Errorf("GitLab webhook %d did not enable emoji_events", hook.ID)
 			}
 		}
 		if resp == nil || resp.NextPage == 0 {
@@ -72,9 +89,12 @@ func EnsureManagedEmojiHook(ctx context.Context, cli *gitlab.Client, project, ho
 	if err != nil {
 		return "", err
 	}
-	var hook gitlab.ProjectHook
+	var hook managedEmojiHook
 	if _, err = cli.Do(req, &hook); err != nil {
 		return "", err
+	}
+	if !hook.EmojiEvents {
+		return "", fmt.Errorf("GitLab webhook %d did not enable emoji_events", hook.ID)
 	}
 	return strconv.Itoa(hook.ID), nil
 }

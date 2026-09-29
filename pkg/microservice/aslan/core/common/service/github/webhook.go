@@ -18,7 +18,10 @@ package github
 
 import (
 	"context"
+	"fmt"
+	githubapi "github.com/google/go-github/v35/github"
 	"strconv"
+	"time"
 
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
@@ -26,16 +29,61 @@ import (
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
-	hook, err := c.CreateHook(context.TODO(), owner, repo, &git.Hook{
-		URL:    gitservice.WebHookURL(),
-		Secret: util.GetGitHookSecret(),
-		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	return EnsureManagedReviewThreadHook(ctx, c.Client.Client, owner, repo, gitservice.WebHookURL())
+}
+
+// EnsureManagedReviewThreadHook preserves existing configuration and only adds
+// the missing event. All matching Zadig callbacks are checked before creation.
+func EnsureManagedReviewThreadHook(ctx context.Context, cli *githubapi.Client, owner, repo, hookURL string) (string, error) {
+	var hookID int64
+	opts := &githubapi.ListOptions{PerPage: 100}
+	for {
+		hooks, resp, err := cli.Repositories.ListHooks(ctx, owner, repo, opts)
+		if err != nil {
+			return "", err
+		}
+		for _, hook := range hooks {
+			if hook == nil || hook.Config["url"] != hookURL {
+				continue
+			}
+			hookID = hook.GetID()
+			enabled := false
+			for _, event := range hook.Events {
+				if event == git.PullRequestReviewThreadEvent || event == "*" {
+					enabled = true
+					break
+				}
+			}
+			if enabled {
+				continue
+			}
+			req, err := cli.NewRequest("PATCH", fmt.Sprintf("repos/%s/%s/hooks/%d", owner, repo, hookID), map[string]interface{}{"add_events": []string{git.PullRequestReviewThreadEvent}})
+			if err != nil {
+				return "", err
+			}
+			if _, err := cli.Do(ctx, req, nil); err != nil {
+				return "", err
+			}
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	if hookID > 0 {
+		return strconv.FormatInt(hookID, 10), nil
+	}
+	hook, _, err := cli.Repositories.CreateHook(ctx, owner, repo, &githubapi.Hook{
+		Config: map[string]interface{}{"url": hookURL, "content_type": "json", "secret": util.GetGitHookSecret()},
+		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent, git.PullRequestReviewThreadEvent},
+		Active: githubapi.Bool(true),
 	})
 	if err != nil {
 		return "", err
 	}
-
-	return strconv.Itoa(int(hook.GetID())), nil
+	return strconv.FormatInt(hook.GetID(), 10), nil
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {

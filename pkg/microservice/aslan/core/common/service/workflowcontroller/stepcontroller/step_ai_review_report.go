@@ -85,6 +85,7 @@ func (s *aiReviewReportCtl) AfterRun(ctx context.Context) error {
 		return nil
 	}
 	if err := scmnotify.NewService().PublishAIReviewReport(
+		s.workflowCtx.ProjectName,
 		s.reportSpec.CodehostID,
 		s.reportSpec.RepoOwner,
 		s.reportSpec.RepoName,
