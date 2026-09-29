@@ -1443,10 +1443,6 @@ func filterKVsByConfig(serviceName string, originKVs []*commontypes.RenderVariab
 	return resp
 }
 
-func mergeHelmOverrideKVs(origin string, configs []*commonmodels.DeployVariableConfig) (string, error) {
-	return mergeHelmOverrideKVsWithEnvironment("", origin, configs)
-}
-
 // mergeHelmOverrideKVsWithEnvironment builds the task override values in
 // precedence order: environment values, workflow-supplied values, and then
 // source=other variable references. This keeps environment-only keys when the

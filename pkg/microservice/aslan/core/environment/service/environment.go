@@ -1665,7 +1665,7 @@ func mergeEstimatedOverrideValues(environmentOrigin string, requestValues []*com
 			return
 		}
 		for i := len(merged) - 1; i >= 0; i-- {
-			if merged[i].Key == kv.Key {
+			if merged[i] != nil && merged[i].Key == kv.Key {
 				merged[i].Value = kv.Value
 				return
 			}
