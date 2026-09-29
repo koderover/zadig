@@ -120,17 +120,10 @@ type CreatePrivateKeyResp struct {
 }
 
 // normalizePrivateKeyProjects returns the project scope to store for a host.
-// Project hosts have no scope. A nil scope keeps current, or falls back to all projects;
-// an empty scope means the host is not available to any project.
-func normalizePrivateKeyProjects(projectName string, projects, current []string) ([]string, error) {
+// Project hosts have no scope, and an empty scope means the host is not available to any project.
+func normalizePrivateKeyProjects(projectName string, projects []string) ([]string, error) {
 	if projectName != "" {
 		return nil, nil
-	}
-	if projects == nil {
-		if current != nil {
-			return current, nil
-		}
-		return []string{setting.AllProjects}, nil
 	}
 
 	hasAllProjects := false
@@ -155,7 +148,7 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*C
 	if !config.CVMNameRegex.MatchString(args.Name) {
 		return nil, e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
-	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects, nil)
+	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 	if err != nil {
 		return nil, e.ErrCreatePrivateKey.AddDesc(err.Error())
 	}
@@ -200,7 +193,7 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 	if args.IP != "" && !util.IsValidIPv4(args.IP) {
 		return e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
 	}
-	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects, vm.Projects)
+	projects, err := normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 	if err != nil {
 		return e.ErrUpdatePrivateKey.AddDesc(err.Error())
 	}
@@ -355,7 +348,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
-			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects, nil)
+			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 			if err != nil {
 				return e.ErrBulkCreatePrivateKey.AddDesc(err.Error())
 			}
@@ -377,18 +370,13 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
-			currentPrivateKey.UpdateBy = username
-			privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name})
-			var currentProjects []string
-			if len(privateKeys) > 0 {
-				currentProjects = privateKeys[0].Projects
-			}
-			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects, currentProjects)
+			projects, err := normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 			if err != nil {
 				return e.ErrBulkCreatePrivateKey.AddDesc(err.Error())
 			}
 			currentPrivateKey.Projects = projects
-			if len(privateKeys) > 0 {
+			currentPrivateKey.UpdateBy = username
+			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
 					log.Errorf("PrivateKey.update error: %s", err)
 					return e.ErrBulkCreatePrivateKey.AddDesc("bulk update privateKey failed")
