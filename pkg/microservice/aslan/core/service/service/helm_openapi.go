@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"path"
@@ -243,26 +242,17 @@ type OpenAPIHelmValuesScanPath struct {
 const maxOpenAPIHelmValuesPaths = 100
 
 type OpenAPIQueryHelmValuesReq struct {
-	CodehostName string                       `json:"codehostName"`
-	Owner        string                       `json:"owner"`
-	Namespace    string                       `json:"namespace"`
-	Repo         string                       `json:"repo"`
-	Branch       string                       `json:"branch"`
-	Paths        []*OpenAPIHelmValuesScanPath `json:"paths"`
+	CodehostName string                      `json:"codehostName"`
+	Owner        string                      `json:"owner"`
+	Namespace    string                      `json:"namespace"`
+	Repo         string                      `json:"repo"`
+	Branch       string                      `json:"branch"`
+	Paths        []OpenAPIHelmValuesScanPath `json:"paths"`
 }
 
 func (r *OpenAPIQueryHelmValuesReq) Validate() error {
-	if r.CodehostName == "" {
-		return fmt.Errorf("codehostName cannot be empty")
-	}
-	if r.Owner == "" {
-		return fmt.Errorf("owner cannot be empty")
-	}
-	if r.Repo == "" {
-		return fmt.Errorf("repo cannot be empty")
-	}
-	if r.Branch == "" {
-		return fmt.Errorf("branch cannot be empty")
+	if err := validateOpenAPIHelmValuesRepo(r.CodehostName, r.Owner, r.Repo, r.Branch); err != nil {
+		return err
 	}
 	if len(r.Paths) == 0 {
 		return fmt.Errorf("paths cannot be empty")
@@ -270,15 +260,15 @@ func (r *OpenAPIQueryHelmValuesReq) Validate() error {
 	if len(r.Paths) > maxOpenAPIHelmValuesPaths {
 		return fmt.Errorf("paths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
 	}
-	for _, scanPath := range r.Paths {
-		if scanPath == nil || (scanPath.Path == "" && !scanPath.IsDir) {
+	for i := range r.Paths {
+		if r.Paths[i].Path == "" && !r.Paths[i].IsDir {
 			return fmt.Errorf("path cannot be empty")
 		}
-		normalizedPath, err := normalizeOpenAPIRepoPath(scanPath.Path)
+		normalizedPath, err := normalizeOpenAPIRepoPath(r.Paths[i].Path)
 		if err != nil {
 			return err
 		}
-		scanPath.Path = normalizedPath
+		r.Paths[i].Path = normalizedPath
 	}
 	return nil
 }
@@ -302,17 +292,8 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 	if r.TemplateName == "" {
 		return fmt.Errorf("templateName cannot be empty")
 	}
-	if r.CodehostName == "" {
-		return fmt.Errorf("codehostName cannot be empty")
-	}
-	if r.Owner == "" {
-		return fmt.Errorf("owner cannot be empty")
-	}
-	if r.Repo == "" {
-		return fmt.Errorf("repo cannot be empty")
-	}
-	if r.Branch == "" {
-		return fmt.Errorf("branch cannot be empty")
+	if err := validateOpenAPIHelmValuesRepo(r.CodehostName, r.Owner, r.Repo, r.Branch); err != nil {
+		return err
 	}
 	if len(r.ValuesPaths) == 0 {
 		return fmt.Errorf("valuesPaths cannot be empty")
@@ -321,23 +302,41 @@ func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
 		return fmt.Errorf("valuesPaths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
 	}
 	for i, valuesPath := range r.ValuesPaths {
-		if valuesPath == "" {
-			return fmt.Errorf("values path cannot be empty")
-		}
 		normalizedPath, err := normalizeOpenAPIRepoPath(valuesPath)
 		if err != nil {
 			return err
 		}
-		r.ValuesPaths[i] = normalizedPath
-		valuesPath = normalizedPath
-		if !isOpenAPIHelmValuesPath(valuesPath) {
+		if !isOpenAPIHelmValuesPath(normalizedPath) {
 			return fmt.Errorf("%s is not a values file", valuesPath)
 		}
-		if helmServiceNameFromValuesPath(valuesPath) == "" {
-			return fmt.Errorf("values path %s has an empty service name", valuesPath)
-		}
+		r.ValuesPaths[i] = normalizedPath
 	}
 	return nil
+}
+
+func validateOpenAPIHelmValuesRepo(codehostName, owner, repo, branch string) error {
+	if codehostName == "" {
+		return fmt.Errorf("codehostName cannot be empty")
+	}
+	if owner == "" {
+		return fmt.Errorf("owner cannot be empty")
+	}
+	if repo == "" {
+		return fmt.Errorf("repo cannot be empty")
+	}
+	if branch == "" {
+		return fmt.Errorf("branch cannot be empty")
+	}
+	return nil
+}
+
+// openAPIRepoOwner returns the owner used to read the repo, a GitLab subgroup
+// repo is addressed by its namespace.
+func openAPIRepoOwner(owner, namespace string) string {
+	if namespace != "" {
+		return namespace
+	}
+	return owner
 }
 
 func normalizeOpenAPIRepoPath(repoPath string) (string, error) {
@@ -371,19 +370,15 @@ func QueryHelmValuesOpenAPI(projectKey string, req *OpenAPIQueryHelmValuesReq, l
 		return nil, e.ErrListWorkspace.AddErr(err)
 	}
 
-	owner := req.Namespace
-	if owner == "" {
-		owner = req.Owner
-	}
-
+	owner := openAPIRepoOwner(req.Owner, req.Namespace)
 	resp := &OpenAPIQueryHelmValuesResp{ValuesPaths: make([]string, 0)}
 	visited := sets.NewString()
 	for _, scanPath := range req.Paths {
-		var valuesPaths []string
+		valuesPaths := []string{scanPath.Path}
 		if scanPath.IsDir {
 			valuesPaths, err = listOpenAPIHelmValuesFiles(getter, owner, req.Repo, req.Branch, scanPath.Path)
 		} else {
-			valuesPaths, err = checkOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, scanPath.Path)
+			_, err = readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, scanPath.Path)
 		}
 		if err != nil {
 			return nil, e.ErrListWorkspace.AddErr(err)
@@ -437,40 +432,11 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 	return valuesPaths, nil
 }
 
-func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]string, error) {
-	if _, err := readOpenAPIHelmValuesFile(getter, owner, repo, branch, filePath, map[string]sets.String{}); err != nil {
-		return nil, err
-	}
-	return []string{filePath}, nil
-}
-
-// readOpenAPIHelmValuesFile reads a values file after checking it exists in the repo,
-// dirFiles caches the files of each listed directory so a directory is listed once.
-func readOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string, dirFiles map[string]sets.String) ([]byte, error) {
+// readOpenAPIHelmValuesFile reads a values file, a missing file fails on the code host
+// and a directory reads as empty content.
+func readOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]byte, error) {
 	if !isOpenAPIHelmValuesPath(filePath) {
 		return nil, fmt.Errorf("%s is not a values file", filePath)
-	}
-
-	dir := path.Dir(filePath)
-	if dir == "." {
-		dir = ""
-	}
-	files, ok := dirFiles[dir]
-	if !ok {
-		treeNodes, err := getter.GetTree(owner, repo, dir, branch)
-		if err != nil {
-			return nil, err
-		}
-		files = sets.NewString()
-		for _, treeNode := range treeNodes {
-			if treeNode != nil && !treeNode.IsDir {
-				files.Insert(treeNode.FullPath)
-			}
-		}
-		dirFiles[dir] = files
-	}
-	if !files.Has(filePath) {
-		return nil, fmt.Errorf("values file %s is not found in repo %s branch %s", filePath, repo, branch)
 	}
 
 	content, err := getter.GetFileContent(owner, repo, filePath, branch)
@@ -487,9 +453,6 @@ func readOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch,
 // tpl rendering or a top-level kind, so only a Kubernetes manifest (apiVersion and kind
 // together) is rejected.
 func openAPIHelmValuesContentValid(content []byte) bool {
-	if len(bytes.TrimSpace(content)) == 0 {
-		return false
-	}
 	values, err := yamlutil.MergeAndUnmarshal([][]byte{content})
 	if err != nil || len(values) == 0 {
 		return false
@@ -538,14 +501,10 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 	if err != nil {
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
 	}
-	owner := req.Namespace
-	if owner == "" {
-		owner = req.Owner
-	}
+	owner := openAPIRepoOwner(req.Owner, req.Namespace)
 	valuesContent := make(map[string][]byte, len(req.ValuesPaths))
-	dirFiles := make(map[string]sets.String)
 	for _, valuesPath := range req.ValuesPaths {
-		content, err := readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath, dirFiles)
+		content, err := readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath)
 		if err != nil {
 			return nil, e.ErrLoadServiceTemplate.AddErr(err)
 		}
