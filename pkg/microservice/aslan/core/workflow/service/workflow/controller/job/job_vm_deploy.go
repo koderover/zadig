@@ -276,8 +276,10 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	if err != nil {
 		return resp, fmt.Errorf("list private keys error: %v", err)
 	}
+	vmMap := make(map[string]*commonmodels.PrivateKey, len(vms))
 	projectVMs := make([]*commonmodels.PrivateKey, 0, len(vms))
 	for _, vm := range vms {
+		vmMap[vm.ID.Hex()] = vm
 		if vm.IsAvailableToProject(j.workflow.Project) {
 			projectVMs = append(projectVMs, vm)
 		}
@@ -348,9 +350,9 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			return resp, fmt.Errorf("get build info for service %s error: %v", vmDeployInfo.ServiceName, err)
 		}
 		for _, sshID := range deployInfo.SSHs {
-			vm, findErr := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
-			if findErr != nil {
-				return resp, fmt.Errorf("find ssh host %s error: %v", sshID, findErr)
+			vm, ok := vmMap[sshID]
+			if !ok {
+				return resp, fmt.Errorf("find ssh host %s error: host not found", sshID)
 			}
 			if !vm.IsAvailableToProject(j.workflow.Project) {
 				return resp, fmt.Errorf("host %s is outside project %s scope", vm.Name, j.workflow.Project)
