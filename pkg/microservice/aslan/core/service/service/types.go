@@ -100,6 +100,8 @@ type OpenAPILoadHelmServiceResp struct {
 	SuccessServices []string `json:"successServices"`
 	// 创建失败的服务列表
 	FailedServices []*OpenAPIFailedHelmService `json:"failedServices"`
+	// 服务已创建但自动部署到环境失败时的错误信息
+	AutoDeployError string `json:"autoDeployError,omitempty"`
 }
 
 type OpenAPIFailedHelmService struct {
@@ -111,12 +113,13 @@ type OpenAPIFailedHelmService struct {
 
 type BulkHelmServiceCreationArgs struct {
 	HelmLoadSource
-	CreateFrom interface{}             `json:"createFrom"`
-	CreatedBy  string                  `json:"createdBy"`
-	RequestID  string                  `json:"-"`
-	ValuesData *service.ValuesDataArgs `json:"valuesData"`
-	AutoSync   bool                    `json:"auto_sync"`
-	Production bool                    `json:"production"`
+	CreateFrom    interface{}             `json:"createFrom"`
+	CreatedBy     string                  `json:"createdBy"`
+	RequestID     string                  `json:"-"`
+	ValuesData    *service.ValuesDataArgs `json:"valuesData"`
+	ValuesContent map[string][]byte       `json:"-"`
+	AutoSync      bool                    `json:"auto_sync"`
+	Production    bool                    `json:"production"`
 }
 
 type FailedService struct {
