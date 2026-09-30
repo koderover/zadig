@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
-type reactionCount struct{ Up, Down int }
+type reactionCount struct {
+	Up, Down    int
+	ReactionIDs []int64
+}
 
 func readGitHubTarget(ctx context.Context, cli *githubapi.Client, pr *models.AIReviewFeedback, target models.AIReviewFeedbackComment) (reactionCount, error) {
 	if target.Kind == "issue" {
@@ -85,7 +88,13 @@ func readGitLabTarget(ctx context.Context, cli *gitlab.Client, pr *models.AIRevi
 					count.Up++
 				case "thumbsdown":
 					count.Down++
+				default:
+					continue
 				}
+				if item.ID <= 0 {
+					return reactionCount{}, fmt.Errorf("GitLab award emoji response is missing ID")
+				}
+				count.ReactionIDs = append(count.ReactionIDs, int64(item.ID))
 			}
 		}
 		if resp == nil || resp.NextPage == 0 {

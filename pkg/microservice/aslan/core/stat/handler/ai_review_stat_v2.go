@@ -27,7 +27,7 @@ import (
 )
 
 // @Summary 获取 AI 审查洞察概览
-// @Description 支持全局、项目和代码库概览筛选
+// @Description 支持全局、项目和代码库概览筛选，时间跨度最多 366 天
 // @Tags stat
 // @Accept json
 // @Produce json

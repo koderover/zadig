@@ -88,3 +88,17 @@ func applyGitLabReaction(pr *models.AIReviewFeedback, emojiID int64, name, actio
 	pr.CycleStartedAt = time.Time{}
 	return true
 }
+
+// Keep revoked IDs as tombstones so delayed awards cannot undo reconciliation.
+func reconciledGitLabReactions(pr *models.AIReviewFeedback) map[string]string {
+	states := make(map[string]string, len(pr.GitLabReactions))
+	for id := range pr.GitLabReactions {
+		states[id] = "revoke"
+	}
+	for _, comment := range pr.Comments {
+		for _, id := range comment.ReactionIDs {
+			states[strconv.FormatInt(id, 10)] = "award"
+		}
+	}
+	return states
+}

@@ -116,17 +116,17 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 }
 
 func formatAIReviewComment(report *stepspec.AIReviewReport) string {
-	return formatAIReviewCommentWithFindings(report, report.Findings, "Findings", -1)
+	return formatAIReviewCommentWithFindings(report, report.Findings, "审查问题", -1)
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的 Findings", inlineResult.Published)
+	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的问题", inlineResult.Published)
 	if inlineResult.Skipped > 0 {
 		comment = strings.Replace(comment, "- 行内评论：", fmt.Sprintf("- 重复问题已跳过：%d\n- 行内评论：", inlineResult.Skipped), 1)
-		comment = strings.Replace(comment, "所有 finding 均已发布为行内评论。", "已有未解决线程的问题未重新发送。", 1)
+		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "已有未解决线程的问题未重新发送。", 1)
 	}
 	if inlineResult.Failed {
-		comment = strings.Replace(comment, "所有 finding 均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
+		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
 	}
 	return comment
 }
@@ -164,11 +164,11 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	}
 
 	var builder strings.Builder
-	builder.WriteString("## Zadig AI Review\n\n")
+	builder.WriteString("## Zadig AI 代码审查\n\n")
 	fmt.Fprintf(&builder, "**%s**\n\n", status)
 	fmt.Fprintf(
 		&builder,
-		"- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- Findings：%d\n- 模型：`%s`\n",
+		"- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- 问题数量：%d\n- 模型：`%s`\n",
 		markdownInline(report.Metadata.From),
 		markdownInline(report.Metadata.To),
 		report.Stats.ChangedFiles,
@@ -178,7 +178,7 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	if len(report.Stats.BySeverity) > 0 {
 		fmt.Fprintf(
 			&builder,
-			"- 严重级别：critical %d / high %d / medium %d / low %d\n",
+			"- 严重级别：严重 %d / 高 %d / 中 %d / 低 %d\n",
 			report.Stats.BySeverity["critical"],
 			report.Stats.BySeverity["high"],
 			report.Stats.BySeverity["medium"],
@@ -192,20 +192,20 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	if len(report.Findings) == 0 {
 		builder.WriteString("\n未发现经过验证的问题。\n")
 	} else if inlinePublished >= 0 && len(findings) == 0 {
-		builder.WriteString("\n所有 finding 均已发布为行内评论。\n")
+		builder.WriteString("\n所有问题均已发布为行内评论。\n")
 	} else {
 		fmt.Fprintf(&builder, "\n### %s\n", heading)
 		writeAIReviewFindings(&builder, findings)
 	}
 	if len(report.Errors) > 0 {
-		builder.WriteString("\n### Errors\n")
+		builder.WriteString("\n### 错误\n")
 		for _, reportErr := range report.Errors {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(reportErr))
 		}
 		builder.WriteByte('\n')
 	}
 	if len(report.Warnings) > 0 {
-		builder.WriteString("\n### Warnings\n")
+		builder.WriteString("\n### 警告\n")
 		for _, warning := range report.Warnings {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(warning))
 		}
@@ -219,14 +219,14 @@ func writeAIReviewFindings(builder *strings.Builder, findings []stepspec.AIRevie
 	for i, finding := range findings {
 		fmt.Fprintf(
 			builder,
-			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · confidence %.2f\n\n%s\n",
+			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · 置信度 %.2f\n\n%s\n",
 			i+1,
-			strings.ToUpper(markdownText(finding.Severity)),
+			markdownText(aiReviewSeverityName(finding.Severity)),
 			aiReviewFindingTitle(finding),
 			markdownInline(finding.File),
 			finding.StartLine,
 			finding.EndLine,
-			markdownInline(finding.Category),
+			markdownInline(aiReviewCategoryName(finding)),
 			finding.Confidence,
 			markdownText(finding.Problem),
 		)
@@ -243,10 +243,10 @@ func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
 	var builder strings.Builder
 	fmt.Fprintf(
 		&builder,
-		"**[%s] %s**\n\n`%s` · confidence %.2f\n\n%s\n",
-		strings.ToUpper(markdownText(finding.Severity)),
+		"**[%s] %s**\n\n`%s` · 置信度 %.2f\n\n%s\n",
+		markdownText(aiReviewSeverityName(finding.Severity)),
 		aiReviewFindingTitle(finding),
-		markdownInline(finding.Category),
+		markdownInline(aiReviewCategoryName(finding)),
 		finding.Confidence,
 		markdownText(finding.Problem),
 	)
@@ -316,12 +316,53 @@ func parseAIReviewHunkNewStart(header string) (int, bool) {
 func aiReviewFindingTitle(finding stepspec.AIReviewFinding) string {
 	title := singleLineText(finding.Title)
 	if title == "" {
-		title = singleLineText(finding.Category)
+		title = aiReviewCategoryName(finding)
 	}
 	if title == "" {
 		title = "未命名问题"
 	}
 	return markdownText(title)
+}
+
+func aiReviewSeverityName(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "严重"
+	case "high":
+		return "高"
+	case "medium":
+		return "中"
+	case "low":
+		return "低"
+	case "info":
+		return "提示"
+	default:
+		return singleLineText(severity)
+	}
+}
+
+func aiReviewCategoryName(finding stepspec.AIReviewFinding) string {
+	if name := singleLineText(finding.CategoryName); name != "" {
+		return name
+	}
+	switch strings.ToLower(strings.TrimSpace(finding.Category)) {
+	case "reliability":
+		return "正确性与可靠性"
+	case "correctness":
+		return "正确性"
+	case "security":
+		return "安全性"
+	case "performance":
+		return "性能"
+	case "maintainability":
+		return "可维护性"
+	case "readability":
+		return "可读性"
+	case "style":
+		return "代码风格"
+	default:
+		return singleLineText(finding.Category)
+	}
 }
 
 func singleLineText(value string) string {

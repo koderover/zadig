@@ -12,6 +12,7 @@ import (
 	feedbackrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	statmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type aiReviewPRKey struct {
@@ -227,6 +228,12 @@ func aiReviewDifference(now, previous *float64, multiplier float64) *float64 {
 }
 
 func queryAIReviewOverview(ctx context.Context, args *AIReviewStatsOverviewRequest, scope AIReviewStatsScope) (AIReviewStatsOverviewResponse, error) {
+	if args.EndTime-args.StartTime > 366*24*60*60 {
+		return AIReviewStatsOverviewResponse{}, e.ErrInvalidParam.AddErr(fmt.Errorf("overview time range must not exceed 366 days"))
+	}
+	if err := ctx.Err(); err != nil {
+		return AIReviewStatsOverviewResponse{}, err
+	}
 	filter := aiReviewQueryScope{Project: args.ProjectName, Owner: args.RepoOwner, Name: args.RepoName}
 	if args.CodehostID != nil {
 		filter.CodehostID = *args.CodehostID
@@ -265,6 +272,9 @@ func queryAIReviewOverview(ctx context.Context, args *AIReviewStatsOverviewReque
 	}
 	const week = int64(7 * 24 * 60 * 60)
 	for start := args.StartTime; start < args.EndTime; {
+		if err := ctx.Err(); err != nil {
+			return AIReviewStatsOverviewResponse{}, err
+		}
 		end := start + week
 		if end < start || end > args.EndTime {
 			end = args.EndTime
