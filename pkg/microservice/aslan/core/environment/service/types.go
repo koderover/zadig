@@ -496,6 +496,7 @@ type OpenAPICreateServiceArgs struct {
 
 type OpenAPIServiceDetail struct {
 	ServiceName    string                           `json:"service_name"`
+	Revision       int64                            `json:"revision"`
 	DeployStrategy setting.ServiceDeployStrategy    `json:"deploy_strategy"`
 	Containers     []*commonmodels.Container        `json:"containers"`
 	VariableKVs    []*commontypes.ServiceVariableKV `json:"variable_kvs"`
