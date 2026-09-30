@@ -71,8 +71,8 @@ type AIReviewStatsMetrics struct {
 	FindingTotal     int64                     `json:"finding_total"`                           // 所选范围内按 PR 和 fingerprint 去重的问题数量；缺少 fingerprint 的问题分别计数
 	Up               int64                     `json:"up"`                                      // 点赞数量
 	Down             int64                     `json:"down"`                                    // 点踩数量
-	UpDownRatio      *float64                  `json:"up_down_ratio" extensions:"x-nullable"`   // 赞踩比，计算为点赞数/点踩数；点踩数为零或反馈未知时为 null
-	ApprovalRate     *float64                  `json:"approval_rate" extensions:"x-nullable"`   // 好评率，计算为点赞数/反馈总数，取值 0–1；无反馈或反馈未知时为 null
+	UpDownRatio      *float64                  `json:"up_down_ratio" extensions:"x-nullable"`   // 赞踩比，点赞数/点踩数四舍五入保留一位小数，前端显示为 x:1；点踩数为零时取点赞数，反馈未知时为 null
+	ApprovalRate     *float64                  `json:"approval_rate" extensions:"x-nullable"`   // 好评率，点赞数/反馈总数，取值 0–1；赞踩均为零时为 0，反馈未知时为 null
 	PromptTokens     int64                     `json:"prompt_tokens"`                           // 输入 Token 数量
 	CompletionTokens int64                     `json:"completion_tokens"`                       // 输出 Token 数量
 	TotalTokens      int64                     `json:"total_tokens"`                            // Token 总量

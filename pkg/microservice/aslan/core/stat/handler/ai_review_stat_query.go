@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -169,8 +170,9 @@ func (a aiReviewAggregate) summarize() (AIReviewStatsMetrics, AIReviewStatsDistr
 		metrics.ResolutionRate = aiReviewRatio(metrics.InlineResolved, metrics.InlineTotal)
 	}
 	if feedbackKnown {
-		metrics.UpDownRatio = aiReviewRatio(metrics.Up, metrics.Down)
-		metrics.ApprovalRate = aiReviewRatio(metrics.Up, metrics.Up+metrics.Down)
+		ratio := math.Round(float64(metrics.Up)/float64(max(1, metrics.Down))*10) / 10
+		metrics.UpDownRatio = &ratio
+		metrics.ApprovalRate = aiReviewRatio(metrics.Up, max(1, metrics.Up+metrics.Down))
 	}
 	for _, usage := range models {
 		metrics.ModelUsage = append(metrics.ModelUsage, usage)
