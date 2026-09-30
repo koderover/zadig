@@ -26,7 +26,7 @@ type StepAIReviewReportSpec struct {
 	CollectionError string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
 }
 
-// AIReviewReport mirrors the JSON report emitted by zadig-review-agent v0.1.1.
+// AIReviewReport mirrors the JSON report emitted by zadig-review-agent.
 type AIReviewReport struct {
 	Metadata      AIReviewMetadata       `bson:"metadata" json:"metadata" yaml:"metadata"`
 	Stats         AIReviewStats          `bson:"stats" json:"stats" yaml:"stats"`
@@ -43,19 +43,27 @@ type AIReviewReport struct {
 }
 
 type AIReviewFinding struct {
-	Severity     string  `bson:"severity" json:"severity" yaml:"severity"`
-	Category     string  `bson:"category" json:"category" yaml:"category"`
-	RuleID       string  `bson:"rule_id,omitempty" json:"rule_id,omitempty" yaml:"rule_id,omitempty"`
-	File         string  `bson:"file" json:"file" yaml:"file"`
-	StartLine    int     `bson:"start_line" json:"start_line" yaml:"start_line"`
-	EndLine      int     `bson:"end_line" json:"end_line" yaml:"end_line"`
-	Title        string  `bson:"title" json:"title" yaml:"title"`
-	Problem      string  `bson:"problem" json:"problem" yaml:"problem"`
-	Evidence     string  `bson:"evidence" json:"evidence" yaml:"evidence"`
-	Suggestion   string  `bson:"suggestion" json:"suggestion" yaml:"suggestion"`
-	ExistingCode string  `bson:"existing_code,omitempty" json:"existing_code,omitempty" yaml:"existing_code,omitempty"`
-	Confidence   float64 `bson:"confidence" json:"confidence" yaml:"confidence"`
-	Fingerprint  string  `bson:"fingerprint" json:"fingerprint" yaml:"fingerprint"`
+	Severity     string                `bson:"severity" json:"severity" yaml:"severity"`
+	Category     string                `bson:"category" json:"category" yaml:"category"`
+	CategoryName string                `bson:"category_name,omitempty" json:"category_name,omitempty" yaml:"category_name,omitempty"`
+	RuleID       string                `bson:"rule_id,omitempty" json:"rule_id,omitempty" yaml:"rule_id,omitempty"`
+	RuleName     string                `bson:"rule_name,omitempty" json:"rule_name,omitempty" yaml:"rule_name,omitempty"`
+	MatchedRules []AIReviewMatchedRule `bson:"matched_rules,omitempty" json:"matched_rules,omitempty" yaml:"matched_rules,omitempty"`
+	File         string                `bson:"file" json:"file" yaml:"file"`
+	StartLine    int                   `bson:"start_line" json:"start_line" yaml:"start_line"`
+	EndLine      int                   `bson:"end_line" json:"end_line" yaml:"end_line"`
+	Title        string                `bson:"title" json:"title" yaml:"title"`
+	Problem      string                `bson:"problem" json:"problem" yaml:"problem"`
+	Evidence     string                `bson:"evidence" json:"evidence" yaml:"evidence"`
+	Suggestion   string                `bson:"suggestion" json:"suggestion" yaml:"suggestion"`
+	ExistingCode string                `bson:"existing_code,omitempty" json:"existing_code,omitempty" yaml:"existing_code,omitempty"`
+	Confidence   float64               `bson:"confidence" json:"confidence" yaml:"confidence"`
+	Fingerprint  string                `bson:"fingerprint" json:"fingerprint" yaml:"fingerprint"`
+}
+
+type AIReviewMatchedRule struct {
+	RuleID   string `bson:"rule_id" json:"rule_id" yaml:"rule_id"`
+	RuleName string `bson:"rule_name" json:"rule_name" yaml:"rule_name"`
 }
 
 type AIReviewProcess struct {
@@ -154,6 +162,8 @@ type AIReviewStats struct {
 
 type AIReviewResolvedRule struct {
 	File       string `bson:"file" json:"file" yaml:"file"`
+	RuleID     string `bson:"rule_id,omitempty" json:"rule_id,omitempty" yaml:"rule_id,omitempty"`
+	Name       string `bson:"name,omitempty" json:"name,omitempty" yaml:"name,omitempty"`
 	Source     string `bson:"source" json:"source" yaml:"source"`
 	SourcePath string `bson:"source_path,omitempty" json:"source_path,omitempty" yaml:"source_path,omitempty"`
 	Pattern    string `bson:"pattern" json:"pattern" yaml:"pattern"`

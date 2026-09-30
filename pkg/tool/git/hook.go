@@ -19,6 +19,7 @@ package git
 const (
 	PushEvent              = "push"
 	PullRequestEvent       = "pull_request"
+ PullRequestReviewThreadEvent = "pull_request_review_thread"
 	CheckRunEvent          = "check_run"
 	BranchOrTagCreateEvent = "create"
 )

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -29,6 +30,15 @@ import (
 
 func DefaultIngressClass() string {
 	return viper.GetString(setting.ENVDefaultIngressClass)
+}
+
+// AIReviewGitPollInterval defaults to six hours for empty or invalid values.
+func AIReviewGitPollInterval() time.Duration {
+	interval, err := time.ParseDuration(strings.TrimSpace(viper.GetString(setting.ENVAIReviewGitPollInterval)))
+	if err != nil || interval <= 0 {
+		return 6 * time.Hour
+	}
+	return interval
 }
 
 // 服务默认等待启动时间，默认5分钟

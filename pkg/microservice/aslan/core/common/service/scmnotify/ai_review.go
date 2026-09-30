@@ -17,13 +17,17 @@ limitations under the License.
 package scmnotify
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -31,40 +35,123 @@ const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 
 type aiReviewInlinePublishResult struct {
 	Published int
+	Skipped   int
+	Failed    bool
+	Title     string
+	Author    string
+	URL       string
+	ProjectID int
+	Threads   []models.AIReviewInlineThread
 	Fallback  []stepspec.AIReviewFinding
+	Comments  []reviewfeedback.PublishedComment
 }
 
-func (s *Service) PublishAIReviewReport(codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
+type AIReviewPRMetadata struct {
+	Title  string
+	Author string
+	URL    string
+}
+
+func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) (AIReviewPRMetadata, error) {
 	if report == nil || prID <= 0 {
-		return nil
+		return AIReviewPRMetadata{}, nil
 	}
 	projectID := strings.TrimLeft(repoOwner+"/"+repoName, "/")
 	inlineResult := aiReviewInlinePublishResult{}
 	var inlineErr error
 	if len(report.Findings) > 0 {
-		inlineResult, inlineErr = s.Client.createAIReviewInlineComments(codehostID, projectID, repoOwner, repoName, prID, report)
+		publishCtx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		defer cancel()
+		token, lockErr := reviewfeedback.AcquirePublication(publishCtx, codehostID, repoOwner, repoName, prID)
+		if lockErr != nil {
+			inlineErr = lockErr
+		} else {
+			defer func() {
+				releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer releaseCancel()
+				if err := reviewfeedback.ReleasePublication(releaseCtx, codehostID, repoOwner, repoName, prID, token); err != nil {
+					logger.Warnf("release AI review publication lease: %v", err)
+				}
+			}()
+			inlineResult, inlineErr = s.Client.createAIReviewInlineComments(publishCtx, codehostID, projectID, repoOwner, repoName, prID, report)
+		}
 		if inlineErr != nil {
-			inlineResult = aiReviewInlinePublishResult{Fallback: report.Findings}
+			inlineResult.Failed = true
 			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	if err := s.Client.CreateAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment); err != nil {
-		return fmt.Errorf("publish AI review result: %w", err)
+	summaryID, err := s.Client.CreateAIReviewCommentWithID(codehostID, projectID, repoOwner, repoName, prID, comment)
+	summaryErr := err
+	kind := "issue"
+	if s.Client.isGitLab(codehostID) {
+		kind = "note"
+	}
+	comments := inlineResult.Comments
+	if summaryErr == nil {
+		comments = append(comments, reviewfeedback.PublishedComment{Kind: kind, CommentID: summaryID})
+	}
+	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
+	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
+	if title == "" {
+		numericProjectID, metadata, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
+		if err != nil {
+			logger.Warnf("resolve AI review PR metadata: %v", err)
+		}
+		title = metadata.Title
+	}
+	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := reviewfeedback.Register(registerCtx, projectName, title, codehostID, numericProjectID, repoOwner, repoName, prID, comments, inlineResult.Threads); err != nil {
+		return metadata, fmt.Errorf("register AI review feedback comments: %w", err)
+	}
+	if summaryErr != nil {
+		return metadata, fmt.Errorf("publish AI review result: %w", summaryErr)
 	}
 	logger.Infof("published AI review result to %s #%d", projectID, prID)
 	if inlineErr != nil {
-		return fmt.Errorf("publish inline AI review comments: %w", inlineErr)
+		return metadata, fmt.Errorf("publish inline AI review comments: %w", inlineErr)
 	}
-	return nil
+	return metadata, nil
 }
 
 func formatAIReviewComment(report *stepspec.AIReviewReport) string {
-	return formatAIReviewCommentWithFindings(report, report.Findings, "Findings", -1)
+	return formatAIReviewCommentWithFindings(report, report.Findings, "审查问题", -1)
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	return formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的 Findings", inlineResult.Published)
+	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的问题", inlineResult.Published)
+	if inlineResult.Skipped > 0 {
+		comment = strings.Replace(comment, "- 行内评论：", fmt.Sprintf("- 重复问题已跳过：%d\n- 行内评论：", inlineResult.Skipped), 1)
+		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "已有未解决线程的问题未重新发送。", 1)
+	}
+	if inlineResult.Failed {
+		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
+	}
+	return comment
+}
+
+func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []models.AIReviewInlineThread) ([]stepspec.AIReviewFinding, int) {
+	open := make(map[string]bool)
+	for _, thread := range threads {
+		if thread.Fingerprint != "" && !thread.Resolved && !thread.Deleted {
+			open[thread.Fingerprint] = true
+		}
+	}
+	seen := make(map[string]bool)
+	filtered := make([]stepspec.AIReviewFinding, 0, len(findings))
+	skipped := 0
+	for _, finding := range findings {
+		if finding.Fingerprint != "" {
+			if open[finding.Fingerprint] || seen[finding.Fingerprint] {
+				skipped++
+				continue
+			}
+			seen[finding.Fingerprint] = true
+		}
+		filtered = append(filtered, finding)
+	}
+	return filtered, skipped
 }
 
 func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings []stepspec.AIReviewFinding, heading string, inlinePublished int) string {
@@ -77,11 +164,11 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	}
 
 	var builder strings.Builder
-	builder.WriteString("## Zadig AI Review\n\n")
+	builder.WriteString("## Zadig AI 代码审查\n\n")
 	fmt.Fprintf(&builder, "**%s**\n\n", status)
 	fmt.Fprintf(
 		&builder,
-		"- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- Findings：%d\n- 模型：`%s`\n",
+		"- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- 问题数量：%d\n- 模型：`%s`\n",
 		markdownInline(report.Metadata.From),
 		markdownInline(report.Metadata.To),
 		report.Stats.ChangedFiles,
@@ -91,7 +178,7 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	if len(report.Stats.BySeverity) > 0 {
 		fmt.Fprintf(
 			&builder,
-			"- 严重级别：critical %d / high %d / medium %d / low %d\n",
+			"- 严重级别：严重 %d / 高 %d / 中 %d / 低 %d\n",
 			report.Stats.BySeverity["critical"],
 			report.Stats.BySeverity["high"],
 			report.Stats.BySeverity["medium"],
@@ -105,26 +192,26 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	if len(report.Findings) == 0 {
 		builder.WriteString("\n未发现经过验证的问题。\n")
 	} else if inlinePublished >= 0 && len(findings) == 0 {
-		builder.WriteString("\n所有 finding 均已发布为行内评论。\n")
+		builder.WriteString("\n所有问题均已发布为行内评论。\n")
 	} else {
 		fmt.Fprintf(&builder, "\n### %s\n", heading)
 		writeAIReviewFindings(&builder, findings)
 	}
 	if len(report.Errors) > 0 {
-		builder.WriteString("\n### Errors\n")
+		builder.WriteString("\n### 错误\n")
 		for _, reportErr := range report.Errors {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(reportErr))
 		}
 		builder.WriteByte('\n')
 	}
 	if len(report.Warnings) > 0 {
-		builder.WriteString("\n### Warnings\n")
+		builder.WriteString("\n### 警告\n")
 		for _, warning := range report.Warnings {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(warning))
 		}
 		builder.WriteByte('\n')
 	}
-	builder.WriteString("\n" + aiReviewCommentMarker)
+	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker)
 	return builder.String()
 }
 
@@ -132,14 +219,14 @@ func writeAIReviewFindings(builder *strings.Builder, findings []stepspec.AIRevie
 	for i, finding := range findings {
 		fmt.Fprintf(
 			builder,
-			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · confidence %.2f\n\n%s\n",
+			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · 置信度 %.2f\n\n%s\n",
 			i+1,
-			strings.ToUpper(markdownText(finding.Severity)),
+			markdownText(aiReviewSeverityName(finding.Severity)),
 			aiReviewFindingTitle(finding),
 			markdownInline(finding.File),
 			finding.StartLine,
 			finding.EndLine,
-			markdownInline(finding.Category),
+			markdownInline(aiReviewCategoryName(finding)),
 			finding.Confidence,
 			markdownText(finding.Problem),
 		)
@@ -156,10 +243,10 @@ func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
 	var builder strings.Builder
 	fmt.Fprintf(
 		&builder,
-		"**[%s] %s**\n\n`%s` · confidence %.2f\n\n%s\n",
-		strings.ToUpper(markdownText(finding.Severity)),
+		"**[%s] %s**\n\n`%s` · 置信度 %.2f\n\n%s\n",
+		markdownText(aiReviewSeverityName(finding.Severity)),
 		aiReviewFindingTitle(finding),
-		markdownInline(finding.Category),
+		markdownInline(aiReviewCategoryName(finding)),
 		finding.Confidence,
 		markdownText(finding.Problem),
 	)
@@ -169,7 +256,7 @@ func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
 	if finding.Suggestion != "" {
 		fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
 	}
-	builder.WriteString("\n" + aiReviewCommentMarker)
+	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker + reviewfeedback.FingerprintMarker(finding.Fingerprint))
 	return builder.String()
 }
 
@@ -229,12 +316,53 @@ func parseAIReviewHunkNewStart(header string) (int, bool) {
 func aiReviewFindingTitle(finding stepspec.AIReviewFinding) string {
 	title := singleLineText(finding.Title)
 	if title == "" {
-		title = singleLineText(finding.Category)
+		title = aiReviewCategoryName(finding)
 	}
 	if title == "" {
 		title = "未命名问题"
 	}
 	return markdownText(title)
+}
+
+func aiReviewSeverityName(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return "严重"
+	case "high":
+		return "高"
+	case "medium":
+		return "中"
+	case "low":
+		return "低"
+	case "info":
+		return "提示"
+	default:
+		return singleLineText(severity)
+	}
+}
+
+func aiReviewCategoryName(finding stepspec.AIReviewFinding) string {
+	if name := singleLineText(finding.CategoryName); name != "" {
+		return name
+	}
+	switch strings.ToLower(strings.TrimSpace(finding.Category)) {
+	case "reliability":
+		return "正确性与可靠性"
+	case "correctness":
+		return "正确性"
+	case "security":
+		return "安全性"
+	case "performance":
+		return "性能"
+	case "maintainability":
+		return "可维护性"
+	case "readability":
+		return "可读性"
+	case "style":
+		return "代码风格"
+	default:
+		return singleLineText(finding.Category)
+	}
 }
 
 func singleLineText(value string) string {

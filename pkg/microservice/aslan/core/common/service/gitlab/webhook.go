@@ -17,24 +17,86 @@ limitations under the License.
 package gitlab
 
 import (
+	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"github.com/xanzy/go-gitlab"
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
-	projectHook, err := c.AddProjectHook(owner, repo, &git.Hook{
-		URL:    gitservice.WebHookURL(),
-		Secret: util.GetGitHookSecret(),
-		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	return EnsureManagedEmojiHook(ctx, c.Client.Client, owner+"/"+repo, gitservice.WebHookURL())
+}
+
+type managedEmojiHook struct {
+	gitlab.ProjectHook
+	EmojiEvents bool `json:"emoji_events"`
+}
+
+// EnsureManagedEmojiHook adds Emoji events to existing Zadig hooks, or creates
+// a hook with the usual workflow events and Emoji events when none exists.
+func EnsureManagedEmojiHook(ctx context.Context, cli *gitlab.Client, project, hookURL string) (string, error) {
+	var hookID int
+	opts := &gitlab.ListProjectHooksOptions{PerPage: 100}
+	for {
+		req, err := cli.NewRequest("GET", fmt.Sprintf("projects/%s/hooks", gitlab.PathEscape(project)), opts, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
+		if err != nil {
+			return "", err
+		}
+		var hooks []managedEmojiHook
+		resp, err := cli.Do(req, &hooks)
+		if err != nil {
+			return "", err
+		}
+		for _, hook := range hooks {
+			if hook.URL != hookURL {
+				continue
+			}
+			hookID = hook.ID
+			if hook.EmojiEvents {
+				continue
+			}
+			req, err := cli.NewRequest("PUT", fmt.Sprintf("projects/%s/hooks/%d", gitlab.PathEscape(project), hook.ID), map[string]interface{}{"url": hook.URL, "emoji_events": true}, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
+			if err != nil {
+				return "", err
+			}
+			var updated managedEmojiHook
+			if _, err = cli.Do(req, &updated); err != nil {
+				return "", err
+			}
+			if !updated.EmojiEvents {
+				return "", fmt.Errorf("GitLab webhook %d did not enable emoji_events", hook.ID)
+			}
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	if hookID > 0 {
+		return strconv.Itoa(hookID), nil
+	}
+	req, err := cli.NewRequest("POST", fmt.Sprintf("projects/%s/hooks", gitlab.PathEscape(project)), map[string]interface{}{
+		"url": hookURL, "token": util.GetGitHookSecret(), "push_events": true,
+		"merge_requests_events": true, "tag_push_events": true, "emoji_events": true,
+	}, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
 	if err != nil {
 		return "", err
 	}
-
-	return strconv.Itoa(projectHook.ID), nil
+	var hook managedEmojiHook
+	if _, err = cli.Do(req, &hook); err != nil {
+		return "", err
+	}
+	if !hook.EmojiEvents {
+		return "", fmt.Errorf("GitLab webhook %d did not enable emoji_events", hook.ID)
+	}
+	return strconv.Itoa(hook.ID), nil
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
@@ -64,6 +126,5 @@ func (c *Client) RefreshWebHookSecret(secret, owner, repo, hookID string) error 
 		URL:    gitservice.WebHookURL(),
 		Secret: secret,
 	})
-
 	return err
 }

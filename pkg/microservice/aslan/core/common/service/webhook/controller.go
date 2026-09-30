@@ -17,11 +17,13 @@ limitations under the License.
 package webhook
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -178,6 +180,11 @@ func removeWebhook(t *task, logger *zap.Logger) {
 	}
 
 	webhook, err := coll.Find(repoNamespace, t.repo, t.address)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		// Older AI review configurations may have no webhook reference yet.
+		t.doneCh <- struct{}{}
+		return
+	}
 	if err != nil {
 		t.err = err
 		t.doneCh <- struct{}{}
@@ -257,20 +264,23 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	logger.Info("Adding webhook")
 	created, err := coll.AddReferenceOrCreate(repoNamespace, t.repo, t.address, t.ref)
-	if err != nil || !created {
+	ensureAIReview := t.ensureAIReviewWebhook && (t.from == setting.SourceFromGitlab || t.from == setting.SourceFromGithub)
+	if err != nil || (!created && !ensureAIReview) {
 		t.err = err
 		t.doneCh <- struct{}{}
 		return
 	}
 
-	if !t.isManual {
+	if !t.isManual || ensureAIReview {
 		logger.Info("Creating webhook")
 		hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
 		if err != nil {
 			t.err = err
 			logger.Error("Failed to create webhook", zap.Error(err))
-			if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
-				logger.Error("Failed to delete webhook record in db", zap.Error(err))
+			if created {
+				if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
+					logger.Error("Failed to delete webhook record in db", zap.Error(err))
+				}
 			}
 		} else {
 			if hookID != "" {

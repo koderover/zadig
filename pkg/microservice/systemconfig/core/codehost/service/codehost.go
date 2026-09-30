@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -167,8 +168,8 @@ func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.C
 	return mongodb.NewCodehostColl().UpdateCodeHostToken(host)
 }
 
-func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete)
+func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger, contexts ...context.Context) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete, contexts...)
 }
 
 func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {

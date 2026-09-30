@@ -52,9 +52,12 @@ func (c *GithubAppColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
-func (c *GithubAppColl) Find() ([]*models.GithubApp, error) {
+func (c *GithubAppColl) Find(contexts ...context.Context) ([]*models.GithubApp, error) {
 	query := bson.M{}
 	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	resp := make([]*models.GithubApp, 0)
 
 	cursor, err := c.Collection.Find(ctx, query)

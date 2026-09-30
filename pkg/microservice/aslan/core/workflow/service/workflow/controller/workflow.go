@@ -242,7 +242,6 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 			for _, kv := range finalKVs {
 				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
-					log.Debugf("insert key %s with value %s", kv.Key, kv.GetValue())
 				} else {
 					log.Warnf("key %s skipped due to no value or reference value: [%s]", kv.Key, kv.GetValue())
 				}
@@ -254,7 +253,6 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string, releas
 	for _, param := range workflowDefaultParams {
 		if param.GetValue() != "" && !strings.HasPrefix(param.GetValue(), "{{.") {
 			globalKeyMap[param.Name] = param.GetValue()
-			log.Debugf("insert key %s with value %s", param.Name, param.GetValue())
 		} else {
 			log.Warnf("key %s skipped due to no value or reference value: [%s]", param.Name, param.GetValue())
 		}
@@ -518,7 +516,10 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
 		if strings.HasPrefix(w.workflowID(), prefix) {
 			scanningID := strings.TrimPrefix(w.workflowID(), prefix)
-			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err == nil {
+			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err != nil {
+				log.Warnf("failed to resolve scanning task link for workflow %s: %v", w.workflowID(), err)
+				detailURL = ""
+			} else {
 				detailURL = commonutil.ScanningTaskURL(configbase.SystemAddress(), w.Project, scanning.Name, taskID, string(config.StatusRunning), scanningID, string(scanning.ScannerType))
 			}
 		}
