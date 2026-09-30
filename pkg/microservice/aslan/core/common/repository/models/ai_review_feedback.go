@@ -16,6 +16,7 @@ type AIReviewFeedbackComment struct {
 
 // AIReviewInlineThread tracks only the original AI comment, not replies.
 type AIReviewInlineThread struct {
+	Fingerprint   string    `bson:"fingerprint,omitempty"`
 	CommentID     int64     `bson:"comment_id"`
 	CommentNodeID string    `bson:"comment_node_id,omitempty"`
 	ThreadID      string    `bson:"thread_id,omitempty"`

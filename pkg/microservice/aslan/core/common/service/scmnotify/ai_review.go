@@ -35,26 +35,48 @@ const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 
 type aiReviewInlinePublishResult struct {
 	Published int
+	Skipped   int
+	Failed    bool
 	Title     string
+	Author    string
+	URL       string
 	ProjectID int
 	Threads   []models.AIReviewInlineThread
 	Fallback  []stepspec.AIReviewFinding
 	Comments  []reviewfeedback.PublishedComment
 }
 
-func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) error {
+type AIReviewPRMetadata struct {
+	Title  string
+	Author string
+	URL    string
+}
+
+func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) (AIReviewPRMetadata, error) {
 	if report == nil || prID <= 0 {
-		return nil
+		return AIReviewPRMetadata{}, nil
 	}
 	projectID := strings.TrimLeft(repoOwner+"/"+repoName, "/")
 	inlineResult := aiReviewInlinePublishResult{}
 	var inlineErr error
 	if len(report.Findings) > 0 {
-		inlineResult, inlineErr = s.Client.createAIReviewInlineComments(codehostID, projectID, repoOwner, repoName, prID, report)
+		publishCtx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		defer cancel()
+		token, lockErr := reviewfeedback.AcquirePublication(publishCtx, codehostID, repoOwner, repoName, prID)
+		if lockErr != nil {
+			inlineErr = lockErr
+		} else {
+			defer func() {
+				releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer releaseCancel()
+				if err := reviewfeedback.ReleasePublication(releaseCtx, codehostID, repoOwner, repoName, prID, token); err != nil {
+					logger.Warnf("release AI review publication lease: %v", err)
+				}
+			}()
+			inlineResult, inlineErr = s.Client.createAIReviewInlineComments(publishCtx, codehostID, projectID, repoOwner, repoName, prID, report)
+		}
 		if inlineErr != nil {
-			if inlineResult.Published == 0 {
-				inlineResult.Fallback = report.Findings
-			}
+			inlineResult.Failed = true
 			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
 		}
 	}
@@ -70,25 +92,27 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		comments = append(comments, reviewfeedback.PublishedComment{Kind: kind, CommentID: summaryID})
 	}
 	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
+	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
 	if title == "" {
-		numericProjectID, title, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
+		numericProjectID, metadata, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
 		if err != nil {
 			logger.Warnf("resolve AI review PR metadata: %v", err)
 		}
+		title = metadata.Title
 	}
 	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := reviewfeedback.Register(registerCtx, projectName, title, codehostID, numericProjectID, repoOwner, repoName, prID, comments, inlineResult.Threads); err != nil {
-		return fmt.Errorf("register AI review feedback comments: %w", err)
+		return metadata, fmt.Errorf("register AI review feedback comments: %w", err)
 	}
 	if summaryErr != nil {
-		return fmt.Errorf("publish AI review result: %w", summaryErr)
+		return metadata, fmt.Errorf("publish AI review result: %w", summaryErr)
 	}
 	logger.Infof("published AI review result to %s #%d", projectID, prID)
 	if inlineErr != nil {
-		return fmt.Errorf("publish inline AI review comments: %w", inlineErr)
+		return metadata, fmt.Errorf("publish inline AI review comments: %w", inlineErr)
 	}
-	return nil
+	return metadata, nil
 }
 
 func formatAIReviewComment(report *stepspec.AIReviewReport) string {
@@ -96,7 +120,38 @@ func formatAIReviewComment(report *stepspec.AIReviewReport) string {
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	return formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的 Findings", inlineResult.Published)
+	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的 Findings", inlineResult.Published)
+	if inlineResult.Skipped > 0 {
+		comment = strings.Replace(comment, "- 行内评论：", fmt.Sprintf("- 重复问题已跳过：%d\n- 行内评论：", inlineResult.Skipped), 1)
+		comment = strings.Replace(comment, "所有 finding 均已发布为行内评论。", "已有未解决线程的问题未重新发送。", 1)
+	}
+	if inlineResult.Failed {
+		comment = strings.Replace(comment, "所有 finding 均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
+	}
+	return comment
+}
+
+func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []models.AIReviewInlineThread) ([]stepspec.AIReviewFinding, int) {
+	open := make(map[string]bool)
+	for _, thread := range threads {
+		if thread.Fingerprint != "" && !thread.Resolved && !thread.Deleted {
+			open[thread.Fingerprint] = true
+		}
+	}
+	seen := make(map[string]bool)
+	filtered := make([]stepspec.AIReviewFinding, 0, len(findings))
+	skipped := 0
+	for _, finding := range findings {
+		if finding.Fingerprint != "" {
+			if open[finding.Fingerprint] || seen[finding.Fingerprint] {
+				skipped++
+				continue
+			}
+			seen[finding.Fingerprint] = true
+		}
+		filtered = append(filtered, finding)
+	}
+	return filtered, skipped
 }
 
 func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings []stepspec.AIReviewFinding, heading string, inlinePublished int) string {
@@ -201,7 +256,7 @@ func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
 	if finding.Suggestion != "" {
 		fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
 	}
-	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker)
+	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker + reviewfeedback.FingerprintMarker(finding.Fingerprint))
 	return builder.String()
 }
 

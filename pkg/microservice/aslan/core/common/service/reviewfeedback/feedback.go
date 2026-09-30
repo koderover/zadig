@@ -26,6 +26,42 @@ import (
 
 const leaseDuration = 5 * time.Minute
 
+// AcquirePublication serializes publishing and feedback reconciliation for one PR.
+func AcquirePublication(ctx context.Context, codehostID int, owner, name string, pr int) (string, error) {
+	key := prKey(codehostID, owner, name, pr)
+	coll := repo.NewAIReviewFeedbackColl()
+	initial := prKey(codehostID, owner, name, pr)
+	initial["comments"], initial["inline_threads"] = bson.A{}, bson.A{}
+	if _, err := coll.UpdateOne(ctx, key, bson.M{"$setOnInsert": initial}, options.Update().SetUpsert(true)); err != nil {
+		return "", err
+	}
+	token := primitive.NewObjectID().Hex()
+	for ctx.Err() == nil {
+		now := time.Now()
+		filter := prKey(codehostID, owner, name, pr)
+		filter["$or"] = bson.A{bson.M{"lease_until": bson.M{"$lte": now}}, bson.M{"lease_until": bson.M{"$exists": false}}}
+		result, err := coll.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"lease_token": token, "lease_until": now.Add(leaseDuration)}})
+		if err != nil {
+			return "", err
+		}
+		if result.MatchedCount > 0 {
+			return token, nil
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Second):
+		}
+	}
+	return "", fmt.Errorf("wait for AI review publication on %s/%s#%d: %w", owner, name, pr, ctx.Err())
+}
+
+func ReleasePublication(ctx context.Context, codehostID int, owner, name string, pr int, token string) error {
+	filter := prKey(codehostID, owner, name, pr)
+	filter["lease_token"] = token
+	_, err := repo.NewAIReviewFeedbackColl().UpdateOne(ctx, filter, bson.M{"$set": bson.M{"lease_token": "", "lease_until": time.Time{}}})
+	return err
+}
+
 type PublishedComment struct {
 	Kind        string
 	CommentID   int64

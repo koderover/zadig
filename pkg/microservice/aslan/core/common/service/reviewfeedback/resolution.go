@@ -37,7 +37,63 @@ func ReadGitHubInlineThreads(ctx context.Context, cli *githubapi.Client, owner, 
 			if item.GetID() <= 0 || item.GetNodeID() == "" {
 				return nil, fmt.Errorf("GitHub inline comment is missing ID/node ID")
 			}
-			threads = append(threads, models.AIReviewInlineThread{CommentID: item.GetID(), CommentNodeID: item.GetNodeID(), ReviewID: reviewID})
+			threads = append(threads, models.AIReviewInlineThread{CommentID: item.GetID(), CommentNodeID: item.GetNodeID(), ReviewID: reviewID, Fingerprint: FingerprintFromBody(item.GetBody())})
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return threads, nil
+}
+
+// CurrentGitHubInlineThreads reads published AI comments and their current thread states.
+func CurrentGitHubInlineThreads(ctx context.Context, cli *githubapi.Client, owner, name string, number int) ([]models.AIReviewInlineThread, error) {
+	threads := make([]models.AIReviewInlineThread, 0)
+	opts := &githubapi.PullRequestListCommentsOptions{ListOptions: githubapi.ListOptions{PerPage: 100}}
+	for {
+		items, resp, err := cli.PullRequests.ListComments(ctx, owner, name, number, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			if item == nil || item.GetInReplyTo() != 0 || !strings.Contains(item.GetBody(), "<!-- zadig-ai-review -->") {
+				continue
+			}
+			if item.GetID() <= 0 || item.GetNodeID() == "" {
+				return nil, fmt.Errorf("GitHub AI review comment is missing ID/node ID")
+			}
+			threads = append(threads, models.AIReviewInlineThread{CommentID: item.GetID(), CommentNodeID: item.GetNodeID(), ReviewID: item.GetPullRequestReviewID(), Fingerprint: FingerprintFromBody(item.GetBody())})
+		}
+		if resp == nil || resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	if len(threads) == 0 {
+		return threads, nil
+	}
+	return readGitHubResolutions(ctx, cli, &models.AIReviewFeedback{RepoOwner: owner, RepoName: name, PR: number, InlineThreads: threads})
+}
+
+// CurrentGitLabInlineThreads reads published AI discussions and their current states.
+func CurrentGitLabInlineThreads(ctx context.Context, cli *gitlab.Client, project string, number int) ([]models.AIReviewInlineThread, error) {
+	threads := make([]models.AIReviewInlineThread, 0)
+	opts := &gitlab.ListMergeRequestDiscussionsOptions{PerPage: 100}
+	for {
+		discussions, resp, err := cli.Discussions.ListMergeRequestDiscussions(project, number, opts, gitlab.WithContext(ctx))
+		if err != nil {
+			return nil, err
+		}
+		for _, discussion := range discussions {
+			if discussion == nil || len(discussion.Notes) == 0 {
+				continue
+			}
+			note := discussion.Notes[0]
+			if note == nil || note.Position == nil || !note.Resolvable || !strings.Contains(note.Body, "<!-- zadig-ai-review -->") {
+				continue
+			}
+			threads = append(threads, models.AIReviewInlineThread{CommentID: int64(note.ID), ThreadID: discussion.ID, Resolved: note.Resolved, Fingerprint: FingerprintFromBody(note.Body)})
 		}
 		if resp == nil || resp.NextPage == 0 {
 			break
@@ -241,6 +297,7 @@ func readGitLabResolutions(ctx context.Context, cli *gitlab.Client, pr *models.A
 			id := int64(note.ID)
 			thread := models.AIReviewInlineThread{CommentID: id, ThreadID: discussion.ID, Resolved: note.Resolved, UpdatedAt: started}
 			if i, ok := indices[id]; ok {
+				thread.Fingerprint = threads[i].Fingerprint
 				threads[i] = thread
 			} else {
 				indices[id] = len(threads)
