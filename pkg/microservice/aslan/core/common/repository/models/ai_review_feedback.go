@@ -10,6 +10,7 @@ type AIReviewFeedbackComment struct {
 	InlineTotal int       `bson:"inline_total,omitempty"`
 	Up          int       `bson:"up"`
 	Down        int       `bson:"down"`
+	ReactionIDs []int64   `bson:"reaction_ids,omitempty"` // GitLab 表情校对快照，用于恢复 webhook 状态
 	SyncedAt    time.Time `bson:"synced_at,omitempty"`
 	DirtyAt     time.Time `bson:"dirty_at,omitempty"`
 }

@@ -330,7 +330,11 @@ func syncPR(ctx context.Context, pr *models.AIReviewFeedback) (bool, error) {
 		key := prKey(pr.CodehostID, pr.RepoOwner, pr.RepoName, pr.PR)
 		key["lease_token"], key["revision"] = pr.LeaseToken, pr.Revision
 		key["comments"] = bson.M{"$elemMatch": bson.M{"kind": target.Kind, "comment_id": target.CommentID}}
-		result, err := coll.UpdateOne(ctx, key, bson.M{"$set": bson.M{"comments.$.up": count.Up, "comments.$.down": count.Down, "comments.$.synced_at": started}})
+		commentSnapshot := bson.M{"comments.$.up": count.Up, "comments.$.down": count.Down, "comments.$.synced_at": started}
+		if pr.Provider == setting.SourceFromGitlab {
+			commentSnapshot["comments.$.reaction_ids"] = count.ReactionIDs
+		}
+		result, err := coll.UpdateOne(ctx, key, bson.M{"$set": commentSnapshot})
 		if err != nil {
 			return false, err
 		}
@@ -338,6 +342,7 @@ func syncPR(ctx context.Context, pr *models.AIReviewFeedback) (bool, error) {
 			return false, fmt.Errorf("AI review feedback changed during synchronization")
 		}
 		pr.Comments[i].Up, pr.Comments[i].Down, pr.Comments[i].SyncedAt = count.Up, count.Down, started
+		pr.Comments[i].ReactionIDs = count.ReactionIDs
 	}
 	// Only registered AI targets contribute to this PR's aggregate.
 	total := feedbackTotals(pr.Comments)
@@ -348,6 +353,9 @@ func syncPR(ctx context.Context, pr *models.AIReviewFeedback) (bool, error) {
 	snapshot := bson.M{"inline_threads": threads, "inline_total": inlineTotal, "inline_resolved": inlineResolved, "resolution_synced_at": time.Now(), "updated_at": time.Now()}
 	if pr.Provider != setting.SourceFromGitlab || closed || pr.FinalSync {
 		snapshot["up"], snapshot["down"] = total.Up, total.Down
+		if pr.Provider == setting.SourceFromGitlab {
+			snapshot["gitlab_reactions"] = reconciledGitLabReactions(pr)
+		}
 	}
 	result, err := coll.UpdateOne(ctx, key, bson.M{"$set": snapshot, "$inc": bson.M{"revision": int64(1)}})
 	if err == nil && result.MatchedCount == 0 {
