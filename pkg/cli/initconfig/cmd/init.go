@@ -238,6 +238,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		vmcommonrepo.NewVMJobColl(),
 
 		statrepo.NewWeeklyDeployStatColl(),
+		statrepo.NewAIReviewStatColl(),
 		statrepo.NewMonthlyDeployStatColl(),
 		statrepo.NewMonthlyReleaseStatColl(),
 	} {
