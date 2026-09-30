@@ -602,7 +602,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	taskRunProperties.Envs = envs
 
 	for _, env := range taskRunProperties.Envs {
-		if env.Type == commonmodels.MultiSelectType {
+		if env.IsMultiValue() {
 			env.Value = strings.Join(env.ChoiceValue, ",")
 		}
 	}

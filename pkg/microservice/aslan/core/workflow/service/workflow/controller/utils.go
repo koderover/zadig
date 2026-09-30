@@ -18,7 +18,7 @@ import (
 func renderMultiLineString(body string, inputs []*commonmodels.Param) (string, error) {
 	for _, input := range inputs {
 		var inputValue string
-		if input.ParamsType == string(commonmodels.MultiSelectType) {
+		if input.IsMultiValue() {
 			inputValue = strings.Join(input.ChoiceValue, ",")
 		} else if input.ParamsType == string(commonmodels.FileType) {
 			inputValue = input.GetFileValue()
