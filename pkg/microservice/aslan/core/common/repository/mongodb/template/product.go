@@ -194,7 +194,7 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 			"$match": filter,
 		},
 		{
-			"$sort": bson.M{"update_time": -1}, // 按更新时间降序排序
+			"$sort": bson.D{{Key: "update_time", Value: -1}, {Key: "product_name", Value: 1}}, // 按更新时间降序排序，product_name 兜底保证分页稳定
 		},
 		{
 			"$project": projection,
