@@ -24,16 +24,16 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-func GenerateEnvStatus(envConfigs []*commonmodels.EnvConfig, log *zap.SugaredLogger) ([]*commonmodels.EnvStatus, error) {
+func GenerateEnvStatus(projectName string, envConfigs []*commonmodels.EnvConfig, log *zap.SugaredLogger) ([]*commonmodels.EnvStatus, error) {
 	changeEnvStatus := []*commonmodels.EnvStatus{}
 	for _, envConfig := range envConfigs {
-		tmpPrivateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+		tmpPrivateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs, ProjectName: projectName})
 		if err != nil {
 			log.Errorf("ListNameByArgs ids err:%s", err)
 			return nil, err
 		}
 
-		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels, ProjectName: projectName})
 		if err != nil {
 			log.Errorf("ListNameByArgs labels err:%s", err)
 			return nil, err

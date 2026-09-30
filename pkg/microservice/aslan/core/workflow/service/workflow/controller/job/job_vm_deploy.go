@@ -276,6 +276,15 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	if err != nil {
 		return resp, fmt.Errorf("list private keys error: %v", err)
 	}
+	vmMap := make(map[string]*commonmodels.PrivateKey, len(vms))
+	projectVMs := make([]*commonmodels.PrivateKey, 0, len(vms))
+	for _, vm := range vms {
+		vmMap[vm.ID.Hex()] = vm
+		if vm.IsAvailableToProject(j.workflow.Project) {
+			projectVMs = append(projectVMs, vm)
+		}
+	}
+	vms = projectVMs
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
 	if err != nil {
@@ -339,6 +348,15 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		})
 		if err != nil {
 			return resp, fmt.Errorf("get build info for service %s error: %v", vmDeployInfo.ServiceName, err)
+		}
+		for _, sshID := range deployInfo.SSHs {
+			vm, ok := vmMap[sshID]
+			if !ok {
+				continue
+			}
+			if !vm.IsAvailableToProject(j.workflow.Project) {
+				return resp, fmt.Errorf("host %s is outside project %s scope", vm.Name, j.workflow.Project)
+			}
 		}
 
 		basicImage, err := commonrepo.NewBasicImageColl().Find(deployInfo.PreDeploy.ImageID)

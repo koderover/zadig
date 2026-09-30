@@ -592,6 +592,9 @@ func PollingAgentJob(token string, retry int, logger *zap.SugaredLogger) (*Polli
 
 	var job *vmmodel.VMJob
 	for _, j := range jobs {
+		if !vm.IsAvailableToProject(j.ProjectName) {
+			continue
+		}
 		labelSet := sets.NewString(j.VMLabels...)
 		if j.VMLabels != nil && (j.VMLabels[0] == setting.VMLabelAnyOne || labelSet.Has(vm.Label)) {
 			job = j

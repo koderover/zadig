@@ -449,7 +449,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
-				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.ProductName, serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 				if err != nil {
 					detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
 					log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
