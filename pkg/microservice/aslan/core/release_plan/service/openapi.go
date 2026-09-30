@@ -137,6 +137,10 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	}
 	args.ManagerID = searchUserResp.Users[0].UID
 
+	if err := snapshotReleasePlanCustomFields(args); err != nil {
+		return nil, err
+	}
+
 	if args.Approval != nil {
 		if err := lintApproval(args.Approval); err != nil {
 			return nil, errors.Errorf("lintApproval error: %v", err)
