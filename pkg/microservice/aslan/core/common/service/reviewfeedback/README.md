@@ -47,7 +47,7 @@ GitLab webhook 在验签后直接更新 `ai_review_feedback` 中的 MR 总数，
 | --- | --- |
 | `ai_review_feedback` | 每个 PR/MR 一条，保存总数、调度和租约、GitLab 去重状态，标题、项目，以及嵌入的 `comments` 反应目标和 `inline_threads` 线程列表 |
 
-`comments` 每项包含 `kind`、`comment_id`、`review_id`、`up/down` 快照、`synced_at` 和 `dirty_at`。GitHub 总结使用 comment ID，行内审查使用 review ID；已完成的目标在当前采集周期内可以跳过。追加新评论、线程、webhook 更新及完成采集的线程快照都会增加 PR revision，阻止旧任务覆盖新数据。
+`comments` 每项包含 `kind`、`comment_id`、`review_id`、`up/down` 快照、`synced_at` 和 `dirty_at`。GitLab 最终校对额外保存 `reaction_ids`，与评论快照一起持久化以支持中断续采；完成时原子更新 MR 总数及表情状态，确保重开后撤销补回的点赞能够扣减，并保留已撤销 ID 防止迟到新增重复计数。GitHub 总结使用 comment ID，行内审查使用 review ID；已完成的目标在当前采集周期内可以跳过。追加新评论、线程、webhook 更新及完成采集的线程快照都会增加 PR revision，阻止旧任务覆盖新数据。
 
 `inline_threads` 保存 `comment_id`、`comment_node_id`、`thread_id`、`review_id`、`resolved`、`updated_at`、`deleted`。review 反应目标额外保存已发布的 `inline_total`，即使发布后的评论 ID 查询失败，仍保留 review 和分母，后续采集继续补齐关联。PR 顶层保存 `inline_total`、`inline_resolved`、`resolution_synced_at`。
 

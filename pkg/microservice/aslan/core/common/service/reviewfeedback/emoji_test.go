@@ -49,3 +49,21 @@ func TestGitLabFinalReconciliation(t *testing.T) {
 		t.Fatalf("final reconciliation must freeze after final collection: %v", finished)
 	}
 }
+
+func TestGitLabReconciledReactionState(t *testing.T) {
+	pr := models.AIReviewFeedback{Up: 1, GitLabReactions: map[string]string{"2": "award", "3": "revoke"},
+		Comments: []models.AIReviewFeedbackComment{{ReactionIDs: []int64{1}}}}
+	pr.GitLabReactions = reconciledGitLabReactions(&pr)
+	if pr.GitLabReactions["2"] != "revoke" || pr.GitLabReactions["3"] != "revoke" {
+		t.Fatal("missing and revoked reactions must retain tombstones")
+	}
+	if applyGitLabReaction(&pr, 1, "thumbsup", "award") || pr.Up != 1 {
+		t.Fatal("delayed award must not duplicate the reconciled count")
+	}
+	if !applyGitLabReaction(&pr, 1, "thumbsup", "revoke") || pr.Up != 0 {
+		t.Fatal("revoke must decrement an award recovered by final reconciliation")
+	}
+	if applyGitLabReaction(&pr, 1, "thumbsup", "revoke") || applyGitLabReaction(&pr, 2, "thumbsup", "award") || pr.Up != 0 {
+		t.Fatal("duplicate revoke or obsolete award changed the count")
+	}
+}
