@@ -193,6 +193,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 		if inputKV, ok := inputMap[baseKV.Key]; ok {
 			if useInputKVSource {
 				item.Source = inputKV.Source
+				item.IsMultiSelect = inputKV.IsMultiSelect
 			}
 
 			// if the final source of the item is fix or reference, the input is irrelevant, just use the origin stuff

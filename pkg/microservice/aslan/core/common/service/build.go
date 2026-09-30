@@ -211,7 +211,6 @@ func MergeBuildEnvs(templateEnvs, customEnvs commonmodels.RuntimeKeyValList) com
 	for _, v := range templateEnvs {
 		if cv, ok := customEnvMap[v.Key]; ok {
 			cv.ChoiceOption = v.ChoiceOption
-			cv.IsMultiSelect = v.IsMultiSelect
 			cv.Description = v.Description
 			cv.Script = v.Script
 			cv.FunctionReference = v.FunctionReference
@@ -231,7 +230,6 @@ func MergeParams(templateEnvs []*commonmodels.Param, customEnvs []*commonmodels.
 	retEnvs := make([]*commonmodels.Param, 0)
 	for _, v := range templateEnvs {
 		if cv, ok := customEnvMap[v.Name]; ok {
-			cv.IsMultiSelect = v.IsMultiSelect
 			retEnvs = append(retEnvs, cv)
 		} else {
 			retEnvs = append(retEnvs, v)
