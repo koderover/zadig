@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -272,6 +273,59 @@ func CodeHostGetPRList(c *gin.Context) {
 		return
 	}
 	ctx.Resp = prs
+}
+
+func authorizeOpenAPICodehost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() {
+		if ctx.RespErr != nil || ctx.UnAuthorized {
+			internalhandler.JSONResponse(c, ctx)
+			c.Abort()
+		}
+	}()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
+	projectKey, codehostName := c.Query("projectKey"), c.Param("codehostName")
+	namespace, repoName := c.Query("repoNamespace"), c.Query("repoName")
+	if projectKey == "" || codehostName == "" || namespace == "" || repoName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey, codehostName, repoNamespace and repoName are required")
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+	codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(projectKey)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	codehostID := 0
+	for _, codehost := range codehosts {
+		if codehost.Alias == codehostName {
+			if codehostID != 0 {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("multiple code hosts with this name are available in project")
+				return
+			}
+			codehostID = codehost.ID
+		}
+	}
+	if codehostID == 0 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("codehost is not available in project")
+		return
+	}
+	c.Params = append(c.Params, gin.Param{Key: "codehostId", Value: strconv.Itoa(codehostID)})
+	query := c.Request.URL.Query()
+	query.Del("page")
+	query.Del("per_page")
+	query.Del("key")
+	query.Del("targetBranch")
+	query.Set("repoOwner", namespace)
+	c.Request.URL.RawQuery = query.Encode()
 }
 
 func CodeHostGetCommits(c *gin.Context) {
