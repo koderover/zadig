@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -35,24 +34,26 @@ import (
 )
 
 // syncProxyConfig applies the proxy config to aslan and dind after it is changed.
-func syncProxyConfig() error {
+func syncProxyConfig(log *zap.SugaredLogger) {
 	if err := SetProxyConfig(); err != nil {
-		return fmt.Errorf("proxy configuration saved, but failed to apply it: %w", err)
+		log.Errorf("proxy configuration saved, but failed to apply it: %v", err)
 	}
-	clusters, err := commonrepo.NewK8SClusterColl().FindConnectedClusters()
-	if err != nil {
-		return fmt.Errorf("proxy configuration saved, but failed to list clusters for dind sync: %w", err)
-	}
-	clusterNamespaces := map[string]string{setting.LocalClusterID: conf.Namespace()}
-	for _, cluster := range clusters {
-		if cluster.ID.Hex() != setting.LocalClusterID && (cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow) {
-			clusterNamespaces[cluster.ID.Hex()] = kube.ResolveDindNamespace(cluster)
+	go func() {
+		clusters, err := commonrepo.NewK8SClusterColl().FindActiveClusters()
+		if err != nil {
+			log.Errorf("proxy configuration saved, but failed to list clusters for dind sync: %v", err)
+			return
 		}
-	}
-	if err := commonutil.SyncDinDForRegistries(clusterNamespaces); err != nil {
-		return fmt.Errorf("proxy configuration saved, but failed to sync dind: %w", err)
-	}
-	return nil
+		clusterNamespaces := map[string]string{setting.LocalClusterID: conf.Namespace()}
+		for _, cluster := range clusters {
+			if cluster.ID.Hex() != setting.LocalClusterID && (cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow) {
+				clusterNamespaces[cluster.ID.Hex()] = kube.ResolveDindNamespace(cluster)
+			}
+		}
+		if err := commonutil.SyncDinDForRegistries(clusterNamespaces); err != nil {
+			log.Errorf("proxy configuration saved, but failed to sync dind: %v", err)
+		}
+	}()
 }
 
 func SetProxyConfig() error {
@@ -163,7 +164,8 @@ func CreateProxy(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 	}
 
 	// 更新globalConfig和dind的proxy配置
-	return syncProxyConfig()
+	syncProxyConfig(log)
+	return nil
 }
 
 func UpdateProxy(id string, args *commonmodels.Proxy, log *zap.SugaredLogger) error {
@@ -179,7 +181,8 @@ func UpdateProxy(id string, args *commonmodels.Proxy, log *zap.SugaredLogger) er
 	}
 
 	// 更新globalConfig和dind的proxy配置
-	return syncProxyConfig()
+	syncProxyConfig(log)
+	return nil
 }
 
 func DeleteProxy(id string, log *zap.SugaredLogger) error {
@@ -190,7 +193,8 @@ func DeleteProxy(id string, log *zap.SugaredLogger) error {
 	}
 
 	// 更新globalConfig和dind的proxy配置
-	return syncProxyConfig()
+	syncProxyConfig(log)
+	return nil
 }
 
 func TestConnection(args *commonmodels.Proxy, log *zap.SugaredLogger) error {

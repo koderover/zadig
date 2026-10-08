@@ -126,6 +126,8 @@ func (c *ProxyColl) Update(id string, args *models.Proxy) error {
 		"usage":                    args.Usage,
 		"enable_repo_proxy":        args.EnableRepoProxy,
 		"enable_application_proxy": args.EnableApplicationProxy,
+		"enable_dind_proxy":        args.EnableDinDProxy,
+		"no_proxy":                 args.NoProxy,
 		"update_by":                args.UpdateBy,
 		"update_time":              time.Now().Unix(),
 	}}

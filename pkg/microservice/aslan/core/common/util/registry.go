@@ -42,6 +42,7 @@ import (
 
 var awsKeyMap sync.Map
 var expirationTime = 10 * time.Hour
+var dindSyncMutex sync.Mutex
 
 type awsKeyWithExpiration struct {
 	AccessKey  string
@@ -118,6 +119,10 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 }
 
 func SyncDinDForRegistries(clusterNamespaces map[string]string) error {
+	// Serialize snapshot reads and updates so background syncs cannot restore stale proxy settings.
+	dindSyncMutex.Lock()
+	defer dindSyncMutex.Unlock()
+
 	registries, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
@@ -165,11 +170,14 @@ func getDinDProxy(regList []*models.RegistryNamespace) (*registrytool.DinDProxy,
 	if err != nil {
 		return nil, fmt.Errorf("failed to list proxy to update dind: %w", err)
 	}
-	if len(proxies) == 0 || !proxies[0].EnableRepoProxy {
+	if len(proxies) == 0 || !proxies[0].EnableDinDProxy {
 		return &registrytool.DinDProxy{}, nil
 	}
 
-	noProxy := []string{"localhost", "127.0.0.1", ".svc", ".cluster.local"}
+	noProxy := []string{"localhost", "127.0.0.1", ".svc", ".cluster.local", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
+	if customNoProxy := strings.TrimSpace(proxies[0].NoProxy); customNoProxy != "" {
+		noProxy = append(noProxy, customNoProxy)
+	}
 	for _, reg := range regList {
 		addr := reg.RegAddr
 		if !strings.Contains(addr, "://") {
