@@ -89,7 +89,6 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		}
 		namespace.Status = string(config.StatusRunning)
 		namespace.Error = ""
-		namespace.TargetResults = make([]*commonmodels.ApolloNamespaceTargetResult, 0)
 		c.ack()
 
 		if namespace.Action == "" {
@@ -152,6 +151,16 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 		}
 	}
 
+	targetCount := 0
+	for _, env := range targets {
+		if env != nil {
+			targetCount += len(env.Clusters)
+		}
+	}
+	if targetCount == 0 {
+		return errors.New("no concrete namespace target found")
+	}
+
 	created, err := client.CreateAppNamespace(namespace.AppID, &apollo.CreateAppNamespaceArgs{
 		Name:                strings.TrimSpace(namespace.Namespace),
 		AppID:               namespace.AppID,
@@ -173,59 +182,36 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 	}
 	namespace.Namespace = namespaceName
 
+	partialFailure := false
+	targetErrors := make([]string, 0)
 	for _, env := range targets {
 		if env == nil {
 			continue
 		}
 		for _, cluster := range env.Clusters {
-			namespace.TargetResults = append(namespace.TargetResults, &commonmodels.ApolloNamespaceTargetResult{
-				Env:       env.Env,
-				ClusterID: cluster,
-				Status:    string(config.StatusCreated),
-			})
-		}
-	}
-	c.ack()
-
-	if len(namespace.TargetResults) == 0 {
-		return errors.New("no concrete namespace target found")
-	}
-
-	partialFailure := false
-	for _, target := range namespace.TargetResults {
-		target.Status = string(config.StatusRunning)
-		target.Error = ""
-		c.ack()
-
-		concreteNamespace, err := client.GetNamespace(namespace.AppID, target.Env, target.ClusterID, namespace.Namespace)
-		if err != nil || concreteNamespace == nil {
-			partialFailure = true
-			target.Status = string(config.StatusFailed)
-			if err != nil {
-				target.Error = fmt.Sprintf("namespace not found after app namespace creation: %v", err)
-			} else {
-				target.Error = "namespace not found after app namespace creation"
+			concreteNamespace, err := client.GetNamespace(namespace.AppID, env.Env, cluster, namespace.Namespace)
+			if err != nil || concreteNamespace == nil {
+				partialFailure = true
+				if err != nil {
+					targetErrors = append(targetErrors, fmt.Sprintf("env=%s, cluster=%s: namespace not found after app namespace creation: %v", env.Env, cluster, err))
+				} else {
+					targetErrors = append(targetErrors, fmt.Sprintf("env=%s, cluster=%s: namespace not found after app namespace creation", env.Env, cluster))
+				}
+				continue
 			}
-			c.ack()
-			continue
-		}
 
-		concrete := namespace.ApolloNamespace
-		concrete.Env = target.Env
-		concrete.ClusterID = target.ClusterID
-		if err := updateAndReleaseNamespace(client, &concrete, user, releaseArgs); err != nil {
-			partialFailure = true
-			target.Status = string(config.StatusFailed)
-			target.Error = err.Error()
-			c.ack()
-			continue
+			concrete := namespace.ApolloNamespace
+			concrete.Env = env.Env
+			concrete.ClusterID = cluster
+			if err := updateAndReleaseNamespace(client, &concrete, user, releaseArgs); err != nil {
+				partialFailure = true
+				targetErrors = append(targetErrors, fmt.Sprintf("env=%s, cluster=%s: %v", env.Env, cluster, err))
+				continue
+			}
 		}
-
-		target.Status = string(config.StatusPassed)
-		c.ack()
 	}
 	if partialFailure {
-		return errors.New("create namespace partially failed")
+		return fmt.Errorf("create namespace partially failed: %s", strings.Join(targetErrors, "; "))
 	}
 	return nil
 }

@@ -657,16 +657,8 @@ type JobTaskApolloSpec struct {
 
 type JobTaskApolloNamespace struct {
 	ApolloNamespace `bson:",inline" json:",inline" yaml:",inline"`
-	Status          string                         `bson:"status"        json:"status"                  yaml:"status"`
-	Error           string                         `bson:"error"         json:"error"                   yaml:"error"`
-	TargetResults   []*ApolloNamespaceTargetResult `bson:"targetResults" json:"targetResults,omitempty" yaml:"targetResults"`
-}
-
-type ApolloNamespaceTargetResult struct {
-	Env       string `bson:"env"       json:"env"       yaml:"env"`
-	ClusterID string `bson:"clusterID" json:"clusterID" yaml:"clusterID"`
-	Status    string `bson:"status"    json:"status"    yaml:"status"`
-	Error     string `bson:"error"     json:"error"     yaml:"error"`
+	Status          string `bson:"status" json:"status" yaml:"status"`
+	Error           string `bson:"error"  json:"error"  yaml:"error"`
 }
 
 type ApolloKV struct {

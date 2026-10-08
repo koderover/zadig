@@ -140,7 +140,7 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 				default:
 					return fmt.Errorf("unsupported apollo namespace type: %s", ns.Type)
 				}
-				if err := apollo.ValidateNamespaceName(ns.Namespace, ns.Type); err != nil {
+				if err := apollo.ValidateNamespaceName(ns.Namespace); err != nil {
 					return err
 				}
 
@@ -269,7 +269,6 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					list = append(list, &commonmodels.JobTaskApolloNamespace{
 						ApolloNamespace: *namespace,
 						Status:          string(config.StatusCreated),
-						TargetResults:   make([]*commonmodels.ApolloNamespaceTargetResult, 0),
 					})
 				}
 				return list

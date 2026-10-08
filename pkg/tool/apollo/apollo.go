@@ -66,7 +66,7 @@ func NormalizeNamespaceName(name, format string) string {
 	return name + "." + format
 }
 
-func ValidateNamespaceName(name, format string) error {
+func ValidateNamespaceName(name string) error {
 	name = strings.TrimSpace(name)
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(name)), ".")
 	if ext == "" {
