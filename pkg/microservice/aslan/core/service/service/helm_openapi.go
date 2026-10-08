@@ -18,16 +18,22 @@ package service
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
+	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type OpenAPIHelmServiceDetail struct {
@@ -225,4 +231,343 @@ func openAPICodehostName(codehostID int) (string, error) {
 		return "", fmt.Errorf("failed to find codehost: %w", err)
 	}
 	return codehost.Alias, nil
+}
+
+type OpenAPIHelmValuesScanPath struct {
+	Path  string `json:"path"`
+	IsDir bool   `json:"isDir"`
+}
+
+const maxOpenAPIHelmValuesPaths = 100
+
+type OpenAPIQueryHelmValuesReq struct {
+	CodehostName string                      `json:"codehostName"`
+	Owner        string                      `json:"owner"`
+	Namespace    string                      `json:"namespace"`
+	Repo         string                      `json:"repo"`
+	Branch       string                      `json:"branch"`
+	Paths        []OpenAPIHelmValuesScanPath `json:"paths"`
+}
+
+func (r *OpenAPIQueryHelmValuesReq) Validate() error {
+	if err := validateOpenAPIHelmValuesRepo(r.CodehostName, r.Owner, r.Repo, r.Branch); err != nil {
+		return err
+	}
+	if len(r.Paths) == 0 {
+		return fmt.Errorf("paths cannot be empty")
+	}
+	if len(r.Paths) > maxOpenAPIHelmValuesPaths {
+		return fmt.Errorf("paths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
+	}
+	for i := range r.Paths {
+		if r.Paths[i].Path == "" && !r.Paths[i].IsDir {
+			return fmt.Errorf("path cannot be empty")
+		}
+		normalizedPath, err := normalizeOpenAPIRepoPath(r.Paths[i].Path)
+		if err != nil {
+			return err
+		}
+		r.Paths[i].Path = normalizedPath
+	}
+	return nil
+}
+
+type OpenAPIQueryHelmValuesResp struct {
+	ValuesPaths []string `json:"valuesPaths"`
+}
+
+type OpenAPIBulkCreateHelmServiceReq struct {
+	TemplateName string   `json:"templateName"`
+	CodehostName string   `json:"codehostName"`
+	Owner        string   `json:"owner"`
+	Namespace    string   `json:"namespace"`
+	Repo         string   `json:"repo"`
+	Branch       string   `json:"branch"`
+	ValuesPaths  []string `json:"valuesPaths"`
+	AutoSync     bool     `json:"autoSync"`
+}
+
+func (r *OpenAPIBulkCreateHelmServiceReq) Validate() error {
+	if r.TemplateName == "" {
+		return fmt.Errorf("templateName cannot be empty")
+	}
+	if err := validateOpenAPIHelmValuesRepo(r.CodehostName, r.Owner, r.Repo, r.Branch); err != nil {
+		return err
+	}
+	if len(r.ValuesPaths) == 0 {
+		return fmt.Errorf("valuesPaths cannot be empty")
+	}
+	if len(r.ValuesPaths) > maxOpenAPIHelmValuesPaths {
+		return fmt.Errorf("valuesPaths cannot contain more than %d items", maxOpenAPIHelmValuesPaths)
+	}
+	for i, valuesPath := range r.ValuesPaths {
+		normalizedPath, err := normalizeOpenAPIRepoPath(valuesPath)
+		if err != nil {
+			return err
+		}
+		if !isOpenAPIHelmValuesPath(normalizedPath) {
+			return fmt.Errorf("%s is not a values file", valuesPath)
+		}
+		r.ValuesPaths[i] = normalizedPath
+	}
+	return nil
+}
+
+func validateOpenAPIHelmValuesRepo(codehostName, owner, repo, branch string) error {
+	if codehostName == "" {
+		return fmt.Errorf("codehostName cannot be empty")
+	}
+	if owner == "" {
+		return fmt.Errorf("owner cannot be empty")
+	}
+	if repo == "" {
+		return fmt.Errorf("repo cannot be empty")
+	}
+	if branch == "" {
+		return fmt.Errorf("branch cannot be empty")
+	}
+	return nil
+}
+
+// openAPIRepoOwner returns the owner used to read the repo, a GitLab subgroup
+// repo is addressed by its namespace.
+func openAPIRepoOwner(owner, namespace string) string {
+	if namespace != "" {
+		return namespace
+	}
+	return owner
+}
+
+func normalizeOpenAPIRepoPath(repoPath string) (string, error) {
+	if strings.HasPrefix(repoPath, "/") {
+		return "", fmt.Errorf("invalid path: %s", repoPath)
+	}
+	for _, segment := range strings.Split(repoPath, "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("invalid path: %s", repoPath)
+		}
+	}
+
+	cleanedPath := path.Clean(repoPath)
+	if cleanedPath == "." {
+		return "", nil
+	}
+	return cleanedPath, nil
+}
+
+// QueryHelmValuesOpenAPI scans the given repo paths and returns the values files that
+// can be imported as Helm services.
+func QueryHelmValuesOpenAPI(projectKey string, req *OpenAPIQueryHelmValuesReq, logger *zap.SugaredLogger) (*OpenAPIQueryHelmValuesResp, error) {
+	codehostID, err := openAPIAvailableCodehostID(projectKey, req.CodehostName)
+	if err != nil {
+		return nil, e.ErrListWorkspace.AddErr(err)
+	}
+
+	getter, err := fsservice.GetTreeGetter(codehostID)
+	if err != nil {
+		logger.Errorf("Failed to get tree getter of codehost %s, err: %s", req.CodehostName, err)
+		return nil, e.ErrListWorkspace.AddErr(err)
+	}
+
+	owner := openAPIRepoOwner(req.Owner, req.Namespace)
+	resp := &OpenAPIQueryHelmValuesResp{ValuesPaths: make([]string, 0)}
+	visited := sets.NewString()
+	for _, scanPath := range req.Paths {
+		valuesPaths := []string{scanPath.Path}
+		if scanPath.IsDir {
+			valuesPaths, err = listOpenAPIHelmValuesFiles(getter, owner, req.Repo, req.Branch, scanPath.Path)
+		} else {
+			err = checkOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, scanPath.Path)
+		}
+		if err != nil {
+			return nil, e.ErrListWorkspace.AddErr(err)
+		}
+
+		for _, valuesPath := range valuesPaths {
+			if visited.Has(valuesPath) {
+				continue
+			}
+			visited.Insert(valuesPath)
+			resp.ValuesPaths = append(resp.ValuesPaths, valuesPath)
+			if len(resp.ValuesPaths) > maxOpenAPIHelmValuesPaths {
+				return nil, e.ErrListWorkspace.AddDesc(fmt.Sprintf("the number of values files cannot exceed %d", maxOpenAPIHelmValuesPaths))
+			}
+		}
+	}
+
+	return resp, nil
+}
+
+// listOpenAPIHelmValuesFiles lists the Values files directly inside a directory.
+// Subdirectories are not followed: one Values file describes one service, so a
+// caller points at the directory holding them, and walking a whole repository
+// would cost one code host request per directory.
+func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch, dir string) ([]string, error) {
+	treeNodes, err := getter.GetTree(owner, repo, dir, branch)
+	if err != nil {
+		return nil, err
+	}
+
+	valuesPaths := make([]string, 0, len(treeNodes))
+	for _, treeNode := range treeNodes {
+		if treeNode == nil || treeNode.IsDir {
+			continue
+		}
+		// like the UI, files are picked by path only and their contents are not read
+		if isOpenAPIHelmValuesPath(treeNode.FullPath) {
+			valuesPaths = append(valuesPaths, treeNode.FullPath)
+			if len(valuesPaths) > maxOpenAPIHelmValuesPaths {
+				return nil, fmt.Errorf("the number of values files cannot exceed %d", maxOpenAPIHelmValuesPaths)
+			}
+		}
+	}
+
+	return valuesPaths, nil
+}
+
+// checkOpenAPIHelmValuesFile checks that a values file exists and is not empty, which is
+// what service creation requires. A missing file fails on the code host and a directory
+// reads as empty content.
+func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) error {
+	if !isOpenAPIHelmValuesPath(filePath) {
+		return fmt.Errorf("%s is not a values file", filePath)
+	}
+
+	content, err := getter.GetFileContent(owner, repo, filePath, branch)
+	if err != nil {
+		return err
+	}
+	if len(content) == 0 {
+		return fmt.Errorf("%s is empty", filePath)
+	}
+	return nil
+}
+
+// helmServiceNameFromValuesPath returns the name of the service created from a values file.
+// It must stay in line with the naming in handleSingleService.
+func helmServiceNameFromValuesPath(valuesPath string) string {
+	serviceName := filepath.Base(valuesPath)
+	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
+	return strings.ToLower(serviceName)
+}
+
+func isOpenAPIHelmValuesFile(name string) bool {
+	// Chart.yaml is Chart metadata, importing it would create a service named chart.
+	if strings.EqualFold(name, setting.ChartYaml) {
+		return false
+	}
+	ext := strings.ToLower(path.Ext(name))
+	return ext == ".yaml" || ext == ".yml"
+}
+
+func isOpenAPIHelmValuesPath(filePath string) bool {
+	if !isOpenAPIHelmValuesFile(path.Base(filePath)) {
+		return false
+	}
+	for _, segment := range strings.Split(path.Clean(filePath), "/") {
+		if strings.EqualFold(segment, "templates") {
+			return false
+		}
+	}
+	return helmServiceNameFromValuesPath(filePath) != ""
+}
+
+// BulkCreateHelmServicesOpenAPI creates one Helm service per selected values file,
+// every service uses the same chart template.
+func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey string, production bool, req *OpenAPIBulkCreateHelmServiceReq) (*OpenAPILoadHelmServiceResp, error) {
+	codehostID, err := openAPIAvailableCodehostID(projectKey, req.CodehostName)
+	if err != nil {
+		return nil, e.ErrLoadServiceTemplate.AddErr(err)
+	}
+
+	// values files sharing a name would create the same service, and the creations run
+	// in parallel, so the duplicates are rejected instead of racing each other
+	valuesPaths := make([]string, 0, len(req.ValuesPaths))
+	conflicts := make([]*OpenAPIFailedHelmService, 0)
+	createdBy := make(map[string]string, len(req.ValuesPaths))
+	for _, valuesPath := range req.ValuesPaths {
+		serviceName := helmServiceNameFromValuesPath(valuesPath)
+		if firstPath, ok := createdBy[serviceName]; ok {
+			conflicts = append(conflicts, &OpenAPIFailedHelmService{
+				Path:  valuesPath,
+				Error: fmt.Sprintf("service:%s conflicts with values file %s in the same request: duplicate service name", serviceName, firstPath),
+			})
+			continue
+		}
+		createdBy[serviceName] = valuesPath
+		valuesPaths = append(valuesPaths, valuesPath)
+	}
+
+	args := &BulkHelmServiceCreationArgs{
+		HelmLoadSource: HelmLoadSource{
+			Source: LoadFromChartTemplate,
+		},
+		CreateFrom: &CreateFromChartTemplate{
+			TemplateName: req.TemplateName,
+		},
+		CreatedBy:  ctx.UserName,
+		RequestID:  ctx.RequestID,
+		AutoSync:   req.AutoSync,
+		Production: production,
+		ValuesData: &commonservice.ValuesDataArgs{
+			YamlSource: setting.SourceFromGitRepo,
+			GitRepoConfig: &commonservice.RepoConfig{
+				CodehostID:  codehostID,
+				Owner:       req.Owner,
+				Namespace:   req.Namespace,
+				Repo:        req.Repo,
+				Branch:      req.Branch,
+				ValuesPaths: valuesPaths,
+			},
+		},
+	}
+
+	resp, err := CreateOrUpdateBulkHelmService(projectKey, args, false, ctx.Logger)
+	if resp == nil {
+		return nil, err
+	}
+	openAPIResp := &OpenAPILoadHelmServiceResp{
+		SuccessServices: resp.SuccessServices,
+		FailedServices:  conflicts,
+	}
+	if err != nil {
+		// the services are already created, only the auto deploy to envs failed, so the
+		// creation result is still reported along with the deploy error
+		ctx.Logger.Errorf("Failed to auto deploy Helm services to envs of project %s, err: %s", projectKey, err)
+		openAPIResp.AutoDeployError = err.Error()
+	}
+	for _, failedService := range resp.FailedServices {
+		openAPIResp.FailedServices = append(openAPIResp.FailedServices, &OpenAPIFailedHelmService{
+			Path:  failedService.Path,
+			Error: failedService.Error,
+		})
+	}
+
+	return openAPIResp, nil
+}
+
+// openAPIAvailableCodehostID resolves a codehost alias within a project, covering both
+// system level and project level integrations.
+func openAPIAvailableCodehostID(projectKey, codehostName string) (int, error) {
+	codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(projectKey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list available codehosts of project %s: %s", projectKey, err)
+	}
+
+	codehostID := 0
+	for _, codehost := range codehosts {
+		if codehost.Alias != codehostName {
+			continue
+		}
+		if codehostID != 0 {
+			return 0, fmt.Errorf("multiple codehosts named %s are available in project %s", codehostName, projectKey)
+		}
+		codehostID = codehost.ID
+	}
+	if codehostID == 0 {
+		return 0, fmt.Errorf("codehost %s is not available in project %s", codehostName, projectKey)
+	}
+
+	return codehostID, nil
 }
