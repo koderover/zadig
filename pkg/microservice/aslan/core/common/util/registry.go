@@ -20,11 +20,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -118,52 +116,10 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 	return keypair[0], keypair[1], nil
 }
 
-// dindSyncLocks holds a *sync.Mutex per clusterID/namespace.
-var dindSyncLocks sync.Map
-
-func lockDinD(clusterID, namespace string) func() {
-	v, _ := dindSyncLocks.LoadOrStore(clusterID+"/"+namespace, &sync.Mutex{})
-	mu := v.(*sync.Mutex)
-	mu.Lock()
-	return mu.Unlock
-}
-
-func SyncDinDForRegistries(clusterNamespaces map[string]string) error {
-	if len(clusterNamespaces) == 0 {
-		clusterNamespaces = map[string]string{setting.LocalClusterID: config.Namespace()}
-	}
-	var syncErrors []error
-	for clusterID, namespace := range clusterNamespaces {
-		if err := syncDinDCluster(clusterID, namespace); err != nil {
-			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: %w", clusterID, err))
-		}
-	}
-	return errors.Join(syncErrors...)
-}
-
-// syncDinDCluster reads the latest registry and proxy settings under the cluster lock,
-// so a slower sync cannot overwrite the cluster with an older snapshot.
-func syncDinDCluster(clusterID, namespace string) error {
-	defer lockDinD(clusterID, namespace)()
-
-	regList, proxy, err := loadDinDSnapshot()
-	if err != nil {
-		return err
-	}
-	dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes client: %w", err)
-	}
-	if err := registrytool.PrepareDinD(dynamicClient, namespace, regList, proxy); err != nil {
-		return fmt.Errorf("failed to update dind: %w", err)
-	}
-	return nil
-}
-
-func loadDinDSnapshot() ([]*registrytool.RegistryInfoForDinDUpdate, *registrytool.DinDProxy, error) {
+func SyncDinDForRegistries() error {
 	registries, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list registry to update dind, err: %s", err)
+		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
 	}
 
 	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
@@ -181,41 +137,10 @@ func loadDinDSnapshot() ([]*registrytool.RegistryInfoForDinDUpdate, *registrytoo
 		regList = append(regList, regItem)
 	}
 
-	proxy, err := getDinDProxy(registries)
+	dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
 	if err != nil {
-		return nil, nil, err
-	}
-	return regList, proxy, nil
-}
-
-// getDinDProxy excludes registries managed by Zadig from the image pull proxy.
-func getDinDProxy(regList []*models.RegistryNamespace) (*registrytool.DinDProxy, error) {
-	proxies, err := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list proxy to update dind: %w", err)
-	}
-	if len(proxies) == 0 || !proxies[0].EnableDinDProxy || proxies[0].Type == "no" {
-		return &registrytool.DinDProxy{}, nil
+		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
 	}
 
-	noProxy := []string{"localhost", "127.0.0.1", ".svc", ".cluster.local", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
-	noProxy = append(noProxy, strings.FieldsFunc(proxies[0].DinDNoProxy, func(r rune) bool {
-		return r == ',' || unicode.IsSpace(r)
-	})...)
-	for _, reg := range regList {
-		addr := reg.RegAddr
-		if !strings.Contains(addr, "://") {
-			addr = "https://" + addr
-		}
-		if u, err := url.Parse(addr); err == nil && u.Hostname() != "" {
-			noProxy = append(noProxy, u.Hostname())
-		}
-	}
-
-	proxyURL := proxies[0].GetProxyURL()
-	return &registrytool.DinDProxy{
-		HTTPProxy:  proxyURL,
-		HTTPSProxy: proxyURL,
-		NoProxy:    strings.Join(noProxy, ","),
-	}, nil
+	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
 }

@@ -140,6 +140,7 @@ func Start(ctx context.Context) {
 	if err := systemservice.SetProxyConfig(); err != nil {
 		log.Errorf("Failed to initialize proxy configuration: %v", err)
 	}
+	systemservice.SyncDinDProxyConfig(log.SugaredLogger())
 	log.Debugf("SetProxyConfig took %s milli seconds", time.Now().UnixMilli()-start)
 	start = time.Now().UnixMilli()
 
@@ -318,7 +319,7 @@ func initDinD() {
 		log.Fatal(err)
 	}
 
-	err = commonutil.SyncDinDForRegistries(nil)
+	err = commonutil.SyncDinDForRegistries()
 	if err != nil {
 		log.Fatal(err)
 	}

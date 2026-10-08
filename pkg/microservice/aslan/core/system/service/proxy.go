@@ -38,20 +38,28 @@ func syncProxyConfig(log *zap.SugaredLogger) {
 	if err := SetProxyConfig(); err != nil {
 		log.Errorf("proxy configuration saved, but failed to apply it: %v", err)
 	}
+	SyncDinDProxyConfig(log)
+}
+
+// SyncDinDProxyConfig refreshes proxy envs independently for each cluster in the background.
+func SyncDinDProxyConfig(log *zap.SugaredLogger) {
 	go func() {
+		clusterNamespaces := map[string]string{setting.LocalClusterID: conf.Namespace()}
 		clusters, err := commonrepo.NewK8SClusterColl().FindActiveClusters()
 		if err != nil {
-			log.Errorf("proxy configuration saved, but failed to list clusters for dind sync: %v", err)
-			return
+			log.Errorf("failed to list clusters for dind proxy sync: %v", err)
 		}
-		clusterNamespaces := map[string]string{setting.LocalClusterID: conf.Namespace()}
 		for _, cluster := range clusters {
 			if cluster.ID.Hex() != setting.LocalClusterID && (cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow) {
 				clusterNamespaces[cluster.ID.Hex()] = kube.ResolveDindNamespace(cluster)
 			}
 		}
-		if err := commonutil.SyncDinDForRegistries(clusterNamespaces); err != nil {
-			log.Errorf("proxy configuration saved, but failed to sync dind: %v", err)
+		for clusterID, namespace := range clusterNamespaces {
+			go func() {
+				if err := commonutil.SyncDinDProxy(clusterID, namespace); err != nil {
+					log.Errorf("failed to sync dind proxy for cluster %s: %v", clusterID, err)
+				}
+			}()
 		}
 	}()
 }
