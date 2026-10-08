@@ -54,6 +54,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -68,9 +69,10 @@ type HelmService struct {
 }
 
 type HelmChartEditInfo struct {
-	FilePath    string `json:"file_path"`
-	FileContent string `json:"file_content"`
-	Production  bool
+	FilePath         string `json:"file_path"`
+	FileContent      string `json:"file_content"`
+	Production       bool
+	expectedRevision *int64
 }
 
 type HelmServiceModule struct {
@@ -339,6 +341,11 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	if param.FilePath != setting.ValuesYaml {
 		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("only values.yaml can be edited"))
 	}
+	lock := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_service_edit:%s:%s:%t", productName, serviceName, param.Production), 5*time.Minute)
+	if err := lock.Lock(); err != nil {
+		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to acquire service edit lock: %w", err))
+	}
+	defer lock.Unlock()
 
 	svc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -347,9 +354,15 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	if err != nil {
 		return e.ErrEditHelmCharts.AddDesc(err.Error())
 	}
+	if param.expectedRevision != nil && svc.Revision != *param.expectedRevision {
+		return e.NewHTTPError(409, "Conflict", fmt.Sprintf("expected_revision %d does not match current revision %d", *param.expectedRevision, svc.Revision))
+	}
 
 	if svc.Source != setting.SourceFromChartTemplate && svc.Source != setting.SourceFromCustomEdit {
 		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("can't edit file"))
+	}
+	if svc.HelmChart == nil {
+		return e.ErrEditHelmCharts.AddDesc("Helm chart data is empty")
 	}
 
 	// preload current chart
