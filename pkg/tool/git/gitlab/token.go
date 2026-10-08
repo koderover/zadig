@@ -77,7 +77,7 @@ func UpdateGitlabTokenWithContext(ctx context.Context, id int, accessToken strin
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
-	token, err := refreshAccessTokenWithContext(ctx, ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
+	token, err := refreshAccessToken(ctx, ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
 	if err != nil {
 		return "", err
 	}
@@ -116,7 +116,7 @@ func UpdateGitlabTokenWithContext(ctx context.Context, id int, accessToken strin
 	return token.AccessToken, nil
 }
 
-func refreshAccessTokenWithContext(ctx context.Context, address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
+func refreshAccessToken(ctx context.Context, address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(address),
 		httpclient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: disableSSL}),

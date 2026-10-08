@@ -46,7 +46,7 @@ func newGitHubFeedbackClient(ctx context.Context, pr *models.AIReviewFeedback, h
 		if cli := appClients[cacheKey]; cli != nil {
 			return cli, nil
 		}
-		cli, err := githubtool.NewAppClientWithContext(ctx, &githubtool.Config{AppKey: app.AppKey, AppID: app.AppID, Owner: pr.RepoOwner, Proxy: proxyAddress}, func(base http.RoundTripper) http.RoundTripper { return base })
+		cli, err := githubtool.NewAppClientWithContext(ctx, &githubtool.Config{AppKey: app.AppKey, AppID: app.AppID, Owner: pr.RepoOwner, Proxy: proxyAddress, DisableCache: true})
 		if err != nil {
 			return nil, err
 		}

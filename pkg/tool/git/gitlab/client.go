@@ -56,8 +56,8 @@ func (c *Client) CloseIdleConnections() {
 	}
 }
 
-func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
-	return NewClientWithContext(context.Background(), id, address, accessToken, proxyAddr, enableProxy, skipTLS, extraOptions...)
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool) (*Client, error) {
+	return NewClientWithContext(context.Background(), id, address, accessToken, proxyAddr, enableProxy, skipTLS)
 }
 
 func NewClientWithContext(ctx context.Context, id int, address, accessToken, proxyAddr string, enableProxy, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
