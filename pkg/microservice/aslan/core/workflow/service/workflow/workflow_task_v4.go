@@ -1833,7 +1833,6 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						logger.Error(err)
 						return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 					}
-
 					inputSpec := new(ApolloRevertInput)
 					err = commonmodels.IToi(input, inputSpec)
 					if err != nil {
@@ -1857,6 +1856,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 
 					client := apollo.NewClient(info.ServerAddress, info.Token)
 					for _, namespace := range inputSpec.ApolloDatas {
+						if namespace.Action == commonmodels.ApolloActionCreate {
+							continue
+						}
 						revertData := &commonmodels.JobTaskApolloNamespace{
 							ApolloNamespace: commonmodels.ApolloNamespace{
 								AppID:      namespace.AppID,

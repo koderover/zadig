@@ -2453,6 +2453,10 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 
 				namespaceList := []*webhooknotify.OpenAPIWorkflowApolloNamespace{}
 				for _, namespace := range spec.NamespaceList {
+					action := namespace.Action
+					if action == "" {
+						action = commonmodels.ApolloActionUpdate
+					}
 					keyValList := []*webhooknotify.OpenAPIWorkflowApolloKV{}
 					for _, kv := range namespace.KeyValList {
 						keyValList = append(keyValList, &webhooknotify.OpenAPIWorkflowApolloKV{
@@ -2470,6 +2474,7 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 					}
 
 					namespaceList = append(namespaceList, &webhooknotify.OpenAPIWorkflowApolloNamespace{
+						Action:         action,
 						AppID:          namespace.AppID,
 						ClusterID:      namespace.ClusterID,
 						Env:            namespace.Env,

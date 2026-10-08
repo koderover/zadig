@@ -1132,14 +1132,22 @@ type ApolloJobSpec struct {
 	NamespaceListOption []*ApolloNamespace `bson:"namespaceListOption"         json:"namespaceListOption"          yaml:"namespaceListOption"`
 }
 
+type ApolloActionType string
+
+const (
+	ApolloActionCreate ApolloActionType = "create"
+	ApolloActionUpdate ApolloActionType = "update"
+)
+
 type ApolloNamespace struct {
-	AppID          string      `bson:"appID"             json:"appID"                       yaml:"appID"`
-	ClusterID      string      `bson:"clusterID"         json:"clusterID"                   yaml:"clusterID"`
-	Env            string      `bson:"env"               json:"env"                         yaml:"env"`
-	Namespace      string      `bson:"namespace"         json:"namespace"                   yaml:"namespace"`
-	Type           string      `bson:"type"              json:"type"                        yaml:"type"`
-	OriginalConfig []*ApolloKV `bson:"original_config"   json:"original_config,omitempty"   yaml:"original_config"`
-	KeyValList     []*ApolloKV `bson:"kv"                json:"kv"                          yaml:"kv"`
+	Action         ApolloActionType `bson:"action"            json:"action"                      yaml:"action"`
+	AppID          string           `bson:"appID"             json:"appID"                       yaml:"appID"`
+	ClusterID      string           `bson:"clusterID"         json:"clusterID"                   yaml:"clusterID"`
+	Env            string           `bson:"env"               json:"env"                         yaml:"env"`
+	Namespace      string           `bson:"namespace"         json:"namespace"                   yaml:"namespace"`
+	Type           string           `bson:"type"              json:"type"                        yaml:"type"`
+	OriginalConfig []*ApolloKV      `bson:"original_config"   json:"original_config,omitempty"   yaml:"original_config"`
+	KeyValList     []*ApolloKV      `bson:"kv"                json:"kv"                          yaml:"kv"`
 }
 
 type MeegoTransitionJobSpec struct {

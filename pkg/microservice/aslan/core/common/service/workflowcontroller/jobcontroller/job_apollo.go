@@ -18,8 +18,10 @@ package jobcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -72,35 +74,180 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		c.workflowCtx.TaskID,
 		url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
 
+	releaseArgs := &apollo.ReleaseArgs{
+		ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
+		ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
+		ReleasedBy:     info.ApolloAuthConfig.User,
+	}
+
 	var fail bool
 	client := apollo.NewClient(info.ServerAddress, info.Token)
 	for _, namespace := range c.jobTaskSpec.NamespaceList {
-		for _, kv := range namespace.KeyValList {
-			kv.Key = apollo.NormalizeItemKey(namespace.Type, kv.Key)
-			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, info.ApolloAuthConfig.User)
-			if err != nil {
-				fail = true
-				namespace.Error = fmt.Sprintf("update error: %v", err)
-				continue
-			}
+		if namespace == nil {
+			fail = true
+			continue
 		}
-		err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
-			&apollo.ReleaseArgs{
-				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
-				ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
-				ReleasedBy:     info.ApolloAuthConfig.User,
-			})
+		namespace.Status = string(config.StatusRunning)
+		namespace.Error = ""
+		namespace.TargetResults = make([]*commonmodels.ApolloNamespaceTargetResult, 0)
+		c.ack()
+
+		if namespace.Action == "" {
+			namespace.Action = commonmodels.ApolloActionUpdate
+		}
+		namespace.Type = strings.ToLower(strings.TrimSpace(namespace.Type))
+		if namespace.Action == commonmodels.ApolloActionCreate && namespace.Type == "" {
+			namespace.Type = apollo.FormatYAML
+		}
+		var err error
+		switch namespace.Action {
+		case commonmodels.ApolloActionCreate:
+			err = c.createNamespace(client, namespace, info.ApolloAuthConfig.User, releaseArgs)
+		case commonmodels.ApolloActionUpdate:
+			err = updateAndReleaseNamespace(client, &namespace.ApolloNamespace, info.ApolloAuthConfig.User, releaseArgs)
+		default:
+			err = fmt.Errorf("unsupported apollo action: %s", namespace.Action)
+		}
 		if err != nil {
 			fail = true
-			namespace.Error = fmt.Sprintf("release error: %v", err)
+			namespace.Status = string(config.StatusFailed)
+			namespace.Error = err.Error()
+			c.ack()
+			continue
 		}
+		namespace.Status = string(config.StatusPassed)
+		c.ack()
 	}
 	if fail {
 		logError(c.job, "some errors occurred in apollo job", c.logger)
 		return
 	}
 	c.job.Status = config.StatusPassed
-	return
+	c.ack()
+}
+
+func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonmodels.JobTaskApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+	// Resolve and authorize every concrete target before creating the global AppNamespace.
+	targets, err := client.ListAppEnvsAndClusters(namespace.AppID)
+	if err != nil {
+		return fmt.Errorf("list concrete namespace targets failed: %w", err)
+	}
+	if !c.jobTaskSpec.DisableConfigRange {
+		allowedTargets := make(map[string]struct{}, len(c.jobTaskSpec.NamespaceListOption))
+		for _, option := range c.jobTaskSpec.NamespaceListOption {
+			if option != nil {
+				allowedTargets[apolloTargetKey(option.AppID, option.Env, option.ClusterID)] = struct{}{}
+			}
+		}
+		for _, env := range targets {
+			if env == nil {
+				continue
+			}
+			for _, cluster := range env.Clusters {
+				key := apolloTargetKey(namespace.AppID, env.Env, cluster)
+				if _, ok := allowedTargets[key]; !ok {
+					return fmt.Errorf("apollo target [appID=%s, env=%s, cluster=%s] is not allowed to be created", namespace.AppID, env.Env, cluster)
+				}
+			}
+		}
+	}
+
+	created, err := client.CreateAppNamespace(namespace.AppID, &apollo.CreateAppNamespaceArgs{
+		Name:                strings.TrimSpace(namespace.Namespace),
+		AppID:               namespace.AppID,
+		Format:              namespace.Type,
+		IsPublic:            false,
+		Comment:             "created by Zadig workflow",
+		DataChangeCreatedBy: user,
+	})
+	if err != nil {
+		return fmt.Errorf("create app namespace failed: %w", err)
+	}
+
+	namespaceName := ""
+	if created != nil {
+		namespaceName = strings.TrimSpace(created.Name)
+	}
+	if namespaceName == "" {
+		namespaceName = apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
+	}
+	namespace.Namespace = namespaceName
+
+	for _, env := range targets {
+		if env == nil {
+			continue
+		}
+		for _, cluster := range env.Clusters {
+			namespace.TargetResults = append(namespace.TargetResults, &commonmodels.ApolloNamespaceTargetResult{
+				Env:       env.Env,
+				ClusterID: cluster,
+				Status:    string(config.StatusCreated),
+			})
+		}
+	}
+	c.ack()
+
+	if len(namespace.TargetResults) == 0 {
+		return errors.New("no concrete namespace target found")
+	}
+
+	partialFailure := false
+	for _, target := range namespace.TargetResults {
+		target.Status = string(config.StatusRunning)
+		target.Error = ""
+		c.ack()
+
+		concreteNamespace, err := client.GetNamespace(namespace.AppID, target.Env, target.ClusterID, namespace.Namespace)
+		if err != nil || concreteNamespace == nil {
+			partialFailure = true
+			target.Status = string(config.StatusFailed)
+			if err != nil {
+				target.Error = fmt.Sprintf("namespace not found after app namespace creation: %v", err)
+			} else {
+				target.Error = "namespace not found after app namespace creation"
+			}
+			c.ack()
+			continue
+		}
+
+		concrete := namespace.ApolloNamespace
+		concrete.Env = target.Env
+		concrete.ClusterID = target.ClusterID
+		if err := updateAndReleaseNamespace(client, &concrete, user, releaseArgs); err != nil {
+			partialFailure = true
+			target.Status = string(config.StatusFailed)
+			target.Error = err.Error()
+			c.ack()
+			continue
+		}
+
+		target.Status = string(config.StatusPassed)
+		c.ack()
+	}
+	if partialFailure {
+		return errors.New("create namespace partially failed")
+	}
+	return nil
+}
+
+func apolloTargetKey(appID, env, cluster string) string {
+	return fmt.Sprintf("%s++%s++%s", cluster, appID, env)
+}
+
+func updateAndReleaseNamespace(client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+	for _, kv := range namespace.KeyValList {
+		if kv == nil {
+			return errors.New("update item failed: config item is nil")
+		}
+		kv.Key = apollo.NormalizeItemKey(namespace.Type, kv.Key)
+		if err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, user); err != nil {
+			return fmt.Errorf("update item failed: %w", err)
+		}
+	}
+	if err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, releaseArgs); err != nil {
+		return fmt.Errorf("release failed: %w", err)
+	}
+	return nil
 }
 
 func (c *ApolloJobCtl) SaveInfo(ctx context.Context) error {
