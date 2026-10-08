@@ -73,6 +73,8 @@ func SetProxyConfig() error {
 		conf.SetProxy(url, url, "")
 	} else if proxies[0].Type == "socks5" {
 		conf.SetProxy(url, "", url)
+	} else {
+		conf.SetProxy("", "", "")
 	}
 	return nil
 }

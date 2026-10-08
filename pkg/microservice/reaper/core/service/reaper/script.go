@@ -124,7 +124,7 @@ func (r *Reaper) runIntallationScripts() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Env = r.getUserEnvs()
-		if r.Ctx.Proxy.EnableApplicationProxy {
+		if r.Ctx.Proxy.EnableApplicationProxy && r.Ctx.Proxy.IsEnvProxyType() {
 			proxyURL := r.Ctx.Proxy.GetProxyURL()
 			cmd.Env = append(cmd.Env, "http_proxy="+proxyURL, "https_proxy="+proxyURL)
 		}
