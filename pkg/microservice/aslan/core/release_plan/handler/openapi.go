@@ -115,44 +115,6 @@ func OpenAPIListReleasePlanCustomFields(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListReleasePlanCustomFields()
 }
 
-// @summary Update Release Plan Custom Fields
-// @description Replace custom field values on a release plan in planning status
-// @tags OpenAPI
-// @accept json
-// @produce json
-// @Param body body service.CustomFieldsUpdater true "body"
-// @success 200
-// @router /openapi/release_plan/v1/{id}/custom_fields [put]
-func OpenAPIUpdateReleasePlanCustomFields(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.EditMetadata {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(service.CustomFieldsUpdater)
-	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.RespErr = err
-		return
-	}
-
-	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), &service.UpdateReleasePlanArgs{
-		Verb: service.ActionUpdateCustomFields,
-		Spec: args,
-	})
-}
-
 func OpenAPICreateReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -61,7 +61,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		v1.POST("", OpenAPICreateReleasePlan)
 		v1.GET("/custom_fields", OpenAPIListReleasePlanCustomFields)
 		v1.GET("/:id", OpenAPIGetReleasePlan)
-		v1.PUT("/:id/custom_fields", OpenAPIUpdateReleasePlanCustomFields)
 		v1.PATCH("/:id", OpenAPIUpdateReleasePlanWithJobs)
 	}
 }
