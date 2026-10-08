@@ -41,7 +41,7 @@ import (
 
 func (r *Reaper) runIntallationScripts() error {
 	downloadClient := httpclient.New(httpclient.UnsetTimeout())
-	if r.Ctx.Proxy.EnableApplicationProxy {
+	if r.Ctx.Proxy.EnableApplicationProxy && r.Ctx.Proxy.IsEnvProxyType() {
 		downloadClient.SetProxy(r.Ctx.Proxy.GetProxyURL())
 	}
 

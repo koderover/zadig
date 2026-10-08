@@ -42,5 +42,7 @@ configurations using that field must be resubmitted with the new field name;
 there is no released-data migration or alternate field interpretation.
 
 Proxy-triggered DinD synchronization runs in the background and logs failures.
-Registry saves retain their synchronous local DinD update path. Updates can
-roll DinD pods when their proxy environment changes.
+Registry saves retain their synchronous local DinD update path. Each cluster is
+synchronized under its own lock, and the latest registry and proxy settings are
+read inside that lock, so concurrent saves cannot restore an older snapshot.
+Updates can roll DinD pods when their proxy environment changes.

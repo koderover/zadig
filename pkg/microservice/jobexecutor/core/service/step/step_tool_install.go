@@ -73,7 +73,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	// 如果应用有配置下载路径
 	if tool.Download != "" {
 		downloadClient := httpclient.New(httpclient.UnsetTimeout())
-		if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy {
+		if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy && s.spec.Proxy.IsEnvProxyType() {
 			downloadClient.SetProxy(s.spec.Proxy.GetProxyURL())
 		}
 		s.spec.S3Storage.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, tool.Name, tool.Version)
@@ -153,7 +153,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	cmd.Dir = s.workspace
 	cmd.Env = s.envs
 	// 代理通过进程环境变量注入，避免 set -x 把带密码的代理地址打到日志里
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy {
+	if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy && s.spec.Proxy.IsEnvProxyType() {
 		proxyURL := s.spec.Proxy.GetProxyURL()
 		cmd.Env = append(append([]string{}, s.envs...), "http_proxy="+proxyURL, "https_proxy="+proxyURL)
 	}

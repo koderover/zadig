@@ -118,10 +118,52 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 	return keypair[0], keypair[1], nil
 }
 
+// dindSyncLocks holds a *sync.Mutex per clusterID/namespace.
+var dindSyncLocks sync.Map
+
+func lockDinD(clusterID, namespace string) func() {
+	v, _ := dindSyncLocks.LoadOrStore(clusterID+"/"+namespace, &sync.Mutex{})
+	mu := v.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
 func SyncDinDForRegistries(clusterNamespaces map[string]string) error {
+	if len(clusterNamespaces) == 0 {
+		clusterNamespaces = map[string]string{setting.LocalClusterID: config.Namespace()}
+	}
+	var syncErrors []error
+	for clusterID, namespace := range clusterNamespaces {
+		if err := syncDinDCluster(clusterID, namespace); err != nil {
+			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: %w", clusterID, err))
+		}
+	}
+	return errors.Join(syncErrors...)
+}
+
+// syncDinDCluster reads the latest registry and proxy settings under the cluster lock,
+// so a slower sync cannot overwrite the cluster with an older snapshot.
+func syncDinDCluster(clusterID, namespace string) error {
+	defer lockDinD(clusterID, namespace)()
+
+	regList, proxy, err := loadDinDSnapshot()
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes client: %w", err)
+	}
+	if err := registrytool.PrepareDinD(dynamicClient, namespace, regList, proxy); err != nil {
+		return fmt.Errorf("failed to update dind: %w", err)
+	}
+	return nil
+}
+
+func loadDinDSnapshot() ([]*registrytool.RegistryInfoForDinDUpdate, *registrytool.DinDProxy, error) {
 	registries, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
-		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
+		return nil, nil, fmt.Errorf("failed to list registry to update dind, err: %s", err)
 	}
 
 	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
@@ -141,23 +183,9 @@ func SyncDinDForRegistries(clusterNamespaces map[string]string) error {
 
 	proxy, err := getDinDProxy(registries)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	if len(clusterNamespaces) == 0 {
-		clusterNamespaces = map[string]string{setting.LocalClusterID: config.Namespace()}
-	}
-	var syncErrors []error
-	for clusterID, namespace := range clusterNamespaces {
-		dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
-		if err != nil {
-			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: failed to get kubernetes client: %w", clusterID, err))
-			continue
-		}
-		if err := registrytool.PrepareDinD(dynamicClient, namespace, regList, proxy); err != nil {
-			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: failed to update dind: %w", clusterID, err))
-		}
-	}
-	return errors.Join(syncErrors...)
+	return regList, proxy, nil
 }
 
 // getDinDProxy excludes registries managed by Zadig from the image pull proxy.
