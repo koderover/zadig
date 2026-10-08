@@ -81,19 +81,15 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	summaryID, err := s.Client.CreateAIReviewCommentWithID(codehostID, projectID, repoOwner, repoName, prID, comment)
-	summaryErr := err
-	kind := "issue"
-	if s.Client.isGitLab(codehostID) {
-		kind = "note"
-	}
+	summary, summaryErr := s.Client.CreateAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment)
 	comments := inlineResult.Comments
 	if summaryErr == nil {
-		comments = append(comments, reviewfeedback.PublishedComment{Kind: kind, CommentID: summaryID})
+		comments = append(comments, summary)
 	}
 	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
 	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
 	if title == "" {
+		var err error
 		numericProjectID, metadata, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
 		if err != nil {
 			logger.Warnf("resolve AI review PR metadata: %v", err)

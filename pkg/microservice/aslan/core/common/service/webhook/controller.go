@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitlab"
@@ -273,7 +275,18 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	if !t.isManual || ensureAIReview {
 		logger.Info("Creating webhook")
-		hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
+		if ensureAIReview {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			switch client := cl.(type) {
+			case *github.Client:
+				hookID, err = github.EnsureManagedReviewThreadHook(ctx, client.Client.Client, repoNamespace, t.repo, gitservice.WebHookURL())
+			case *gitlab.Client:
+				hookID, err = gitlab.EnsureManagedEmojiHook(ctx, client.Client.Client, repoNamespace+"/"+t.repo, gitservice.WebHookURL())
+			}
+		} else {
+			hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
+		}
 		if err != nil {
 			t.err = err
 			logger.Error("Failed to create webhook", zap.Error(err))

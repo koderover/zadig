@@ -51,18 +51,13 @@ func NewClient() *Client {
 	return &Client{logger: log.SugaredLogger()}
 }
 
-func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) error {
-	_, err := c.CreateAIReviewCommentWithID(codehostID, projectID, repoOwner, repoName, prID, comment)
-	return err
-}
-
-func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) (int64, error) {
+func (c *Client) CreateAIReviewComment(codehostID int, projectID, repoOwner, repoName string, prID int, comment string) (reviewfeedback.PublishedComment, error) {
 	if prID <= 0 {
-		return 0, fmt.Errorf("invalid pull/merge request ID %d", prID)
+		return reviewfeedback.PublishedComment{}, fmt.Errorf("invalid pull/merge request ID %d", prID)
 	}
 	codeHostDetail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
-		return 0, errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
+		return reviewfeedback.PublishedComment{}, errors.Wrapf(err, "codehost %d not found to publish AI review result", codehostID)
 	}
 
 	switch strings.ToLower(codeHostDetail.Type) {
@@ -76,11 +71,11 @@ func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwne
 			codeHostDetail.DisableSSL,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("create gitlab client: %w", err)
+			return reviewfeedback.PublishedComment{}, fmt.Errorf("create gitlab client: %w", err)
 		}
 		item, _, err := cli.Notes.CreateMergeRequestNote(projectID, prID, &gitlab.CreateMergeRequestNoteOptions{Body: &comment})
 		if err != nil {
-			return 0, fmt.Errorf("create GitLab merge request note: %w", err)
+			return reviewfeedback.PublishedComment{}, fmt.Errorf("create GitLab merge request note: %w", err)
 		}
 		if isAIReviewSummary(comment) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -89,18 +84,18 @@ func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwne
 				c.logger.Warnf("failed to collapse previous GitLab AI review summaries for %s#%d: %v", projectID, prID, err)
 			}
 		}
-		return int64(item.ID), nil
+		return reviewfeedback.PublishedComment{Kind: "note", CommentID: int64(item.ID)}, nil
 	case setting.SourceFromGithub:
 		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
 		if err != nil {
-			return 0, fmt.Errorf("create github app client: %w", err)
+			return reviewfeedback.PublishedComment{}, fmt.Errorf("create github app client: %w", err)
 		}
 		if cli == nil {
 			cli = githubservice.NewClient(codeHostDetail.AccessToken, config.ProxyHTTPSAddr(), codeHostDetail.EnableProxy)
 		}
 		item, _, err := cli.Issues.CreateComment(context.Background(), repoOwner, repoName, prID, &githubapi.IssueComment{Body: &comment})
 		if err != nil {
-			return 0, fmt.Errorf("create GitHub pull request comment: %w", err)
+			return reviewfeedback.PublishedComment{}, fmt.Errorf("create GitHub pull request comment: %w", err)
 		}
 		if isAIReviewSummary(comment) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -109,15 +104,10 @@ func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwne
 				c.logger.Warnf("failed to minimize previous GitHub AI review summaries for %s/%s#%d: %v", repoOwner, repoName, prID, err)
 			}
 		}
-		return item.GetID(), nil
+		return reviewfeedback.PublishedComment{Kind: "issue", CommentID: item.GetID()}, nil
 	default:
-		return 0, fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
+		return reviewfeedback.PublishedComment{}, fmt.Errorf("codehost type %q does not support AI review comments", codeHostDetail.Type)
 	}
-}
-
-func (c *Client) isGitLab(codehostID int) bool {
-	host, err := systemconfig.New().GetCodeHost(codehostID)
-	return err == nil && strings.EqualFold(host.Type, setting.SourceFromGitlab)
 }
 
 func (c *Client) getAIReviewPRMetadata(codehostID int, project, owner, name string, prID int) (int, AIReviewPRMetadata, error) {
@@ -176,7 +166,7 @@ func (c *Client) createAIReviewInlineComments(ctx context.Context, codehostID in
 		if err != nil {
 			return aiReviewInlinePublishResult{}, fmt.Errorf("create gitlab client: %w", err)
 		}
-		return c.createGitLabAIReviewInlineCommentsWithContext(ctx, cli.Client, projectID, prID, report)
+		return c.createGitLabAIReviewInlineComments(ctx, cli.Client, projectID, prID, report)
 	case setting.SourceFromGithub:
 		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
 		if err != nil {
@@ -272,11 +262,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	return result, nil
 }
 
-func (c *Client) createGitLabAIReviewInlineComments(cli *gitlab.Client, projectID string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
-	return c.createGitLabAIReviewInlineCommentsWithContext(context.Background(), cli, projectID, prID, report)
-}
-
-func (c *Client) createGitLabAIReviewInlineCommentsWithContext(ctx context.Context, cli *gitlab.Client, projectID string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
+func (c *Client) createGitLabAIReviewInlineComments(ctx context.Context, cli *gitlab.Client, projectID string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
 	mergeRequest, _, err := cli.MergeRequests.GetMergeRequestChanges(projectID, prID, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitLab merge request changes: %w", err)
@@ -349,32 +335,6 @@ func (c *Client) createGitLabAIReviewInlineCommentsWithContext(ctx context.Conte
 		}
 	}
 	return result, nil
-}
-
-func createGitHubAIReviewComment(ctx context.Context, cli *githubapi.Client, repoOwner, repoName string, prID int, comment string) error {
-	_, _, err := cli.Issues.CreateComment(
-		ctx,
-		repoOwner,
-		repoName,
-		prID,
-		&githubapi.IssueComment{Body: &comment},
-	)
-	if err != nil {
-		return fmt.Errorf("create GitHub pull request comment: %w", err)
-	}
-	return nil
-}
-
-func createGitLabAIReviewComment(cli *gitlab.Client, projectID string, prID int, comment string) error {
-	_, _, err := cli.Notes.CreateMergeRequestNote(
-		projectID,
-		prID,
-		&gitlab.CreateMergeRequestNoteOptions{Body: &comment},
-	)
-	if err != nil {
-		return fmt.Errorf("create GitLab merge request note: %w", err)
-	}
-	return nil
 }
 
 // Comment send comment to gitlab and set comment id in notify
