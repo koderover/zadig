@@ -33,6 +33,7 @@ import (
 	c "github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/cmd"
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -51,7 +52,7 @@ func (r *Reaper) runGitCmds() error {
 
 	envs := r.getUserEnvs()
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
+	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.IsEnvProxyType() {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range r.Ctx.Repos {
@@ -296,7 +297,11 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 		name = strings.Replace(name, ":", "", -1)
 		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
 		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
-			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
+			command, err := socks5.SSHProxyCommand(proxy.GetProxyURL())
+			if err != nil {
+				return err
+			}
+			out += command
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")

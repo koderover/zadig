@@ -20,11 +20,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -205,24 +209,20 @@ type Proxy struct {
 }
 
 func (p *Proxy) GetProxyURL() string {
-	var uri string
+	uri := &url.URL{Scheme: p.Type, Host: net.JoinHostPort(p.Address, strconv.Itoa(p.Port))}
 	if p.NeedPassword {
-		uri = fmt.Sprintf("%s://%s:%s@%s:%d",
-			p.Type,
-			p.Username,
-			p.Password,
-			p.Address,
-			p.Port,
-		)
-		return uri
+		uri.User = url.UserPassword(p.Username, p.Password)
 	}
+	return uri.String()
+}
 
-	uri = fmt.Sprintf("%s://%s:%d",
-		p.Type,
-		p.Address,
-		p.Port,
-	)
-	return uri
+// IsEnvProxyType reports whether the proxy can be passed to tools through http_proxy/https_proxy.
+func (p *Proxy) IsEnvProxyType() bool {
+	switch p.Type {
+	case "http", "https", "socks5":
+		return true
+	}
+	return false
 }
 
 // EnvVar ...
@@ -490,7 +490,6 @@ const (
 	githubKeyCfg    = "Host %s\nIdentityFile ~/.ssh/id_rsa.github\n"
 	gitlabKeyCfg    = "Host %s\nIdentityFile ~/.ssh/id_rsa.gitlab\n"
 	hostKeyChecking = "HOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
-	proxyCmd        = "ProxyCommand nc -x %s %%h %%p\n"
 )
 
 // WriteSSHConfigFile ...
@@ -503,7 +502,11 @@ func (g *Git) WriteSSHConfigFile(proxy *Proxy) error {
 	github := fmt.Sprintf(githubKeyCfg, g.GetGithubHost())
 
 	if proxy.EnableRepoProxy && proxy.Type == "socks5" {
-		github = github + fmt.Sprintf(proxyCmd, proxy.GetProxyURL())
+		command, err := socks5.SSHProxyCommand(proxy.GetProxyURL())
+		if err != nil {
+			return err
+		}
+		github += command
 	}
 
 	gitlab := fmt.Sprintf(gitlabKeyCfg, g.GetGitlabHost())

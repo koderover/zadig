@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -26,30 +27,53 @@ import (
 	conf "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func SetProxyConfig() {
+// syncProxyConfig applies the proxy config to aslan and dind after it is changed.
+func syncProxyConfig() error {
+	if err := SetProxyConfig(); err != nil {
+		return fmt.Errorf("proxy configuration saved, but failed to apply it: %w", err)
+	}
+	clusters, err := commonrepo.NewK8SClusterColl().FindConnectedClusters()
+	if err != nil {
+		return fmt.Errorf("proxy configuration saved, but failed to list clusters for dind sync: %w", err)
+	}
+	clusterNamespaces := map[string]string{setting.LocalClusterID: conf.Namespace()}
+	for _, cluster := range clusters {
+		if cluster.ID.Hex() != setting.LocalClusterID && (cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow) {
+			clusterNamespaces[cluster.ID.Hex()] = kube.ResolveDindNamespace(cluster)
+		}
+	}
+	if err := commonutil.SyncDinDForRegistries(clusterNamespaces); err != nil {
+		return fmt.Errorf("proxy configuration saved, but failed to sync dind: %w", err)
+	}
+	return nil
+}
+
+func SetProxyConfig() error {
 	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
-	if err != nil || len(proxies) == 0 {
-		return
+	if err != nil {
+		return err
 	}
 
-	if !proxies[0].EnableRepoProxy {
+	if len(proxies) == 0 || !proxies[0].EnableRepoProxy {
 		conf.SetProxy("", "", "")
-		return
+		return nil
 	}
 
 	url := proxies[0].GetProxyURL()
 
-	if proxies[0].Type == "http" {
+	if proxies[0].Type == "http" || proxies[0].Type == "https" {
 		conf.SetProxy(url, url, "")
 	} else if proxies[0].Type == "socks5" {
 		conf.SetProxy(url, "", url)
 	}
+	return nil
 }
 
 func ListProxies(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.Proxy, error) {
@@ -138,10 +162,8 @@ func CreateProxy(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 		return e.ErrCreateProxy.AddErr(err)
 	}
 
-	// 更新globalConfig的proxy配置
-	SetProxyConfig()
-
-	return nil
+	// 更新globalConfig和dind的proxy配置
+	return syncProxyConfig()
 }
 
 func UpdateProxy(id string, args *commonmodels.Proxy, log *zap.SugaredLogger) error {
@@ -156,10 +178,8 @@ func UpdateProxy(id string, args *commonmodels.Proxy, log *zap.SugaredLogger) er
 		return e.ErrUpdateProxy.AddErr(err)
 	}
 
-	// 更新globalConfig的proxy配置
-	SetProxyConfig()
-
-	return nil
+	// 更新globalConfig和dind的proxy配置
+	return syncProxyConfig()
 }
 
 func DeleteProxy(id string, log *zap.SugaredLogger) error {
@@ -169,10 +189,8 @@ func DeleteProxy(id string, log *zap.SugaredLogger) error {
 		return e.ErrDeleteProxy.AddErr(err)
 	}
 
-	// 更新globalConfig的proxy配置
-	SetProxyConfig()
-
-	return nil
+	// 更新globalConfig和dind的proxy配置
+	return syncProxyConfig()
 }
 
 func TestConnection(args *commonmodels.Proxy, log *zap.SugaredLogger) error {

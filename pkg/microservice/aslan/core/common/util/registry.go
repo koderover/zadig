@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -116,7 +117,7 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 	return keypair[0], keypair[1], nil
 }
 
-func SyncDinDForRegistries() error {
+func SyncDinDForRegistries(clusterNamespaces map[string]string) error {
 	registries, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
@@ -137,10 +138,52 @@ func SyncDinDForRegistries() error {
 		regList = append(regList, regItem)
 	}
 
-	dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
+	proxy, err := getDinDProxy(registries)
 	if err != nil {
-		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
+		return err
+	}
+	if len(clusterNamespaces) == 0 {
+		clusterNamespaces = map[string]string{setting.LocalClusterID: config.Namespace()}
+	}
+	var syncErrors []error
+	for clusterID, namespace := range clusterNamespaces {
+		dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+		if err != nil {
+			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: failed to get kubernetes client: %w", clusterID, err))
+			continue
+		}
+		if err := registrytool.PrepareDinD(dynamicClient, namespace, regList, proxy); err != nil {
+			syncErrors = append(syncErrors, fmt.Errorf("cluster %s: failed to update dind: %w", clusterID, err))
+		}
+	}
+	return errors.Join(syncErrors...)
+}
+
+// getDinDProxy excludes registries managed by Zadig from the image pull proxy.
+func getDinDProxy(regList []*models.RegistryNamespace) (*registrytool.DinDProxy, error) {
+	proxies, err := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list proxy to update dind: %w", err)
+	}
+	if len(proxies) == 0 || !proxies[0].EnableRepoProxy {
+		return &registrytool.DinDProxy{}, nil
 	}
 
-	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
+	noProxy := []string{"localhost", "127.0.0.1", ".svc", ".cluster.local"}
+	for _, reg := range regList {
+		addr := reg.RegAddr
+		if !strings.Contains(addr, "://") {
+			addr = "https://" + addr
+		}
+		if u, err := url.Parse(addr); err == nil && u.Hostname() != "" {
+			noProxy = append(noProxy, u.Hostname())
+		}
+	}
+
+	proxyURL := proxies[0].GetProxyURL()
+	return &registrytool.DinDProxy{
+		HTTPProxy:  proxyURL,
+		HTTPSProxy: proxyURL,
+		NoProxy:    strings.Join(noProxy, ","),
+	}, nil
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,7 +35,13 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate) error {
+const dindProxyManagedAnnotation = "zadig.koderover.com/proxy-env-managed"
+
+var dindProxyEnvNames = sets.NewString("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY")
+
+// PrepareDinD syncs registry settings and proxy envs to the dind statefulset.
+// A nil proxy leaves the proxy envs of dind untouched.
+func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate, proxy *DinDProxy) error {
 	insecureRegistryList := make([]string, 0)
 
 	mountFlag := false
@@ -89,10 +96,10 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 	}
 
 	// Use retry mechanism to handle concurrent modification conflicts
-	return updateDindStatefulSetWithRetry(client, namespace, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+	return updateDindStatefulSetWithRetry(client, namespace, mountFlag, insecureFlag, sourceList, insecureRegistryList, proxy)
 }
 
-func updateDindStatefulSetWithRetry(client *kubernetes.Clientset, namespace string, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string) error {
+func updateDindStatefulSetWithRetry(client *kubernetes.Clientset, namespace string, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string, proxy *DinDProxy) error {
 	// Retry with exponential backoff on conflict errors
 	return wait.ExponentialBackoff(wait.Backoff{
 		Steps:    5,
@@ -113,6 +120,9 @@ func updateDindStatefulSetWithRetry(client *kubernetes.Clientset, namespace stri
 
 		// Apply modifications to the StatefulSet
 		modified := applyDindModifications(dindSts, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+		if applyDindProxyEnvs(dindSts, proxy) {
+			modified = true
+		}
 
 		// Skip update if nothing changed
 		if !modified {
@@ -240,6 +250,58 @@ func applyDindModifications(dindSts *appsv1.StatefulSet, mountFlag, insecureFlag
 
 	if argsChanged || insecureFlag {
 		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+		modified = true
+	}
+
+	return modified
+}
+
+// applyDindProxyEnvs syncs HTTP_PROXY/HTTPS_PROXY/NO_PROXY of the dind container.
+// The envs are only removed when they were set by zadig, so that envs added manually are kept.
+func applyDindProxyEnvs(dindSts *appsv1.StatefulSet, proxy *DinDProxy) bool {
+	if proxy == nil {
+		return false
+	}
+
+	enabled := proxy.HTTPProxy != "" || proxy.HTTPSProxy != ""
+	managed := dindSts.Annotations[dindProxyManagedAnnotation] == "true"
+	if !enabled && !managed {
+		return false
+	}
+
+	container := &dindSts.Spec.Template.Spec.Containers[0]
+	envs := make([]corev1.EnvVar, 0, len(container.Env)+len(dindProxyEnvNames))
+	for _, env := range container.Env {
+		if !dindProxyEnvNames.Has(env.Name) {
+			envs = append(envs, env)
+		}
+	}
+	if enabled {
+		for _, env := range []corev1.EnvVar{
+			{Name: "HTTP_PROXY", Value: proxy.HTTPProxy},
+			{Name: "HTTPS_PROXY", Value: proxy.HTTPSProxy},
+			{Name: "NO_PROXY", Value: proxy.NoProxy},
+		} {
+			if env.Value != "" {
+				envs = append(envs, env)
+			}
+		}
+	}
+
+	modified := false
+	if !apiequality.Semantic.DeepEqual(container.Env, envs) {
+		container.Env = envs
+		modified = true
+	}
+
+	if enabled && !managed {
+		if dindSts.Annotations == nil {
+			dindSts.Annotations = map[string]string{}
+		}
+		dindSts.Annotations[dindProxyManagedAnnotation] = "true"
+		modified = true
+	} else if !enabled && managed {
+		delete(dindSts.Annotations, dindProxyManagedAnnotation)
 		modified = true
 	}
 

@@ -1301,7 +1301,7 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	// Sync registry configuration after successful update
-	err = commonutil.SyncDinDForRegistries()
+	err = commonutil.SyncDinDForRegistries(map[string]string{cluster.ID.Hex(): ns})
 	if err != nil {
 		log.Errorf("SyncDinDForRegistries error: %v", err)
 	}

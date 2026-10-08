@@ -74,8 +74,11 @@ func Options(url string, rfs ...RequestFunc) (*resty.Response, error) {
 // Download retrieves content from the given url and write it to path.
 func Download(url, path string, rfs ...RequestFunc) error {
 	// download may take more time
-	cl := New(UnsetTimeout())
-	res, err := cl.Get(url, rfs...)
+	return New(UnsetTimeout()).Download(url, path, rfs...)
+}
+
+func (c *Client) Download(url, path string, rfs ...RequestFunc) error {
+	res, err := c.Get(url, rfs...)
 	if err != nil {
 		return err
 	}

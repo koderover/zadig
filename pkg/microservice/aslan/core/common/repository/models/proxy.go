@@ -17,14 +17,16 @@ limitations under the License.
 package models
 
 import (
-	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Proxy struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
-	// http或socks5 暂时只支持http代理
+	// 支持 http、https 和 socks5 代理
 	Type         string `bson:"type"                         json:"type"`
 	Address      string `bson:"address"                      json:"address"`
 	Port         int    `bson:"port"                         json:"port"`
@@ -47,21 +49,9 @@ func (Proxy) TableName() string {
 }
 
 func (p *Proxy) GetProxyURL() string {
-	var uri string
+	uri := &url.URL{Scheme: p.Type, Host: net.JoinHostPort(p.Address, strconv.Itoa(p.Port))}
 	if p.NeedPassword {
-		uri = fmt.Sprintf("%s://%s:%s@%s:%d",
-			p.Type,
-			p.Username,
-			p.Password,
-			p.Address,
-			p.Port,
-		)
-	} else {
-		uri = fmt.Sprintf("%s://%s:%d",
-			p.Type,
-			p.Address,
-			p.Port,
-		)
+		uri.User = url.UserPassword(p.Username, p.Password)
 	}
-	return uri
+	return uri.String()
 }

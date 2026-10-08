@@ -40,15 +40,9 @@ import (
 )
 
 func (r *Reaper) runIntallationScripts() error {
-	var (
-		openProxy                   bool
-		proxyScript, disProxyScript string
-	)
-
+	downloadClient := httpclient.New(httpclient.UnsetTimeout())
 	if r.Ctx.Proxy.EnableApplicationProxy {
-		openProxy = true
-		proxyScript = fmt.Sprintf("\nexport http_proxy=%s\nexport https_proxy=%s\n", r.Ctx.Proxy.GetProxyURL(), r.Ctx.Proxy.GetProxyURL())
-		disProxyScript = "\nunset http_proxy https_proxy"
+		downloadClient.SetProxy(r.Ctx.Proxy.GetProxyURL())
 	}
 
 	for i, install := range r.Ctx.Installs {
@@ -62,10 +56,6 @@ func (r *Reaper) runIntallationScripts() error {
 		// 添加用户指定执行路径到PATH
 		if install.BinPath != "" {
 			r.Ctx.Paths = fmt.Sprintf("%s:%s", r.Ctx.Paths, install.BinPath)
-		}
-
-		if openProxy {
-			scripts = append(scripts, proxyScript)
 		}
 
 		// 如果应用有配置下载路径
@@ -98,7 +88,7 @@ func (r *Reaper) runIntallationScripts() error {
 
 				// 缓存不存在
 				if err != nil {
-					err := httpclient.Download(install.Download, tmpPath)
+					err := downloadClient.Download(install.Download, tmpPath)
 					if err != nil {
 						return err
 					}
@@ -110,7 +100,7 @@ func (r *Reaper) runIntallationScripts() error {
 					log.Infof("Package loaded from url: %s", install.Download)
 				}
 			} else {
-				err := httpclient.Download(install.Download, tmpPath)
+				err := downloadClient.Download(install.Download, tmpPath)
 				if err != nil {
 					return err
 				}
@@ -124,10 +114,6 @@ func (r *Reaper) runIntallationScripts() error {
 
 		scripts = append(scripts, install.Scripts...)
 
-		if openProxy {
-			scripts = append(scripts, disProxyScript)
-		}
-
 		file := filepath.Join(os.TempDir(), fmt.Sprintf("install_script_%d.sh", i))
 		if err := ioutil.WriteFile(file, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 			return fmt.Errorf("write script file error: %v", err)
@@ -138,6 +124,10 @@ func (r *Reaper) runIntallationScripts() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Env = r.getUserEnvs()
+		if r.Ctx.Proxy.EnableApplicationProxy {
+			proxyURL := r.Ctx.Proxy.GetProxyURL()
+			cmd.Env = append(cmd.Env, "http_proxy="+proxyURL, "https_proxy="+proxyURL)
+		}
 
 		if err := cmd.Run(); err != nil {
 			return err

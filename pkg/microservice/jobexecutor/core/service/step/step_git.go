@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -87,7 +88,7 @@ func (s *GitStep) runGitCmds() error {
 	}
 	envs := s.envs
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
+	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.IsEnvProxyType() {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range s.spec.Repos {
@@ -359,7 +360,11 @@ func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 		name = strings.Replace(name, ":", "", -1)
 		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
 		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
-			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
+			command, err := socks5.SSHProxyCommand(proxy.GetProxyURL())
+			if err != nil {
+				return err
+			}
+			out += command
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")

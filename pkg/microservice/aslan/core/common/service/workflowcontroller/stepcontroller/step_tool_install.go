@@ -65,6 +65,20 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 	if objectStorage != nil {
 		spec.S3Storage = modelS3toS3(objectStorage)
 	}
+	proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	if len(proxies) != 0 {
+		proxy := proxies[0]
+		spec.Proxy = &step.Proxy{
+			Type:                   proxy.Type,
+			Address:                proxy.Address,
+			Port:                   proxy.Port,
+			NeedPassword:           proxy.NeedPassword,
+			Username:               proxy.Username,
+			Password:               proxy.Password,
+			EnableRepoProxy:        proxy.EnableRepoProxy,
+			EnableApplicationProxy: proxy.EnableApplicationProxy,
+		}
+	}
 
 	for _, tool := range s.toolInstalldSpec.Installs {
 		install, err := buildInstallCtx(tool.Name, tool.Version)

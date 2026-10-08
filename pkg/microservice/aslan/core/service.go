@@ -316,7 +316,7 @@ func initDinD() {
 		log.Fatal(err)
 	}
 
-	err = commonutil.SyncDinDForRegistries()
+	err = commonutil.SyncDinDForRegistries(nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -134,7 +134,7 @@ func initResource() {
 			log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 		}
 
-		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList)
+		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, nil)
 		if err != nil {
 			log.Fatalf("failed to update dind, the error is: %s", err)
 		}

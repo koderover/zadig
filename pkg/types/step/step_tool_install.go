@@ -3,6 +3,7 @@ package step
 type StepToolInstallSpec struct {
 	Installs  []*Tool `bson:"installs"                     json:"installs"                        yaml:"installs"`
 	S3Storage *S3     `bson:"s3_storage"                   json:"s3_storage"                      yaml:"s3_storage"`
+	Proxy     *Proxy  `bson:"proxy"                        json:"proxy"                           yaml:"proxy"`
 }
 
 type Tool struct {

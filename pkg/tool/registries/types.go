@@ -29,3 +29,11 @@ type RegistryAdvancedSetting struct {
 	TLSEnabled bool
 	TLSCert    string
 }
+
+// DinDProxy is the proxy used by the dind daemon to pull images, e.g. the base image in FROM.
+// An empty DinDProxy removes the proxy envs previously set by zadig.
+type DinDProxy struct {
+	HTTPProxy  string
+	HTTPSProxy string
+	NoProxy    string
+}
