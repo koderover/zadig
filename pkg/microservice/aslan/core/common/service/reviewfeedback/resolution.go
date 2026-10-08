@@ -166,9 +166,42 @@ func queryGitHubThreads(ctx context.Context, cli *githubapi.Client, query string
 		return err
 	}
 	if len(status.Errors) > 0 {
-		return fmt.Errorf("GitHub review threads: %s", status.Errors[0].Message)
+		return fmt.Errorf("GitHub GraphQL: %s", status.Errors[0].Message)
 	}
 	return json.Unmarshal(raw, result)
+}
+
+// MinimizeGitHubComment retains the comment and its reactions, marking it outdated.
+func MinimizeGitHubComment(ctx context.Context, cli *githubapi.Client, nodeID string) error {
+	var state struct {
+		Data struct {
+			Node *struct {
+				IsMinimized     bool
+				MinimizedReason string
+			}
+		}
+	}
+	if err := queryGitHubThreads(ctx, cli, `query($id:ID!){node(id:$id){... on IssueComment{isMinimized minimizedReason}}}`, map[string]interface{}{"id": nodeID}, &state); err != nil {
+		return err
+	}
+	if state.Data.Node == nil {
+		return fmt.Errorf("GitHub summary comment %s is missing", nodeID)
+	}
+	if state.Data.Node.IsMinimized && state.Data.Node.MinimizedReason == "outdated" {
+		return nil
+	}
+	var result struct {
+		Data struct {
+			MinimizeComment *struct{ MinimizedComment *struct{ IsMinimized bool } }
+		}
+	}
+	if err := queryGitHubThreads(ctx, cli, `mutation($id:ID!){minimizeComment(input:{subjectId:$id,classifier:OUTDATED}){minimizedComment{isMinimized}}}`, map[string]interface{}{"id": nodeID}, &result); err != nil {
+		return err
+	}
+	if result.Data.MinimizeComment == nil || result.Data.MinimizeComment.MinimizedComment == nil || !result.Data.MinimizeComment.MinimizedComment.IsMinimized {
+		return fmt.Errorf("GitHub summary comment %s was not minimized", nodeID)
+	}
+	return nil
 }
 
 func readGitHubResolutions(ctx context.Context, cli *githubapi.Client, pr *models.AIReviewFeedback) ([]models.AIReviewInlineThread, error) {
