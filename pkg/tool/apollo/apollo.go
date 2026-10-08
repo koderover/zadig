@@ -68,14 +68,13 @@ func NormalizeNamespaceName(name, format string) string {
 
 func ValidateNamespaceName(name, format string) error {
 	name = strings.TrimSpace(name)
-	format = strings.ToLower(strings.TrimSpace(format))
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(name)), ".")
-	if ext == "" || ext == format {
+	if ext == "" {
 		return nil
 	}
 	switch ext {
 	case FormatYAML, FormatYML, FormatJSON, FormatProperties, FormatXML:
-		return fmt.Errorf("namespace suffix %q conflicts with type %q", ext, format)
+		return fmt.Errorf("namespace name must not include file suffix %q", ext)
 	default:
 		return nil
 	}
