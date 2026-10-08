@@ -1150,8 +1150,14 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 }
 
 func OpenAPIGetEnvDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
@@ -1159,17 +1165,53 @@ func OpenAPIGetEnvDetail(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
+		if !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !projectInfo.IsProjectAdmin && !projectInfo.Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
 	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIGetProductionEnvDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]
+		if !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !projectInfo.IsProjectAdmin && !projectInfo.ProductionEnv.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
@@ -1534,7 +1576,7 @@ func OpenAPIListEnvs(c *gin.Context) {
 	}
 
 	if !hasPermission {
-		ctx.Resp = []*service.OpenAPIListEnvBrief{}
+		ctx.UnAuthorized = true
 		return
 	}
 
@@ -1572,13 +1614,13 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	}
 
 	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectKey)
-	if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
+	if !hasPermission && permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
 		hasPermission = true
 		envFilter = permittedEnv.ReadEnvList
 	}
 
 	if !hasPermission {
-		ctx.Resp = []*service.OpenAPIListEnvBrief{}
+		ctx.UnAuthorized = true
 		return
 	}
 
