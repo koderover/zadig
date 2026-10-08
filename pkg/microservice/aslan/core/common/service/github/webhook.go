@@ -21,7 +21,6 @@ import (
 	"fmt"
 	githubapi "github.com/google/go-github/v35/github"
 	"strconv"
-	"time"
 
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
@@ -29,9 +28,16 @@ import (
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	return EnsureManagedReviewThreadHook(ctx, c.Client.Client, owner, repo, gitservice.WebHookURL())
+	hook, err := c.CreateHook(context.TODO(), owner, repo, &git.Hook{
+		URL:    gitservice.WebHookURL(),
+		Secret: util.GetGitHookSecret(),
+		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.Itoa(int(hook.GetID())), nil
 }
 
 // EnsureManagedReviewThreadHook preserves existing configuration and only adds

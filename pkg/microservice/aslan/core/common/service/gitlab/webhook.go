@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/tool/git"
@@ -29,9 +28,16 @@ import (
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	return EnsureManagedEmojiHook(ctx, c.Client.Client, owner+"/"+repo, gitservice.WebHookURL())
+	projectHook, err := c.AddProjectHook(owner, repo, &git.Hook{
+		URL:    gitservice.WebHookURL(),
+		Secret: util.GetGitHookSecret(),
+		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.Itoa(projectHook.ID), nil
 }
 
 type managedEmojiHook struct {
@@ -126,5 +132,6 @@ func (c *Client) RefreshWebHookSecret(secret, owner, repo, hookID string) error 
 		URL:    gitservice.WebHookURL(),
 		Secret: secret,
 	})
+
 	return err
 }
