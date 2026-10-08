@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -31,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -378,7 +378,7 @@ func QueryHelmValuesOpenAPI(projectKey string, req *OpenAPIQueryHelmValuesReq, l
 		if scanPath.IsDir {
 			valuesPaths, err = listOpenAPIHelmValuesFiles(getter, owner, req.Repo, req.Branch, scanPath.Path)
 		} else {
-			_, err = readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, scanPath.Path)
+			err = checkOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, scanPath.Path)
 		}
 		if err != nil {
 			return nil, e.ErrListWorkspace.AddErr(err)
@@ -414,14 +414,8 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 		if treeNode == nil || treeNode.IsDir {
 			continue
 		}
+		// like the UI, files are picked by path only and their contents are not read
 		if isOpenAPIHelmValuesPath(treeNode.FullPath) {
-			content, err := getter.GetFileContent(owner, repo, treeNode.FullPath, branch)
-			if err != nil {
-				return nil, err
-			}
-			if !openAPIHelmValuesContentValid(content) {
-				continue
-			}
 			valuesPaths = append(valuesPaths, treeNode.FullPath)
 			if len(valuesPaths) > maxOpenAPIHelmValuesPaths {
 				return nil, fmt.Errorf("the number of values files cannot exceed %d", maxOpenAPIHelmValuesPaths)
@@ -432,34 +426,31 @@ func listOpenAPIHelmValuesFiles(getter fsservice.TreeGetter, owner, repo, branch
 	return valuesPaths, nil
 }
 
-// readOpenAPIHelmValuesFile reads a values file, a missing file fails on the code host
-// and a directory reads as empty content.
-func readOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) ([]byte, error) {
+// checkOpenAPIHelmValuesFile checks that a values file exists and is not empty, which is
+// what service creation requires. A missing file fails on the code host and a directory
+// reads as empty content.
+func checkOpenAPIHelmValuesFile(getter fsservice.TreeGetter, owner, repo, branch, filePath string) error {
 	if !isOpenAPIHelmValuesPath(filePath) {
-		return nil, fmt.Errorf("%s is not a values file", filePath)
+		return fmt.Errorf("%s is not a values file", filePath)
 	}
 
 	content, err := getter.GetFileContent(owner, repo, filePath, branch)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if !openAPIHelmValuesContentValid(content) {
-		return nil, fmt.Errorf("%s is not a valid Helm Values file", filePath)
+	if len(content) == 0 {
+		return fmt.Errorf("%s is empty", filePath)
 	}
-	return content, nil
+	return nil
 }
 
-// openAPIHelmValuesContentValid accepts a non-empty YAML map. Values may hold "{{" for
-// tpl rendering or a top-level kind, so only a Kubernetes manifest (apiVersion and kind
-// together) is rejected.
-func openAPIHelmValuesContentValid(content []byte) bool {
-	values, err := yamlutil.MergeAndUnmarshal([][]byte{content})
-	if err != nil || len(values) == 0 {
-		return false
-	}
-	_, hasAPIVersion := values["apiVersion"]
-	_, hasKind := values["kind"]
-	return !(hasAPIVersion && hasKind)
+// helmServiceNameFromValuesPath returns the name of the service created from a values file.
+// It must stay in line with the naming in handleSingleService.
+func helmServiceNameFromValuesPath(valuesPath string) string {
+	serviceName := filepath.Base(valuesPath)
+	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
+	serviceName = strings.TrimSpace(serviceName)
+	return strings.ToLower(serviceName)
 }
 
 func isOpenAPIHelmValuesFile(name string) bool {
@@ -497,20 +488,6 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
 	}
 
-	getter, err := fsservice.GetTreeGetter(codehostID)
-	if err != nil {
-		return nil, e.ErrLoadServiceTemplate.AddErr(err)
-	}
-	owner := openAPIRepoOwner(req.Owner, req.Namespace)
-	valuesContent := make(map[string][]byte, len(req.ValuesPaths))
-	for _, valuesPath := range req.ValuesPaths {
-		content, err := readOpenAPIHelmValuesFile(getter, owner, req.Repo, req.Branch, valuesPath)
-		if err != nil {
-			return nil, e.ErrLoadServiceTemplate.AddErr(err)
-		}
-		valuesContent[valuesPath] = content
-	}
-
 	// values files sharing a name would create the same service, and the creations run
 	// in parallel, so the duplicates are rejected instead of racing each other
 	valuesPaths := make([]string, 0, len(req.ValuesPaths))
@@ -536,11 +513,10 @@ func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey stri
 		CreateFrom: &CreateFromChartTemplate{
 			TemplateName: req.TemplateName,
 		},
-		CreatedBy:     ctx.UserName,
-		RequestID:     ctx.RequestID,
-		AutoSync:      req.AutoSync,
-		Production:    production,
-		ValuesContent: valuesContent,
+		CreatedBy:  ctx.UserName,
+		RequestID:  ctx.RequestID,
+		AutoSync:   req.AutoSync,
+		Production: production,
 		ValuesData: &commonservice.ValuesDataArgs{
 			YamlSource: setting.SourceFromGitRepo,
 			GitRepoConfig: &commonservice.RepoConfig{
