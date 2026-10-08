@@ -18,6 +18,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -28,6 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -41,7 +44,18 @@ import (
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
 )
 
-var registrySecretSuffix = "-registry-secret"
+const (
+	registrySecretSuffix                  = "-registry-secret"
+	defaultRegistrySecretDataKey          = ".dockercfg"
+	zadigCreatedRegistryAddressAnnotation = "koderover.io/zadig-created-registry-address"
+	defaultRegistrySecretEmail            = "bot@koderover.com"
+)
+
+type dockerConfigCredential struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+}
 
 func CreateNamespace(namespace, clusterID string, customLabels map[string]string, enableIstioInjection bool) error {
 	nsLabels := map[string]string{
@@ -133,26 +147,134 @@ func CreateOrUpdateRegistrySecret(namespace, clusterID string, reg *commonmodels
 		secretName = setting.DefaultImagePullSecret
 	}
 
-	data := make(map[string][]byte)
+	if secretName == setting.DefaultImagePullSecret {
+		return upsertDefaultRegistryCredential(namespace, clusterID, reg)
+	}
 
-	dockerConfig := fmt.Sprintf(
-		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
-		reg.RegAddr,
-		reg.AccessKey,
-		reg.SecretKey,
-		"bot@koderover.com",
-	)
-	data[".dockercfg"] = []byte(dockerConfig)
+	credential, err := json.Marshal(dockerConfigCredential{
+		Username: reg.AccessKey,
+		Password: reg.SecretKey,
+		Email:    defaultRegistrySecretEmail,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal registry credential for %s: %w", reg.RegAddr, err)
+	}
+	dockerConfig, err := json.Marshal(map[string]json.RawMessage{reg.RegAddr: credential})
+	if err != nil {
+		return fmt.Errorf("failed to marshal docker config for %s: %w", reg.RegAddr, err)
+	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      secretName,
 		},
-		Data: data,
+		Data: map[string][]byte{
+			defaultRegistrySecretDataKey: dockerConfig,
+		},
 		Type: corev1.SecretTypeDockercfg,
 	}
 	return updater.CreateOrUpdateSecretV2(context.TODO(), clusterID, secret)
+}
+
+func upsertDefaultRegistryCredential(namespace, clusterID string, reg *commonmodels.RegistryNamespace) error {
+	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %w", err)
+	}
+
+	return upsertDefaultRegistryCredentialWithClient(context.TODO(), c.CoreV1().Secrets(namespace), namespace, reg)
+}
+
+func upsertDefaultRegistryCredentialWithClient(ctx context.Context, secrets corev1client.SecretInterface, namespace string, reg *commonmodels.RegistryNamespace) error {
+	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+	}, func() error {
+		secret, err := secrets.Get(ctx, setting.DefaultImagePullSecret, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      setting.DefaultImagePullSecret,
+				},
+				Data: map[string][]byte{
+					defaultRegistrySecretDataKey: []byte("{}"),
+				},
+				Type: corev1.SecretTypeDockercfg,
+			}
+			if err := mergeDefaultRegistryCredential(secret, reg); err != nil {
+				return err
+			}
+			_, err = secrets.Create(ctx, secret, metav1.CreateOptions{})
+			return err
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := mergeDefaultRegistryCredential(secret, reg); err != nil {
+			return err
+		}
+		_, err = secrets.Update(ctx, secret, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upsert registry credential in secret %s/%s: %w", namespace, setting.DefaultImagePullSecret, err)
+	}
+	return nil
+}
+
+func mergeDefaultRegistryCredential(secret *corev1.Secret, reg *commonmodels.RegistryNamespace) error {
+	if secret.Type != corev1.SecretTypeDockercfg {
+		return fmt.Errorf("secret %s/%s has unsupported type %q", secret.Namespace, secret.Name, secret.Type)
+	}
+
+	dockerConfigData, ok := secret.Data[defaultRegistrySecretDataKey]
+	if !ok {
+		return fmt.Errorf("secret %s/%s is missing %s", secret.Namespace, secret.Name, defaultRegistrySecretDataKey)
+	}
+
+	dockerConfig := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(dockerConfigData, &dockerConfig); err != nil {
+		return fmt.Errorf("failed to parse %s in secret %s/%s: %w", defaultRegistrySecretDataKey, secret.Namespace, secret.Name, err)
+	}
+	if dockerConfig == nil {
+		return fmt.Errorf("%s in secret %s/%s must be a JSON object", defaultRegistrySecretDataKey, secret.Namespace, secret.Name)
+	}
+
+	_, targetExisted := dockerConfig[reg.RegAddr]
+	managedAddress := secret.Annotations[zadigCreatedRegistryAddressAnnotation]
+	if managedAddress != "" && managedAddress != reg.RegAddr {
+		delete(dockerConfig, managedAddress)
+		delete(secret.Annotations, zadigCreatedRegistryAddressAnnotation)
+	}
+
+	credential, err := json.Marshal(dockerConfigCredential{
+		Username: reg.AccessKey,
+		Password: reg.SecretKey,
+		Email:    defaultRegistrySecretEmail,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal registry credential for %s: %w", reg.RegAddr, err)
+	}
+	dockerConfig[reg.RegAddr] = credential
+
+	switch {
+	case managedAddress == reg.RegAddr:
+	case !targetExisted:
+		if secret.Annotations == nil {
+			secret.Annotations = make(map[string]string)
+		}
+		secret.Annotations[zadigCreatedRegistryAddressAnnotation] = reg.RegAddr
+	default:
+		delete(secret.Annotations, zadigCreatedRegistryAddressAnnotation)
+	}
+
+	secret.Data[defaultRegistrySecretDataKey], err = json.Marshal(dockerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s for secret %s/%s: %w", defaultRegistrySecretDataKey, secret.Namespace, secret.Name, err)
+	}
+	return nil
 }
 
 func GenRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) {
