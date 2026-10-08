@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -113,7 +114,12 @@ func filterWorkflowEnvironmentOptions(workflow *commonmodels.WorkflowV4, permiss
 			if environment != "" && !permission.isAllowed(environment, production) {
 				clearWorkflowJobEnvironment(job.JobType, spec)
 			}
-			job.Spec = spec
+			originalType := reflect.TypeOf(job.Spec)
+			restoredSpec := reflect.New(originalType)
+			if err := commonmodels.IToi(spec, restoredSpec.Interface()); err != nil {
+				return fmt.Errorf("failed to restore job %s spec: %w", job.Name, err)
+			}
+			job.Spec = restoredSpec.Elem().Interface()
 		}
 	}
 	return nil
