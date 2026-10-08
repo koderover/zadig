@@ -57,7 +57,7 @@ func ListReleasePlanCustomFields() ([]*models.ReleasePlanCustomFieldDefinition, 
 }
 
 // buildReleasePlanCustomFields turns the submitted field list into the definitions to store.
-// Fields without an id are new and get a generated id and key; existing fields keep their key;
+// Fields without an id get a generated id and key; changing an existing field's type generates a new key;
 // fields missing from the list are deleted; the list order becomes the display order.
 func buildReleasePlanCustomFields(existing, submitted []*models.ReleasePlanCustomFieldDefinition) ([]*models.ReleasePlanCustomFieldDefinition, error) {
 	existingByID := make(map[string]*models.ReleasePlanCustomFieldDefinition, len(existing))
@@ -73,6 +73,10 @@ func buildReleasePlanCustomFields(existing, submitted []*models.ReleasePlanCusto
 		}
 		field := *item
 		field.Name = strings.TrimSpace(field.Name)
+		field.Options = slices.Clone(field.Options)
+		for i, option := range field.Options {
+			field.Options[i] = strings.TrimSpace(option)
+		}
 		if err := validateReleasePlanCustomFieldDefinition(&field); err != nil {
 			return nil, err
 		}
@@ -93,6 +97,9 @@ func buildReleasePlanCustomFields(existing, submitted []*models.ReleasePlanCusto
 				return nil, fmt.Errorf("custom field %s is duplicated", field.ID)
 			}
 			field.Key = current.Key
+			if field.Type != current.Type {
+				field.Key = "custom_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			}
 		}
 		seenIDs[field.ID] = struct{}{}
 		field.Order = i + 1
@@ -117,7 +124,7 @@ func validateReleasePlanCustomFieldDefinition(field *models.ReleasePlanCustomFie
 	}
 	seen := make(map[string]struct{}, len(field.Options))
 	for _, option := range field.Options {
-		if strings.TrimSpace(option) == "" {
+		if option == "" {
 			return fmt.Errorf("options of custom field %s cannot contain empty values", field.Name)
 		}
 		if _, ok := seen[option]; ok {
@@ -135,13 +142,11 @@ func isReleasePlanCustomFieldSelectionType(fieldType string) bool {
 }
 
 // snapshotReleasePlanCustomFields stores the current field definitions on a new plan
-// and validates the submitted values against them.
-func snapshotReleasePlanCustomFields(plan *models.ReleasePlan) error {
-	definitions, err := ListReleasePlanCustomFields()
-	if err != nil {
-		return errors.Wrap(err, "get release plan custom fields")
-	}
-	if err := validateReleasePlanCustomFieldValues(definitions, plan.CustomFields, false); err != nil {
+// and validates submitted values, filtering outdated values when copying a plan.
+func snapshotReleasePlanCustomFields(plan *models.ReleasePlan, definitions []*models.ReleasePlanCustomFieldDefinition, isCopy bool) error {
+	if isCopy {
+		plan.CustomFields = filterReleasePlanCustomFieldValues(definitions, plan.CustomFields)
+	} else if err := validateReleasePlanCustomFieldValues(definitions, plan.CustomFields, false); err != nil {
 		return errors.Wrap(err, "validate release plan custom fields")
 	}
 	plan.CustomFieldDefinitions = definitions

@@ -59,7 +59,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
+func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan, isCopy bool) error {
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
@@ -76,7 +76,11 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.Manager != userInfo.Name {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
-	if err := snapshotReleasePlanCustomFields(args); err != nil {
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		return errors.Wrap(err, "get release plan hook setting")
+	}
+	if err := snapshotReleasePlanCustomFields(args, hookSetting.CustomFields, isCopy); err != nil {
 		return err
 	}
 	for _, job := range args.Jobs {
@@ -117,12 +121,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		return errors.Wrap(err, "generate instance code")
 	}
 
-	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-	if err != nil {
-		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-		log.Error(fmtErr)
-		return fmtErr
-	}
 	args.HookSettings = hookSetting.ToHookSettings()
 
 	args.ID = primitive.NewObjectID()

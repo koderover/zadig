@@ -60,7 +60,7 @@ type ReleasePlan struct {
 	HookSettings *HookSettings `bson:"hook_settings"       yaml:"hook_settings"                   json:"hook_settings"`
 
 	CustomFieldDefinitions []*ReleasePlanCustomFieldDefinition `bson:"custom_field_definitions,omitempty" yaml:"custom_field_definitions,omitempty" json:"custom_field_definitions,omitempty"`
-	CustomFields           map[string]interface{}              `bson:"custom_fields,omitempty" yaml:"custom_fields,omitempty" json:"custom_fields,omitempty"`
+	CustomFields           map[string]interface{}              `bson:"custom_fields" yaml:"custom_fields,omitempty" json:"custom_fields,omitempty"`
 
 	WaitForFinishPlanningExternalCheckTime int64  `bson:"wait_for_finish_planning_external_check_time"       yaml:"wait_for_finish_planning_external_check_time"                   json:"wait_for_finish_planning_external_check_time"`
 	WaitForApproveExternalCheckTime        int64  `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`

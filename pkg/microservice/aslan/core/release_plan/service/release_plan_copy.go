@@ -52,14 +52,7 @@ func CopyReleasePlan(c *handler.Context, planID string, args *CopyReleasePlanArg
 		return errors.Wrap(err, "prepare copied release plan")
 	}
 
-	// The copied plan uses the current field definitions, so drop values that no longer fit them.
-	definitions, err := ListReleasePlanCustomFields()
-	if err != nil {
-		return errors.Wrap(err, "get release plan custom fields")
-	}
-	copiedPlan.CustomFields = filterReleasePlanCustomFieldValues(definitions, copiedPlan.CustomFields)
-
-	return CreateReleasePlan(c, copiedPlan)
+	return CreateReleasePlan(c, copiedPlan, true)
 }
 
 func prepareCopiedReleasePlan(source *models.ReleasePlan, name string) (*models.ReleasePlan, error) {

@@ -87,14 +87,15 @@ func OpenAPIGetReleasePlan(id string) (*models.ReleasePlan, error) {
 }
 
 type OpenAPICreateReleasePlanArgs struct {
-	Name                string           `bson:"name"       yaml:"name"                   json:"name"`
-	Manager             string           `bson:"manager"       yaml:"manager"                   json:"manager"`
-	ManagerIdentityType string           `bson:"manager_identity_type"       yaml:"manager_identity_type"                   json:"manager_identity_type"`
-	StartTime           int64            `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
-	EndTime             int64            `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
-	ScheduleExecuteTime int64            `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
-	Description         string           `bson:"description"       yaml:"description"                   json:"description"`
-	Approval            *models.Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
+	Name                string                 `bson:"name"       yaml:"name"                   json:"name"`
+	Manager             string                 `bson:"manager"       yaml:"manager"                   json:"manager"`
+	ManagerIdentityType string                 `bson:"manager_identity_type"       yaml:"manager_identity_type"                   json:"manager_identity_type"`
+	StartTime           int64                  `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
+	EndTime             int64                  `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
+	ScheduleExecuteTime int64                  `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
+	Description         string                 `bson:"description"       yaml:"description"                   json:"description"`
+	Approval            *models.Approval       `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
+	CustomFields        map[string]interface{} `bson:"custom_fields" yaml:"custom_fields" json:"custom_fields,omitempty"`
 }
 
 type OpenAPICreateReleasePlanResponse struct {
@@ -110,6 +111,7 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 		Description:         rawArgs.Description,
 		ScheduleExecuteTime: rawArgs.ScheduleExecuteTime,
 		Approval:            rawArgs.Approval,
+		CustomFields:        rawArgs.CustomFields,
 	}
 	if args.Name == "" || args.Manager == "" {
 		return nil, errors.New("Required parameters are missing")
@@ -137,7 +139,11 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	}
 	args.ManagerID = searchUserResp.Users[0].UID
 
-	if err := snapshotReleasePlanCustomFields(args); err != nil {
+	definitions, err := ListReleasePlanCustomFields()
+	if err != nil {
+		return nil, errors.Wrap(err, "get release plan custom fields")
+	}
+	if err := snapshotReleasePlanCustomFields(args, definitions, false); err != nil {
 		return nil, err
 	}
 

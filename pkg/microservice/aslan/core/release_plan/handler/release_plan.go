@@ -157,7 +157,7 @@ func CreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.CreateReleasePlan(ctx, req)
+	ctx.RespErr = service.CreateReleasePlan(ctx, req, false)
 }
 
 func CopyReleasePlan(c *gin.Context) {
