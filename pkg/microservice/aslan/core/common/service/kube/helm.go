@@ -82,7 +82,27 @@ type ReleaseInstallParam struct {
 	MaxHistory     int
 }
 
-func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
+func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) (err error) {
+	started := time.Now()
+	logger := log.SugaredLogger().With("operation", "apply_release", "project", param.ProductName, "namespace", param.Namespace, "release", param.ReleaseName, "service", param.ServiceObj.ServiceName, "cluster_id", helmClient.ClusterID, "retry", isRetry, "operation_started_at", started.Format(time.RFC3339Nano))
+	phase := ""
+	phaseStarted := started
+	nextPhase := func(next string) {
+		if phase != "" {
+			logger.Infow("Helm deploy phase completed", "phase", phase, "duration", time.Since(phaseStarted).String())
+		}
+		phase, phaseStarted = next, time.Now()
+		logger.Infow("Helm deploy phase started", "phase", phase)
+	}
+	defer func() {
+		if err != nil {
+			logger.Errorw("Helm deploy failed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String(), "error", err)
+		} else {
+			logger.Infow("Helm deploy completed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String())
+		}
+	}()
+
+	nextPhase("load_chart")
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
 	chartPath, err := PreLoadHelmServiceChart(serviceObj, param.Production, &chartInstantiateDeploy{
 		ChartName:                renderChart.ChartName,
@@ -110,6 +130,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		chartSpec.Timeout = time.Second * time.Duration(param.Timeout)
 	}
 
+	nextPhase("inspect_stuck_workloads")
 	stuckDeployments, stuckStatefulSets, err := getStuckWorkload(helmClient, chartSpec)
 	if err != nil {
 		return fmt.Errorf("failed to get stuck workloads: %s", err)
@@ -117,17 +138,20 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
+	nextPhase("delete_precreated_services")
 	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
 	if err != nil {
 		return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
 	}
 
+	nextPhase("clone_helm_client")
 	helmClient, err = helmClient.Clone()
 	if err != nil {
 		return fmt.Errorf("failed to clone helm client: %s", err)
 	}
 
 	var release *release.Release
+	nextPhase("install_or_upgrade_chart")
 	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
 	if err != nil {
 		err = errors.WithMessagef(
@@ -136,6 +160,8 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 			namespace, serviceObj.ServiceName)
 		return err
 	} else {
+		logger.Infow("Helm release deployed", "revision", release.Version, "status", release.Info.Status)
+		nextPhase("ensure_zadig_services")
 		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
 		if err != nil {
 			err = errors.WithMessagef(err, "failed to ensure Zadig Service, err: %s", err)
@@ -148,10 +174,12 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		return fmt.Errorf("failed to get kubernetes client set, err: helm client rest config is nil")
 	}
 
+	nextPhase("create_cleanup_client")
 	clientSet, err := kubernetes.NewForConfig(restCfg)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes client set, err: %v", err)
 	}
+	nextPhase("cleanup_stuck_workloads")
 	err = cleanupStuckWorkloads(clientSet, stuckDeployments, stuckStatefulSets, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to cleanup stuck workloads, err: %v", err)
@@ -652,29 +680,52 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 	return nil
 }
 func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, maxHistory, timeout int, user string) error {
+	svcTemp *commonmodels.Service, images []string, maxHistory, timeout int, user string) (err error) {
+	started := time.Now()
+	logger := log.SugaredLogger().With("operation", "deploy_single_release", "project", product.ProductName, "env", product.EnvName, "namespace", product.Namespace, "service", productSvc.ServiceName, "cluster_id", product.ClusterID, "operation_started_at", started.Format(time.RFC3339Nano))
+	phase := ""
+	phaseStarted := started
+	nextPhase := func(next string) {
+		if phase != "" {
+			logger.Infow("Helm deploy phase completed", "phase", phase, "duration", time.Since(phaseStarted).String())
+		}
+		phase, phaseStarted = next, time.Now()
+		logger.Infow("Helm deploy phase started", "phase", phase)
+	}
+	defer func() {
+		if err != nil {
+			logger.Errorw("Helm deploy failed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String(), "error", err)
+		} else {
+			logger.Infow("Helm deploy completed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String())
+		}
+	}()
+
 	chartInfo := productSvc.GetServiceRender()
 
 	var (
-		err                      error
 		releaseName              string
 		replacedMergedValuesYaml string
 	)
 
 	if productSvc.DeployStrategy == setting.ServiceDeployStrategyDraft {
+		nextPhase("update_draft_environment")
 		return helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "", "")
 	}
 
 	releaseName = productSvc.ReleaseName
+	nextPhase("resolve_release_name")
+	nextPhase("merge_values")
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 	}
 
+	nextPhase("check_release_duplicate")
 	err = CheckReleaseDuplicate(productSvc.ServiceName, releaseName, product)
 	if err != nil {
 		return err
 	}
 
+	nextPhase("check_release_ownership")
 	err = CheckReleaseInstalledByOtherEnv(sets.NewString(releaseName), product)
 	if err != nil {
 		return err
@@ -695,12 +746,14 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
 
+		nextPhase("download_chart")
 		err = DownloadInstantiateChart(product.ProductName, chartInfo.ChartRepo, chartInfo.ChartName, chartInfo.ChartVersion, releaseName, product.Production)
 		if err != nil {
 			return fmt.Errorf("failed to download instantiate chart, productName: %s, chartRepo: %s, chartName: %s, chartVersion: %s, releaseName: %s, production: %v, err: %s", product.ProductName, chartInfo.ChartRepo, chartInfo.ChartName, chartInfo.ChartVersion, releaseName, product.Production, err)
 		}
 	}
 
+	nextPhase("initialize_helm_client")
 	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
 	if err != nil {
 		return err
@@ -725,6 +778,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		hrs, errHistory := helmClient.ListReleaseHistory(param.ReleaseName, 10)
 		if errHistory != nil {
 			// list history should not block deploy operation, error will be logged instead of returned
+			logger.Warnw("Failed to read Helm release history", "release", param.ReleaseName, "error", errHistory)
 			return nil
 		}
 		if len(hrs) == 0 {
@@ -739,17 +793,20 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		return nil
 	}
 
+	nextPhase("check_release_history")
 	err = ensureUpgrade()
 	if err != nil {
 		return err
 	}
 
 	// when replace image, should not wait
+	nextPhase("apply_release")
 	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
 	}
 
+	nextPhase("update_environment")
 	err = helmservice.UpdateServiceInEnv(product, productSvc, user, config.EnvOperationDefault, "", "")
 	return err
 }
