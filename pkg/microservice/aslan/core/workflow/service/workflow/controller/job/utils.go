@@ -175,6 +175,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			IsCredential:      baseKV.IsCredential,
 			ChoiceOption:      baseKV.ChoiceOption,
 			ChoiceValue:       baseKV.ChoiceValue,
+			IsMultiSelect:     baseKV.IsMultiSelect,
 			Description:       baseKV.Description,
 			FunctionReference: baseKV.FunctionReference,
 			CallFunction:      baseKV.CallFunction,
@@ -196,12 +197,12 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 
 			// if the final source of the item is fix or reference, the input is irrelevant, just use the origin stuff
 			if (item.Source != config.ParamSourceFixed && item.Source != config.ParamSourceReference) || useInputKVSource {
-				if item.Type == commonmodels.MultiSelectType {
+				if item.IsMultiValue() {
 					item.ChoiceValue = inputKV.ChoiceValue
 					// ChoiceValue is the canonical multi-select value. Keep Value as its
 					// comma-separated runtime representation so older consumers remain compatible.
-					if item.ChoiceValue == nil && inputKV.Value != "" {
-						// Older callers may only send Value, so backfill ChoiceValue before normalizing.
+					if item.Type == commonmodels.MultiSelectType && item.ChoiceValue == nil && inputKV.Value != "" {
+						// Only the legacy static multi-select accepts callers that send Value alone.
 						item.ChoiceValue = strings.Split(inputKV.Value, ",")
 					}
 					item.Value = strings.Join(item.ChoiceValue, ",")
@@ -410,6 +411,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			IsCredential:      src1KV.IsCredential,
 			ChoiceValue:       src1KV.ChoiceValue,
 			ChoiceOption:      src1KV.ChoiceOption,
+			IsMultiSelect:     src1KV.IsMultiSelect,
 			Description:       src1KV.Description,
 			FunctionReference: src1KV.FunctionReference,
 			CallFunction:      src1KV.CallFunction,
@@ -435,6 +437,7 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			IsCredential:      src2KV.IsCredential,
 			ChoiceValue:       src2KV.ChoiceValue,
 			ChoiceOption:      src2KV.ChoiceOption,
+			IsMultiSelect:     src2KV.IsMultiSelect,
 			Description:       src2KV.Description,
 			FunctionReference: src2KV.FunctionReference,
 			CallFunction:      src2KV.CallFunction,
@@ -521,6 +524,7 @@ func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmod
 			RegistryID:        "",
 			ChoiceOption:      param.ChoiceOption,
 			ChoiceValue:       param.ChoiceValue,
+			IsMultiSelect:     param.IsMultiSelect,
 			Script:            "",
 			CallFunction:      "",
 			FunctionReference: nil,
@@ -699,7 +703,7 @@ func replaceServiceAndModulesForTask(task *commonmodels.JobTask, serviceName, se
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		var inputValue string
-		if input.ParamsType == string(commonmodels.MultiSelectType) {
+		if input.IsMultiValue() {
 			inputValue = strings.Join(input.ChoiceValue, ",")
 		} else if input.ParamsType == string(commonmodels.FileType) {
 			inputValue = input.GetFileValue()
@@ -738,22 +742,23 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
 				newParam := &commonmodels.Param{
-					Name:         originParam.Name,
-					Description:  originParam.Description,
-					ParamsType:   originParam.ParamsType,
-					Value:        originParam.Value,
-					Repo:         originParam.Repo,
-					ChoiceOption: originParam.ChoiceOption,
-					ChoiceValue:  originParam.ChoiceValue,
-					Script:       originParam.Script,
-					CallFunction: originParam.CallFunction,
-					FileID:       originParam.FileID,
-					FileName:     originParam.FileName,
-					FilePath:     originParam.FilePath,
-					Default:      originParam.Default,
-					IsCredential: originParam.IsCredential,
-					Source:       originParam.Source,
-					Required:     originParam.Required,
+					Name:          originParam.Name,
+					Description:   originParam.Description,
+					ParamsType:    originParam.ParamsType,
+					Value:         originParam.Value,
+					Repo:          originParam.Repo,
+					ChoiceOption:  originParam.ChoiceOption,
+					ChoiceValue:   originParam.ChoiceValue,
+					IsMultiSelect: originParam.IsMultiSelect,
+					Script:        originParam.Script,
+					CallFunction:  originParam.CallFunction,
+					FileID:        originParam.FileID,
+					FileName:      originParam.FileName,
+					FilePath:      originParam.FilePath,
+					Default:       originParam.Default,
+					IsCredential:  originParam.IsCredential,
+					Source:        originParam.Source,
+					Required:      originParam.Required,
 				}
 				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
@@ -790,9 +795,10 @@ func runtimeKeyValValueProvided(kv *commonmodels.RuntimeKeyVal) bool {
 		return false
 	}
 
-	switch kv.Type {
-	case commonmodels.MultiSelectType:
+	if kv.IsMultiValue() {
 		return len(kv.ChoiceValue) > 0
+	}
+	switch kv.Type {
 	case commonmodels.FileType:
 		return strings.TrimSpace(kv.FileID) != "" || strings.TrimSpace(kv.FilePath) != ""
 	default:

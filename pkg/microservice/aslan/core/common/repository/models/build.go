@@ -220,6 +220,7 @@ type KeyVal struct {
 	RegistryID        string               `bson:"registry_id,omitempty"        json:"registry_id"                  yaml:"registry_id"`
 	ChoiceOption      []string             `bson:"choice_option,omitempty"      json:"choice_option,omitempty"      yaml:"choice_option,omitempty"`
 	ChoiceValue       []string             `bson:"choice_value,omitempty"       json:"choice_value,omitempty"       yaml:"choice_value,omitempty"`
+	IsMultiSelect     bool                 `bson:"is_multi_select,omitempty"    json:"is_multi_select,omitempty"    yaml:"is_multi_select,omitempty"`
 	Script            string               `bson:"script,omitempty"             json:"script,omitempty"             yaml:"script,omitempty"`
 	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
@@ -232,13 +233,17 @@ type KeyVal struct {
 }
 
 func (kv *KeyVal) GetValue() string {
-	if kv.Type == MultiSelectType {
+	if kv.IsMultiValue() {
 		return strings.Join(kv.ChoiceValue, ",")
 	}
 	if kv.Type == FileType {
 		return kv.FilePath
 	}
 	return kv.Value
+}
+
+func (kv *KeyVal) IsMultiValue() bool {
+	return kv.Type == MultiSelectType || (kv.Type == Script && kv.IsMultiSelect)
 }
 
 type KeyValList []*KeyVal
