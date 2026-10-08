@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -479,12 +478,6 @@ func isOpenAPIHelmValuesPath(filePath string) bool {
 func BulkCreateHelmServicesOpenAPI(ctx *internalhandler.Context, projectKey string, production bool, req *OpenAPIBulkCreateHelmServiceReq) (*OpenAPILoadHelmServiceResp, error) {
 	codehostID, err := openAPIAvailableCodehostID(projectKey, req.CodehostName)
 	if err != nil {
-		return nil, e.ErrLoadServiceTemplate.AddErr(err)
-	}
-	if _, err := commonrepo.NewChartColl().Get(req.TemplateName); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("chart template %s is not found", req.TemplateName))
-		}
 		return nil, e.ErrLoadServiceTemplate.AddErr(err)
 	}
 
