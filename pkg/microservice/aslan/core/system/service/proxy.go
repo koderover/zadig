@@ -19,6 +19,7 @@ package service
 import (
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,12 +34,18 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+var proxyDinDSyncMutex sync.Mutex
+
 // syncProxyConfig applies the proxy config to aslan and dind after it is changed.
 func syncProxyConfig(log *zap.SugaredLogger) {
 	if err := SetProxyConfig(); err != nil {
 		log.Errorf("proxy configuration saved, but failed to apply it: %v", err)
 	}
 	go func() {
+		// Serialize proxy-triggered DinD syncs without blocking registry saves.
+		proxyDinDSyncMutex.Lock()
+		defer proxyDinDSyncMutex.Unlock()
+
 		clusters, err := commonrepo.NewK8SClusterColl().FindActiveClusters()
 		if err != nil {
 			log.Errorf("proxy configuration saved, but failed to list clusters for dind sync: %v", err)

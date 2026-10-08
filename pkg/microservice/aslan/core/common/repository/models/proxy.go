@@ -40,7 +40,7 @@ type Proxy struct {
 	// Deprecated
 	EnableApplicationProxy bool   `bson:"enable_application_proxy"     json:"enable_application_proxy"`
 	EnableDinDProxy        bool   `bson:"enable_dind_proxy"            json:"enable_dind_proxy"`
-	NoProxy                string `bson:"no_proxy"                     json:"no_proxy"`
+	DinDNoProxy            string `bson:"dind_no_proxy"                json:"dind_no_proxy"`
 	CreateTime             int64  `bson:"create_time"                  json:"create_time"`
 	UpdateTime             int64  `bson:"update_time"                  json:"update_time"`
 	UpdateBy               string `bson:"update_by"                    json:"update_by"`

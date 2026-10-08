@@ -45,11 +45,15 @@ func Run(args []string) error {
 		return err
 	}
 	defer conn.Close()
+	closeWriter, ok := conn.(interface{ CloseWrite() error })
+	if !ok {
+		return fmt.Errorf("SOCKS5 connection does not support half-close")
+	}
 	written := make(chan error, 1)
 	go func() {
 		_, err := io.Copy(conn, os.Stdin)
 		if err == nil {
-			err = conn.(*net.TCPConn).CloseWrite()
+			err = closeWriter.CloseWrite()
 		}
 		if err != nil {
 			conn.Close()
