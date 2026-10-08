@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	giteeClient "gitee.com/openeuler/go-gitee/gitee"
 	githubapi "github.com/google/go-github/v35/github"
@@ -81,6 +82,13 @@ func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwne
 		if err != nil {
 			return 0, fmt.Errorf("create GitLab merge request note: %w", err)
 		}
+		if isAIReviewSummary(comment) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			if err := archiveGitLabAIReviewSummaries(ctx, cli.Client, projectID, prID, int64(item.ID)); err != nil && c.logger != nil {
+				c.logger.Warnf("failed to collapse previous GitLab AI review summaries for %s#%d: %v", projectID, prID, err)
+			}
+		}
 		return int64(item.ID), nil
 	case setting.SourceFromGithub:
 		cli, err := githubservice.GetGithubAppClientByOwner(repoOwner)
@@ -93,6 +101,13 @@ func (c *Client) CreateAIReviewCommentWithID(codehostID int, projectID, repoOwne
 		item, _, err := cli.Issues.CreateComment(context.Background(), repoOwner, repoName, prID, &githubapi.IssueComment{Body: &comment})
 		if err != nil {
 			return 0, fmt.Errorf("create GitHub pull request comment: %w", err)
+		}
+		if isAIReviewSummary(comment) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			if err := archiveGitHubAIReviewSummaries(ctx, cli.Client.Client, repoOwner, repoName, prID, item.GetID()); err != nil && c.logger != nil {
+				c.logger.Warnf("failed to minimize previous GitHub AI review summaries for %s/%s#%d: %v", repoOwner, repoName, prID, err)
+			}
 		}
 		return item.GetID(), nil
 	default:
