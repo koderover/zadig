@@ -225,14 +225,8 @@ func QueryHelmValuesOpenAPI(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	// reading repo content only requires project membership, same as the codehost OpenAPI
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
+	// reading repo content only requires login, same as the repo tree API used by the UI;
+	// bulk creation checks the service create permission
 	ctx.Resp, ctx.RespErr = svcservice.QueryHelmValuesOpenAPI(projectKey, req, ctx.Logger)
 }
 
