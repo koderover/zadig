@@ -22,21 +22,23 @@ import (
 )
 
 // ReadGitHubInlineThreads recovers the original comments of one published review.
-func ReadGitHubInlineThreads(ctx context.Context, cli *githubapi.Client, owner, name string, number int, reviewID int64) ([]models.AIReviewInlineThread, error) {
+func ReadGitHubInlineThreads(ctx context.Context, cli *githubapi.Client, owner, name string, number int, reviewID int64) ([]models.AIReviewInlineThread, []*githubapi.PullRequestComment, error) {
 	threads := make([]models.AIReviewInlineThread, 0)
+	comments := make([]*githubapi.PullRequestComment, 0)
 	opts := &githubapi.ListOptions{PerPage: 100}
 	for {
 		items, resp, err := cli.PullRequests.ListReviewComments(ctx, owner, name, number, reviewID, opts)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, item := range items {
 			if item == nil || item.GetInReplyTo() != 0 || !strings.Contains(item.GetBody(), "<!-- zadig-ai-review -->") {
 				continue
 			}
 			if item.GetID() <= 0 || item.GetNodeID() == "" {
-				return nil, fmt.Errorf("GitHub inline comment is missing ID/node ID")
+				return nil, nil, fmt.Errorf("GitHub inline comment is missing ID/node ID")
 			}
+			comments = append(comments, item)
 			threads = append(threads, models.AIReviewInlineThread{CommentID: item.GetID(), CommentNodeID: item.GetNodeID(), ReviewID: reviewID, Fingerprint: FingerprintFromBody(item.GetBody())})
 		}
 		if resp == nil || resp.NextPage == 0 {
@@ -44,7 +46,7 @@ func ReadGitHubInlineThreads(ctx context.Context, cli *githubapi.Client, owner, 
 		}
 		opts.Page = resp.NextPage
 	}
-	return threads, nil
+	return threads, comments, nil
 }
 
 // CurrentGitHubInlineThreads reads published AI comments and their current thread states.
@@ -216,7 +218,7 @@ func readGitHubResolutions(ctx context.Context, cli *githubapi.Client, pr *model
 		if target.Kind != "review" || (target.InlineTotal > 0 && counts[target.ReviewID] >= target.InlineTotal) {
 			continue
 		}
-		items, err := ReadGitHubInlineThreads(ctx, cli, pr.RepoOwner, pr.RepoName, pr.PR, target.ReviewID)
+		items, _, err := ReadGitHubInlineThreads(ctx, cli, pr.RepoOwner, pr.RepoName, pr.PR, target.ReviewID)
 		if err != nil {
 			return nil, err
 		}
