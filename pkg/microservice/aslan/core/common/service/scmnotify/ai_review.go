@@ -34,6 +34,7 @@ import (
 const aiReviewCommentMarker = "<!-- zadig-ai-review -->"
 
 type aiReviewInlinePublishResult struct {
+	Links     []aiReviewInlineLink
 	Published int
 	Skipped   int
 	Failed    bool
@@ -44,6 +45,12 @@ type aiReviewInlinePublishResult struct {
 	Threads   []models.AIReviewInlineThread
 	Fallback  []stepspec.AIReviewFinding
 	Comments  []reviewfeedback.PublishedComment
+}
+
+type aiReviewInlineLink struct {
+	URL     string
+	Finding stepspec.AIReviewFinding
+	Line    int
 }
 
 type AIReviewPRMetadata struct {
@@ -116,45 +123,79 @@ func formatAIReviewComment(report *stepspec.AIReviewReport) string {
 }
 
 func formatAIReviewSummaryDetails(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的问题", inlineResult.Published)
-	if inlineResult.Skipped > 0 {
-		comment = strings.Replace(comment, "- 行内评论：", fmt.Sprintf("- 重复问题已跳过：%d\n- 行内评论：", inlineResult.Skipped), 1)
-		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "已有未解决线程的问题未重新发送。", 1)
-	}
+	var builder strings.Builder
 	if inlineResult.Failed {
-		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
+		builder.WriteString("行内评论发布未完成，请查看审查任务日志。\n")
 	}
-	return comment
+	if inlineResult.Skipped > 0 {
+		fmt.Fprintf(&builder, "已跳过 %d 个重复问题，已有未解决线程的问题未重新发送。\n", inlineResult.Skipped)
+	}
+	if len(inlineResult.Fallback) > 0 {
+		builder.WriteString("\n### 未能发布为行内评论的问题\n")
+		writeAIReviewFindings(&builder, inlineResult.Fallback)
+	}
+	if (report.Incomplete || report.ExitCode == 2) && len(report.Errors) == 0 && len(report.Warnings) == 0 {
+		builder.WriteString("审查未完整完成，请查看审查任务日志。\n")
+	}
+	if len(report.Errors) > 0 {
+		builder.WriteString("\n### 错误\n")
+		for _, reportErr := range report.Errors {
+			fmt.Fprintf(&builder, "\n- %s\n", markdownText(reportErr))
+		}
+	}
+	if len(report.Warnings) > 0 {
+		builder.WriteString("\n### 警告\n")
+		for _, warning := range report.Warnings {
+			fmt.Fprintf(&builder, "\n- %s\n", markdownText(warning))
+		}
+	}
+	return strings.TrimSpace(builder.String())
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	status := "🟢 审查通过"
-	message := "未发现经过验证的问题。"
+	status := "🟢 **审查通过**"
+	message := "代码质量良好，未发现明确问题。逻辑清晰，符合规范。🎉"
+	if len(report.Findings) > 0 {
+		message = fmt.Sprintf("**⚠️ 发现 %d 个问题，建议修复后再合并。**", len(report.Findings))
+	}
 	switch {
 	case report.Incomplete || report.ExitCode == 2:
-		status = "🟡 审查未完整完成"
-		message = "审查未完整完成，请展开明细查看错误和警告。"
+		status = "🟡 **审查未完整完成**"
+		message = "**⚠️ 审查未完整完成，请查看错误和警告。**"
 	case report.ExitCode == 1:
-		status = "🔴 发现阻断问题"
-		message = "发现阻断问题，请查看行内评论和审查明细。"
-	case len(report.Findings) > 0:
-		message = fmt.Sprintf("发现 %d 个问题，请查看行内评论和审查明细。", len(report.Findings))
+		status = "🔴 **发现阻断问题**"
 	}
-	severe, general, suggestions := 0, 0, 0
+	duration := "未知"
+	if report.DurationMS > 0 {
+		duration = strconv.FormatFloat(float64(report.DurationMS)/1000, 'f', -1, 64) + "s"
+	}
+	counts := make(map[string]int)
 	for _, finding := range report.Findings {
-		switch strings.ToLower(strings.TrimSpace(finding.Severity)) {
-		case "critical", "high":
-			severe++
-		case "medium":
-			general++
-		default:
-			suggestions++
-		}
+		counts[strings.ToLower(strings.TrimSpace(finding.Severity))]++
 	}
-	// Keep publication failures, skipped findings, errors and warnings in the existing detail format.
-	details := formatAIReviewSummaryDetails(report, inlineResult)
-	details = strings.TrimSuffix(details, "\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n"+aiReviewCommentMarker)
-	return fmt.Sprintf("## 🤖 Zadig AI Review\n\n**%s** · 模型 `%s` · 变更 `%d` 个文件\n\n---\n\n%s\n\n> 🟥 严重: **%d** | 🟨 一般: **%d** | 🟦 建议: **%d**\n\n<details>\n<summary>▶ 点击查看审查明细</summary>\n\n%s\n\n</details>\n\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n👍 准确 | 👎 误报（请评价本次审查）\n\n%s", status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, message, severe, general, suggestions, details, aiReviewCommentMarker)
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "### 🤖 Zadig AI Review\n\n%s · 模型 `%s` · 已扫描 `%d` 个文件 · 耗时 %s\n\n---\n\n%s\n\n`🟥 严重: %d` | `🟧 高: %d` | `🟨 中: %d` | `🟦 低: %d`\n", status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, duration, message, counts["critical"], counts["high"], counts["medium"], counts["low"])
+	if len(inlineResult.Links) > 0 {
+		fmt.Fprintf(&builder, "\n<details>\n<summary>🔗 <strong>查看 %d 条行内评论</strong></summary>\n\n", len(inlineResult.Links))
+		labels := map[string]string{"critical": "🟥 严重", "high": "🟧 高", "medium": "🟨 中", "low": "🟦 低", "info": "ℹ️ 提示"}
+		for _, link := range inlineResult.Links {
+			label := labels[strings.ToLower(strings.TrimSpace(link.Finding.Severity))]
+			if label == "" {
+				label = "ℹ️ 问题"
+			}
+			fmt.Fprintf(&builder, "- [%s：%s · `%s:%d`](<%s>)\n", label, aiReviewFindingTitle(link.Finding), markdownInline(link.Finding.File), link.Line, link.URL)
+		}
+		builder.WriteString("\n</details>\n")
+	} else if inlineResult.Published > 0 {
+		fmt.Fprintf(&builder, "\n已发布 %d 条行内评论，暂未获取跳转链接。\n", inlineResult.Published)
+	}
+	// Retain details only when publication or review diagnostics need explanation.
+	if inlineResult.Failed || inlineResult.Skipped > 0 || len(inlineResult.Fallback) > 0 || report.Incomplete || report.ExitCode == 2 || len(report.Errors) > 0 || len(report.Warnings) > 0 {
+		details := formatAIReviewSummaryDetails(report, inlineResult)
+		fmt.Fprintf(&builder, "\n<details>\n<summary>▶ 点击查看审查明细</summary>\n\n%s\n\n</details>\n", details)
+	}
+	builder.WriteString("\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n欢迎直接给本条评论添加 👍 (准确) 或 👎 (误报)\n\n" + aiReviewCommentMarker)
+	return builder.String()
 }
 
 func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []models.AIReviewInlineThread) ([]stepspec.AIReviewFinding, int) {

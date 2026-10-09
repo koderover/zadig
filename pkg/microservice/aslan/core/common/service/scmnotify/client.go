@@ -228,12 +228,14 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	}
 
 	comments := make([]*githubapi.DraftReviewComment, 0, len(findings))
+	publishedFindings := make([]stepspec.AIReviewFinding, 0, len(findings))
 	for _, finding := range findings {
 		anchor, ok := findAIReviewAddedLine(patches[finding.File], finding.StartLine, finding.EndLine)
 		if !ok {
 			result.Fallback = append(result.Fallback, finding)
 			continue
 		}
+		publishedFindings = append(publishedFindings, finding)
 		comments = append(comments, &githubapi.DraftReviewComment{
 			Path: githubapi.String(finding.File),
 			Body: githubapi.String(formatAIReviewInlineComment(finding)),
@@ -254,9 +256,22 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	}
 	result.Published = len(comments)
 	result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "review", CommentID: review.GetID(), ReviewID: review.GetID(), InlineTotal: len(comments)})
-	newThreads, err := reviewfeedback.ReadGitHubInlineThreads(ctx, cli, repoOwner, repoName, prID, review.GetID())
+	newThreads, publishedComments, err := reviewfeedback.ReadGitHubInlineThreads(ctx, cli, repoOwner, repoName, prID, review.GetID())
 	if err != nil && c.logger != nil {
 		c.logger.Warnf("failed to register GitHub inline comment IDs for review %d: %v", review.GetID(), err)
+	}
+	for _, item := range publishedComments {
+		if item.GetHTMLURL() == "" {
+			continue
+		}
+		finding := stepspec.AIReviewFinding{Title: "行内评论", File: item.GetPath()}
+		for i, draft := range comments {
+			if item.GetPath() == draft.GetPath() && item.GetLine() == draft.GetLine() && item.GetBody() == draft.GetBody() {
+				finding = publishedFindings[i]
+				break
+			}
+		}
+		result.Links = append(result.Links, aiReviewInlineLink{URL: item.GetHTMLURL(), Finding: finding, Line: item.GetLine()})
 	}
 	result.Threads = append(result.Threads, newThreads...)
 	return result, nil
@@ -330,6 +345,9 @@ func (c *Client) createGitLabAIReviewInlineComments(ctx context.Context, cli *gi
 		}
 		result.Published++
 		if len(discussion.Notes) > 0 {
+			if result.URL != "" && discussion.Notes[0].ID > 0 {
+				result.Links = append(result.Links, aiReviewInlineLink{URL: fmt.Sprintf("%s#note_%d", result.URL, discussion.Notes[0].ID), Finding: finding, Line: anchor})
+			}
 			result.Comments = append(result.Comments, reviewfeedback.PublishedComment{Kind: "note", CommentID: int64(discussion.Notes[0].ID)})
 			result.Threads = append(result.Threads, models.AIReviewInlineThread{CommentID: int64(discussion.Notes[0].ID), ThreadID: discussion.ID, Resolved: discussion.Notes[0].Resolved, Fingerprint: finding.Fingerprint})
 		}
