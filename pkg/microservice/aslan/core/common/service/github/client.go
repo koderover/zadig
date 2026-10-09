@@ -17,6 +17,8 @@ limitations under the License.
 package github
 
 import (
+	"context"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/git/github"
@@ -39,15 +41,15 @@ func NewClient(accessToken, proxyAddress string, enableProxy bool) *Client {
 	}
 }
 
-func GetGithubAppClientByOwner(owner string) (*Client, error) {
-	githubApps, _ := commonrepo.NewGithubAppColl().Find()
+func GetGithubAppClientByOwner(ctx context.Context, owner string) (*Client, error) {
+	githubApps, _ := commonrepo.NewGithubAppColl().Find(ctx)
 	if len(githubApps) == 0 {
 		return nil, nil
 	}
 	appKey := githubApps[0].AppKey
 	appID := githubApps[0].AppID
 
-	gc, err := github.NewAppClient(&github.Config{
+	gc, err := github.NewAppClientWithContext(ctx, &github.Config{
 		AppKey: appKey,
 		AppID:  appID,
 		Owner:  owner,

@@ -18,6 +18,7 @@ package webhook
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 )
 
@@ -51,6 +52,7 @@ type task struct {
 	add, enableProxy, isManual, disbaleSSL                      bool
 	ensureAIReviewWebhook                                       bool
 	err                                                         error
+	canceled                                                    atomic.Bool
 	doneCh                                                      chan struct{}
 }
 
@@ -95,7 +97,7 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 		region:                taskOption.Region,
 		isManual:              taskOption.IsManual,
 		ensureAIReviewWebhook: taskOption.EnsureAIReviewWebhook,
-		doneCh:                make(chan struct{}),
+		doneCh:                make(chan struct{}, 1),
 	}
 
 	select {
@@ -112,7 +114,8 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	select {
 	case <-t.doneCh:
 	case <-time.After(timeout):
-		t.err = fmt.Errorf("timed out waiting for the task")
+		t.canceled.Store(true)
+		return fmt.Errorf("timed out waiting for the task")
 	}
 
 	return t.err
@@ -139,7 +142,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
 		isManual:    taskOption.IsManual,
-		doneCh:      make(chan struct{}),
+		doneCh:      make(chan struct{}, 1),
 	}
 
 	select {
@@ -151,7 +154,8 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	select {
 	case <-t.doneCh:
 	case <-time.After(taskTimeoutSecond * time.Second):
-		t.err = fmt.Errorf("timed out waiting for the task")
+		t.canceled.Store(true)
+		return fmt.Errorf("timed out waiting for the task")
 	}
 
 	return t.err
