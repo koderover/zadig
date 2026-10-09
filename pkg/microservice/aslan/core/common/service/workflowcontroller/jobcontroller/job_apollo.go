@@ -87,6 +87,9 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 			fail = true
 			continue
 		}
+		if namespace.Status == string(config.StatusPassed) {
+			continue
+		}
 		namespace.Status = string(config.StatusRunning)
 		namespace.Error = ""
 		c.ack()
@@ -161,26 +164,30 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 		return errors.New("no concrete namespace target found")
 	}
 
-	created, err := client.CreateAppNamespace(namespace.AppID, &apollo.CreateAppNamespaceArgs{
-		Name:                strings.TrimSpace(namespace.Namespace),
-		AppID:               namespace.AppID,
-		Format:              namespace.Type,
-		IsPublic:            false,
-		Comment:             "created by Zadig workflow",
-		DataChangeCreatedBy: user,
-	})
-	if err != nil {
-		return fmt.Errorf("create app namespace failed: %w", err)
-	}
+	if !namespace.AppNamespaceCreated {
+		created, err := client.CreateAppNamespace(namespace.AppID, &apollo.CreateAppNamespaceArgs{
+			Name:                strings.TrimSpace(namespace.Namespace),
+			AppID:               namespace.AppID,
+			Format:              namespace.Type,
+			IsPublic:            false,
+			Comment:             "created by Zadig workflow",
+			DataChangeCreatedBy: user,
+		})
+		if err != nil {
+			return fmt.Errorf("create app namespace failed: %w", err)
+		}
 
-	namespaceName := ""
-	if created != nil {
-		namespaceName = strings.TrimSpace(created.Name)
+		namespaceName := ""
+		if created != nil {
+			namespaceName = strings.TrimSpace(created.Name)
+		}
+		if namespaceName == "" {
+			namespaceName = apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
+		}
+		namespace.Namespace = namespaceName
+		namespace.AppNamespaceCreated = true
+		c.ack()
 	}
-	if namespaceName == "" {
-		namespaceName = apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
-	}
-	namespace.Namespace = namespaceName
 
 	partialFailure := false
 	targetErrors := make([]string, 0)
