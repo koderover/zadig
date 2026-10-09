@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 const (
@@ -110,25 +111,25 @@ func buildReleasePlanCustomFields(existing, submitted []*models.ReleasePlanCusto
 
 func validateReleasePlanCustomFieldDefinition(field *models.ReleasePlanCustomFieldDefinition) error {
 	if field.Name == "" {
-		return errors.New("custom field name cannot be empty")
+		return e.ErrInvalidParam.AddDesc("custom field name cannot be empty")
 	}
 	if _, ok := releasePlanCustomFieldTypes[field.Type]; !ok {
-		return fmt.Errorf("unsupported custom field type %s", field.Type)
+		return e.ErrInvalidParam.AddDesc(fmt.Sprintf("unsupported custom field type %s", field.Type))
 	}
 	selectionType := isReleasePlanCustomFieldSelectionType(field.Type)
 	if selectionType && len(field.Options) == 0 {
-		return fmt.Errorf("options of custom field %s cannot be empty", field.Name)
+		return e.ErrInvalidParam.AddDesc(fmt.Sprintf("options of custom field %s cannot be empty", field.Name))
 	}
 	if !selectionType && len(field.Options) > 0 {
-		return fmt.Errorf("options are only supported for selection fields")
+		return e.ErrInvalidParam.AddDesc("options are only supported for selection fields")
 	}
 	seen := make(map[string]struct{}, len(field.Options))
 	for _, option := range field.Options {
 		if option == "" {
-			return fmt.Errorf("options of custom field %s cannot contain empty values", field.Name)
+			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("options of custom field %s cannot contain empty values", field.Name))
 		}
 		if _, ok := seen[option]; ok {
-			return fmt.Errorf("duplicate option %s in custom field %s", option, field.Name)
+			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("duplicate option %s in custom field %s", option, field.Name))
 		}
 		seen[option] = struct{}{}
 	}
@@ -147,7 +148,7 @@ func snapshotReleasePlanCustomFields(plan *models.ReleasePlan, definitions []*mo
 	if isCopy {
 		plan.CustomFields = filterReleasePlanCustomFieldValues(definitions, plan.CustomFields)
 	} else if err := validateReleasePlanCustomFieldValues(definitions, plan.CustomFields, false); err != nil {
-		return errors.Wrap(err, "validate release plan custom fields")
+		return err
 	}
 	plan.CustomFieldDefinitions = definitions
 	return nil
@@ -180,16 +181,16 @@ func validateReleasePlanCustomFieldValues(definitions []*models.ReleasePlanCusto
 	for key, value := range values {
 		definition, ok := byKey[key]
 		if !ok {
-			return fmt.Errorf("custom field %s is not defined", key)
+			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s is not defined", key))
 		}
 		if err := validateReleasePlanCustomFieldValue(definition, value); err != nil {
-			return errors.Wrapf(err, "custom field %s", definition.Name)
+			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s: %s", definition.Name, err))
 		}
 	}
 	if requireRequired {
 		for _, definition := range definitions {
 			if definition != nil && definition.Required && isEmptyReleasePlanCustomFieldValue(values[definition.Key]) {
-				return fmt.Errorf("required custom field %s is empty", definition.Name)
+				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("required custom field %s is empty", definition.Name))
 			}
 		}
 	}

@@ -465,6 +465,9 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "lint")
 	}
 	if err = updater.Update(plan); err != nil {
+		if _, ok := errors.Cause(err).(*e.HTTPError); ok {
+			return err
+		}
 		return errors.Wrap(err, "update")
 	}
 
@@ -1375,7 +1378,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusFinishPlanning:
 		if err := validateReleasePlanCustomFieldValues(plan.CustomFieldDefinitions, plan.CustomFields, true); err != nil {
-			return errors.Wrap(err, "validate required release plan custom fields")
+			return err
 		}
 		for _, job := range plan.Jobs {
 			err := lintReleaseJob(job.Type, job.Spec)
@@ -1827,7 +1830,7 @@ func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHoo
 	} else {
 		req.CustomFields, err = buildReleasePlanCustomFields(current.CustomFields, req.CustomFields)
 		if err != nil {
-			return errors.Wrap(err, "validate release plan custom fields")
+			return err
 		}
 	}
 	if err := mongodb.NewSystemSettingColl().UpdateReleasePlanHookSetting(req); err != nil {
