@@ -18,7 +18,7 @@ package apollo
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -60,7 +60,7 @@ func NormalizeItemKey(format, key string) string {
 func NormalizeNamespaceName(name, format string) string {
 	name = strings.TrimSpace(name)
 	format = strings.ToLower(strings.TrimSpace(format))
-	if !IsFileNamespace(format) || strings.EqualFold(filepath.Ext(name), "."+format) {
+	if !IsFileNamespace(format) || strings.EqualFold(path.Ext(name), "."+format) {
 		return name
 	}
 	return name + "." + format
@@ -68,7 +68,7 @@ func NormalizeNamespaceName(name, format string) string {
 
 func ValidateNamespaceName(name string) error {
 	name = strings.TrimSpace(name)
-	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(name)), ".")
+	ext := strings.TrimPrefix(strings.ToLower(path.Ext(name)), ".")
 	if ext == "" {
 		return nil
 	}

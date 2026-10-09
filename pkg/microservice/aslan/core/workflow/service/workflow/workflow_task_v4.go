@@ -1207,11 +1207,11 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				if jobTask.JobType == string(config.JobApollo) {
 					currentSpec := &commonmodels.JobTaskApolloSpec{}
 					if err := commonmodels.IToi(jobTask.Spec, currentSpec); err != nil {
-						return errors.Errorf("decode current apollo task %s error: %s", jobTask.Name, err)
+						return errors.Errorf("failed to decode current apollo task %s spec, error: %s", jobTask.Name, err)
 					}
 					retrySpec := &commonmodels.JobTaskApolloSpec{}
 					if err := commonmodels.IToi(t.Spec, retrySpec); err != nil {
-						return errors.Errorf("decode retry apollo task %s error: %s", jobTask.Name, err)
+						return errors.Errorf("failed to decode retry apollo task %s spec, error: %s", jobTask.Name, err)
 					}
 					mergeApolloRetryState(currentSpec, retrySpec)
 					t.Spec = retrySpec

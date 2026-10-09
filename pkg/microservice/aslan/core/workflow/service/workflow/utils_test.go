@@ -47,6 +47,126 @@ func TestGitCheckUsesExplicitTaskURL(t *testing.T) {
 	require.Equal(t, "https://zadig.example/v1/projects/detail/demo/pipelines/custom/zadig-scanning-scan-id/7?display_name=review", check.DetailsURL())
 }
 
+func TestMergeApolloRetryState(t *testing.T) {
+	currentSpec := &commonmodels.JobTaskApolloSpec{
+		NamespaceList: []*commonmodels.JobTaskApolloNamespace{
+			nil,
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "passed",
+				},
+				Status: string(config.StatusPassed),
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "failed",
+				},
+				Status: string(config.StatusFailed),
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "running",
+				},
+				Status: string(config.StatusRunning),
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionCreate,
+					AppID:     "app",
+					Namespace: "feature.yaml",
+					Type:      "yaml",
+				},
+				AppNamespaceCreated: true,
+				Status:              string(config.StatusFailed),
+			},
+		},
+	}
+	retrySpec := &commonmodels.JobTaskApolloSpec{
+		NamespaceList: []*commonmodels.JobTaskApolloNamespace{
+			nil,
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "passed",
+				},
+				Status: string(config.StatusCreated),
+				Error:  "stale error",
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "failed",
+				},
+				Status: string(config.StatusCreated),
+				Error:  "stale error",
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "running",
+				},
+				Status: string(config.StatusCreated),
+				Error:  "stale error",
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionCreate,
+					AppID:     "app",
+					Namespace: "feature",
+					Type:      "yaml",
+				},
+				Status: string(config.StatusCreated),
+				Error:  "stale error",
+			},
+			{
+				ApolloNamespace: commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
+					AppID:     "app",
+					Env:       "dev",
+					ClusterID: "default",
+					Namespace: "unmatched",
+				},
+				Status: string(config.StatusCreated),
+			},
+		},
+	}
+
+	mergeApolloRetryState(currentSpec, retrySpec)
+
+	require.Equal(t, string(config.StatusPassed), retrySpec.NamespaceList[1].Status)
+	require.Empty(t, retrySpec.NamespaceList[1].Error)
+	require.Equal(t, string(config.StatusCreated), retrySpec.NamespaceList[2].Status)
+	require.Empty(t, retrySpec.NamespaceList[2].Error)
+	require.Equal(t, string(config.StatusCreated), retrySpec.NamespaceList[3].Status)
+	require.Empty(t, retrySpec.NamespaceList[3].Error)
+	require.True(t, retrySpec.NamespaceList[4].AppNamespaceCreated)
+	require.Equal(t, "feature.yaml", retrySpec.NamespaceList[4].Namespace)
+	require.Equal(t, string(config.StatusCreated), retrySpec.NamespaceList[4].Status)
+	require.Empty(t, retrySpec.NamespaceList[4].Error)
+	require.Equal(t, string(config.StatusCreated), retrySpec.NamespaceList[5].Status)
+}
+
 var _ = Describe("Testing utils", func() {
 
 	Context("validateHookNames", func() {

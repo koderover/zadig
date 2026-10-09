@@ -138,7 +138,7 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 		allowedTargets := make(map[string]struct{}, len(c.jobTaskSpec.NamespaceListOption))
 		for _, option := range c.jobTaskSpec.NamespaceListOption {
 			if option != nil {
-				allowedTargets[apolloTargetKey(option.AppID, option.Env, option.ClusterID)] = struct{}{}
+				allowedTargets[apolloTargetKey(option.ClusterID, option.AppID, option.Env)] = struct{}{}
 			}
 		}
 		for _, env := range targets {
@@ -146,7 +146,7 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 				continue
 			}
 			for _, cluster := range env.Clusters {
-				key := apolloTargetKey(namespace.AppID, env.Env, cluster)
+				key := apolloTargetKey(cluster, namespace.AppID, env.Env)
 				if _, ok := allowedTargets[key]; !ok {
 					return fmt.Errorf("apollo target [appID=%s, env=%s, cluster=%s] is not allowed to be created", namespace.AppID, env.Env, cluster)
 				}
@@ -223,7 +223,7 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 	return nil
 }
 
-func apolloTargetKey(appID, env, cluster string) string {
+func apolloTargetKey(cluster, appID, env string) string {
 	return fmt.Sprintf("%s++%s++%s", cluster, appID, env)
 }
 
