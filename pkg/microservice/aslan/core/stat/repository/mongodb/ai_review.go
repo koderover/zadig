@@ -24,7 +24,9 @@ func (c *AIReviewStatColl) EnsureIndex(ctx context.Context) error {
 	_, err := c.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "project_name", Value: 1}, {Key: "codehost_id", Value: 1}, {Key: "repo_owner", Value: 1}, {Key: "repo_name", Value: 1}, {Key: "workflow_name", Value: 1}, {Key: "task_id", Value: 1}}, Options: options.Index().SetUnique(true)},
 		{Keys: bson.D{{Key: "reviewed_at", Value: 1}, {Key: "project_name", Value: 1}}},
+		{Keys: bson.D{{Key: "project_name", Value: 1}, {Key: "reviewed_at", Value: 1}}},
 		{Keys: bson.D{{Key: "codehost_id", Value: 1}, {Key: "repo_owner", Value: 1}, {Key: "repo_name", Value: 1}, {Key: "reviewed_at", Value: -1}}},
+		{Keys: bson.D{{Key: "codehost_id", Value: 1}, {Key: "repo_owner", Value: 1}, {Key: "repo_name", Value: 1}, {Key: "pr", Value: 1}, {Key: "reviewed_at", Value: 1}}},
 	}, mongotool.CreateIndexOptions(ctx))
 	return err
 }

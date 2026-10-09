@@ -16,14 +16,36 @@ func isAIReviewSummary(body string) bool {
 		(strings.HasPrefix(body, "## Zadig AI Review\n") || strings.HasPrefix(body, "## Zadig AI 代码审查\n") || strings.HasPrefix(body, "## 🤖 Zadig AI Review\n") || strings.HasPrefix(body, "### 🤖 Zadig AI Review\n"))
 }
 
-func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, owner, name string, pr int, currentID int64) error {
-	opts := &githubapi.IssueListCommentsOptions{Sort: githubapi.String("created"), Direction: githubapi.String("asc"), ListOptions: githubapi.ListOptions{PerPage: 100}}
-	for {
-		comments, resp, err := cli.Issues.ListComments(ctx, owner, name, pr, opts)
-		if err != nil {
-			return err
+const aiReviewArchiveCheckpoint = "<!-- zadig-ai-review-archive-checkpoint -->"
+
+func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, owner, name string, pr int, currentID int64, currentBody string) error {
+	if !isAIReviewSummary(currentBody) {
+		return fmt.Errorf("current GitHub comment %d is not an AI review summary", currentID)
+	}
+	opts := &githubapi.IssueListCommentsOptions{ListOptions: githubapi.ListOptions{PerPage: 100}}
+	// The issue comments endpoint is ordered oldest first; start from its last page.
+	first, resp, err := cli.Issues.ListComments(ctx, owner, name, pr, opts)
+	if err != nil {
+		return err
+	}
+	if resp != nil && resp.NextPage > 0 && resp.LastPage == 0 {
+		return fmt.Errorf("GitHub comment pagination is missing the last page")
+	}
+	opts.Page = 1
+	if resp != nil && resp.LastPage > 1 {
+		opts.Page = resp.LastPage
+	}
+	complete := false
+	for !complete {
+		comments := first
+		if opts.Page > 1 {
+			comments, _, err = cli.Issues.ListComments(ctx, owner, name, pr, opts)
+			if err != nil {
+				return err
+			}
 		}
-		for _, comment := range comments {
+		for i := len(comments) - 1; i >= 0; i-- {
+			comment := comments[i]
 			if comment == nil || comment.GetID() <= 0 || comment.GetID() >= currentID || !isAIReviewSummary(comment.GetBody()) {
 				continue
 			}
@@ -33,12 +55,24 @@ func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, 
 			if err := reviewfeedback.MinimizeGitHubComment(ctx, cli, comment.GetNodeID()); err != nil {
 				return fmt.Errorf("minimize GitHub summary comment %d: %w", comment.GetID(), err)
 			}
+			// A checkpoint confirms every older summary was successfully archived.
+			if strings.Contains(comment.GetBody(), aiReviewArchiveCheckpoint) {
+				complete = true
+				break
+			}
 		}
-		if resp == nil || resp.NextPage == 0 {
-			return nil
+		if opts.Page <= 1 {
+			break
 		}
-		opts.Page = resp.NextPage
+		opts.Page--
 	}
+	if !strings.Contains(currentBody, aiReviewArchiveCheckpoint) {
+		currentBody += "\n" + aiReviewArchiveCheckpoint
+		if _, _, err := cli.Issues.EditComment(ctx, owner, name, currentID, &githubapi.IssueComment{Body: &currentBody}); err != nil {
+			return fmt.Errorf("record GitHub summary archive checkpoint %d: %w", currentID, err)
+		}
+	}
+	return nil
 }
 
 func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, project string, pr int, currentID int64) error {
