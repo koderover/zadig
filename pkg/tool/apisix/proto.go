@@ -18,6 +18,7 @@ package apisix
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Proto represents an APISIX proto configuration for gRPC
@@ -27,6 +28,26 @@ type Proto struct {
 	Desc    string            `json:"desc,omitempty"`
 	Content string            `json:"content,omitempty"` // Content of .proto or .pb files
 	Labels  map[string]string `json:"labels,omitempty"`
+}
+
+// protoRequest uses fields accepted by APISIX proto schemas before 3.13.
+type protoRequest struct {
+	ID      string `json:"id,omitempty"`
+	Desc    string `json:"desc,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
+func newProtoRequest(proto *Proto) *protoRequest {
+	return &protoRequest{
+		ID:      proto.ID,
+		Desc:    proto.Desc,
+		Content: proto.Content,
+	}
+}
+
+// isProtoSchemaRejected reports whether APISIX before 3.13 rejected name or labels.
+func isProtoSchemaRejected(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "additional properties forbidden")
 }
 
 // ProtoResponse represents a single proto response from APISIX Admin API
@@ -53,6 +74,9 @@ func (c *Client) CreateProto(proto *Proto) (*ProtoResponse, error) {
 	resp := new(ProtoResponse)
 
 	err := c.Post(url, proto, resp)
+	if isProtoSchemaRejected(err) {
+		err = c.Post(url, newProtoRequest(proto), resp)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create proto: %s", err)
 	}
@@ -67,6 +91,9 @@ func (c *Client) UpdateProto(id string, proto *Proto) (*ProtoResponse, error) {
 	resp := new(ProtoResponse)
 
 	err := c.Put(url, proto, resp)
+	if isProtoSchemaRejected(err) {
+		err = c.Put(url, newProtoRequest(proto), resp)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update proto: %s", err)
 	}
@@ -122,4 +149,3 @@ func (c *Client) DeleteProto(id string) error {
 
 	return nil
 }
-
