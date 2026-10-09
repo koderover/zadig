@@ -63,13 +63,16 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 	if report == nil || prID <= 0 {
 		return AIReviewPRMetadata{}, nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	deadline, _ := ctx.Deadline()
 	projectID := strings.TrimLeft(repoOwner+"/"+repoName, "/")
 	inlineResult := aiReviewInlinePublishResult{}
 	var inlineErr error
 	if len(report.Findings) > 0 {
-		publishCtx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		publishCtx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 		defer cancel()
-		token, lockErr := reviewfeedback.AcquirePublication(publishCtx, codehostID, repoOwner, repoName, prID)
+		token, lockErr := reviewfeedback.AcquirePublication(publishCtx, codehostID, repoOwner, repoName, prID, deadline.Add(time.Minute))
 		if lockErr != nil {
 			inlineErr = lockErr
 		} else {
@@ -88,7 +91,7 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	summary, summaryErr := s.Client.CreateAIReviewComment(codehostID, projectID, repoOwner, repoName, prID, comment)
+	summary, summaryErr := s.Client.CreateAIReviewComment(ctx, codehostID, projectID, repoOwner, repoName, prID, comment)
 	comments := inlineResult.Comments
 	if summaryErr == nil {
 		comments = append(comments, summary)
@@ -96,13 +99,15 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
 	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
 	if title == "" {
-		var err error
-		numericProjectID, metadata, err = s.Client.getAIReviewPRMetadata(codehostID, projectID, repoOwner, repoName, prID)
+		resolvedProjectID, fetched, err := s.Client.getAIReviewPRMetadata(ctx, codehostID, projectID, repoOwner, repoName, prID)
 		if err != nil {
 			logger.Warnf("resolve AI review PR metadata: %v", err)
+		} else {
+			numericProjectID, metadata = resolvedProjectID, fetched
 		}
 		title = metadata.Title
 	}
+	// Register confirmed comments even when publication exhausted its deadline.
 	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := reviewfeedback.Register(registerCtx, projectName, title, codehostID, numericProjectID, repoOwner, repoName, prID, comments, inlineResult.Threads); err != nil {
@@ -114,6 +119,9 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 	logger.Infof("published AI review result to %s #%d", projectID, prID)
 	if inlineErr != nil {
 		return metadata, fmt.Errorf("publish inline AI review comments: %w", inlineErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return metadata, fmt.Errorf("publish AI review result: %w", err)
 	}
 	return metadata, nil
 }
@@ -166,7 +174,9 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 		status = "🔴 **发现阻断问题**"
 	}
 	duration := "未知"
-	if report.DurationMS > 0 {
+	if report.DurationMS > 60000 {
+		duration = fmt.Sprintf("%.2fm", float64(report.DurationMS)/60000)
+	} else if report.DurationMS > 0 {
 		duration = strconv.FormatFloat(float64(report.DurationMS)/1000, 'f', -1, 64) + "s"
 	}
 	counts := make(map[string]int)

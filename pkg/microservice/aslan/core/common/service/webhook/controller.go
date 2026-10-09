@@ -107,8 +107,8 @@ func (c *controller) processNextWorkItem() bool {
 		zap.String("ref", t.ref),
 	)
 
-	if t.err != nil {
-		logger.Warn(fmt.Sprintf("Task is canceled with reason: %s", t.err))
+	if t.canceled.Load() {
+		logger.Warn("Task is canceled: timed out waiting for the task")
 		return true
 	}
 

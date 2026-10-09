@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -47,7 +48,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		return nil
 	}
 
-	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
+	ghApp, err := github.GetGithubAppClientByOwner(context.Background(), hook.Owner)
 	if err != nil {
 		log.Errorf("getGithubAppClient failed, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)

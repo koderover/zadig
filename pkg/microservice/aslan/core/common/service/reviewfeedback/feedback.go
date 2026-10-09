@@ -27,7 +27,7 @@ import (
 const leaseDuration = 5 * time.Minute
 
 // AcquirePublication serializes publishing and feedback reconciliation for one PR.
-func AcquirePublication(ctx context.Context, codehostID int, owner, name string, pr int) (string, error) {
+func AcquirePublication(ctx context.Context, codehostID int, owner, name string, pr int, leaseUntil time.Time) (string, error) {
 	key := prKey(codehostID, owner, name, pr)
 	coll := repo.NewAIReviewFeedbackColl()
 	initial := prKey(codehostID, owner, name, pr)
@@ -40,7 +40,7 @@ func AcquirePublication(ctx context.Context, codehostID int, owner, name string,
 		now := time.Now()
 		filter := prKey(codehostID, owner, name, pr)
 		filter["$or"] = bson.A{bson.M{"lease_until": bson.M{"$lte": now}}, bson.M{"lease_until": bson.M{"$exists": false}}}
-		result, err := coll.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"lease_token": token, "lease_until": now.Add(leaseDuration)}})
+		result, err := coll.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"lease_token": token, "lease_until": leaseUntil}})
 		if err != nil {
 			return "", err
 		}
