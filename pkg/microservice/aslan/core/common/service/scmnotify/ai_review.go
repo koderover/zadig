@@ -115,7 +115,7 @@ func formatAIReviewComment(report *stepspec.AIReviewReport) string {
 	return formatAIReviewCommentWithFindings(report, report.Findings, "审查问题", -1)
 }
 
-func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
+func formatAIReviewSummaryDetails(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
 	comment := formatAIReviewCommentWithFindings(report, inlineResult.Fallback, "未能发布为行内评论的问题", inlineResult.Published)
 	if inlineResult.Skipped > 0 {
 		comment = strings.Replace(comment, "- 行内评论：", fmt.Sprintf("- 重复问题已跳过：%d\n- 行内评论：", inlineResult.Skipped), 1)
@@ -125,6 +125,36 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 		comment = strings.Replace(comment, "所有问题均已发布为行内评论。", "行内评论发布未完成，请查看审查任务日志。", 1)
 	}
 	return comment
+}
+
+func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
+	status := "🟢 审查通过"
+	message := "未发现经过验证的问题。"
+	switch {
+	case report.Incomplete || report.ExitCode == 2:
+		status = "🟡 审查未完整完成"
+		message = "审查未完整完成，请展开明细查看错误和警告。"
+	case report.ExitCode == 1:
+		status = "🔴 发现阻断问题"
+		message = "发现阻断问题，请查看行内评论和审查明细。"
+	case len(report.Findings) > 0:
+		message = fmt.Sprintf("发现 %d 个问题，请查看行内评论和审查明细。", len(report.Findings))
+	}
+	severe, general, suggestions := 0, 0, 0
+	for _, finding := range report.Findings {
+		switch strings.ToLower(strings.TrimSpace(finding.Severity)) {
+		case "critical", "high":
+			severe++
+		case "medium":
+			general++
+		default:
+			suggestions++
+		}
+	}
+	// Keep publication failures, skipped findings, errors and warnings in the existing detail format.
+	details := formatAIReviewSummaryDetails(report, inlineResult)
+	details = strings.TrimSuffix(details, "\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n"+aiReviewCommentMarker)
+	return fmt.Sprintf("## 🤖 Zadig AI Review\n\n**%s** · 模型 `%s` · 变更 `%d` 个文件\n\n---\n\n%s\n\n> 🟥 严重: **%d** | 🟨 一般: **%d** | 🟦 建议: **%d**\n\n<details>\n<summary>▶ 点击查看审查明细</summary>\n\n%s\n\n</details>\n\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n👍 准确 | 👎 误报（请评价本次审查）\n\n%s", status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, message, severe, general, suggestions, details, aiReviewCommentMarker)
 }
 
 func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []models.AIReviewInlineThread) ([]stepspec.AIReviewFinding, int) {

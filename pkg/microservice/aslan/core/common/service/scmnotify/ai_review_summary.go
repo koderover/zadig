@@ -13,7 +13,7 @@ import (
 func isAIReviewSummary(body string) bool {
 	return strings.Contains(body, aiReviewCommentMarker) &&
 		!strings.Contains(body, "<!-- zadig-ai-review-fingerprint:") &&
-		(strings.HasPrefix(body, "## Zadig AI Review\n") || strings.HasPrefix(body, "## Zadig AI 代码审查\n"))
+		(strings.HasPrefix(body, "## Zadig AI Review\n") || strings.HasPrefix(body, "## Zadig AI 代码审查\n") || strings.HasPrefix(body, "## 🤖 Zadig AI Review\n"))
 }
 
 func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, owner, name string, pr int, currentID int64) error {
