@@ -33,7 +33,6 @@ import (
 	c "github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/cmd"
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -52,7 +51,7 @@ func (r *Reaper) runGitCmds() error {
 
 	envs := r.getUserEnvs()
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.IsEnvProxyType() {
+	if r.Ctx.Proxy.EnableRepoProxy && (r.Ctx.Proxy.Type == "http" || r.Ctx.Proxy.Type == "https" || r.Ctx.Proxy.Type == "socks5") {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range r.Ctx.Repos {
@@ -90,7 +89,6 @@ func (r *Reaper) runGitCmds() error {
 	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
 	var tokens []string
 	var hostNames = sets.NewString()
-	proxyHosts := sets.NewString()
 	for _, repo := range r.Ctx.Repos {
 		if repo == nil || len(repo.Name) == 0 {
 			continue
@@ -114,11 +112,11 @@ func (r *Reaper) runGitCmds() error {
 			tokens = append(tokens, repo.SSHKey)
 		}
 		tokens = append(tokens, repo.OauthToken)
-		cmds = append(cmds, r.buildGitCommands(repo, hostNames, proxyHosts)...)
+		cmds = append(cmds, r.buildGitCommands(repo, hostNames)...)
 	}
 	// write ssh key
 	if len(hostNames.List()) > 0 {
-		if err := writeSSHConfigFile(hostNames, proxyHosts, r.Ctx.Proxy); err != nil {
+		if err := writeSSHConfigFile(hostNames, r.Ctx.Proxy); err != nil {
 			return err
 		}
 	}
@@ -163,7 +161,7 @@ func (r *Reaper) runGitCmds() error {
 	return nil
 }
 
-func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames, proxyHosts sets.String) []*c.Command {
+func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.Command {
 
 	cmds := make([]*c.Command, 0)
 
@@ -225,9 +223,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames, proxyHosts sets.St
 	} else if repo.Source == meta.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
-			if repo.EnableProxy {
-				proxyHosts.Insert(host)
-			}
 			if !hostNames.Has(host) {
 				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %s", err)
@@ -294,18 +289,14 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames, proxyHosts sets.St
 	return cmds
 }
 
-func writeSSHConfigFile(hostNames, proxyHosts sets.String, proxy *meta.Proxy) error {
+func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
 	for _, hostName := range hostNames.List() {
 		name := strings.Replace(hostName, ".", "", -1)
 		name = strings.Replace(name, ":", "", -1)
 		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
-		if proxyHosts.Has(hostName) && proxy.EnableRepoProxy && proxy.Type == "socks5" {
-			command, err := socks5.SSHProxyCommand(proxy.GetProxyURL())
-			if err != nil {
-				return err
-			}
-			out += command
+		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
+			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")

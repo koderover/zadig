@@ -145,9 +145,7 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 		return fmt.Errorf("RegistryNamespace.Create error: %v", err)
 	}
 
-	err = commonutil.SyncDinDForRegistries()
-	SyncDinDProxyConfig(log)
-	return err
+	return commonutil.SyncDinDForRegistries()
 }
 
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
@@ -206,9 +204,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 		}
 	})
 
-	err = commonutil.SyncDinDForRegistries()
-	SyncDinDProxyConfig(log)
-	return err
+	return commonutil.SyncDinDForRegistries()
 }
 
 func ValidateRegistryNamespace(args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
@@ -270,9 +266,7 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 			return err
 		}
 	}
-	err = commonutil.SyncDinDForRegistries()
-	SyncDinDProxyConfig(log)
-	return err
+	return commonutil.SyncDinDForRegistries()
 }
 
 // GetRegistryReferences returns a list of environments that are using the specified registry, grouped by project

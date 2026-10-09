@@ -44,7 +44,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -53,7 +52,6 @@ import (
 	redisEventBus "github.com/koderover/zadig/v2/pkg/tool/eventbus/redis"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -367,10 +365,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		return nil, fmt.Errorf("failed to ensure dind TLS certs: %w", err)
 	}
 	dindTLS := DindTLSSecretTemplate(dindTLSCerts)
-	dindProxy, err := commonutil.GetDinDProxy()
-	if err != nil {
-		return nil, err
-	}
 
 	yaml := agentYaml
 	if cluster.AdvancedConfig != nil {
@@ -429,7 +423,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			DindStorageDriver:    dindStorageDriver,
 			DindTLS:              dindTLS,
-			DindProxy:            *dindProxy,
 			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
@@ -457,7 +450,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			DindStorageDriver:    dindStorageDriver,
 			DindTLS:              dindTLS,
-			DindProxy:            *dindProxy,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
 			Toleration:           cluster.AdvancedConfig.AgentToleration,
@@ -706,11 +698,6 @@ func InitializeExternalCluster(clusterID string) error {
 		})
 	}
 
-	dindProxy, err := commonutil.GetDinDProxy()
-	if err != nil {
-		return err
-	}
-	registrytool.ApplyDinDProxyEnvs(dindSts, dindProxy)
 	_, err = clientset.AppsV1().StatefulSets("koderover-agent").Create(context.TODO(), dindSts, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind sts to initialize cluster, err: %s", err)
@@ -793,7 +780,6 @@ type TemplateSchema struct {
 	DindStorageSizeInGiB int
 	DindStorageDriver    string
 	DindTLS              DindTLSSecretTemplateData
-	DindProxy            registrytool.DinDProxy
 	ScheduleWorkflow     bool
 	EnableIRSA           bool
 	IRSARoleARN          string
@@ -1143,10 +1129,6 @@ kind: StatefulSet
 metadata:
   name: dind
   namespace: {{.Namespace}}
-  {{- if .DindProxy.HTTPProxy }}
-  annotations:
-    zadig.koderover.com/proxy-env-managed: "true"
-  {{- end }}
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
@@ -1189,15 +1171,6 @@ spec:
       containers:
         - name: dind
           image: {{.DindImage}}
-          {{- if .DindProxy.HTTPProxy }}
-          env:
-            - name: HTTP_PROXY
-              value: {{printf "%q" .DindProxy.HTTPProxy}}
-            - name: HTTPS_PROXY
-              value: {{printf "%q" .DindProxy.HTTPSProxy}}
-            - name: NO_PROXY
-              value: {{printf "%q" .DindProxy.NoProxy}}
-          {{- end }}
           args:
             - --host=unix:///var/run/docker.sock
             - --host=tcp://0.0.0.0:2376
@@ -1342,10 +1315,6 @@ kind: StatefulSet
 metadata:
   name: dind
   namespace: koderover-agent
-  {{- if .DindProxy.HTTPProxy }}
-  annotations:
-    zadig.koderover.com/proxy-env-managed: "true"
-  {{- end }}
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
@@ -1388,15 +1357,6 @@ spec:
       containers:
         - name: dind
           image: {{.DindImage}}
-          {{- if .DindProxy.HTTPProxy }}
-          env:
-            - name: HTTP_PROXY
-              value: {{printf "%q" .DindProxy.HTTPProxy}}
-            - name: HTTPS_PROXY
-              value: {{printf "%q" .DindProxy.HTTPSProxy}}
-            - name: NO_PROXY
-              value: {{printf "%q" .DindProxy.NoProxy}}
-          {{- end }}
           args:
             - --host=unix:///var/run/docker.sock
             - --host=tcp://0.0.0.0:2376

@@ -25,20 +25,14 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
-
-const dindProxyManagedAnnotation = "zadig.koderover.com/proxy-env-managed"
-
-var dindProxyEnvNames = sets.NewString("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY")
 
 func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate) error {
 	insecureRegistryList := make([]string, 0)
@@ -246,72 +240,6 @@ func applyDindModifications(dindSts *appsv1.StatefulSet, mountFlag, insecureFlag
 
 	if argsChanged || insecureFlag {
 		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
-		modified = true
-	}
-
-	return modified
-}
-
-// UpdateDinDProxy changes only proxy envs and retries against the latest StatefulSet.
-func UpdateDinDProxy(ctx context.Context, client *kubernetes.Clientset, namespace string, proxy *DinDProxy) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		sts, err := client.AppsV1().StatefulSets(namespace).Get(ctx, "dind", metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if len(sts.Spec.Template.Spec.Containers) == 0 {
-			return fmt.Errorf("failed to extract container from dind sts")
-		}
-		if !ApplyDinDProxyEnvs(sts, proxy) {
-			return nil
-		}
-		_, err = client.AppsV1().StatefulSets(namespace).Update(ctx, sts, metav1.UpdateOptions{})
-		return err
-	})
-}
-
-// ApplyDinDProxyEnvs syncs HTTP_PROXY/HTTPS_PROXY/NO_PROXY of the dind container.
-// The envs are only removed when they were set by zadig, so that envs added manually are kept.
-func ApplyDinDProxyEnvs(dindSts *appsv1.StatefulSet, proxy *DinDProxy) bool {
-	enabled := proxy.HTTPProxy != "" || proxy.HTTPSProxy != ""
-	managed := dindSts.Annotations[dindProxyManagedAnnotation] == "true"
-	if !enabled && !managed {
-		return false
-	}
-
-	container := &dindSts.Spec.Template.Spec.Containers[0]
-	envs := make([]corev1.EnvVar, 0, len(container.Env)+len(dindProxyEnvNames))
-	for _, env := range container.Env {
-		if !dindProxyEnvNames.Has(env.Name) {
-			envs = append(envs, env)
-		}
-	}
-	if enabled {
-		for _, env := range []corev1.EnvVar{
-			{Name: "HTTP_PROXY", Value: proxy.HTTPProxy},
-			{Name: "HTTPS_PROXY", Value: proxy.HTTPSProxy},
-			{Name: "NO_PROXY", Value: proxy.NoProxy},
-		} {
-			if env.Value != "" {
-				envs = append(envs, env)
-			}
-		}
-	}
-
-	modified := false
-	if !apiequality.Semantic.DeepEqual(container.Env, envs) {
-		container.Env = envs
-		modified = true
-	}
-
-	if enabled && !managed {
-		if dindSts.Annotations == nil {
-			dindSts.Annotations = map[string]string{}
-		}
-		dindSts.Annotations[dindProxyManagedAnnotation] = "true"
-		modified = true
-	} else if !enabled && managed {
-		delete(dindSts.Annotations, dindProxyManagedAnnotation)
 		modified = true
 	}
 

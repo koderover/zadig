@@ -17,9 +17,7 @@ limitations under the License.
 package step
 
 import (
-	"net"
-	"net/url"
-	"strconv"
+	"fmt"
 
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -39,18 +37,22 @@ const (
 )
 
 func (p *Proxy) GetProxyURL() string {
-	uri := &url.URL{Scheme: p.Type, Host: net.JoinHostPort(p.Address, strconv.Itoa(p.Port))}
+	var uri string
 	if p.NeedPassword {
-		uri.User = url.UserPassword(p.Username, p.Password)
+		uri = fmt.Sprintf("%s://%s:%s@%s:%d",
+			p.Type,
+			p.Username,
+			p.Password,
+			p.Address,
+			p.Port,
+		)
+		return uri
 	}
-	return uri.String()
-}
 
-// IsEnvProxyType reports whether the proxy can be passed to tools through http_proxy/https_proxy.
-func (p *Proxy) IsEnvProxyType() bool {
-	switch p.Type {
-	case "http", "https", "socks5":
-		return true
-	}
-	return false
+	uri = fmt.Sprintf("%s://%s:%d",
+		p.Type,
+		p.Address,
+		p.Port,
+	)
+	return uri
 }

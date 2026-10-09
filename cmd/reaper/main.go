@@ -18,20 +18,11 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/executor"
-	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "socks5-proxy" {
-		if err := socks5.Run(os.Args[2:]); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-
 	if err := executor.Execute(); err != nil {
 		log.Fatalf("Failed to run reaper, the error is: %+v", err)
 	}

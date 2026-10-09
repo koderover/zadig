@@ -137,10 +137,7 @@ func Start(ctx context.Context) {
 	log.Debugf("init external clusters took %s milli seconds", time.Now().UnixMilli()-start)
 	start = time.Now().UnixMilli()
 
-	if err := systemservice.SetProxyConfig(); err != nil {
-		log.Errorf("Failed to initialize proxy configuration: %v", err)
-	}
-	systemservice.SyncDinDProxyConfig(log.SugaredLogger())
+	systemservice.SetProxyConfig()
 	log.Debugf("SetProxyConfig took %s milli seconds", time.Now().UnixMilli()-start)
 	start = time.Now().UnixMilli()
 

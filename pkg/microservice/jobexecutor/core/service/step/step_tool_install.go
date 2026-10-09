@@ -63,6 +63,11 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	if tool == nil {
 		return nil
 	}
+	var (
+		openProxy                   bool
+		proxyScript, disProxyScript string
+	)
+
 	var tmpPath string
 	scripts := []string{}
 	scripts = append(scripts, "set -ex")
@@ -70,12 +75,12 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	// 获取用户指定环境变量
 	s.envs = append(s.envs, Environs(tool.Envs)...)
 
+	if openProxy {
+		scripts = append(scripts, proxyScript)
+	}
+
 	// 如果应用有配置下载路径
 	if tool.Download != "" {
-		downloadClient := httpclient.New(httpclient.UnsetTimeout())
-		if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy && s.spec.Proxy.IsEnvProxyType() {
-			downloadClient.SetProxy(s.spec.Proxy.GetProxyURL())
-		}
 		s.spec.S3Storage.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, tool.Name, tool.Version)
 		filepath := strings.Split(tool.Download, "/")
 		fileName := filepath[len(filepath)-1]
@@ -92,7 +97,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 
 			// 缓存不存在
 			if err != nil {
-				err := downloadClient.Download(tool.Download, tmpPath)
+				err := httpclient.Download(tool.Download, tmpPath)
 				if err != nil {
 					return fmt.Errorf("download package %s error: %v", tool.Download, err)
 				}
@@ -104,7 +109,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 				log.Infof("Package loaded from url: %s", tool.Download)
 			}
 		} else {
-			err := downloadClient.Download(tool.Download, tmpPath)
+			err := httpclient.Download(tool.Download, tmpPath)
 			if err != nil {
 				return err
 			}
@@ -118,6 +123,9 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 
 	scripts = append(scripts, tool.Scripts...)
 
+	if openProxy {
+		scripts = append(scripts, disProxyScript)
+	}
 	uid, _ := uuid.NewUUID()
 	file := filepath.Join(os.TempDir(), fmt.Sprintf("install_script_%d.sh", uid.ID()))
 	if err := ioutil.WriteFile(file, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
@@ -152,11 +160,6 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 
 	cmd.Dir = s.workspace
 	cmd.Env = s.envs
-	// 代理通过进程环境变量注入，避免 set -x 把带密码的代理地址打到日志里
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableApplicationProxy && s.spec.Proxy.IsEnvProxyType() {
-		proxyURL := s.spec.Proxy.GetProxyURL()
-		cmd.Env = append(append([]string{}, s.envs...), "http_proxy="+proxyURL, "https_proxy="+proxyURL)
-	}
 
 	if err := cmd.Run(); err != nil {
 		return err

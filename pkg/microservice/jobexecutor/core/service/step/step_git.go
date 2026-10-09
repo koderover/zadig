@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -88,7 +87,7 @@ func (s *GitStep) runGitCmds() error {
 	}
 	envs := s.envs
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.IsEnvProxyType() {
+	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && (s.spec.Proxy.Type == "http" || s.spec.Proxy.Type == "https" || s.spec.Proxy.Type == "socks5") {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range s.spec.Repos {
@@ -123,7 +122,6 @@ func (s *GitStep) runGitCmds() error {
 	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("safe.directory", "*"), DisableTrace: true})
 	var tokens []string
 	var hostNames = sets.NewString()
-	proxyHosts := sets.NewString()
 	for _, repo := range s.spec.Repos {
 		if repo == nil || len(repo.RepoName) == 0 {
 			continue
@@ -148,10 +146,10 @@ func (s *GitStep) runGitCmds() error {
 		}
 
 		tokens = append(tokens, repo.OauthToken)
-		cmds = append(cmds, s.buildGitCommands(repo, hostNames, proxyHosts)...)
+		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
 	// write ssh key
-	if err := writeSSHConfigFile(hostNames, proxyHosts, s.spec.Proxy); err != nil {
+	if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
 		return err
 	}
 
@@ -200,7 +198,7 @@ func (s *GitStep) GetWorkDir(repo *types.Repository) string {
 	return workDir
 }
 
-func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames, proxyHosts sets.String) []*c.Command {
+func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String) []*c.Command {
 
 	cmds := make([]*c.Command, 0)
 
@@ -263,9 +261,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames, proxyHosts
 		// other
 		if repo.AuthType == types.SSHAuthType {
 			_, host, _ := util.GetSSHUserAndHostAndPort(repo.Address)
-			if repo.EnableProxy {
-				proxyHosts.Insert(host)
-			}
 			if !hostNames.Has(host) {
 				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %v", err)
@@ -356,19 +351,15 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames, proxyHosts
 	return cmds
 }
 
-func writeSSHConfigFile(hostNames, proxyHosts sets.String, proxy *step.Proxy) error {
+func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 	out := "Include ~/.ssh/config.d/*\n"
 	out += "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
 	for _, hostName := range hostNames.List() {
 		name := strings.Replace(hostName, ".", "", -1)
 		name = strings.Replace(name, ":", "", -1)
 		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
-		if proxyHosts.Has(hostName) && proxy.EnableRepoProxy && proxy.Type == "socks5" {
-			command, err := socks5.SSHProxyCommand(proxy.GetProxyURL())
-			if err != nil {
-				return err
-			}
-			out += command
+		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
+			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")

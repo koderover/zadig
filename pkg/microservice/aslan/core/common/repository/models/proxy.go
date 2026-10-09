@@ -17,9 +17,7 @@ limitations under the License.
 package models
 
 import (
-	"net"
-	"net/url"
-	"strconv"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -39,8 +37,6 @@ type Proxy struct {
 	EnableRepoProxy bool `bson:"enable_repo_proxy"            json:"enable_repo_proxy"`
 	// Deprecated
 	EnableApplicationProxy bool   `bson:"enable_application_proxy"     json:"enable_application_proxy"`
-	EnableDinDProxy        bool   `bson:"enable_dind_proxy"            json:"enable_dind_proxy"`
-	DinDNoProxy            string `bson:"dind_no_proxy"                json:"dind_no_proxy"`
 	CreateTime             int64  `bson:"create_time"                  json:"create_time"`
 	UpdateTime             int64  `bson:"update_time"                  json:"update_time"`
 	UpdateBy               string `bson:"update_by"                    json:"update_by"`
@@ -51,9 +47,21 @@ func (Proxy) TableName() string {
 }
 
 func (p *Proxy) GetProxyURL() string {
-	uri := &url.URL{Scheme: p.Type, Host: net.JoinHostPort(p.Address, strconv.Itoa(p.Port))}
+	var uri string
 	if p.NeedPassword {
-		uri.User = url.UserPassword(p.Username, p.Password)
+		uri = fmt.Sprintf("%s://%s:%s@%s:%d",
+			p.Type,
+			p.Username,
+			p.Password,
+			p.Address,
+			p.Port,
+		)
+	} else {
+		uri = fmt.Sprintf("%s://%s:%d",
+			p.Type,
+			p.Address,
+			p.Port,
+		)
 	}
-	return uri.String()
+	return uri
 }

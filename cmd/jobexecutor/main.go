@@ -19,22 +19,13 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/executor"
-	"github.com/koderover/zadig/v2/pkg/tool/socks5"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "socks5-proxy" {
-		if err := socks5.Run(os.Args[2:]); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-ctx.Done()
