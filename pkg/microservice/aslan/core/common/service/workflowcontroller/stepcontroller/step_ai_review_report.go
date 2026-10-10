@@ -126,6 +126,7 @@ func (s *aiReviewReportCtl) saveAIReviewStat(metadata scmnotify.AIReviewPRMetada
 		PRTitle: metadata.Title, PRAuthor: metadata.Author, PRURL: metadata.URL,
 		ReviewedAt: reviewedAt, Model: report.Metadata.Model, Usage: report.Usage,
 		DurationMS: report.DurationMS, Incomplete: report.Incomplete, ExitCode: report.ExitCode,
+		Additions: report.Stats.Additions, Deletions: report.Stats.Deletions, ChangedLines: report.Stats.ChangedLines,
 		Findings: findings,
 	}
 	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -156,6 +156,9 @@ type AIReviewMetadata struct {
 
 type AIReviewStats struct {
 	ChangedFiles int            `bson:"changed_files" json:"changed_files" yaml:"changed_files"`
+	Additions    *int64         `bson:"additions" json:"additions" yaml:"additions"`             // 新增行数，nil 表示报告未提供
+	Deletions    *int64         `bson:"deletions" json:"deletions" yaml:"deletions"`             // 删除行数，nil 表示报告未提供
+	ChangedLines *int64         `bson:"changed_lines" json:"changed_lines" yaml:"changed_lines"` // 修改行数，nil 表示报告未提供
 	Chunks       int            `bson:"chunks" json:"chunks" yaml:"chunks"`
 	BySeverity   map[string]int `bson:"by_severity" json:"by_severity" yaml:"by_severity"`
 }

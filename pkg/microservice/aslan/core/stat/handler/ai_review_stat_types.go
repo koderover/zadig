@@ -117,12 +117,17 @@ type AIReviewStatsScope struct {
 	RepoCount          int64  `json:"repo_count"`                       // 代码库数量
 }
 
+type AIReviewStatsOverviewMetrics struct {
+	AIReviewStatsMetrics
+	SavedPersonDays float64 `json:"saved_person_days"` // 估算节省人天，仅统计输入完整且反馈已确认的记录，固定 reviewer 系数 1.5，保留两位小数
+}
+
 type AIReviewStatsOverviewResponse struct {
-	Scope                      AIReviewStatsScope         `json:"scope"`        // 统计范围及其身份信息
-	Metrics                    AIReviewStatsMetrics       `json:"metrics"`      // 公共统计指标
-	Comparison                 AIReviewStatsComparison    `json:"comparison"`   // 与紧邻当前期间的等长上一期间比较的环比数据
-	WeeklyTrend                []AIReviewStatsWeeklyTrend `json:"weekly_trend"` // 按周统计的 PR 数量与处理率趋势，统计实现后包含空区间
-	AIReviewStatsDistributions                            // 问题分布，字段展开到当前对象
+	Scope                      AIReviewStatsScope           `json:"scope"`        // 统计范围及其身份信息
+	Metrics                    AIReviewStatsOverviewMetrics `json:"metrics"`      // 概览统计指标，包含节省人天
+	Comparison                 AIReviewStatsComparison      `json:"comparison"`   // 与紧邻当前期间的等长上一期间比较的环比数据
+	WeeklyTrend                []AIReviewStatsWeeklyTrend   `json:"weekly_trend"` // 按周统计的 PR 数量与处理率趋势，统计实现后包含空区间
+	AIReviewStatsDistributions                              // 问题分布，字段展开到当前对象
 }
 
 type AIReviewStatsProjectItem struct {
