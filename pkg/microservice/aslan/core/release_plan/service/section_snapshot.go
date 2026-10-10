@@ -153,6 +153,8 @@ func releasePlanVersionSectionKeyByVerb(planBefore, planAfter *models.ReleasePla
 		return releasePlanCollabSectionMetadataManager, releasePlanVersionSectionName(releasePlanCollabSectionMetadataManager, ""), nil
 	case VerbUpdateJiraSprint:
 		return releasePlanCollabSectionMetadataJiraSprint, releasePlanVersionSectionName(releasePlanCollabSectionMetadataJiraSprint, ""), nil
+	case VerbUpdateCustomFields:
+		return releasePlanCollabSectionMetadataCustomFields, releasePlanVersionSectionName(releasePlanCollabSectionMetadataCustomFields, ""), nil
 	case VerbUpdateApproval, VerbDeleteApproval:
 		return releasePlanVersionSectionApproval, "审批配置", nil
 	case VerbReorderReleaseJob:
@@ -278,14 +280,16 @@ func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) map[string]inter
 		return nil
 	}
 	return map[string]interface{}{
-		"name":                    plan.Name,
-		"manager":                 plan.Manager,
-		"manager_id":              plan.ManagerID,
-		"start_time":              plan.StartTime,
-		"end_time":                plan.EndTime,
-		"schedule_execute_time":   plan.ScheduleExecuteTime,
-		"description":             plan.Description,
-		"jira_sprint_association": sanitizeReleasePlanValue(plan.JiraSprintAssociation),
+		"name":                     plan.Name,
+		"manager":                  plan.Manager,
+		"manager_id":               plan.ManagerID,
+		"start_time":               plan.StartTime,
+		"end_time":                 plan.EndTime,
+		"schedule_execute_time":    plan.ScheduleExecuteTime,
+		"description":              plan.Description,
+		"jira_sprint_association":  sanitizeReleasePlanValue(plan.JiraSprintAssociation),
+		"custom_field_definitions": sanitizeReleasePlanValue(plan.CustomFieldDefinitions),
+		"custom_fields":            sanitizeReleasePlanValue(plan.CustomFields),
 	}
 }
 
@@ -323,6 +327,11 @@ func buildReleasePlanMetadataSectionSnapshot(plan *models.ReleasePlan, sectionKe
 	case releasePlanCollabSectionMetadataJiraSprint:
 		return map[string]interface{}{
 			"jira_sprint_association": metadata["jira_sprint_association"],
+		}
+	case releasePlanCollabSectionMetadataCustomFields:
+		return map[string]interface{}{
+			"custom_field_definitions": metadata["custom_field_definitions"],
+			"custom_fields":            metadata["custom_fields"],
 		}
 	default:
 		return metadata

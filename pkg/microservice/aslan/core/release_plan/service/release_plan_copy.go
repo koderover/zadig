@@ -52,7 +52,7 @@ func CopyReleasePlan(c *handler.Context, planID string, args *CopyReleasePlanArg
 		return errors.Wrap(err, "prepare copied release plan")
 	}
 
-	return CreateReleasePlan(c, copiedPlan)
+	return CreateReleasePlan(c, copiedPlan, true)
 }
 
 func prepareCopiedReleasePlan(source *models.ReleasePlan, name string) (*models.ReleasePlan, error) {

@@ -64,6 +64,7 @@ const (
 	releasePlanCollabSectionMetadataScheduleExecute = "metadata:schedule_execute_time"
 	releasePlanCollabSectionMetadataDescription     = "metadata:description"
 	releasePlanCollabSectionMetadataJiraSprint      = "metadata:jira_sprint_association"
+	releasePlanCollabSectionMetadataCustomFields    = "metadata:custom_fields"
 	releasePlanCollabSectionApproval                = "approval"
 )
 
@@ -75,6 +76,7 @@ var releasePlanCollabMetadataSectionNames = map[string]string{
 	releasePlanCollabSectionMetadataScheduleExecute: "定时执行",
 	releasePlanCollabSectionMetadataDescription:     "需求关联",
 	releasePlanCollabSectionMetadataJiraSprint:      "关联冲刺",
+	releasePlanCollabSectionMetadataCustomFields:    "自定义字段",
 }
 
 var upgrader = websocket.Upgrader{

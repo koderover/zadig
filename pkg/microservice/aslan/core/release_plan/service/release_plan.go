@@ -59,7 +59,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
+func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan, isCopy bool) error {
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
@@ -75,6 +75,13 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	}
 	if args.Manager != userInfo.Name {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
+	}
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		return errors.Wrap(err, "get release plan hook setting")
+	}
+	if err := snapshotReleasePlanCustomFields(args, hookSetting.CustomFields, isCopy); err != nil {
+		return err
 	}
 	for _, job := range args.Jobs {
 		// release job will be linted when we finish planning instead of saving
@@ -114,12 +121,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		return errors.Wrap(err, "generate instance code")
 	}
 
-	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-	if err != nil {
-		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-		log.Error(fmtErr)
-		return fmtErr
-	}
 	args.HookSettings = hookSetting.ToHookSettings()
 
 	args.ID = primitive.NewObjectID()
@@ -402,6 +403,7 @@ const (
 	ActionUpdateScheduleExecuteTime = "update_schedule_execute_time"
 	ActionUpdateDescription         = "update_description"
 	ActionUpdateJiraSprint          = "update_jira_sprint"
+	ActionUpdateCustomFields        = "update_custom_fields"
 )
 
 type UpdateReleasePlanArgs struct {
@@ -463,6 +465,9 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "lint")
 	}
 	if err = updater.Update(plan); err != nil {
+		if _, ok := errors.Cause(err).(*e.HTTPError); ok {
+			return err
+		}
 		return errors.Wrap(err, "update")
 	}
 
@@ -1372,6 +1377,9 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusFinishPlanning:
+		if err := validateReleasePlanCustomFieldValues(plan.CustomFieldDefinitions, plan.CustomFields, true); err != nil {
+			return err
+		}
 		for _, job := range plan.Jobs {
 			err := lintReleaseJob(job.Type, job.Spec)
 			if err != nil {
@@ -1692,6 +1700,9 @@ type ListReleasePlanOption struct {
 	Keyword   string              `form:"keyword"`
 }
 
+// releasePlanListExcludedFields keeps the list response to plan summaries.
+var releasePlanListExcludedFields = []string{"jobs", "logs", "custom_field_definitions", "custom_fields"}
+
 type ListReleasePlanResp struct {
 	List  []*models.ReleasePlan `json:"list"`
 	Total int64                 `json:"total"`
@@ -1712,7 +1723,7 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			PageSize:       opt.PageSize,
 			StartTime:      opt.StartTime,
 			EndTime:        opt.EndTime,
-			ExcludedFields: []string{"jobs", "logs"},
+			ExcludedFields: releasePlanListExcludedFields,
 		})
 	case ListReleasePlanTypeManager:
 		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
@@ -1722,7 +1733,7 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			PageSize:       opt.PageSize,
 			StartTime:      opt.StartTime,
 			EndTime:        opt.EndTime,
-			ExcludedFields: []string{"jobs", "logs"},
+			ExcludedFields: releasePlanListExcludedFields,
 		})
 	case ListReleasePlanTypeSuccessTime:
 		timeArr := strings.Split(opt.Keyword, "-")
@@ -1750,7 +1761,7 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			PageSize:         opt.PageSize,
 			StartTime:        opt.StartTime,
 			EndTime:          opt.EndTime,
-			ExcludedFields:   []string{"jobs", "logs"},
+			ExcludedFields:   releasePlanListExcludedFields,
 		})
 	case ListReleasePlanTypeUpdateTime:
 		timeArr := strings.Split(opt.Keyword, "-")
@@ -1778,7 +1789,7 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			PageSize:        opt.PageSize,
 			StartTime:       opt.StartTime,
 			EndTime:         opt.EndTime,
-			ExcludedFields:  []string{"jobs", "logs"},
+			ExcludedFields:  releasePlanListExcludedFields,
 		})
 	case ListReleasePlanTypeStatus:
 		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
@@ -1786,7 +1797,7 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			IsSort:         true,
 			PageNum:        opt.PageNum,
 			PageSize:       opt.PageSize,
-			ExcludedFields: []string{"jobs", "logs"},
+			ExcludedFields: releasePlanListExcludedFields,
 		})
 	}
 	if err != nil {
@@ -1809,6 +1820,19 @@ func GetReleasePlanHookSetting(c *handler.Context) (*models.ReleasePlanHookSetti
 }
 
 func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHookSettings) error {
+	current, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		return errors.Wrap(err, "get release plan hook setting")
+	}
+	// Callers that do not send custom fields keep the stored ones.
+	if req.CustomFields == nil {
+		req.CustomFields = current.CustomFields
+	} else {
+		req.CustomFields, err = buildReleasePlanCustomFields(current.CustomFields, req.CustomFields)
+		if err != nil {
+			return err
+		}
+	}
 	if err := mongodb.NewSystemSettingColl().UpdateReleasePlanHookSetting(req); err != nil {
 		return errors.Wrap(err, "update release plan hook setting")
 	}
@@ -2103,6 +2127,7 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 		UpdatedBy:           plan.UpdatedBy,
 		UpdateTime:          plan.UpdateTime,
 		Status:              plan.Status,
+		CustomFields:        buildReleasePlanHookCustomFields(plan),
 		PlanningTime:        plan.PlanningTime,
 		ApprovalTime:        plan.ApprovalTime,
 		ExecutingTime:       plan.ExecutingTime,
@@ -2171,6 +2196,20 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 	hookBody.Jobs = jobs
 
 	return hookBody, nil
+}
+
+// buildReleasePlanHookCustomFields follows the plan's definition snapshot, which is stored in display order.
+func buildReleasePlanHookCustomFields(plan *models.ReleasePlan) []*webhooknotify.ReleasePlanHookCustomField {
+	fields := make([]*webhooknotify.ReleasePlanHookCustomField, 0, len(plan.CustomFieldDefinitions))
+	for _, definition := range plan.CustomFieldDefinitions {
+		fields = append(fields, &webhooknotify.ReleasePlanHookCustomField{
+			Key:   definition.Key,
+			Name:  definition.Name,
+			Type:  definition.Type,
+			Value: plan.CustomFields[definition.Key],
+		})
+	}
+	return fields
 }
 
 func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*webhooknotify.OpenAPIWorkflowV4, error) {
