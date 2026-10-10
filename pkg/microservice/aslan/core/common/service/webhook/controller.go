@@ -17,16 +17,20 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitlab"
@@ -103,8 +107,8 @@ func (c *controller) processNextWorkItem() bool {
 		zap.String("ref", t.ref),
 	)
 
-	if t.err != nil {
-		logger.Warn(fmt.Sprintf("Task is canceled with reason: %s", t.err))
+	if t.canceled.Load() {
+		logger.Warn("Task is canceled: timed out waiting for the task")
 		return true
 	}
 
@@ -178,6 +182,11 @@ func removeWebhook(t *task, logger *zap.Logger) {
 	}
 
 	webhook, err := coll.Find(repoNamespace, t.repo, t.address)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		// Older AI review configurations may have no webhook reference yet.
+		t.doneCh <- struct{}{}
+		return
+	}
 	if err != nil {
 		t.err = err
 		t.doneCh <- struct{}{}
@@ -257,20 +266,34 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	logger.Info("Adding webhook")
 	created, err := coll.AddReferenceOrCreate(repoNamespace, t.repo, t.address, t.ref)
-	if err != nil || !created {
+	ensureAIReview := t.ensureAIReviewWebhook && (t.from == setting.SourceFromGitlab || t.from == setting.SourceFromGithub)
+	if err != nil || (!created && !ensureAIReview) {
 		t.err = err
 		t.doneCh <- struct{}{}
 		return
 	}
 
-	if !t.isManual {
+	if !t.isManual || ensureAIReview {
 		logger.Info("Creating webhook")
-		hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
+		if ensureAIReview {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			switch client := cl.(type) {
+			case *github.Client:
+				hookID, err = github.EnsureManagedReviewThreadHook(ctx, client.Client.Client, repoNamespace, t.repo, gitservice.WebHookURL())
+			case *gitlab.Client:
+				hookID, err = gitlab.EnsureManagedEmojiHook(ctx, client.Client.Client, repoNamespace+"/"+t.repo, gitservice.WebHookURL())
+			}
+		} else {
+			hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
+		}
 		if err != nil {
 			t.err = err
 			logger.Error("Failed to create webhook", zap.Error(err))
-			if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
-				logger.Error("Failed to delete webhook record in db", zap.Error(err))
+			if created {
+				if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
+					logger.Error("Failed to delete webhook record in db", zap.Error(err))
+				}
 			}
 		} else {
 			if hookID != "" {

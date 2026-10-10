@@ -17,6 +17,7 @@ limitations under the License.
 package systemconfig
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
@@ -101,8 +102,8 @@ func (c *Client) GetCodeHostByAlias(alias string) (*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
-	resp, err := codehostservice.GetCodeHost(id, false, log.SugaredLogger())
+func (c *Client) GetCodeHost(id int, contexts ...context.Context) (*CodeHost, error) {
+	resp, err := codehostservice.GetCodeHost(id, false, log.SugaredLogger(), contexts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +133,8 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) GetRawCodeHost(id int) (*CodeHost, error) {
-	resp, err := codehostservice.GetCodeHost(id, true, log.SugaredLogger())
+func (c *Client) GetRawCodeHost(id int, contexts ...context.Context) (*CodeHost, error) {
+	resp, err := codehostservice.GetCodeHost(id, true, log.SugaredLogger(), contexts...)
 	if err != nil {
 		return nil, err
 	}

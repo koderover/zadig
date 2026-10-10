@@ -130,19 +130,27 @@ func (c *CodehostColl) GetSystemCodeHostByID(ID int, ignoreDelete bool) (*models
 }
 
 // Internal use only
-func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
+func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool, contexts ...context.Context) (*models.CodeHost, error) {
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	query := bson.M{
 		"id": ID,
 	}
 	if !ignoreDelete {
 		query["deleted_at"] = 0
 	}
-	return c.getCodeHost(query)
+	return c.getCodeHost(query, ctx)
 }
 
-func (c *CodehostColl) getCodeHost(query bson.M) (*models.CodeHost, error) {
+func (c *CodehostColl) getCodeHost(query bson.M, contexts ...context.Context) (*models.CodeHost, error) {
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	codehost := new(models.CodeHost)
-	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
+	if err := c.Collection.FindOne(ctx, query).Decode(codehost); err != nil {
 		return nil, err
 	}
 	return codehost, nil

@@ -17,6 +17,7 @@ limitations under the License.
 package scmnotify
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -689,7 +690,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 	}
 	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, config.StatusCreated, log)
 
-	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
+	ghApp, err := github.GetGithubAppClientByOwner(context.Background(), hook.Owner)
 	if err != nil {
 		log.Errorf("getGithubAppClient failed, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
@@ -751,7 +752,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 	}
 	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, config.StatusRunning, log)
 
-	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
+	ghApp, err := github.GetGithubAppClientByOwner(context.Background(), hook.Owner)
 	if err != nil {
 		log.Errorf("getGithubAppClient failed, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
@@ -814,7 +815,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 	}
 	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, status, log)
 
-	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
+	ghApp, err := github.GetGithubAppClientByOwner(context.Background(), hook.Owner)
 	if err != nil {
 		log.Errorf("getGithubAppClient failed, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
