@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -52,9 +51,12 @@ func ListReleasePlanCustomFields() ([]*models.ReleasePlanCustomFieldDefinition, 
 	if err != nil {
 		return nil, errors.Wrap(err, "get release plan hook setting")
 	}
-	fields := hookSetting.CustomFields
-	sort.SliceStable(fields, func(i, j int) bool { return fields[i].Order < fields[j].Order })
-	return fields, nil
+	// Fields are stored in display order; buildReleasePlanCustomFields assigns Order on save.
+	return hookSetting.CustomFields, nil
+}
+
+func newReleasePlanCustomFieldKey() string {
+	return "custom_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
 // buildReleasePlanCustomFields turns the submitted field list into the definitions to store.
@@ -68,42 +70,42 @@ func buildReleasePlanCustomFields(existing, submitted []*models.ReleasePlanCusto
 	seenIDs := make(map[string]struct{}, len(submitted))
 	seenNames := make(map[string]struct{}, len(submitted))
 	fields := make([]*models.ReleasePlanCustomFieldDefinition, 0, len(submitted))
-	for i, item := range submitted {
+	for _, item := range submitted {
 		if item == nil {
 			continue
 		}
 		field := *item
 		field.Name = strings.TrimSpace(field.Name)
 		field.Options = slices.Clone(field.Options)
-		for i, option := range field.Options {
-			field.Options[i] = strings.TrimSpace(option)
+		for j, option := range field.Options {
+			field.Options[j] = strings.TrimSpace(option)
 		}
 		if err := validateReleasePlanCustomFieldDefinition(&field); err != nil {
 			return nil, err
 		}
 		if _, ok := seenNames[field.Name]; ok {
-			return nil, fmt.Errorf("custom field name %s already exists", field.Name)
+			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field name %s already exists", field.Name))
 		}
 		seenNames[field.Name] = struct{}{}
 
 		if field.ID == "" {
 			field.ID = primitive.NewObjectID().Hex()
-			field.Key = "custom_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			field.Key = newReleasePlanCustomFieldKey()
 		} else {
 			current, ok := existingByID[field.ID]
 			if !ok {
-				return nil, fmt.Errorf("custom field %s not found", field.ID)
+				return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s not found", field.ID))
 			}
 			if _, ok := seenIDs[field.ID]; ok {
-				return nil, fmt.Errorf("custom field %s is duplicated", field.ID)
+				return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s is duplicated", field.ID))
 			}
 			field.Key = current.Key
 			if field.Type != current.Type {
-				field.Key = "custom_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+				field.Key = newReleasePlanCustomFieldKey()
 			}
 		}
 		seenIDs[field.ID] = struct{}{}
-		field.Order = i + 1
+		field.Order = len(fields) + 1
 		fields = append(fields, &field)
 	}
 	return fields, nil
@@ -159,9 +161,6 @@ func snapshotReleasePlanCustomFields(plan *models.ReleasePlan, definitions []*mo
 func filterReleasePlanCustomFieldValues(definitions []*models.ReleasePlanCustomFieldDefinition, values map[string]interface{}) map[string]interface{} {
 	filtered := make(map[string]interface{})
 	for _, definition := range definitions {
-		if definition == nil {
-			continue
-		}
 		value, ok := values[definition.Key]
 		if !ok || validateReleasePlanCustomFieldValue(definition, value) != nil {
 			continue
@@ -174,9 +173,7 @@ func filterReleasePlanCustomFieldValues(definitions []*models.ReleasePlanCustomF
 func validateReleasePlanCustomFieldValues(definitions []*models.ReleasePlanCustomFieldDefinition, values map[string]interface{}, requireRequired bool) error {
 	byKey := make(map[string]*models.ReleasePlanCustomFieldDefinition, len(definitions))
 	for _, definition := range definitions {
-		if definition != nil {
-			byKey[definition.Key] = definition
-		}
+		byKey[definition.Key] = definition
 	}
 	for key, value := range values {
 		definition, ok := byKey[key]
@@ -189,7 +186,7 @@ func validateReleasePlanCustomFieldValues(definitions []*models.ReleasePlanCusto
 	}
 	if requireRequired {
 		for _, definition := range definitions {
-			if definition != nil && definition.Required && isEmptyReleasePlanCustomFieldValue(values[definition.Key]) {
+			if definition.Required && isEmptyReleasePlanCustomFieldValue(values[definition.Key]) {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("required custom field %s is empty", definition.Name))
 			}
 		}

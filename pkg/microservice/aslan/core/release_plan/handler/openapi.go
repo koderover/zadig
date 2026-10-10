@@ -132,6 +132,13 @@ func OpenAPIUpdateReleasePlanCustomFields(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
 	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.EditMetadata {
 		ctx.UnAuthorized = true
 		return
@@ -140,10 +147,6 @@ func OpenAPIUpdateReleasePlanCustomFields(c *gin.Context) {
 	args := new(service.CustomFieldsUpdater)
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.RespErr = err
 		return
 	}
 

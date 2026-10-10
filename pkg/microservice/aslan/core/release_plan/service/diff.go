@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -509,20 +510,12 @@ func releasePlanVersionDiffMetadataSpec(fromData, toData interface{}) ([]*Releas
 	fromMetadata := releasePlanVersionDiffMetadataSnapshot(fromData)
 	toMetadata := releasePlanVersionDiffMetadataSnapshot(toData)
 
-	beforeSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
-	afterSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
-	for _, field := range releasePlanMetadataDiffFields {
-		beforeValue := normalizeReleasePlanMetadataDiffValue(field.Key, fromMetadata[field.Key])
-		afterValue := normalizeReleasePlanMetadataDiffValue(field.Key, toMetadata[field.Key])
-		if reflect.DeepEqual(beforeValue, afterValue) {
-			continue
-		}
-		beforeSpec = append(beforeSpec, newReleasePlanVersionMetadataDiffItem(field, beforeValue))
-		afterSpec = append(afterSpec, newReleasePlanVersionMetadataDiffItem(field, afterValue))
-	}
-	for _, field := range releasePlanCustomFieldMetadataDiffFields(fromMetadata, toMetadata) {
-		beforeValue := releasePlanCustomFieldMetadataDiffValue(fromMetadata, field.Key)
-		afterValue := releasePlanCustomFieldMetadataDiffValue(toMetadata, field.Key)
+	fields := append(slices.Clone(releasePlanMetadataDiffFields), releasePlanCustomFieldMetadataDiffFields(fromMetadata, toMetadata)...)
+	beforeSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(fields))
+	afterSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(fields))
+	for _, field := range fields {
+		beforeValue := releasePlanMetadataDiffValue(fromMetadata, field.Key)
+		afterValue := releasePlanMetadataDiffValue(toMetadata, field.Key)
 		if reflect.DeepEqual(beforeValue, afterValue) {
 			continue
 		}
@@ -557,13 +550,18 @@ func releasePlanCustomFieldMetadataDiffFields(fromMetadata, toMetadata map[strin
 	return fields
 }
 
-func releasePlanCustomFieldMetadataDiffValue(metadata map[string]interface{}, diffKey string) interface{} {
+// releasePlanMetadataDiffValue reads a built-in metadata value, or a custom field value
+// when the key carries the custom field prefix.
+func releasePlanMetadataDiffValue(metadata map[string]interface{}, key string) interface{} {
+	customKey, ok := strings.CutPrefix(key, releasePlanCustomFieldMetadataDiffKeyPrefix)
+	if !ok {
+		return normalizeReleasePlanMetadataDiffValue(key, metadata[key])
+	}
 	values, _ := getMapField(metadata["custom_fields"])
-	value := values[strings.TrimPrefix(diffKey, releasePlanCustomFieldMetadataDiffKeyPrefix)]
-	if isEmptyReleasePlanCustomFieldValue(value) {
+	if isEmptyReleasePlanCustomFieldValue(values[customKey]) {
 		return nil
 	}
-	return value
+	return values[customKey]
 }
 
 func releasePlanVersionDiffMetadataSnapshot(value interface{}) map[string]interface{} {
