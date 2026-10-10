@@ -129,29 +129,10 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 }
 
 func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonmodels.JobTaskApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
-	// Resolve and authorize every concrete target before creating the global AppNamespace.
+	// Resolve every concrete target before creating the global AppNamespace.
 	targets, err := client.ListAppEnvsAndClusters(namespace.AppID)
 	if err != nil {
 		return fmt.Errorf("list concrete namespace targets failed: %w", err)
-	}
-	if !c.jobTaskSpec.DisableConfigRange {
-		allowedTargets := make(map[string]struct{}, len(c.jobTaskSpec.NamespaceListOption))
-		for _, option := range c.jobTaskSpec.NamespaceListOption {
-			if option != nil {
-				allowedTargets[apolloTargetKey(option.ClusterID, option.AppID, option.Env)] = struct{}{}
-			}
-		}
-		for _, env := range targets {
-			if env == nil {
-				continue
-			}
-			for _, cluster := range env.Clusters {
-				key := apolloTargetKey(cluster, namespace.AppID, env.Env)
-				if _, ok := allowedTargets[key]; !ok {
-					return fmt.Errorf("apollo target [appID=%s, env=%s, cluster=%s] is not allowed to be created", namespace.AppID, env.Env, cluster)
-				}
-			}
-		}
 	}
 
 	targetCount := 0
@@ -221,10 +202,6 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 		return fmt.Errorf("create namespace partially failed: %s", strings.Join(targetErrors, "; "))
 	}
 	return nil
-}
-
-func apolloTargetKey(cluster, appID, env string) string {
-	return fmt.Sprintf("%s++%s++%s", cluster, appID, env)
 }
 
 func updateAndReleaseNamespace(client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {

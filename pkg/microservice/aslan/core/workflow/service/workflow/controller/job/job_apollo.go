@@ -258,9 +258,7 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 		},
 		JobType: string(config.JobApollo),
 		Spec: &commonmodels.JobTaskApolloSpec{
-			ApolloID:            j.jobSpec.ApolloID,
-			DisableConfigRange:  j.jobSpec.DisableConfigRange,
-			NamespaceListOption: j.jobSpec.NamespaceListOption,
+			ApolloID: j.jobSpec.ApolloID,
 			NamespaceList: func() (list []*commonmodels.JobTaskApolloNamespace) {
 				for _, namespace := range j.jobSpec.NamespaceList {
 					if namespace.Action == "" {

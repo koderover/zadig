@@ -649,10 +649,8 @@ type DMSTaskOrder struct {
 
 type JobTaskApolloSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
-	ApolloID                string                    `bson:"apolloID"            json:"apolloID"            yaml:"apolloID"`
-	DisableConfigRange      bool                      `bson:"disable_config_range" json:"disable_config_range" yaml:"disable_config_range"`
-	NamespaceListOption     []*ApolloNamespace        `bson:"namespaceListOption"  json:"namespaceListOption"  yaml:"namespaceListOption"`
-	NamespaceList           []*JobTaskApolloNamespace `bson:"namespaceList"        json:"namespaceList"        yaml:"namespaceList"`
+	ApolloID                string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList           []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
 }
 
 type JobTaskApolloNamespace struct {
