@@ -87,7 +87,7 @@ func (s *GitStep) runGitCmds() error {
 	}
 	envs := s.envs
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
+	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && (s.spec.Proxy.Type == "http" || s.spec.Proxy.Type == "https" || s.spec.Proxy.Type == "socks5") {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range s.spec.Repos {

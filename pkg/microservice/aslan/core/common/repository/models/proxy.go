@@ -24,7 +24,7 @@ import (
 
 type Proxy struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
-	// http或socks5 暂时只支持http代理
+	// 支持 http、https 和 socks5 代理
 	Type         string `bson:"type"                         json:"type"`
 	Address      string `bson:"address"                      json:"address"`
 	Port         int    `bson:"port"                         json:"port"`

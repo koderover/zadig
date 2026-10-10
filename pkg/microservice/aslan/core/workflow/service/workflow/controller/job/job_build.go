@@ -620,6 +620,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 					ImageName:             image,
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
+					EnableProxy:           buildInfo.PostBuild.DockerBuild.EnableProxy,
 					DockerTemplateContent: dockefileContent,
 					EnableBuildkit:        buildInfo.PostBuild.DockerBuild.EnableBuildkit,
 					Platform:              buildInfo.PostBuild.DockerBuild.Platform,

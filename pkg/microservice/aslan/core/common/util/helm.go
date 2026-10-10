@@ -363,6 +363,11 @@ func NewHelmClient(chartRepo *commonmodels.HelmRepo) (*helmtool.HelmClient, erro
 			return nil, fmt.Errorf("enabled proxy for helm client, but no proxy found")
 		}
 
+		// 系统代理已关闭时直连 chart 仓库
+		if !isHelmProxyEnabled(proxy[0]) {
+			return client, nil
+		}
+
 		log.Debugf("add proxy to helm client, proxy url: %s", proxy[0].GetProxyURL())
 
 		transport, err := util.NewTransport(chartRepo.URL, "", "", "", false, proxy[0].GetProxyURL())
@@ -391,8 +396,19 @@ func GenHelmChartProxy(chartRepo *commonmodels.HelmRepo) (*helmtool.Proxy, error
 		if len(proxies) == 0 {
 			return nil, fmt.Errorf("enabled proxy for helm chart, but no proxy found")
 		}
+
+		// 系统代理已关闭时直连 chart 仓库
+		if !isHelmProxyEnabled(proxies[0]) {
+			proxy.Enabled = false
+			return proxy, nil
+		}
 		proxy.ProxyURL = proxies[0].GetProxyURL()
 	}
 
 	return proxy, nil
+}
+
+// isHelmProxyEnabled reports whether the system proxy is switched on with a supported type.
+func isHelmProxyEnabled(p *commonmodels.Proxy) bool {
+	return p.EnableRepoProxy && (p.Type == "http" || p.Type == "https" || p.Type == "socks5")
 }
