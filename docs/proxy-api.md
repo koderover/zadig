@@ -414,6 +414,8 @@ GET /api/aslan/system/proxy/config
 
 该字段只控制 Docker build 的代理 build-arg，不控制 Git 拉取、软件包安装、Docker 登录/推送或 DinD 镜像拉取。已有请求不传该字段即可保持旧行为。
 
+构建更新接口按完整配置更新。如果已有构建明确设置了 `enable_proxy=false`，调用方更新时需要继续传入 `false`；旧客户端省略该字段后，该字段会恢复为未设置，并重新按全局 `enable_repo_proxy` 处理。
+
 软件包文件下载未增加系统代理配置读取。Reaper 安装脚本仍按 `enable_application_proxy` 开关导出 `http_proxy`、`https_proxy`，jobexecutor 的安装步骤保留原有处理。
 
 SOCKS5 使用注意：Git HTTP/HTTPS 使用 `socks5://` 时由本地解析目标域名，运行环境需具备相应 DNS 解析能力。API 的 `type` 使用 `socks5`，不使用 `socks5h`。HTTPS 代理未提供自定义 CA 字段，自签证书需由运行环境的信任链支持。
