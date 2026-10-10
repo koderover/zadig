@@ -122,6 +122,8 @@ type OpenAPIDockerBuildStep struct {
 	TemplateName string `json:"template_name"`
 	// 构建参数
 	BuildArgs string `json:"build_args"`
+	// 是否在镜像构建时注入代理参数。未设置时沿用历史行为。
+	EnableProxy *bool `json:"enable_proxy,omitempty"`
 	// 是否启用 Buildkit
 	EnableBuildkit bool `json:"enable_buildkit"`
 	// 平台

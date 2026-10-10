@@ -33,6 +33,7 @@ type StepDockerBuildSpec struct {
 	DockerFile            string              `bson:"docker_file"                         json:"docker_file"                            yaml:"docker_file"`
 	ImageName             string              `bson:"image_name"                          json:"image_name"                             yaml:"image_name"`
 	BuildArgs             string              `bson:"build_args"                          json:"build_args"                             yaml:"build_args"`
+	EnableProxy           *bool               `bson:"enable_proxy,omitempty"               json:"enable_proxy,omitempty"                  yaml:"enable_proxy,omitempty"`
 	ImageReleaseTag       string              `bson:"image_release_tag"                   json:"image_release_tag"                      yaml:"image_release_tag"`
 	DockerTemplateContent string              `bson:"docker_template_content"             json:"docker_template_content"                yaml:"docker_template_content"`
 	Proxy                 *Proxy              `bson:"proxy"                               json:"proxy"                                  yaml:"proxy"`
