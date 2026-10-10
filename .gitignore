@@ -75,3 +75,5 @@ debug/init
 debug/ua
 debug/user
 debug/zadig-agent
+
+!pkg/microservice/aslan/core/stat/handler/ai_review_stat_query_regression_test.go

@@ -91,10 +91,11 @@ type AIReviewStatsDistributions struct {
 }
 
 type AIReviewStatsComparison struct {
-	PRCount        *float64 `json:"pr_count" extensions:"x-nullable"`        // 审查 PR 数量环比，计算为（本期-上期）/上期；上期为零时为 null
-	ResolutionRate *float64 `json:"resolution_rate" extensions:"x-nullable"` // 处理率环比，单位为百分点，计算为（本期-上期）×100；无法计算时为 null
-	UpDownRatio    *float64 `json:"up_down_ratio" extensions:"x-nullable"`   // 赞踩比环比，计算为本期减上期；无法计算时为 null
-	TotalTokens    *float64 `json:"total_tokens" extensions:"x-nullable"`    // Token 总量环比，计算为（本期-上期）/上期；上期为零时为 null
+	SavedPersonHours *float64 `json:"saved_person_hours" extensions:"x-nullable"` // 节省工时环比，（本期-上期）/上期；上期为零时为 null
+	PRCount          *float64 `json:"pr_count" extensions:"x-nullable"`           // 审查 PR 数量环比，计算为（本期-上期）/上期；上期为零时为 null
+	ResolutionRate   *float64 `json:"resolution_rate" extensions:"x-nullable"`    // 处理率环比，单位为百分点，计算为（本期-上期）×100；无法计算时为 null
+	UpDownRatio      *float64 `json:"up_down_ratio" extensions:"x-nullable"`      // 赞踩比环比，计算为本期减上期；无法计算时为 null
+	TotalTokens      *float64 `json:"total_tokens" extensions:"x-nullable"`       // Token 总量环比，计算为（本期-上期）/上期；上期为零时为 null
 }
 
 type AIReviewStatsWeeklyTrend struct {
@@ -119,12 +120,12 @@ type AIReviewStatsScope struct {
 
 type AIReviewStatsOverviewMetrics struct {
 	AIReviewStatsMetrics
-	SavedPersonDays float64 `json:"saved_person_days"` // 估算节省人天，仅统计输入完整且反馈已确认的记录，固定 reviewer 系数 1.5，保留两位小数
+	SavedPersonHours float64 `json:"saved_person_hours"` // 估算节省工时，单位小时，仅统计输入完整且反馈已确认的记录，固定 reviewer 系数 1.5，保留两位小数
 }
 
 type AIReviewStatsOverviewResponse struct {
 	Scope                      AIReviewStatsScope           `json:"scope"`        // 统计范围及其身份信息
-	Metrics                    AIReviewStatsOverviewMetrics `json:"metrics"`      // 概览统计指标，包含节省人天
+	Metrics                    AIReviewStatsOverviewMetrics `json:"metrics"`      // 概览统计指标，包含节省工时
 	Comparison                 AIReviewStatsComparison      `json:"comparison"`   // 与紧邻当前期间的等长上一期间比较的环比数据
 	WeeklyTrend                []AIReviewStatsWeeklyTrend   `json:"weekly_trend"` // 按周统计的 PR 数量与处理率趋势，统计实现后包含空区间
 	AIReviewStatsDistributions                              // 问题分布，字段展开到当前对象
