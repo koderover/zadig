@@ -1204,6 +1204,18 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				if err := workflowController.RenderJobTaskRuntimeVariables(t, globalKeyMap); err != nil {
 					return err
 				}
+				if jobTask.JobType == string(config.JobApollo) {
+					currentSpec := &commonmodels.JobTaskApolloSpec{}
+					if err := commonmodels.IToi(jobTask.Spec, currentSpec); err != nil {
+						return errors.Errorf("failed to decode current apollo task %s spec, error: %s", jobTask.Name, err)
+					}
+					retrySpec := &commonmodels.JobTaskApolloSpec{}
+					if err := commonmodels.IToi(t.Spec, retrySpec); err != nil {
+						return errors.Errorf("failed to decode retry apollo task %s spec, error: %s", jobTask.Name, err)
+					}
+					mergeApolloRetryState(currentSpec, retrySpec)
+					t.Spec = retrySpec
+				}
 				// 把首次执行已编译好的 rule plan 搬到重试的 spec 上。
 				//
 				// 上面 ctrl.ToTask 重建出来的 spec 里 RulePlan 一定是空的：rule plan 属于 workflow
@@ -1255,6 +1267,41 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	}
 
 	return nil
+}
+
+func mergeApolloRetryState(currentSpec, retrySpec *commonmodels.JobTaskApolloSpec) {
+	currentNamespaces := make(map[string]*commonmodels.JobTaskApolloNamespace, len(currentSpec.NamespaceList))
+	for _, namespace := range currentSpec.NamespaceList {
+		if namespace != nil {
+			key := fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
+			if namespace.Action == commonmodels.ApolloActionCreate {
+				key = namespace.AppID + "++" + apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
+			}
+			currentNamespaces[key] = namespace
+		}
+	}
+
+	for _, namespace := range retrySpec.NamespaceList {
+		if namespace == nil {
+			continue
+		}
+		key := fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
+		if namespace.Action == commonmodels.ApolloActionCreate {
+			key = namespace.AppID + "++" + apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
+		}
+		current, ok := currentNamespaces[key]
+		if !ok {
+			continue
+		}
+		namespace.AppNamespaceCreated = current.AppNamespaceCreated
+		if namespace.Action == commonmodels.ApolloActionCreate {
+			namespace.Namespace = current.Namespace
+		}
+		if current.Status == string(config.StatusPassed) {
+			namespace.Status = current.Status
+		}
+		namespace.Error = ""
+	}
 }
 
 type ManualExecWorkflowTaskV4Request struct {
@@ -1833,7 +1880,6 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						logger.Error(err)
 						return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 					}
-
 					inputSpec := new(ApolloRevertInput)
 					err = commonmodels.IToi(input, inputSpec)
 					if err != nil {
@@ -1857,6 +1903,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 
 					client := apollo.NewClient(info.ServerAddress, info.Token)
 					for _, namespace := range inputSpec.ApolloDatas {
+						if namespace.Action == commonmodels.ApolloActionCreate {
+							continue
+						}
 						revertData := &commonmodels.JobTaskApolloNamespace{
 							ApolloNamespace: commonmodels.ApolloNamespace{
 								AppID:      namespace.AppID,

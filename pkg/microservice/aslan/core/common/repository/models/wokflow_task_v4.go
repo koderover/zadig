@@ -654,8 +654,10 @@ type JobTaskApolloSpec struct {
 }
 
 type JobTaskApolloNamespace struct {
-	ApolloNamespace `bson:",inline" json:",inline" yaml:",inline"`
-	Error           string `bson:"error" json:"error" yaml:"error"`
+	ApolloNamespace     `bson:",inline" json:",inline" yaml:",inline"`
+	AppNamespaceCreated bool   `bson:"appNamespaceCreated" json:"appNamespaceCreated,omitempty" yaml:"appNamespaceCreated,omitempty"`
+	Status              string `bson:"status"              json:"status"                        yaml:"status"`
+	Error               string `bson:"error"               json:"error"                         yaml:"error"`
 }
 
 type ApolloKV struct {

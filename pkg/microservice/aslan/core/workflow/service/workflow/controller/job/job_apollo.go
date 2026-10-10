@@ -86,26 +86,73 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 	}
 
 	if isExecution {
+		j.jobSpec.DisableConfigRange = currJobSpec.DisableConfigRange
+		j.jobSpec.NamespaceListOption = currJobSpec.NamespaceListOption
+
 		envOptionMap := make(map[string]*commonmodels.ApolloNamespace)
 		for _, ns := range currJobSpec.NamespaceListOption {
-			key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
-			envOptionMap[key] = ns
+			if ns != nil {
+				key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+				envOptionMap[key] = ns
+			}
 		}
 
 		nsMap := make(map[string]*commonmodels.ApolloNamespace)
+		createdNamespaceMap := make(map[string]struct{})
 		for _, ns := range j.jobSpec.NamespaceList {
-			nsKey := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
-			if _, ok := nsMap[nsKey]; ok {
-				return fmt.Errorf("duplicate apollo namespace: %s", nsKey)
+			if ns == nil {
+				return fmt.Errorf("apollo namespace is not allowed to be nil")
+			}
+			if ns.Action == "" {
+				ns.Action = commonmodels.ApolloActionUpdate
 			}
 
-			if !j.jobSpec.DisableConfigRange {
-				envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
-				if _, ok := envOptionMap[envKey]; !ok {
-					return fmt.Errorf("apollo env [%s] is not allowed to be changed", envKey)
+			switch ns.Action {
+			case commonmodels.ApolloActionUpdate:
+				namespaceKey := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
+				if _, ok := nsMap[namespaceKey]; ok {
+					return fmt.Errorf("duplicate apollo namespace: %s", ns.Namespace)
 				}
+				nsMap[namespaceKey] = ns
+
+				if !currJobSpec.DisableConfigRange {
+					envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+					if _, ok := envOptionMap[envKey]; !ok {
+						return fmt.Errorf("apollo target [appID=%s, env=%s, cluster=%s] is not allowed to be changed", ns.AppID, ns.Env, ns.ClusterID)
+					}
+				}
+
+			case commonmodels.ApolloActionCreate:
+				ns.AppID = strings.TrimSpace(ns.AppID)
+				ns.Namespace = strings.TrimSpace(ns.Namespace)
+				ns.Type = strings.ToLower(strings.TrimSpace(ns.Type))
+				if ns.Type == "" {
+					ns.Type = apollo.FormatYAML
+				}
+				if ns.AppID == "" || ns.Namespace == "" {
+					return fmt.Errorf("apollo appID and namespace are required")
+				}
+				if ns.Env != "" || ns.ClusterID != "" {
+					return fmt.Errorf("env and clusterID must be empty when creating an apollo namespace")
+				}
+				switch ns.Type {
+				case apollo.FormatYAML, apollo.FormatYML, apollo.FormatJSON, apollo.FormatProperties, apollo.FormatXML:
+				default:
+					return fmt.Errorf("unsupported apollo namespace type: %s", ns.Type)
+				}
+				if err := apollo.ValidateNamespaceName(ns.Namespace); err != nil {
+					return err
+				}
+
+				namespaceKey := ns.AppID + "++" + apollo.NormalizeNamespaceName(ns.Namespace, ns.Type)
+				if _, ok := createdNamespaceMap[namespaceKey]; ok {
+					return fmt.Errorf("duplicate apollo namespace: %s", ns.Namespace)
+				}
+				createdNamespaceMap[namespaceKey] = struct{}{}
+
+			default:
+				return fmt.Errorf("unsupported apollo action: %s", ns.Action)
 			}
-			nsMap[nsKey] = ns
 		}
 
 		if len(j.jobSpec.NamespaceList) == 0 {
@@ -171,6 +218,7 @@ func (j ApolloJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 			}
 			for _, ns := range namespaces {
 				newNamespaces = append(newNamespaces, &commonmodels.ApolloNamespace{
+					Action:    commonmodels.ApolloActionUpdate,
 					AppID:     namespace.AppID,
 					Env:       namespace.Env,
 					ClusterID: namespace.ClusterID,
@@ -179,6 +227,9 @@ func (j ApolloJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 				})
 			}
 		} else {
+			if namespace.Action == "" {
+				namespace.Action = commonmodels.ApolloActionUpdate
+			}
 			newNamespaces = append(newNamespaces, namespace)
 		}
 	}
@@ -210,8 +261,12 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			ApolloID: j.jobSpec.ApolloID,
 			NamespaceList: func() (list []*commonmodels.JobTaskApolloNamespace) {
 				for _, namespace := range j.jobSpec.NamespaceList {
+					if namespace.Action == "" {
+						namespace.Action = commonmodels.ApolloActionUpdate
+					}
 					list = append(list, &commonmodels.JobTaskApolloNamespace{
 						ApolloNamespace: *namespace,
+						Status:          string(config.StatusCreated),
 					})
 				}
 				return list

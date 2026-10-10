@@ -16,12 +16,20 @@
 
 package apollo
 
-import "strings"
+import (
+	"fmt"
+	"path"
+	"strings"
+)
 
 const (
-	FormatYAML  = "yaml"
-	FormatYML   = "yml"
-	YAMLItemKey = "content"
+	FormatYAML       = "yaml"
+	FormatYML        = "yml"
+	FormatJSON       = "json"
+	FormatProperties = "properties"
+	FormatXML        = "xml"
+	FileItemKey      = "content"
+	YAMLItemKey      = FileItemKey
 )
 
 func IsYAMLNamespace(format string) bool {
@@ -33,11 +41,43 @@ func IsYAMLNamespace(format string) bool {
 	}
 }
 
+func IsFileNamespace(format string) bool {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case FormatYAML, FormatYML, FormatJSON, FormatXML:
+		return true
+	default:
+		return false
+	}
+}
+
 func NormalizeItemKey(format, key string) string {
-	if key == "" && IsYAMLNamespace(format) {
-		return YAMLItemKey
+	if IsFileNamespace(format) {
+		return FileItemKey
 	}
 	return key
+}
+
+func NormalizeNamespaceName(name, format string) string {
+	name = strings.TrimSpace(name)
+	format = strings.ToLower(strings.TrimSpace(format))
+	if !IsFileNamespace(format) || strings.EqualFold(path.Ext(name), "."+format) {
+		return name
+	}
+	return name + "." + format
+}
+
+func ValidateNamespaceName(name string) error {
+	name = strings.TrimSpace(name)
+	ext := strings.TrimPrefix(strings.ToLower(path.Ext(name)), ".")
+	if ext == "" {
+		return nil
+	}
+	switch ext {
+	case FormatYAML, FormatYML, FormatJSON, FormatProperties, FormatXML:
+		return fmt.Errorf("namespace name must not include file suffix %q", ext)
+	default:
+		return nil
+	}
 }
 
 type BriefNamespace struct {
@@ -89,6 +129,25 @@ type EnvAndCluster struct {
 	Clusters []string `json:"clusters"`
 }
 
+type CreateAppNamespaceArgs struct {
+	Name                string `json:"name"`
+	AppID               string `json:"appId"`
+	Format              string `json:"format"`
+	IsPublic            bool   `json:"isPublic"`
+	Comment             string `json:"comment"`
+	DataChangeCreatedBy string `json:"dataChangeCreatedBy"`
+}
+
+type AppNamespace struct {
+	Name                     string `json:"name"`
+	AppID                    string `json:"appId"`
+	Format                   string `json:"format"`
+	IsPublic                 bool   `json:"isPublic"`
+	Comment                  string `json:"comment"`
+	DataChangeCreatedBy      string `json:"dataChangeCreatedBy"`
+	DataChangeLastModifiedBy string `json:"dataChangeLastModifiedBy"`
+}
+
 func (c *Client) ListApp() (list []*AppInfo, err error) {
 	_, err = c.R().SetSuccessResult(&list).Get(c.BaseURL + "/openapi/v1/apps")
 	return
@@ -98,6 +157,14 @@ func (c *Client) ListAppEnvsAndClusters(appID string) (envList []*EnvAndCluster,
 	_, err = c.R().SetPathParams(map[string]string{
 		"appId": appID,
 	}).SetSuccessResult(&envList).Get(c.BaseURL + "/openapi/v1/apps/{appId}/envclusters")
+	return
+}
+
+func (c *Client) CreateAppNamespace(appID string, args *CreateAppNamespaceArgs) (result *AppNamespace, err error) {
+	_, err = c.R().SetPathParam("appId", appID).
+		SetBodyJsonMarshal(args).
+		SetSuccessResult(&result).
+		Post(c.BaseURL + "/openapi/v1/apps/{appId}/appnamespaces")
 	return
 }
 

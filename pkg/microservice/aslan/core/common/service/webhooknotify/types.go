@@ -603,6 +603,8 @@ type OpenAPIWorkflowApolloJobSpec struct {
 }
 
 type OpenAPIWorkflowApolloNamespace struct {
+	// 操作类型
+	Action commonmodels.ApolloActionType `json:"action"`
 	// 应用 ID
 	AppID string `json:"appID"`
 	// 集群 ID
