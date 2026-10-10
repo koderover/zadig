@@ -56,6 +56,9 @@ func aiReviewPagePipeline(match bson.M, kind string, args AIReviewStatsListReque
 	}
 	ordering = append(ordering, bson.E{Key: sortBy, Value: direction})
 	for _, field := range keyFields {
+		if kind == "pr" {
+			field = "_id." + field
+		}
 		ordering = append(ordering, bson.E{Key: field, Value: 1})
 	}
 	skip := int64(args.Page - 1)
@@ -65,14 +68,35 @@ func aiReviewPagePipeline(match bson.M, kind string, args AIReviewStatsListReque
 		skip *= int64(args.PageSize)
 	}
 	pipeline := aiReviewPRMetricsPipeline(match, group, kind)
-	pipeline = append(pipeline, aiReviewSummaryMetricsPipeline(group, kind)...)
-	return append(pipeline, mongo.Pipeline{
-		{{Key: "$set", Value: bson.M{"sort_known": bson.M{"$ne": bson.A{"$" + sortBy, nil}}}}},
-		{{Key: "$facet", Value: bson.M{
-			"total": bson.A{bson.M{"$count": "count"}},
-			"items": bson.A{bson.M{"$sort": ordering}, bson.M{"$skip": skip}, bson.M{"$limit": args.PageSize}},
-		}}},
-	}...)
+	items := mongo.Pipeline{
+		{{Key: "$sort", Value: ordering}},
+		{{Key: "$skip", Value: skip}},
+		{{Key: "$limit", Value: args.PageSize}},
+	}
+	if kind == "pr" {
+		// PR ordering depends only on reports, so join feedback after pagination.
+		items = append(items, aiReviewFeedbackMetricsPipeline()...)
+		items = append(items, aiReviewSummaryMetricsPipeline(group, kind)...)
+	} else {
+		pipeline = append(pipeline, aiReviewFeedbackMetricsPipeline()...)
+		pipeline = append(pipeline, aiReviewSummaryMetricsPipeline(group, kind)...)
+		pipeline = append(pipeline, bson.D{{Key: "$set", Value: bson.M{"sort_known": bson.M{"$ne": bson.A{"$" + sortBy, nil}}}}})
+	}
+	return append(pipeline, bson.D{{Key: "$facet", Value: bson.M{
+		"total": mongo.Pipeline{{{Key: "$count", Value: "count"}}},
+		"items": items,
+	}}})
+}
+
+func aiReviewFeedbackLookup(key interface{}) bson.D {
+	feedbackMatch := bson.A{}
+	for _, field := range []string{"codehost_id", "repo_owner", "repo_name", "pr"} {
+		feedbackMatch = append(feedbackMatch, bson.M{"$eq": bson.A{"$" + field, "$$key." + field}})
+	}
+	return bson.D{{Key: "$lookup", Value: bson.M{"from": (feedbackmodels.AIReviewFeedback{}).TableName(), "let": bson.M{"key": key}, "pipeline": bson.A{
+		bson.M{"$match": bson.M{"$expr": bson.M{"$and": feedbackMatch}}},
+		bson.M{"$project": bson.M{"provider": 1, "synced_at": 1, "pr_title": 1, "up": 1, "down": 1, "inline_total": 1, "inline_resolved": 1, "resolution_synced_at": 1}},
+	}, "as": "feedback"}}}
 }
 
 func aiReviewPRMetricsPipeline(match, group bson.M, kind string) mongo.Pipeline {
@@ -86,10 +110,36 @@ func aiReviewPRMetricsPipeline(match, group bson.M, kind string) mongo.Pipeline 
 	for _, field := range []string{"prompt_tokens", "completion_tokens", "total_tokens"} {
 		perPR[field] = bson.M{"$sum": "$usage." + field}
 	}
-	feedbackMatch := bson.A{}
-	for _, field := range []string{"codehost_id", "repo_owner", "repo_name", "pr"} {
-		feedbackMatch = append(feedbackMatch, bson.M{"$eq": bson.A{"$" + field, "$$key." + field}})
+	projection := bson.M{"_id": 1, "usage": 1}
+	for _, field := range []string{"project_name", "project_display_name", "codehost_id", "repo_owner", "repo_name", "pr", "pr_title", "pr_author", "pr_url", "reviewed_at"} {
+		projection[field] = 1
 	}
+	if kind == "comparison" {
+		for _, field := range []string{"duration_ms", "additions", "deletions", "changed_lines"} {
+			projection[field] = 1
+		}
+		lines := bson.M{"$cond": bson.A{
+			bson.M{"$and": bson.A{bson.M{"$ne": bson.A{bson.M{"$ifNull": bson.A{"$additions", nil}}, nil}}, bson.M{"$ne": bson.A{bson.M{"$ifNull": bson.A{"$deletions", nil}}, nil}}}},
+			bson.M{"$cond": bson.A{bson.M{"$and": bson.A{bson.M{"$gte": bson.A{"$additions", 0}}, bson.M{"$gte": bson.A{"$deletions", 0}}}}, bson.M{"$add": bson.A{bson.M{"$toDouble": "$additions"}, bson.M{"$toDouble": "$deletions"}}}, -1}},
+			bson.M{"$ifNull": bson.A{"$changed_lines", -1}},
+		}}
+		valid := bson.M{"$and": bson.A{bson.M{"$gt": bson.A{"$duration_ms", 0}}, bson.M{"$gte": bson.A{lines, 0}}}}
+		perPR["human_minutes"] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, bson.M{"$add": bson.A{10, bson.M{"$multiply": bson.A{lines, 0.05}}}}, 0}}}
+		perPR["ai_minutes"] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, bson.M{"$divide": bson.A{"$duration_ms", 60000}}, 0}}}
+	}
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: match}},
+		{{Key: "$project", Value: projection}},
+	}
+	// Only PR rows need the latest report metadata; summary lists need no report sort.
+	if kind == "pr" {
+		pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "reviewed_at", Value: 1}, {Key: "_id", Value: 1}}}})
+		perPR["_id"] = group
+	}
+	return append(pipeline, bson.D{{Key: "$group", Value: perPR}})
+}
+
+func aiReviewFeedbackMetricsPipeline() mongo.Pipeline {
 	missing := bson.M{"$eq": bson.A{bson.M{"$ifNull": bson.A{"$feedback.provider", ""}}, ""}}
 	resolutionUnknown := bson.M{"$or": bson.A{bson.M{"$eq": bson.A{bson.M{"$ifNull": bson.A{"$feedback", nil}}, nil}}, bson.M{"$and": bson.A{
 		bson.M{"$gt": bson.A{"$feedback.inline_total", 0}},
@@ -99,24 +149,8 @@ func aiReviewPRMetricsPipeline(match, group bson.M, kind string) mongo.Pipeline 
 		bson.M{"$eq": bson.A{"$feedback.provider", setting.SourceFromGithub}},
 		bson.M{"$lte": bson.A{bson.M{"$ifNull": bson.A{"$feedback.synced_at", time.Time{}}}, time.Time{}}},
 	}}}}
-	projection := bson.M{"_id": 1, "usage": 1}
-	for _, field := range []string{"project_name", "project_display_name", "codehost_id", "repo_owner", "repo_name", "pr", "pr_title", "pr_author", "pr_url", "reviewed_at"} {
-		projection[field] = 1
-	}
-	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: match}},
-		{{Key: "$project", Value: projection}},
-	}
-	// Only PR rows need the latest report metadata; summary lists need no report sort.
-	if kind == "pr" {
-		pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "reviewed_at", Value: 1}, {Key: "_id", Value: 1}}}})
-	}
-	return append(pipeline, mongo.Pipeline{
-		{{Key: "$group", Value: perPR}},
-		{{Key: "$lookup", Value: bson.M{"from": (feedbackmodels.AIReviewFeedback{}).TableName(), "let": bson.M{"key": "$_id"}, "pipeline": bson.A{
-			bson.M{"$match": bson.M{"$expr": bson.M{"$and": feedbackMatch}}},
-			bson.M{"$project": bson.M{"provider": 1, "synced_at": 1, "pr_title": 1, "up": 1, "down": 1, "inline_total": 1, "inline_resolved": 1, "resolution_synced_at": 1}},
-		}, "as": "feedback"}}},
+	return mongo.Pipeline{
+		aiReviewFeedbackLookup("$_id"),
 		{{Key: "$unwind", Value: bson.M{"path": "$feedback", "preserveNullAndEmptyArrays": true}}},
 		{{Key: "$set", Value: bson.M{
 			"pr_title":         bson.M{"$cond": bson.A{bson.M{"$ne": bson.A{bson.M{"$ifNull": bson.A{"$feedback.pr_title", ""}}, ""}}, "$feedback.pr_title", "$pr_title"}},
@@ -124,7 +158,7 @@ func aiReviewPRMetricsPipeline(match, group bson.M, kind string) mongo.Pipeline 
 			"feedback_known":   bson.M{"$not": bson.A{feedbackUnknown}},
 		}}},
 		{{Key: "$set", Value: bson.M{"inline_unresolved": bson.M{"$cond": bson.A{"$resolution_known", bson.M{"$max": bson.A{0, bson.M{"$subtract": bson.A{"$feedback.inline_total", "$feedback.inline_resolved"}}}}, 0}}}}},
-	}...)
+	}
 }
 
 func aiReviewSummaryMetricsPipeline(group bson.M, kind string) mongo.Pipeline {
@@ -142,11 +176,14 @@ func aiReviewSummaryMetricsPipeline(group bson.M, kind string) mongo.Pipeline {
 	for _, field := range []string{"up", "down", "inline_total", "inline_resolved"} {
 		rollup[field] = bson.M{"$sum": "$feedback." + field}
 	}
-	if kind == "pr" {
-		for _, field := range []string{"pr_title", "pr_author", "pr_url"} {
-			rollup[field] = bson.M{"$first": "$" + field}
+	if kind == "comparison" {
+		valid := bson.M{"$and": bson.A{"$feedback_known", bson.M{"$gt": bson.A{"$human_minutes", 0}}}}
+		for _, field := range []string{"human_minutes", "ai_minutes"} {
+			rollup[field] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, "$" + field, 0}}}
 		}
-		rollup["resolution_synced_at"] = bson.M{"$first": "$feedback.resolution_synced_at"}
+		for _, field := range []string{"up", "down"} {
+			rollup["saved_"+field] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, "$feedback." + field, 0}}}
+		}
 	}
 	ratio := bson.M{"$divide": bson.A{"$up", bson.M{"$max": bson.A{1, "$down"}}}}
 	roundedRatio := bson.M{"$divide": bson.A{bson.M{"$floor": bson.M{"$add": bson.A{bson.M{"$multiply": bson.A{ratio, 10}}, 0.5}}}, 10}}
@@ -160,11 +197,19 @@ func aiReviewSummaryMetricsPipeline(group bson.M, kind string) mongo.Pipeline {
 		fields[field] = "$_id." + field
 	}
 	fields["repo_display_name"] = "$_id.repo_name"
-	return mongo.Pipeline{
-		{{Key: "$group", Value: rollup}},
-		{{Key: "$set", Value: fields}},
-		{{Key: "$project", Value: bson.M{"repos": 0}}},
+	pipeline := mongo.Pipeline{{{Key: "$group", Value: rollup}}}
+	if kind == "pr" {
+		fields["repo_count"] = 1
+		values := bson.M{"pr_count": 1, "resolution_synced_at": "$feedback.resolution_synced_at"}
+		for _, field := range []string{"up", "down", "inline_total", "inline_resolved"} {
+			values[field] = bson.M{"$ifNull": bson.A{"$feedback." + field, 0}}
+		}
+		pipeline = mongo.Pipeline{{{Key: "$set", Value: values}}}
 	}
+	return append(pipeline,
+		bson.D{{Key: "$set", Value: fields}},
+		bson.D{{Key: "$project", Value: bson.M{"repos": 0, "feedback": 0}}},
+	)
 }
 
 func loadAIReviewPage(ctx context.Context, start, end int64, scope aiReviewQueryScope, kind string, args AIReviewStatsListRequest) ([]bson.M, int64, error) {
@@ -205,7 +250,11 @@ func loadAIReviewPage(ctx context.Context, start, end int64, scope aiReviewQuery
 			return nil, 0, err
 		}
 		indices[string(encoded)] = i
-		selectors = append(selectors, identity)
+		if kind == "pr" {
+			selectors = append(selectors, identity["pr"])
+		} else {
+			selectors = append(selectors, identity)
+		}
 		for field := range identity {
 			group[field] = "$" + field
 		}
@@ -222,7 +271,11 @@ func loadAIReviewPage(ctx context.Context, start, end int64, scope aiReviewQuery
 			item["project_display_name"] = item["project_name"]
 		}
 	}
-	match["$or"] = selectors
+	if kind == "pr" {
+		match["pr"] = bson.M{"$in": selectors}
+	} else {
+		match["$or"] = selectors
+	}
 	for query, pipeline := range aiReviewDetailPipelines(match, group) {
 		cursor, err := coll.Aggregate(ctx, pipeline, options.Aggregate().SetAllowDiskUse(true))
 		if err != nil {
