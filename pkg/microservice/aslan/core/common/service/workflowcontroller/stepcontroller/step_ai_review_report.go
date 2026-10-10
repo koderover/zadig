@@ -81,9 +81,10 @@ func (s *aiReviewReportCtl) AfterRun(ctx context.Context) error {
 		s.log.Errorf("decode AI review report: %v", err)
 		return nil
 	}
-	if report == nil {
-		s.reportSpec.CollectionError = "AI review report cannot be null"
+	if err := report.Validate(); err != nil {
+		s.reportSpec.CollectionError = err.Error()
 		s.step.Spec = s.reportSpec
+		s.log.Errorf("validate AI review report: %v", err)
 		return nil
 	}
 	s.reportSpec.Report = report

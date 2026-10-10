@@ -68,7 +68,7 @@ type AIReviewStatsMetrics struct {
 	InlineResolved   int64                     `json:"inline_resolved"`                         // 已解决的 AI 行内问题数量
 	InlineUnresolved int64                     `json:"inline_unresolved"`                       // 已确认未解决的行内问题数量；解决状态未知时处理率为 null
 	ResolutionRate   *float64                  `json:"resolution_rate" extensions:"x-nullable"` // 处理率，取值 0–1；无行内问题或解决状态未知时为 null
-	FindingTotal     int64                     `json:"finding_total"`                           // 所选范围内按 PR 和 fingerprint 去重的问题数量；缺少 fingerprint 的问题分别计数
+	FindingTotal     int64                     `json:"finding_total"`                           // 所选范围内保留任务报告中的问题总数，每条 finding 分别计数
 	Up               int64                     `json:"up"`                                      // 点赞数量
 	Down             int64                     `json:"down"`                                    // 点踩数量
 	UpDownRatio      *float64                  `json:"up_down_ratio" extensions:"x-nullable"`   // 赞踩比，点赞数/点踩数四舍五入保留一位小数，前端显示为 x:1；点踩数为零时取点赞数，反馈未知时为 null

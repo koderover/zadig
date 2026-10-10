@@ -16,6 +16,8 @@ limitations under the License.
 
 package step
 
+import "errors"
+
 type StepAIReviewReportSpec struct {
 	ReportPath      string          `bson:"report_path" json:"report_path" yaml:"report_path"`
 	CodehostID      int             `bson:"codehost_id" json:"codehost_id" yaml:"codehost_id"`
@@ -40,6 +42,17 @@ type AIReviewReport struct {
 	Incomplete    bool                   `bson:"incomplete" json:"incomplete" yaml:"incomplete"`
 	Errors        []string               `bson:"errors,omitempty" json:"errors,omitempty" yaml:"errors,omitempty"`
 	ExitCode      int                    `bson:"exit_code" json:"exit_code" yaml:"exit_code"`
+}
+
+func (r *AIReviewReport) Validate() error {
+	if r == nil {
+		return errors.New("AI review report cannot be null")
+	}
+	// An explicit empty findings array is a valid review with no issues.
+	if r.Findings == nil && len(r.Errors) == 0 && len(r.Warnings) == 0 {
+		return errors.New("AI review report must contain findings or errors/warnings")
+	}
+	return nil
 }
 
 type AIReviewFinding struct {

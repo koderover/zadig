@@ -111,7 +111,6 @@ func (a aiReviewAggregate) summarize() (AIReviewStatsMetrics, AIReviewStatsDistr
 	distributions := AIReviewStatsDistributions{Severities: []AIReviewStatsDistributionItem{}, ProblemTypes: []AIReviewStatsDistributionItem{}}
 	prs := make(map[aiReviewPRKey]bool)
 	repos := make(map[aiReviewRepoKey]bool)
-	fingerprints := make(map[aiReviewPRKey]map[string]statmodels.AIReviewStatFinding)
 	severity := make(map[string]int64)
 	types := make(map[string]AIReviewStatsDistributionItem)
 	models := make(map[string]AIReviewStatsModelUsage)
@@ -128,20 +127,7 @@ func (a aiReviewAggregate) summarize() (AIReviewStatsMetrics, AIReviewStatsDistr
 		usage.CompletionTokens += record.Usage.CompletionTokens
 		usage.TotalTokens += record.Usage.TotalTokens
 		models[record.Model] = usage
-		if fingerprints[key] == nil {
-			fingerprints[key] = make(map[string]statmodels.AIReviewStatFinding)
-		}
 		for _, finding := range record.Findings {
-			if finding.Fingerprint == "" {
-				addAIReviewFinding(&metrics, severity, types, finding)
-				continue
-			}
-			// Review records are sorted oldest first; the latest occurrence wins.
-			fingerprints[key][finding.Fingerprint] = finding
-		}
-	}
-	for _, byFingerprint := range fingerprints {
-		for _, finding := range byFingerprint {
 			addAIReviewFinding(&metrics, severity, types, finding)
 		}
 	}
@@ -266,6 +252,56 @@ func aiReviewDifference(now, previous *float64, multiplier float64) *float64 {
 	return &value
 }
 
+func (a aiReviewAggregate) weeklyTrend(ctx context.Context, start, end int64) ([]AIReviewStatsWeeklyTrend, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	const week = int64(7 * 24 * 60 * 60)
+	items := []AIReviewStatsWeeklyTrend{}
+	for from := start; from < end; {
+		to := from + min(week, end-from)
+		items = append(items, AIReviewStatsWeeklyTrend{StartTime: from, EndTime: to})
+		from = to
+	}
+	prs := make([]map[aiReviewPRKey]bool, len(items))
+	unknown := make([]bool, len(items))
+	for _, record := range a.records {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if record.ReviewedAt < start || record.ReviewedAt >= end {
+			continue
+		}
+		bucket := (record.ReviewedAt - start) / week
+		if prs[bucket] == nil {
+			prs[bucket] = make(map[aiReviewPRKey]bool)
+		}
+		key := aiReviewKey(record)
+		if prs[bucket][key] {
+			continue
+		}
+		prs[bucket][key] = true
+		item := &items[bucket]
+		item.PRCount++
+		feedback := a.feedback[key]
+		if feedback == nil {
+			unknown[bucket] = true
+			continue
+		}
+		item.InlineTotal += int64(feedback.InlineTotal)
+		item.InlineResolved += int64(feedback.InlineResolved)
+		if feedback.InlineTotal > 0 && feedback.ResolutionSyncedAt.IsZero() {
+			unknown[bucket] = true
+		}
+	}
+	for i := range items {
+		if !unknown[i] && items[i].InlineTotal > 0 {
+			items[i].ResolutionRate = aiReviewRatio(items[i].InlineResolved, items[i].InlineTotal)
+		}
+	}
+	return items, nil
+}
+
 func queryAIReviewOverview(ctx context.Context, args *AIReviewStatsOverviewRequest, scope AIReviewStatsScope) (AIReviewStatsOverviewResponse, error) {
 	if args.EndTime-args.StartTime > 366*24*60*60 {
 		return AIReviewStatsOverviewResponse{}, e.ErrInvalidParam.AddErr(fmt.Errorf("overview time range must not exceed 366 days"))
@@ -309,26 +345,8 @@ func queryAIReviewOverview(ctx context.Context, args *AIReviewStatsOverviewReque
 		Comparison:  AIReviewStatsComparison{PRCount: aiReviewRelative(metrics.PRCount, prior.PRCount), ResolutionRate: aiReviewDifference(metrics.ResolutionRate, prior.ResolutionRate, 100), UpDownRatio: aiReviewDifference(metrics.UpDownRatio, prior.UpDownRatio, 1), TotalTokens: aiReviewRelative(metrics.TotalTokens, prior.TotalTokens)},
 		WeeklyTrend: []AIReviewStatsWeeklyTrend{},
 	}
-	const week = int64(7 * 24 * 60 * 60)
-	for start := args.StartTime; start < args.EndTime; {
-		if err := ctx.Err(); err != nil {
-			return AIReviewStatsOverviewResponse{}, err
-		}
-		end := start + week
-		if end < start || end > args.EndTime {
-			end = args.EndTime
-		}
-		bucket := make([]statmodels.AIReviewStat, 0)
-		for _, record := range current {
-			if record.ReviewedAt >= start && record.ReviewedAt < end {
-				bucket = append(bucket, record)
-			}
-		}
-		item, _, _ := (aiReviewAggregate{bucket, feedback}).summarize()
-		response.WeeklyTrend = append(response.WeeklyTrend, AIReviewStatsWeeklyTrend{StartTime: start, EndTime: end, PRCount: item.PRCount, InlineTotal: item.InlineTotal, InlineResolved: item.InlineResolved, ResolutionRate: item.ResolutionRate})
-		start = end
-	}
-	return response, nil
+	response.WeeklyTrend, err = (aiReviewAggregate{current, feedback}).weeklyTrend(ctx, args.StartTime, args.EndTime)
+	return response, err
 }
 
 func queryAIReviewProjects(ctx context.Context, args *AIReviewStatsListRequest) (AIReviewStatsProjectListResponse, error) {
