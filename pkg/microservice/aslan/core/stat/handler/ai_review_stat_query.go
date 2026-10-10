@@ -205,6 +205,43 @@ func addAIReviewFinding(metrics *AIReviewStatsMetrics, severity map[string]int64
 	}
 }
 
+func (a aiReviewAggregate) savedPersonDays() float64 {
+	prs := make(map[aiReviewPRKey]bool)
+	var humanMinutes, aiMinutes, up, down float64
+	for _, record := range a.records {
+		if record.DurationMS <= 0 {
+			continue
+		}
+		var lines float64
+		if record.Additions != nil && record.Deletions != nil {
+			if *record.Additions < 0 || *record.Deletions < 0 {
+				continue
+			}
+			lines = float64(*record.Additions) + float64(*record.Deletions)
+		} else if record.ChangedLines != nil && *record.ChangedLines >= 0 {
+			lines = float64(*record.ChangedLines)
+		} else {
+			continue
+		}
+		key := aiReviewKey(record)
+		feedback := a.feedback[key]
+		if feedback == nil || feedback.Provider == "" || (feedback.Provider == setting.SourceFromGithub && feedback.SyncedAt.IsZero()) {
+			continue
+		}
+		humanMinutes += 10 + lines*0.05
+		aiMinutes += float64(record.DurationMS) / 60000
+		if !prs[key] {
+			prs[key] = true
+			up += float64(feedback.Up)
+			down += float64(feedback.Down)
+		}
+	}
+	if up+down == 0 {
+		return 0
+	}
+	return math.Round(max(0, humanMinutes-aiMinutes)*(up/(up+down))*1.5/480*100) / 100
+}
+
 func aiReviewRatio(numerator, denominator int64) *float64 {
 	if denominator == 0 {
 		return nil
@@ -268,7 +305,7 @@ func queryAIReviewOverview(ctx context.Context, args *AIReviewStatsOverviewReque
 	if scope.Type == "repo" {
 		scope.RepoDisplayName = scope.RepoName
 	}
-	response := AIReviewStatsOverviewResponse{Scope: scope, Metrics: metrics, AIReviewStatsDistributions: distributions,
+	response := AIReviewStatsOverviewResponse{Scope: scope, Metrics: AIReviewStatsOverviewMetrics{AIReviewStatsMetrics: metrics, SavedPersonDays: (aiReviewAggregate{current, feedback}).savedPersonDays()}, AIReviewStatsDistributions: distributions,
 		Comparison:  AIReviewStatsComparison{PRCount: aiReviewRelative(metrics.PRCount, prior.PRCount), ResolutionRate: aiReviewDifference(metrics.ResolutionRate, prior.ResolutionRate, 100), UpDownRatio: aiReviewDifference(metrics.UpDownRatio, prior.UpDownRatio, 1), TotalTokens: aiReviewRelative(metrics.TotalTokens, prior.TotalTokens)},
 		WeeklyTrend: []AIReviewStatsWeeklyTrend{},
 	}

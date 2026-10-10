@@ -202,7 +202,7 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 	// Retain details only when publication or review diagnostics need explanation.
 	if inlineResult.Failed || inlineResult.Skipped > 0 || len(inlineResult.Fallback) > 0 || report.Incomplete || report.ExitCode == 2 || len(report.Errors) > 0 || len(report.Warnings) > 0 {
 		details := formatAIReviewSummaryDetails(report, inlineResult)
-		fmt.Fprintf(&builder, "\n<details>\n<summary>▶ 点击查看审查明细</summary>\n\n%s\n\n</details>\n", details)
+		fmt.Fprintf(&builder, "\n<details>\n<summary>点击查看审查明细</summary>\n\n%s\n\n</details>\n", details)
 	}
 	builder.WriteString("\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n欢迎直接给本条评论添加 👍 (准确) 或 👎 (误报)\n\n" + aiReviewCommentMarker)
 	return builder.String()

@@ -19,6 +19,9 @@ type AIReviewStat struct {
 	Model              string                  `bson:"model"`
 	Usage              step.AIReviewTokenUsage `bson:"usage"`
 	DurationMS         int64                   `bson:"duration_ms"`
+	Additions          *int64                  `bson:"additions"`     // 新增行数，nil 表示报告未提供
+	Deletions          *int64                  `bson:"deletions"`     // 删除行数，nil 表示报告未提供
+	ChangedLines       *int64                  `bson:"changed_lines"` // 修改行数，nil 表示报告未提供
 	Incomplete         bool                    `bson:"incomplete"`
 	ExitCode           int                     `bson:"exit_code"`
 	Findings           []AIReviewStatFinding   `bson:"findings"`
