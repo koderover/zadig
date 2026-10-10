@@ -299,10 +299,6 @@ func aiReviewDetailPipelines(match, group bson.M) []mongo.Pipeline {
 	for _, field := range []string{"prompt_tokens", "completion_tokens", "total_tokens"} {
 		models[field] = bson.M{"$sum": "$usage." + field}
 	}
-	// Deduplicate inside MongoDB; never return report/finding arrays to the API process.
-	findingID := bson.M{"group": "$stat_group", "codehost_id": "$codehost_id", "repo_owner": "$repo_owner", "repo_name": "$repo_name", "pr": "$pr", "finding": bson.M{"$cond": bson.A{
-		bson.M{"$ne": bson.A{bson.M{"$ifNull": bson.A{"$findings.fingerprint", ""}}, ""}}, "$findings.fingerprint", bson.M{"report": "$_id", "index": "$finding_index"},
-	}}}
 	modelPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: match}},
 		{{Key: "$set", Value: bson.M{"stat_group": group}}},
@@ -312,11 +308,9 @@ func aiReviewDetailPipelines(match, group bson.M) []mongo.Pipeline {
 	findingPipeline := mongo.Pipeline{
 		{{Key: "$match", Value: match}},
 		{{Key: "$set", Value: bson.M{"stat_group": group}}},
-		{{Key: "$project", Value: bson.M{"stat_group": 1, "codehost_id": 1, "repo_owner": 1, "repo_name": 1, "pr": 1, "reviewed_at": 1, "findings.fingerprint": 1, "findings.severity": 1, "findings.category": 1, "findings.category_name": 1}}},
-		{{Key: "$sort", Value: bson.D{{Key: "reviewed_at", Value: 1}, {Key: "_id", Value: 1}}}},
-		{{Key: "$unwind", Value: bson.M{"path": "$findings", "includeArrayIndex": "finding_index"}}},
-		{{Key: "$group", Value: bson.M{"_id": findingID, "finding": bson.M{"$last": "$findings"}}}},
-		{{Key: "$group", Value: bson.M{"_id": bson.M{"group": "$_id.group", "severity": "$finding.severity", "category": "$finding.category"}, "category_name": bson.M{"$last": "$finding.category_name"}, "count": bson.M{"$sum": 1}}}},
+		{{Key: "$project", Value: bson.M{"stat_group": 1, "findings.severity": 1, "findings.category": 1, "findings.category_name": 1}}},
+		{{Key: "$unwind", Value: "$findings"}},
+		{{Key: "$group", Value: bson.M{"_id": bson.M{"group": "$stat_group", "severity": "$findings.severity", "category": "$findings.category"}, "category_name": bson.M{"$last": "$findings.category_name"}, "count": bson.M{"$sum": 1}}}},
 		{{Key: "$project", Value: bson.M{"_id": "$_id.group", "severity": "$_id.severity", "category": "$_id.category", "category_name": 1, "count": 1}}},
 	}
 	return []mongo.Pipeline{modelPipeline, findingPipeline}

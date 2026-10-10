@@ -75,8 +75,8 @@ func (s *AIReviewReportStep) Run(ctx context.Context) error {
 	if err := json.Unmarshal(reportBytes, &report); err != nil {
 		return fmt.Errorf("AI review report is invalid JSON: %w", err)
 	}
-	if report == nil {
-		return fmt.Errorf("AI review report cannot be null")
+	if err := report.Validate(); err != nil {
+		return err
 	}
 	reportBytes, err = json.Marshal(report)
 	if err != nil {

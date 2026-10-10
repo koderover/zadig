@@ -82,10 +82,12 @@ GitHub/GitLab 评论发布、客户端初始化、旧汇总归档及 PR/MR metad
 
 ## 查询与汇总归档
 
+报告在 jobexecutor 收集及 Aslan 发布/入库前使用同一校验：必须提供 findings 数组或错误/警告内容。显式 `findings: []` 是有效的零问题报告；空对象、无关对象和 null 被拒绝，不发布评论或覆盖旧统计。周趋势一次遍历按周分桶，只汇总去重 PR 及其行内反馈，不计算 findings、模型用量或 Token。
+
 `ai_review_stat` 保存报告中的 `additions`、`deletions`、`changed_lines`，缺失值与真实零值分开存储，不迁移历史报告。概览接口 `/api/aslan/stat/v2/ai_review/overview` 的 `metrics.saved_person_days` 使用所选范围内已有报告及反馈计算，不新增查询；项目、仓库和 PR 列表不返回该字段。
 
 节省人天 = `max(0, Σ(10 + 修改行数 × 0.05) - Σ(duration_ms / 60000)) × 采纳率 × 1.5 / 480`，保留两位小数。修改行数优先使用 `additions + deletions`，两者不齐时使用 `changed_lines`；仅纳入行数非负、耗时大于零且反馈已确认的记录，`incomplete=true` 且输入齐全也计入。同一 PR 的多次保留任务分别累计人工时间和 AI 时间，采纳率使用这些记录涉及的去重 PR 当前赞踩，即 `up / (up + down)`。无符合条件的记录、无赞踩或净时间不大于零时返回 `0`；其他指标仍沿用原统计口径。
 
-项目、代码库和 PR 列表由 MongoDB 按 PR 聚合当前反馈、排序并分页，只对当前页聚合模型用量，并对 findings 去重后按严重级别和问题类型计数。Aslan 流式读取这些汇总行，整理模型用量和分布数组，不读取原始报告或 findings。大范围查询仍需数据库扫描并聚合匹配记录，聚合允许使用临时磁盘。
+概览的 `finding_total`、严重级别和问题类型分布按所选范围内保留任务报告的每条 finding 累计，不按 PR 或 fingerprint 去重。项目、代码库和 PR 列表使用相同的问题计数口径，由 MongoDB 按 PR 聚合当前反馈、排序并分页，只对当前页聚合模型用量。Aslan 流式读取这些汇总行，整理模型用量和分布数组，不读取原始报告或 findings。大范围查询仍需数据库扫描并聚合匹配记录，聚合允许使用临时磁盘。
 
 GitHub 旧汇总全部隐藏成功后，在本次汇总追加不可见的 `zadig-ai-review-archive-checkpoint` 标记。后续通过分页从最新评论向前处理，隐藏上一条带标记的汇总后停止，不再查询更早评论的隐藏状态。首次处理历史评论仍需全量归档；失败不写完成标记，下次继续重试。GitLab 归档行为不变。
