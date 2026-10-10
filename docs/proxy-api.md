@@ -380,10 +380,16 @@ GET /api/aslan/system/proxy/config
 
 ### 构建步骤代理开关
 
-在构建或构建模板的 `docker_build_step` 中传入 `enable_proxy`，即可控制当前镜像构建步骤是否注入代理 build-arg。相关 OpenAPI 请求包括：
+这个开关和页面中的 BuildKit 开关一样，属于通用的 `DockerBuild` 配置，不是 OpenAPI 专属字段。普通构建接口使用 `post_build.docker_build.enable_proxy`，OpenAPI 则使用 `docker_build_step.enable_proxy`。两种入口最终写入同一个构建配置。
+
+通过接口配置时，相关请求包括：
 
 | 请求 | 说明 |
 | --- | --- |
+| `POST /api/build/build` | 普通接口新建构建 |
+| `PUT /api/build/build` | 普通接口更新构建 |
+| `POST /api/template/build` | 普通接口新建构建模板 |
+| `PUT /api/template/build/<构建模板 ID>` | 普通接口更新构建模板 |
 | `POST /openapi/build?projectKey=<项目标识>` | 新建构建 |
 | `PUT /openapi/build?projectKey=<项目标识>` | 更新构建 |
 | `GET /openapi/build/<构建名称>/detail?projectKey=<项目标识>` | 获取构建详情 |
