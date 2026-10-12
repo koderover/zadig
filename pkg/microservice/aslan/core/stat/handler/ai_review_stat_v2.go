@@ -40,9 +40,17 @@ import (
 // @Success 200 {object} AIReviewStatsOverviewResponse
 // @Router /api/aslan/stat/v2/ai_review/overview [get]
 func GetAIReviewStatsOverview(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
 
+	if !authorizeAIReviewStats(ctx) {
+		ctx.UnAuthorized = true
+		return
+	}
 	args := new(AIReviewStatsOverviewRequest)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
@@ -56,6 +64,7 @@ func GetAIReviewStatsOverview(c *gin.Context) {
 	if args.ProjectName != "" {
 		scope.Type = "project"
 	}
+
 	query := c.Request.URL.Query()
 	if query.Has("codehost_id") || query.Has("repo_owner") || query.Has("repo_name") {
 		if args.CodehostID == nil || args.RepoOwner == "" || args.RepoName == "" {
@@ -67,6 +76,7 @@ func GetAIReviewStatsOverview(c *gin.Context) {
 		scope.RepoOwner = args.RepoOwner
 		scope.RepoName = args.RepoName
 	}
+
 	ctx.Resp, ctx.RespErr = queryAIReviewOverview(c.Request.Context(), args, scope)
 }
 
@@ -84,13 +94,24 @@ func GetAIReviewStatsOverview(c *gin.Context) {
 // @Success 200 {object} AIReviewStatsProjectListResponse
 // @Router /api/aslan/stat/v2/ai_review/project [get]
 func GetAIReviewStatsProjects(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
+
+	if !authorizeAIReviewStats(ctx) {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(AIReviewStatsListRequest)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
 	ctx.Resp, ctx.RespErr = queryAIReviewProjects(c.Request.Context(), args)
 }
 
@@ -109,13 +130,24 @@ func GetAIReviewStatsProjects(c *gin.Context) {
 // @Success 200 {object} AIReviewStatsRepoListResponse
 // @Router /api/aslan/stat/v2/ai_review/repo [get]
 func GetAIReviewStatsRepos(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
+
+	if !authorizeAIReviewStats(ctx) {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(AIReviewStatsRepoListRequest)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
 	args.ProjectName = strings.TrimSpace(args.ProjectName)
 	ctx.Resp, ctx.RespErr = queryAIReviewRepos(c.Request.Context(), args)
 }
@@ -136,8 +168,17 @@ func GetAIReviewStatsRepos(c *gin.Context) {
 // @Success 200 {object} AIReviewStatsPRListResponse
 // @Router /api/aslan/stat/v2/ai_review/repo/{name} [get]
 func GetAIReviewStatsRepoPRs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr, ctx.UnAuthorized = err, true
+		return
+	}
+
+	if !authorizeAIReviewStats(ctx) {
+		return
+	}
+
 	args := new(AIReviewStatsRepoPRListRequest)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
@@ -147,7 +188,19 @@ func GetAIReviewStatsRepoPRs(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("repo_owner and repository name must not be blank"))
 		return
 	}
+
 	args.ProjectName = strings.TrimSpace(args.ProjectName)
 	args.RepoOwner = strings.TrimSpace(args.RepoOwner)
 	ctx.Resp, ctx.RespErr = queryAIReviewPRs(c.Request.Context(), args, strings.TrimSpace(c.Param("name")))
+}
+
+func authorizeAIReviewStats(ctx *internalhandler.Context) bool {
+	if !ctx.Resources.IsSystemAdmin && (ctx.Resources.SystemActions == nil ||
+		ctx.Resources.SystemActions.DataCenter == nil ||
+		!ctx.Resources.SystemActions.DataCenter.ViewAIReviewInsight) {
+		ctx.UnAuthorized = true
+		return false
+	}
+
+	return true
 }

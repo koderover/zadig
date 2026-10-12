@@ -181,6 +181,33 @@ func TestAIReviewQueryRegression(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// Compare all overview fields with the original per-report feedback join.
+			legacy := newAIReviewOverviewAggregate(100, 1200)
+			pipeline := aiReviewOverviewPipeline(100, 1200, filter)
+			pipeline = append(pipeline, aiReviewFeedbackLookup(bson.M{"codehost_id": "$codehost_id", "repo_owner": "$repo_owner", "repo_name": "$repo_name", "pr": "$pr"}), bson.D{{Key: "$unwind", Value: bson.M{"path": "$feedback", "preserveNullAndEmptyArrays": true}}})
+			cursor, err := stats.Aggregate(ctx, pipeline)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for cursor.Next(ctx) {
+				var row struct {
+					statmodels.AIReviewStat `bson:",inline"`
+					Feedback                *feedbackmodels.AIReviewFeedback `bson:"feedback"`
+				}
+				if err := cursor.Decode(&row); err != nil {
+					t.Fatal(err)
+				}
+				legacy.add(row.AIReviewStat, row.Feedback)
+			}
+			if err := cursor.Err(); err != nil {
+				t.Fatal(err)
+			}
+			cursor.Close(ctx)
+			fullMetrics, fullDistributions, fullRepoCount, fullHours, fullWeekly := full.result()
+			legacyMetrics, legacyDistributions, legacyRepoCount, legacyHours, legacyWeekly := legacy.result()
+			if !reflect.DeepEqual([]interface{}{fullMetrics, fullDistributions, fullRepoCount, fullHours, fullWeekly}, []interface{}{legacyMetrics, legacyDistributions, legacyRepoCount, legacyHours, legacyWeekly}) {
+				t.Fatalf("%s scope=%+v batched overview differs from per-report join", phase, filter)
+			}
 			want, _, _, hours, _ := full.result()
 			got, err := loadAIReviewComparisonMetrics(ctx, 100, 1200, filter)
 			if err != nil {
@@ -217,6 +244,46 @@ func TestAIReviewQueryRegression(t *testing.T) {
 	stop()
 	if _, err := loadAIReviewComparisonMetrics(canceled, 100, 1200, scope); err == nil {
 		t.Fatal("comparison ignored cancellation")
+	}
+	if _, err := loadAIReviewOverview(canceled, 100, 1200, scope); err == nil {
+		t.Fatal("overview ignored cancellation")
+	}
+	// Cached PRs, including missing feedback, must not be queried on later batches.
+	a := newAIReviewOverviewAggregate(100, 1200)
+	record := statmodels.AIReviewStat{CodehostID: 1, RepoOwner: "org", RepoName: "repo", PR: 100}
+	if _, err := feedback.DeleteOne(ctx, bson.M{"pr": 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.addBatch(ctx, []statmodels.AIReviewStat{record, record}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := feedback.InsertOne(ctx, feedbackmodels.AIReviewFeedback{CodehostID: 1, RepoOwner: "org", RepoName: "repo", PR: 100, Up: 9}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.addBatch(ctx, []statmodels.AIReviewStat{record}); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.prs) != 1 || a.prs[aiReviewKey(record)] != nil || a.metrics.Up != 0 {
+		t.Fatal("missing feedback was queried again")
+	}
+	// Equal PR numbers on different codehosts must keep separate feedback snapshots.
+	record.CodehostID = 2
+	if _, err := feedback.InsertOne(ctx, feedbackmodels.AIReviewFeedback{CodehostID: 2, RepoOwner: "org", RepoName: "repo", PR: 100, Provider: setting.SourceFromGitlab, Up: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.addBatch(ctx, []statmodels.AIReviewStat{record, record}); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.prs) != 2 || a.metrics.Up != 7 {
+		t.Fatal("feedback keys mixed codehosts or counted duplicate PRs")
+	}
+}
+
+func TestAIReviewOverviewHasNoFeedbackLookup(t *testing.T) {
+	for _, stage := range aiReviewOverviewPipeline(100, 1200, aiReviewQueryScope{}) {
+		if _, ok := stage.Map()["$lookup"]; ok {
+			t.Fatal("overview still joins feedback per report")
+		}
 	}
 }
 

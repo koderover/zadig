@@ -266,14 +266,14 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	logger.Info("Adding webhook")
 	created, err := coll.AddReferenceOrCreate(repoNamespace, t.repo, t.address, t.ref)
-	ensureAIReview := t.ensureAIReviewWebhook && (t.from == setting.SourceFromGitlab || t.from == setting.SourceFromGithub)
+	ensureAIReview := !t.isManual && t.ensureAIReviewWebhook && (t.from == setting.SourceFromGitlab || t.from == setting.SourceFromGithub)
 	if err != nil || (!created && !ensureAIReview) {
 		t.err = err
 		t.doneCh <- struct{}{}
 		return
 	}
 
-	if !t.isManual || ensureAIReview {
+	if !t.isManual {
 		logger.Info("Creating webhook")
 		if ensureAIReview {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
