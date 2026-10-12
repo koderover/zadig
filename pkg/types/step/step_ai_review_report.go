@@ -48,9 +48,9 @@ func (r *AIReviewReport) Validate() error {
 	if r == nil {
 		return errors.New("AI review report cannot be null")
 	}
-	// An explicit empty findings array is a valid review with no issues.
-	if r.Findings == nil && len(r.Errors) == 0 && len(r.Warnings) == 0 {
-		return errors.New("AI review report must contain findings or errors/warnings")
+
+	if r.DurationMS == 0 || len(r.Process.ModelResponses) == 0 {
+		return errors.New("AI review report must contain duration and model responses")
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	feedbackmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	feedbackrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	statmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -24,8 +25,6 @@ func aiReviewOverviewPipeline(start, end int64, scope aiReviewQueryScope) mongo.
 		{{Key: "$match", Value: aiReviewStatMatch(start, end, scope)}},
 		{{Key: "$sort", Value: bson.D{{Key: "reviewed_at", Value: 1}}}},
 		{{Key: "$project", Value: projection}},
-		aiReviewFeedbackLookup(bson.M{"codehost_id": "$codehost_id", "repo_owner": "$repo_owner", "repo_name": "$repo_name", "pr": "$pr"}),
-		{{Key: "$unwind", Value: bson.M{"path": "$feedback", "preserveNullAndEmptyArrays": true}}},
 	}
 }
 
@@ -36,18 +35,68 @@ func loadAIReviewOverview(ctx context.Context, start, end int64, scope aiReviewQ
 	}
 	defer cursor.Close(ctx)
 	aggregate := newAIReviewOverviewAggregate(start, end)
-	var row struct {
-		statmodels.AIReviewStat `bson:",inline"`
-		Feedback                *feedbackmodels.AIReviewFeedback `bson:"feedback"`
-	}
+	const batchSize = 200
+	records := make([]statmodels.AIReviewStat, 0, batchSize)
 	for cursor.Next(ctx) {
-		row.AIReviewStat, row.Feedback = statmodels.AIReviewStat{}, nil
-		if err := cursor.Decode(&row); err != nil {
+		var record statmodels.AIReviewStat
+		if err := cursor.Decode(&record); err != nil {
 			return nil, err
 		}
-		aggregate.add(row.AIReviewStat, row.Feedback)
+		records = append(records, record)
+		if len(records) == batchSize {
+			if err := aggregate.addBatch(ctx, records); err != nil {
+				return nil, err
+			}
+			clear(records)
+			records = records[:0]
+		}
 	}
-	return aggregate, cursor.Err()
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	if err := aggregate.addBatch(ctx, records); err != nil {
+		return nil, err
+	}
+	return aggregate, nil
+}
+
+func (a *aiReviewOverviewAggregate) addBatch(ctx context.Context, records []statmodels.AIReviewStat) error {
+	feedback := make(map[aiReviewPRKey]*feedbackmodels.AIReviewFeedback)
+	filters := bson.A{}
+	for _, record := range records {
+		key := aiReviewKey(record)
+		if _, seen := a.prs[key]; seen {
+			continue
+		}
+		if _, seen := feedback[key]; seen {
+			continue
+		}
+		// Keep missing feedback cached too, so later reports do not query it again.
+		feedback[key] = nil
+		filters = append(filters, bson.M{"codehost_id": record.CodehostID, "repo_owner": record.RepoOwner, "repo_name": record.RepoName, "pr": record.PR})
+	}
+	if len(filters) > 0 {
+		projection := bson.M{"_id": 0, "codehost_id": 1, "repo_owner": 1, "repo_name": 1, "pr": 1, "provider": 1, "synced_at": 1, "up": 1, "down": 1, "inline_total": 1, "inline_resolved": 1, "resolution_synced_at": 1}
+		cursor, err := feedbackrepo.NewAIReviewFeedbackColl().Find(ctx, bson.M{"$or": filters}, options.Find().SetProjection(projection))
+		if err != nil {
+			return err
+		}
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var row feedbackmodels.AIReviewFeedback
+			if err := cursor.Decode(&row); err != nil {
+				return err
+			}
+			feedback[aiReviewPRKey{row.CodehostID, row.RepoOwner, row.RepoName, row.PR}] = &row
+		}
+		if err := cursor.Err(); err != nil {
+			return err
+		}
+	}
+	for _, record := range records {
+		a.add(record, feedback[aiReviewKey(record)])
+	}
+	return nil
 }
 
 func loadAIReviewComparisonMetrics(ctx context.Context, start, end int64, scope aiReviewQueryScope) (AIReviewStatsOverviewMetrics, error) {

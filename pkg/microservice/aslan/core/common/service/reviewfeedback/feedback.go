@@ -24,7 +24,10 @@ import (
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 )
 
-const leaseDuration = 5 * time.Minute
+const (
+	syncTimeout   = 5 * time.Minute
+	leaseDuration = syncTimeout + time.Minute
+)
 
 // AcquirePublication serializes publishing and feedback reconciliation for one PR.
 func AcquirePublication(ctx context.Context, codehostID int, owner, name string, pr int, leaseUntil time.Time) (string, error) {
@@ -118,18 +121,7 @@ func Register(ctx context.Context, projectName, title string, codehostID, projec
 	if _, err = coll.UpdateOne(ctx, key, bson.M{"$setOnInsert": initial}, options.Update().SetUpsert(true)); err != nil {
 		return err
 	}
-	targets := make([]models.AIReviewFeedbackComment, 0, len(comments))
-	for _, comment := range comments {
-		if comment.CommentID > 0 {
-			targets = append(targets, models.AIReviewFeedbackComment{Kind: comment.Kind, CommentID: comment.CommentID, ReviewID: comment.ReviewID, InlineTotal: comment.InlineTotal, DirtyAt: now})
-		}
-	}
-	if err = coll.AddComments(ctx, key, targets); err != nil {
-		return err
-	}
-	if err = coll.AddInlineThreads(ctx, key, threads); err != nil {
-		return err
-	}
+	// Persist scheduling before targets, so a partial registration remains collectable.
 	update := bson.M{
 		"$set": bson.M{"project_name": projectName, "provider": provider, "source_host": sourceHost, "closed": false, "updated_at": now},
 		"$inc": bson.M{"revision": int64(1)},
@@ -145,6 +137,18 @@ func Register(ctx context.Context, projectName, title string, codehostID, projec
 	}
 	_, err = coll.UpdateOne(ctx, key, update)
 	if err != nil {
+		return err
+	}
+	targets := make([]models.AIReviewFeedbackComment, 0, len(comments))
+	for _, comment := range comments {
+		if comment.CommentID > 0 {
+			targets = append(targets, models.AIReviewFeedbackComment{Kind: comment.Kind, CommentID: comment.CommentID, ReviewID: comment.ReviewID, InlineTotal: comment.InlineTotal, DirtyAt: now})
+		}
+	}
+	if err = coll.AddComments(ctx, key, targets); err != nil {
+		return err
+	}
+	if err = coll.AddInlineThreads(ctx, key, threads); err != nil {
 		return err
 	}
 	return refreshRegisteredInlineTotals(ctx, key)
@@ -178,7 +182,7 @@ func SyncDue(ctx context.Context, limit int) error {
 		return nil
 	}
 	defer workerMu.Unlock()
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
 	if limit <= 0 || limit > 20 {
 		limit = 20

@@ -32,7 +32,7 @@ const (
 	TestingPrefix      = "testing-"
 	ScannerPrefix      = "scanning-"
 
-	taskTimeoutSecond = 10
+	taskTimeoutSecond = 180
 )
 
 type client struct {
@@ -106,14 +106,9 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 		return fmt.Errorf("queue is full, please retry it later")
 	}
 
-	timeout := taskTimeoutSecond * time.Second
-	if taskOption.EnsureAIReviewWebhook {
-		timeout = 180 * time.Second
-	}
-
 	select {
 	case <-t.doneCh:
-	case <-time.After(timeout):
+	case <-time.After(taskTimeoutSecond * time.Second):
 		t.canceled.Store(true)
 		return fmt.Errorf("timed out waiting for the task")
 	}

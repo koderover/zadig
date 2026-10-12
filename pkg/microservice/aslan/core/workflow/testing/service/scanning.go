@@ -158,7 +158,7 @@ func scanningWebhookItems(args *Scanning) ([]*commonmodels.ScanningHook, error) 
 		}
 		source := repo.Source
 		if source == "" {
-			host, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+			host, err := systemconfig.New().GetRawCodeHost(repo.CodehostID)
 			if err != nil {
 				return nil, fmt.Errorf("resolve AI review repository provider: %w", err)
 			}
