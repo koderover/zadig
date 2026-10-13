@@ -122,7 +122,7 @@ type OpenAPIDockerBuildStep struct {
 	TemplateName string `json:"template_name"`
 	// 构建参数
 	BuildArgs string `json:"build_args"`
-	// 是否在镜像构建时注入系统代理配置的 http/https 代理
+	// 是否在镜像构建时注入代理参数，需同时开启系统代理
 	EnableProxy bool `json:"enable_proxy"`
 	// 是否启用 Buildkit
 	EnableBuildkit bool `json:"enable_buildkit"`
