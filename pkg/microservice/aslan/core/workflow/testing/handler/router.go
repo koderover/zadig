@@ -78,8 +78,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanner.POST("/:id/task", FindScanningProjectNameFromID, CreateScanningTask)
 		scanner.GET("/:id/task", FindScanningProjectNameFromID, ListScanningTask)
 		scanner.GET("/:id/task/:scan_id", FindScanningProjectNameFromID, GetScanningTask)
-		scanner.GET("/:id/task/:scan_id/events", FindScanningProjectNameFromID, GetScanningTaskEvents)
 		scanner.DELETE("/:id/task/:scan_id", FindScanningProjectNameFromID, CancelScanningTask)
+		scanner.POST("/:id/task/:scan_id/restart", FindScanningProjectNameFromID, RestartScanningTask)
+		scanner.GET("/:id/task/:scan_id/events", FindScanningProjectNameFromID, GetScanningTaskEvents)
 		scanner.GET("/:id/task/:scan_id/sse", FindScanningProjectNameFromID, GetScanningTaskSSE)
 
 		scanner.GET("/:id/task/:scan_id/artifact_info", GetScanningArtifactInfo)

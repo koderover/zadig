@@ -217,6 +217,7 @@ type ScanningTaskResp struct {
 	RunTime   int64               `json:"run_time"`
 	Creator   string              `json:"creator"`
 	CreatedAt int64               `json:"created_at"`
+	StartTime int64               `json:"start_time"`
 	RepoInfo  []*types.Repository `json:"repo_info"`
 }
 
@@ -225,6 +226,7 @@ type ScanningTaskDetail struct {
 	Status         string                `json:"status"`
 	Error          string                `json:"error,omitempty"`
 	CreateTime     int64                 `json:"create_time"`
+	StartTime      int64                 `json:"start_time"`
 	EndTime        int64                 `json:"end_time"`
 	RepoInfo       []*types.Repository   `json:"repo_info"`
 	SonarMetrics   *step.SonarMetrics    `json:"sonar_metrics"`

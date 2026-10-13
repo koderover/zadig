@@ -510,6 +510,7 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 			Status:    string(status),
 			Creator:   workflowTask.TaskCreator,
 			CreatedAt: workflowTask.CreateTime,
+			StartTime: workflowTask.StartTime,
 			RepoInfo:  repoInfo,
 		}
 		if status == config.StatusPassed || status == config.StatusCancelled || status == config.StatusFailed {
@@ -671,6 +672,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		Status:         string(status),
 		Error:          errorMsg,
 		CreateTime:     workflowTask.CreateTime,
+		StartTime:      workflowTask.StartTime,
 		EndTime:        workflowTask.EndTime,
 		RepoInfo:       repoInfo,
 		SonarMetrics:   sonarMetrics,
