@@ -260,7 +260,11 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.PR = cv.PR
 			item.PRs = cv.PRs
 			item.FilterRegexp = cv.FilterRegexp
+			item.EnableCommit = cv.EnableCommit
 			item.CommitID = cv.CommitID
+			if !item.EnableCommit {
+				item.CommitID = ""
+			}
 			item.CommitMessage = cv.CommitMessage
 			item.AuthorName = cv.AuthorName
 			item.Committer = cv.Committer
