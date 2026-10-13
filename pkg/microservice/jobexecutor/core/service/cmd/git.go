@@ -197,6 +197,7 @@ func GitListRemoteBranch(remote string) *exec.Cmd {
 		"git",
 		"ls-remote",
 		"--heads",
+		"--",
 		remote,
 	)
 }
@@ -209,6 +210,7 @@ func GitListRemoteTags(remote string) *exec.Cmd {
 		"ls-remote",
 		"--tags",
 		"--refs",
+		"--",
 		remote,
 	)
 }
