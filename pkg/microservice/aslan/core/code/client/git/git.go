@@ -177,6 +177,24 @@ func (c *Client) initRepo(repoDir, namespace, projectName string) error {
 	return nil
 }
 
+func (c *Client) sshListRemoteCommand(remote string, port int, args ...string) *exec.Cmd {
+	const script = `
+printf '%s\n' "$SSH_PRIVATE_KEY" | ssh-add - || exit 1
+exec git ls-remote "$@"
+`
+	sshCommand := "ssh -o IdentityFile=none -o StrictHostKeyChecking=no"
+	if port != 0 {
+		sshCommand = fmt.Sprintf("ssh -p %d -o IdentityFile=none -o StrictHostKeyChecking=no", port)
+	}
+
+	// Pass repository data as arguments so the shell never parses it as code.
+	commandArgs := append([]string{"sh", "-c", script, "zadig"}, args...)
+	commandArgs = append(commandArgs, "--", remote)
+	cmd := exec.Command("ssh-agent", commandArgs...)
+	cmd.Env = append(os.Environ(), "SSH_PRIVATE_KEY="+c.Config.SSHKey, "GIT_SSH_COMMAND="+sshCommand)
+	return cmd
+}
+
 func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]string, error) {
 	var cmd *exec.Cmd
 	if c.Config.AuthType == types.SSHAuthType {
@@ -185,25 +203,7 @@ func (c *Client) listRemoteBranches(namespace, projectName, keyword string) ([]s
 
 		log.Debugf("port: %d, remote: %s", port, remote)
 
-		script := `
-        ssh-agent sh -c '
-            echo "$SSH_PRIVATE_KEY" | ssh-add -;
-            GIT_SSH_COMMAND="ssh -o IdentityFile=none -o StrictHostKeyChecking=no" \
-                git ls-remote --heads ` + remote + `
-        '
-		`
-		if port != 0 {
-			script = fmt.Sprintf(`
-        ssh-agent sh -c '
-            echo "$SSH_PRIVATE_KEY" | ssh-add -;
-            GIT_SSH_COMMAND="ssh -p %d -o IdentityFile=none -o StrictHostKeyChecking=no" \
-                git ls-remote --heads %s
-        '
-		`, port, remote)
-		}
-
-		cmd = exec.Command("sh", "-c", script)
-		cmd.Env = append(os.Environ(), "SSH_PRIVATE_KEY="+c.Config.SSHKey)
+		cmd = c.sshListRemoteCommand(remote, port, "--heads")
 	} else if c.Config.AuthType == types.PrivateAccessTokenAuthType {
 		u, err := url.Parse(c.Config.Address)
 		if err != nil {
@@ -266,25 +266,7 @@ func (c *Client) listRemoteTags(namespace, projectName, keyword string) ([]strin
 		_, _, port := util.GetSSHUserAndHostAndPort(c.Config.Address)
 		remote := util.GetSSHRemoteAddress(c.Config.Address, namespace, projectName)
 
-		script := `
-        ssh-agent sh -c '
-            echo "$SSH_PRIVATE_KEY" | ssh-add -;
-            GIT_SSH_COMMAND="ssh -o IdentityFile=none -o StrictHostKeyChecking=no" \
-                git ls-remote --tags --refs ` + remote + `
-        '
-		`
-		if port != 0 {
-			script = fmt.Sprintf(`
-        ssh-agent sh -c '
-            echo "$SSH_PRIVATE_KEY" | ssh-add -;
-            GIT_SSH_COMMAND="ssh -p %d -o IdentityFile=none -o StrictHostKeyChecking=no" \
-                git ls-remote --tags --refs %s
-        '
-		`, port, remote)
-		}
-
-		cmd = exec.Command("sh", "-c", script)
-		cmd.Env = append(os.Environ(), "SSH_PRIVATE_KEY="+c.Config.SSHKey)
+		cmd = c.sshListRemoteCommand(remote, port, "--tags", "--refs")
 	} else if c.Config.AuthType == types.PrivateAccessTokenAuthType {
 		u, err := url.Parse(c.Config.Address)
 		if err != nil {

@@ -247,7 +247,7 @@ func (z *zgctl) podPortForward(ctx context.Context, ns, podName, kubeconfigPath 
 		portForward := fmt.Sprintf("kubectl -n %s port-forward %s %d:%d --kubeconfig %s", ns, podName, port, port, kubeconfigPath)
 		log.Infof("port-forward: %s", portForward)
 
-		cmd := exec.Command("/bin/sh", "-c", portForward)
+		cmd := exec.Command("kubectl", "-n", ns, "port-forward", podName, fmt.Sprintf("%d:%d", port, port), "--kubeconfig", kubeconfigPath)
 		res, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Errorf("Failed to do port-forward %q: %s. Msg: %s.", portForward, err, string(res))
@@ -264,7 +264,7 @@ func (z *zgctl) configLocalSyncthing(configDir string) (deviceID string, err err
 	log.Infof("config dir: %s", configDir)
 
 	var errBuffer bytes.Buffer
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("%s generate --config=%s", z.syncthingBin, configDir))
+	cmd := exec.Command(z.syncthingBin, "generate", "--config="+configDir)
 	cmd.Stderr = &errBuffer
 	err = cmd.Run()
 	if err != nil {
@@ -308,7 +308,7 @@ func (z *zgctl) adjustSyncthingConfig(localDeviceID, remoteDeviceID, configDir, 
 		return fmt.Errorf("failed to overwrite local config: %s", err)
 	}
 
-	scriptTmpl, err := template.New("local-script").Parse(syncthingRunTmpl)
+	scriptTmpl, err := template.New("local-script").Funcs(template.FuncMap{"shellQuote": shellQuote}).Parse(syncthingRunTmpl)
 	if err != nil {
 		return fmt.Errorf("failed to parse script template: %s", err)
 	}
@@ -380,15 +380,15 @@ func (z *zgctl) startRemoteSyncthing(ctx context.Context, ns, podName, configDir
 	cpCmd := fmt.Sprintf("kubectl --kubeconfig %s -n %s cp %s %s:%s -c %s", kubeconfigPath, ns, filepath.Join(configDir, "remote"), podName, filepath.Join(types.DevmodeWorkDir, "config"), types.IDEContainerNameSidecar)
 	log.Infof("cp cmd: %s", cpCmd)
 
-	cmd := exec.Command("/bin/sh", "-c", cpCmd)
+	cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "-n", ns, "cp", "-c", types.IDEContainerNameSidecar, "--", filepath.Join(configDir, "remote"), podName+":"+filepath.Join(types.DevmodeWorkDir, "config"))
 	res, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to cp files to remote pod: %s. msg: %s.", err, string(res))
 	}
 
-	execCmd := fmt.Sprintf("kubectl --kubeconfig %s -n %s exec %s -c %s -- /bin/sh -c '%s >/dev/null 2>/dev/null &'", kubeconfigPath, ns, podName, types.IDEContainerNameSidecar, filepath.Join(types.DevmodeWorkDir, "config", "run.sh"))
-	log.Infof("exec cmd: %s", execCmd)
-	cmd = exec.Command("/bin/sh", "-c", execCmd)
+	cmd = exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "-n", ns, "exec", podName, "-c", types.IDEContainerNameSidecar,
+		"--", "/bin/sh", "-c", `"$1" >/dev/null 2>&1 &`, "zadig", filepath.Join(types.DevmodeWorkDir, "config", "run.sh"))
+	log.Infof("exec cmd: %s", strings.Join(cmd.Args, " "))
 	res, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to run syncthing in remote pod: %s. msg: %s", err, string(res))
@@ -398,10 +398,10 @@ func (z *zgctl) startRemoteSyncthing(ctx context.Context, ns, podName, configDir
 }
 
 func (z *zgctl) startLocalSyncthing(ctx context.Context, configDir, dataDir string) error {
-	script := fmt.Sprintf("%s >/dev/null 2>/dev/null &", filepath.Join(configDir, "run.sh"))
-	log.Infof("script: %s", script)
+	scriptPath := filepath.Join(configDir, "run.sh")
+	log.Infof("script: %s", scriptPath)
 
-	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd := exec.Command("/bin/sh", "-c", `"$1" >/dev/null 2>&1 &`, "zadig", scriptPath)
 	res, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to run syncthing locally: %s. msg: %s.", err, string(res))
