@@ -58,26 +58,19 @@ func V510ToV500() error {
 	return nil
 }
 
-// migrateDockerBuildProxy510 sets the new per-build proxy switch for existing docker build steps.
-// Before 5.1.0 these steps used the system proxy whenever it was enabled with an HTTP/HTTPS type,
-// so the switch is initialized from the system proxy to keep their previous behavior.
+// migrateDockerBuildProxy510 turns on the new per-build proxy switch for existing docker build steps.
+// The proxy is injected only when both the build switch and the system proxy are on, so these steps
+// keep following the system proxy as they did before 5.1.0.
 func migrateDockerBuildProxy510(migrationInfo *internalmodels.Migration) error {
 	if migrationInfo.Migration510DockerBuildProxy {
 		return nil
 	}
 
-	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
-	if err != nil {
-		return fmt.Errorf("failed to list proxies, err: %s", err)
-	}
-	enableProxy := len(proxies) > 0 && proxies[0].EnableRepoProxy &&
-		(proxies[0].Type == "http" || proxies[0].Type == "https")
-
 	filter := bson.M{
 		"post_build.docker_build":              bson.M{"$ne": nil},
 		"post_build.docker_build.enable_proxy": bson.M{"$exists": false},
 	}
-	update := bson.M{"$set": bson.M{"post_build.docker_build.enable_proxy": enableProxy}}
+	update := bson.M{"$set": bson.M{"post_build.docker_build.enable_proxy": true}}
 	for _, coll := range []*mongo.Collection{
 		commonrepo.NewBuildColl().Collection,
 		commonrepo.NewBuildTemplateColl().Collection,
@@ -86,7 +79,7 @@ func migrateDockerBuildProxy510(migrationInfo *internalmodels.Migration) error {
 		if err != nil {
 			return fmt.Errorf("failed to set docker build proxy switch in %s, err: %s", coll.Name(), err)
 		}
-		log.Infof("migration 5.1.0: set enable_proxy=%t for %d docker build steps in %s", enableProxy, res.ModifiedCount, coll.Name())
+		log.Infof("migration 5.1.0: enabled proxy switch for %d docker build steps in %s", res.ModifiedCount, coll.Name())
 	}
 
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
