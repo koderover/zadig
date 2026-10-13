@@ -282,8 +282,7 @@ func prepareDockerfile(dockerfileSource, dockerfileContent string) error {
 }
 
 func setProxy(ctx *step.StepDockerBuildSpec) {
-	enableProxy := ctx.Proxy.EnableRepoProxy && ctx.EnableProxy != nil && *ctx.EnableProxy
-	if enableProxy && (ctx.Proxy.Type == "http" || ctx.Proxy.Type == "https") {
+	if ctx.Proxy.EnableRepoProxy && ctx.EnableProxy && (ctx.Proxy.Type == "http" || ctx.Proxy.Type == "https") {
 		if !strings.Contains(strings.ToLower(ctx.BuildArgs), "--build-arg http_proxy=") {
 			ctx.BuildArgs = fmt.Sprintf("%s --build-arg http_proxy=%s", ctx.BuildArgs, ctx.Proxy.GetProxyURL())
 		}

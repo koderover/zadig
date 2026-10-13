@@ -156,8 +156,8 @@ type DockerBuild struct {
 	// BuildArgs docker build args
 	BuildArgs string `bson:"build_args,omitempty"    json:"build_args"`
 	// EnableProxy controls whether the build step injects the configured proxy as build args.
-	// It takes effect only when the system proxy is also enabled; nil means disabled.
-	EnableProxy *bool `bson:"enable_proxy,omitempty" json:"enable_proxy,omitempty"`
+	// It takes effect only when the system proxy is also enabled.
+	EnableProxy bool `bson:"enable_proxy"           json:"enable_proxy"`
 	// Source whether dockerfile comes from template or existing file
 	Source string `bson:"source"                     json:"source"`
 	// TemplateId is the id of the template dockerfile
