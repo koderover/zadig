@@ -336,6 +336,7 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 				Value:        kv.Value,
 				Type:         commonmodels.ParameterSettingType(kv.Type),
 				IsCredential: kv.IsCredential,
+				ChoiceValue:  kv.ChoiceValue,
 			})
 		}
 
@@ -418,6 +419,7 @@ func updateBuildModuleFromOpenAPITemplateRequest(ctx *internalhandler.Context, b
 				Value:        kv.Value,
 				Type:         commonmodels.ParameterSettingType(kv.Type),
 				IsCredential: kv.IsCredential,
+				ChoiceValue:  kv.ChoiceValue,
 			})
 		}
 
@@ -518,6 +520,8 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 				CheckoutPath: rp.CheckoutPath,
 				Submodules:   rp.SubModules,
 				Hidden:       rp.Hidden,
+				EnableCommit: rp.EnableCommit,
+				CommitID:     rp.CommitID,
 			}
 			resp.Repos = append(resp.Repos, repo)
 		}
@@ -534,6 +538,8 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 						CheckoutPath: rp.CheckoutPath,
 						Submodules:   rp.SubModules,
 						Hidden:       rp.Hidden,
+						EnableCommit: rp.EnableCommit,
+						CommitID:     rp.CommitID,
 					}
 					resp.Repos = append(resp.Repos, repo)
 				}

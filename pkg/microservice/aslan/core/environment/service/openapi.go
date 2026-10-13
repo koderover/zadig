@@ -92,30 +92,13 @@ func GetEnvDetail(projectName, envName string, production bool, logger *zap.Suga
 			}
 			service := &OpenAPIServiceDetail{
 				ServiceName:    serv.ServiceName,
+				Revision:       serv.Revision,
 				DeployStrategy: deployStrategy,
 				Containers:     serv.Containers,
 				Type:           serv.Type,
 			}
-			if !env.Production {
-				servDetail, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-					ProductName: projectName,
-					ServiceName: serv.ServiceName,
-				})
-				if err != nil {
-					logger.Errorf("failed to find service:%s", serv.ServiceName)
-					return nil, e.ErrGetEnv.AddDesc(err.Error())
-				}
-				service.VariableKVs = servDetail.ServiceVariableKVs
-			} else {
-				servDetail, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-					ProductName: projectName,
-					ServiceName: serv.ServiceName,
-				})
-				if err != nil {
-					logger.Errorf("failed to find service:%s", serv.ServiceName)
-					return nil, e.ErrGetEnv.AddDesc(err.Error())
-				}
-				service.VariableKVs = servDetail.ServiceVariableKVs
+			for _, variable := range serv.GetServiceRender().OverrideYaml.RenderVariableKVs {
+				service.VariableKVs = append(service.VariableKVs, &variable.ServiceVariableKV)
 			}
 
 			for _, group := range groups {

@@ -68,7 +68,7 @@ func ListPrivateKeys(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.RespErr = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), true, ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
@@ -250,7 +250,7 @@ func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = service.ListLabels()
+	ctx.Resp, ctx.RespErr = service.ListLabels(c.Query("projectName"))
 }
 
 type privateKeyArgs struct {

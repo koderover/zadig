@@ -78,7 +78,32 @@ type OpenAPIBuildCreationFromTemplateReq struct {
 	// 模版名称
 	TemplateName string `json:"template_name" binding:"required"`
 	// 绑定的服务
-	TargetServices []*types.OpenAPIServiceBuildArgs `json:"target_services" binding:"required"`
+	TargetServices []*OpenAPIBuildTargetService `json:"target_services" binding:"required"`
+}
+
+type OpenAPIBuildTargetService struct {
+	// 服务名称
+	ServiceName string `json:"service_name" binding:"required"`
+	// 服务组件名称
+	ServiceModule string `json:"service_module" binding:"required"`
+	// 代码信息
+	RepoInfo []*types.OpenAPIRepoInput `json:"repo_info"`
+	// 变量
+	Inputs []*OpenAPIBuildInput `json:"inputs"`
+}
+
+// OpenAPIBuildInput overrides a build template parameter for one service.
+type OpenAPIBuildInput struct {
+	// 变量名称
+	Key string `json:"key"`
+	// 变量值
+	Value string `json:"value"`
+	// 变量类型
+	Type string `json:"type,omitempty"`
+	// 是否为敏感信息
+	IsCredential bool `json:"is_credential,omitempty"`
+	// 多选变量的已选值
+	ChoiceValue []string `json:"choice_value,omitempty"`
 }
 
 func (req *OpenAPIBuildCreationFromTemplateReq) Validate() (bool, error) {
@@ -137,6 +162,8 @@ type OpenAPIRepo struct {
 	CheckoutPath string `json:"checkout_path"`
 	Submodules   bool   `json:"submodules"`
 	Hidden       bool   `json:"hidden"`
+	EnableCommit bool   `json:"enable_commit"`
+	CommitID     string `json:"commit_id"`
 }
 
 type OpenAPIBuildEnv struct {

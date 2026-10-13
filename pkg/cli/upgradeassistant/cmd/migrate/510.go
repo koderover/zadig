@@ -18,6 +18,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,8 +27,12 @@ import (
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	connectormodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
+	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"gorm.io/gorm"
 )
 
 func init() {
@@ -35,23 +40,72 @@ func init() {
 	upgradepath.RegisterHandler("5.1.0", "5.0.0", V510ToV500)
 }
 
-// V500ToV510 executes 5.1.0 upgrade steps.
 func V500ToV510() error {
 	migrationInfo, err := getMigrationInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get migration info from db, err: %s", err)
 	}
-
 	defer func() {
 		updateMigrationError(migrationInfo.ID, err)
 	}()
 
-	err = migrateDockerBuildProxy510(migrationInfo)
+	err = migrateLarkPreferredUsernameClaim510(migrationInfo)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	err = migrateDockerBuildProxy510(migrationInfo)
+	return err
+}
+
+func migrateLarkPreferredUsernameClaim510(migrationInfo *internalmodels.Migration) error {
+	if migrationInfo.Migration510LarkPreferredUsernameClaim {
+		return nil
+	}
+	if err := gormtool.Open(config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(), config.MysqlDexDB()); err != nil {
+		return fmt.Errorf("failed to open dex database, err: %s", err)
+	}
+
+	err := gormtool.DB(config.MysqlDexDB()).Transaction(func(tx *gorm.DB) error {
+		var connectors []*connectormodels.Connector
+		if err := tx.Where("type IN ?", []string{"lark", "lark_intl"}).Find(&connectors).Error; err != nil {
+			return fmt.Errorf("failed to list lark connectors, err: %s", err)
+		}
+		for _, connector := range connectors {
+			config, err := migrateLarkConnectorConfig510(connector.Config)
+			if err != nil {
+				return fmt.Errorf("failed to migrate lark connector %s config, err: %s", connector.ID, err)
+			}
+			connector.IncreaseResourceVersion()
+			if err := tx.Model(connector).Updates(map[string]interface{}{
+				"config":           config,
+				"resource_version": connector.ResourceVersion,
+			}).Error; err != nil {
+				return fmt.Errorf("failed to update lark connector %s, err: %s", connector.ID, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration510LarkPreferredUsernameClaim): true,
+	})
+}
+
+func migrateLarkConnectorConfig510(config string) (string, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(config), &fields); err != nil {
+		return "", err
+	}
+	var emailClaim *string
+	if json.Unmarshal(fields["emailClaim"], &emailClaim) != nil || emailClaim == nil {
+		return "", fmt.Errorf("emailClaim must be a string")
+	}
+	fields["preferredUsernameClaim"] = fields["emailClaim"]
+	updated, err := json.Marshal(fields)
+	return string(updated), err
 }
 
 func V510ToV500() error {
