@@ -842,6 +842,7 @@ const (
 	NavigationKeyResourceConfiguration NavigationItemKey = "resourceConfiguration"
 	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
+	NavigationKeyAIReviewInsight       NavigationItemKey = "aiReviewInsight"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 	NavigationKeyWorkflows             NavigationItemKey = "releaseWorkflow"
 )
