@@ -287,11 +287,23 @@ func TestAIReviewOverviewHasNoFeedbackLookup(t *testing.T) {
 	}
 }
 
+func TestAIReviewSavedHoursIgnoresAIDuration(t *testing.T) {
+	lines := int64(200)
+	feedback := &feedbackmodels.AIReviewFeedback{Provider: setting.SourceFromGitlab, Up: 8, Down: 2}
+	for _, duration := range []int64{30000, 2000000} {
+		a := newAIReviewOverviewAggregate(0, 1)
+		a.addSavedTime(statmodels.AIReviewStat{ChangedLines: &lines, DurationMS: duration}, feedback)
+		if got := aiReviewSavedHours(a.humanMinutes, a.up, a.down); got != 0.4 {
+			t.Fatalf("duration %d: got %v, want 0.4", duration, got)
+		}
+	}
+}
+
 func TestAIReviewSavedHours(t *testing.T) {
-	for _, tc := range []struct{ human, ai, up, down, want float64 }{
-		{20, 0.5, 8, 2, 0.39}, {9.5, 0, 8, 2, 0.19}, {60, 0, 1, 0, 1.5}, {20, 30, 8, 2, 0}, {20, 0, 0, 0, 0},
+	for _, tc := range []struct{ human, up, down, want float64 }{
+		{20, 8, 2, 0.4}, {9.5, 8, 2, 0.19}, {60, 1, 0, 1.5}, {-20, 8, 2, 0}, {20, 0, 0, 0},
 	} {
-		if got := aiReviewSavedHours(tc.human, tc.ai, tc.up, tc.down); got != tc.want {
+		if got := aiReviewSavedHours(tc.human, tc.up, tc.down); got != tc.want {
 			t.Fatalf("%+v: got %v", tc, got)
 		}
 	}

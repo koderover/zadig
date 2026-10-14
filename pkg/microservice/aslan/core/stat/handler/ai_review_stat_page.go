@@ -125,7 +125,6 @@ func aiReviewPRMetricsPipeline(match, group bson.M, kind string) mongo.Pipeline 
 		}}
 		valid := bson.M{"$and": bson.A{bson.M{"$gt": bson.A{"$duration_ms", 0}}, bson.M{"$gte": bson.A{lines, 0}}}}
 		perPR["human_minutes"] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, bson.M{"$add": bson.A{10, bson.M{"$multiply": bson.A{lines, 0.05}}}}, 0}}}
-		perPR["ai_minutes"] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, bson.M{"$divide": bson.A{"$duration_ms", 60000}}, 0}}}
 	}
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: match}},
@@ -178,9 +177,7 @@ func aiReviewSummaryMetricsPipeline(group bson.M, kind string) mongo.Pipeline {
 	}
 	if kind == "comparison" {
 		valid := bson.M{"$and": bson.A{"$feedback_known", bson.M{"$gt": bson.A{"$human_minutes", 0}}}}
-		for _, field := range []string{"human_minutes", "ai_minutes"} {
-			rollup[field] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, "$" + field, 0}}}
-		}
+		rollup["human_minutes"] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, "$human_minutes", 0}}}
 		for _, field := range []string{"up", "down"} {
 			rollup["saved_"+field] = bson.M{"$sum": bson.M{"$cond": bson.A{valid, "$feedback." + field, 0}}}
 		}
