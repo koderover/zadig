@@ -184,7 +184,7 @@ var syncthingConfigTmpl = `
 var syncthingRunTmpl = `
 #!/bin/sh
 
-nohup {{shellQuote .SyncthingBin}} serve --config={{shellQuote .ConfigDir}} --data={{shellQuote .DataDir}} &
+nohup {{shellQuote .SyncthingBin}} serve --config={{shellQuote .ConfigDir}} --data={{shellQuote .DataDir}} >/dev/null 2>&1 &
 `
 
 func shellQuote(value string) string {
