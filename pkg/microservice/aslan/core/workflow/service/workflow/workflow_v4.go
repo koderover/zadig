@@ -277,6 +277,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	normalizeWorkflowRepositoryRefs(inputWorkflow)
 	if !isTemplateBindingEnabled(inputWorkflow) {
 		clearWorkflowStageAndJobIDs(inputWorkflow.Stages)
 	}

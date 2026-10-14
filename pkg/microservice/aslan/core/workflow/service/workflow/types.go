@@ -486,6 +486,50 @@ func updateOpenAPIRepositoryRef(repo *types.Repository, branch, tag string, pr i
 	repo.CheckoutRef = ""
 }
 
+func normalizeWorkflowRepositoryRefs(workflow *commonmodels.WorkflowV4) {
+	if workflow == nil {
+		return
+	}
+
+	for _, param := range workflow.Params {
+		if param != nil && param.Repo != nil && !param.Repo.EnableCommit {
+			param.Repo.CommitID = ""
+		}
+	}
+	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, job := range stage.Jobs {
+			if job != nil {
+				normalizeWorkflowRepositoryValue(job.Spec)
+			}
+		}
+	}
+}
+
+func normalizeWorkflowRepositoryValue(value interface{}) {
+	switch value := value.(type) {
+	case *types.Repository:
+		if value != nil && !value.EnableCommit {
+			value.CommitID = ""
+		}
+	case map[string]interface{}:
+		if enabled, ok := value["enable_commit"].(bool); ok && !enabled {
+			if _, exists := value["commit_id"]; exists {
+				value["commit_id"] = ""
+			}
+		}
+		for _, child := range value {
+			normalizeWorkflowRepositoryValue(child)
+		}
+	case []interface{}:
+		for _, child := range value {
+			normalizeWorkflowRepositoryValue(child)
+		}
+	}
+}
+
 func getCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codehostmodels.CodeHost, error) {
 	repoInfoMap := make(map[string]*codehostmodels.CodeHost)
 	for _, inputRepo := range repoInputs {
