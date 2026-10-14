@@ -104,7 +104,7 @@ func loadAIReviewComparisonMetrics(ctx context.Context, start, end int64, scope 
 	pipeline := aiReviewPRMetricsPipeline(aiReviewStatMatch(start, end, scope), group, "comparison")
 	pipeline = append(pipeline, aiReviewFeedbackMetricsPipeline()...)
 	pipeline = append(pipeline, aiReviewSummaryMetricsPipeline(group, "comparison")...)
-	pipeline = append(pipeline, bson.D{{Key: "$project", Value: bson.M{"_id": 0, "pr_count": 1, "resolution_rate": 1, "up_down_ratio": 1, "total_tokens": 1, "human_minutes": 1, "ai_minutes": 1, "saved_up": 1, "saved_down": 1}}})
+	pipeline = append(pipeline, bson.D{{Key: "$project", Value: bson.M{"_id": 0, "pr_count": 1, "resolution_rate": 1, "up_down_ratio": 1, "total_tokens": 1, "human_minutes": 1, "saved_up": 1, "saved_down": 1}}})
 	cursor, err := statrepo.NewAIReviewStatColl().Aggregate(ctx, pipeline, options.Aggregate().SetAllowDiskUse(true))
 	if err != nil {
 		return AIReviewStatsOverviewMetrics{}, err
@@ -114,7 +114,6 @@ func loadAIReviewComparisonMetrics(ctx context.Context, start, end int64, scope 
 	if cursor.Next(ctx) {
 		var row struct {
 			HumanMinutes   float64  `bson:"human_minutes"`
-			AIMinutes      float64  `bson:"ai_minutes"`
 			SavedUp        float64  `bson:"saved_up"`
 			SavedDown      float64  `bson:"saved_down"`
 			PRCount        int64    `bson:"pr_count"`
@@ -125,27 +124,27 @@ func loadAIReviewComparisonMetrics(ctx context.Context, start, end int64, scope 
 		if err := cursor.Decode(&row); err != nil {
 			return AIReviewStatsOverviewMetrics{}, err
 		}
-		metrics.SavedPersonHours = aiReviewSavedHours(row.HumanMinutes, row.AIMinutes, row.SavedUp, row.SavedDown)
+		metrics.SavedPersonHours = aiReviewSavedHours(row.HumanMinutes, row.SavedUp, row.SavedDown)
 		metrics.PRCount, metrics.ResolutionRate, metrics.UpDownRatio, metrics.TotalTokens = row.PRCount, row.ResolutionRate, row.UpDownRatio, row.TotalTokens
 	}
 	return metrics, cursor.Err()
 }
 
 type aiReviewOverviewAggregate struct {
-	metrics                           AIReviewStatsMetrics
-	prs                               map[aiReviewPRKey]*feedbackmodels.AIReviewFeedback
-	savedPRs                          map[aiReviewPRKey]bool
-	repos                             map[aiReviewRepoKey]bool
-	severity                          map[string]int64
-	problemTypes                      map[string]AIReviewStatsDistributionItem
-	models                            map[string]AIReviewStatsModelUsage
-	feedbackKnown, resolutionKnown    bool
-	humanMinutes, aiMinutes, up, down float64
-	start, end                        int64
-	weekly                            []AIReviewStatsWeeklyTrend
-	weeklyPRs                         []map[aiReviewPRKey]bool
-	weeklyUnknown                     []bool
-	projectDisplayName                string
+	metrics                        AIReviewStatsMetrics
+	prs                            map[aiReviewPRKey]*feedbackmodels.AIReviewFeedback
+	savedPRs                       map[aiReviewPRKey]bool
+	repos                          map[aiReviewRepoKey]bool
+	severity                       map[string]int64
+	problemTypes                   map[string]AIReviewStatsDistributionItem
+	models                         map[string]AIReviewStatsModelUsage
+	feedbackKnown, resolutionKnown bool
+	humanMinutes, up, down         float64
+	start, end                     int64
+	weekly                         []AIReviewStatsWeeklyTrend
+	weeklyPRs                      []map[aiReviewPRKey]bool
+	weeklyUnknown                  []bool
+	projectDisplayName             string
 }
 
 const aiReviewWeek = int64(7 * 24 * 60 * 60)
@@ -251,7 +250,6 @@ func (a *aiReviewOverviewAggregate) addSavedTime(record statmodels.AIReviewStat,
 		return
 	}
 	a.humanMinutes += 10 + lines*0.05
-	a.aiMinutes += float64(record.DurationMS) / 60000
 	key := aiReviewKey(record)
 	if !a.savedPRs[key] {
 		a.savedPRs[key] = true
@@ -284,7 +282,7 @@ func (a *aiReviewOverviewAggregate) result() (AIReviewStatsMetrics, AIReviewStat
 	}
 	sort.Slice(distributions.Severities, func(i, j int) bool { return distributions.Severities[i].ID < distributions.Severities[j].ID })
 	sort.Slice(distributions.ProblemTypes, func(i, j int) bool { return distributions.ProblemTypes[i].ID < distributions.ProblemTypes[j].ID })
-	saved := aiReviewSavedHours(a.humanMinutes, a.aiMinutes, a.up, a.down)
+	saved := aiReviewSavedHours(a.humanMinutes, a.up, a.down)
 	for i := range a.weekly {
 		if !a.weeklyUnknown[i] && a.weekly[i].InlineTotal > 0 {
 			a.weekly[i].ResolutionRate = aiReviewRatio(a.weekly[i].InlineResolved, a.weekly[i].InlineTotal)
@@ -293,9 +291,9 @@ func (a *aiReviewOverviewAggregate) result() (AIReviewStatsMetrics, AIReviewStat
 	return metrics, distributions, int64(len(a.repos)), saved, a.weekly
 }
 
-func aiReviewSavedHours(humanMinutes, aiMinutes, up, down float64) float64 {
+func aiReviewSavedHours(humanMinutes, up, down float64) float64 {
 	if up+down <= 0 {
 		return 0
 	}
-	return math.Round(max(0, humanMinutes-aiMinutes)*(up/(up+down))*1.5/60*100) / 100
+	return math.Round(max(0, humanMinutes)*(up/(up+down))*1.5/60*100) / 100
 }
