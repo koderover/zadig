@@ -31,6 +31,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
@@ -269,10 +270,15 @@ func (c *BuildService) GetBuild(buildName, serviceName, serviceModule string) (*
 		buildInfo = buildMapValue.(*commonmodels.Build)
 	}
 
-	if err := FillBuildDetail(buildInfo, serviceName, serviceModule, &c.BuildTemplateMap); err != nil {
+	// Deep copy so service overrides and caller mutations cannot change the cached Build.
+	buildCopy := new(commonmodels.Build)
+	if err := util.DeepCopy(buildCopy, buildInfo); err != nil {
+		return nil, fmt.Errorf("copy build %s: %w", buildName, err)
+	}
+	if err := FillBuildDetail(buildCopy, serviceName, serviceModule, &c.BuildTemplateMap); err != nil {
 		return nil, err
 	}
-	return buildInfo, nil
+	return buildCopy, nil
 }
 
 func FillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string, cacheMap *sync.Map) error {
@@ -304,6 +310,13 @@ func FillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 			buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
 		}
 	}
+
+	// Build copying does not cover template pointers assigned below; copy the template to keep its cache immutable.
+	templateCopy := new(commonmodels.BuildTemplate)
+	if err := util.DeepCopy(templateCopy, buildTemplate); err != nil {
+		return fmt.Errorf("copy build template %s: %w", moduleBuild.TemplateID, err)
+	}
+	buildTemplate = templateCopy
 
 	moduleBuild.Timeout = buildTemplate.Timeout
 	moduleBuild.PreBuild = buildTemplate.PreBuild
