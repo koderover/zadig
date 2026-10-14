@@ -16,7 +16,10 @@ limitations under the License.
 
 package step
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 type StepAIReviewReportSpec struct {
 	ReportPath      string          `bson:"report_path" json:"report_path" yaml:"report_path"`
@@ -44,13 +47,29 @@ type AIReviewReport struct {
 	ExitCode      int                    `bson:"exit_code" json:"exit_code" yaml:"exit_code"`
 }
 
+func (r *AIReviewReport) UnmarshalJSON(data []byte) error {
+	type report AIReviewReport
+	decoded := struct {
+		*report
+		Incomplete *bool `json:"incomplete"`
+		ExitCode   *int  `json:"exit_code"`
+	}{report: (*report)(r)}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if decoded.Incomplete == nil || decoded.ExitCode == nil {
+		return errors.New("AI review report must contain non-null incomplete and exit_code")
+	}
+	r.Incomplete, r.ExitCode = *decoded.Incomplete, *decoded.ExitCode
+	return nil
+}
+
 func (r *AIReviewReport) Validate() error {
 	if r == nil {
 		return errors.New("AI review report cannot be null")
 	}
-
-	if r.DurationMS == 0 || len(r.Process.ModelResponses) == 0 {
-		return errors.New("AI review report must contain duration and model responses")
+	if r.DurationMS <= 0 {
+		return errors.New("AI review report must contain a positive duration")
 	}
 	return nil
 }
