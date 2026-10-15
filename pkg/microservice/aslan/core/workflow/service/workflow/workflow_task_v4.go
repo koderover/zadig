@@ -1230,12 +1230,12 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 					retrySpec.RulePlan = currentSpec.RulePlan
 					t.Spec = retrySpec
 				}
-				// APISIX 任务重试时保留已成功子任务的状态和结果，执行时跳过它们，
+				// APISIX 任务重试时沿用上次执行的 spec，已成功的子任务保留状态和结果并在执行时跳过，
 				// 避免 create 重复创建资源、update/delete 重新获取到已被修改过的 OriginalSpec。
 				if jobTask.JobType == string(config.JobApisix) {
-					retrySpec, err := keepPassedApisixTasks(jobTask.Spec, t.Spec)
+					retrySpec, err := resetUnpassedApisixTasks(jobTask.Spec)
 					if err != nil {
-						return errors.Errorf("keep passed apisix tasks for %s error: %s", jobTask.Name, err)
+						return errors.Errorf("reset apisix task %s error: %s", jobTask.Name, err)
 					}
 					t.Spec = retrySpec
 				}
@@ -1266,32 +1266,21 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	return nil
 }
 
-func keepPassedApisixTasks(currentSpec, retrySpec interface{}) (*commonmodels.JobTaskApisixSpec, error) {
-	current := &commonmodels.JobTaskApisixSpec{}
-	if err := commonmodels.IToi(currentSpec, current); err != nil {
-		return nil, fmt.Errorf("decode current spec error: %s", err)
+func resetUnpassedApisixTasks(currentSpec interface{}) (*commonmodels.JobTaskApisixSpec, error) {
+	spec := &commonmodels.JobTaskApisixSpec{}
+	if err := commonmodels.IToi(currentSpec, spec); err != nil {
+		return nil, fmt.Errorf("decode apisix spec error: %s", err)
 	}
-	retry := &commonmodels.JobTaskApisixSpec{}
-	if err := commonmodels.IToi(retrySpec, retry); err != nil {
-		return nil, fmt.Errorf("decode retry spec error: %s", err)
-	}
-
-	// 两份 spec 都由同一份 WorkflowArgs 生成，子任务一一对应；不一致时不做保留，按原逻辑全部重新执行
-	if current.ApisixID != retry.ApisixID || len(current.Tasks) != len(retry.Tasks) {
-		return retry, nil
-	}
-	for i, task := range current.Tasks {
-		if task == nil || task.Status != string(config.StatusPassed) {
+	for _, task := range spec.Tasks {
+		if task == nil || task.Status == string(config.StatusPassed) {
 			continue
 		}
-		if task.Type != retry.Tasks[i].Type || task.Action != retry.Tasks[i].Action {
-			continue
-		}
-		retry.Tasks[i].Status = task.Status
-		retry.Tasks[i].ItemID = task.ItemID
-		retry.Tasks[i].OriginalSpec = task.OriginalSpec
+		task.Status = string(config.StatusCreated)
+		task.Error = ""
+		task.ItemID = ""
+		task.OriginalSpec = nil
 	}
-	return retry, nil
+	return spec, nil
 }
 
 type ManualExecWorkflowTaskV4Request struct {
