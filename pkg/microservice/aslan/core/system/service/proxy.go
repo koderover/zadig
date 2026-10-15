@@ -203,12 +203,12 @@ func TestConnection(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 	}
 
 	p, err := url.Parse(args.GetProxyURL())
-	if err == nil {
-		proxy := http.ProxyURL(p)
-		trans := &http.Transport{
-			Proxy: proxy,
-		}
-		client.Transport = trans
+	if err != nil {
+		log.Errorf("url.Parse proxy URL failed, err:%v", err)
+		return e.ErrTestConnection.AddErr(err)
+	}
+	client.Transport = &http.Transport{
+		Proxy: http.ProxyURL(p),
 	}
 
 	ret, err = client.Do(request)
