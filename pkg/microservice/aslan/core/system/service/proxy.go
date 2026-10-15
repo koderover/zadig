@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -213,7 +214,7 @@ func TestConnection(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 	ret, err = client.Do(request)
 	if err != nil {
 		log.Errorf("client.Do failed, err:%v", err)
-		return e.ErrTestConnection.AddErr(err)
+		return e.ErrTestConnection.AddDesc(fmt.Sprintf("代理连接失败，请检查代理类型、服务器地址、端口、认证信息和证书配置: %v", err))
 	}
 	defer func() { _ = ret.Body.Close() }()
 
