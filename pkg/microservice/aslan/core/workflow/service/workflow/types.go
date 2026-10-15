@@ -505,6 +505,7 @@ func normalizeWorkflowRepositoryRefs(workflow *commonmodels.WorkflowV4) {
 		for _, job := range stage.Jobs {
 			if job != nil {
 				normalizeWorkflowRepositoryValue(job.Spec)
+				normalizeWorkflowRepositoryValue(job.ServiceModules)
 			}
 		}
 	}
