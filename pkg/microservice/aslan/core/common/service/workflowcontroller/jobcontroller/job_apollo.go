@@ -158,14 +158,7 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 			return fmt.Errorf("create app namespace failed: %w", err)
 		}
 
-		namespaceName := ""
-		if created != nil {
-			namespaceName = strings.TrimSpace(created.Name)
-		}
-		if namespaceName == "" {
-			namespaceName = apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
-		}
-		namespace.Namespace = namespaceName
+		namespace.Namespace = created.Name
 		namespace.AppNamespaceCreated = true
 		c.ack()
 	}
