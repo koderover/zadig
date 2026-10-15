@@ -167,6 +167,35 @@ func TestMergeApolloRetryState(t *testing.T) {
 	require.Equal(t, string(config.StatusCreated), retrySpec.NamespaceList[5].Status)
 }
 
+func TestApolloRetryNamespaceKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace *commonmodels.JobTaskApolloNamespace
+		want      string
+	}{
+		{
+			name: "update",
+			namespace: &commonmodels.JobTaskApolloNamespace{ApolloNamespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionUpdate, AppID: "app", Env: "dev", ClusterID: "default", Namespace: "application",
+			}},
+			want: "default++app++dev++application",
+		},
+		{
+			name: "create",
+			namespace: &commonmodels.JobTaskApolloNamespace{ApolloNamespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature", Type: "yaml",
+			}},
+			want: "app++feature.yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, apolloRetryNamespaceKey(tt.namespace))
+		})
+	}
+}
+
 var _ = Describe("Testing utils", func() {
 
 	Context("validateHookNames", func() {

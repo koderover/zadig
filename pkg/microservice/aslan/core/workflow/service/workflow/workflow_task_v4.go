@@ -1273,11 +1273,7 @@ func mergeApolloRetryState(currentSpec, retrySpec *commonmodels.JobTaskApolloSpe
 	currentNamespaces := make(map[string]*commonmodels.JobTaskApolloNamespace, len(currentSpec.NamespaceList))
 	for _, namespace := range currentSpec.NamespaceList {
 		if namespace != nil {
-			key := fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
-			if namespace.Action == commonmodels.ApolloActionCreate {
-				key = namespace.AppID + "++" + apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
-			}
-			currentNamespaces[key] = namespace
+			currentNamespaces[apolloRetryNamespaceKey(namespace)] = namespace
 		}
 	}
 
@@ -1285,11 +1281,7 @@ func mergeApolloRetryState(currentSpec, retrySpec *commonmodels.JobTaskApolloSpe
 		if namespace == nil {
 			continue
 		}
-		key := fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
-		if namespace.Action == commonmodels.ApolloActionCreate {
-			key = namespace.AppID + "++" + apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type)
-		}
-		current, ok := currentNamespaces[key]
+		current, ok := currentNamespaces[apolloRetryNamespaceKey(namespace)]
 		if !ok {
 			continue
 		}
@@ -1302,6 +1294,13 @@ func mergeApolloRetryState(currentSpec, retrySpec *commonmodels.JobTaskApolloSpe
 		}
 		namespace.Error = ""
 	}
+}
+
+func apolloRetryNamespaceKey(namespace *commonmodels.JobTaskApolloNamespace) string {
+	if namespace.Action == commonmodels.ApolloActionCreate {
+		return fmt.Sprintf("%s++%s", namespace.AppID, apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type))
+	}
+	return fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
 }
 
 type ManualExecWorkflowTaskV4Request struct {

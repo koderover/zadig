@@ -106,19 +106,20 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 			if ns.Action == "" {
 				ns.Action = commonmodels.ApolloActionUpdate
 			}
+			identity := fmt.Sprintf("[appID=%s, env=%s, cluster=%s, namespace=%s]", ns.AppID, ns.Env, ns.ClusterID, ns.Namespace)
 
 			switch ns.Action {
 			case commonmodels.ApolloActionUpdate:
 				namespaceKey := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
 				if _, ok := nsMap[namespaceKey]; ok {
-					return fmt.Errorf("duplicate apollo namespace: %s", ns.Namespace)
+					return fmt.Errorf("duplicate apollo namespace %s", identity)
 				}
 				nsMap[namespaceKey] = ns
 
 				if !currJobSpec.DisableConfigRange {
 					envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
 					if _, ok := envOptionMap[envKey]; !ok {
-						return fmt.Errorf("apollo target [appID=%s, env=%s, cluster=%s] is not allowed to be changed", ns.AppID, ns.Env, ns.ClusterID)
+						return fmt.Errorf("apollo namespace %s is not allowed to be changed", identity)
 					}
 				}
 
@@ -129,29 +130,30 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 				if ns.Type == "" {
 					ns.Type = apollo.FormatYAML
 				}
+				identity = fmt.Sprintf("[appID=%s, env=%s, cluster=%s, namespace=%s]", ns.AppID, ns.Env, ns.ClusterID, ns.Namespace)
 				if ns.AppID == "" || ns.Namespace == "" {
-					return fmt.Errorf("apollo appID and namespace are required")
+					return fmt.Errorf("apollo namespace %s requires appID and namespace", identity)
 				}
 				if ns.Env != "" || ns.ClusterID != "" {
-					return fmt.Errorf("env and clusterID must be empty when creating an apollo namespace")
+					return fmt.Errorf("apollo namespace %s requires empty env and clusterID when creating", identity)
 				}
 				switch ns.Type {
 				case apollo.FormatYAML, apollo.FormatYML, apollo.FormatJSON, apollo.FormatProperties, apollo.FormatXML:
 				default:
-					return fmt.Errorf("unsupported apollo namespace type: %s", ns.Type)
+					return fmt.Errorf("apollo namespace %s has unsupported type: %s", identity, ns.Type)
 				}
 				if err := apollo.ValidateNamespaceName(ns.Namespace); err != nil {
-					return err
+					return fmt.Errorf("apollo namespace %s is invalid: %w", identity, err)
 				}
 
 				namespaceKey := ns.AppID + "++" + apollo.NormalizeNamespaceName(ns.Namespace, ns.Type)
 				if _, ok := createdNamespaceMap[namespaceKey]; ok {
-					return fmt.Errorf("duplicate apollo namespace: %s", ns.Namespace)
+					return fmt.Errorf("duplicate apollo namespace %s", identity)
 				}
 				createdNamespaceMap[namespaceKey] = struct{}{}
 
 			default:
-				return fmt.Errorf("unsupported apollo action: %s", ns.Action)
+				return fmt.Errorf("apollo namespace %s has unsupported action: %s", identity, ns.Action)
 			}
 		}
 
