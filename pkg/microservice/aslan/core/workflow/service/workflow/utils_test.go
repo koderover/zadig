@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	githubservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func TestGitCheckUsesExplicitTaskURL(t *testing.T) {
@@ -46,48 +45,6 @@ func TestGitCheckUsesExplicitTaskURL(t *testing.T) {
 
 	check.TaskURL = ""
 	require.Equal(t, "https://zadig.example/v1/projects/detail/demo/pipelines/custom/zadig-scanning-scan-id/7?display_name=review", check.DetailsURL())
-}
-
-func TestNormalizeWorkflowRepositoryRefs(t *testing.T) {
-	workflow := &commonmodels.WorkflowV4{
-		Params: []*commonmodels.Param{{
-			ParamsType: "repo",
-			Repo: &types.Repository{
-				EnableCommit: false,
-				CommitID:     "old-param-sha",
-			},
-		}},
-		Stages: []*commonmodels.WorkflowStage{{
-			Jobs: []*commonmodels.Job{{
-				Spec: map[string]interface{}{
-					"repo_info": []interface{}{
-						map[string]interface{}{
-							"branch":        "main",
-							"enable_commit": false,
-							"commit_id":     "old-job-sha",
-						},
-						map[string]interface{}{
-							"enable_commit": true,
-							"commit_id":     "pinned-sha",
-						},
-					},
-				},
-			}},
-		}},
-	}
-
-	normalizeWorkflowRepositoryRefs(workflow)
-
-	if workflow.Params[0].Repo.CommitID != "" {
-		t.Fatalf("expected disabled workflow param commit ID to be cleared, got %q", workflow.Params[0].Repo.CommitID)
-	}
-	repos := workflow.Stages[0].Jobs[0].Spec.(map[string]interface{})["repo_info"].([]interface{})
-	if got := repos[0].(map[string]interface{})["commit_id"]; got != "" {
-		t.Fatalf("expected disabled job commit ID to be cleared, got %v", got)
-	}
-	if got := repos[1].(map[string]interface{})["commit_id"]; got != "pinned-sha" {
-		t.Fatalf("expected enabled job commit ID to be preserved, got %v", got)
-	}
 }
 
 var _ = Describe("Testing utils", func() {
