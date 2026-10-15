@@ -72,6 +72,10 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		if namespace == nil {
 			continue
 		}
+		action := namespace.Action
+		if action == "" {
+			action = commonmodels.ApolloActionUpdate
+		}
 		before := make(map[string]interface{}, len(namespace.OriginalConfig))
 		for _, item := range namespace.OriginalConfig {
 			if item != nil {
@@ -87,6 +91,7 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		added, updated, removed := diffAIConfigFieldMaps(before, after)
 		changedFieldCount := len(added) + len(updated) + len(removed)
 		summary := &commonmodels.AIConfigChangeSummary{
+			Action:                 string(action),
 			NamespaceName:          namespace.Env,
 			DataID:                 strings.Trim(strings.Join([]string{namespace.AppID, namespace.Namespace}, "/"), "/"),
 			Group:                  namespace.ClusterID,

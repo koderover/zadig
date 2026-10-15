@@ -1,6 +1,8 @@
 package jobcontroller
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,6 +12,94 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
+
+func TestBuildAIApolloChangeSummariesActions(t *testing.T) {
+	tests := []struct {
+		name        string
+		namespace   commonmodels.ApolloNamespace
+		wantAction  commonmodels.ApolloActionType
+		wantAdded   []string
+		wantUpdated []string
+		wantRemoved []string
+	}{
+		{
+			name: "create reports submitted keys as additions",
+			namespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature", Type: "properties",
+				KeyValList: []*commonmodels.ApolloKV{{Key: "A", Val: "secret-after"}, {Key: "B", Val: "secret-after"}},
+			},
+			wantAction: commonmodels.ApolloActionCreate, wantAdded: []string{"A", "B"},
+		},
+		{
+			name: "empty namespace remains a create operation",
+			namespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "empty", Type: "properties",
+			},
+			wantAction: commonmodels.ApolloActionCreate,
+		},
+		{
+			name: "file create retains item-level difference",
+			namespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature.yaml", Type: "yaml",
+				KeyValList: []*commonmodels.ApolloKV{{Key: "content", Val: "password: secret-after"}},
+			},
+			wantAction: commonmodels.ApolloActionCreate, wantAdded: []string{"content"},
+		},
+		{
+			name: "update retains target and differences",
+			namespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionUpdate, AppID: "app", Env: "REGION1", ClusterID: "prod", Namespace: "feature", Type: "properties",
+				OriginalConfig: []*commonmodels.ApolloKV{{Key: "A", Val: "secret-before"}, {Key: "B", Val: "secret-before"}},
+				KeyValList:     []*commonmodels.ApolloKV{{Key: "A", Val: "secret-after"}, {Key: "C", Val: "secret-after"}},
+			},
+			wantAction: commonmodels.ApolloActionUpdate, wantAdded: []string{"C"}, wantUpdated: []string{"A"}, wantRemoved: []string{"B"},
+		},
+		{
+			name: "legacy action defaults to update",
+			namespace: commonmodels.ApolloNamespace{
+				AppID: "app", Env: "REGION1", ClusterID: "default", Namespace: "feature", Type: "properties",
+				OriginalConfig: []*commonmodels.ApolloKV{{Key: "A", Val: "secret-before"}},
+				KeyValList:     []*commonmodels.ApolloKV{{Key: "A", Val: "secret-after"}},
+			},
+			wantAction: commonmodels.ApolloActionUpdate, wantUpdated: []string{"A"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := &commonmodels.AIReleaseSummaryItem{}
+			appendAIReleaseSpecialistTaskDetails(item, &commonmodels.JobTask{
+				JobType: string(config.JobApollo),
+				Spec: &commonmodels.JobTaskApolloSpec{NamespaceList: []*commonmodels.JobTaskApolloNamespace{
+					{ApolloNamespace: tt.namespace},
+				}},
+			})
+			if len(item.ConfigChanges) != 1 {
+				t.Fatalf("expected one config summary, got %d", len(item.ConfigChanges))
+			}
+			got := item.ConfigChanges[0]
+			if got.Action != string(tt.wantAction) {
+				t.Fatalf("unexpected action: %q", got.Action)
+			}
+			if got.NamespaceName != tt.namespace.Env || got.Group != tt.namespace.ClusterID || got.DataID != "app/"+tt.namespace.Namespace {
+				t.Fatalf("unexpected configuration target: %#v", got)
+			}
+			if !reflect.DeepEqual(got.AddedFields, tt.wantAdded) || !reflect.DeepEqual(got.UpdatedFields, tt.wantUpdated) || !reflect.DeepEqual(got.RemovedFields, tt.wantRemoved) {
+				t.Fatalf("unexpected differences: added=%v updated=%v removed=%v", got.AddedFields, got.UpdatedFields, got.RemovedFields)
+			}
+			count := len(tt.wantAdded) + len(tt.wantUpdated) + len(tt.wantRemoved)
+			if got.ChangedFieldCount != count || got.ContentChanged != (count > 0) || !got.ChangedFieldsAvailable || (got.ChangedFieldsHash != "") != (count > 0) {
+				t.Fatalf("unexpected content-change metadata: %#v", got)
+			}
+			encoded, err := json.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(encoded), "secret-") {
+				t.Fatalf("summary contains configuration values: %s", encoded)
+			}
+		})
+	}
+}
 
 func TestBuildAIReleaseSpecialistInputWithRulePlanKeepsBuildAndChangeContext(t *testing.T) {
 	buildJob := &commonmodels.JobTask{

@@ -110,7 +110,8 @@ const aiReleaseSpecialistOutputContract = `系统固定输出协议（优先级�
 const aiReleaseSpecialistOutputConstraints = `输出补充约束：
 - summary 只写基于实际提供上下文的判断，不要输出“本次输入未提供”这类缺失上下文清单，不要罗列代码扫描、构建、测试、审批、部署目标等未提供项。
 - 未提供的上下文不单独生成检查项，也不要因为缺失本身给出 warning；只有已配置检查项直接依赖该上下文且无法判断时，才在对应 evidence 中简短说明。
-- other_task_summary.config_changes 只包含 Nacos/Apollo 配置标识和新增、修改、删除的字段路径，不包含配置值；比较配置任务时，应按配置标识核对 changed_fields_hash，配置项缺失或哈希不同均表示变更字段集合不一致，即使字段列表因长度被截断也应以哈希为准。若 content_changed 为 true 但 changed_fields_available 为 false，说明格式无法安全结构化解析，不能据此判定配置字段一致。
+- other_task_summary.config_changes 包含 Nacos/Apollo 配置标识、配置操作和新增、修改、删除的字段路径，不包含配置值；比较配置任务时，应按配置标识核对 changed_fields_hash，配置项缺失或哈希不同均表示变更字段集合不一致，即使字段列表因长度被截断也应以哈希为准。若 content_changed 为 true 但 changed_fields_available 为 false，说明格式无法安全结构化解析，不能据此判定配置字段一致。
+- Apollo 配置摘要中 action=create 表示新增 Namespace，action=update 或缺少 action 表示修改已有 Namespace。create 即使没有变更字段，也属于创建空 Namespace；摘要描述计划变更，执行结果须结合任务状态判断。
 - other_task_summary.sql_execution 只表示语句执行数量、成功/失败数量和影响行数；sql_execution_success 仅在任务成功、存在执行结果且没有失败或未执行语句时为 true，执行成功不能单独证明业务数据一致。
 - 如果 runtime_services 参与检查，checks[].evidence 必须逐项列出每个 env_name、service_name 的就绪数据：Kubernetes/Helm 服务列出 pod_count 和 ready_pods，主机服务列出 host_count 和 healthy_hosts。
 - checks[].evidence 和 suggestion 面向发布人员，不要展示输入字段名、规则名、JSON 路径、哈希值或其他内部实现标识。配置字段不一致时，直接说明各环境、配置标识及其变更字段；不要展示 changed_fields_hash。
