@@ -266,6 +266,12 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					if namespace.Action == "" {
 						namespace.Action = commonmodels.ApolloActionUpdate
 					}
+					if namespace.Action == commonmodels.ApolloActionCreate {
+						namespace.Namespace = strings.TrimSpace(namespace.Namespace)
+						if namespace.Type == "" {
+							namespace.Type = apollo.FormatYAML
+						}
+					}
 					list = append(list, &commonmodels.JobTaskApolloNamespace{
 						ApolloNamespace: *namespace,
 						Status:          string(config.StatusCreated),
