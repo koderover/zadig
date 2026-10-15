@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -35,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Workflow struct {
@@ -512,100 +512,162 @@ func normalizeWorkflowRepositoryRefs(workflow *commonmodels.WorkflowV4) {
 }
 
 func normalizeWorkflowRepositoryValue(value interface{}) {
-	normalizeWorkflowRepositoryReflectValue(reflect.ValueOf(value))
+	switch value := value.(type) {
+	case *types.Repository:
+		normalizeRepository(value)
+	case []*types.Repository:
+		for _, repo := range value {
+			normalizeRepository(repo)
+		}
+	case map[string]interface{}:
+		normalizeWorkflowRepositoryMap(value)
+	case []interface{}:
+		for _, child := range value {
+			normalizeWorkflowRepositoryValue(child)
+		}
+	case primitive.M:
+		normalizeWorkflowRepositoryMap(map[string]interface{}(value))
+	case primitive.A:
+		for _, child := range value {
+			normalizeWorkflowRepositoryValue(child)
+		}
+	case *commonmodels.WorkflowServiceModule:
+		if value != nil {
+			for _, repo := range value.CodeInfo {
+				normalizeRepository(repo)
+			}
+		}
+	case []*commonmodels.WorkflowServiceModule:
+		for _, module := range value {
+			normalizeWorkflowRepositoryValue(module)
+		}
+	case *commonmodels.FreestyleJobSpec:
+		if value != nil {
+			normalizeWorkflowRepositories(value.Repos, value.Services)
+		}
+	case *commonmodels.FreeStyleServiceInfo:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.ZadigBuildJobSpec:
+		if value != nil {
+			for _, build := range value.DefaultServiceAndBuilds {
+				normalizeWorkflowRepositoryValue(build)
+			}
+			for _, build := range value.ServiceAndBuilds {
+				normalizeWorkflowRepositoryValue(build)
+			}
+			for _, build := range value.ServiceAndBuildsOptions {
+				normalizeWorkflowRepositoryValue(build)
+			}
+		}
+	case *commonmodels.ServiceAndBuild:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.ZadigVMDeployJobSpec:
+		if value != nil {
+			for _, deploy := range value.DefaultServiceAndVMDeploys {
+				normalizeWorkflowRepositoryValue(deploy)
+			}
+			for _, deploy := range value.ServiceAndVMDeploys {
+				normalizeWorkflowRepositoryValue(deploy)
+			}
+			for _, deploy := range value.ServiceAndVMDeploysOptions {
+				normalizeWorkflowRepositoryValue(deploy)
+			}
+		}
+	case *commonmodels.ServiceAndVMDeploy:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.ZadigTestingJobSpec:
+		if value != nil {
+			for _, target := range value.DefaultServices {
+				normalizeWorkflowRepositoryValue(target)
+			}
+			for _, module := range value.TestModules {
+				normalizeWorkflowRepositoryValue(module)
+			}
+			for _, module := range value.TestModuleOptions {
+				normalizeWorkflowRepositoryValue(module)
+			}
+			for _, service := range value.ServiceAndTests {
+				normalizeWorkflowRepositoryValue(service)
+			}
+			for _, service := range value.ServiceTestOptions {
+				normalizeWorkflowRepositoryValue(service)
+			}
+		}
+	case *commonmodels.ServiceTestTarget:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.TestModule:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.ServiceAndTest:
+		if value != nil {
+			normalizeWorkflowRepositoryValue(value.TestModule)
+		}
+	case *commonmodels.ZadigScanningJobSpec:
+		if value != nil {
+			for _, scanning := range value.Scannings {
+				normalizeWorkflowRepositoryValue(scanning)
+			}
+			for _, scanning := range value.ScanningOptions {
+				normalizeWorkflowRepositoryValue(scanning)
+			}
+			for _, service := range value.ServiceAndScannings {
+				normalizeWorkflowRepositoryValue(service)
+			}
+			for _, service := range value.ServiceScanningOptions {
+				normalizeWorkflowRepositoryValue(service)
+			}
+			for _, target := range value.DefaultServices {
+				normalizeWorkflowRepositoryValue(target)
+			}
+		}
+	case *commonmodels.ScanningModule:
+		if value != nil {
+			normalizeRepositories(value.Repos)
+		}
+	case *commonmodels.ServiceAndScannings:
+		if value != nil {
+			normalizeWorkflowRepositoryValue(value.ScanningModule)
+		}
+	}
 }
 
-func normalizeWorkflowRepositoryReflectValue(value reflect.Value) {
-	if !value.IsValid() {
-		return
-	}
-
-	switch value.Kind() {
-	case reflect.Interface:
-		if !value.IsNil() {
-			normalizeWorkflowRepositoryReflectValue(value.Elem())
-		}
-	case reflect.Pointer:
-		if value.IsNil() {
-			return
-		}
-		if value.CanInterface() {
-			if repo, ok := value.Interface().(*types.Repository); ok {
-				if !repo.EnableCommit {
-					repo.CommitID = ""
-				}
-				return
-			}
-		}
-		normalizeWorkflowRepositoryReflectValue(value.Elem())
-	case reflect.Struct:
-		if value.CanAddr() && value.Addr().CanInterface() {
-			if repo, ok := value.Addr().Interface().(*types.Repository); ok {
-				if !repo.EnableCommit {
-					repo.CommitID = ""
-				}
-				return
-			}
-		}
-		for i := 0; i < value.NumField(); i++ {
-			field := value.Field(i)
-			if field.CanInterface() {
-				normalizeWorkflowRepositoryReflectValue(field)
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < value.Len(); i++ {
-			normalizeWorkflowRepositoryReflectValue(value.Index(i))
-		}
-	case reflect.Map:
-		if value.IsNil() {
-			return
-		}
-		if value.Type().Key().Kind() == reflect.String {
-			enableCommitKey := reflect.New(value.Type().Key()).Elem()
-			enableCommitKey.SetString("enable_commit")
-			enableCommit, ok := reflectBoolValue(value.MapIndex(enableCommitKey))
-			if ok && !enableCommit {
-				commitIDKey := reflect.New(value.Type().Key()).Elem()
-				commitIDKey.SetString("commit_id")
-				if commitIDValue := value.MapIndex(commitIDKey); commitIDValue.IsValid() {
-					if emptyCommitID, ok := reflectEmptyStringValue(commitIDValue.Type()); ok {
-						value.SetMapIndex(commitIDKey, emptyCommitID)
-					}
-				}
-			}
-		}
-		for _, key := range value.MapKeys() {
-			normalizeWorkflowRepositoryReflectValue(value.MapIndex(key))
-		}
+func normalizeRepository(repo *types.Repository) {
+	if repo != nil && !repo.EnableCommit {
+		repo.CommitID = ""
 	}
 }
 
-func reflectBoolValue(value reflect.Value) (bool, bool) {
-	for value.IsValid() && value.Kind() == reflect.Interface {
-		if value.IsNil() {
-			return false, false
-		}
-		value = value.Elem()
+func normalizeRepositories(repos []*types.Repository) {
+	for _, repo := range repos {
+		normalizeRepository(repo)
 	}
-	if value.IsValid() && value.Kind() == reflect.Bool {
-		return value.Bool(), true
-	}
-	return false, false
 }
 
-func reflectEmptyStringValue(valueType reflect.Type) (reflect.Value, bool) {
-	emptyValue := reflect.New(valueType).Elem()
-	stringValue := reflect.ValueOf("")
-	if stringValue.Type().AssignableTo(valueType) {
-		emptyValue.Set(stringValue)
-		return emptyValue, true
+func normalizeWorkflowRepositories(repos []*types.Repository, services []*commonmodels.FreeStyleServiceInfo) {
+	normalizeRepositories(repos)
+	for _, service := range services {
+		normalizeWorkflowRepositoryValue(service)
 	}
-	if stringValue.Type().ConvertibleTo(valueType) {
-		emptyValue.Set(stringValue.Convert(valueType))
-		return emptyValue, true
+}
+
+func normalizeWorkflowRepositoryMap(value map[string]interface{}) {
+	if enabled, ok := value["enable_commit"].(bool); ok && !enabled {
+		if _, exists := value["commit_id"]; exists {
+			value["commit_id"] = ""
+		}
 	}
-	return reflect.Value{}, false
+	for _, child := range value {
+		normalizeWorkflowRepositoryValue(child)
+	}
 }
 
 func normalizeWorkflowRepositoryDeltaPatches(patches []*commonmodels.JSONPatchOperation, workflow *commonmodels.WorkflowV4) {
