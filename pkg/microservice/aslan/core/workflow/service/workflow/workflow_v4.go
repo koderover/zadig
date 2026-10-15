@@ -856,11 +856,11 @@ LOOP:
 				switch job.JobType {
 				case config.JobFreestyle:
 					spec := new(commonmodels.FreestyleJobSpec)
-					err = models.IToi(stage.Jobs[0].Spec, spec)
+					err = models.IToi(job.Spec, spec)
 					if err != nil {
 						return nil, fmt.Errorf("faield to decode spec for freestyle job %s in workflow %s, error: %s", job.Name, workflowV4.Name, err)
 					}
-					if spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+					if spec.FreestyleJobType == config.ServiceFreeStyleJobType || spec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
 						continue LOOP
 					}
 				case config.JobPlugin, config.JobWorkflowTrigger:
