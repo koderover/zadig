@@ -823,6 +823,9 @@ func (w *Workflow) ValidateWithWorkflowSettings(isExecution bool, latestWorkflow
 			if err := ctrl.Validate(isExecution); err != nil {
 				return e.ErrLintWorkflow.AddErr(err)
 			}
+			if spec, ok := ctrl.GetSpec().(*commonmodels.FreestyleJobSpec); isExecution && ok && spec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+				job.Spec = spec
+			}
 		}
 	}
 	return nil

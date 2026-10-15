@@ -1537,6 +1537,14 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
+		for _, group := range spec.VariableGroups {
+			if group == nil {
+				continue
+			}
+			if err := commonservice.EncryptKeyVals(encryptedKey, group.KeyVals, logger); err != nil {
+				return e.ErrFindWorkflow.AddErr(err)
+			}
+		}
 		job.Spec = spec
 	}
 	if job.JobType == config.JobPlugin {

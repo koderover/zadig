@@ -404,8 +404,9 @@ const (
 type FreeStyleJobType string
 
 const (
-	NormalFreeStyleJobType  FreeStyleJobType = ""
-	ServiceFreeStyleJobType FreeStyleJobType = "service_freestyle"
+	NormalFreeStyleJobType        FreeStyleJobType = ""
+	ServiceFreeStyleJobType       FreeStyleJobType = "service_freestyle"
+	VariableGroupFreeStyleJobType FreeStyleJobType = "variable_group_freestyle"
 )
 
 type DeployContent string
