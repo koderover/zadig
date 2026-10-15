@@ -112,6 +112,11 @@ func OpenAPIListReleasePlanCustomFields(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Resp, ctx.RespErr = service.ListReleasePlanCustomFields()
 }
 
@@ -120,7 +125,7 @@ func OpenAPIListReleasePlanCustomFields(c *gin.Context) {
 // @tags OpenAPI
 // @accept json
 // @produce json
-// @Param body body service.CustomFieldsUpdater true "body"
+// @Param body body service.OpenAPIUpdateReleasePlanCustomFieldsArgs true "body"
 // @success 200
 // @router /openapi/release_plan/v1/{id}/custom_fields [put]
 func OpenAPIUpdateReleasePlanCustomFields(c *gin.Context) {
@@ -144,7 +149,7 @@ func OpenAPIUpdateReleasePlanCustomFields(c *gin.Context) {
 		return
 	}
 
-	args := new(service.CustomFieldsUpdater)
+	args := new(service.OpenAPIUpdateReleasePlanCustomFieldsArgs)
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return

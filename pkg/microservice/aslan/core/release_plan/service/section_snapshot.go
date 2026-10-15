@@ -236,7 +236,7 @@ func buildReleasePlanVersionSnapshot(plan *models.ReleasePlan, sectionKey string
 	case sectionKey == releasePlanVersionSectionPlan:
 		return buildReleasePlanInputSnapshot(plan)
 	case isReleasePlanVersionMetadataSection(sectionKey):
-		return buildReleasePlanMetadataSectionSnapshot(plan, sectionKey), nil
+		return buildReleasePlanMetadataSectionSnapshot(plan, sectionKey)
 	case sectionKey == releasePlanVersionSectionApproval:
 		return buildReleasePlanApprovalSnapshot(plan.Approval)
 	case sectionKey == releasePlanVersionSectionJobsOrder:
@@ -258,9 +258,13 @@ func buildReleasePlanInputSnapshot(plan *models.ReleasePlan) (interface{}, error
 	if err != nil {
 		return nil, err
 	}
+	metadataSnapshot, err := buildReleasePlanMetadataSnapshot(plan)
+	if err != nil {
+		return nil, err
+	}
 
 	resp := map[string]interface{}{
-		"metadata":   buildReleasePlanMetadataSnapshot(plan),
+		"metadata":   metadataSnapshot,
 		"approval":   approvalSnapshot,
 		"jobs":       make([]interface{}, 0, len(plan.Jobs)),
 		"jobs_order": buildReleasePlanJobsOrderSnapshot(plan),
@@ -275,9 +279,17 @@ func buildReleasePlanInputSnapshot(plan *models.ReleasePlan) (interface{}, error
 	return resp, nil
 }
 
-func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) map[string]interface{} {
+func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) (map[string]interface{}, error) {
 	if plan == nil {
-		return nil
+		return nil, nil
+	}
+	customFieldDefinitions, err := toReleasePlanGenericValue(plan.CustomFieldDefinitions)
+	if err != nil {
+		return nil, err
+	}
+	customFields, err := toReleasePlanGenericValue(plan.CustomFields)
+	if err != nil {
+		return nil, err
 	}
 	return map[string]interface{}{
 		"name":                     plan.Name,
@@ -288,53 +300,53 @@ func buildReleasePlanMetadataSnapshot(plan *models.ReleasePlan) map[string]inter
 		"schedule_execute_time":    plan.ScheduleExecuteTime,
 		"description":              plan.Description,
 		"jira_sprint_association":  sanitizeReleasePlanValue(plan.JiraSprintAssociation),
-		"custom_field_definitions": sanitizeReleasePlanValue(plan.CustomFieldDefinitions),
-		"custom_fields":            sanitizeReleasePlanValue(plan.CustomFields),
-	}
+		"custom_field_definitions": customFieldDefinitions,
+		"custom_fields":            customFields,
+	}, nil
 }
 
-func buildReleasePlanMetadataSectionSnapshot(plan *models.ReleasePlan, sectionKey string) map[string]interface{} {
-	metadata := buildReleasePlanMetadataSnapshot(plan)
-	if metadata == nil {
-		return nil
+func buildReleasePlanMetadataSectionSnapshot(plan *models.ReleasePlan, sectionKey string) (map[string]interface{}, error) {
+	metadata, err := buildReleasePlanMetadataSnapshot(plan)
+	if err != nil || metadata == nil {
+		return nil, err
 	}
 
 	switch sectionKey {
 	case releasePlanVersionSectionMetadata:
-		return metadata
+		return metadata, nil
 	case releasePlanCollabSectionMetadataName:
 		return map[string]interface{}{
 			"name": metadata["name"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataManager:
 		return map[string]interface{}{
 			"manager":    metadata["manager"],
 			"manager_id": metadata["manager_id"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataTimeRange:
 		return map[string]interface{}{
 			"start_time": metadata["start_time"],
 			"end_time":   metadata["end_time"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataScheduleExecute:
 		return map[string]interface{}{
 			"schedule_execute_time": metadata["schedule_execute_time"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataDescription:
 		return map[string]interface{}{
 			"description": metadata["description"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataJiraSprint:
 		return map[string]interface{}{
 			"jira_sprint_association": metadata["jira_sprint_association"],
-		}
+		}, nil
 	case releasePlanCollabSectionMetadataCustomFields:
 		return map[string]interface{}{
 			"custom_field_definitions": metadata["custom_field_definitions"],
 			"custom_fields":            metadata["custom_fields"],
-		}
+		}, nil
 	default:
-		return metadata
+		return metadata, nil
 	}
 }
 

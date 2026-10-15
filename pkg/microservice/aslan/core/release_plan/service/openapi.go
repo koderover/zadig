@@ -205,6 +205,10 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	}, nil
 }
 
+type OpenAPIUpdateReleasePlanCustomFieldsArgs struct {
+	CustomFields map[string]interface{} `json:"custom_fields"`
+}
+
 type OpenAPIUpdateReleasePlanWithJobsArgs struct {
 	Name                string                   `bson:"name"                    yaml:"name"                    json:"name"`
 	Manager             string                   `bson:"manager"                 yaml:"manager"                 json:"manager"`
