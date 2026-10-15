@@ -543,7 +543,10 @@ func normalizeWorkflowRepositoryValue(value interface{}) {
 		}
 	case *commonmodels.FreestyleJobSpec:
 		if value != nil {
-			normalizeWorkflowRepositories(value.Repos, value.Services)
+			normalizeRepositories(value.Repos)
+			for _, service := range value.Services {
+				normalizeWorkflowRepositoryValue(service)
+			}
 		}
 	case *commonmodels.FreeStyleServiceInfo:
 		if value != nil {
@@ -649,13 +652,6 @@ func normalizeRepository(repo *types.Repository) {
 func normalizeRepositories(repos []*types.Repository) {
 	for _, repo := range repos {
 		normalizeRepository(repo)
-	}
-}
-
-func normalizeWorkflowRepositories(repos []*types.Repository, services []*commonmodels.FreeStyleServiceInfo) {
-	normalizeRepositories(repos)
-	for _, service := range services {
-		normalizeWorkflowRepositoryValue(service)
 	}
 }
 
