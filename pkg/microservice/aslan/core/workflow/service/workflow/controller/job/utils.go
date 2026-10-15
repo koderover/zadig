@@ -226,6 +226,14 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 }
 
 func applyRepos(base, input []*types.Repository) []*types.Repository {
+	return applyReposWithCommitMode(base, input, true)
+}
+
+func applyReposForWebhook(base, input []*types.Repository) []*types.Repository {
+	return applyReposWithCommitMode(base, input, false)
+}
+
+func applyReposWithCommitMode(base, input []*types.Repository, updateCommitMode bool) []*types.Repository {
 	type repoKey struct {
 		key          string
 		checkoutPath string
@@ -260,9 +268,11 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.PR = cv.PR
 			item.PRs = cv.PRs
 			item.FilterRegexp = cv.FilterRegexp
-			item.EnableCommit = cv.EnableCommit
+			if updateCommitMode {
+				item.EnableCommit = cv.EnableCommit
+			}
 			item.CommitID = cv.CommitID
-			if !item.EnableCommit {
+			if updateCommitMode && !item.EnableCommit {
 				item.CommitID = ""
 			}
 			item.CommitMessage = cv.CommitMessage

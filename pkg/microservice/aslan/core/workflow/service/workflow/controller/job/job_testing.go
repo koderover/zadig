@@ -272,10 +272,10 @@ func (j TestingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 
 func (j TestingJobController) SetRepo(repo *types.Repository) error {
 	for _, testing := range j.jobSpec.TestModules {
-		testing.Repos = applyRepos(testing.Repos, []*types.Repository{repo})
+		testing.Repos = applyReposForWebhook(testing.Repos, []*types.Repository{repo})
 	}
 	for _, serviceAndTest := range j.jobSpec.ServiceAndTests {
-		serviceAndTest.Repos = applyRepos(serviceAndTest.Repos, []*types.Repository{repo})
+		serviceAndTest.Repos = applyReposForWebhook(serviceAndTest.Repos, []*types.Repository{repo})
 	}
 	return nil
 }

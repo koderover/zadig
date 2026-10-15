@@ -265,10 +265,10 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 
 func (j ScanningJobController) SetRepo(repo *types.Repository) error {
 	for _, scanning := range j.jobSpec.Scannings {
-		scanning.Repos = applyRepos(scanning.Repos, []*types.Repository{repo})
+		scanning.Repos = applyReposForWebhook(scanning.Repos, []*types.Repository{repo})
 	}
 	for _, serviceAndScaning := range j.jobSpec.ServiceAndScannings {
-		serviceAndScaning.Repos = applyRepos(serviceAndScaning.Repos, []*types.Repository{repo})
+		serviceAndScaning.Repos = applyReposForWebhook(serviceAndScaning.Repos, []*types.Repository{repo})
 	}
 	return nil
 }

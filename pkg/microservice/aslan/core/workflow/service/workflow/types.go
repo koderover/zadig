@@ -17,8 +17,10 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -509,23 +511,125 @@ func normalizeWorkflowRepositoryRefs(workflow *commonmodels.WorkflowV4) {
 }
 
 func normalizeWorkflowRepositoryValue(value interface{}) {
-	switch value := value.(type) {
-	case *types.Repository:
-		if value != nil && !value.EnableCommit {
-			value.CommitID = ""
+	normalizeWorkflowRepositoryReflectValue(reflect.ValueOf(value))
+}
+
+func normalizeWorkflowRepositoryReflectValue(value reflect.Value) {
+	if !value.IsValid() {
+		return
+	}
+
+	switch value.Kind() {
+	case reflect.Interface:
+		if !value.IsNil() {
+			normalizeWorkflowRepositoryReflectValue(value.Elem())
 		}
-	case map[string]interface{}:
-		if enabled, ok := value["enable_commit"].(bool); ok && !enabled {
-			if _, exists := value["commit_id"]; exists {
-				value["commit_id"] = ""
+	case reflect.Pointer:
+		if value.IsNil() {
+			return
+		}
+		if value.CanInterface() {
+			if repo, ok := value.Interface().(*types.Repository); ok {
+				if !repo.EnableCommit {
+					repo.CommitID = ""
+				}
+				return
 			}
 		}
-		for _, child := range value {
-			normalizeWorkflowRepositoryValue(child)
+		normalizeWorkflowRepositoryReflectValue(value.Elem())
+	case reflect.Struct:
+		if value.CanAddr() && value.Addr().CanInterface() {
+			if repo, ok := value.Addr().Interface().(*types.Repository); ok {
+				if !repo.EnableCommit {
+					repo.CommitID = ""
+				}
+				return
+			}
 		}
-	case []interface{}:
-		for _, child := range value {
-			normalizeWorkflowRepositoryValue(child)
+		for i := 0; i < value.NumField(); i++ {
+			field := value.Field(i)
+			if field.CanInterface() {
+				normalizeWorkflowRepositoryReflectValue(field)
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < value.Len(); i++ {
+			normalizeWorkflowRepositoryReflectValue(value.Index(i))
+		}
+	case reflect.Map:
+		if value.IsNil() {
+			return
+		}
+		if value.Type().Key().Kind() == reflect.String {
+			enableCommitKey := reflect.New(value.Type().Key()).Elem()
+			enableCommitKey.SetString("enable_commit")
+			enableCommit, ok := reflectBoolValue(value.MapIndex(enableCommitKey))
+			if ok && !enableCommit {
+				commitIDKey := reflect.New(value.Type().Key()).Elem()
+				commitIDKey.SetString("commit_id")
+				if commitIDValue := value.MapIndex(commitIDKey); commitIDValue.IsValid() {
+					if emptyCommitID, ok := reflectEmptyStringValue(commitIDValue.Type()); ok {
+						value.SetMapIndex(commitIDKey, emptyCommitID)
+					}
+				}
+			}
+		}
+		for _, key := range value.MapKeys() {
+			normalizeWorkflowRepositoryReflectValue(value.MapIndex(key))
+		}
+	}
+}
+
+func reflectBoolValue(value reflect.Value) (bool, bool) {
+	for value.IsValid() && value.Kind() == reflect.Interface {
+		if value.IsNil() {
+			return false, false
+		}
+		value = value.Elem()
+	}
+	if value.IsValid() && value.Kind() == reflect.Bool {
+		return value.Bool(), true
+	}
+	return false, false
+}
+
+func reflectEmptyStringValue(valueType reflect.Type) (reflect.Value, bool) {
+	emptyValue := reflect.New(valueType).Elem()
+	stringValue := reflect.ValueOf("")
+	if stringValue.Type().AssignableTo(valueType) {
+		emptyValue.Set(stringValue)
+		return emptyValue, true
+	}
+	if stringValue.Type().ConvertibleTo(valueType) {
+		emptyValue.Set(stringValue.Convert(valueType))
+		return emptyValue, true
+	}
+	return reflect.Value{}, false
+}
+
+func normalizeWorkflowRepositoryDeltaPatches(patches []*commonmodels.JSONPatchOperation, workflow *commonmodels.WorkflowV4) {
+	if workflow == nil || len(patches) == 0 {
+		return
+	}
+
+	workflowBytes, err := json.Marshal(workflow)
+	if err != nil {
+		return
+	}
+	var document interface{}
+	if err := json.Unmarshal(workflowBytes, &document); err != nil {
+		return
+	}
+
+	for _, patch := range patches {
+		if patch == nil || !strings.HasSuffix(patch.Path, "/commit_id") {
+			continue
+		}
+		enableCommitPath := strings.TrimSuffix(patch.Path, "/commit_id") + "/enable_commit"
+		enableCommitValue, ok := jsonPointerValue(document, enableCommitPath)
+		enableCommit, isBool := enableCommitValue.(bool)
+		if ok && isBool && !enableCommit {
+			patch.Value = ""
 		}
 	}
 }

@@ -745,7 +745,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 func (j BuildJobController) SetRepo(repo *types.Repository) error {
 	for _, build := range j.jobSpec.ServiceAndBuilds {
-		build.Repos = applyRepos(build.Repos, []*types.Repository{repo})
+		build.Repos = applyReposForWebhook(build.Repos, []*types.Repository{repo})
 	}
 
 	return nil

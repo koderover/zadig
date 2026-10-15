@@ -162,6 +162,8 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	if len(preview.InvalidPatches) > 0 {
 		return fmt.Errorf("invalid workflow template delta")
 	}
+	normalizeWorkflowRepositoryRefs(rendered)
+	normalizeWorkflowRepositoryDeltaPatches(workflow.TemplateBinding.DeltaPatches, rendered)
 	workflowController := controller.CreateWorkflowController(rendered)
 	if err := workflowController.Validate(false); err != nil {
 		return err
@@ -214,6 +216,8 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 	if err != nil {
 		return err
 	}
+	normalizeWorkflowRepositoryRefs(rendered)
+	normalizeWorkflowRepositoryDeltaPatches(input.TemplateBinding.DeltaPatches, rendered)
 	workflowController := controller.CreateWorkflowController(rendered)
 	if err := workflowController.Validate(false); err != nil {
 		return err

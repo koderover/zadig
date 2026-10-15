@@ -192,11 +192,11 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 
 func (j FreestyleJobController) SetRepo(repo *types.Repository) error {
 	// first set repo in the config/input
-	j.jobSpec.Repos = applyRepos(j.jobSpec.Repos, []*types.Repository{repo})
+	j.jobSpec.Repos = applyReposForWebhook(j.jobSpec.Repos, []*types.Repository{repo})
 
 	// then update for each service selected
 	for _, svc := range j.jobSpec.Services {
-		svc.Repos = applyRepos(svc.Repos, []*types.Repository{repo})
+		svc.Repos = applyReposForWebhook(svc.Repos, []*types.Repository{repo})
 	}
 
 	return nil

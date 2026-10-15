@@ -95,6 +95,7 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := prepareTemplateBoundWorkflowForCreate(user, workflow, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	normalizeWorkflowRepositoryRefs(workflow)
 	if !isTemplateBindingEnabled(workflow) {
 		clearWorkflowStageAndJobIDs(workflow.Stages)
 	}
