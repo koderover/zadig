@@ -87,6 +87,10 @@ func NewZgCtl(cfg *ZgCtlConfig) ZgCtler {
 }
 
 func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceName, dataDir, devImage string) error {
+	configDir, err := z.generateServiceConfigDir(projectName, envName, serviceName)
+	if err != nil {
+		return err
+	}
 	// 1. Adjust replicas of the workload to 1 and patch Pod.
 	log.Info("Begin to patch worload.")
 	workloadInfo, err := z.aslanClient.PatchWorkload(projectName, envName, serviceName, devImage)
@@ -108,7 +112,6 @@ func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceN
 	log.Info("Begin to config Syncthing.")
 	localPort := z.genRandPort()
 	remotePort := z.genRandPort()
-	configDir := z.generateServiceConfigDir(projectName, envName, serviceName)
 	err = z.configSyncthing(ctx, configDir, dataDir, localPort, remotePort)
 	if err != nil {
 		errRet := fmt.Errorf("failed to config syncthing for service %q in env %q: %s", envName, serviceName, err)
@@ -147,7 +150,10 @@ func (z *zgctl) StartDevMode(ctx context.Context, projectName, envName, serviceN
 }
 
 func (z *zgctl) StopDevMode(ctx context.Context, projectName, envName, serviceName string) error {
-	configDir := z.generateServiceConfigDir(projectName, envName, serviceName)
+	configDir, err := z.generateServiceConfigDir(projectName, envName, serviceName)
+	if err != nil {
+		return err
+	}
 
 	// 1. Stop `Syncthing` locally and delete the corresponding configuration.
 	log.Info("Begin to stop Syncthing.")
@@ -275,8 +281,13 @@ func (z *zgctl) configLocalSyncthing(configDir string) (deviceID string, err err
 	return strings.TrimSpace(items[1]), nil
 }
 
-func (z *zgctl) generateServiceConfigDir(projectName, envName, serviceName string) string {
-	return filepath.Join(z.homeDir, "config", fmt.Sprintf("%s-%s-%s", projectName, envName, serviceName))
+func (z *zgctl) generateServiceConfigDir(projectName, envName, serviceName string) (string, error) {
+	for _, name := range []string{projectName, envName, serviceName} {
+		if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
+			return "", fmt.Errorf("project, environment and service names must be nonempty path components")
+		}
+	}
+	return filepath.Join(z.homeDir, "config", fmt.Sprintf("%s-%s-%s", projectName, envName, serviceName)), nil
 }
 
 func (z *zgctl) adjustSyncthingConfig(localDeviceID, remoteDeviceID, configDir, dataDir string, localPort, remotePort int) error {
@@ -398,15 +409,21 @@ func (z *zgctl) startRemoteSyncthing(ctx context.Context, ns, podName, configDir
 }
 
 func (z *zgctl) startLocalSyncthing(ctx context.Context, configDir, dataDir string) error {
-	scriptPath := filepath.Join(configDir, "run.sh")
-	log.Infof("script: %s", scriptPath)
-
-	cmd := exec.Command("/bin/sh", "-c", `"$1" >/dev/null 2>&1 &`, "zadig", scriptPath)
-	res, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run syncthing locally: %s. msg: %s.", err, string(res))
+	// shortcut: configuration files require trusted local writers; use rooted file handles if that boundary changes.
+	cmd := exec.Command("nohup", filepath.Join(configDir, "run.sh"))
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	log.Infof("start local syncthing: %s", strings.Join(cmd.Args, " "))
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to run syncthing locally: %w", err)
 	}
-
+	// Syncthing must outlive the request; Wait reaps the background process.
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Errorf("Local syncthing exited: %s. msg: %s", err, output.String())
+		}
+	}()
 	return nil
 }
 
