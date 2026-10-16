@@ -1248,6 +1248,15 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 					retrySpec.RulePlan = currentSpec.RulePlan
 					t.Spec = retrySpec
 				}
+				// APISIX 任务重试时沿用上次执行的 spec，已成功的子任务保留状态和结果并在执行时跳过，
+				// 避免 create 重复创建资源、update/delete 重新获取到已被修改过的 OriginalSpec。
+				if jobTask.JobType == string(config.JobApisix) {
+					retrySpec, err := resetUnpassedApisixTasks(jobTask.Spec)
+					if err != nil {
+						return errors.Errorf("reset apisix task %s error: %s", jobTask.Name, err)
+					}
+					t.Spec = retrySpec
+				}
 				jobTask.Spec = t.Spec
 				jobTask.NotifyCtls = t.NotifyCtls
 			} else {
@@ -1307,6 +1316,23 @@ func apolloRetryNamespaceKey(namespace *commonmodels.JobTaskApolloNamespace) str
 		return fmt.Sprintf("%s++%s", namespace.AppID, apollo.NormalizeNamespaceName(namespace.Namespace, namespace.Type))
 	}
 	return fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
+}
+
+func resetUnpassedApisixTasks(currentSpec interface{}) (*commonmodels.JobTaskApisixSpec, error) {
+	spec := &commonmodels.JobTaskApisixSpec{}
+	if err := commonmodels.IToi(currentSpec, spec); err != nil {
+		return nil, fmt.Errorf("decode apisix spec error: %s", err)
+	}
+	for _, task := range spec.Tasks {
+		if task == nil || task.Status == string(config.StatusPassed) {
+			continue
+		}
+		task.Status = string(config.StatusCreated)
+		task.Error = ""
+		task.ItemID = ""
+		task.OriginalSpec = nil
+	}
+	return spec, nil
 }
 
 type ManualExecWorkflowTaskV4Request struct {
