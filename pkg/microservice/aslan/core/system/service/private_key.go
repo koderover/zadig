@@ -119,10 +119,26 @@ type CreatePrivateKeyResp struct {
 	VmID string `json:"vm_id"`
 }
 
+// normalizePrivateKeyProjects returns the project scope to store for a host.
+// Project hosts have no scope, any scope containing all projects is stored as all projects,
+// and an empty scope means the host is not available to any project.
+func normalizePrivateKeyProjects(projectName string, projects []string) []string {
+	if projectName != "" {
+		return nil
+	}
+	for _, project := range projects {
+		if project == setting.AllProjects {
+			return []string{setting.AllProjects}
+		}
+	}
+	return projects
+}
+
 func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*CreatePrivateKeyResp, error) {
 	if !config.CVMNameRegex.MatchString(args.Name) {
 		return nil, e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
+	args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 
 	privateKeyArgs := &commonrepo.PrivateKeyArgs{
 		Name: args.Name,
@@ -163,6 +179,7 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 	if args.IP != "" && !util.IsValidIPv4(args.IP) {
 		return e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
 	}
+	args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 
 	if vm.Agent != nil {
 		vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
@@ -262,7 +279,7 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 			envConfigs = append(envConfigs, config)
 		}
 
-		envStatus, err := pm.GenerateEnvStatus(service.EnvConfigs, log)
+		envStatus, err := pm.GenerateEnvStatus(service.ProductName, service.EnvConfigs, log)
 		if err != nil {
 			log.Errorf("GenerateEnvStatus err:%s", err)
 			continue
@@ -289,13 +306,16 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListLabels() ([]string, error) {
+func ListLabels(projectName string) ([]string, error) {
 	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list vms: %v", err)
 	}
 	resp := make([]string, 0)
 	for _, vm := range vms {
+		if projectName != "" && !vm.IsAvailableToProject(projectName) {
+			continue
+		}
 		if vm.Agent == nil {
 			resp = append(resp, vm.Label)
 		}
@@ -313,6 +333,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
+			currentPrivateKey.Projects = normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				continue
@@ -330,6 +351,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
+			currentPrivateKey.Projects = normalizePrivateKeyProjects(currentPrivateKey.ProjectName, currentPrivateKey.Projects)
 			currentPrivateKey.UpdateBy = username
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {

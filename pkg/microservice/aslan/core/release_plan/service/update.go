@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	VerbUpdateScheduleExecuteTime = "update_schedule_execute_time"
 	VerbUpdateManager             = "update_manager"
 	VerbUpdateJiraSprint          = "update_jira_sprint"
+	VerbUpdateCustomFields        = "update_custom_fields"
 
 	VerbCreateReleaseJob  = "create_release_job"
 	VerbUpdateReleaseJob  = "update_release_job"
@@ -155,9 +157,50 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewDeleteApprovalUpdater(args)
 	case VerbUpdateJiraSprint:
 		return NewJiraSprintUpdater(args)
+	case VerbUpdateCustomFields:
+		return NewCustomFieldsUpdater(args)
 	default:
 		return nil, fmt.Errorf("invalid verb: %s", args.Verb)
 	}
+}
+
+type CustomFieldsUpdater struct {
+	CustomFields map[string]interface{} `json:"custom_fields"`
+}
+
+func NewCustomFieldsUpdater(args *UpdateReleasePlanArgs) (*CustomFieldsUpdater, error) {
+	var updater CustomFieldsUpdater
+	if err := models.IToi(args.Spec, &updater); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	return &updater, nil
+}
+
+func (u *CustomFieldsUpdater) Update(plan *models.ReleasePlan) error {
+	if u.CustomFields == nil {
+		return errors.New("custom_fields cannot be nil")
+	}
+	if err := validateReleasePlanCustomFieldValues(plan.CustomFieldDefinitions, u.CustomFields, false); err != nil {
+		return err
+	}
+	plan.CustomFields = u.CustomFields
+	return nil
+}
+
+func (u *CustomFieldsUpdater) Lint() error {
+	return nil
+}
+
+func (u *CustomFieldsUpdater) TargetName() string {
+	return "自定义字段"
+}
+
+func (u *CustomFieldsUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *CustomFieldsUpdater) Verb() string {
+	return VerbUpdate
 }
 
 type NameUpdater struct {
@@ -314,6 +357,7 @@ type CreateReleaseJobUpdater struct {
 	Type      config.ReleasePlanJobType `json:"type"`
 	Manager   string                    `json:"manager"`
 	ManagerID string                    `json:"manager_id"`
+	Managers  []*types.Identity         `json:"managers"`
 	Spec      interface{}               `json:"spec"`
 }
 
@@ -327,12 +371,11 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 	job := &models.ReleaseJob{
-		ID:        uuid.New().String(),
-		Name:      u.Name,
-		Manager:   u.Manager,
-		ManagerID: u.ManagerID,
-		Type:      u.Type,
-		Spec:      u.Spec,
+		ID:       uuid.New().String(),
+		Name:     u.Name,
+		Managers: u.Managers,
+		Type:     u.Type,
+		Spec:     u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
 	return nil
@@ -364,6 +407,7 @@ type UpdateReleaseJobUpdater struct {
 	Name      string                    `json:"name"`
 	Manager   string                    `json:"manager"`
 	ManagerID string                    `json:"manager_id"`
+	Managers  []*types.Identity         `json:"managers"`
 	Type      config.ReleasePlanJobType `json:"type"`
 	Spec      interface{}               `json:"spec"`
 }
@@ -383,8 +427,11 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
 				return fmt.Errorf("job type cannot be changed")
 			}
 			job.Name = u.Name
-			job.Manager = u.Manager
-			job.ManagerID = u.ManagerID
+			if u.Managers != nil {
+				job.Managers = u.Managers
+				job.Manager = ""
+				job.ManagerID = ""
+			}
 			job.Spec = u.Spec
 			job.Updated = true
 			return nil

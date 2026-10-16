@@ -80,7 +80,7 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 }
 
 // GetLatestRenderSetFromProject returns the latest renderset created directly from service definition.
-func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*commonmodels.RenderSet, error) {
+func GetLatestRenderSetFromHelmProject(productName string, isProduction bool, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	serviceList, err := repository.ListMaxRevisionsServices(productName, isProduction, false)
 	if err != nil {
 		return nil, err
@@ -88,6 +88,14 @@ func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*
 
 	chartInfo := make([]*templatemodels.ServiceRender, 0)
 	for _, service := range serviceList {
+		if service == nil {
+			log.Errorf("skip nil Helm service template in project %s", productName)
+			continue
+		}
+		if service.HelmChart == nil {
+			log.Errorf("skip Helm service %s revision %d in project %s: Helm Chart configuration is missing", service.ServiceName, service.Revision, productName)
+			continue
+		}
 		chartInfo = append(chartInfo, &templatemodels.ServiceRender{
 			ServiceName:  service.ServiceName,
 			ChartVersion: service.HelmChart.Version,

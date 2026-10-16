@@ -45,6 +45,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		v1.GET("/hook/setting", GetReleasePlanHookSetting)
 		v1.PUT("/hook/setting", UpdateReleasePlanHookSetting)
+		v1.GET("/custom_fields", ListReleasePlanCustomFields)
 		v1.POST("/hook/callback", ReleasePlanHookCallback)
 
 		v1.GET("/swag/placeholder", ReleasePlanSwagPlaceholder)
@@ -58,7 +59,9 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		v1.GET("", OpenAPIListReleasePlans)
 		v1.POST("", OpenAPICreateReleasePlan)
+		v1.GET("/custom_fields", OpenAPIListReleasePlanCustomFields)
 		v1.GET("/:id", OpenAPIGetReleasePlan)
+		v1.PUT("/:id/custom_fields", OpenAPIUpdateReleasePlanCustomFields)
 		v1.PATCH("/:id", OpenAPIUpdateReleasePlanWithJobs)
 	}
 }

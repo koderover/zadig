@@ -515,13 +515,20 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 			taskID,
 			url.QueryEscape(w.workflowName()),
 		)
+		prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
+		if strings.HasPrefix(w.workflowID(), prefix) {
+			scanningID := strings.TrimPrefix(w.workflowID(), prefix)
+			if scanning, err := commonrepo.NewScanningColl().GetByID(scanningID); err == nil {
+				detailURL = commonutil.ScanningTaskURL(configbase.SystemAddress(), w.Project, scanning.Name, taskID, string(config.StatusRunning), scanningID, string(scanning.ScannerType))
+			}
+		}
 	}
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.url", Value: detailURL, ParamsType: "string", IsCredential: false})
 
 	for _, param := range w.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
 		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
-		if param.ParamsType == string(commonmodels.MultiSelectType) {
+		if param.IsMultiValue() {
 			newParam.Value = strings.Join(param.ChoiceValue, ",")
 		} else if param.ParamsType == string(commonmodels.FileType) {
 			continue
@@ -838,9 +845,10 @@ func workflowParamValueProvided(param *commonmodels.Param) bool {
 		return false
 	}
 
-	switch param.ParamsType {
-	case string(commonmodels.MultiSelectType):
+	if param.IsMultiValue() {
 		return len(param.ChoiceValue) > 0
+	}
+	switch param.ParamsType {
 	case "repo":
 		return repositoryValueProvided(param.Repo)
 	case string(commonmodels.FileType):
@@ -879,12 +887,7 @@ func (w *Workflow) SetRepo(repo *types.Repository) error {
 	return nil
 }
 
-func (w *Workflow) GetDynamicVariableValues(jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
-	latestWorkflowSettings, err := commonrepo.NewWorkflowV4Coll().Find(w.Name)
-	if err != nil {
-		return nil, e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
-	}
-
+func (w *Workflow) GetDynamicVariableValues(latestWorkflowSettings *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
 	job, err := w.FindJob(jobName, "")
 	if err != nil {
 		return nil, err
@@ -1128,19 +1131,20 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
 				newParam := &commonmodels.Param{
-					Name:         originParam.Name,
-					Description:  originParam.Description,
-					ParamsType:   originParam.ParamsType,
-					Value:        originParam.Value,
-					Repo:         originParam.Repo,
-					ChoiceOption: originParam.ChoiceOption,
-					ChoiceValue:  originParam.ChoiceValue,
-					Script:       originParam.Script,
-					CallFunction: originParam.CallFunction,
-					Default:      originParam.Default,
-					IsCredential: originParam.IsCredential,
-					Source:       originParam.Source,
-					Required:     originParam.Required,
+					Name:          originParam.Name,
+					Description:   originParam.Description,
+					ParamsType:    originParam.ParamsType,
+					Value:         originParam.Value,
+					Repo:          originParam.Repo,
+					ChoiceOption:  originParam.ChoiceOption,
+					ChoiceValue:   originParam.ChoiceValue,
+					IsMultiSelect: originParam.IsMultiSelect,
+					Script:        originParam.Script,
+					CallFunction:  originParam.CallFunction,
+					Default:       originParam.Default,
+					IsCredential:  originParam.IsCredential,
+					Source:        originParam.Source,
+					Required:      originParam.Required,
 				}
 				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value

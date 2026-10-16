@@ -1067,6 +1067,15 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	if err != nil {
 		return fmt.Errorf("GetMaxRevisionsServicesMap product: %s, error: %v", productName, err)
 	}
+	for _, chart := range overrideCharts {
+		if chart.EnvName != envName || chart.IsChartDeploy {
+			continue
+		}
+		service := templateSvcMap[chart.ServiceName]
+		if service == nil || service.HelmChart == nil {
+			return fmt.Errorf("project %s service %s has no Helm Chart configuration; fix the service before updating environment %s", productName, chart.ServiceName, envName)
+		}
+	}
 
 	// use service definition from service template, but keep the image info
 	addedReleaseNameSet := sets.NewString()
@@ -1131,6 +1140,19 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 			svr.Containers = kube.CalculateContainer(ps, serviceMap[svr.ServiceName], svr.Containers, productResp)
 		}
 		allServices = append(allServices, svcGroup)
+	}
+
+	// Deleting a service template must not implicitly remove it from existing environments.
+	templateServiceMap := templateProd.GetServiceMap()
+	for groupIndex, serviceGroup := range productResp.Services {
+		for len(allServices) <= groupIndex {
+			allServices = append(allServices, nil)
+		}
+		for _, svc := range serviceGroup {
+			if svc.FromZadig() && templateServiceMap[svc.ServiceName] == nil && !deletedSvcSet.Has(svc.ServiceName) {
+				allServices[groupIndex] = append(allServices[groupIndex], svc)
+			}
+		}
 	}
 
 	chartSvcMap := productResp.GetChartServiceMap()
@@ -1507,6 +1529,16 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName 
 				log.Error(err)
 				return nil, nil, nil, nil, err
 			}
+		}
+		if latestTmplSvc == nil || latestTmplSvc.HelmChart == nil {
+			err = fmt.Errorf("project %s environment %s service %s has no Helm Chart configuration", productName, envName, serviceOrReleaseName)
+			log.Errorf("%s", err)
+			return nil, nil, nil, nil, err
+		}
+		if currentTmplSvc == nil || currentTmplSvc.HelmChart == nil {
+			err = fmt.Errorf("project %s environment %s service %s has no Helm Chart configuration", productName, envName, serviceOrReleaseName)
+			log.Errorf("%s", err)
+			return nil, nil, nil, nil, err
 		}
 
 		if prodSvc == nil {
@@ -2150,6 +2182,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return err
 	}
 
+	chartRenders := make(map[string]*templatemodels.ServiceRender)
+	for serviceName, render := range product.GetChartRenderMap() {
+		chartRenders["service:"+serviceName] = render
+	}
+	for releaseName, render := range product.GetChartDeployRenderMap() {
+		chartRenders["release:"+releaseName] = render
+	}
 	updatedRcMapLock := sync.Mutex{}
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
 
@@ -2160,13 +2199,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	}
 	if changed {
 		product.DefaultValues = defaultValues
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
+		for key, curRenderChart := range chartRenders {
+			updatedRCMap[key] = curRenderChart
 		}
 	}
 
 	var wg sync.WaitGroup
-	for _, chartInfo := range product.GetChartRenderMap() {
+	for key, chartInfo := range chartRenders {
 		if chartInfo.OverrideYaml == nil {
 			continue
 		}
@@ -2177,18 +2216,18 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 			changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
 			if err != nil {
-				log.Errorf("failed to sync yaml from source, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				log.Errorf("failed to sync yaml from source, project: %s, env: %s, serviceName: %s, err: %s", productName, envName, chartInfo.ServiceName, err)
 				return
 			}
 
 			if changed {
 				if err := commonservice.RefreshYamlSourceCommit(chartInfo.OverrideYaml, log); err != nil {
-					log.Warnf("failed to refresh Helm Values source commit, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+					log.Warnf("failed to refresh Helm Values source commit, project: %s, env: %s, serviceName: %s, err: %s", productName, envName, chartInfo.ServiceName, err)
 				}
 				updatedRcMapLock.Lock()
 				chartInfo.OverrideYaml.YamlContent = values
 				chartInfo.OverrideYaml.AutoSyncYaml = values
-				updatedRCMap[chartInfo.ServiceName] = chartInfo
+				updatedRCMap[key] = chartInfo
 				updatedRcMapLock.Unlock()
 			}
 		})
@@ -2202,9 +2241,9 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	svcNames := make([]string, 0)
 	// content of values.yaml changed, environment will be updated
 	updatedRcList := make([]*templatemodels.ServiceRender, 0)
-	for _, updatedRc := range updatedRCMap {
+	for key, updatedRc := range updatedRCMap {
 		updatedRcList = append(updatedRcList, updatedRc)
-		svcNames = append(svcNames, updatedRc.ServiceName)
+		svcNames = append(svcNames, key)
 	}
 
 	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
@@ -2909,6 +2948,14 @@ func GetEstimatedRenderCharts(productName, envName string, getSvcRenderArgs []*c
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
 		}
 		for _, singleService := range serviceList {
+			if singleService == nil || singleService.HelmChart == nil {
+				if singleService == nil {
+					log.Errorf("skip nil Helm service template, project: %s, env: %s", productName, envName)
+				} else {
+					log.Errorf("skip Helm service %s revision %d, project: %s, env: %s: Helm Chart configuration is missing", singleService.ServiceName, singleService.Revision, productName, envName)
+				}
+				continue
+			}
 			rcMap[singleService.ServiceName] = &commonservice.HelmSvcRenderArg{
 				EnvName:      envName,
 				ServiceName:  singleService.ServiceName,
@@ -3083,7 +3130,8 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		return nil, nil
 	}
 
-	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)
+	serviceToRender := serviceForUpsertRender(newService, prevSvc)
+	parsedYaml, err := kube.RenderEnvService(env, serviceToRender.GetServiceRender(), serviceToRender)
 	if err != nil {
 		log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("newService template %s error: %v", newService.ServiceName, err))
@@ -3136,6 +3184,18 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
+}
+
+func serviceForUpsertRender(newService, prevSvc *commonmodels.ProductService) *commonmodels.ProductService {
+	if prevSvc != nil {
+		// Keep existing container images, including workflow overrides.
+		return newService
+	}
+
+	// New services should keep images resolved from the rendered YAML.
+	serviceCopy := *newService
+	serviceCopy.Containers = nil
+	return &serviceCopy
 }
 
 func getOldSvcYaml(env *commonmodels.Product,
@@ -3410,7 +3470,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 // generate a new renderset and insert into db
 func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// default renderset created directly from the service template
-	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production)
+	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production, log)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err
@@ -3474,11 +3534,8 @@ func mergeRenderSetAndRenderChart(productResp *commonmodels.Product, overrideCha
 			ChartVersion:      chartInfo.ChartVersion,
 			ChartRepo:         chartInfo.ChartRepo,
 			ChartName:         chartInfo.ChartName,
-			OverrideValues:    chartInfo.ToOverrideValueString(),
-			OverrideYaml: &templatemodels.CustomYaml{
-				YamlContent: chartInfo.OverrideYaml,
-			},
 		}
+		chartInfo.FillRenderChartModel(requestChartInfoMap[chartInfo.ReleaseName], chartInfo.ChartVersion)
 	}
 	deletedReleasesSet := sets.NewString(deletedReleases...)
 

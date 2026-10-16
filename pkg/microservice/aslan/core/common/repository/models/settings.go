@@ -94,11 +94,12 @@ type AIReviewConfig struct {
 }
 
 type ReleasePlanHookSettings struct {
-	Enable         bool                   `json:"enable" bson:"enable"`
-	EnableCallBack bool                   `json:"enable_call_back" bson:"enable_call_back"`
-	HookAddress    string                 `json:"hook_address" bson:"hook_address"`
-	HookSecret     string                 `json:"hook_secret" bson:"hook_secret"`
-	HookEvents     []ReleasePlanHookEvent `json:"hook_events" bson:"hook_events"`
+	Enable         bool                                `json:"enable" bson:"enable"`
+	EnableCallBack bool                                `json:"enable_call_back" bson:"enable_call_back"`
+	HookAddress    string                              `json:"hook_address" bson:"hook_address"`
+	HookSecret     string                              `json:"hook_secret" bson:"hook_secret"`
+	HookEvents     []ReleasePlanHookEvent              `json:"hook_events" bson:"hook_events"`
+	CustomFields   []*ReleasePlanCustomFieldDefinition `json:"custom_fields" bson:"custom_fields"`
 }
 
 type WorkflowHookSettings struct {

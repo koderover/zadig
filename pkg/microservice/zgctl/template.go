@@ -16,6 +16,8 @@ limitations under the License.
 
 package zgctl
 
+import "strings"
+
 var syncthingConfigTmpl = `
 <configuration version="36">
     <folder id="nh-1" label="1" path="{{.SyncDirPath}}" type="{{.SyncType}}" rescanIntervalS="300" fsWatcherEnabled="true" fsWatcherDelayS="1" ignorePerms="false" autoNormalize="true">
@@ -182,5 +184,9 @@ var syncthingConfigTmpl = `
 var syncthingRunTmpl = `
 #!/bin/sh
 
-nohup {{.SyncthingBin}} serve --config={{.ConfigDir}} --data={{.DataDir}} &
+nohup {{shellQuote .SyncthingBin}} serve --config={{shellQuote .ConfigDir}} --data={{shellQuote .DataDir}} &
 `
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}

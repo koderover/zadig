@@ -875,7 +875,8 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	query := bson.M{}
 	ands := make([]bson.M, 0)
 	if strings.TrimSpace(req.Query) != "" {
-		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": req.Query, "$options": "i"}}, {"key": bson.M{"$regex": req.Query, "$options": "i"}}}})
+		queryPattern := escapeRegex(req.Query)
+		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": queryPattern, "$options": "i"}}, {"key": bson.M{"$regex": queryPattern, "$options": "i"}}}})
 	}
 	if len(req.Filters) > 0 {
 		exprs, err := buildFilterQuery(req.Filters, defMap)
@@ -894,6 +895,12 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	sortBy := req.SortBy
 	if sortBy == "" {
 		sortBy = "update_time"
+	} else {
+		resolved, _, err := resolveField(sortBy, defMap)
+		if err != nil {
+			return nil, 0, err
+		}
+		sortBy = resolved
 	}
 	sort := bson.D{{Key: sortBy, Value: order}}
 	list, total, err := commonrepo.NewApplicationColl().List(context.Background(), &commonrepo.ApplicationListOptions{Query: query, Sort: sort, Page: req.Page, PageSize: req.PageSize})
@@ -1065,7 +1072,7 @@ func ListApplicationEnvs(id string, logger *zap.SugaredLogger) ([]*GetBizDirServ
 
 				if len(serviceTmpl.EnvStatuses) > 0 {
 					envStatuses := make([]*commonmodels.EnvStatus, 0)
-					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.ProductName, serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 					if err != nil {
 						detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
 						log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
@@ -1231,7 +1238,7 @@ func ListApplicationEnvs(id string, logger *zap.SugaredLogger) ([]*GetBizDirServ
 
 				if len(serviceTmpl.EnvStatuses) > 0 {
 					envStatuses := make([]*commonmodels.EnvStatus, 0)
-					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.ProductName, serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 					if err != nil {
 						detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
 						log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
@@ -1308,7 +1315,7 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 		return field, cat, nil
 	}
 	switch field {
-	case "name", "key", "project", "description", "testing_service_config", "production_service_config", "owner", "type":
+	case "name", "key", "project", "description", "testing_service_config", "production_service_config", "testing_service_name", "production_service_name", "owner", "type":
 		return field, string(config.ApplicationFilterFieldTypeString), nil
 	case "repository.codehost_id", "create_time", "update_time":
 		return field, string(config.ApplicationFilterFieldTypeNumber), nil

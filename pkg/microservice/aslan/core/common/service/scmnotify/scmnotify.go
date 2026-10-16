@@ -32,6 +32,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -685,6 +687,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 	if hook == nil || !hook.IsPr {
 		return nil
 	}
+	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, config.StatusCreated, log)
 
 	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
 	if err != nil {
@@ -706,6 +709,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 			ProductName: workflowArgs.Project,
 			PipeType:    config.WorkflowTypeV4,
 			TaskID:      taskID,
+			TaskURL:     taskURL,
 		}
 		checkID, err := ghApp.StartGitCheck(opt)
 		if err != nil {
@@ -735,6 +739,7 @@ func (s *Service) CreateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 		ProductName: workflowArgs.Project,
 		PipeType:    config.WorkflowTypeV4,
 		TaskID:      taskID,
+		TaskURL:     taskURL,
 	})
 }
 
@@ -744,6 +749,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 	if hook == nil || !hook.IsPr {
 		return nil
 	}
+	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, config.StatusRunning, log)
 
 	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
 	if err != nil {
@@ -770,6 +776,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
+			TaskURL:     taskURL,
 		}
 
 		return ghApp.UpdateGitCheck(hook.CheckRunID, opt)
@@ -795,6 +802,7 @@ func (s *Service) UpdateGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4, t
 		PipeType:    config.WorkflowTypeV4,
 		ProductName: workflowArgs.Project,
 		TaskID:      taskID,
+		TaskURL:     taskURL,
 	})
 }
 
@@ -804,6 +812,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 	if hook == nil || !hook.IsPr {
 		return nil
 	}
+	taskURL := getWorkflowV4TaskURL(workflowArgs, taskID, status, log)
 
 	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
 	if err != nil {
@@ -830,6 +839,7 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 			PipeType:    config.WorkflowTypeV4,
 			ProductName: workflowArgs.Project,
 			TaskID:      taskID,
+			TaskURL:     taskURL,
 		}
 
 		return ghApp.CompleteGitCheck(hook.CheckRunID, getCheckStatus(status), opt)
@@ -856,7 +866,44 @@ func (s *Service) CompleteGitCheckForWorkflowV4(workflowArgs *models.WorkflowV4,
 		PipeType:    config.WorkflowTypeV4,
 		ProductName: workflowArgs.Project,
 		TaskID:      taskID,
+		TaskURL:     taskURL,
 	})
+}
+
+func getWorkflowV4TaskURL(workflowArgs *models.WorkflowV4, taskID int64, status config.Status, log *zap.SugaredLogger) string {
+	defaultURL := github.GetTaskLink(
+		configbase.SystemAddress(),
+		workflowArgs.Project,
+		workflowArgs.Name,
+		getDisplayName(workflowArgs),
+		config.WorkflowTypeV4,
+		taskID,
+	)
+
+	prefix := strings.TrimSuffix(setting.ScanWorkflowNamingConvention, "%s")
+	if !strings.HasPrefix(workflowArgs.Name, prefix) {
+		return defaultURL
+	}
+
+	scanningID := strings.TrimPrefix(workflowArgs.Name, prefix)
+	if scanningID == "" {
+		return defaultURL
+	}
+	scanning, err := mongodb.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		log.Warnf("failed to resolve scanning task link for workflow %s: %v", workflowArgs.Name, err)
+		return defaultURL
+	}
+
+	return commonutil.ScanningTaskURL(
+		configbase.SystemAddress(),
+		workflowArgs.Project,
+		scanning.Name,
+		taskID,
+		string(status),
+		scanningID,
+		string(scanning.ScannerType),
+	)
 }
 
 func getCheckStatus(status config.Status) github.CIStatus {

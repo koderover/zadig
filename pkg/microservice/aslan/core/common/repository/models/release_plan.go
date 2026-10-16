@@ -17,9 +17,12 @@
 package models
 
 import (
+	"encoding/json"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type ReleasePlan struct {
@@ -56,12 +59,26 @@ type ReleasePlan struct {
 	InstanceCode string        `bson:"instance_code"       yaml:"instance_code"                   json:"instance_code"`
 	HookSettings *HookSettings `bson:"hook_settings"       yaml:"hook_settings"                   json:"hook_settings"`
 
+	CustomFieldDefinitions []*ReleasePlanCustomFieldDefinition `bson:"custom_field_definitions,omitempty" yaml:"custom_field_definitions,omitempty" json:"custom_field_definitions,omitempty"`
+	CustomFields           map[string]interface{}              `bson:"custom_fields" yaml:"custom_fields,omitempty" json:"custom_fields,omitempty"`
+
 	WaitForFinishPlanningExternalCheckTime int64  `bson:"wait_for_finish_planning_external_check_time"       yaml:"wait_for_finish_planning_external_check_time"                   json:"wait_for_finish_planning_external_check_time"`
 	WaitForApproveExternalCheckTime        int64  `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`
 	WaitForExecuteExternalCheckTime        int64  `bson:"wait_for_execute_external_check_time"       yaml:"wait_for_execute_external_check_time"                   json:"wait_for_execute_external_check_time"`
 	WaitForAllDoneExternalCheckTime        int64  `bson:"wait_for_all_done_external_check_time"      yaml:"wait_for_all_done_external_check_time"                   json:"wait_for_all_done_external_check_time"`
 	ExternalCheckFailedReason              string `bson:"external_check_failed_reason"       yaml:"external_check_failed_reason"                   json:"external_check_failed_reason"`
 	CallbackDescription                    string `bson:"callback_description"       yaml:"callback_description"                   json:"callback_description"`
+}
+
+type ReleasePlanCustomFieldDefinition struct {
+	ID          string   `bson:"id" json:"id"`
+	Key         string   `bson:"key" json:"key"`
+	Name        string   `bson:"name" json:"name"`
+	Type        string   `bson:"type" json:"type"`
+	Options     []string `bson:"options,omitempty" json:"options,omitempty"`
+	Required    bool     `bson:"required" json:"required"`
+	Description string   `bson:"description,omitempty" json:"description,omitempty"`
+	Order       int      `bson:"order" json:"order"`
 }
 
 type HookSettings struct {
@@ -88,14 +105,23 @@ func (ReleasePlan) TableName() string {
 }
 
 type ReleaseJob struct {
-	ID        string                    `bson:"id"             yaml:"id"                     json:"id"`
-	Name      string                    `bson:"name"           yaml:"name"                   json:"name"`
-	Manager   string                    `bson:"manager"        yaml:"manager"                json:"manager"`
-	ManagerID string                    `bson:"manager_id"     yaml:"manager_id"             json:"manager_id"`
-	Type      config.ReleasePlanJobType `bson:"type"           yaml:"type"                   json:"type"`
-	Spec      interface{}               `bson:"spec,omitempty" yaml:"spec,omitempty"         json:"spec,omitempty"`
+	ID        string                    `bson:"id"                       yaml:"id"                     json:"id"`
+	Name      string                    `bson:"name"                     yaml:"name"                   json:"name"`
+	Manager   string                    `bson:"manager"                  yaml:"manager"                json:"manager"`
+	ManagerID string                    `bson:"manager_id"               yaml:"manager_id"             json:"manager_id"`
+	Managers  []*types.Identity         `bson:"managers,omitempty"       yaml:"managers,omitempty"      json:"managers"`
+	Type      config.ReleasePlanJobType `bson:"type"                     yaml:"type"                   json:"type"`
+	Spec      interface{}               `bson:"spec,omitempty"           yaml:"spec,omitempty"         json:"spec,omitempty"`
 
 	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
+}
+
+func (r ReleaseJob) MarshalJSON() ([]byte, error) {
+	type releaseJob ReleaseJob
+	if r.Managers == nil {
+		r.Managers = []*types.Identity{}
+	}
+	return json.Marshal(releaseJob(r))
 }
 
 type ReleaseJobRuntime struct {

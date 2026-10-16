@@ -44,6 +44,7 @@ type PrivateKey struct {
 	Provider     int8                 `bson:"provider"               json:"provider"`
 	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
 	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
+	Projects     []string             `bson:"projects"               json:"projects"`
 	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
 	// ScheduleWorkflow equals to true means this vm is agent type, false means this vm is ssh type
 	ScheduleWorkflow bool     `bson:"schedule_workflow"      json:"schedule_workflow"`
@@ -51,6 +52,21 @@ type PrivateKey struct {
 	Agent            *VMAgent `bson:"agent"                  json:"agent,omitempty"`
 	VMInfo           *VMInfo  `bson:"vm_info"                json:"vm_info,omitempty"`
 	Type             string   `bson:"type"                   json:"type"`
+}
+
+func (key *PrivateKey) IsAvailableToProject(projectName string) bool {
+	if key.ProjectName != "" {
+		return key.ProjectName == projectName
+	}
+	if key.Projects == nil {
+		return true
+	}
+	for _, project := range key.Projects {
+		if project == projectName || project == setting.AllProjects {
+			return true
+		}
+	}
+	return false
 }
 
 type VMInfo struct {

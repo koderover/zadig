@@ -548,12 +548,13 @@ type Param struct {
 	Name        string `bson:"name"             json:"name"             yaml:"name"`
 	Description string `bson:"description"      json:"description"      yaml:"description"`
 	// support string/text type
-	ParamsType   string   `bson:"type"                      json:"type"                        yaml:"type"`
-	Value        string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
-	ChoiceOption []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
-	ChoiceValue  []string `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
-	Default      string   `bson:"default"                   json:"default"                     yaml:"default"`
-	IsCredential bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	ParamsType    string   `bson:"type"                      json:"type"                        yaml:"type"`
+	Value         string   `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	ChoiceOption  []string `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	ChoiceValue   []string `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
+	IsMultiSelect bool     `bson:"is_multi_select,omitempty" json:"is_multi_select,omitempty"    yaml:"is_multi_select,omitempty"`
+	Default       string   `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential  bool     `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
 // Type pipeline type

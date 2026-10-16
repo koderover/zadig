@@ -19,6 +19,7 @@ package webhook
 import (
 	"testing"
 
+	"github.com/google/go-github/v35/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -26,4 +27,50 @@ import (
 func TestRoutes(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "webhook Suite")
+}
+
+func TestShouldTriggerByGithubPullRequestEvent(t *testing.T) {
+	tests := []struct {
+		name   string
+		event  *github.PullRequestEvent
+		wanted bool
+	}{
+		{
+			name:   "opened pull request",
+			event:  &github.PullRequestEvent{Action: github.String("opened")},
+			wanted: true,
+		},
+		{
+			name:   "synchronized pull request",
+			event:  &github.PullRequestEvent{Action: github.String("synchronize")},
+			wanted: true,
+		},
+		{
+			name:  "edited pull request",
+			event: &github.PullRequestEvent{Action: github.String("edited")},
+		},
+		{
+			name:  "labeled pull request",
+			event: &github.PullRequestEvent{Action: github.String("labeled")},
+		},
+		{
+			name:  "reopened pull request",
+			event: &github.PullRequestEvent{Action: github.String("reopened")},
+		},
+		{
+			name:  "missing action",
+			event: &github.PullRequestEvent{},
+		},
+		{
+			name: "nil event",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldTriggerByGithubPullRequestEvent(tt.event); got != tt.wanted {
+				t.Errorf("shouldTriggerByGithubPullRequestEvent() = %t, want %t", got, tt.wanted)
+			}
+		})
+	}
 }

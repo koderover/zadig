@@ -59,11 +59,16 @@ type GitCheck struct {
 	ProductName string
 	PipeType    config.PipelineType
 	TaskID      int64
+	TaskURL     string
 	TestReports []*commonmodels.TestSuite
 }
 
 // DetailsURL ...
 func (gc *GitCheck) DetailsURL() string {
+	if gc.TaskURL != "" {
+		return gc.TaskURL
+	}
+
 	url := GetTaskLink(
 		gc.AslanURL,
 		gc.ProductName,

@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -51,7 +52,7 @@ func CopyReleasePlan(c *handler.Context, planID string, args *CopyReleasePlanArg
 		return errors.Wrap(err, "prepare copied release plan")
 	}
 
-	return CreateReleasePlan(c, copiedPlan)
+	return CreateReleasePlan(c, copiedPlan, true)
 }
 
 func prepareCopiedReleasePlan(source *models.ReleasePlan, name string) (*models.ReleasePlan, error) {
@@ -104,6 +105,12 @@ func resetCopiedReleaseJob(job *models.ReleaseJob) error {
 	if job == nil {
 		return nil
 	}
+
+	if len(job.Managers) == 0 && job.ManagerID != "" {
+		job.Managers = []*types.Identity{{IdentityType: "user", UID: job.ManagerID}}
+	}
+	job.Manager = ""
+	job.ManagerID = ""
 
 	job.ID = ""
 	job.ReleaseJobRuntime = models.ReleaseJobRuntime{}

@@ -175,6 +175,8 @@ type ReleasePlanHookBody struct {
 
 	// 状态
 	Status config.ReleasePlanStatus `json:"status"`
+	// 自定义字段
+	CustomFields []*ReleasePlanHookCustomField `json:"custom_fields"`
 
 	// 规划时间
 	PlanningTime int64 `json:"planning_time"`
@@ -186,6 +188,13 @@ type ReleasePlanHookBody struct {
 	SuccessTime int64 `json:"success_time"`
 }
 
+type ReleasePlanHookCustomField struct {
+	Key   string      `json:"key"`
+	Name  string      `json:"name"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
+}
+
 type ReleasePlanHookJob struct {
 	// 发布任务 ID
 	ID string `json:"id"`
@@ -195,6 +204,8 @@ type ReleasePlanHookJob struct {
 	Manager string `json:"manager"`
 	// 发布任务负责人 ID
 	ManagerID string `json:"manager_id"`
+	// 发布任务负责人列表
+	Managers []*types.Identity `json:"managers,omitempty"`
 	// 发布任务类型
 	Type config.ReleasePlanJobType `json:"type"`
 	// 发布任务规格
@@ -601,6 +612,8 @@ type OpenAPIWorkflowApolloJobSpec struct {
 }
 
 type OpenAPIWorkflowApolloNamespace struct {
+	// 操作类型
+	Action commonmodels.ApolloActionType `json:"action"`
 	// 应用 ID
 	AppID string `json:"appID"`
 	// 集群 ID
