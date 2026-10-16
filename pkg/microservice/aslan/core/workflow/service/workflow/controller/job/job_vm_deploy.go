@@ -159,7 +159,7 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 
 			newSelection = append(newSelection, &commonmodels.ServiceAndVMDeploy{
 				KeyVals:            applyKeyVals(newOptionMap[configuredSelection.ServiceName].KeyVals, configuredSelection.KeyVals, true),
-				Repos:              applyRepos(newOptionMap[configuredSelection.ServiceName].Repos, configuredSelection.Repos),
+				Repos:              applyInputRepos(newOptionMap[configuredSelection.ServiceName].Repos, configuredSelection.Repos),
 				DeployArtifactType: configuredSelection.DeployArtifactType,
 				ServiceName:        configuredSelection.ServiceName,
 				ServiceModule:      configuredSelection.ServiceModule,
@@ -766,10 +766,10 @@ func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*com
 			return nil, fmt.Errorf("can't find deploy %s in project %s, error: %v", templateSvc.ServiceName, project, err)
 		}
 
-		repos := deploy.Repos
+		repos := applyOptionRepos(deploy.Repos, nil)
 		keyVals := deploy.PreDeploy.Envs.ToRuntimeList()
 		if svcAndVMDeployMap[svc.ServiceName] != nil {
-			repos = applyRepos(deploy.Repos, svcAndVMDeployMap[svc.ServiceName].Repos)
+			repos = applyOptionRepos(deploy.Repos, svcAndVMDeployMap[svc.ServiceName].Repos)
 			keyVals = applyKeyVals(deploy.PreDeploy.Envs.ToRuntimeList(), svcAndVMDeployMap[svc.ServiceName].KeyVals, false)
 		}
 

@@ -119,7 +119,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 	j.jobSpec.ObjectStorageUpload = currJobSpec.ObjectStorageUpload
 	j.jobSpec.DefaultServices = currJobSpec.DefaultServices
 	if useUserInput {
-		j.jobSpec.Repos = applyRepos(currJobSpec.Repos, j.jobSpec.Repos)
+		j.jobSpec.Repos = applyInputRepos(currJobSpec.Repos, j.jobSpec.Repos)
 		j.jobSpec.Envs = applyKeyVals(currJobSpec.Envs, j.jobSpec.Envs, false)
 	} else {
 		j.jobSpec.Repos = currJobSpec.Repos
@@ -129,7 +129,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 	if useUserInput {
 		for _, svc := range j.jobSpec.Services {
 			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
-			svc.Repos = applyRepos(j.jobSpec.Repos, svc.Repos)
+			svc.Repos = applyInputRepos(j.jobSpec.Repos, svc.Repos)
 		}
 	}
 
