@@ -55,6 +55,7 @@ const (
 	ENVLogLevel                  = "LOG_LEVEL"
 	ENVExecutorLogLevel          = "EXECUTOR_LOG_LEVEL"
 	ENVServiceStartTimeout       = "SERVICE_START_TIMEOUT"
+	ENVAIReviewGitPollInterval   = "AI_REVIEW_GIT_POLL_INTERVAL"
 	ENVDefaultEnvRecycleDay      = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass       = "DEFAULT_INGRESS_CLASS"
 	ENVLarkPluginID              = "LARK_PLUGIN_ID"

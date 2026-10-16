@@ -18,6 +18,7 @@ package webhook
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,7 +32,7 @@ const (
 	TestingPrefix      = "testing-"
 	ScannerPrefix      = "scanning-"
 
-	taskTimeoutSecond = 10
+	taskTimeoutSecond = 180
 )
 
 type client struct {
@@ -49,26 +50,29 @@ type task struct {
 	owner, namespace, repo, address, token, ref, ak, sk, region string
 	from                                                        string
 	add, enableProxy, isManual, disbaleSSL                      bool
+	ensureAIReviewWebhook                                       bool
 	err                                                         error
+	canceled                                                    atomic.Bool
 	doneCh                                                      chan struct{}
 }
 
 type TaskOption struct {
-	ID          int
-	Name        string
-	Owner       string
-	Namespace   string
-	Repo        string
-	Address     string
-	Token       string
-	Ref         string
-	From        string
-	AK          string
-	SK          string
-	Region      string
-	IsManual    bool
-	EnableProxy bool
-	DisableSSL  bool
+	ID                    int
+	Name                  string
+	Owner                 string
+	Namespace             string
+	Repo                  string
+	Address               string
+	Token                 string
+	Ref                   string
+	From                  string
+	AK                    string
+	SK                    string
+	Region                string
+	IsManual              bool
+	EnableProxy           bool
+	DisableSSL            bool
+	EnsureAIReviewWebhook bool
 }
 
 func (c *client) AddWebHook(taskOption *TaskOption) error {
@@ -77,22 +81,23 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	}
 
 	t := &task{
-		ID:          taskOption.ID,
-		owner:       taskOption.Owner,
-		namespace:   taskOption.Namespace,
-		repo:        taskOption.Repo,
-		address:     taskOption.Address,
-		token:       taskOption.Token,
-		ref:         getFullReference(taskOption.Name, taskOption.Ref),
-		from:        taskOption.From,
-		add:         true,
-		enableProxy: taskOption.EnableProxy,
-		disbaleSSL:  taskOption.DisableSSL,
-		ak:          taskOption.AK,
-		sk:          taskOption.SK,
-		region:      taskOption.Region,
-		isManual:    taskOption.IsManual,
-		doneCh:      make(chan struct{}),
+		ID:                    taskOption.ID,
+		owner:                 taskOption.Owner,
+		namespace:             taskOption.Namespace,
+		repo:                  taskOption.Repo,
+		address:               taskOption.Address,
+		token:                 taskOption.Token,
+		ref:                   getFullReference(taskOption.Name, taskOption.Ref),
+		from:                  taskOption.From,
+		add:                   true,
+		enableProxy:           taskOption.EnableProxy,
+		disbaleSSL:            taskOption.DisableSSL,
+		ak:                    taskOption.AK,
+		sk:                    taskOption.SK,
+		region:                taskOption.Region,
+		isManual:              taskOption.IsManual,
+		ensureAIReviewWebhook: taskOption.EnsureAIReviewWebhook,
+		doneCh:                make(chan struct{}, 1),
 	}
 
 	select {
@@ -104,7 +109,8 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 	select {
 	case <-t.doneCh:
 	case <-time.After(taskTimeoutSecond * time.Second):
-		t.err = fmt.Errorf("timed out waiting for the task")
+		t.canceled.Store(true)
+		return fmt.Errorf("timed out waiting for the task")
 	}
 
 	return t.err
@@ -131,7 +137,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
 		isManual:    taskOption.IsManual,
-		doneCh:      make(chan struct{}),
+		doneCh:      make(chan struct{}, 1),
 	}
 
 	select {
@@ -143,7 +149,8 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	select {
 	case <-t.doneCh:
 	case <-time.After(taskTimeoutSecond * time.Second):
-		t.err = fmt.Errorf("timed out waiting for the task")
+		t.canceled.Store(true)
+		return fmt.Errorf("timed out waiting for the task")
 	}
 
 	return t.err

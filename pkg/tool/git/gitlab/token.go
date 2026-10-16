@@ -17,9 +17,12 @@ limitations under the License.
 package gitlab
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -39,12 +42,16 @@ type AccessToken struct {
 const TokenExpirationThreshold int64 = 7000
 
 func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, error) {
+	return UpdateGitlabTokenWithContext(context.Background(), id, accessToken, disableTLS)
+}
+
+func UpdateGitlabTokenWithContext(ctx context.Context, id int, accessToken string, disableTLS bool) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
 	if accessToken == "" {
 		return "", nil
 	}
 
-	ch, err := systemconfig.New().GetRawCodeHost(id)
+	ch, err := systemconfig.New().GetRawCodeHost(id, ctx)
 
 	if err != nil {
 		return "", fmt.Errorf("get codehost info error: [%s]", err)
@@ -57,16 +64,20 @@ func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, err
 	}
 
 	mu := cache.NewRedisLockWithExpiry(fmt.Sprintf("gitlab_token_refresh:%d", id), time.Second*30)
-	err = mu.Lock()
+	err = mu.LockContext(ctx)
 	if err != nil {
 		log.Errorf("failed to acquire gitlab token refresh lock, err: %s", err)
 		return "", fmt.Errorf("failed to update gitlab token, err: %s", err)
 	}
-	defer mu.Unlock()
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = mu.UnlockContext(unlockCtx)
+	}()
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
-	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
+	token, err := refreshAccessToken(ctx, ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
 	if err != nil {
 		return "", err
 	}
@@ -105,7 +116,7 @@ func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, err
 	return token.AccessToken, nil
 }
 
-func refreshAccessToken(address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
+func refreshAccessToken(ctx context.Context, address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(address),
 		httpclient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: disableSSL}),
@@ -118,7 +129,7 @@ func refreshAccessToken(address, clientID, clientSecret, refreshToken string, di
 	queryParams["client_secret"] = clientSecret
 
 	var accessToken *AccessToken
-	_, err := httpClient.Post(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&accessToken))
+	_, err := httpClient.Post(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&accessToken), func(r *resty.Request) { r.SetContext(ctx) })
 	if err != nil {
 		return nil, err
 	}

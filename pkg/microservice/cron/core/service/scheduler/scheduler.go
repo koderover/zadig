@@ -118,7 +118,8 @@ func (c *CronV3Client) Start() {
 }
 
 const (
-	CleanJobScheduler = "CleanJobScheduler"
+	CleanJobScheduler         = "CleanJobScheduler"
+	AIReviewFeedbackScheduler = "AIReviewFeedbackScheduler"
 
 	UpsertWorkflowScheduler = "UpsertWorkflowScheduler"
 
@@ -210,6 +211,7 @@ func NewCronClient() *CronClient {
 func (c *CronClient) Init() {
 	// 每天1点清理跑过的jobs
 	c.InitCleanJobScheduler()
+	c.InitAIReviewFeedbackScheduler()
 	// 每天2点 根据系统配额策略 清理系统过期数据
 	c.InitSystemCapacityGCScheduler()
 
@@ -236,6 +238,12 @@ func (c *CronClient) InitCleanJobScheduler() {
 	c.Schedulers[CleanJobScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.TriggerCleanjobs, c.log)
 
 	c.Schedulers[CleanJobScheduler].Start()
+}
+
+func (c *CronClient) InitAIReviewFeedbackScheduler() {
+	c.Schedulers[AIReviewFeedbackScheduler] = gocron.NewScheduler()
+	c.Schedulers[AIReviewFeedbackScheduler].Every(1).Minutes().Do(c.AslanCli.TriggerAIReviewFeedback, c.log)
+	c.Schedulers[AIReviewFeedbackScheduler].Start()
 }
 
 func (c *CronClient) InitCleanProductScheduler() {

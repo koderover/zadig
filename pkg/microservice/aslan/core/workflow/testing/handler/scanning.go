@@ -64,12 +64,15 @@ func FindScanningProjectNameFromID(c *gin.Context) {
 
 	if scanningID == "" {
 		ctx.RespErr = MissingIDError
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	scanning, err := service.GetScanningModuleByID(scanningID, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to find scanning module of id: %s, error: %s", scanningID, err)
+		internalhandler.JSONResponse(c, ctx)
+		return
 	}
 	c.Set("projectKey", scanning.ProjectName)
 	c.Next()
@@ -621,6 +624,45 @@ func CancelScanningTask(c *gin.Context) {
 	workflowName := commonutil.GenScanningWorkflowName(scanningID)
 
 	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
+}
+
+func RestartScanningTask(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
+	taskIDStr := c.Param("scan_id")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "代码扫描任务", scanningID, scanningID, taskIDStr, types.RequestBodyTypeJSON, ctx.Logger)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.Execute {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		return
+	}
+
+	workflowName := commonutil.GenScanningWorkflowName(scanningID)
+	ctx.RespErr = workflowservice.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 func GetScanningArtifactInfo(c *gin.Context) {

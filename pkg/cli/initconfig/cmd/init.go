@@ -208,6 +208,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewTerminalSessionColl(),
 		commonrepo.NewTerminalCommandColl(),
 		commonrepo.NewTerminalAuditAIResultColl(),
+		commonrepo.NewAIReviewFeedbackColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
@@ -237,6 +238,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		vmcommonrepo.NewVMJobColl(),
 
 		statrepo.NewWeeklyDeployStatColl(),
+		statrepo.NewAIReviewStatColl(),
 		statrepo.NewMonthlyDeployStatColl(),
 		statrepo.NewMonthlyReleaseStatColl(),
 	} {

@@ -34,8 +34,16 @@ func ProcessGitWebHook(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	ctx.Logger.Infow("received git webhook",
+		"github_event", github.WebHookType(c.Request),
+		"gitlab_event", gitlab.HookEventType(c.Request),
+		"github_delivery", github.DeliveryID(c.Request),
+		"gitlab_webhook_uuid", c.GetHeader("X-Gitlab-Webhook-UUID"),
+		"gitlab_event_uuid", c.GetHeader("X-Gitlab-Event-UUID"))
+
 	payload, err := c.GetRawData()
 	if err != nil {
+		ctx.Logger.Errorw("failed to read git webhook payload", "error", err)
 		ctx.RespErr = err
 		return
 	}
@@ -53,7 +61,14 @@ func ProcessGitWebHook(c *gin.Context) {
 
 func processGithub(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	errs := &multierror.Error{}
+	if err := webhook.ProcessGithubFeedbackHook(payload, req, log); err != nil {
+		log.Errorf("failed to process GitHub feedback webhook: %v", err)
+		errs = multierror.Append(errs, err)
+	}
 
+	if github.WebHookType(req) == "pull_request_review_thread" {
+		return errs.ErrorOrNil()
+	}
 	err := webhook.ProcessGithubWebHook(payload, req, requestID, log)
 	if err != nil {
 		log.Errorf("error happens to trigger workflow %v", err)

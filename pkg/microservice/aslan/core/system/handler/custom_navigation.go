@@ -73,7 +73,17 @@ func isProfessionalLicenseRequiredKey(key config.NavigationItemKey) bool {
 func isEnterpriseLicenseRequiredKey(key config.NavigationItemKey) bool {
 	switch key {
 	case config.NavigationKeyReleasePlan,
-		config.NavigationKeyBizCatalog:
+		config.NavigationKeyBizCatalog,
+		config.NavigationKeyAIReviewInsight:
+		return true
+	default:
+		return false
+	}
+}
+
+func isLicenseFeatureRequiredKey(key config.NavigationItemKey) bool {
+	switch key {
+	case config.NavigationKeyAIReviewInsight:
 		return true
 	default:
 		return false
@@ -146,6 +156,14 @@ func filterNavigationItemsForNonAdmin(ctx *internalhandler.Context, items []*com
 							item.Disabled = true
 						}
 					}
+					if isLicenseFeatureRequiredKey(item.Key) {
+						switch item.Key {
+						case config.NavigationKeyAIReviewInsight:
+							if err := util.CheckZadigLicenseFeatureAI(); err != nil {
+								item.Disabled = true
+							}
+						}
+					}
 					// check authorization
 					if !hasNavigationPermission(ctx, item.Key) {
 						continue
@@ -182,6 +200,8 @@ func hasNavigationPermission(ctx *internalhandler.Context, key config.Navigation
 		return ctx.Resources.SystemActions.DataCenter.ViewOverView
 	case config.NavigationKeyDataInsight:
 		return ctx.Resources.SystemActions.DataCenter.ViewInsight
+	case config.NavigationKeyAIReviewInsight:
+		return ctx.Resources.SystemActions.DataCenter.ViewAIReviewInsight
 	default:
 		return true
 	}

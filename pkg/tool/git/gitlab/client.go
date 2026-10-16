@@ -17,6 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -46,9 +47,20 @@ type ListOptions struct {
 
 type Client struct {
 	*gitlab.Client
+	httpClient *http.Client
+}
+
+func (c *Client) CloseIdleConnections() {
+	if c.httpClient != nil {
+		c.httpClient.CloseIdleConnections()
+	}
 }
 
 func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool) (*Client, error) {
+	return NewClientWithContext(context.Background(), id, address, accessToken, proxyAddr, enableProxy, skipTLS)
+}
+
+func NewClientWithContext(ctx context.Context, id int, address, accessToken, proxyAddr string, enableProxy, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
 	var client *http.Client
 	if enableProxy {
 		proxyURL, err := url.Parse(proxyAddr)
@@ -63,17 +75,18 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool,
 		}
 	}
 
-	token, err := UpdateGitlabToken(id, accessToken, skipTLS)
+	token, err := UpdateGitlabTokenWithContext(ctx, id, accessToken, skipTLS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh gitlab token, err: %s", err)
 	}
 
-	cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
+	clientOptions := append([]gitlab.ClientOptionFunc{gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client)}, extraOptions...)
+	cli, err := gitlab.NewOAuthClient(token, clientOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client, err: %s", err)
 	}
 
-	return &Client{Client: cli}, nil
+	return &Client{Client: cli, httpClient: client}, nil
 }
 
 func generateProjectName(owner, repo string) string {

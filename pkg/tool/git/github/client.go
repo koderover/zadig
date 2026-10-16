@@ -44,7 +44,8 @@ type Config struct {
 	AppID       int
 	Owner       string
 
-	HTTPClient *http.Client
+	HTTPClient   *http.Client
+	DisableCache bool
 }
 
 type ListOptions struct {
@@ -103,6 +104,11 @@ func NewClient(cfg *Config) *Client {
 
 // NewAppClient inits GitHub app client according to user's installation ID
 func NewAppClient(cfg *Config) (*Client, error) {
+	return NewAppClientWithContext(context.Background(), cfg)
+}
+
+// NewAppClientWithContext propagates cancellation to installation discovery.
+func NewAppClientWithContext(ctx context.Context, cfg *Config) (*Client, error) {
 	keyBytes, err := base64.StdEncoding.DecodeString(cfg.AppKey)
 	if err != nil {
 		return nil, err
@@ -129,13 +135,22 @@ func NewAppClient(cfg *Config) (*Client, error) {
 		}
 	}
 
-	installationID, err := getInstallationID(int64(cfg.AppID), cfg.AppKey, cfg.Owner)
+	var transport http.RoundTripper = tr
+	if cfg.HTTPClient != nil && cfg.HTTPClient.Transport != nil {
+		transport = cfg.HTTPClient.Transport
+	}
+	installationID, err := getInstallationID(ctx, int64(cfg.AppID), cfg.AppKey, cfg.Owner, transport)
 	if err != nil {
 		return nil, err
 	}
 
-	httpTransport.Transport = tr
-	itr, err := ghinstallation.New(httpTransport, int64(cfg.AppID), installationID, keyBytes)
+	httpTransport.Transport = transport
+	var installationTransport http.RoundTripper = httpTransport
+	// Feedback collection needs fresh counters, including the final closed PR snapshot.
+	if cfg.DisableCache {
+		installationTransport = transport
+	}
+	itr, err := ghinstallation.New(installationTransport, int64(cfg.AppID), installationID, keyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -147,19 +162,19 @@ func NewAppClient(cfg *Config) (*Client, error) {
 	return c, nil
 }
 
-func getInstallationID(appID int64, appKey, owner string) (int64, error) {
+func getInstallationID(ctx context.Context, appID int64, appKey, owner string, transport http.RoundTripper) (int64, error) {
 	keyBytes, err := base64.StdEncoding.DecodeString(appKey)
 	if err != nil {
 		return 0, err
 	}
 
-	trans, err := ghinstallation.NewAppsTransport(httpcache.NewMemoryCacheTransport(), appID, keyBytes)
+	trans, err := ghinstallation.NewAppsTransport(transport, appID, keyBytes)
 	if err != nil {
 		return 0, err
 	}
 
 	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans}})
-	installs, err := gc.ListInstallations(context.TODO(), nil)
+	installs, err := gc.ListInstallations(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
