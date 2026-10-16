@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 )
 
 const (
@@ -72,6 +73,17 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		if namespace == nil {
 			continue
 		}
+		action := namespace.Action
+		if action == "" {
+			action = commonmodels.ApolloActionUpdate
+		}
+		name, format := namespace.Namespace, namespace.Type
+		if action == commonmodels.ApolloActionCreate {
+			if format == "" {
+				format = apollo.FormatYAML
+			}
+			name = apollo.NormalizeNamespaceName(name, format)
+		}
 		before := make(map[string]interface{}, len(namespace.OriginalConfig))
 		for _, item := range namespace.OriginalConfig {
 			if item != nil {
@@ -87,10 +99,11 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		added, updated, removed := diffAIConfigFieldMaps(before, after)
 		changedFieldCount := len(added) + len(updated) + len(removed)
 		summary := &commonmodels.AIConfigChangeSummary{
+			Action:                 string(action),
 			NamespaceName:          namespace.Env,
-			DataID:                 strings.Trim(strings.Join([]string{namespace.AppID, namespace.Namespace}, "/"), "/"),
+			DataID:                 strings.Trim(strings.Join([]string{namespace.AppID, name}, "/"), "/"),
 			Group:                  namespace.ClusterID,
-			Format:                 namespace.Type,
+			Format:                 format,
 			ContentChanged:         changedFieldCount > 0,
 			ChangedFieldsAvailable: true,
 			ChangedFieldCount:      changedFieldCount,
