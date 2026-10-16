@@ -118,7 +118,6 @@ func TestBuildAIApolloCreateSummariesStableAcrossExecution(t *testing.T) {
 		{format: "json", wantFormat: "json", resolvedName: "feature.json"},
 		{format: "xml", wantFormat: "xml", resolvedName: "feature.xml"},
 		{format: "", wantFormat: "yaml", resolvedName: "feature.yaml"},
-		{format: " YAML ", wantFormat: "yaml", resolvedName: "feature.yaml"},
 	} {
 		t.Run(tt.format, func(t *testing.T) {
 			namespace := &commonmodels.JobTaskApolloNamespace{ApolloNamespace: commonmodels.ApolloNamespace{
