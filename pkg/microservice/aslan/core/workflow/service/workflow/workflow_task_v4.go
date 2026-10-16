@@ -521,6 +521,8 @@ type CreateWorkflowTaskV4Args struct {
 	LarkWorkItemAPIName    string
 	LarkWorkItemID         string
 	ReleasePlan            *commonmodels.ReleasePlanRef
+	// HookRepo is the webhook event repo; it is set again after the merge so the event commit is kept.
+	HookRepo *types.Repository
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -702,6 +704,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		if err != nil {
 			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
+		}
+		if args.HookRepo != nil {
+			if err := workflowCtrl.SetRepo(args.HookRepo); err != nil {
+				log.Errorf("failed to set webhook repo for workflow task, error: %s", err)
+				return nil, e.ErrCreateTask.AddErr(err)
+			}
 		}
 
 		err = ValidateWorkflowControllerWithLatestRenderedWorkflow(workflowCtrl, log)
