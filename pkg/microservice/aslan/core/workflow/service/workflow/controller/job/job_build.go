@@ -324,9 +324,13 @@ func (j BuildJobController) ClearSelection() {
 func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := make([]*commonmodels.JobTask, 0)
-	registry, err := commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
-	if err != nil {
-		return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+	registry := &commonmodels.RegistryNamespace{}
+	if j.jobSpec.DockerRegistryID != "" {
+		var err error
+		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
+		if err != nil {
+			return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+		}
 	}
 
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
@@ -352,13 +356,16 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 	for jobSubTaskID, build := range j.jobSpec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
-		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
-		if len(registry.Namespace) > 0 {
-			image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
-		}
+		image := ""
+		if j.jobSpec.DockerRegistryID != "" {
+			image = fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
+			if len(registry.Namespace) > 0 {
+				image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
+			}
 
-		image = strings.TrimPrefix(image, "http://")
-		image = strings.TrimPrefix(image, "https://")
+			image = strings.TrimPrefix(image, "http://")
+			image = strings.TrimPrefix(image, "https://")
+		}
 
 		pkgFile := fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
@@ -567,7 +574,10 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		} else {
-			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+			if j.jobSpec.DockerRegistryID != "" {
+				scripts = append(scripts, dockerLoginCmd)
+			}
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 			scripts = append(scripts, outputScript(outputs, jobTask.Infrastructure)...)
 		}
 		scriptStep := &commonmodels.StepTask{
@@ -718,7 +728,11 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		// init post build shell step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
-			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
+			scripts := make([]string, 0)
+			if j.jobSpec.DockerRegistryID != "" {
+				scripts = append(scripts, dockerLoginCmd)
+			}
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-post-shell",
 				JobName:  jobTask.Name,
