@@ -43,6 +43,9 @@ var awsKeyMap sync.Map
 var expirationTime = 10 * time.Hour
 
 type awsKeyWithExpiration struct {
+	SourceAK   string
+	SourceSK   string
+	Region     string
 	AccessKey  string
 	SecretKey  string
 	Expiration int64
@@ -76,7 +79,7 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 	if ok {
 		keypair, ok := obj.(awsKeyWithExpiration)
 		if ok {
-			if !keypair.IsExpired() {
+			if keypair.SourceAK == ak && keypair.SourceSK == sk && keypair.Region == region && !keypair.IsExpired() {
 				return keypair.AccessKey, keypair.SecretKey, nil
 			}
 		}
@@ -109,6 +112,9 @@ func GetAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK 
 	}
 	// cache the aws ak/sk
 	awsKeyMap.Store(id, awsKeyWithExpiration{
+		SourceAK:   ak,
+		SourceSK:   sk,
+		Region:     region,
 		AccessKey:  keypair[0],
 		SecretKey:  keypair[1],
 		Expiration: time.Now().Add(expirationTime).Unix(),
