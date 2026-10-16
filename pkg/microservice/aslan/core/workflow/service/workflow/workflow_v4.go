@@ -342,9 +342,10 @@ func FindWorkflowV4RenderedForExecution(name string, logger *zap.SugaredLogger) 
 		if err != nil {
 			return workflow, e.ErrFindWorkflow.AddErr(err)
 		}
-		return rendered, nil
+		workflow = rendered
 	}
 
+	clearWorkflowRepoCommitIDs(workflow)
 	return workflow, nil
 }
 

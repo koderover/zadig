@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Workflow struct {
@@ -484,6 +485,52 @@ func updateOpenAPIRepositoryRef(repo *types.Repository, branch, tag string, pr i
 	repo.MergeBranches = nil
 	repo.TargetBranch = ""
 	repo.CheckoutRef = ""
+}
+
+// clearWorkflowRepoCommitIDs drops commit_id saved in a workflow definition; it is never a default.
+func clearWorkflowRepoCommitIDs(workflow *commonmodels.WorkflowV4) {
+	for _, param := range workflow.Params {
+		if param != nil && param.Repo != nil {
+			param.Repo.CommitID = ""
+		}
+	}
+	for _, stage := range workflow.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, job := range stage.Jobs {
+			if job != nil {
+				clearRepoCommitIDs(job.Spec)
+			}
+		}
+	}
+}
+
+func clearRepoCommitIDs(value interface{}) {
+	switch value := value.(type) {
+	case map[string]interface{}:
+		clearRepoCommitIDsInMap(value)
+	case primitive.M:
+		clearRepoCommitIDsInMap(value)
+	case []interface{}:
+		for _, child := range value {
+			clearRepoCommitIDs(child)
+		}
+	case primitive.A:
+		for _, child := range value {
+			clearRepoCommitIDs(child)
+		}
+	}
+}
+
+func clearRepoCommitIDsInMap(value map[string]interface{}) {
+	_, isRepo := value["enable_commit"]
+	if _, ok := value["commit_id"]; ok && isRepo {
+		value["commit_id"] = ""
+	}
+	for _, child := range value {
+		clearRepoCommitIDs(child)
+	}
 }
 
 func getCodeHostInfoMap(repoInputs []*types.OpenAPIRepoInput) (map[string]*codehostmodels.CodeHost, error) {

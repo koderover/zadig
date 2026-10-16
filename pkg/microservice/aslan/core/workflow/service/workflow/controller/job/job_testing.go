@@ -130,7 +130,7 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 				return err
 			}
 			configuredSvcTesting.TestModule.KeyVals = applyKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), configuredSvcTesting.KeyVals, true)
-			configuredSvcTesting.TestModule.Repos = applyRepos(testInfo.Repos, configuredSvcTesting.Repos)
+			configuredSvcTesting.TestModule.Repos = applyOptionRepos(testInfo.Repos, configuredSvcTesting.Repos)
 			configuredServiceScanningMap[key] = configuredSvcTesting.TestModule
 		}
 
@@ -141,7 +141,7 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 				continue
 			}
 			svc.KeyVals = applyKeyVals(configuredServiceScanningMap[key].KeyVals, svc.KeyVals, false)
-			svc.Repos = applyRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
+			svc.Repos = applyInputRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
 			newSelectedService = append(newSelectedService, svc)
 		}
 		j.jobSpec.ServiceAndTests = newSelectedService
@@ -152,7 +152,7 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 				return err
 			}
 			configuredTesting.KeyVals = applyKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), configuredTesting.KeyVals, true)
-			configuredTesting.Repos = applyRepos(testInfo.Repos, configuredTesting.Repos)
+			configuredTesting.Repos = applyOptionRepos(testInfo.Repos, configuredTesting.Repos)
 		}
 
 		userInputMap := make(map[string]*commonmodels.TestModule)
@@ -171,7 +171,7 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 			}
 			if input, ok := userInputMap[option.Name]; ok {
 				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
-				item.Repos = applyRepos(item.Repos, input.Repos)
+				item.Repos = applyInputRepos(item.Repos, input.Repos)
 			}
 			newSelectedTest = append(newSelectedTest, item)
 		}

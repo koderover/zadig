@@ -131,7 +131,7 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 				return err
 			}
 			configuredSvcScanning.ScanningModule.KeyVals = applyKeyVals(scanInfo.Envs.ToRuntimeList(), configuredSvcScanning.KeyVals, true)
-			configuredSvcScanning.ScanningModule.Repos = applyRepos(scanInfo.Repos, configuredSvcScanning.Repos)
+			configuredSvcScanning.ScanningModule.Repos = applyOptionRepos(scanInfo.Repos, configuredSvcScanning.Repos)
 			configuredServiceScanningMap[key] = configuredSvcScanning.ScanningModule
 		}
 
@@ -142,7 +142,7 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 				continue
 			}
 			svc.KeyVals = applyKeyVals(configuredServiceScanningMap[key].KeyVals, svc.KeyVals, false)
-			svc.Repos = applyRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
+			svc.Repos = applyInputRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
 			newSelectedService = append(newSelectedService, svc)
 		}
 		j.jobSpec.ServiceAndScannings = newSelectedService
@@ -153,7 +153,7 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 				return err
 			}
 			configuredScanning.KeyVals = applyKeyVals(scanInfo.Envs.ToRuntimeList(), configuredScanning.KeyVals, true)
-			configuredScanning.Repos = applyRepos(scanInfo.Repos, configuredScanning.Repos)
+			configuredScanning.Repos = applyOptionRepos(scanInfo.Repos, configuredScanning.Repos)
 		}
 
 		userInputMap := make(map[string]*commonmodels.ScanningModule)
@@ -172,7 +172,7 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 			}
 			if input, ok := userInputMap[option.Name]; ok {
 				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
-				item.Repos = applyRepos(item.Repos, input.Repos)
+				item.Repos = applyInputRepos(item.Repos, input.Repos)
 			}
 			newSelectedScanning = append(newSelectedScanning, item)
 		}

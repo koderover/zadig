@@ -226,6 +226,26 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 	return resp
 }
 
+// applyOptionRepos merges saved repo config; a saved commit_id is never a default.
+func applyOptionRepos(base, input []*types.Repository) []*types.Repository {
+	repos := applyRepos(base, input)
+	for _, repo := range repos {
+		repo.CommitID = ""
+	}
+	return repos
+}
+
+// applyInputRepos merges runtime input; its commit_id applies only when the repo allows a specific commit.
+func applyInputRepos(base, input []*types.Repository) []*types.Repository {
+	repos := applyRepos(base, input)
+	for _, repo := range repos {
+		if !repo.EnableCommit {
+			repo.CommitID = ""
+		}
+	}
+	return repos
+}
+
 func applyRepos(base, input []*types.Repository) []*types.Repository {
 	type repoKey struct {
 		key          string
