@@ -407,6 +407,7 @@ func applyOpenAPIBuildTemplate(template *commonmodels.BuildTemplate, req *OpenAP
 		dockerBuild := &commonmodels.DockerBuild{
 			WorkDir:        req.DockerBuildStep.BuildContextDir,
 			BuildArgs:      req.DockerBuildStep.BuildArgs,
+			EnableProxy:    req.DockerBuildStep.EnableProxy,
 			Source:         req.DockerBuildStep.DockerfileSource,
 			EnableBuildkit: req.DockerBuildStep.EnableBuildkit,
 			Platform:       req.DockerBuildStep.Platforms,
@@ -499,6 +500,7 @@ func convertBuildTemplateToOpenAPI(template *commonmodels.BuildTemplate) (*OpenA
 			DockerfileDirectory: dockerBuild.DockerFile,
 			TemplateName:        templateName,
 			BuildArgs:           dockerBuild.BuildArgs,
+			EnableProxy:         dockerBuild.EnableProxy,
 			EnableBuildkit:      dockerBuild.EnableBuildkit,
 			Platforms:           dockerBuild.Platform,
 		}

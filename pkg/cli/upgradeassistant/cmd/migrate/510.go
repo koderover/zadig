@@ -17,15 +17,21 @@ limitations under the License.
 package migrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/config"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	connectormodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"gorm.io/gorm"
 )
 
@@ -44,6 +50,11 @@ func V500ToV510() error {
 	}()
 
 	err = migrateLarkPreferredUsernameClaim510(migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateDockerBuildProxy510(migrationInfo)
 	return err
 }
 
@@ -99,4 +110,33 @@ func migrateLarkConnectorConfig510(config string) (string, error) {
 
 func V510ToV500() error {
 	return nil
+}
+
+// migrateDockerBuildProxy510 turns on the new per-build proxy switch for existing docker build steps.
+// The proxy is injected only when both the build switch and the system proxy are on, so these steps
+// keep following the system proxy as they did before 5.1.0.
+func migrateDockerBuildProxy510(migrationInfo *internalmodels.Migration) error {
+	if migrationInfo.Migration510DockerBuildProxy {
+		return nil
+	}
+
+	filter := bson.M{
+		"post_build.docker_build":              bson.M{"$ne": nil},
+		"post_build.docker_build.enable_proxy": bson.M{"$exists": false},
+	}
+	update := bson.M{"$set": bson.M{"post_build.docker_build.enable_proxy": true}}
+	for _, coll := range []*mongo.Collection{
+		commonrepo.NewBuildColl().Collection,
+		commonrepo.NewBuildTemplateColl().Collection,
+	} {
+		res, err := coll.UpdateMany(context.Background(), filter, update)
+		if err != nil {
+			return fmt.Errorf("failed to set docker build proxy switch in %s, err: %s", coll.Name(), err)
+		}
+		log.Infof("migration 5.1.0: enabled proxy switch for %d docker build steps in %s", res.ModifiedCount, coll.Name())
+	}
+
+	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration510DockerBuildProxy): true,
+	})
 }

@@ -258,6 +258,7 @@ func generateBuildModuleFromOpenAPIRequest(ctx *internalhandler.Context, origina
 		dockerBuildInfo := &commonmodels.DockerBuild{
 			WorkDir:        req.DockerBuildStep.BuildContextDir,
 			BuildArgs:      req.DockerBuildStep.BuildArgs,
+			EnableProxy:    req.DockerBuildStep.EnableProxy,
 			Source:         req.DockerBuildStep.DockerfileSource,
 			EnableBuildkit: req.DockerBuildStep.EnableBuildkit,
 			Platform:       req.DockerBuildStep.Platforms,

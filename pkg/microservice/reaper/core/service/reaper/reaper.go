@@ -288,7 +288,7 @@ func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bo
 }
 
 func (r *Reaper) setProxy(ctx *meta.DockerBuildCtx, cfg *meta.Proxy) {
-	if cfg.EnableRepoProxy && cfg.Type == "http" {
+	if cfg.EnableRepoProxy && (cfg.Type == "http" || cfg.Type == "https") {
 		if !strings.Contains(strings.ToLower(ctx.BuildArgs), "--build-arg http_proxy=") {
 			ctx.BuildArgs = fmt.Sprintf("%s --build-arg http_proxy=%s", ctx.BuildArgs, cfg.GetProxyURL())
 		}
