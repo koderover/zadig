@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 )
 
 const (
@@ -78,17 +79,10 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		}
 		name, format := namespace.Namespace, namespace.Type
 		if action == commonmodels.ApolloActionCreate {
-			name = strings.TrimSpace(name)
 			if format == "" {
-				format = "yaml"
+				format = apollo.FormatYAML
 			}
-			// Apollo returns file namespace names with their format suffix after creation.
-			switch format {
-			case "yaml", "yml", "json", "xml":
-				if !strings.HasSuffix(strings.ToLower(name), "."+format) {
-					name += "." + format
-				}
-			}
+			name = apollo.NormalizeNamespaceName(name, format)
 		}
 		before := make(map[string]interface{}, len(namespace.OriginalConfig))
 		for _, item := range namespace.OriginalConfig {
