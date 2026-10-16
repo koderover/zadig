@@ -175,6 +175,8 @@ type ReleasePlanHookBody struct {
 
 	// 状态
 	Status config.ReleasePlanStatus `json:"status"`
+	// 自定义字段
+	CustomFields []*ReleasePlanHookCustomField `json:"custom_fields"`
 
 	// 规划时间
 	PlanningTime int64 `json:"planning_time"`
@@ -184,6 +186,13 @@ type ReleasePlanHookBody struct {
 	ExecutingTime int64 `json:"executing_time"`
 	// 成功时间
 	SuccessTime int64 `json:"success_time"`
+}
+
+type ReleasePlanHookCustomField struct {
+	Key   string      `json:"key"`
+	Name  string      `json:"name"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
 }
 
 type ReleasePlanHookJob struct {

@@ -40,6 +40,7 @@ const (
 	VerbUpdateScheduleExecuteTime = "update_schedule_execute_time"
 	VerbUpdateManager             = "update_manager"
 	VerbUpdateJiraSprint          = "update_jira_sprint"
+	VerbUpdateCustomFields        = "update_custom_fields"
 
 	VerbCreateReleaseJob  = "create_release_job"
 	VerbUpdateReleaseJob  = "update_release_job"
@@ -156,9 +157,50 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewDeleteApprovalUpdater(args)
 	case VerbUpdateJiraSprint:
 		return NewJiraSprintUpdater(args)
+	case VerbUpdateCustomFields:
+		return NewCustomFieldsUpdater(args)
 	default:
 		return nil, fmt.Errorf("invalid verb: %s", args.Verb)
 	}
+}
+
+type CustomFieldsUpdater struct {
+	CustomFields map[string]interface{} `json:"custom_fields"`
+}
+
+func NewCustomFieldsUpdater(args *UpdateReleasePlanArgs) (*CustomFieldsUpdater, error) {
+	var updater CustomFieldsUpdater
+	if err := models.IToi(args.Spec, &updater); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	return &updater, nil
+}
+
+func (u *CustomFieldsUpdater) Update(plan *models.ReleasePlan) error {
+	if u.CustomFields == nil {
+		return errors.New("custom_fields cannot be nil")
+	}
+	if err := validateReleasePlanCustomFieldValues(plan.CustomFieldDefinitions, u.CustomFields, false); err != nil {
+		return err
+	}
+	plan.CustomFields = u.CustomFields
+	return nil
+}
+
+func (u *CustomFieldsUpdater) Lint() error {
+	return nil
+}
+
+func (u *CustomFieldsUpdater) TargetName() string {
+	return "自定义字段"
+}
+
+func (u *CustomFieldsUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *CustomFieldsUpdater) Verb() string {
+	return VerbUpdate
 }
 
 type NameUpdater struct {

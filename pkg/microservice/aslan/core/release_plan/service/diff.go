@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -509,11 +510,12 @@ func releasePlanVersionDiffMetadataSpec(fromData, toData interface{}) ([]*Releas
 	fromMetadata := releasePlanVersionDiffMetadataSnapshot(fromData)
 	toMetadata := releasePlanVersionDiffMetadataSnapshot(toData)
 
-	beforeSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
-	afterSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(releasePlanMetadataDiffFields))
-	for _, field := range releasePlanMetadataDiffFields {
-		beforeValue := normalizeReleasePlanMetadataDiffValue(field.Key, fromMetadata[field.Key])
-		afterValue := normalizeReleasePlanMetadataDiffValue(field.Key, toMetadata[field.Key])
+	fields := append(slices.Clone(releasePlanMetadataDiffFields), releasePlanCustomFieldMetadataDiffFields(fromMetadata, toMetadata)...)
+	beforeSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(fields))
+	afterSpec := make([]*ReleasePlanVersionMetadataDiffItem, 0, len(fields))
+	for _, field := range fields {
+		beforeValue := releasePlanMetadataDiffValue(fromMetadata, field.Key)
+		afterValue := releasePlanMetadataDiffValue(toMetadata, field.Key)
 		if reflect.DeepEqual(beforeValue, afterValue) {
 			continue
 		}
@@ -521,6 +523,45 @@ func releasePlanVersionDiffMetadataSpec(fromData, toData interface{}) ([]*Releas
 		afterSpec = append(afterSpec, newReleasePlanVersionMetadataDiffItem(field, afterValue))
 	}
 	return beforeSpec, afterSpec
+}
+
+const releasePlanCustomFieldMetadataDiffKeyPrefix = "custom_fields."
+
+// releasePlanCustomFieldMetadataDiffFields builds metadata diff fields from the plan's own definition
+// snapshot, so names and types are not affected by later changes to the global config.
+// The snapshot never changes after the plan is created, so either side can provide it.
+func releasePlanCustomFieldMetadataDiffFields(fromMetadata, toMetadata map[string]interface{}) []releasePlanMetadataDiffField {
+	rawDefinitions := toMetadata["custom_field_definitions"]
+	if rawDefinitions == nil {
+		rawDefinitions = fromMetadata["custom_field_definitions"]
+	}
+	definitions := make([]*models.ReleasePlanCustomFieldDefinition, 0)
+	if err := models.IToi(rawDefinitions, &definitions); err != nil {
+		return nil
+	}
+	fields := make([]releasePlanMetadataDiffField, 0, len(definitions))
+	for _, definition := range definitions {
+		fields = append(fields, releasePlanMetadataDiffField{
+			Key:       releasePlanCustomFieldMetadataDiffKeyPrefix + definition.Key,
+			Label:     definition.Name,
+			ValueType: definition.Type,
+		})
+	}
+	return fields
+}
+
+// releasePlanMetadataDiffValue reads a built-in metadata value, or a custom field value
+// when the key carries the custom field prefix.
+func releasePlanMetadataDiffValue(metadata map[string]interface{}, key string) interface{} {
+	customKey, ok := strings.CutPrefix(key, releasePlanCustomFieldMetadataDiffKeyPrefix)
+	if !ok {
+		return normalizeReleasePlanMetadataDiffValue(key, metadata[key])
+	}
+	values, _ := getMapField(metadata["custom_fields"])
+	if isEmptyReleasePlanCustomFieldValue(values[customKey]) {
+		return nil
+	}
+	return values[customKey]
 }
 
 func releasePlanVersionDiffMetadataSnapshot(value interface{}) map[string]interface{} {
@@ -727,6 +768,11 @@ func extractReleasePlanSectionSnapshot(snapshot interface{}, sectionKey string) 
 		case releasePlanCollabSectionMetadataJiraSprint:
 			return map[string]interface{}{
 				"jira_sprint_association": metadata["jira_sprint_association"],
+			}
+		case releasePlanCollabSectionMetadataCustomFields:
+			return map[string]interface{}{
+				"custom_field_definitions": metadata["custom_field_definitions"],
+				"custom_fields":            metadata["custom_fields"],
 			}
 		default:
 			return metadata
