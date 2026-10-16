@@ -2182,6 +2182,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return err
 	}
 
+	chartRenders := make(map[string]*templatemodels.ServiceRender)
+	for serviceName, render := range product.GetChartRenderMap() {
+		chartRenders["service:"+serviceName] = render
+	}
+	for releaseName, render := range product.GetChartDeployRenderMap() {
+		chartRenders["release:"+releaseName] = render
+	}
 	updatedRcMapLock := sync.Mutex{}
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
 
@@ -2192,13 +2199,13 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	}
 	if changed {
 		product.DefaultValues = defaultValues
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
+		for key, curRenderChart := range chartRenders {
+			updatedRCMap[key] = curRenderChart
 		}
 	}
 
 	var wg sync.WaitGroup
-	for _, chartInfo := range product.GetChartRenderMap() {
+	for key, chartInfo := range chartRenders {
 		if chartInfo.OverrideYaml == nil {
 			continue
 		}
@@ -2220,7 +2227,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 				updatedRcMapLock.Lock()
 				chartInfo.OverrideYaml.YamlContent = values
 				chartInfo.OverrideYaml.AutoSyncYaml = values
-				updatedRCMap[chartInfo.ServiceName] = chartInfo
+				updatedRCMap[key] = chartInfo
 				updatedRcMapLock.Unlock()
 			}
 		})
@@ -2234,9 +2241,9 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	svcNames := make([]string, 0)
 	// content of values.yaml changed, environment will be updated
 	updatedRcList := make([]*templatemodels.ServiceRender, 0)
-	for _, updatedRc := range updatedRCMap {
+	for key, updatedRc := range updatedRCMap {
 		updatedRcList = append(updatedRcList, updatedRc)
-		svcNames = append(svcNames, updatedRc.ServiceName)
+		svcNames = append(svcNames, key)
 	}
 
 	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
@@ -3527,11 +3534,8 @@ func mergeRenderSetAndRenderChart(productResp *commonmodels.Product, overrideCha
 			ChartVersion:      chartInfo.ChartVersion,
 			ChartRepo:         chartInfo.ChartRepo,
 			ChartName:         chartInfo.ChartName,
-			OverrideValues:    chartInfo.ToOverrideValueString(),
-			OverrideYaml: &templatemodels.CustomYaml{
-				YamlContent: chartInfo.OverrideYaml,
-			},
 		}
+		chartInfo.FillRenderChartModel(requestChartInfoMap[chartInfo.ReleaseName], chartInfo.ChartVersion)
 	}
 	deletedReleasesSet := sets.NewString(deletedReleases...)
 
