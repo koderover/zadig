@@ -80,6 +80,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/:name/template-binding/resolve", ResolveWorkflowTemplateBinding)
 		workflowV4.POST("/output/:jobName", GetWorkflowGlobalVars)
 		workflowV4.POST("/repo/:jobName", GetWorkflowRepoIndex)
+		workflowV4.POST("/deploy/helm/variable-fields", GetHelmVariableFields)
 		workflowV4.GET("/name/:name", FindWorkflowV4)
 		workflowV4.PUT("/:name", UpdateWorkflowV4)
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)

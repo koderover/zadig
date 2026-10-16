@@ -32,6 +32,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +78,7 @@ const (
 
 var repoInfo *repo.File
 var generalSettings *cli.EnvSettings
+var helmVariableRegexp = regexp.MustCompile(config.VariableRegEx)
 
 // enable support of oci registry
 func init() {
@@ -240,7 +242,6 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		return "", err
 	}
 
-	kvStr := make([]string, 0)
 	// merge kv values for helm --set option
 	if overrideValues != "" {
 		kvList := make([]*KV, 0)
@@ -249,21 +250,15 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 			return "", err
 		}
 		for _, kv := range kvList {
-			kvStr = append(kvStr, fmt.Sprintf("%s=%v", kv.Key, kv.Value))
-		}
-	}
-
-	//// image related values
-	//for _, imageKv := range imageKvs {
-	//	kvStr = append(kvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
-	//}
-	//
-
-	// override values for --set option
-	if len(kvStr) > 0 {
-		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
-		if err != nil {
-			return "", err
+			value := fmt.Sprintf("%v", kv.Value)
+			if stringValue, ok := kv.Value.(string); ok && helmVariableRegexp.MatchString(stringValue) {
+				err = strvals.ParseLiteralInto(fmt.Sprintf("%s=%s", kv.Key, stringValue), valuesMap)
+			} else {
+				err = strvals.ParseInto(fmt.Sprintf("%s=%s", kv.Key, value), valuesMap)
+			}
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
