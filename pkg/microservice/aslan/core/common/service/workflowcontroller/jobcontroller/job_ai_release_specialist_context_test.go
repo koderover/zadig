@@ -15,12 +15,13 @@ import (
 
 func TestBuildAIApolloChangeSummariesActions(t *testing.T) {
 	tests := []struct {
-		name        string
-		namespace   commonmodels.ApolloNamespace
-		wantAction  commonmodels.ApolloActionType
-		wantAdded   []string
-		wantUpdated []string
-		wantRemoved []string
+		name          string
+		namespace     commonmodels.ApolloNamespace
+		wantAction    commonmodels.ApolloActionType
+		wantNamespace string
+		wantAdded     []string
+		wantUpdated   []string
+		wantRemoved   []string
 	}{
 		{
 			name: "create reports submitted keys as additions",
@@ -40,10 +41,10 @@ func TestBuildAIApolloChangeSummariesActions(t *testing.T) {
 		{
 			name: "file create retains item-level difference",
 			namespace: commonmodels.ApolloNamespace{
-				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature.yaml", Type: "yaml",
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature", Type: "yaml",
 				KeyValList: []*commonmodels.ApolloKV{{Key: "content", Val: "password: secret-after"}},
 			},
-			wantAction: commonmodels.ApolloActionCreate, wantAdded: []string{"content"},
+			wantAction: commonmodels.ApolloActionCreate, wantNamespace: "feature.yaml", wantAdded: []string{"content"},
 		},
 		{
 			name: "update retains target and differences",
@@ -80,7 +81,11 @@ func TestBuildAIApolloChangeSummariesActions(t *testing.T) {
 			if got.Action != string(tt.wantAction) {
 				t.Fatalf("unexpected action: %q", got.Action)
 			}
-			if got.NamespaceName != tt.namespace.Env || got.Group != tt.namespace.ClusterID || got.DataID != "app/"+tt.namespace.Namespace {
+			wantNamespace := tt.wantNamespace
+			if wantNamespace == "" {
+				wantNamespace = tt.namespace.Namespace
+			}
+			if got.NamespaceName != tt.namespace.Env || got.Group != tt.namespace.ClusterID || got.DataID != "app/"+wantNamespace {
 				t.Fatalf("unexpected configuration target: %#v", got)
 			}
 			if !reflect.DeepEqual(got.AddedFields, tt.wantAdded) || !reflect.DeepEqual(got.UpdatedFields, tt.wantUpdated) || !reflect.DeepEqual(got.RemovedFields, tt.wantRemoved) {
@@ -96,6 +101,43 @@ func TestBuildAIApolloChangeSummariesActions(t *testing.T) {
 			}
 			if strings.Contains(string(encoded), "secret-") {
 				t.Fatalf("summary contains configuration values: %s", encoded)
+			}
+		})
+	}
+}
+
+func TestBuildAIApolloCreateSummariesStableAcrossExecution(t *testing.T) {
+	for _, tt := range []struct {
+		format       string
+		wantFormat   string
+		resolvedName string
+	}{
+		{format: "properties", wantFormat: "properties", resolvedName: "feature"},
+		{format: "yaml", wantFormat: "yaml", resolvedName: "feature.yaml"},
+		{format: "yml", wantFormat: "yml", resolvedName: "feature.yml"},
+		{format: "json", wantFormat: "json", resolvedName: "feature.json"},
+		{format: "xml", wantFormat: "xml", resolvedName: "feature.xml"},
+		{format: "", wantFormat: "yaml", resolvedName: "feature.yaml"},
+		{format: " YAML ", wantFormat: "yaml", resolvedName: "feature.yaml"},
+	} {
+		t.Run(tt.format, func(t *testing.T) {
+			namespace := &commonmodels.JobTaskApolloNamespace{ApolloNamespace: commonmodels.ApolloNamespace{
+				Action: commonmodels.ApolloActionCreate, AppID: "app", Namespace: "feature", Type: tt.format,
+			}}
+			spec := &commonmodels.JobTaskApolloSpec{NamespaceList: []*commonmodels.JobTaskApolloNamespace{namespace}}
+			planned := buildAIApolloChangeSummaries(spec)
+			if planned[0].DataID != "app/"+tt.resolvedName || planned[0].Format != tt.wantFormat {
+				t.Fatalf("unexpected planned target: %#v", planned[0])
+			}
+			if namespace.Namespace != "feature" || namespace.Type != tt.format {
+				t.Fatal("building summary mutated the task")
+			}
+			// Execution fills in Apollo's returned name and normalizes the format.
+			namespace.Namespace = tt.resolvedName
+			namespace.Type = tt.wantFormat
+			completed := buildAIApolloChangeSummaries(spec)
+			if !reflect.DeepEqual(planned, completed) {
+				t.Fatalf("configuration identity changed after execution: planned=%#v completed=%#v", planned[0], completed[0])
 			}
 		})
 	}

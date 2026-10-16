@@ -76,6 +76,20 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		if action == "" {
 			action = commonmodels.ApolloActionUpdate
 		}
+		name, format := namespace.Namespace, namespace.Type
+		if action == commonmodels.ApolloActionCreate {
+			name = strings.TrimSpace(name)
+			if format == "" {
+				format = "yaml"
+			}
+			// Apollo returns file namespace names with their format suffix after creation.
+			switch format {
+			case "yaml", "yml", "json", "xml":
+				if !strings.HasSuffix(strings.ToLower(name), "."+format) {
+					name += "." + format
+				}
+			}
+		}
 		before := make(map[string]interface{}, len(namespace.OriginalConfig))
 		for _, item := range namespace.OriginalConfig {
 			if item != nil {
@@ -93,9 +107,9 @@ func buildAIApolloChangeSummaries(spec *commonmodels.JobTaskApolloSpec) []*commo
 		summary := &commonmodels.AIConfigChangeSummary{
 			Action:                 string(action),
 			NamespaceName:          namespace.Env,
-			DataID:                 strings.Trim(strings.Join([]string{namespace.AppID, namespace.Namespace}, "/"), "/"),
+			DataID:                 strings.Trim(strings.Join([]string{namespace.AppID, name}, "/"), "/"),
 			Group:                  namespace.ClusterID,
-			Format:                 namespace.Type,
+			Format:                 format,
 			ContentChanged:         changedFieldCount > 0,
 			ChangedFieldsAvailable: true,
 			ChangedFieldCount:      changedFieldCount,
