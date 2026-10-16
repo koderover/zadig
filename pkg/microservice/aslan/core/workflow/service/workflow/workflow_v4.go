@@ -1496,7 +1496,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			return e.ErrFindWorkflow.AddErr(err)
 		}
 		for _, info := range spec.ServiceTriggerWorkflow {
-			workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+			workflow, err := FindWorkflowV4RenderedForExecution(info.WorkflowName, logger)
 			if err != nil {
 				logger.Errorf(err.Error())
 				continue
@@ -1511,7 +1511,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			info.Params = commonservice.MergeParams(paramList, info.Params)
 		}
 		for _, info := range spec.FixedWorkflowList {
-			workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+			workflow, err := FindWorkflowV4RenderedForExecution(info.WorkflowName, logger)
 			if err != nil {
 				logger.Errorf(err.Error())
 				continue

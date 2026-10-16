@@ -211,7 +211,7 @@ func BuildWorkflowSystemVariableKVs(workflow *commonmodels.WorkflowV4, projectNa
 			continue
 		}
 		value := param.Value
-		if param.ParamsType == string(commonmodels.MultiSelectType) {
+		if param.IsMultiValue() {
 			value = strings.Join(param.ChoiceValue, ",")
 		} else if param.ParamsType == string(commonmodels.FileType) {
 			continue
