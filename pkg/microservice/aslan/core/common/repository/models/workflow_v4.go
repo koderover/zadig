@@ -428,6 +428,12 @@ type PluginJobSpec struct {
 	Properties *JobProperties `bson:"properties"               yaml:"properties"              json:"properties"`
 }
 
+type FreestyleVariableGroup struct {
+	Name    string              `bson:"name"     yaml:"name"     json:"name"`
+	Repos   []*types.Repository `bson:"repos"    yaml:"repos"    json:"repos"`
+	KeyVals RuntimeKeyValList   `bson:"key_vals" yaml:"key_vals" json:"key_vals"`
+}
+
 type FreestyleJobSpec struct {
 	FreestyleJobType config.FreeStyleJobType `bson:"freestyle_type"       yaml:"freestyle_type"      json:"freestyle_type"`
 	ServiceSource    config.DeploySourceType `bson:"source"               yaml:"source"              json:"source"`
@@ -437,7 +443,8 @@ type FreestyleJobSpec struct {
 	RefRepos bool                `bson:"ref_repos"            yaml:"ref_repos"           json:"ref_repos"`
 	Repos    []*types.Repository `bson:"repos"                yaml:"repos"               json:"repos"`
 	// 自定义变量
-	Envs RuntimeKeyValList `bson:"envs"                   json:"envs"                  yaml:"envs"`
+	Envs           RuntimeKeyValList         `bson:"envs"                   json:"envs"                  yaml:"envs"`
+	VariableGroups []*FreestyleVariableGroup `bson:"variable_groups,omitempty" yaml:"variable_groups,omitempty" json:"variable_groups,omitempty"`
 	// 脚本
 	Script     string           `bson:"script"         yaml:"script"       json:"script"`
 	ScriptType types.ScriptType `bson:"script_type"    yaml:"script_type"  json:"script_type"`
