@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/viper"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func MysqlDexDB() string {
@@ -28,6 +29,10 @@ func MysqlDexDB() string {
 
 func Features() string {
 	return viper.GetString(FeatureFlag)
+}
+
+func ProxyHTTPSAddr() string {
+	return viper.GetString(setting.ProxyHTTPSAddr)
 }
 
 func MongoURI() string {

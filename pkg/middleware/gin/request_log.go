@@ -47,6 +47,8 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		path := c.Request.URL.Path
 		oauthRequest := strings.HasPrefix(path, "/oauth/") || strings.HasPrefix(path, "/api/oauth/")
+		// codehost bot requests carry the bot token or GitHub App private key in the body
+		skipBody := oauthRequest || (strings.Contains(path, "/codehosts/") && strings.HasSuffix(path, "/bot"))
 		if oauthRequest {
 			if strings.HasPrefix(path, "/api/oauth/device/authorizations/") {
 				path = "/api/oauth/device/authorizations/:userCode"
@@ -62,7 +64,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		headers := make(map[string]string)
 		// request body is a ReadCloser, it can be read only once.
 		if c.Request != nil {
-			if c.Request.Body != nil && !oauthRequest {
+			if c.Request.Body != nil && !skipBody {
 				var buf bytes.Buffer
 				tee := io.TeeReader(c.Request.Body, &buf)
 				body, _ = ioutil.ReadAll(tee)

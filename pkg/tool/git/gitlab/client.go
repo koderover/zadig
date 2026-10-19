@@ -61,18 +61,9 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool,
 }
 
 func NewClientWithContext(ctx context.Context, id int, address, accessToken, proxyAddr string, enableProxy, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
-	var client *http.Client
-	if enableProxy {
-		proxyURL, err := url.Parse(proxyAddr)
-		if err != nil {
-			return nil, err
-		}
-		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL), TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
-		client = &http.Client{Transport: transport}
-	} else {
-		client = &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}},
-		}
+	client, err := newHTTPClient(proxyAddr, enableProxy, skipTLS)
+	if err != nil {
+		return nil, err
 	}
 
 	token, err := UpdateGitlabTokenWithContext(ctx, id, accessToken, skipTLS)
@@ -87,6 +78,37 @@ func NewClientWithContext(ctx context.Context, id int, address, accessToken, pro
 	}
 
 	return &Client{Client: cli, httpClient: client}, nil
+}
+
+// NewAccessTokenClient creates a client authenticated by a personal, group or project access token.
+// Unlike NewClient, it never refreshes the codehost OAuth token.
+func NewAccessTokenClient(address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
+	client, err := newHTTPClient(proxyAddr, enableProxy, skipTLS)
+	if err != nil {
+		return nil, err
+	}
+
+	clientOptions := append([]gitlab.ClientOptionFunc{gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client)}, extraOptions...)
+	cli, err := gitlab.NewClient(accessToken, clientOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gitlab client, err: %s", err)
+	}
+
+	return &Client{Client: cli, httpClient: client}, nil
+}
+
+func newHTTPClient(proxyAddr string, enableProxy bool, skipTLS bool) (*http.Client, error) {
+	if enableProxy {
+		proxyURL, err := url.Parse(proxyAddr)
+		if err != nil {
+			return nil, err
+		}
+		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL), TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
+		return &http.Client{Transport: transport}, nil
+	}
+	return &http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}},
+	}, nil
 }
 
 func generateProjectName(owner, repo string) string {

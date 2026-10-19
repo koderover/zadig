@@ -18,6 +18,7 @@ package github
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -43,6 +44,8 @@ type Config struct {
 	AppKey      string
 	AppID       int
 	Owner       string
+	// InsecureSkipVerify disables TLS verification for GitHub App requests.
+	InsecureSkipVerify bool
 
 	HTTPClient   *http.Client
 	DisableCache bool
@@ -114,7 +117,53 @@ func NewAppClientWithContext(ctx context.Context, cfg *Config) (*Client, error) 
 		return nil, err
 	}
 
+	transport := newAppTransport(cfg)
+	installationID, err := getInstallationID(ctx, int64(cfg.AppID), cfg.AppKey, cfg.Owner, transport)
+	if err != nil {
+		return nil, err
+	}
+
 	httpTransport := httpcache.NewMemoryCacheTransport()
+	httpTransport.Transport = transport
+	var installationTransport http.RoundTripper = httpTransport
+	// Feedback collection needs fresh counters, including the final closed PR snapshot.
+	if cfg.DisableCache {
+		installationTransport = transport
+	}
+	itr, err := ghinstallation.New(installationTransport, int64(cfg.AppID), installationID, keyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// token, _ := itr.Token(context.TODO())
+	// c := &Client{Client: gc, InstallationToken: token}
+	c := NewClient(&Config{HTTPClient: &http.Client{Transport: itr}})
+
+	return c, nil
+}
+
+// GetApp returns the GitHub App authenticated by the app ID and key in cfg.
+func GetApp(cfg *Config) (*github.App, error) {
+	keyBytes, err := base64.StdEncoding.DecodeString(cfg.AppKey)
+	if err != nil {
+		return nil, err
+	}
+
+	trans, err := ghinstallation.NewAppsTransport(newAppTransport(cfg), int64(cfg.AppID), keyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans}})
+	app, _, err := gc.Apps.Get(context.TODO(), "")
+	return app, err
+}
+
+// newAppTransport returns the transport used by app authentication and API requests.
+func newAppTransport(cfg *Config) http.RoundTripper {
+	if cfg.HTTPClient != nil && cfg.HTTPClient.Transport != nil {
+		return cfg.HTTPClient.Transport
+	}
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -134,32 +183,11 @@ func NewAppClientWithContext(ctx context.Context, cfg *Config) (*Client, error) 
 			tr.Proxy = proxy
 		}
 	}
-
-	var transport http.RoundTripper = tr
-	if cfg.HTTPClient != nil && cfg.HTTPClient.Transport != nil {
-		transport = cfg.HTTPClient.Transport
-	}
-	installationID, err := getInstallationID(ctx, int64(cfg.AppID), cfg.AppKey, cfg.Owner, transport)
-	if err != nil {
-		return nil, err
+	if cfg.InsecureSkipVerify {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	httpTransport.Transport = transport
-	var installationTransport http.RoundTripper = httpTransport
-	// Feedback collection needs fresh counters, including the final closed PR snapshot.
-	if cfg.DisableCache {
-		installationTransport = transport
-	}
-	itr, err := ghinstallation.New(installationTransport, int64(cfg.AppID), installationID, keyBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// token, _ := itr.Token(context.TODO())
-	// c := &Client{Client: gc, InstallationToken: token}
-	c := NewClient(&Config{HTTPClient: &http.Client{Transport: itr}})
-
-	return c, nil
+	return tr
 }
 
 func getInstallationID(ctx context.Context, appID int64, appKey, owner string, transport http.RoundTripper) (int64, error) {

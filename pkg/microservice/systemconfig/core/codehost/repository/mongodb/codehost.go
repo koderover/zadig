@@ -338,6 +338,29 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*mod
 	return host, err
 }
 
+// UpdateSystemCodeHostBot only sets the bot field, leaving the codehost credentials and updated_at untouched.
+func (c *CodehostColl) UpdateSystemCodeHostBot(ID int, bot *models.CodeHostBot) error {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelSystem,
+		"deleted_at":        0,
+	}
+	change := bson.M{"$set": bson.M{"bot": bot}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *CodehostColl) DeleteSystemCodeHostBot(ID int) error {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelSystem,
+		"deleted_at":        0,
+	}
+	change := bson.M{"$unset": bson.M{"bot": ""}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *CodehostColl) UpdateCodeHostToken(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{"id": host.ID, "deleted_at": 0}
 	change := bson.M{"$set": bson.M{

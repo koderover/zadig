@@ -67,6 +67,10 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 	defer cancel()
 	deadline, _ := ctx.Deadline()
 	projectID := strings.TrimLeft(repoOwner+"/"+repoName, "/")
+	cli, err := s.Client.newAIReviewCommentClient(ctx, codehostID, repoOwner)
+	if err != nil {
+		return AIReviewPRMetadata{}, fmt.Errorf("publish AI review result: %w", err)
+	}
 	inlineResult := aiReviewInlinePublishResult{}
 	var inlineErr error
 	if len(report.Findings) > 0 {
@@ -83,15 +87,15 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 					logger.Warnf("release AI review publication lease: %v", err)
 				}
 			}()
-			inlineResult, inlineErr = s.Client.createAIReviewInlineComments(publishCtx, codehostID, projectID, repoOwner, repoName, prID, report)
+			inlineResult, inlineErr = s.Client.createAIReviewInlineComments(publishCtx, cli, projectID, repoOwner, repoName, prID, report)
 		}
 		if inlineErr != nil {
 			inlineResult.Failed = true
-			logger.Warnf("failed to publish inline AI review comments: %v", inlineErr)
+			logger.Warnf("failed to publish inline AI review comments as %s: %v", cli.identity, inlineErr)
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	summary, summaryErr := s.Client.CreateAIReviewComment(ctx, codehostID, projectID, repoOwner, repoName, prID, comment)
+	summary, summaryErr := s.Client.createAIReviewComment(ctx, cli, projectID, repoOwner, repoName, prID, comment)
 	comments := inlineResult.Comments
 	if summaryErr == nil {
 		comments = append(comments, summary)
@@ -99,7 +103,7 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
 	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
 	if title == "" {
-		resolvedProjectID, fetched, err := s.Client.getAIReviewPRMetadata(ctx, codehostID, projectID, repoOwner, repoName, prID)
+		resolvedProjectID, fetched, err := s.Client.getAIReviewPRMetadata(ctx, cli, projectID, repoOwner, repoName, prID)
 		if err != nil {
 			logger.Warnf("resolve AI review PR metadata: %v", err)
 		} else {
@@ -114,11 +118,11 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		return metadata, fmt.Errorf("register AI review feedback comments: %w", err)
 	}
 	if summaryErr != nil {
-		return metadata, fmt.Errorf("publish AI review result: %w", summaryErr)
+		return metadata, fmt.Errorf("publish AI review result as %s: %w", cli.identity, summaryErr)
 	}
-	logger.Infof("published AI review result to %s #%d", projectID, prID)
+	logger.Infof("published AI review result to %s #%d as %s", projectID, prID, cli.identity)
 	if inlineErr != nil {
-		return metadata, fmt.Errorf("publish inline AI review comments: %w", inlineErr)
+		return metadata, fmt.Errorf("publish inline AI review comments as %s: %w", cli.identity, inlineErr)
 	}
 	if err := ctx.Err(); err != nil {
 		return metadata, fmt.Errorf("publish AI review result: %w", err)

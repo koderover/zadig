@@ -59,6 +59,8 @@ type CodeHost struct {
 	// perforce Type parameters
 	P4Host string `json:"perforce_host"`
 	P4Port int    `json:"perforce_port"`
+	// Bot is the identity used to publish AI review comments, only filled by GetCodeHost
+	Bot *models.CodeHostBot `json:"-" yaml:"-"`
 }
 
 type Option struct {
@@ -128,6 +130,7 @@ func (c *Client) GetCodeHost(id int, contexts ...context.Context) (*CodeHost, er
 		PrivateAccessToken: resp.PrivateAccessToken,
 		P4Host:             resp.P4Host,
 		P4Port:             resp.P4Port,
+		Bot:                resp.Bot,
 	}
 
 	return res, nil
