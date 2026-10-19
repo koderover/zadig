@@ -242,7 +242,7 @@ func (c *RestartJobCtl) restartHelmService(ctx context.Context, env *commonmodel
 }
 
 func restartWorkloadResources(ctx context.Context, clusterID string, resources []*kube.WorkloadResource, env *commonmodels.Product, kubeClient crClient.Client, clientSet *kubernetes.Clientset) (replaceResources []commonmodels.Resource, relatedPodLabels []map[string]string, err error) {
-	deployments, _, statefulSets, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
+	deployments, daemonSets, statefulSets, _, _, _, err := kube.FetchSelectedWorkloads(env.Namespace, resources, kubeClient, clientSet)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -300,14 +300,16 @@ func restartWorkloadResources(ctx context.Context, clusterID string, resources [
 		relatedPodLabels = append(relatedPodLabels, sts.Spec.Template.Labels)
 	}
 
-	for _, resource := range resources {
-		switch resource.Type {
-		case setting.DaemonSet:
-			if err := updater.RestartDaemonSet(ctx, clusterID, env.Namespace, resource.Name); err != nil {
-				return nil, nil, fmt.Errorf("failed to restart daemonset %s/%s: %v", env.Namespace, resource.Name, err)
-			}
-			replaceResources = append(replaceResources, commonmodels.Resource{Kind: setting.DaemonSet, Name: resource.Name})
+	for _, daemonSet := range daemonSets {
+		if err := updater.RestartDaemonSet(ctx, clusterID, daemonSet.Namespace, daemonSet.Name); err != nil {
+			return nil, nil, fmt.Errorf("failed to restart daemonset %s/%s: %v", daemonSet.Namespace, daemonSet.Name, err)
 		}
+		replaceResources = append(replaceResources, commonmodels.Resource{
+			Kind:        setting.DaemonSet,
+			Name:        daemonSet.Name,
+			PodOwnerUID: string(daemonSet.UID),
+		})
+		relatedPodLabels = append(relatedPodLabels, daemonSet.Spec.Template.Labels)
 	}
 	return replaceResources, relatedPodLabels, nil
 }

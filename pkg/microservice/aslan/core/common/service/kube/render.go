@@ -814,6 +814,15 @@ func FetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 				return "", nil, errors.Errorf("deployment %s not found", u.GetName())
 			}
 			manifestArr = append(manifestArr, string(workloadBs))
+		case setting.DaemonSet:
+			workloadBs, exist, err := getter.GetDaemonSetYamlFormat(productInfo.Namespace, u.GetName(), kubeClient)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to get daemonset %s", u.GetName())
+			}
+			if !exist {
+				return "", nil, errors.Errorf("daemonset %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
 		case setting.StatefulSet:
 			workloadBs, exist, err := getter.GetStatefulSetYamlFormat(productInfo.Namespace, u.GetName(), kubeClient)
 			if err != nil {
