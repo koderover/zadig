@@ -18,9 +18,7 @@ package service
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -147,7 +145,7 @@ func getBotCodeHost(id int) (*models.CodeHost, error) {
 func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*models.CodeHostGitLabBot, error) {
 	token := args.Token
 	if token == "" {
-		if old := codeHost.GitLabBot(); old != nil {
+		if old := codeHost.Bot.GetGitLab(); old != nil {
 			token = old.Token
 		}
 	}
@@ -155,15 +153,27 @@ func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*mo
 		return nil, e.ErrInvalidParam.AddDesc("首次配置需提供 token")
 	}
 
-	username, err := validateGitLabBotToken(codeHost, token)
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: codeHost.DisableSSL}}
+	if codeHost.EnableProxy {
+		proxyURL, err := url.Parse(config.ProxyHTTPSAddr())
+		if err != nil {
+			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	cli, err := gitlab.NewClient(token, gitlab.WithBaseURL(codeHost.Address), gitlab.WithHTTPClient(&http.Client{Transport: transport, Timeout: 30 * time.Second}))
 	if err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
 	}
-	return &models.CodeHostGitLabBot{Token: token, BotUsername: username}, nil
+	user, _, err := cli.Users.CurrentUser()
+	if err != nil {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
+	}
+	return &models.CodeHostGitLabBot{Token: token, BotUsername: user.Username}, nil
 }
 
 func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*models.CodeHostGitHubBot, error) {
-	old := codeHost.GitHubBot()
+	old := codeHost.Bot.GetGitHub()
 	appID := args.AppID
 	if appID == 0 && old != nil {
 		appID = old.AppID
@@ -183,9 +193,6 @@ func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*mo
 			privateKey = old.PrivateKey
 		}
 	}
-	if err := checkRSAPrivateKey(privateKey); err != nil {
-		return nil, e.ErrInvalidParam.AddDesc("private_key 不是合法的 PEM 格式私钥")
-	}
 
 	proxy := ""
 	if codeHost.EnableProxy {
@@ -198,6 +205,9 @@ func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*mo
 		InsecureSkipVerify: codeHost.DisableSSL,
 	})
 	if err != nil {
+		if errors.Is(err, githubtool.ErrInvalidAppPrivateKey) {
+			return nil, e.ErrInvalidParam.AddDesc("private_key 不是合法的 PEM 格式私钥")
+		}
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitHub App 校验失败：%s", err))
 	}
 	return &models.CodeHostGitHubBot{
@@ -207,51 +217,22 @@ func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*mo
 	}, nil
 }
 
-func validateGitLabBotToken(codeHost *models.CodeHost, token string) (string, error) {
-	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: codeHost.DisableSSL}}
-	if codeHost.EnableProxy {
-		proxyURL, err := url.Parse(config.ProxyHTTPSAddr())
-		if err != nil {
-			return "", err
-		}
-		transport.Proxy = http.ProxyURL(proxyURL)
-	}
-
-	cli, err := gitlab.NewClient(token, gitlab.WithBaseURL(codeHost.Address), gitlab.WithHTTPClient(&http.Client{Transport: transport, Timeout: 30 * time.Second}))
-	if err != nil {
-		return "", err
-	}
-	user, _, err := cli.Users.CurrentUser()
-	if err != nil {
-		return "", err
-	}
-	return user.Username, nil
-}
-
-func checkRSAPrivateKey(privateKey string) error {
-	block, _ := pem.Decode([]byte(privateKey))
-	if block == nil {
-		return fmt.Errorf("invalid PEM")
-	}
-	if _, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		return nil
-	}
-	_, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	return err
-}
-
 func toCodeHostBotResp(codeHost *models.CodeHost) *CodeHostBotResp {
 	resp := &CodeHostBotResp{
 		CodeHostID: codeHost.ID,
 		Type:       codeHost.Type,
 	}
-	if bot := codeHost.GitLabBot(); bot != nil {
-		resp.Configured = true
-		resp.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
-	}
-	if bot := codeHost.GitHubBot(); bot != nil {
-		resp.Configured = true
-		resp.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
+	switch codeHost.Type {
+	case setting.SourceFromGitlab:
+		if bot := codeHost.Bot.GetGitLab(); bot != nil {
+			resp.Configured = true
+			resp.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
+		}
+	case setting.SourceFromGithub:
+		if bot := codeHost.Bot.GetGitHub(); bot != nil {
+			resp.Configured = true
+			resp.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
+		}
 	}
 	if resp.Configured {
 		resp.UpdatedBy = codeHost.Bot.UpdatedBy

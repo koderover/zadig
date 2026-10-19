@@ -87,22 +87,6 @@ func (b *CodeHostBot) GetGitHub() *CodeHostGitHubBot {
 	return b.GitHub
 }
 
-// GitLabBot returns the GitLab bot config when it matches the codehost type.
-func (c *CodeHost) GitLabBot() *CodeHostGitLabBot {
-	if c.Type != setting.SourceFromGitlab {
-		return nil
-	}
-	return c.Bot.GetGitLab()
-}
-
-// GitHubBot returns the GitHub App bot config when it matches the codehost type.
-func (c *CodeHost) GitHubBot() *CodeHostGitHubBot {
-	if c.Type != setting.SourceFromGithub {
-		return nil
-	}
-	return c.Bot.GetGitHub()
-}
-
 func (CodeHost) TableName() string {
 	return "code_host"
 }
