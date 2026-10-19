@@ -1419,6 +1419,20 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	case setting.SourceFromHelm:
 		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
 		switch workLoadType {
+		case setting.DaemonSet:
+			daemonSet, err := getter.GetDaemonSetByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for daemonset, err: %v", serviceName, err))
+			}
+			ret.Scales = append(ret.Scales, GetDaemonSetWorkloadResource(daemonSet, inf, log))
+			ret.Workloads = append(ret.Workloads, ToDaemonSetWorkload(daemonSet))
+			podLabels := labels.Set(daemonSet.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
+				}
+			}
 		case setting.StatefulSet:
 			statefulSet, err := getter.GetStatefulSetByNameWWithCache(serviceName, namespace, inf)
 			if err != nil {

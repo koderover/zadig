@@ -552,6 +552,9 @@ func FetchImportedAllManifests(envInfo *models.Product, serviceTmp *models.Servi
 		case setting.Deployment:
 			bs, exist, err = getter.GetDeploymentYamlFormat(envInfo.Namespace, name, kubeClient)
 			isWorkload = true
+		case setting.DaemonSet:
+			bs, exist, err = getter.GetDaemonSetYamlFormat(envInfo.Namespace, name, kubeClient)
+			isWorkload = true
 		case setting.StatefulSet:
 			bs, exist, err = getter.GetStatefulSetYamlFormat(envInfo.Namespace, name, kubeClient)
 			isWorkload = true
