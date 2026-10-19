@@ -78,7 +78,11 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 	}
 
 	if isExecution {
-		if err := ValidateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
+		if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+			if err := j.validateVariableGroups(); err != nil {
+				return err
+			}
+		} else if err := ValidateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
 			return err
 		}
 	}
@@ -88,6 +92,10 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 		if err != nil {
 			return e.ErrLicenseInvalid.AddDesc("")
 		}
+	} else if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		if err := commonutil.CheckZadigEnterpriseLicense(); err != nil {
+			return e.ErrLicenseInvalid.AddDesc("")
+		}
 	}
 
 	err := checkOutputNames(j.jobSpec.AdvancedSetting.Outputs)
@@ -95,6 +103,30 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 		return err
 	}
 
+	return nil
+}
+
+// validateVariableGroups trims group names and checks execution input.
+func (j FreestyleJobController) validateVariableGroups() error {
+	if len(j.jobSpec.VariableGroups) == 0 {
+		return fmt.Errorf("job %s requires at least one variable group", j.name)
+	}
+	groupNames := make(map[string]bool)
+	for _, group := range j.jobSpec.VariableGroups {
+		if group == nil || strings.TrimSpace(group.Name) == "" {
+			return fmt.Errorf("job %s variable group name cannot be empty", j.name)
+		}
+		group.Name = strings.TrimSpace(group.Name)
+		if groupNames[group.Name] {
+			return fmt.Errorf("job %s has duplicate variable group name %s", j.name, group.Name)
+		}
+		groupNames[group.Name] = true
+
+		merged := applyKeyVals(j.jobSpec.Envs, group.KeyVals, false)
+		if err := ValidateRequiredRuntimeKeyVals(merged, fmt.Sprintf("job %s variable group %s", j.name, group.Name)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -118,7 +150,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 	j.jobSpec.JobName = currJobSpec.JobName
 	j.jobSpec.ObjectStorageUpload = currJobSpec.ObjectStorageUpload
 	j.jobSpec.DefaultServices = currJobSpec.DefaultServices
-	if useUserInput {
+	if useUserInput && j.jobSpec.FreestyleJobType != config.VariableGroupFreeStyleJobType {
 		j.jobSpec.Repos = applyRepos(currJobSpec.Repos, j.jobSpec.Repos)
 		j.jobSpec.Envs = applyKeyVals(currJobSpec.Envs, j.jobSpec.Envs, false)
 	} else {
@@ -173,14 +205,23 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 	if j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		for subTaskID, svc := range j.jobSpec.Services {
 			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
-			task, err := j.generateSubTask(taskID, subTaskID, registries, svc)
+			task, err := j.generateSubTask(taskID, subTaskID, registries, svc, nil)
+			if err != nil {
+				return nil, err
+			}
+			resp = append(resp, task)
+		}
+	} else if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		for subTaskID, group := range j.jobSpec.VariableGroups {
+			group.KeyVals = applyKeyVals(j.jobSpec.Envs, group.KeyVals, false)
+			task, err := j.generateSubTask(taskID, subTaskID, registries, nil, group)
 			if err != nil {
 				return nil, err
 			}
 			resp = append(resp, task)
 		}
 	} else {
-		task, err := j.generateSubTask(taskID, 0, registries, nil)
+		task, err := j.generateSubTask(taskID, 0, registries, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -198,11 +239,25 @@ func (j FreestyleJobController) SetRepo(repo *types.Repository) error {
 	for _, svc := range j.jobSpec.Services {
 		svc.Repos = applyRepos(svc.Repos, []*types.Repository{repo})
 	}
+	if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		for _, group := range j.jobSpec.VariableGroups {
+			group.Repos = applyRepos(j.jobSpec.Repos, append(group.Repos, repo))
+		}
+	}
 
 	return nil
 }
 
 func (j FreestyleJobController) SetRepoCommitInfo() error {
+	if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		for _, group := range j.jobSpec.VariableGroups {
+			group.Repos = applyRepos(j.jobSpec.Repos, group.Repos)
+			if err := setRepoInfo(group.Repos); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	err := setRepoInfo(j.jobSpec.Repos)
 	if err != nil {
 		return err
@@ -234,6 +289,16 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 				IsCredential: false,
 			})
 		}
+	} else if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		for _, group := range j.jobSpec.VariableGroups {
+			jobKey := genJobKey("job", j.name, group.Name)
+			for _, kv := range applyKeyVals(j.jobSpec.Envs, group.KeyVals, false) {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key: genJobKey(jobKey, kv.Key), Value: kv.GetValue(), Type: commonmodels.StringType,
+					IsCredential: kv.IsCredential, Description: kv.Description,
+				})
+			}
+		}
 	}
 
 	if getRuntimeVariables {
@@ -253,6 +318,14 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 				Type:         "string",
 				IsCredential: false,
 			})
+		} else if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+			for _, group := range j.jobSpec.VariableGroups {
+				jobKey := genJobKey("job", j.name, group.Name)
+				for _, output := range j.jobSpec.AdvancedSetting.Outputs {
+					resp = append(resp, &commonmodels.KeyVal{Key: genJobKey(jobKey, "output", output.Name), Type: commonmodels.StringType})
+				}
+				resp = append(resp, &commonmodels.KeyVal{Key: genJobKey(jobKey, "status"), Type: commonmodels.StringType})
+			}
 		} else {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
 				if getServiceSpecificVariables {
@@ -539,7 +612,7 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string, refRepos b
 	return nil, fmt.Errorf("FreeStyleJob: refered job %s not found", jobName)
 }
 
-func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo) (*commonmodels.JobTask, error) {
+func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo, group *commonmodels.FreestyleVariableGroup) (*commonmodels.JobTask, error) {
 	basicImage, err := commonrepo.NewBasicImageColl().Find(j.jobSpec.Runtime.ImageID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find base image: %s,error :%v", j.jobSpec.Runtime.ImageID, err)
@@ -567,6 +640,8 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 
 	if service != nil {
 		taskRunProperties.CustomEnvs = service.KeyVals.ToKVList()
+	} else if group != nil {
+		taskRunProperties.CustomEnvs = group.KeyVals.ToKVList()
 	} else {
 		taskRunProperties.CustomEnvs = j.jobSpec.Envs.ToKVList()
 	}
@@ -586,11 +661,20 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
 		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs, service.KeyVals, false).ToKVList())
+	} else if group != nil {
+		jobDisplayName = genJobDisplayName(j.name, group.Name)
+		jobKey = genJobKey(j.name, group.Name)
+		jobInfo["variable_group"] = group.Name
+		renderRepos(group.Repos, envs)
 	} else {
 		renderRepos(j.jobSpec.Repos, envs)
 	}
 
-	envs = append(envs, getFreestyleJobVariables(taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, j.jobSpec.Runtime.Infrastructure, service, registries, j.jobSpec.Repos)...)
+	envRepos := j.jobSpec.Repos
+	if group != nil {
+		envRepos = group.Repos
+	}
+	envs = append(envs, getFreestyleJobVariables(taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, j.jobSpec.Runtime.Infrastructure, service, registries, envRepos)...)
 
 	// Add keyvault envs for credential masking
 	keyvaultEnvs, err := GetKeyVaultEnvs(j.workflow.Project)
@@ -629,6 +713,8 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	repos := j.jobSpec.Repos
 	if service != nil {
 		repos = service.Repos
+	} else if group != nil {
+		repos = group.Repos
 	}
 
 	steps, err := j.generateStepTask(jobName, repos)
