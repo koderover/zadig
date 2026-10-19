@@ -222,7 +222,7 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 		return
 	}
 
-	registryInfo, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	registryInfo, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
