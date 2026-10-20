@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -33,6 +34,47 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
+
+// This key is reserved for environment hibernation and must not be set on nodes.
+const daemonSetSleepKey = "zadig.koderover.io/hibernating"
+
+// SetDaemonSetSleep preserves user scheduling constraints and only removes its own sleep selector on resume.
+func SetDaemonSetSleep(ctx context.Context, c kubernetes.Interface, namespace, name string, sleep bool) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		daemonSet, err := c.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		value, selected := daemonSet.Spec.Template.Spec.NodeSelector[daemonSetSleepKey]
+		if selected && value != "true" {
+			return fmt.Errorf("daemonset %s/%s already uses reserved sleep key %s", namespace, name, daemonSetSleepKey)
+		}
+
+		if sleep {
+			nodes, err := c.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: daemonSetSleepKey + "=true"})
+			if err != nil {
+				return err
+			}
+			if len(nodes.Items) > 0 {
+				return fmt.Errorf("cannot suspend daemonset %s/%s: nodes match reserved sleep selector %s=true", namespace, name, daemonSetSleepKey)
+			}
+			if selected {
+				return nil
+			}
+			if daemonSet.Spec.Template.Spec.NodeSelector == nil {
+				daemonSet.Spec.Template.Spec.NodeSelector = make(map[string]string)
+			}
+			daemonSet.Spec.Template.Spec.NodeSelector[daemonSetSleepKey] = "true"
+		} else {
+			if !selected {
+				return nil
+			}
+			delete(daemonSet.Spec.Template.Spec.NodeSelector, daemonSetSleepKey)
+		}
+		_, err = c.AppsV1().DaemonSets(namespace).Update(ctx, daemonSet, metav1.UpdateOptions{})
+		return err
+	})
+}
 
 func RestartDaemonSet(ctx context.Context, clusterID, namespace, name string) error {
 	c, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)

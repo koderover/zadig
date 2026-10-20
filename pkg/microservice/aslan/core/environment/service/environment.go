@@ -4633,9 +4633,12 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, userName
 
 	scaleMap := make(map[string]*commonservice.Workload)
 	cronjobMap := make(map[string]*commonservice.Workload)
+	daemonSetMap := make(map[string]*commonservice.Workload)
 	for _, workLoad := range workLoads {
 		if workLoad.Type == setting.CronJob {
 			cronjobMap[workLoad.Name] = workLoad
+		} else if workLoad.Type == setting.DaemonSet {
+			daemonSetMap[workLoad.Name] = workLoad
 		} else {
 			scaleMap[workLoad.Name] = workLoad
 		}
@@ -4672,6 +4675,11 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, userName
 				}
 
 				switch u.GetKind() {
+				case setting.DaemonSet:
+					if workLoad, ok := daemonSetMap[u.GetName()]; ok {
+						workLoad.ServiceName = svc.ServiceName
+						workLoad.DeployedFromZadig = true
+					}
 				case setting.Deployment, setting.StatefulSet:
 					if workLoad, ok := scaleMap[u.GetName()]; ok {
 						workLoad.ServiceName = svc.ServiceName
@@ -4702,7 +4710,10 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, userName
 				}
 				for _, workload := range workLoads {
 					if workload.ReleaseName == releaseName {
-						if workload.Type != setting.CronJob {
+						if workload.Type == setting.DaemonSet {
+							workload.ServiceName = svc.ServiceName
+						}
+						if workload.Type != setting.CronJob && workload.Type != setting.DaemonSet {
 							newScaleNumMap[workload.Name] = int(workload.Replicas)
 						}
 					}
@@ -4755,6 +4766,11 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, userName
 		}
 
 		switch workload.Type {
+		case setting.DaemonSet:
+			log.Infof("set daemonset %s/%s sleep=%t", prod.Namespace, workload.Name, isEnable)
+			if err := updater.SetDaemonSetSleep(context.TODO(), clientset, prod.Namespace, workload.Name, isEnable); err != nil {
+				log.Errorf("failed to set daemonset %s/%s sleep=%t: %v", prod.Namespace, workload.Name, isEnable, err)
+			}
 		case setting.Deployment:
 			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
 			err := updater.ScaleDeploymentV2(context.TODO(), prod.ClusterID, prod.Namespace, workload.Name, scaleNum)
