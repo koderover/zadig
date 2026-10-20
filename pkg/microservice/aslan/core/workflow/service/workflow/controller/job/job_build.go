@@ -206,7 +206,7 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 			ImageName:        configuredBuild.ImageName,
 			ShareStorageInfo: configuredBuild.ShareStorageInfo,
 			KeyVals:          applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), configuredBuild.KeyVals, true),
-			Repos:            applyRepos(buildInfo.Repos, configuredBuild.Repos),
+			Repos:            applyOptionRepos(buildInfo.Repos, configuredBuild.Repos),
 		}
 
 		// Service.Containers no longer persisted — pull module's ImageName
@@ -266,7 +266,7 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 				ImageName:        configuredSelection.ImageName,
 				ShareStorageInfo: configuredSelection.ShareStorageInfo,
 				KeyVals:          applyKeyVals(newOptionMap[key].KeyVals, configuredSelection.KeyVals, false),
-				Repos:            applyRepos(newOptionMap[key].Repos, configuredSelection.Repos),
+				Repos:            applyInputRepos(newOptionMap[key].Repos, configuredSelection.Repos),
 			}
 
 			newSelection = append(newSelection, item)

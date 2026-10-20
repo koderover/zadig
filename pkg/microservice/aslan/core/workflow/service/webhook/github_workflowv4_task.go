@@ -349,7 +349,8 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, rawPayload, baseURI, deli
 			}
 			workflowController.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
-				Name: setting.WebhookTaskCreator,
+				Name:     setting.WebhookTaskCreator,
+				HookRepo: eventRepo,
 			}, workflowController.WorkflowV4, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)

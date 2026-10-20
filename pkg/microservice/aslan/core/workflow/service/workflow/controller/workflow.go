@@ -1154,6 +1154,9 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					newParam.Repo = inputParam.Repo
 					newParam.ChoiceValue = inputParam.ChoiceValue
 				}
+				if newParam.Repo != nil && !newParam.Repo.EnableCommit {
+					newParam.Repo.CommitID = ""
+				}
 				resp = append(resp, newParam)
 				found = true
 				break
