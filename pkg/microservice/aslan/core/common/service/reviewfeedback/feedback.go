@@ -250,7 +250,13 @@ func syncPR(ctx context.Context, pr *models.AIReviewFeedback) (bool, error) {
 			return count, err
 		}
 	case setting.SourceFromGitlab:
-		cli, err := gitlabtool.NewClientWithContext(ctx, host.ID, host.Address, host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL, gitlab.WithoutRetries(), gitlab.WithCustomLimiter(rate.NewLimiter(rate.Inf, 1)))
+		clientOptions := []gitlab.ClientOptionFunc{gitlab.WithoutRetries(), gitlab.WithCustomLimiter(rate.NewLimiter(rate.Inf, 1))}
+		var cli *gitlabtool.Client
+		if bot := host.Bot.GetGitLab(); bot != nil {
+			cli, err = gitlabtool.NewAccessTokenClient(host.Address, bot.Token, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL, clientOptions...)
+		} else {
+			cli, err = gitlabtool.NewClientWithContext(ctx, host.ID, host.Address, host.AccessToken, config.ProxyHTTPSAddr(), host.EnableProxy, host.DisableSSL, clientOptions...)
+		}
 		if err != nil {
 			return false, err
 		}
