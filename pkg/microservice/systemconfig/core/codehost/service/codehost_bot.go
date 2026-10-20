@@ -17,8 +17,10 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,16 +28,23 @@ import (
 	"time"
 
 	"github.com/xanzy/go-gitlab"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/v2/pkg/tool/git/github"
 )
+
+type CodeHostArgs struct {
+	models.CodeHost
+	Bot json.RawMessage `json:"bot"`
+}
+
+type CodeHostResp struct {
+	*models.CodeHost
+	Bot *CodeHostBotResp `json:"bot,omitempty"`
+}
 
 type CodeHostBotArgs struct {
 	GitLab *CodeHostGitLabBotArgs `json:"gitlab"`
@@ -47,13 +56,11 @@ type CodeHostGitLabBotArgs struct {
 }
 
 type CodeHostGitHubBotArgs struct {
-	AppID      int    `json:"app_id"`
+	AppID      *int   `json:"app_id"`
 	PrivateKey string `json:"private_key"`
 }
 
 type CodeHostBotResp struct {
-	CodeHostID int                    `json:"codehost_id"`
-	Type       string                 `json:"type"`
 	Configured bool                   `json:"configured"`
 	GitLab     *CodeHostGitLabBotResp `json:"gitlab,omitempty"`
 	GitHub     *CodeHostGitHubBotResp `json:"github,omitempty"`
@@ -72,74 +79,43 @@ type CodeHostGitHubBotResp struct {
 	BotName              string `json:"bot_name"`
 }
 
-func GetCodeHostBot(id int, _ *zap.SugaredLogger) (*CodeHostBotResp, error) {
-	codeHost, err := getBotCodeHost(id)
-	if err != nil {
-		return nil, err
+func applyCodeHostBot(codeHost *models.CodeHost, raw json.RawMessage, userName string) error {
+	if len(raw) == 0 {
+		return nil
 	}
-	return toCodeHostBotResp(codeHost), nil
-}
-
-func UpdateCodeHostBot(id int, args *CodeHostBotArgs, userName string, log *zap.SugaredLogger) (*CodeHostBotResp, error) {
-	codeHost, err := getBotCodeHost(id)
-	if err != nil {
-		return nil, err
+	if codeHost.IntegrationLevel != setting.IntegrationLevelSystem {
+		return e.ErrInvalidParam.AddDesc("仅系统级代码源支持配置机器人身份")
 	}
-
-	bot := &models.CodeHostBot{
-		UpdatedBy: userName,
-		UpdatedAt: time.Now().Unix(),
+	if codeHost.Type != setting.SourceFromGitlab && codeHost.Type != setting.SourceFromGithub {
+		return e.ErrInvalidParam.AddDesc(fmt.Sprintf("代码源类型 %s 不支持配置机器人身份", codeHost.Type))
 	}
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		codeHost.Bot = nil
+		return nil
+	}
+	args := new(CodeHostBotArgs)
+	if err := json.Unmarshal(raw, args); err != nil {
+		return e.ErrInvalidParam.AddDesc("invalid codehost bot args")
+	}
+	bot := &models.CodeHostBot{UpdatedBy: userName, UpdatedAt: time.Now().Unix()}
+	var err error
 	switch codeHost.Type {
 	case setting.SourceFromGitlab:
 		if args.GitLab == nil || args.GitHub != nil {
-			return nil, e.ErrInvalidParam.AddDesc("GitLab 代码源需传入 gitlab 配置")
+			return e.ErrInvalidParam.AddDesc("GitLab 代码源需传入 gitlab 配置")
 		}
 		bot.GitLab, err = mergeGitLabBot(codeHost, args.GitLab)
 	case setting.SourceFromGithub:
 		if args.GitHub == nil || args.GitLab != nil {
-			return nil, e.ErrInvalidParam.AddDesc("GitHub 代码源需传入 github 配置")
+			return e.ErrInvalidParam.AddDesc("GitHub 代码源需传入 github 配置")
 		}
 		bot.GitHub, err = mergeGitHubBot(codeHost, args.GitHub)
 	}
 	if err != nil {
-		return nil, err
-	}
-
-	if err := mongodb.NewCodehostColl().UpdateSystemCodeHostBot(id, bot); err != nil {
-		log.Errorf("failed to update bot of codehost %d: %s", id, err)
-		return nil, err
+		return err
 	}
 	codeHost.Bot = bot
-	return toCodeHostBotResp(codeHost), nil
-}
-
-func DeleteCodeHostBot(id int, log *zap.SugaredLogger) error {
-	if _, err := getBotCodeHost(id); err != nil {
-		return err
-	}
-	if err := mongodb.NewCodehostColl().DeleteSystemCodeHostBot(id); err != nil {
-		log.Errorf("failed to delete bot of codehost %d: %s", id, err)
-		return err
-	}
 	return nil
-}
-
-func getBotCodeHost(id int) (*models.CodeHost, error) {
-	codeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(id, false)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", id))
-		}
-		return nil, err
-	}
-	if codeHost.IntegrationLevel != setting.IntegrationLevelSystem {
-		return nil, e.ErrInvalidParam.AddDesc("仅系统级代码源支持配置机器人身份")
-	}
-	if codeHost.Type != setting.SourceFromGitlab && codeHost.Type != setting.SourceFromGithub {
-		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("代码源类型 %s 不支持配置机器人身份", codeHost.Type))
-	}
-	return codeHost, nil
 }
 
 func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*models.CodeHostGitLabBot, error) {
@@ -174,11 +150,16 @@ func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*mo
 
 func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*models.CodeHostGitHubBot, error) {
 	old := codeHost.Bot.GetGitHub()
-	appID := args.AppID
-	if appID == 0 && old != nil {
+	var appID int
+	switch {
+	case args.AppID != nil:
+		appID = *args.AppID
+		if appID <= 0 {
+			return nil, e.ErrInvalidParam.AddDesc("app_id 必须为正整数")
+		}
+	case old != nil:
 		appID = old.AppID
-	}
-	if appID <= 0 {
+	default:
 		return nil, e.ErrInvalidParam.AddDesc("首次配置需提供 app_id")
 	}
 
@@ -217,26 +198,30 @@ func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*mo
 	}, nil
 }
 
-func toCodeHostBotResp(codeHost *models.CodeHost) *CodeHostBotResp {
-	resp := &CodeHostBotResp{
-		CodeHostID: codeHost.ID,
-		Type:       codeHost.Type,
+func toCodeHostResp(codeHost *models.CodeHost) *CodeHostResp {
+	resp := &CodeHostResp{CodeHost: codeHost}
+	if codeHost.IntegrationLevel != setting.IntegrationLevelSystem {
+		return resp
 	}
 	switch codeHost.Type {
 	case setting.SourceFromGitlab:
+		resp.Bot = &CodeHostBotResp{}
 		if bot := codeHost.Bot.GetGitLab(); bot != nil {
-			resp.Configured = true
-			resp.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
+			resp.Bot.Configured = true
+			resp.Bot.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
 		}
 	case setting.SourceFromGithub:
+		resp.Bot = &CodeHostBotResp{}
 		if bot := codeHost.Bot.GetGitHub(); bot != nil {
-			resp.Configured = true
-			resp.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
+			resp.Bot.Configured = true
+			resp.Bot.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
 		}
+	default:
+		return resp
 	}
-	if resp.Configured {
-		resp.UpdatedBy = codeHost.Bot.UpdatedBy
-		resp.UpdatedAt = codeHost.Bot.UpdatedAt
+	if resp.Bot.Configured {
+		resp.Bot.UpdatedBy = codeHost.Bot.UpdatedBy
+		resp.Bot.UpdatedAt = codeHost.Bot.UpdatedAt
 	}
 	return resp
 }

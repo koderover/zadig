@@ -33,9 +33,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		codehost.PATCH("/:id", UpdateSystemCodeHost)
 		codehost.GET("/:id", GetSystemCodeHost)
 		codehost.GET("/:id/auth", AuthCodeHost)
-		codehost.GET("/:id/bot", GetCodeHostBot)
-		codehost.PATCH("/:id/bot", UpdateCodeHostBot)
-		codehost.DELETE("/:id/bot", DeleteCodeHostBot)
 		codehost.POST("/validate", ValidateCodeHost)
 	}
 }

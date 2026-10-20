@@ -46,7 +46,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	req := new(models.CodeHost)
+	req := new(service.CodeHostArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = err
 		return
@@ -60,7 +60,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.UserName, ctx.Logger)
 }
 
 func ListSystemCodeHost(c *gin.Context) {
@@ -186,7 +186,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	req := &models.CodeHost{}
+	req := new(service.CodeHostArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = err
 		return
@@ -201,7 +201,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.UserName, ctx.Logger)
 }
 
 // @Summary 验证代码源连接

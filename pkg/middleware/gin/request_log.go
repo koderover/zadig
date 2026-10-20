@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 
@@ -47,8 +48,9 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		path := c.Request.URL.Path
 		oauthRequest := strings.HasPrefix(path, "/oauth/") || strings.HasPrefix(path, "/api/oauth/")
-		// codehost bot requests carry the bot token or GitHub App private key in the body
-		skipBody := oauthRequest || (strings.Contains(path, "/codehosts/") && strings.HasSuffix(path, "/bot"))
+		// Codehost writes can carry bot tokens or GitHub App private keys.
+		skipBody := oauthRequest || ((c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPatch) &&
+			(strings.HasSuffix(path, "/codehosts") || strings.Contains(path, "/codehosts/")))
 		if oauthRequest {
 			if strings.HasPrefix(path, "/api/oauth/device/authorizations/") {
 				path = "/api/oauth/device/authorizations/:userCode"

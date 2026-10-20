@@ -286,13 +286,13 @@ func (c *CodehostColl) deleteCodeHost(query bson.M) error {
 	return nil
 }
 
-func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost, updateBot bool) (*models.CodeHost, error) {
 	query := bson.M{
 		"id":         host.ID,
 		"deleted_at": 0,
 	}
 
-	return c.updateCodeHost(query, host)
+	return c.updateCodeHost(query, host, updateBot)
 }
 
 func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.CodeHost) (*models.CodeHost, error) {
@@ -303,10 +303,10 @@ func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.Co
 		"deleted_at":        0,
 	}
 
-	return c.updateCodeHost(query, host)
+	return c.updateCodeHost(query, host, false)
 }
 
-func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*models.CodeHost, error) {
+func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updateBot bool) (*models.CodeHost, error) {
 	modifyValue := bson.M{
 		"type":           host.Type,
 		"address":        host.Address,
@@ -334,31 +334,15 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*mod
 	}
 
 	change := bson.M{"$set": modifyValue}
+	if updateBot {
+		if host.Bot == nil {
+			change["$unset"] = bson.M{"bot": ""}
+		} else {
+			modifyValue["bot"] = host.Bot
+		}
+	}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return host, err
-}
-
-// UpdateSystemCodeHostBot only sets the bot field, leaving the codehost credentials and updated_at untouched.
-func (c *CodehostColl) UpdateSystemCodeHostBot(ID int, bot *models.CodeHostBot) error {
-	query := bson.M{
-		"id":                ID,
-		"integration_level": setting.IntegrationLevelSystem,
-		"deleted_at":        0,
-	}
-	change := bson.M{"$set": bson.M{"bot": bot}}
-	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
-	return err
-}
-
-func (c *CodehostColl) DeleteSystemCodeHostBot(ID int) error {
-	query := bson.M{
-		"id":                ID,
-		"integration_level": setting.IntegrationLevelSystem,
-		"deleted_at":        0,
-	}
-	change := bson.M{"$unset": bson.M{"bot": ""}}
-	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
-	return err
 }
 
 func (c *CodehostColl) UpdateCodeHostToken(host *models.CodeHost) (*models.CodeHost, error) {

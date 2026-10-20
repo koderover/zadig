@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
@@ -42,12 +43,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const callback = "/api/directory/codehosts/callback"
 
-func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+func CreateSystemCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+	codehost := &args.CodeHost
 	if codehost.Type == types.ProviderOther {
 		codehost.IsReady = "2"
 	}
@@ -65,6 +68,11 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 		}
 	}
 
+	codehost.IntegrationLevel = setting.IntegrationLevelSystem
+	if err := applyCodeHostBot(codehost, args.Bot, userName); err != nil {
+		return nil, err
+	}
+
 	codehost.CreatedAt = time.Now().Unix()
 	codehost.UpdatedAt = time.Now().Unix()
 
@@ -73,7 +81,10 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 		return nil, err
 	}
 	codehost.ID = len(list) + 1
-	return mongodb.NewCodehostColl().AddSystemCodeHost(codehost)
+	if _, err := mongodb.NewCodehostColl().AddSystemCodeHost(codehost); err != nil {
+		return nil, err
+	}
+	return toCodeHostResp(codehost), nil
 }
 
 func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
@@ -127,7 +138,7 @@ func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*model
 	})
 }
 
-func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*CodeHostResp, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		IntegrationLevel: setting.IntegrationLevelSystem,
 		Address:          address,
@@ -138,30 +149,49 @@ func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLog
 		log.Errorf("ListCodeHost error:%s", err)
 		return nil, err
 	}
-	return EncypteCodeHost(encryptedKey, codeHosts, log)
+	codeHosts, err = EncypteCodeHost(encryptedKey, codeHosts, log)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]*CodeHostResp, 0, len(codeHosts))
+	for _, host := range codeHosts {
+		resp = append(resp, toCodeHostResp(host))
+	}
+	return resp, nil
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteSystemCodeHostByID(id)
 }
 
-func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+func UpdateCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+	host := &args.CodeHost
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
 
-	var oldAlias string
 	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
-	if err == nil {
-		oldAlias = oldCodeHost.Alias
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", host.ID))
+		}
+		return nil, err
 	}
-	if host.Alias != "" && host.Alias != oldAlias {
+	if host.Alias != "" && host.Alias != oldCodeHost.Alias {
 		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
 	}
 
-	return mongodb.NewCodehostColl().UpdateCodeHost(host)
+	host.IntegrationLevel = oldCodeHost.IntegrationLevel
+	host.Bot = oldCodeHost.Bot
+	if err := applyCodeHostBot(host, args.Bot, userName); err != nil {
+		return nil, err
+	}
+	if _, err := mongodb.NewCodehostColl().UpdateCodeHost(host, len(args.Bot) > 0); err != nil {
+		return nil, err
+	}
+	return toCodeHostResp(host), nil
 }
 
 func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -172,9 +202,12 @@ func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger, contexts ...co
 	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete, contexts...)
 }
 
-func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
+func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*CodeHostResp, error) {
 	codeHost, err := GetCodeHost(id, ignoreDelete, log)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", id))
+		}
 		return nil, err
 	}
 	resp, err := EncypteCodeHost(encryptedKey, []*models.CodeHost{codeHost}, log)
@@ -184,7 +217,7 @@ func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *z
 	if len(resp) == 0 {
 		return nil, nil
 	}
-	return resp[0], nil
+	return toCodeHostResp(resp[0]), nil
 }
 
 func GetCodeHostByAlias(alias string) (*models.CodeHost, error) {

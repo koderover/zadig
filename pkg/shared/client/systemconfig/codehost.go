@@ -218,7 +218,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		DisableSSL:         codehost.DisableSSL,
 	}
 
-	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())
+	_, err := codehostservice.UpdateCodeHost(&codehostservice.CodeHostArgs{CodeHost: *arg}, "", log.SugaredLogger())
 	return err
 }
 
