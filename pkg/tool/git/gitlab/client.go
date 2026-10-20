@@ -98,17 +98,15 @@ func NewAccessTokenClient(address, accessToken, proxyAddr string, enableProxy bo
 }
 
 func newHTTPClient(proxyAddr string, enableProxy bool, skipTLS bool) (*http.Client, error) {
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 	if enableProxy {
 		proxyURL, err := url.Parse(proxyAddr)
 		if err != nil {
 			return nil, err
 		}
-		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL), TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
-		return &http.Client{Transport: transport}, nil
+		transport.Proxy = http.ProxyURL(proxyURL)
 	}
-	return &http.Client{
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}},
-	}, nil
+	return &http.Client{Transport: transport}, nil
 }
 
 func generateProjectName(owner, repo string) string {
