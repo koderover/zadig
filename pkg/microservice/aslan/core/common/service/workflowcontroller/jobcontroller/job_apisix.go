@@ -67,6 +67,12 @@ func (c *ApisixJobCtl) Run(ctx context.Context) {
 
 	failed := false
 	for _, task := range c.jobTaskSpec.Tasks {
+		// passed only exists here when the task was kept from a previous run on retry
+		if task.Status == string(config.StatusPassed) {
+			c.writeTaskOutput(task)
+			continue
+		}
+
 		task.Status = string(config.StatusRunning)
 		c.ack()
 

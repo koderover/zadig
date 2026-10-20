@@ -184,7 +184,11 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	}
 
 	util.Go(func() {
-		if originReg.RegAddr == args.RegAddr && originReg.AccessKey == args.AccessKey && originReg.SecretKey == args.SecretKey {
+		if originReg.RegAddr == args.RegAddr &&
+			originReg.AccessKey == args.AccessKey &&
+			originReg.SecretKey == args.SecretKey &&
+			originReg.Region == args.Region &&
+			originReg.RegProvider == args.RegProvider {
 			return
 		}
 
@@ -194,9 +198,16 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 			return
 		}
 
+		reg := *args
+		decodedReg, err := commonutil.DecodeRegistry(&reg)
+		if err != nil {
+			log.Errorf("[UpdateRegistryNamespace] failed to decode registry, id: %s, err: %v", id, err)
+			return
+		}
+
 		for _, env := range envs {
 			if env.RegistryID == id {
-				err = kube.CreateOrUpdateDefaultRegistrySecret(env.Namespace, env.ClusterID, args)
+				err = kube.CreateOrUpdateDefaultRegistrySecret(env.Namespace, env.ClusterID, decodedReg)
 				if err != nil {
 					log.Errorf("[UpdateRegistryNamespaces] CreateOrUpdateDefaultRegistrySecret, namespace: %s, regID: %s error: %s", env.Namespace, id, err)
 				}

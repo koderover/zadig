@@ -360,6 +360,8 @@ type FreestyleJobInput struct {
 
 	// for service freestyle job
 	Services []*FreestyleJobServiceInfo `json:"services"`
+	// for variable-group freestyle job
+	VariableGroups []*commonmodels.FreestyleVariableGroup `json:"variable_groups"`
 
 	// for non-service freestyle job
 	KVs      []*types.KV               `json:"kv"`
@@ -757,6 +759,8 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 				}
 			}
 		}
+	} else if newSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		newSpec.VariableGroups = p.VariableGroups
 	} else if newSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 		newSpec.Envs = OpenAPIKVInputToKeyValList(newSpec.Envs, p.KVs)
 
