@@ -141,7 +141,7 @@ func (c *Client) createAIReviewComment(ctx context.Context, cli *aiReviewComment
 		if isAIReviewSummary(comment) {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
-			if err := archiveGitLabAIReviewSummaries(ctx, cli.gitlab, projectID, prID, int64(item.ID)); err != nil && c.logger != nil {
+			if err := archiveGitLabAIReviewSummaries(ctx, cli.gitlab, projectID, prID, int64(item.ID), item.Author.ID); err != nil && c.logger != nil {
 				c.logger.Warnf("failed to collapse previous GitLab AI review summaries for %s#%d: %v", projectID, prID, err)
 			}
 		}
@@ -154,7 +154,7 @@ func (c *Client) createAIReviewComment(ctx context.Context, cli *aiReviewComment
 	if isAIReviewSummary(comment) {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
-		if err := archiveGitHubAIReviewSummaries(ctx, cli.github, repoOwner, repoName, prID, item.GetID(), comment); err != nil && c.logger != nil {
+		if err := archiveGitHubAIReviewSummaries(ctx, cli.github, repoOwner, repoName, prID, item.GetID(), item.GetUser().GetID(), comment); err != nil && c.logger != nil {
 			c.logger.Warnf("failed to minimize previous GitHub AI review summaries for %s/%s#%d: %v", repoOwner, repoName, prID, err)
 		}
 	}

@@ -157,7 +157,7 @@ func GetApp(cfg *Config) (*github.App, error) {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidAppPrivateKey, err)
 	}
 
-	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans}})
+	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans, Timeout: 30 * time.Second}})
 	app, _, err := gc.Apps.Get(context.TODO(), "")
 	return app, err
 }
