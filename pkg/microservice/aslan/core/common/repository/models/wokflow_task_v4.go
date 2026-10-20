@@ -751,6 +751,7 @@ type AIReleaseSummaryItem struct {
 }
 
 type AIConfigChangeSummary struct {
+	Action                 string   `bson:"action,omitempty" json:"action,omitempty" yaml:"action,omitempty"`
 	NamespaceName          string   `bson:"namespace_name,omitempty" json:"namespace_name,omitempty" yaml:"namespace_name,omitempty"`
 	DataID                 string   `bson:"data_id,omitempty" json:"data_id,omitempty" yaml:"data_id,omitempty"`
 	Group                  string   `bson:"group,omitempty" json:"group,omitempty" yaml:"group,omitempty"`
