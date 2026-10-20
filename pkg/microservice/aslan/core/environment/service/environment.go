@@ -4710,9 +4710,6 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, userName
 				}
 				for _, workload := range workLoads {
 					if workload.ReleaseName == releaseName {
-						if workload.Type == setting.DaemonSet {
-							workload.ServiceName = svc.ServiceName
-						}
 						if workload.Type != setting.CronJob && workload.Type != setting.DaemonSet {
 							newScaleNumMap[workload.Name] = int(workload.Replicas)
 						}
