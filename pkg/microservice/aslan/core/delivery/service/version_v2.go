@@ -97,7 +97,7 @@ func CreateK8SDeliveryVersionV2(args *CreateDeliveryVersionRequest, logger *zap.
 		return err
 	}
 
-	if err = fillK8SDeliveryVersionYamlContent(args); err != nil {
+	if err = fillK8SDeliveryVersionYamlContent(args, false); err != nil {
 		return err
 	}
 
@@ -171,6 +171,20 @@ func buildDeliveryImagesV2(targetRegistry *commonmodels.RegistryNamespace, regis
 		err = updateDeliveryServiceImageInYaml(service, deliveryVersion.Source)
 		if err != nil {
 			return fmt.Errorf("failed to update service image in yaml, serviceName: %s, err: %s", service.ServiceName, err)
+		}
+	}
+	if deliveryVersion.Source == setting.DeliveryVersionSourceFromEnv {
+		// Render image variables after the legacy replacement pass so target
+		// images containing the source image are not replaced a second time.
+		err = fillK8SDeliveryVersionYamlContent(&CreateDeliveryVersionRequest{
+			ProjectName: deliveryVersion.ProjectName,
+			EnvName:     deliveryVersion.EnvName,
+			Production:  deliveryVersion.Production,
+			Source:      deliveryVersion.Source,
+			Services:    deliveryVersion.Services,
+		}, true)
+		if err != nil {
+			return fmt.Errorf("failed to render delivery target images: %w", err)
 		}
 	}
 
@@ -1190,7 +1204,7 @@ func GetDeliveryVersionDetailV2(args *commonrepo.DeliveryVersionV2Args, log *zap
 	return version, nil
 }
 
-func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest) error {
+func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest, useTargetImages bool) error {
 	if args == nil || args.Source != setting.DeliveryVersionSourceFromEnv {
 		return nil
 	}
@@ -1204,7 +1218,7 @@ func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest) error
 		return fmt.Errorf("failed to find env, projectName: %s, envName: %s, err: %v", args.ProjectName, args.EnvName, err)
 	}
 
-	return fillDeliveryVersionServicesYamlContent(env, args.Services)
+	return fillDeliveryVersionServicesYamlContent(env, args.Services, useTargetImages)
 }
 
 func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersionV2, logger *zap.SugaredLogger) {
@@ -1225,7 +1239,7 @@ func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersi
 		return
 	}
 
-	if err = fillDeliveryVersionServicesYamlContent(env, version.Services); err != nil {
+	if err = fillDeliveryVersionServicesYamlContent(env, version.Services, false); err != nil {
 		logger.Errorf("failed to fill delivery version yaml content, version: %s, projectName: %s, err: %v", version.Version, version.ProjectName, err)
 	}
 }
@@ -1239,20 +1253,57 @@ func hasEmptyDeliveryVersionYamlContent(services []*commonmodels.DeliveryVersion
 	return false
 }
 
-func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService) error {
+func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService, useTargetImages bool) error {
 	if env == nil {
 		return fmt.Errorf("env is nil")
 	}
 
 	serviceMap := env.GetServiceMap()
 	for _, service := range services {
-		if service == nil || service.YamlContent != "" {
+		if service == nil || (service.YamlContent != "" && !useTargetImages) {
 			continue
 		}
 
 		envSvc := serviceMap[service.ServiceName]
 		if envSvc == nil {
 			return fmt.Errorf("not found service %s in env %s", service.ServiceName, env.EnvName)
+		}
+
+		if useTargetImages {
+			svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: envSvc.ServiceName,
+				ProductName: env.ProductName,
+				Type:        envSvc.Type,
+				Revision:    envSvc.Revision,
+			}, env.Production)
+			if err != nil {
+				return fmt.Errorf("failed to find env service template %s: %w", service.ServiceName, err)
+			}
+			templateYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, env.ProductName, service.ServiceName, envSvc.GetServiceRender())
+			if err != nil {
+				return fmt.Errorf("failed to render env service template %s: %w", service.ServiceName, err)
+			}
+			if commonutil.ModuleImageRegex.MatchString(templateYaml) {
+				// The submitted YAML has already lost the image variables. Render
+				// the deployed template again with target images, leaving the env
+				// snapshot and modules not selected for delivery unchanged.
+				targetSvc := new(commonmodels.ProductService)
+				if err := util.DeepCopy(targetSvc, envSvc); err != nil {
+					return fmt.Errorf("failed to copy env service %s: %w", service.ServiceName, err)
+				}
+				targets := make([]*commonmodels.Container, 0, len(service.Images))
+				for _, image := range service.Images {
+					targets = append(targets, &commonmodels.Container{
+						Name:      image.ContainerName,
+						ImageName: image.ImageName,
+						Image:     image.TargetImage,
+					})
+				}
+				commonutil.OverrideContainerImagesByName(targetSvc.Containers, targets)
+				envSvc = targetSvc
+			} else if service.YamlContent != "" {
+				continue
+			}
 		}
 
 		yamlContent, err := kube.RenderEnvService(env, envSvc.GetServiceRender(), envSvc)
