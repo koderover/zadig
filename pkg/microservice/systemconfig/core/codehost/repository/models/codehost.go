@@ -50,24 +50,24 @@ type CodeHost struct {
 	Username string `bson:"username,omitempty"              json:"username,omitempty"        yaml:"username,omitempty"`
 	Password string `bson:"password,omitempty"              json:"password,omitempty"        yaml:"password,omitempty"`
 	// AdvancedConfig contains code host advanced settings, including bot credentials.
-	// Keep the existing BSON field names for stored configurations; never serialize credentials to JSON or YAML.
-	AdvancedConfig *CodeHostAdvancedConfig `bson:"bot,omitempty"                   json:"-"                         yaml:"-"`
+	// Keep the existing BSON and API field names for stored configurations.
+	AdvancedConfig *CodeHostAdvancedConfig `bson:"bot,omitempty" json:"bot,omitempty" yaml:"-"`
 }
 
 type CodeHostAdvancedConfig struct {
-	GitLabBot *CodeHostGitLabBot `bson:"gitlab,omitempty"`
-	GitHubBot *CodeHostGitHubBot `bson:"github,omitempty"`
+	GitLabBot *CodeHostGitLabBot `bson:"gitlab,omitempty" json:"gitlab,omitempty"`
+	GitHubBot *CodeHostGitHubBot `bson:"github,omitempty" json:"github,omitempty"`
 }
 
 type CodeHostGitLabBot struct {
-	Token       string `bson:"token"`
-	BotUsername string `bson:"bot_username"`
+	Token       string `bson:"token" json:"token"`
+	BotUsername string `bson:"bot_username" json:"bot_username"`
 }
 
 type CodeHostGitHubBot struct {
-	AppID      int    `bson:"app_id"`
-	PrivateKey string `bson:"private_key"`
-	BotName    string `bson:"bot_name"`
+	AppID      int    `bson:"app_id" json:"app_id"`
+	PrivateKey string `bson:"private_key" json:"private_key"`
+	BotName    string `bson:"bot_name" json:"bot_name"`
 }
 
 // GetGitLabBot returns the GitLab bot config if a token is configured.

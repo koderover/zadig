@@ -2,7 +2,6 @@ package reviewfeedback
 
 import (
 	"context"
-	"encoding/base64"
 	"net/http"
 	"net/url"
 	"sync"
@@ -19,9 +18,8 @@ import (
 // App transports refresh installation tokens themselves; the cache is shared
 // by scheduled collection and review-thread webhooks.
 type appClientCacheKey struct {
-	CodehostID, AppID    int
+	AppID                int
 	Owner, AppKey, Proxy string
-	InsecureSkipVerify   bool
 }
 
 var appClientMu sync.Mutex
@@ -31,34 +29,24 @@ var appClients = map[appClientCacheKey]*githubapi.Client{}
 func newGitHubFeedbackClient(ctx context.Context, pr *models.AIReviewFeedback, host *systemconfig.CodeHost) (*githubapi.Client, error) {
 	appClientMu.Lock()
 	defer appClientMu.Unlock()
-	proxyAddress := config.ProxyHTTPSAddr()
-	var appConfig *githubtool.Config
-	if bot := host.AdvancedConfig.GetGitHubBot(); bot != nil {
-		if !host.EnableProxy {
-			proxyAddress = ""
-		}
-		appConfig = &githubtool.Config{AppID: bot.AppID, AppKey: base64.StdEncoding.EncodeToString([]byte(bot.PrivateKey)), Owner: pr.RepoOwner, Proxy: proxyAddress, InsecureSkipVerify: host.DisableSSL, DisableCache: true}
-	} else {
-		apps, err := repo.NewGithubAppColl().Find(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(apps) > 0 {
-			appConfig = &githubtool.Config{AppID: apps[0].AppID, AppKey: apps[0].AppKey, Owner: pr.RepoOwner, Proxy: proxyAddress, DisableCache: true}
-		}
+	apps, err := repo.NewGithubAppColl().Find(ctx)
+	if err != nil {
+		return nil, err
 	}
-	// Invalidate only this codehost's clients when its credentials or transport settings change.
+	proxyAddress := config.ProxyHTTPSAddr()
+	// Discard cached clients when the configured App or proxy changes.
 	for key := range appClients {
-		if key.CodehostID == host.ID && (appConfig == nil || key.AppID != appConfig.AppID || key.AppKey != appConfig.AppKey || key.Proxy != appConfig.Proxy || key.InsecureSkipVerify != appConfig.InsecureSkipVerify) {
+		if len(apps) == 0 || key.AppID != apps[0].AppID || key.AppKey != apps[0].AppKey || key.Proxy != proxyAddress {
 			delete(appClients, key)
 		}
 	}
-	if appConfig != nil {
-		cacheKey := appClientCacheKey{CodehostID: host.ID, AppID: appConfig.AppID, Owner: pr.RepoOwner, AppKey: appConfig.AppKey, Proxy: appConfig.Proxy, InsecureSkipVerify: appConfig.InsecureSkipVerify}
+	if len(apps) > 0 {
+		app := apps[0]
+		cacheKey := appClientCacheKey{AppID: app.AppID, Owner: pr.RepoOwner, AppKey: app.AppKey, Proxy: proxyAddress}
 		if cli := appClients[cacheKey]; cli != nil {
 			return cli, nil
 		}
-		cli, err := githubtool.NewAppClientWithContext(ctx, appConfig)
+		cli, err := githubtool.NewAppClientWithContext(ctx, &githubtool.Config{AppKey: app.AppKey, AppID: app.AppID, Owner: pr.RepoOwner, Proxy: proxyAddress, DisableCache: true})
 		if err != nil {
 			return nil, err
 		}

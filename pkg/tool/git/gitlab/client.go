@@ -82,14 +82,13 @@ func NewClientWithContext(ctx context.Context, id int, address, accessToken, pro
 
 // NewAccessTokenClient creates a client authenticated by a personal, group or project access token.
 // Unlike NewClient, it never refreshes the codehost OAuth token.
-func NewAccessTokenClient(address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool, extraOptions ...gitlab.ClientOptionFunc) (*Client, error) {
+func NewAccessTokenClient(address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool) (*Client, error) {
 	client, err := newHTTPClient(proxyAddr, enableProxy, skipTLS)
 	if err != nil {
 		return nil, err
 	}
 
-	clientOptions := append([]gitlab.ClientOptionFunc{gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client)}, extraOptions...)
-	cli, err := gitlab.NewClient(accessToken, clientOptions...)
+	cli, err := gitlab.NewClient(accessToken, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client, err: %s", err)
 	}

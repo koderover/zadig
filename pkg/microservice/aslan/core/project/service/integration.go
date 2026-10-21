@@ -27,9 +27,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	systemconfig_codehost_service "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func CreateProjectCodeHost(projectName string, codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	if codehost.AdvancedConfig != nil {
+		return nil, e.ErrInvalidParam.AddDesc("仅系统级代码源支持配置机器人身份")
+	}
+
 	if codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
@@ -79,6 +84,10 @@ func DeleteProjectCodeHostByID(projectName string, id int, _ *zap.SugaredLogger)
 }
 
 func UpdateProjectSystemCodeHost(projectName string, host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	if host.AdvancedConfig != nil {
+		return nil, e.ErrInvalidParam.AddDesc("仅系统级代码源支持配置机器人身份")
+	}
+
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}

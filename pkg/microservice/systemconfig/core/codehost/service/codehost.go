@@ -49,7 +49,7 @@ import (
 
 const callback = "/api/directory/codehosts/callback"
 
-func CreateSystemCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+func CreateSystemCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	codehost := &args.CodeHost
 	if codehost.Type == types.ProviderOther {
 		codehost.IsReady = "2"
@@ -81,10 +81,7 @@ func CreateSystemCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostRe
 		return nil, err
 	}
 	codehost.ID = len(list) + 1
-	if _, err := mongodb.NewCodehostColl().AddSystemCodeHost(codehost); err != nil {
-		return nil, err
-	}
-	return toCodeHostResp(codehost), nil
+	return mongodb.NewCodehostColl().AddSystemCodeHost(codehost)
 }
 
 func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
@@ -125,6 +122,18 @@ func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap
 			}
 		}
 
+		if bot := codeHost.AdvancedConfig.GetGitLabBot(); bot != nil {
+			bot.Token, err = crypto.AesEncryptByKey(bot.Token, aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if bot := codeHost.AdvancedConfig.GetGitHubBot(); bot != nil {
+			bot.PrivateKey, err = crypto.AesEncryptByKey(bot.PrivateKey, aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
+		}
 		result = append(result, codeHost)
 	}
 	return result, nil
@@ -138,7 +147,7 @@ func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*model
 	})
 }
 
-func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*CodeHostResp, error) {
+func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		IntegrationLevel: setting.IntegrationLevelSystem,
 		Address:          address,
@@ -149,22 +158,14 @@ func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLog
 		log.Errorf("ListCodeHost error:%s", err)
 		return nil, err
 	}
-	codeHosts, err = EncypteCodeHost(encryptedKey, codeHosts, log)
-	if err != nil {
-		return nil, err
-	}
-	resp := make([]*CodeHostResp, 0, len(codeHosts))
-	for _, host := range codeHosts {
-		resp = append(resp, toCodeHostResp(host))
-	}
-	return resp, nil
+	return EncypteCodeHost(encryptedKey, codeHosts, log)
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteSystemCodeHostByID(id)
 }
 
-func UpdateCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+func UpdateCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	host := &args.CodeHost
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
@@ -188,10 +189,7 @@ func UpdateCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostResp, er
 	if err := applyCodeHostBot(host, args.Bot); err != nil {
 		return nil, err
 	}
-	if _, err := mongodb.NewCodehostColl().UpdateCodeHost(host, len(args.Bot) > 0); err != nil {
-		return nil, err
-	}
-	return toCodeHostResp(host), nil
+	return mongodb.NewCodehostColl().UpdateCodeHost(host, len(args.Bot) > 0)
 }
 
 func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -202,7 +200,7 @@ func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger, contexts ...co
 	return mongodb.NewCodehostColl().GetCodeHostByID(id, ignoreDelete, contexts...)
 }
 
-func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*CodeHostResp, error) {
+func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
 	codeHost, err := GetCodeHost(id, ignoreDelete, log)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -217,7 +215,7 @@ func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *z
 	if len(resp) == 0 {
 		return nil, nil
 	}
-	return toCodeHostResp(resp[0]), nil
+	return resp[0], nil
 }
 
 func GetCodeHostByAlias(alias string) (*models.CodeHost, error) {

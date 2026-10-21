@@ -41,11 +41,6 @@ type CodeHostArgs struct {
 	Bot json.RawMessage `json:"bot"`
 }
 
-type CodeHostResp struct {
-	*models.CodeHost
-	Bot *CodeHostBotResp `json:"bot,omitempty"`
-}
-
 type CodeHostBotArgs struct {
 	GitLab *CodeHostGitLabBotArgs `json:"gitlab"`
 	GitHub *CodeHostGitHubBotArgs `json:"github"`
@@ -58,23 +53,6 @@ type CodeHostGitLabBotArgs struct {
 type CodeHostGitHubBotArgs struct {
 	AppID      *int   `json:"app_id"`
 	PrivateKey string `json:"private_key"`
-}
-
-type CodeHostBotResp struct {
-	Configured bool                   `json:"configured"`
-	GitLab     *CodeHostGitLabBotResp `json:"gitlab,omitempty"`
-	GitHub     *CodeHostGitHubBotResp `json:"github,omitempty"`
-}
-
-type CodeHostGitLabBotResp struct {
-	TokenConfigured bool   `json:"token_configured"`
-	BotUsername     string `json:"bot_username"`
-}
-
-type CodeHostGitHubBotResp struct {
-	AppID                int    `json:"app_id"`
-	PrivateKeyConfigured bool   `json:"private_key_configured"`
-	BotName              string `json:"bot_name"`
 }
 
 func applyCodeHostBot(codeHost *models.CodeHost, raw json.RawMessage) error {
@@ -194,26 +172,4 @@ func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*mo
 		PrivateKey: privateKey,
 		BotName:    app.GetSlug() + "[bot]",
 	}, nil
-}
-
-func toCodeHostResp(codeHost *models.CodeHost) *CodeHostResp {
-	resp := &CodeHostResp{CodeHost: codeHost}
-	if codeHost.IntegrationLevel != setting.IntegrationLevelSystem {
-		return resp
-	}
-	switch codeHost.Type {
-	case setting.SourceFromGitlab:
-		resp.Bot = &CodeHostBotResp{}
-		if bot := codeHost.AdvancedConfig.GetGitLabBot(); bot != nil {
-			resp.Bot.Configured = true
-			resp.Bot.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
-		}
-	case setting.SourceFromGithub:
-		resp.Bot = &CodeHostBotResp{}
-		if bot := codeHost.AdvancedConfig.GetGitHubBot(); bot != nil {
-			resp.Bot.Configured = true
-			resp.Bot.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
-		}
-	}
-	return resp
 }

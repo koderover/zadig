@@ -22,6 +22,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
@@ -206,7 +207,7 @@ func (c *CodehostColl) AvailableCodeHost(projectName string) ([]*models.CodeHost
 		},
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query)
+	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetProjection(bson.M{"bot": 0}))
 	if err != nil {
 		return nil, err
 	}

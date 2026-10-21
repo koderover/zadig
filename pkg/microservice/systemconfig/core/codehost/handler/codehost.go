@@ -77,7 +77,11 @@ func ListSystemCodeHost(c *gin.Context) {
 func ListCodeHostInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	codeHosts, err := service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	for _, host := range codeHosts {
+		host.AdvancedConfig = nil
+	}
+	ctx.Resp, ctx.RespErr = codeHosts, err
 }
 
 func DeleteSystemCodeHost(c *gin.Context) {
