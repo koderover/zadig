@@ -60,7 +60,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.Logger)
 }
 
 func ListSystemCodeHost(c *gin.Context) {
@@ -201,7 +201,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.Logger)
 }
 
 // @Summary 验证代码源连接

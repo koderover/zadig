@@ -49,7 +49,7 @@ import (
 
 const callback = "/api/directory/codehosts/callback"
 
-func CreateSystemCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+func CreateSystemCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostResp, error) {
 	codehost := &args.CodeHost
 	if codehost.Type == types.ProviderOther {
 		codehost.IsReady = "2"
@@ -69,7 +69,7 @@ func CreateSystemCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLog
 	}
 
 	codehost.IntegrationLevel = setting.IntegrationLevelSystem
-	if err := applyCodeHostBot(codehost, args.Bot, userName); err != nil {
+	if err := applyCodeHostBot(codehost, args.Bot); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +164,7 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteSystemCodeHostByID(id)
 }
 
-func UpdateCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLogger) (*CodeHostResp, error) {
+func UpdateCodeHost(args *CodeHostArgs, _ *zap.SugaredLogger) (*CodeHostResp, error) {
 	host := &args.CodeHost
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
@@ -184,8 +184,8 @@ func UpdateCodeHost(args *CodeHostArgs, userName string, _ *zap.SugaredLogger) (
 	}
 
 	host.IntegrationLevel = oldCodeHost.IntegrationLevel
-	host.Bot = oldCodeHost.Bot
-	if err := applyCodeHostBot(host, args.Bot, userName); err != nil {
+	host.AdvancedConfig = oldCodeHost.AdvancedConfig
+	if err := applyCodeHostBot(host, args.Bot); err != nil {
 		return nil, err
 	}
 	if _, err := mongodb.NewCodehostColl().UpdateCodeHost(host, len(args.Bot) > 0); err != nil {

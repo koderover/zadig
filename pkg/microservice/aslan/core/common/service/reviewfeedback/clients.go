@@ -33,7 +33,7 @@ func newGitHubFeedbackClient(ctx context.Context, pr *models.AIReviewFeedback, h
 	defer appClientMu.Unlock()
 	proxyAddress := config.ProxyHTTPSAddr()
 	var appConfig *githubtool.Config
-	if bot := host.Bot.GetGitHub(); bot != nil {
+	if bot := host.AdvancedConfig.GetGitHubBot(); bot != nil {
 		if !host.EnableProxy {
 			proxyAddress = ""
 		}

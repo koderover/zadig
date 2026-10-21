@@ -69,7 +69,7 @@ func (c *Client) newAIReviewCommentClient(ctx context.Context, codehostID int, r
 
 	switch strings.ToLower(codeHostDetail.Type) {
 	case setting.SourceFromGitlab:
-		if bot := codeHostDetail.Bot.GetGitLab(); bot != nil {
+		if bot := codeHostDetail.AdvancedConfig.GetGitLabBot(); bot != nil {
 			identity := fmt.Sprintf("codehost %d bot user %s", codehostID, bot.BotUsername)
 			cli, err := gitlabtool.NewAccessTokenClient(
 				codeHostDetail.Address,
@@ -97,7 +97,7 @@ func (c *Client) newAIReviewCommentClient(ctx context.Context, codehostID int, r
 		}
 		return &aiReviewCommentClient{gitlab: cli.Client, identity: fmt.Sprintf("codehost %d token", codehostID)}, nil
 	case setting.SourceFromGithub:
-		if bot := codeHostDetail.Bot.GetGitHub(); bot != nil {
+		if bot := codeHostDetail.AdvancedConfig.GetGitHubBot(); bot != nil {
 			identity := fmt.Sprintf("codehost %d GitHub App %s", codehostID, bot.BotName)
 			proxyAddr := ""
 			if codeHostDetail.EnableProxy {

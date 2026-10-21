@@ -64,8 +64,6 @@ type CodeHostBotResp struct {
 	Configured bool                   `json:"configured"`
 	GitLab     *CodeHostGitLabBotResp `json:"gitlab,omitempty"`
 	GitHub     *CodeHostGitHubBotResp `json:"github,omitempty"`
-	UpdatedBy  string                 `json:"updated_by,omitempty"`
-	UpdatedAt  int64                  `json:"updated_at,omitempty"`
 }
 
 type CodeHostGitLabBotResp struct {
@@ -79,7 +77,7 @@ type CodeHostGitHubBotResp struct {
 	BotName              string `json:"bot_name"`
 }
 
-func applyCodeHostBot(codeHost *models.CodeHost, raw json.RawMessage, userName string) error {
+func applyCodeHostBot(codeHost *models.CodeHost, raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return nil
 	}
@@ -90,38 +88,38 @@ func applyCodeHostBot(codeHost *models.CodeHost, raw json.RawMessage, userName s
 		return e.ErrInvalidParam.AddDesc(fmt.Sprintf("代码源类型 %s 不支持配置机器人身份", codeHost.Type))
 	}
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		codeHost.Bot = nil
+		codeHost.AdvancedConfig = nil
 		return nil
 	}
 	args := new(CodeHostBotArgs)
 	if err := json.Unmarshal(raw, args); err != nil {
 		return e.ErrInvalidParam.AddDesc("invalid codehost bot args")
 	}
-	bot := &models.CodeHostBot{UpdatedBy: userName, UpdatedAt: time.Now().Unix()}
+	advancedConfig := new(models.CodeHostAdvancedConfig)
 	var err error
 	switch codeHost.Type {
 	case setting.SourceFromGitlab:
 		if args.GitLab == nil || args.GitHub != nil {
 			return e.ErrInvalidParam.AddDesc("GitLab 代码源需传入 gitlab 配置")
 		}
-		bot.GitLab, err = mergeGitLabBot(codeHost, args.GitLab)
+		advancedConfig.GitLabBot, err = mergeGitLabBot(codeHost, args.GitLab)
 	case setting.SourceFromGithub:
 		if args.GitHub == nil || args.GitLab != nil {
 			return e.ErrInvalidParam.AddDesc("GitHub 代码源需传入 github 配置")
 		}
-		bot.GitHub, err = mergeGitHubBot(codeHost, args.GitHub)
+		advancedConfig.GitHubBot, err = mergeGitHubBot(codeHost, args.GitHub)
 	}
 	if err != nil {
 		return err
 	}
-	codeHost.Bot = bot
+	codeHost.AdvancedConfig = advancedConfig
 	return nil
 }
 
 func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*models.CodeHostGitLabBot, error) {
 	token := args.Token
 	if token == "" {
-		if old := codeHost.Bot.GetGitLab(); old != nil {
+		if old := codeHost.AdvancedConfig.GetGitLabBot(); old != nil {
 			token = old.Token
 		}
 	}
@@ -149,7 +147,7 @@ func mergeGitLabBot(codeHost *models.CodeHost, args *CodeHostGitLabBotArgs) (*mo
 }
 
 func mergeGitHubBot(codeHost *models.CodeHost, args *CodeHostGitHubBotArgs) (*models.CodeHostGitHubBot, error) {
-	old := codeHost.Bot.GetGitHub()
+	old := codeHost.AdvancedConfig.GetGitHubBot()
 	var appID int
 	switch {
 	case args.AppID != nil:
@@ -206,22 +204,16 @@ func toCodeHostResp(codeHost *models.CodeHost) *CodeHostResp {
 	switch codeHost.Type {
 	case setting.SourceFromGitlab:
 		resp.Bot = &CodeHostBotResp{}
-		if bot := codeHost.Bot.GetGitLab(); bot != nil {
+		if bot := codeHost.AdvancedConfig.GetGitLabBot(); bot != nil {
 			resp.Bot.Configured = true
 			resp.Bot.GitLab = &CodeHostGitLabBotResp{TokenConfigured: true, BotUsername: bot.BotUsername}
 		}
 	case setting.SourceFromGithub:
 		resp.Bot = &CodeHostBotResp{}
-		if bot := codeHost.Bot.GetGitHub(); bot != nil {
+		if bot := codeHost.AdvancedConfig.GetGitHubBot(); bot != nil {
 			resp.Bot.Configured = true
 			resp.Bot.GitHub = &CodeHostGitHubBotResp{AppID: bot.AppID, PrivateKeyConfigured: true, BotName: bot.BotName}
 		}
-	default:
-		return resp
-	}
-	if resp.Bot.Configured {
-		resp.Bot.UpdatedBy = codeHost.Bot.UpdatedBy
-		resp.Bot.UpdatedAt = codeHost.Bot.UpdatedAt
 	}
 	return resp
 }

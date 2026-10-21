@@ -286,13 +286,13 @@ func (c *CodehostColl) deleteCodeHost(query bson.M) error {
 	return nil
 }
 
-func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost, updateBot bool) (*models.CodeHost, error) {
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost, updateAdvancedConfig bool) (*models.CodeHost, error) {
 	query := bson.M{
 		"id":         host.ID,
 		"deleted_at": 0,
 	}
 
-	return c.updateCodeHost(query, host, updateBot)
+	return c.updateCodeHost(query, host, updateAdvancedConfig)
 }
 
 func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.CodeHost) (*models.CodeHost, error) {
@@ -306,7 +306,7 @@ func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.Co
 	return c.updateCodeHost(query, host, false)
 }
 
-func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updateBot bool) (*models.CodeHost, error) {
+func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updateAdvancedConfig bool) (*models.CodeHost, error) {
 	modifyValue := bson.M{
 		"type":           host.Type,
 		"address":        host.Address,
@@ -334,11 +334,11 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updat
 	}
 
 	change := bson.M{"$set": modifyValue}
-	if updateBot {
-		if host.Bot == nil {
+	if updateAdvancedConfig {
+		if host.AdvancedConfig == nil {
 			change["$unset"] = bson.M{"bot": ""}
 		} else {
-			modifyValue["bot"] = host.Bot
+			modifyValue["bot"] = host.AdvancedConfig
 		}
 	}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)

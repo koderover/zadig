@@ -59,8 +59,8 @@ type CodeHost struct {
 	// perforce Type parameters
 	P4Host string `json:"perforce_host"`
 	P4Port int    `json:"perforce_port"`
-	// Bot is the identity used to publish AI review comments, only filled by GetCodeHost
-	Bot *models.CodeHostBot `json:"-" yaml:"-"`
+	// AdvancedConfig holds advanced settings and credentials, only filled by GetCodeHost.
+	AdvancedConfig *models.CodeHostAdvancedConfig `json:"-" yaml:"-"`
 }
 
 type Option struct {
@@ -130,7 +130,7 @@ func (c *Client) GetCodeHost(id int, contexts ...context.Context) (*CodeHost, er
 		PrivateAccessToken: resp.PrivateAccessToken,
 		P4Host:             resp.P4Host,
 		P4Port:             resp.P4Port,
-		Bot:                resp.Bot,
+		AdvancedConfig:     resp.AdvancedConfig,
 	}
 
 	return res, nil
@@ -218,7 +218,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		DisableSSL:         codehost.DisableSSL,
 	}
 
-	_, err := codehostservice.UpdateCodeHost(&codehostservice.CodeHostArgs{CodeHost: *arg}, "", log.SugaredLogger())
+	_, err := codehostservice.UpdateCodeHost(&codehostservice.CodeHostArgs{CodeHost: *arg}, log.SugaredLogger())
 	return err
 }
 

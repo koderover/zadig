@@ -49,15 +49,14 @@ type CodeHost struct {
 	// common parameters
 	Username string `bson:"username,omitempty"              json:"username,omitempty"        yaml:"username,omitempty"`
 	Password string `bson:"password,omitempty"              json:"password,omitempty"        yaml:"password,omitempty"`
-	// Bot is the identity used to publish AI review comments. It holds credentials, so it is never serialized to JSON or YAML.
-	Bot *CodeHostBot `bson:"bot,omitempty"                   json:"-"                         yaml:"-"`
+	// AdvancedConfig contains code host advanced settings, including bot credentials.
+	// Keep the existing BSON field names for stored configurations; never serialize credentials to JSON or YAML.
+	AdvancedConfig *CodeHostAdvancedConfig `bson:"bot,omitempty"                   json:"-"                         yaml:"-"`
 }
 
-type CodeHostBot struct {
-	GitLab    *CodeHostGitLabBot `bson:"gitlab,omitempty"`
-	GitHub    *CodeHostGitHubBot `bson:"github,omitempty"`
-	UpdatedBy string             `bson:"updated_by"`
-	UpdatedAt int64              `bson:"updated_at"`
+type CodeHostAdvancedConfig struct {
+	GitLabBot *CodeHostGitLabBot `bson:"gitlab,omitempty"`
+	GitHubBot *CodeHostGitHubBot `bson:"github,omitempty"`
 }
 
 type CodeHostGitLabBot struct {
@@ -71,20 +70,20 @@ type CodeHostGitHubBot struct {
 	BotName    string `bson:"bot_name"`
 }
 
-// GetGitLab returns the GitLab bot config if a token is configured.
-func (b *CodeHostBot) GetGitLab() *CodeHostGitLabBot {
-	if b == nil || b.GitLab == nil || b.GitLab.Token == "" {
+// GetGitLabBot returns the GitLab bot config if a token is configured.
+func (b *CodeHostAdvancedConfig) GetGitLabBot() *CodeHostGitLabBot {
+	if b == nil || b.GitLabBot == nil || b.GitLabBot.Token == "" {
 		return nil
 	}
-	return b.GitLab
+	return b.GitLabBot
 }
 
-// GetGitHub returns the GitHub App bot config if both app ID and private key are configured.
-func (b *CodeHostBot) GetGitHub() *CodeHostGitHubBot {
-	if b == nil || b.GitHub == nil || b.GitHub.AppID <= 0 || b.GitHub.PrivateKey == "" {
+// GetGitHubBot returns the GitHub App bot config if both app ID and private key are configured.
+func (b *CodeHostAdvancedConfig) GetGitHubBot() *CodeHostGitHubBot {
+	if b == nil || b.GitHubBot == nil || b.GitHubBot.AppID <= 0 || b.GitHubBot.PrivateKey == "" {
 		return nil
 	}
-	return b.GitHub
+	return b.GitHubBot
 }
 
 func (CodeHost) TableName() string {
