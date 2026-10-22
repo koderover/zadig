@@ -287,13 +287,13 @@ func (c *CodehostColl) deleteCodeHost(query bson.M) error {
 	return nil
 }
 
-func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost, updateAdvancedConfig bool) (*models.CodeHost, error) {
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{
 		"id":         host.ID,
 		"deleted_at": 0,
 	}
 
-	return c.updateCodeHost(query, host, updateAdvancedConfig)
+	return c.updateCodeHost(query, host, true)
 }
 
 func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.CodeHost) (*models.CodeHost, error) {

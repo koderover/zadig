@@ -46,7 +46,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	req := new(service.CodeHostArgs)
+	req := new(models.CodeHost)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = err
 		return
@@ -190,7 +190,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	req := new(service.CodeHostArgs)
+	req := new(models.CodeHost)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = err
 		return

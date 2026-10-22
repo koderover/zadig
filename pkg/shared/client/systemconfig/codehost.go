@@ -196,29 +196,12 @@ func (c *Client) ListCodeHostsInternal() ([]*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
-	arg := &models.CodeHost{
-		ID:                 codehost.ID,
-		Type:               codehost.Type,
-		Address:            codehost.Address,
-		AccessToken:        codehost.AccessToken,
-		RefreshToken:       codehost.RefreshToken,
-		Namespace:          codehost.Namespace,
-		ApplicationId:      codehost.AccessKey,
-		Region:             codehost.Region,
-		Username:           codehost.Username,
-		Password:           codehost.Password,
-		ClientSecret:       codehost.SecretKey,
-		Alias:              codehost.Alias,
-		AuthType:           codehost.AuthType,
-		SSHKey:             codehost.SSHKey,
-		PrivateAccessToken: codehost.PrivateAccessToken,
-		EnableProxy:        codehost.EnableProxy,
-		UpdatedAt:          codehost.UpdatedAt,
-		DisableSSL:         codehost.DisableSSL,
-	}
-
-	_, err := codehostservice.UpdateCodeHost(&codehostservice.CodeHostArgs{CodeHost: *arg}, log.SugaredLogger())
+func (c *Client) UpdateCodeHostToken(id int, codehost *CodeHost) error {
+	_, err := codehostservice.UpdateCodeHostToken(&models.CodeHost{
+		ID:           id,
+		AccessToken:  codehost.AccessToken,
+		RefreshToken: codehost.RefreshToken,
+	}, log.SugaredLogger())
 	return err
 }
 

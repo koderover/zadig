@@ -74,7 +74,7 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 				ch.RefreshToken = token.RefreshToken
 				ch.UpdatedAt = int64(token.CreatedAt)
 
-				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+				if err = systemconfig.New().UpdateCodeHostToken(ch.ID, ch); err != nil {
 					log.Errorf("failed to updateCodeHost err:%s", err)
 				}
 			} else {
