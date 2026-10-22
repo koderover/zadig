@@ -63,6 +63,8 @@ func ParseSysKeys(namespace, envName, productName, serviceName, clusterName, ori
 // final container images. Replacement values are prepared before scanning YAML;
 // split errors are reported only when the corresponding variable is referenced.
 // Unavailable images may remain unresolved when allowUnresolved is true.
+// The returned YAML includes all successful replacements, even on error.
+// Variables without replacement values remain unchanged.
 func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, allowUnresolved bool) (string, error) {
 	replacements := make(map[string]string)
 	replacementErrors := make(map[string]error)
@@ -103,17 +105,18 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 		}
 	}
 
-	for _, key := range commonutil.ModuleImageRegex.FindAllString(yaml, -1) {
-		if err := replacementErrors[key]; err != nil {
-			return "", err
-		}
-	}
 	yaml = commonutil.ModuleImageRegex.ReplaceAllStringFunc(yaml, func(key string) string {
 		if value, exists := replacements[key]; exists {
 			return value
 		}
 		return key
 	})
+
+	for _, key := range commonutil.ModuleImageRegex.FindAllString(yaml, -1) {
+		if err := replacementErrors[key]; err != nil {
+			return yaml, err
+		}
+	}
 
 	if allowUnresolved {
 		return yaml, nil
