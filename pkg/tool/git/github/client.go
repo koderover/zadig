@@ -136,8 +136,6 @@ func NewAppClientWithContext(ctx context.Context, cfg *Config) (*Client, error) 
 		return nil, err
 	}
 
-	// token, _ := itr.Token(context.TODO())
-	// c := &Client{Client: gc, InstallationToken: token}
 	c := NewClient(&Config{HTTPClient: &http.Client{Transport: itr}})
 
 	return c, nil

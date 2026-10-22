@@ -207,7 +207,7 @@ func (c *CodehostColl) AvailableCodeHost(projectName string) ([]*models.CodeHost
 		},
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetProjection(bson.M{"bot": 0}))
+	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetProjection(bson.M{"advanced_config": 0}))
 	if err != nil {
 		return nil, err
 	}
@@ -337,9 +337,9 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updat
 	change := bson.M{"$set": modifyValue}
 	if updateAdvancedConfig {
 		if host.AdvancedConfig == nil {
-			change["$unset"] = bson.M{"bot": ""}
+			change["$unset"] = bson.M{"advanced_config": ""}
 		} else {
-			modifyValue["bot"] = host.AdvancedConfig
+			modifyValue["advanced_config"] = host.AdvancedConfig
 		}
 	}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)

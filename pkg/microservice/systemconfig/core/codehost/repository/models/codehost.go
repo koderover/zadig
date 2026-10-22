@@ -50,8 +50,7 @@ type CodeHost struct {
 	Username string `bson:"username,omitempty"              json:"username,omitempty"        yaml:"username,omitempty"`
 	Password string `bson:"password,omitempty"              json:"password,omitempty"        yaml:"password,omitempty"`
 	// AdvancedConfig contains code host advanced settings, including bot credentials.
-	// Keep the existing BSON and API field names for stored configurations.
-	AdvancedConfig *CodeHostAdvancedConfig `bson:"bot,omitempty" json:"bot,omitempty" yaml:"-"`
+	AdvancedConfig *CodeHostAdvancedConfig `bson:"advanced_config,omitempty" json:"advanced_config,omitempty" yaml:"-"`
 }
 
 type CodeHostAdvancedConfig struct {
