@@ -29,14 +29,20 @@ var ModuleImagePartVariables = []struct {
 	Part        string
 	Description string
 }{
-	{"registry", "镜像仓库地址，包含端口"},
-	{"namespace", "镜像多级路径"},
-	{"name", "镜像名"},
-	{"tag", "镜像标签"},
+	{Part: "registry", Description: "镜像仓库地址，包含端口"},
+	{Part: "namespace", Description: "镜像多级路径"},
+	{Part: "name", Description: "镜像名"},
+	{Part: "tag", Description: "镜像标签"},
 }
 
 // ModuleImageRegex captures the module name and optional image part.
-var ModuleImageRegex = regexp.MustCompile(`\$([A-Za-z0-9_-]+)-image(?:-(registry|namespace|name|tag))?\$`)
+var ModuleImageRegex = func() *regexp.Regexp {
+	parts := make([]string, 0, len(ModuleImagePartVariables))
+	for _, variable := range ModuleImagePartVariables {
+		parts = append(parts, regexp.QuoteMeta(variable.Part))
+	}
+	return regexp.MustCompile(`\$([A-Za-z0-9_-]+)-image(?:-(` + strings.Join(parts, "|") + `))?\$`)
+}()
 
 // IsModuleImagePlaceholder also recognizes unresolved variables inside a composed image.
 func IsModuleImagePlaceholder(image string) bool {
@@ -49,6 +55,22 @@ type ModuleImageParts struct {
 	Namespace string
 	Name      string
 	Tag       string
+}
+
+// PartValue distinguishes unsupported parts from supported parts with empty values.
+func (p *ModuleImageParts) PartValue(part string) (string, bool) {
+	switch part {
+	case "registry":
+		return p.Registry, true
+	case "namespace":
+		return p.Namespace, true
+	case "name":
+		return p.Name, true
+	case "tag":
+		return p.Tag, true
+	default:
+		return "", false
+	}
 }
 
 // ParseModuleImageParts preserves explicitly supplied registry and path components.

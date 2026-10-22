@@ -92,15 +92,14 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 			}
 			continue
 		}
-		values := map[string]string{
-			"registry":  parts.Registry,
-			"namespace": parts.Namespace,
-			"name":      parts.Name,
-			"tag":       parts.Tag,
-		}
 		for _, variable := range commonutil.ModuleImagePartVariables {
 			key := fmt.Sprintf("$%s-image-%s$", c.Name, variable.Part)
-			replacements[key] = values[variable.Part]
+			value, ok := parts.PartValue(variable.Part)
+			if !ok {
+				replacementErrors[key] = fmt.Errorf("module %q variable %s: unsupported image part %q", c.Name, key, variable.Part)
+				continue
+			}
+			replacements[key] = value
 		}
 	}
 

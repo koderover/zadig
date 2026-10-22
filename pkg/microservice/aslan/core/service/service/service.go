@@ -245,19 +245,18 @@ func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*S
 			Value: module.Image,
 		})
 
-		var values map[string]string
-		if parts, err := commonutil.ParseModuleImageParts(module.Image); err == nil {
-			values = map[string]string{
-				"registry":  parts.Registry,
-				"namespace": parts.Namespace,
-				"name":      parts.Name,
-				"tag":       parts.Tag,
-			}
+		parts, err := commonutil.ParseModuleImageParts(module.Image)
+		if err != nil {
+			parts = &commonutil.ModuleImageParts{}
 		}
 		for _, variable := range commonutil.ModuleImagePartVariables {
+			value, ok := parts.PartValue(variable.Part)
+			if !ok {
+				continue
+			}
 			systemVariables = append(systemVariables, &Variable{
 				Key:         fmt.Sprintf("$%s-image-%s$", module.Name, variable.Part),
-				Value:       values[variable.Part],
+				Value:       value,
 				Description: variable.Description,
 			})
 		}

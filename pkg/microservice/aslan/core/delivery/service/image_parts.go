@@ -102,7 +102,7 @@ func replaceDeliveryServiceImagesWithTemplate(content, template, namespace strin
 		targets := make([]*commonmodels.Container, 0, len(images))
 		matchedFields := make(map[*yaml.Node]string)
 		for _, image := range images {
-			if image == nil || image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage || strings.Contains(image.SourceImage, "@") {
+			if image == nil || image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
 				continue
 			}
 			fields := modules[image.ContainerName]
