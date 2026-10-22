@@ -80,7 +80,7 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 		if strings.HasPrefix(trimmedImage, "{{") && strings.HasSuffix(trimmedImage, "}}") {
 			continue
 		}
-		key := fmt.Sprintf("$%s-image$", c.Name)
+		key := commonutil.ModuleImageKey(c.Name)
 		if _, exists := replacements[key]; exists {
 			continue
 		}
@@ -89,13 +89,13 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 		parts, err := commonutil.ParseModuleImageParts(c.Image)
 		if err != nil {
 			for _, variable := range commonutil.ModuleImagePartVariables {
-				key := fmt.Sprintf("$%s-image-%s$", c.Name, variable.Part)
+				key := commonutil.ModuleImagePartKey(c.Name, variable.Part)
 				replacementErrors[key] = fmt.Errorf("module %q variable %s: %w", c.Name, key, err)
 			}
 			continue
 		}
 		for _, variable := range commonutil.ModuleImagePartVariables {
-			key := fmt.Sprintf("$%s-image-%s$", c.Name, variable.Part)
+			key := commonutil.ModuleImagePartKey(c.Name, variable.Part)
 			value, ok := parts.PartValue(variable.Part)
 			if !ok {
 				replacementErrors[key] = fmt.Errorf("module %q variable %s: unsupported image part %q", c.Name, key, variable.Part)

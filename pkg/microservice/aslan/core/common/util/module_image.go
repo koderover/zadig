@@ -24,6 +24,18 @@ import (
 	"github.com/distribution/reference"
 )
 
+const moduleImageKeyFormat = "$%s-image%s$"
+
+// ModuleImageKey returns the complete-image placeholder for a module.
+func ModuleImageKey(module string) string {
+	return fmt.Sprintf(moduleImageKeyFormat, module, "")
+}
+
+// ModuleImagePartKey returns a split-image placeholder for a module.
+func ModuleImagePartKey(module, part string) string {
+	return fmt.Sprintf(moduleImageKeyFormat, module, "-"+part)
+}
+
 // ModuleImagePartVariables defines the supported image parts and their display order.
 var ModuleImagePartVariables = []struct {
 	Part        string
@@ -41,7 +53,7 @@ var ModuleImageRegex = func() *regexp.Regexp {
 	for _, variable := range ModuleImagePartVariables {
 		parts = append(parts, regexp.QuoteMeta(variable.Part))
 	}
-	return regexp.MustCompile(`\$([A-Za-z0-9_-]+)-image(?:-(` + strings.Join(parts, "|") + `))?\$`)
+	return regexp.MustCompile(fmt.Sprintf(regexp.QuoteMeta(moduleImageKeyFormat), `([A-Za-z0-9_-]+)`, `(?:-(`+strings.Join(parts, "|")+`))?`))
 }()
 
 // IsModuleImagePlaceholder also recognizes unresolved variables inside a composed image.
