@@ -35,7 +35,8 @@ type deliveryImageFields struct {
 	parts    map[string]bool
 }
 
-// The template locates fields; only four complete, source-matching parts change.
+// The template locates fields; referenced parts must match the source and
+// have nonempty values in the target image.
 func replaceDeliveryServiceImagesWithTemplate(content, template, namespace string, images []*commonmodels.DeliveryVersionImage) (string, error) {
 	templates, err := deliveryImageDocuments(template)
 	if err != nil {
@@ -105,7 +106,7 @@ func replaceDeliveryServiceImagesWithTemplate(content, template, namespace strin
 				continue
 			}
 			fields := modules[image.ContainerName]
-			if fields == nil || len(fields.parts) != len(commonutil.ModuleImagePartVariables) {
+			if fields == nil {
 				continue
 			}
 			matched := true
@@ -124,6 +125,16 @@ func replaceDeliveryServiceImagesWithTemplate(content, template, namespace strin
 				}
 			}
 			if !matched {
+				continue
+			}
+			targetParts, err := commonutil.ParseModuleImageParts(image.TargetImage)
+			if err != nil {
+				return "", fmt.Errorf("module %q: %w", image.ContainerName, err)
+			}
+			if (fields.parts["registry"] && targetParts.Registry == "") ||
+				(fields.parts["namespace"] && targetParts.Namespace == "") ||
+				(fields.parts["name"] && targetParts.Name == "") ||
+				(fields.parts["tag"] && targetParts.Tag == "") {
 				continue
 			}
 			targets = append(targets, &commonmodels.Container{Name: image.ContainerName, Image: image.TargetImage})
