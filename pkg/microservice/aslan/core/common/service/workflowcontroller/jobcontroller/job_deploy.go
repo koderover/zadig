@@ -84,6 +84,19 @@ func getReadyPodCount(kubeClient crClient.Client, namespace string, relatedPodLa
 		if d.Spec.Replicas != nil {
 			podCount.totalPods = int(*d.Spec.Replicas)
 		}
+		selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
+		if err != nil {
+			return podCount, true, err
+		}
+		replicaSets, err := getter.ListReplicaSets(namespace, selector, kubeClient)
+		if err != nil {
+			return podCount, true, err
+		}
+		owner := getter.FindDeploymentReplicaSet(d, replicaSets)
+		if owner == nil {
+			return podCount, true, fmt.Errorf("no replicaset matching current pod template for deployment %s/%s", namespace, resource.Name)
+		}
+		podCount.resource.PodOwnerUID = string(owner.UID)
 	case setting.DaemonSet:
 		daemonSet, found, err := getter.GetDaemonSet(namespace, resource.Name, kubeClient)
 		if err != nil || !found {
@@ -113,7 +126,7 @@ func getReadyPodCount(kubeClient crClient.Client, namespace string, relatedPodLa
 			return podCount, true, err
 		}
 		for _, pod := range pods {
-			if !wrapper.Pod(pod).IsOwnerMatched(resource.PodOwnerUID) {
+			if !wrapper.Pod(pod).IsOwnerMatched(podCount.resource.PodOwnerUID) {
 				continue
 			}
 			if podUIDs[string(pod.UID)] {

@@ -18,6 +18,8 @@ package getter
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,6 +44,31 @@ func ListReplicaSets(ns string, selector labels.Selector, cl client.Client) ([]*
 		res = append(res, &ss.Items[i])
 	}
 	return res, err
+}
+
+// FindDeploymentReplicaSet finds the owned ReplicaSet matching the current pod
+// template, ignoring only pod-template-hash. Like Kubernetes, it chooses the
+// oldest matching ReplicaSet, using the name to break creation timestamp ties.
+func FindDeploymentReplicaSet(deployment *appsv1.Deployment, replicaSets []*appsv1.ReplicaSet) *appsv1.ReplicaSet {
+	template := deployment.Spec.Template.DeepCopy()
+	delete(template.Labels, appsv1.DefaultDeploymentUniqueLabelKey)
+
+	var matched *appsv1.ReplicaSet
+	for _, rs := range replicaSets {
+		if !metav1.IsControlledBy(rs, deployment) {
+			continue
+		}
+		rsTemplate := rs.Spec.Template.DeepCopy()
+		delete(rsTemplate.Labels, appsv1.DefaultDeploymentUniqueLabelKey)
+		if !apiequality.Semantic.DeepEqual(template, rsTemplate) {
+			continue
+		}
+		if matched == nil || rs.CreationTimestamp.Before(&matched.CreationTimestamp) ||
+			(rs.CreationTimestamp.Equal(&matched.CreationTimestamp) && rs.Name < matched.Name) {
+			matched = rs
+		}
+	}
+	return matched
 }
 
 func setReplicaSetGVK(replicaSet *appsv1.ReplicaSet) {
