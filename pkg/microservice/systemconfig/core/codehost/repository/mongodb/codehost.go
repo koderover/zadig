@@ -22,7 +22,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
@@ -207,7 +206,7 @@ func (c *CodehostColl) AvailableCodeHost(projectName string) ([]*models.CodeHost
 		},
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetProjection(bson.M{"advanced_config": 0}))
+	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +292,7 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		"deleted_at": 0,
 	}
 
-	return c.updateCodeHost(query, host, true)
+	return c.updateCodeHost(query, host)
 }
 
 func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.CodeHost) (*models.CodeHost, error) {
@@ -304,10 +303,10 @@ func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.Co
 		"deleted_at":        0,
 	}
 
-	return c.updateCodeHost(query, host, false)
+	return c.updateCodeHost(query, host)
 }
 
-func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updateAdvancedConfig bool) (*models.CodeHost, error) {
+func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*models.CodeHost, error) {
 	modifyValue := bson.M{
 		"type":           host.Type,
 		"address":        host.Address,
@@ -335,12 +334,10 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost, updat
 	}
 
 	change := bson.M{"$set": modifyValue}
-	if updateAdvancedConfig {
-		if host.AdvancedConfig == nil {
-			change["$unset"] = bson.M{"advanced_config": ""}
-		} else {
-			modifyValue["advanced_config"] = host.AdvancedConfig
-		}
+	if host.AdvancedConfig == nil {
+		change["$unset"] = bson.M{"advanced_config": ""}
+	} else {
+		modifyValue["advanced_config"] = host.AdvancedConfig
 	}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return host, err

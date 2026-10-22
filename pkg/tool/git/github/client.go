@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -141,8 +140,6 @@ func NewAppClientWithContext(ctx context.Context, cfg *Config) (*Client, error) 
 	return c, nil
 }
 
-var ErrInvalidAppPrivateKey = errors.New("invalid GitHub App private key")
-
 // GetApp returns the GitHub App authenticated by the app ID and key in cfg.
 func GetApp(cfg *Config) (*github.App, error) {
 	keyBytes, err := base64.StdEncoding.DecodeString(cfg.AppKey)
@@ -152,7 +149,7 @@ func GetApp(cfg *Config) (*github.App, error) {
 
 	trans, err := ghinstallation.NewAppsTransport(newAppTransport(cfg), int64(cfg.AppID), keyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidAppPrivateKey, err)
+		return nil, err
 	}
 
 	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans, Timeout: 30 * time.Second}})

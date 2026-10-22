@@ -19,7 +19,6 @@ package service
 import (
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -51,23 +50,11 @@ func validateCodeHostBot(codeHost *models.CodeHost) error {
 			codeHost.AdvancedConfig = nil
 			return nil
 		}
-		transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: codeHost.DisableSSL}}
-		if codeHost.EnableProxy {
-			proxyURL, err := url.Parse(config.ProxyHTTPSAddr())
-			if err != nil {
-				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
-			}
-			transport.Proxy = http.ProxyURL(proxyURL)
-		}
-		cli, err := gitlab.NewClient(bot.Token, gitlab.WithBaseURL(codeHost.Address), gitlab.WithHTTPClient(&http.Client{Transport: transport, Timeout: 30 * time.Second}))
+		username, err := getGitLabUsername(codeHost, bot.Token)
 		if err != nil {
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
 		}
-		user, _, err := cli.Users.CurrentUser()
-		if err != nil {
-			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitLab Token 校验失败：%s", err))
-		}
-		bot.BotUsername = user.Username
+		bot.BotUsername = username
 	case setting.SourceFromGithub:
 		bot := codeHost.AdvancedConfig.GitHubBot
 		if bot == nil || codeHost.AdvancedConfig.GitLabBot != nil {
@@ -94,9 +81,6 @@ func validateCodeHostBot(codeHost *models.CodeHost) error {
 			InsecureSkipVerify: codeHost.DisableSSL,
 		})
 		if err != nil {
-			if errors.Is(err, githubtool.ErrInvalidAppPrivateKey) {
-				return e.ErrInvalidParam.AddDesc("private_key 不是合法的 PEM 格式私钥")
-			}
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("GitHub App 校验失败：%s", err))
 		}
 		bot.BotName = app.GetSlug() + "[bot]"
@@ -104,4 +88,24 @@ func validateCodeHostBot(codeHost *models.CodeHost) error {
 		return e.ErrInvalidParam.AddDesc(fmt.Sprintf("代码源类型 %s 不支持配置机器人身份", codeHost.Type))
 	}
 	return nil
+}
+
+func getGitLabUsername(codeHost *models.CodeHost, token string) (string, error) {
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: codeHost.DisableSSL}}
+	if codeHost.EnableProxy {
+		proxyURL, err := url.Parse(config.ProxyHTTPSAddr())
+		if err != nil {
+			return "", err
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	cli, err := gitlab.NewClient(token, gitlab.WithBaseURL(codeHost.Address), gitlab.WithHTTPClient(&http.Client{Transport: transport, Timeout: 30 * time.Second}))
+	if err != nil {
+		return "", err
+	}
+	user, _, err := cli.Users.CurrentUser()
+	if err != nil {
+		return "", err
+	}
+	return user.Username, nil
 }

@@ -78,6 +78,7 @@ func ListCodeHostInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	codeHosts, err := service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	// This unauthenticated endpoint must not expose bot credentials.
 	for _, host := range codeHosts {
 		host.AdvancedConfig = nil
 	}
@@ -190,7 +191,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	req := new(models.CodeHost)
+	req := &models.CodeHost{}
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = err
 		return
