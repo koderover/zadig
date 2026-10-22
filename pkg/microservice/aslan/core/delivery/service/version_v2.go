@@ -216,6 +216,9 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 
 	containers := make([]*commonmodels.Container, 0, len(service.Images))
 	for _, image := range service.Images {
+		if image == nil {
+			continue
+		}
 		containers = append(containers, &commonmodels.Container{
 			Name:      image.ContainerName,
 			ImageName: image.ImageName,
@@ -229,7 +232,7 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 	}
 
 	for _, image := range service.Images {
-		if image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
+		if image == nil || image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
 			continue
 		}
 		replacedYaml = strings.ReplaceAll(replacedYaml, image.SourceImage, image.TargetImage)
@@ -684,6 +687,9 @@ func checkDeliveryVersionRegistry(args *CreateDeliveryVersionRequest, registryMa
 
 	for _, service := range args.Services {
 		for _, image := range service.Images {
+			if image == nil {
+				return nil, fmt.Errorf("image entry must not be null, projectName: %s, serviceName: %s", args.ProjectName, service.ServiceName)
+			}
 			if !image.PushImage {
 				continue
 			}

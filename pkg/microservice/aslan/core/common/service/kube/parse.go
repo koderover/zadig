@@ -62,7 +62,8 @@ func ParseSysKeys(namespace, envName, productName, serviceName, clusterName, ori
 // ParseModuleImageKeys substitutes complete and split image variables from the
 // final container images. Replacement values are prepared before scanning YAML;
 // split errors are reported only when the corresponding variable is referenced.
-// Unavailable images may remain unresolved when allowUnresolved is true.
+// When allowUnresolved is true, missing or invalid images leave their unresolved
+// variables unchanged without returning an error.
 // The returned YAML includes all successful replacements, even on error.
 // Variables without replacement values remain unchanged.
 func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, allowUnresolved bool) (string, error) {
@@ -112,28 +113,28 @@ func ParseModuleImageKeys(yaml string, containers []*commonmodels.Container, all
 		return key
 	})
 
+	if allowUnresolved {
+		return yaml, nil
+	}
+
 	for _, key := range commonutil.ModuleImageRegex.FindAllString(yaml, -1) {
 		if err := replacementErrors[key]; err != nil {
 			return yaml, err
 		}
 	}
 
-	if allowUnresolved {
-		return yaml, nil
-	}
-
-	matches := commonutil.ModuleImageRegex.FindAllStringSubmatch(yaml, -1)
+	matches := commonutil.ModuleImageRegex.FindAllString(yaml, -1)
 	if len(matches) == 0 {
 		return yaml, nil
 	}
 	seen := make(map[string]struct{}, len(matches))
 	unresolved := make([]string, 0, len(matches))
-	for _, m := range matches {
-		if _, ok := seen[m[0]]; ok {
+	for _, key := range matches {
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[m[0]] = struct{}{}
-		unresolved = append(unresolved, m[0])
+		seen[key] = struct{}{}
+		unresolved = append(unresolved, key)
 	}
 	return yaml, fmt.Errorf("unresolved module image placeholder(s): %s", strings.Join(unresolved, ", "))
 }
