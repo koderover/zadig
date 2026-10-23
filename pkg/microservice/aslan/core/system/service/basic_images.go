@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -25,9 +26,16 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
+
+type basicImageRef struct {
+	productName string
+	resource    string
+	name        string
+}
 
 func InitbasicImageInfos() []*commonmodels.BasicImage {
 	basicImageInfos := []*commonmodels.BasicImage{
@@ -135,52 +143,100 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 
 func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 	// 检查该镜像是否被引用
-	buildOpt := &commonrepo.BuildListOption{BasicImageID: id}
-	builds, err := commonrepo.NewBuildColl().List(buildOpt)
-	if err == nil && len(builds) != 0 {
-		log.Errorf("BasicImage has been used by build, image id:%s, product name:%s, build name:%s", id, builds[0].ProductName, builds[0].Name)
-		return e.ErrDeleteUsedBasicImage
+	refs := make([]basicImageRef, 0)
+	seen := make(map[string]struct{})
+	var listErr error
+
+	builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{BasicImageID: id})
+	if err != nil {
+		log.Errorf("list builds by basic image %s error: %v", id, err)
+		listErr = err
+	}
+	for _, build := range builds {
+		if build == nil {
+			continue
+		}
+		refs = appendBasicImageRef(refs, seen, basicImageRef{
+			productName: build.ProductName,
+			resource:    "构建",
+			name:        build.Name,
+		})
 	}
 
-	testOpt := &commonrepo.ListTestOption{BasicImageID: id}
-	tests, err := commonrepo.NewTestingColl().List(testOpt)
-	if err == nil && len(tests) != 0 {
-		log.Errorf("BasicImage has been used by testing, image id:%s, product name:%s, testing name:%s", id, tests[0].ProductName, tests[0].Name)
-		return e.ErrDeleteUsedBasicImage
+	tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{BasicImageID: id})
+	if err != nil {
+		log.Errorf("list testings by basic image %s error: %v", id, err)
+		if listErr == nil {
+			listErr = err
+		}
+	}
+	for _, test := range tests {
+		if test == nil {
+			continue
+		}
+		refs = appendBasicImageRef(refs, seen, basicImageRef{
+			productName: test.ProductName,
+			resource:    "测试",
+			name:        test.Name,
+		})
 	}
 
 	pipelines, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{})
-	if err == nil {
-		for _, pipeline := range pipelines {
-			for _, subTask := range pipeline.SubTasks {
-				pre, err := base.ToPreview(subTask)
-				if err != nil {
+	if err != nil {
+		log.Errorf("list pipelines for basic image %s error: %v", id, err)
+		if listErr == nil {
+			listErr = err
+		}
+	}
+	for _, pipeline := range pipelines {
+		if pipeline == nil {
+			continue
+		}
+		for _, subTask := range pipeline.SubTasks {
+			pre, err := base.ToPreview(subTask)
+			if err != nil {
+				continue
+			}
+			switch pre.TaskType {
+			case config.TaskBuild:
+				// 校验是否被服务工作流的构建使用
+				task, err := base.ToBuildTask(subTask)
+				if err != nil || task == nil || task.ImageID != id {
 					continue
 				}
-				switch pre.TaskType {
-				case config.TaskBuild:
-					// 校验是否被服务工作流的构建使用
-					task, err := base.ToBuildTask(subTask)
-					if err != nil || task == nil {
-						continue
-					}
-					if task.ImageID == id {
-						log.Errorf("BasicImage has been used by pipeline build, image id:%s, pipeline name:%s", id, pipeline.Name)
-						return e.ErrDeleteUsedBasicImage
-					}
-				case config.TaskTestingV2:
-					// 校验是否被服务工作流的测试使用
-					testing, err := base.ToTestingTask(subTask)
-					if err != nil || testing == nil {
-						continue
-					}
-					if testing.ImageID == id {
-						log.Errorf("BasicImage has been used by pipeline testing, image id:%s, pipeline name:%s", id, pipeline.Name)
-						return e.ErrDeleteUsedBasicImage
-					}
+				name := pipeline.Name
+				if task.ServiceName != "" {
+					name = fmt.Sprintf("%s（构建 %s）", pipeline.Name, task.ServiceName)
 				}
+				refs = appendBasicImageRef(refs, seen, basicImageRef{
+					productName: pipeline.ProductName,
+					resource:    "工作流",
+					name:        name,
+				})
+			case config.TaskTestingV2:
+				// 校验是否被服务工作流的测试使用
+				testing, err := base.ToTestingTask(subTask)
+				if err != nil || testing == nil || testing.ImageID != id {
+					continue
+				}
+				name := pipeline.Name
+				if testing.TestName != "" {
+					name = fmt.Sprintf("%s（测试 %s）", pipeline.Name, testing.TestName)
+				}
+				refs = appendBasicImageRef(refs, seen, basicImageRef{
+					productName: pipeline.ProductName,
+					resource:    "工作流",
+					name:        name,
+				})
 			}
 		}
+	}
+
+	if len(refs) != 0 {
+		return basicImageInUseError(id, refs, listErr != nil, log)
+	}
+	if listErr != nil {
+		return e.NewWithDesc(e.ErrDeleteBasicImage, "检查基础镜像引用失败，请稍后重试")
 	}
 
 	err = commonrepo.NewBasicImageColl().Delete(id)
@@ -189,4 +245,79 @@ func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 		return e.ErrDeleteBasicImage
 	}
 	return nil
+}
+
+func appendBasicImageRef(refs []basicImageRef, seen map[string]struct{}, ref basicImageRef) []basicImageRef {
+	key := ref.resource + "\x00" + ref.productName + "\x00" + ref.name
+	if _, ok := seen[key]; ok {
+		return refs
+	}
+	seen[key] = struct{}{}
+	return append(refs, ref)
+}
+
+func basicImageInUseError(id string, refs []basicImageRef, incomplete bool, log *zap.SugaredLogger) error {
+	desc := describeBasicImageRefs(refs, projectDisplayNames(refs, log))
+	if incomplete {
+		desc += "，部分引用检查失败，列表可能不完整"
+	}
+	log.Errorf("BasicImage has been used, image id:%s, detail:%s", id, desc)
+	return e.NewWithDesc(e.ErrDeleteUsedBasicImage, desc)
+}
+
+func describeBasicImageRefs(refs []basicImageRef, projectNames map[string]string) string {
+	parts := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		parts = append(parts, formatBasicImageRef(ref, projectNames))
+	}
+	return "引用位置：" + strings.Join(parts, "，")
+}
+
+func formatBasicImageRef(ref basicImageRef, projectNames map[string]string) string {
+	target := fmt.Sprintf("%s %s", ref.resource, ref.name)
+	if strings.TrimSpace(ref.productName) == "" {
+		return target + "（未关联项目）"
+	}
+	return fmt.Sprintf("项目 %s，%s", formatProjectLabel(ref.productName, projectNames), target)
+}
+
+func formatProjectLabel(productName string, projectNames map[string]string) string {
+	alias := strings.TrimSpace(projectNames[productName])
+	if alias == "" || alias == productName {
+		return productName
+	}
+	return fmt.Sprintf("%s（%s）", alias, productName)
+}
+
+func projectDisplayNames(refs []basicImageRef, log *zap.SugaredLogger) map[string]string {
+	names := make(map[string]string)
+	keys := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, ref := range refs {
+		productName := strings.TrimSpace(ref.productName)
+		if productName == "" {
+			continue
+		}
+		if _, ok := seen[productName]; ok {
+			continue
+		}
+		seen[productName] = struct{}{}
+		keys = append(keys, productName)
+	}
+	if len(keys) == 0 {
+		return names
+	}
+
+	projects, err := templaterepo.NewProductColl().ListProjectBriefs(keys)
+	if err != nil {
+		log.Warnf("list project names for basic image refs failed: %v", err)
+		return names
+	}
+	for _, project := range projects {
+		if project == nil {
+			continue
+		}
+		names[project.Name] = project.Alias
+	}
+	return names
 }
