@@ -233,9 +233,8 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 				if err == nil {
 					detail.AccessToken = token.AccessToken
 					detail.RefreshToken = token.RefreshToken
-					detail.UpdatedAt = int64(token.CreatedAt)
 
-					if err = systemconfig.New().UpdateCodeHost(detail.ID, detail); err != nil {
+					if err = systemconfig.New().UpdateCodeHostToken(detail.ID, detail); err != nil {
 						log.Errorf("failed to updateCodeHost err:%s", err)
 						errs = multierror.Append(errs, err)
 						return errs.ErrorOrNil()

@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
@@ -42,6 +43,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -63,6 +65,11 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(codehost.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
+	}
+
+	codehost.IntegrationLevel = setting.IntegrationLevelSystem
+	if err := validateCodeHostBot(codehost); err != nil {
+		return nil, err
 	}
 
 	codehost.CreatedAt = time.Now().Unix()
@@ -114,6 +121,18 @@ func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap
 			}
 		}
 
+		if bot := codeHost.AdvancedConfig.GetGitLabBot(); bot != nil {
+			bot.Token, err = crypto.AesEncryptByKey(bot.Token, aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if bot := codeHost.AdvancedConfig.GetGitHubBot(); bot != nil {
+			bot.PrivateKey, err = crypto.AesEncryptByKey(bot.PrivateKey, aesKey.PlainText)
+			if err != nil {
+				return nil, err
+			}
+		}
 		result = append(result, codeHost)
 	}
 	return result, nil
@@ -150,17 +169,23 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
 
-	var oldAlias string
 	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
-	if err == nil {
-		oldAlias = oldCodeHost.Alias
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", host.ID))
+		}
+		return nil, err
 	}
-	if host.Alias != "" && host.Alias != oldAlias {
+	if host.Alias != "" && host.Alias != oldCodeHost.Alias {
 		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
 	}
 
+	host.IntegrationLevel = oldCodeHost.IntegrationLevel
+	if err := validateCodeHostBot(host); err != nil {
+		return nil, err
+	}
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
@@ -175,6 +200,9 @@ func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger, contexts ...co
 func GetEncryptedCodeHost(id int, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
 	codeHost, err := GetCodeHost(id, ignoreDelete, log)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", id))
+		}
 		return nil, err
 	}
 	resp, err := EncypteCodeHost(encryptedKey, []*models.CodeHost{codeHost}, log)

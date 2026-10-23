@@ -18,7 +18,7 @@ func isAIReviewSummary(body string) bool {
 
 const aiReviewArchiveCheckpoint = "<!-- zadig-ai-review-archive-checkpoint -->"
 
-func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, owner, name string, pr int, currentID int64, currentBody string) error {
+func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, owner, name string, pr int, currentID, authorID int64, currentBody string) error {
 	if !isAIReviewSummary(currentBody) {
 		return fmt.Errorf("current GitHub comment %d is not an AI review summary", currentID)
 	}
@@ -46,7 +46,7 @@ func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, 
 		}
 		for i := len(comments) - 1; i >= 0; i-- {
 			comment := comments[i]
-			if comment == nil || comment.GetID() <= 0 || comment.GetID() >= currentID || !isAIReviewSummary(comment.GetBody()) {
+			if comment == nil || comment.GetID() <= 0 || comment.GetID() >= currentID || comment.GetUser().GetID() != authorID || !isAIReviewSummary(comment.GetBody()) {
 				continue
 			}
 			if comment.GetNodeID() == "" {
@@ -55,7 +55,7 @@ func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, 
 			if err := reviewfeedback.MinimizeGitHubComment(ctx, cli, comment.GetNodeID()); err != nil {
 				return fmt.Errorf("minimize GitHub summary comment %d: %w", comment.GetID(), err)
 			}
-			// A checkpoint confirms every older summary was successfully archived.
+			// A checkpoint confirms every older summary by this author was successfully archived.
 			if strings.Contains(comment.GetBody(), aiReviewArchiveCheckpoint) {
 				complete = true
 				break
@@ -75,7 +75,7 @@ func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, 
 	return nil
 }
 
-func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, project string, pr int, currentID int64) error {
+func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, project string, pr int, currentID int64, authorID int) error {
 	opts := &gitlab.ListMergeRequestNotesOptions{OrderBy: gitlab.String("created_at"), Sort: gitlab.String("asc"), ListOptions: gitlab.ListOptions{PerPage: 100}}
 	for {
 		notes, resp, err := cli.Notes.ListMergeRequestNotes(project, pr, opts, gitlab.WithContext(ctx))
@@ -83,7 +83,7 @@ func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, pro
 			return err
 		}
 		for _, note := range notes {
-			if note == nil || note.ID <= 0 || int64(note.ID) >= currentID || note.System || note.Position != nil || note.Type == "DiffNote" || !isAIReviewSummary(note.Body) {
+			if note == nil || note.ID <= 0 || int64(note.ID) >= currentID || note.Author.ID != authorID || note.System || note.Position != nil || note.Type == "DiffNote" || !isAIReviewSummary(note.Body) {
 				continue
 			}
 			body := "<details>\n<summary>点击展开 Zadig AI Review 详情</summary>\n\n" + note.Body + "\n\n</details>"

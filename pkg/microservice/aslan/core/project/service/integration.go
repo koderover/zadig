@@ -30,6 +30,9 @@ import (
 )
 
 func CreateProjectCodeHost(projectName string, codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	// Bot identities are only supported on system codehosts.
+	codehost.AdvancedConfig = nil
+
 	if codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
@@ -79,6 +82,9 @@ func DeleteProjectCodeHostByID(projectName string, id int, _ *zap.SugaredLogger)
 }
 
 func UpdateProjectSystemCodeHost(projectName string, host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	// Bot identities are only supported on system codehosts.
+	host.AdvancedConfig = nil
+
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}

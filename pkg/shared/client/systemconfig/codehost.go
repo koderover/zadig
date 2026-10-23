@@ -59,6 +59,8 @@ type CodeHost struct {
 	// perforce Type parameters
 	P4Host string `json:"perforce_host"`
 	P4Port int    `json:"perforce_port"`
+	// AdvancedConfig holds advanced settings and credentials, only filled by GetCodeHost.
+	AdvancedConfig *models.CodeHostAdvancedConfig `json:"-" yaml:"-"`
 }
 
 type Option struct {
@@ -128,6 +130,7 @@ func (c *Client) GetCodeHost(id int, contexts ...context.Context) (*CodeHost, er
 		PrivateAccessToken: resp.PrivateAccessToken,
 		P4Host:             resp.P4Host,
 		P4Port:             resp.P4Port,
+		AdvancedConfig:     resp.AdvancedConfig,
 	}
 
 	return res, nil
@@ -193,29 +196,12 @@ func (c *Client) ListCodeHostsInternal() ([]*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
-	arg := &models.CodeHost{
-		ID:                 codehost.ID,
-		Type:               codehost.Type,
-		Address:            codehost.Address,
-		AccessToken:        codehost.AccessToken,
-		RefreshToken:       codehost.RefreshToken,
-		Namespace:          codehost.Namespace,
-		ApplicationId:      codehost.AccessKey,
-		Region:             codehost.Region,
-		Username:           codehost.Username,
-		Password:           codehost.Password,
-		ClientSecret:       codehost.SecretKey,
-		Alias:              codehost.Alias,
-		AuthType:           codehost.AuthType,
-		SSHKey:             codehost.SSHKey,
-		PrivateAccessToken: codehost.PrivateAccessToken,
-		EnableProxy:        codehost.EnableProxy,
-		UpdatedAt:          codehost.UpdatedAt,
-		DisableSSL:         codehost.DisableSSL,
-	}
-
-	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())
+func (c *Client) UpdateCodeHostToken(id int, codehost *CodeHost) error {
+	_, err := codehostservice.UpdateCodeHostToken(&models.CodeHost{
+		ID:           id,
+		AccessToken:  codehost.AccessToken,
+		RefreshToken: codehost.RefreshToken,
+	}, log.SugaredLogger())
 	return err
 }
 

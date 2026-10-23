@@ -334,6 +334,11 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*mod
 	}
 
 	change := bson.M{"$set": modifyValue}
+	if host.AdvancedConfig == nil {
+		change["$unset"] = bson.M{"advanced_config": ""}
+	} else {
+		modifyValue["advanced_config"] = host.AdvancedConfig
+	}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return host, err
 }

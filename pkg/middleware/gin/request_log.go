@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 
@@ -47,6 +48,9 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		path := c.Request.URL.Path
 		oauthRequest := strings.HasPrefix(path, "/oauth/") || strings.HasPrefix(path, "/api/oauth/")
+		// Codehost writes can carry bot tokens or GitHub App private keys.
+		skipBody := oauthRequest || ((c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPatch) &&
+			(strings.HasSuffix(path, "/codehosts") || strings.Contains(path, "/codehosts/")))
 		if oauthRequest {
 			if strings.HasPrefix(path, "/api/oauth/device/authorizations/") {
 				path = "/api/oauth/device/authorizations/:userCode"
@@ -62,7 +66,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		headers := make(map[string]string)
 		// request body is a ReadCloser, it can be read only once.
 		if c.Request != nil {
-			if c.Request.Body != nil && !oauthRequest {
+			if c.Request.Body != nil && !skipBody {
 				var buf bytes.Buffer
 				tee := io.TeeReader(c.Request.Body, &buf)
 				body, _ = ioutil.ReadAll(tee)
