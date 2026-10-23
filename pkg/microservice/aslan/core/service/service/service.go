@@ -235,7 +235,7 @@ func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*S
 		if module == nil || module.Container == nil || module.Name == "" {
 			continue
 		}
-		key := fmt.Sprintf("$%s-image$", module.Name)
+		key := commonutil.ModuleImageKey(module.Name)
 		if _, ok := seen[key]; ok {
 			continue
 		}
@@ -244,6 +244,22 @@ func buildServiceSystemVariables(args *commonmodels.Service, serviceModules []*S
 			Key:   key,
 			Value: module.Image,
 		})
+
+		parts, err := commonutil.ParseModuleImageParts(module.Image)
+		if err != nil {
+			parts = &commonutil.ModuleImageParts{}
+		}
+		for _, variable := range commonutil.ModuleImagePartVariables {
+			value, ok := parts.PartValue(variable.Part)
+			if !ok {
+				continue
+			}
+			systemVariables = append(systemVariables, &Variable{
+				Key:         commonutil.ModuleImagePartKey(module.Name, variable.Part),
+				Value:       value,
+				Description: variable.Description,
+			})
+		}
 	}
 
 	return systemVariables

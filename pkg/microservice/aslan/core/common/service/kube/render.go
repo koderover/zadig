@@ -67,7 +67,7 @@ type GeneSvcYamlOption struct {
 	UnInstall                     bool
 	Containers                    []*models.Container
 	// AllowUnresolvedModuleImages skips the post-render check that errors
-	// when a $<module>-image$ placeholder remains in the YAML. Set this on
+	// when a complete or split module image variable remains in the YAML. Set this on
 	// initial-deploy code paths where the image hasn't been built yet.
 	AllowUnresolvedModuleImages bool
 }
@@ -1009,7 +1009,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
 	}
-	// Second image-substitution pass — text-level $<module>-image$ replacement
+	// Second image-substitution pass — complete and split module image variables
 	// for any workload kind not handled by ReplaceWorkloadImages (e.g. DaemonSets,
 	// Argo Rollouts, other CRDs).
 	fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
