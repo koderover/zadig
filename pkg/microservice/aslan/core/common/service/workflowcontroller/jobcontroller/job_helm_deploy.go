@@ -110,7 +110,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	helmDeploySvc := helmservice.NewHelmDeployService()
-	helmClient, err := helmtool.NewClient()
+	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		msg := fmt.Sprintf("failed to new helm client, err %s", err)
 		logError(c.job, msg, c.logger)
