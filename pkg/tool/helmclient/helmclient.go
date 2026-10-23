@@ -101,8 +101,10 @@ type HelmClient struct {
 	Transport      *http.Transport
 }
 
-// NewClient returns a new Helm client with no construct parameters
-// used to update helm repo data and download index.yaml or helm charts
+// NewClient returns a Helm client for repository operations and chart downloads.
+// It is not bound to a target cluster and leaves KubeVersion unset, so template
+// rendering uses Helm's default Kubernetes version. Use NewClientFromNamespace
+// when rendering charts for a target cluster to honor its Kubernetes version.
 func NewClient() (*HelmClient, error) {
 	hcClient, err := hc.New(&hc.Options{
 		RepositoryConfig: generalSettings.RepositoryConfig,
@@ -1079,6 +1081,7 @@ func (hClient *HelmClient) Clone() (*HelmClient, error) {
 		return nil, err
 	}
 	ret.kubeClient = hClient.kubeClient
+	ret.KubeVersion = hClient.KubeVersion
 	return ret, nil
 }
 
