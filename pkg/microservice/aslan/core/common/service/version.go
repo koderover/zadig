@@ -667,7 +667,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 					for _, us := range unstructuredList {
 						switch us.GetKind() {
-						case setting.Deployment, setting.StatefulSet:
+						case setting.Deployment, setting.DaemonSet, setting.StatefulSet:
 							podLabels, _, err := unstructured.NestedStringMap(us.Object, "spec", "template", "metadata", "labels")
 							if err == nil {
 								rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, podLabels)

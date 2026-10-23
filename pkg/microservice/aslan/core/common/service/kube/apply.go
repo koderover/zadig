@@ -230,6 +230,8 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 		switch item.GetKind() {
 		case setting.Deployment:
 			watcher, err = clientSet.AppsV1().Deployments(namespace).Watch(ctx, watchOpts)
+		case setting.DaemonSet:
+			watcher, err = clientSet.AppsV1().DaemonSets(namespace).Watch(ctx, watchOpts)
 		case setting.Service:
 			watcher, err = clientSet.CoreV1().Services(namespace).Watch(ctx, watchOpts)
 		case setting.StatefulSet:
