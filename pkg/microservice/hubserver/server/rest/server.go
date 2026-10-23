@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
@@ -77,7 +76,7 @@ func NewEngine(ctx context.Context, handler *remotedialer.Server) *engine {
 			clientKey := vars["id"]
 			if clientKey == "" {
 				token := r.Header.Get(setting.Token)
-				clusterID, err := crypto.AesDecrypt(token)
+				clusterID, err := service.DecryptClusterToken(token)
 				if err != nil {
 					log.Errorf("token is illegal %s: %v", token, err)
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
