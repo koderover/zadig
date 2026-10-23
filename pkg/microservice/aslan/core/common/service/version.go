@@ -308,6 +308,7 @@ type CheckRollbackEnvServiceVersionResponse struct {
 func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredLogger) ([]string, error) {
 	registryInfos, err := ListRegistryNamespaces("", false, log)
 	if err != nil {
+		log.Errorf("failed to list registries for rollback image check: %v", err)
 		return nil, fmt.Errorf("failed to list registries for rollback image check: %w", err)
 	}
 
@@ -320,7 +321,7 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 	for _, registryInfo := range registryInfos {
 		registryAddress, err := registryInfo.GetRegistryAddress()
 		if err != nil {
-			log.Warnf("skip invalid registry %s during rollback image check: %v", registryInfo.ID.Hex(), err)
+			log.Errorf("skip invalid registry %s during rollback image check: %v", registryInfo.ID.Hex(), err)
 			continue
 		}
 
@@ -341,16 +342,17 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 
 		named, err := reference.ParseNormalizedNamed(container.Image)
 		if err != nil {
+			log.Errorf("invalid rollback image %s: %v", container.Image, err)
 			missingImages = append(missingImages, container.Image)
 			continue
 		}
-		imageRegistry, err := ExtractImageRegistry(container.Image)
-		if err != nil {
-			missingImages = append(missingImages, container.Image)
-			continue
+		imageRegistry := reference.Domain(named)
+		imagePath := reference.Path(named)
+		imageNamespace := ""
+		if i := strings.LastIndex(imagePath, "/"); i >= 0 {
+			imageNamespace = imagePath[:i]
 		}
-		imageRegistry = strings.Split(strings.Trim(imageRegistry, "/"), "/")[0]
-		imageNamespace := strings.Trim(ExtractRegistryNamespace(container.Image), "/")
+		log.Infof("checking rollback image %s (normalized: %s)", container.Image, named.String())
 		var matchedRegistry *rollbackImageRegistry
 		for _, registry := range registries {
 			if !strings.EqualFold(imageRegistry, registry.host) {
@@ -365,7 +367,7 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			}
 		}
 		if matchedRegistry == nil {
-			log.Warnf("no matching registry configured for rollback image %s, skip image existence check", container.Image)
+			log.Errorf("no matching registry configured for rollback image %s, skip image existence check", container.Image)
 			continue
 		}
 
@@ -374,21 +376,21 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 		if !ok {
 			registryInfo, err = FindRegistryById(registryID, true, log)
 			if err != nil {
-				log.Warnf("failed to get credentials for rollback image %s from registry %s: %v", container.Image, matchedRegistry.host, err)
+				log.Errorf("failed to get credentials for rollback image %s from registry %s: %v", container.Image, matchedRegistry.host, err)
 				continue
 			}
 			credentialRegistries[registryID] = registryInfo
 		}
 
-		repositoryName := reference.Path(named)
+		repositoryName := imagePath
 		namespace := strings.Trim(registryInfo.Namespace, "/")
 		if namespace != "" {
 			repositoryName = strings.TrimPrefix(repositoryName, namespace+"/")
 		}
 
-		tag := ExtractImageTag(container.Image)
-		if tag == "" {
-			tag = "latest"
+		tag := "latest"
+		if tagged, ok := named.(reference.Tagged); ok {
+			tag = tagged.Tag()
 		}
 
 		tlsEnabled, tlsCert := true, ""
@@ -409,10 +411,11 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 			Tag:   tag,
 		}, log)
 		if err != nil {
-			log.Warnf("failed to check whether rollback image %s exists: %v", container.Image, err)
+			log.Errorf("failed to check whether rollback image %s exists: %v", container.Image, err)
 			continue
 		}
 		if !exists {
+			log.Errorf("rollback image %s does not exist", container.Image)
 			missingImages = append(missingImages, container.Image)
 		}
 	}
@@ -423,6 +426,7 @@ func checkRollbackImages(containers []*commonmodels.Container, log *zap.SugaredL
 func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (*CheckRollbackEnvServiceVersionResponse, error) {
 	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
+		log.Errorf("failed to find service version for rollback image check: %v", err)
 		if mongodb.IsErrNoDocuments(err) {
 			return nil, fmt.Errorf("历史版本 %d 不存在", revision)
 		}
@@ -431,6 +435,7 @@ func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, re
 
 	unavailableImages, err := checkRollbackImages(envSvcVersion.Service.Containers, log)
 	if err != nil {
+		log.Errorf("rollback image check failed: %v", err)
 		return nil, err
 	}
 	return &CheckRollbackEnvServiceVersionResponse{
