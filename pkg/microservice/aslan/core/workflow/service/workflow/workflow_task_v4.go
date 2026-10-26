@@ -2399,6 +2399,22 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		return nil, total, err
 	}
 
+	testJobs := make([]commonrepo.WorkflowTestReportKey, 0)
+	for _, task := range tasks {
+		for _, stage := range task.WorkflowArgs.Stages {
+			for _, job := range stage.Jobs {
+				if !job.Skipped && job.JobType == config.JobZadigTesting {
+					testJobs = append(testJobs, commonrepo.WorkflowTestReportKey{TaskID: task.TaskID, JobName: job.Name})
+				}
+			}
+		}
+	}
+	testReports, err := commonrepo.NewCustomWorkflowTestReportColl().ListSummariesByWorkflowJobs(filter.WorkflowName, testJobs)
+	if err != nil {
+		logger.Errorf("failed to list junit test reports for workflow: %s, error: %s", filter.WorkflowName, err)
+		return nil, 0, fmt.Errorf("failed to list junit test reports for workflow: %s, error: %s", filter.WorkflowName, err)
+	}
+
 	envMap := make(map[string]*commonmodels.Product)
 	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
 	for _, task := range tasks {
@@ -2500,11 +2516,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(filter.WorkflowName, job.Name, task.TaskID)
-					if err != nil {
-						log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
-						return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
-					}
+					testResultList := testReports[commonrepo.WorkflowTestReportKey{TaskID: task.TaskID, JobName: strings.ToLower(job.Name)}]
 
 					for _, testResult := range testResultList {
 						testModules = append(testModules, &commonmodels.WorkflowTestModule{
