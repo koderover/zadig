@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 
@@ -44,6 +46,9 @@ func GetEnvDetail(projectName, envName string, production bool, logger *zap.Suga
 	})
 	if err != nil {
 		logger.Errorf("failed to find project:%s env:%s", projectName, envName)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.NewWithDesc(e.ErrNotFound, fmt.Sprintf("%s: %s", e.EnvNotFoundErrMsg, envName))
+		}
 		return nil, err
 	}
 
