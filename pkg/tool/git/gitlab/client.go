@@ -58,8 +58,9 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool,
 		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL), TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 		client = &http.Client{Transport: transport}
 	} else {
-		client = http.DefaultClient
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
+		client = &http.Client{
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}},
+		}
 	}
 
 	token, err := UpdateGitlabToken(id, accessToken, skipTLS)
