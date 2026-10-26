@@ -92,6 +92,44 @@ func (c *CustomWorkflowTestReportColl) ListByWorkflowJobName(workflowName, jobNa
 	return resp, err
 }
 
+type WorkflowTestReportKey struct {
+	TaskID  int64
+	JobName string
+}
+
+func (c *CustomWorkflowTestReportColl) ListSummariesByWorkflowJobs(workflowName string, jobs []WorkflowTestReportKey) (map[WorkflowTestReportKey][]*models.CustomWorkflowTestReport, error) {
+	reports := make(map[WorkflowTestReportKey][]*models.CustomWorkflowTestReport)
+	if len(jobs) == 0 {
+		return reports, nil
+	}
+
+	conditions := make([]bson.M, 0, len(jobs))
+	seen := make(map[WorkflowTestReportKey]bool)
+	for _, job := range jobs {
+		job.JobName = strings.ToLower(job.JobName)
+		if seen[job] {
+			continue
+		}
+		seen[job] = true
+		conditions = append(conditions, bson.M{"task_id": job.TaskID, "job_name": job.JobName})
+	}
+
+	query := bson.M{"workflow_name": workflowName, "$or": conditions}
+	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetProjection(bson.M{"test_cases": 0}))
+	if err != nil {
+		return nil, err
+	}
+	var results []*models.CustomWorkflowTestReport
+	if err := cursor.All(context.TODO(), &results); err != nil {
+		return nil, err
+	}
+	for _, report := range results {
+		key := WorkflowTestReportKey{TaskID: report.TaskID, JobName: report.JobName}
+		reports[key] = append(reports[key], report)
+	}
+	return reports, nil
+}
+
 func (c *CustomWorkflowTestReportColl) ListByWorkflowJobTaskName(workflowName, jobTaskName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
 	jobTaskName = strings.ToLower(jobTaskName)
 
