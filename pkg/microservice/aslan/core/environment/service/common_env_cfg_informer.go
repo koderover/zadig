@@ -81,6 +81,22 @@ func NewClusterInformerFactory(clusterID string, cls *kubernetes.Clientset) (inf
 		DeleteFunc: onStatefulSetDelete,
 	})
 
+	informerFactory.Apps().V1().DaemonSets().Lister()
+	informerFactory.Apps().V1().DaemonSets().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			go onDaemonSetAddAndUpdate(obj)
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			newDaemonSet := newObj.(*appsv1.DaemonSet)
+			oldDaemonSet := oldObj.(*appsv1.DaemonSet)
+			if newDaemonSet.ResourceVersion == oldDaemonSet.ResourceVersion {
+				return
+			}
+			go onDaemonSetAddAndUpdate(newObj)
+		},
+		DeleteFunc: onDaemonSetDelete,
+	})
+
 	stopchan := make(chan struct{})
 	informerFactory.Start(stopchan)
 	informerFactory.WaitForCacheSync(make(chan struct{}))
@@ -253,6 +269,90 @@ func VisitStatefulSet(sts *appsv1.StatefulSet) (sets.String, sets.String, sets.S
 		pvcSets = pvcSets.Union(pvc)
 	}
 	for _, sec := range sts.Spec.Template.Spec.ImagePullSecrets {
+		secretSets.Insert(sec.Name)
+	}
+	return cfgSets, secretSets, pvcSets
+}
+
+func onDaemonSetAddAndUpdate(obj interface{}) {
+	daemonSet := obj.(*appsv1.DaemonSet)
+	serviceName := daemonSet.GetLabels()[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(daemonSet.Namespace, daemonSet.Name, serviceName)
+	if !continueFlag {
+		return
+	}
+
+	configMaps, secrets, pvcs := VisitDaemonSet(daemonSet)
+	envSvcDepend := &models.EnvSvcDepend{
+		ProductName:   product.ProductName,
+		EnvName:       product.EnvName,
+		Namespace:     daemonSet.Namespace,
+		ServiceName:   serviceName,
+		ServiceModule: daemonSet.Name,
+		WorkloadType:  setting.DaemonSet,
+		ConfigMaps:    configMaps.List(),
+		Pvcs:          pvcs.List(),
+		Secrets:       secrets.List(),
+	}
+	if err := commonrepo.NewEnvSvcDependColl().CreateOrUpdate(envSvcDepend); err != nil {
+		log.Error("onDaemonSetAddAndUpdate EnvSvcDepend CreateOrUpdate error:", err)
+	}
+}
+
+func onDaemonSetDelete(obj interface{}) {
+	daemonSet, ok := obj.(*appsv1.DaemonSet)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		daemonSet, ok = tombstone.Obj.(*appsv1.DaemonSet)
+		if !ok {
+			return
+		}
+	}
+	serviceName := daemonSet.GetLabels()[setting.ServiceLabel]
+	product, continueFlag := GetProductAndFilterNs(daemonSet.Namespace, daemonSet.Name, serviceName)
+	if !continueFlag {
+		return
+	}
+	opts := &commonrepo.DeleteEnvSvcDependOption{
+		ProductName:   product.ProductName,
+		EnvName:       product.EnvName,
+		ServiceName:   serviceName,
+		ServiceModule: daemonSet.Name,
+	}
+	if err := commonrepo.NewEnvSvcDependColl().Delete(opts); err != nil {
+		log.Error("onDaemonSetDelete EnvSvcDepend Delete error:", err)
+	}
+}
+
+func VisitDaemonSet(daemonSet *appsv1.DaemonSet) (sets.String, sets.String, sets.String) {
+	cfgSets := sets.NewString()
+	secretSets := sets.NewString()
+	pvcSets := sets.NewString()
+	for _, initCon := range daemonSet.Spec.Template.Spec.InitContainers {
+		cfg, sec := visitContainerConfigmapAndSecretNames(initCon)
+		cfgSets = cfgSets.Union(cfg)
+		secretSets = secretSets.Union(sec)
+	}
+	for _, con := range daemonSet.Spec.Template.Spec.Containers {
+		cfg, sec := visitContainerConfigmapAndSecretNames(con)
+		cfgSets = cfgSets.Union(cfg)
+		secretSets = secretSets.Union(sec)
+	}
+	for _, ephemeralCon := range daemonSet.Spec.Template.Spec.EphemeralContainers {
+		cfg, sec := visitContainerConfigmapAndSecretNames(corev1.Container(ephemeralCon.DeepCopy().EphemeralContainerCommon))
+		cfgSets = cfgSets.Union(cfg)
+		secretSets = secretSets.Union(sec)
+	}
+	for _, volume := range daemonSet.Spec.Template.Spec.Volumes {
+		cfg, sec, pvc := visitVolumeConfigmapAndSecretAndPvcNames(volume)
+		cfgSets = cfgSets.Union(cfg)
+		secretSets = secretSets.Union(sec)
+		pvcSets = pvcSets.Union(pvc)
+	}
+	for _, sec := range daemonSet.Spec.Template.Spec.ImagePullSecrets {
 		secretSets.Insert(sec.Name)
 	}
 	return cfgSets, secretSets, pvcSets

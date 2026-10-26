@@ -411,6 +411,18 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 			}
 			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
 			svc.Yaml = string(bs)
+		case setting.DaemonSet:
+			bs, exists, err := getter.GetDaemonSetYamlFormat(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
+			if err != nil {
+				log.Errorf("failed to get daemonset %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				log.Infof("daemonset %s not exists", svc.ServiceName)
+				continue
+			}
+			log.Infof("optimize yaml of daemonset %s defined in services", svc.ServiceName)
+			svc.Yaml = string(bs)
 		case setting.StatefulSet:
 			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
 			if err != nil {
@@ -537,6 +549,11 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 				deploy, exist, err := getter.GetDeployment(product.Namespace, svcTemplate.ServiceName, kubeClient)
 				if deploy != nil && exist && err == nil {
 					containers = wrapper.Deployment(deploy).GetContainers()
+				}
+			} else if svcTemplate.WorkloadType == setting.DaemonSet {
+				daemonSet, exist, err := getter.GetDaemonSet(product.Namespace, svcTemplate.ServiceName, kubeClient)
+				if daemonSet != nil && exist && err == nil {
+					containers = wrapper.DaemonSet(daemonSet).GetContainers()
 				}
 			} else if svcTemplate.Type == setting.StatefulSet {
 				sts, exist, err := getter.GetStatefulSet(product.Namespace, svcTemplate.ServiceName, kubeClient)
