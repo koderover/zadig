@@ -56,6 +56,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -916,6 +917,55 @@ func GetClusterByAgentToken(token string, logger *zap.SugaredLogger) (*commonmod
 	return s.GetClusterByAgentToken(token, logger)
 }
 
+func preserveHubAgentToken(agent *unstructured.Unstructured, clusterID string, clientset kubernetes.Interface) error {
+	current, err := clientset.AppsV1().Deployments(agent.GetNamespace()).Get(context.Background(), agent.GetName(), metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get existing hub-agent deployment: %w", err)
+	}
+
+	token := ""
+	for _, container := range current.Spec.Template.Spec.Containers {
+		if container.Name != "agent" {
+			continue
+		}
+		for _, env := range container.Env {
+			if env.Name == setting.HubAgentToken {
+				token = env.Value
+				break
+			}
+		}
+		break
+	}
+	// Random AES IVs change the ciphertext on every render; retain a token only while it authenticates this cluster.
+	id, err := crypto.AesDecrypt(token)
+	if err != nil || id != clusterID {
+		return nil
+	}
+
+	containers, _, err := unstructured.NestedSlice(agent.Object, "spec", "template", "spec", "containers")
+	if err != nil {
+		return err
+	}
+	for _, item := range containers {
+		container := item.(map[string]interface{})
+		if container["name"] != "agent" {
+			continue
+		}
+		for _, item := range container["env"].([]interface{}) {
+			env := item.(map[string]interface{})
+			if env["name"] == setting.HubAgentToken {
+				env["value"] = token
+				break
+			}
+		}
+		break
+	}
+	return unstructured.SetNestedSlice(agent.Object, containers, "spec", "template", "spec", "containers")
+}
+
 func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	s, err := kube.NewService("")
 	if err != nil {
@@ -1019,6 +1069,11 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 				}
 			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
 				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)
+			} else if u.GetKind() == "Deployment" && u.GetName() == "koderover-agent-node-agent" {
+				err = preserveHubAgentToken(u, id, clientset)
+				if err == nil {
+					err = updater.CreateOrPatchUnstructured(u, kubeClient)
+				}
 			} else {
 				err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			}
