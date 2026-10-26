@@ -33,12 +33,9 @@ import (
 	githubtool "github.com/koderover/zadig/v2/pkg/tool/git/github"
 )
 
-func validateCodeHostBot(codeHost *models.CodeHost) error {
+func ValidateCodeHostBot(codeHost *models.CodeHost) error {
 	if codeHost.AdvancedConfig == nil {
 		return nil
-	}
-	if codeHost.IntegrationLevel != setting.IntegrationLevelSystem {
-		return e.ErrInvalidParam.AddDesc("仅系统级代码源支持配置机器人身份")
 	}
 	switch codeHost.Type {
 	case setting.SourceFromGitlab:
