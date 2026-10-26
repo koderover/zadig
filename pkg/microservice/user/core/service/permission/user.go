@@ -790,6 +790,10 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		return err
 	}
 
+	if err := login.NewOAuthService().RevokeUserSessions(uid); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions for deleted user %s: %v", uid, err)
+	}
+
 	if err := login.SyncUserMFAEnabledCache(uid, false); err != nil {
 		logger.Warnf("failed to sync mfa cache for deleted user %s: %v", uid, err)
 	}
@@ -1022,6 +1026,9 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
 	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions after password update, uid: %s, err: %v", user.UID, err)
+	}
 	return nil
 }
 
@@ -1053,6 +1060,9 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
+	}
+	if err := login.NewOAuthService().RevokeUserSessions(user.UID); err != nil {
+		logger.Warnf("failed to revoke OAuth sessions after password reset, uid: %s, err: %v", user.UID, err)
 	}
 	return nil
 }
