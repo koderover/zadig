@@ -43,6 +43,15 @@ func ListApiGateway(c *gin.Context) {
 		return
 	}
 
+	// authorization checks
+	// TODO: Authorization leak
+	// comment: this API should only be used when the user requires IM app's full information, including AK/SK
+	// however this is currently used in multiple situation, thus having serious security leaks.
+	// if !ctx.Resources.IsSystemAdmin {
+	// 	ctx.UnAuthorized = true
+	// 	return
+	// }
+
 	apiGateways, err := service.ListApiGateway(ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
