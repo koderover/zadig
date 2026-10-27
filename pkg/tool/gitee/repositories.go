@@ -17,8 +17,12 @@ limitations under the License.
 package gitee
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -214,6 +218,32 @@ func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, h
 	}
 
 	return resp, nil
+}
+
+// UpdateHookSecret sends JSON because the generated SDK mislabels its multipart body.
+func (c *Client) UpdateHookSecret(ctx context.Context, owner, repo string, id int64, hook *git.Hook) error {
+	body, err := json.Marshal(struct {
+		URL      string `json:"url"`
+		Password string `json:"password"`
+	}{hook.URL, hook.Secret})
+	if err != nil {
+		return err
+	}
+	endpoint := fmt.Sprintf("%s/v5/repos/%s/%s/hooks/%d", c.config.BasePath, url.PathEscape(owner), url.PathEscape(repo), id)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return httpclient.NewGenericServerResponse(resp.StatusCode, req.Method, "")
+	}
+	return nil
 }
 
 func (c *Client) GetContents(ctx context.Context, owner, repo, sha string) (gitee.Blob, error) {

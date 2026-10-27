@@ -47,7 +47,7 @@ var migrateCmd = &cobra.Command{
 	Short: "migrate database schema",
 	Long:  `migrate database schema.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return preRun()
+		return preRun(cmd.Context())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		from, _ := cmd.Flags().GetString("from-version")
@@ -176,14 +176,16 @@ func run(from, to string) error {
 	return err
 }
 
-func preRun() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func preRun(parent context.Context) error {
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
 
 	mongotool.Init(ctx, viper.GetString(setting.ENVMongoDBConnectionString))
 	if err := mongotool.Ping(ctx); err != nil {
 		return fmt.Errorf("failed to connect to mongo, error: %s", err)
 	}
+	initMysql()
+	go StartControllers(parent.Done())
 
 	return nil
 }

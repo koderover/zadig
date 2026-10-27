@@ -33,29 +33,10 @@ import (
 
 type Client struct {
 	*gitee.APIClient
+	config *gitee.Configuration
 }
 
 func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) *Client {
-	var (
-		client     *gitee.APIClient
-		HttpClient *http.Client
-	)
-
-	conf := gitee.NewConfiguration()
-	// since the default address for gitee is gitee.com, we change it to whatever the user need
-	conf.BasePath = address + "/api"
-	dc := http.DefaultClient
-	if enableProxy {
-		p, err := url.Parse(proxyAddr)
-		if err == nil {
-			proxy := http.ProxyURL(p)
-			trans := &http.Transport{
-				Proxy: proxy,
-			}
-			dc = &http.Client{Transport: trans}
-		}
-	}
-
 	if accessToken != "" {
 		mu := cache.NewRedisLock(fmt.Sprintf("gitee_token_refresh:%d", id))
 		err := mu.Lock()
@@ -82,7 +63,33 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 		} else if err != nil {
 			log.Errorf("failed to get codeHost id: %d, err:%s", id, err)
 		}
+	}
+	return NewStaticClient(address, accessToken, proxyAddr, enableProxy)
+}
 
+// NewStaticClient uses the supplied token without refreshing it or writing codehost state.
+func NewStaticClient(address, accessToken, proxyAddr string, enableProxy bool) *Client {
+	var (
+		client     *gitee.APIClient
+		HttpClient *http.Client
+	)
+
+	conf := gitee.NewConfiguration()
+	// since the default address for gitee is gitee.com, we change it to whatever the user need
+	conf.BasePath = address + "/api"
+	dc := http.DefaultClient
+	if enableProxy {
+		p, err := url.Parse(proxyAddr)
+		if err == nil {
+			proxy := http.ProxyURL(p)
+			trans := &http.Transport{
+				Proxy: proxy,
+			}
+			dc = &http.Client{Transport: trans}
+		}
+	}
+
+	if accessToken != "" {
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
 		ts := oauth2.StaticTokenSource(
 			&oauth2.Token{AccessToken: accessToken},
@@ -94,5 +101,5 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 	conf.HTTPClient = HttpClient
 	client = gitee.NewAPIClient(conf)
 
-	return &Client{client}
+	return &Client{APIClient: client, config: conf}
 }

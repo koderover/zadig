@@ -41,7 +41,9 @@ var rootCmd = &cobra.Command{
 
 // Execute executes the root command.
 func Execute() error {
-	return rootCmd.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func init() {
@@ -57,10 +59,6 @@ func init() {
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
-
-	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	go StartControllers(ctx.Done())
-	initMysql()
 }
 
 func initConfig() {
