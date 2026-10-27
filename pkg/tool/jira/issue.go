@@ -19,7 +19,9 @@ package jira
 import (
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -134,6 +136,10 @@ func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) 
 }
 
 func (s *IssueService) SearchByJQL(jql string, findAll bool) ([]*Issue, error) {
+	// Jira Cloud removed /rest/api/2/search (CHANGE-2046), Server and Data Center still serve it
+	if isJiraCloud(s.client.Host) {
+		return s.searchByJQLCloud(jql, findAll)
+	}
 	var re []*Issue
 	start := 0
 	for {
@@ -176,6 +182,71 @@ func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error)
 		next = re.StartAt + re.MaxResults
 	}
 	return re.Issues, next, nil
+}
+
+func (s *IssueService) searchByJQLCloud(jql string, findAll bool) ([]*Issue, error) {
+	var re []*Issue
+	token := ""
+	for {
+		list, next, err := s.searchByJQLWithToken(jql, token)
+		if err != nil {
+			return nil, err
+		}
+		re = append(re, list...)
+		if next == "" || !findAll {
+			return re, nil
+		}
+		token = next
+	}
+}
+
+// searchByJQLWithToken https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issue-search/#api-rest-api-2-search-jql-get
+func (s *IssueService) searchByJQLWithToken(jql, token string) ([]*Issue, string, error) {
+	url := s.client.Host + "/rest/api/2/search/jql"
+	params := map[string]string{
+		"jql":    jql,
+		"fields": "*navigable",
+	}
+	if token != "" {
+		params["nextPageToken"] = token
+	}
+	resp, err := s.client.R().SetQueryParams(params).Get(url)
+	if err != nil {
+		return nil, "", err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, "", errors.Errorf("unexpected Jira status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	type tmp struct {
+		NextPageToken string   `json:"nextPageToken"`
+		IsLast        bool     `json:"isLast"`
+		Issues        []*Issue `json:"issues"`
+	}
+	var re tmp
+	if err = resp.UnmarshalJson(&re); err != nil {
+		return nil, "", errors.Wrap(err, "unmarshal")
+	}
+	next := re.NextPageToken
+	if re.IsLast {
+		next = ""
+	}
+	return re.Issues, next, nil
+}
+
+// isJiraCloud reports whether host is a Jira Cloud site (*.atlassian.net or api.atlassian.com/ex/jira)
+func isJiraCloud(host string) bool {
+	u, err := neturl.Parse(host)
+	if err == nil && u.Host == "" {
+		u, err = neturl.Parse("https://" + host)
+	}
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(u.Hostname())
+	if strings.HasSuffix(hostname, ".atlassian.net") {
+		return true
+	}
+	return hostname == "api.atlassian.com" && strings.HasPrefix(u.Path, "/ex/jira")
 }
 
 type updateBody struct {
