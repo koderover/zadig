@@ -897,6 +897,12 @@ func generateDefaultSystemActions() *SystemActions {
 			Edit:   false,
 			Delete: false,
 		},
+		SystemIntegration: &SystemIntegrationActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
 		LabelManagement: &LabelManagementActions{
 			Create: false,
 			Edit:   false,
@@ -1131,6 +1137,14 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DBInstanceManagement.Edit = true
 	case VerbDeleteDBInstanceManagement:
 		systemActions.DBInstanceManagement.Delete = true
+	case VerbGetSystemIntegration:
+		systemActions.SystemIntegration.View = true
+	case VerbCreateSystemIntegration:
+		systemActions.SystemIntegration.Create = true
+	case VerbEditSystemIntegration:
+		systemActions.SystemIntegration.Edit = true
+	case VerbDeleteSystemIntegration:
+		systemActions.SystemIntegration.Delete = true
 	case VerbCreateLabelSetting:
 		systemActions.LabelManagement.Create = true
 	case VerbEditLabelSetting:

@@ -57,7 +57,7 @@ func CreateExternalSystem(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-外部系统", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,8 +83,19 @@ type listExternalResp struct {
 }
 
 func ListExternalSystem(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// Query Verification
 	args := &listQuery{}
@@ -121,7 +132,7 @@ func GetExternalSystemDetail(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -154,7 +165,7 @@ func UpdateExternalSystem(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-外部系统", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -185,7 +196,7 @@ func DeleteExternalSystem(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-外部系统", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
