@@ -26,7 +26,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	codehost := router.Group("codehosts")
 	{
 		codehost.GET("/callback", Callback)
-		codehost.GET("", ListCodeHosts)
+		codehost.GET("", ListSystemCodeHost)
 		codehost.GET("/internal", ListCodeHostInternal)
 		codehost.DELETE("/:id", DeleteSystemCodeHost)
 		codehost.POST("", CreateSystemCodeHost)

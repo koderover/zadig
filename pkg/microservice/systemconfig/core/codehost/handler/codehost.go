@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
@@ -64,36 +63,20 @@ func CreateSystemCodeHost(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.Logger)
 }
 
-func ListCodeHosts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+func ListSystemCodeHost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	project := c.Query("projectName")
-	if project != "" {
-		var err error
-		ctx, err = internalhandler.NewContextWithAuthorization(c)
-		if err != nil {
-			ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.IsSystemAdmin {
-			projects, found, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
-			if err != nil {
-				ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
-				return
-			}
-			if !found || !sets.NewString(projects...).Has(project) {
-				ctx.RespErr = e.ErrUnauthorized
-				return
-			}
-		}
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
 	}
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
 		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.ListCodeHosts(project, encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.SystemList(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func ListCodeHostInternal(c *gin.Context) {

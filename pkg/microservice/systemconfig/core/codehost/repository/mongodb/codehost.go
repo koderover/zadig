@@ -39,7 +39,6 @@ type CodehostColl struct {
 type ListArgs struct {
 	IntegrationLevel setting.IntegrationLevel
 	Project          string
-	IncludeSystem    bool
 	Owner            string
 	Address          string
 	Source           string
@@ -164,18 +163,11 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	if args == nil {
 		args = &ListArgs{}
 	}
-	if args.IncludeSystem {
-		query["$or"] = bson.A{
-			bson.M{"integration_level": setting.IntegrationLevelSystem},
-			bson.M{"integration_level": setting.IntegrationLevelProject, "project": args.Project},
-		}
-	} else {
-		if args.IntegrationLevel != "" {
-			query["integration_level"] = args.IntegrationLevel
-		}
-		if args.Project != "" {
-			query["project"] = args.Project
-		}
+	if args.IntegrationLevel != "" {
+		query["integration_level"] = args.IntegrationLevel
+	}
+	if args.Project != "" {
+		query["project"] = args.Project
 	}
 	if args.Address != "" {
 		query["address"] = args.Address
@@ -199,7 +191,30 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 }
 
 func (c *CodehostColl) AvailableCodeHost(projectName string) ([]*models.CodeHost, error) {
-	return c.List(&ListArgs{Project: projectName, IncludeSystem: true})
+	codeHosts := make([]*models.CodeHost, 0)
+	query := bson.M{
+		"$or": bson.A{
+			bson.M{"$and": bson.A{
+				bson.M{"integration_level": setting.IntegrationLevelSystem},
+				bson.M{"deleted_at": 0},
+			}},
+			bson.M{"$and": bson.A{
+				bson.M{"integration_level": setting.IntegrationLevelProject},
+				bson.M{"project": projectName},
+				bson.M{"deleted_at": 0},
+			}},
+		},
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &codeHosts)
+	if err != nil {
+		return nil, err
+	}
+	return codeHosts, nil
 }
 
 func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
