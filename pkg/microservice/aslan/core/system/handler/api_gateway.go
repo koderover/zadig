@@ -43,11 +43,6 @@ func ListApiGateway(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	apiGateways, err := service.ListApiGateway(ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
