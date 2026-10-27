@@ -41,7 +41,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -64,8 +64,19 @@ func CreateSystemCodeHost(c *gin.Context) {
 }
 
 func ListSystemCodeHost(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
 		ctx.RespErr = e.ErrInvalidParam
@@ -75,10 +86,22 @@ func ListSystemCodeHost(c *gin.Context) {
 }
 
 func ListCodeHostInternal(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	codeHosts, err := service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
-	// This unauthenticated endpoint must not expose bot credentials.
+	// Internal responses omit bot credentials.
 	for _, host := range codeHosts {
 		host.AdvancedConfig = nil
 	}
@@ -95,7 +118,7 @@ func DeleteSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -110,8 +133,19 @@ func DeleteSystemCodeHost(c *gin.Context) {
 }
 
 func GetSystemCodeHost(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
@@ -180,7 +214,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}

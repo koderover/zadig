@@ -43,14 +43,10 @@ func ListApiGateway(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	// TODO: Authorization leak
-	// comment: this API should only be used when the user requires IM app's full information, including AK/SK
-	// however this is currently used in multiple situation, thus having serious security leaks.
-	// if !ctx.Resources.IsSystemAdmin {
-	// 	ctx.UnAuthorized = true
-	// 	return
-	// }
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	apiGateways, err := service.ListApiGateway(ctx.Logger)
 	if err != nil {
@@ -79,8 +75,7 @@ func CreateApiGateway(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -113,8 +108,7 @@ func UpdateApiGateway(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -146,8 +140,7 @@ func DeleteApiGateway(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -173,8 +166,7 @@ func ValidateApiGateway(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -187,4 +179,3 @@ func ValidateApiGateway(c *gin.Context) {
 
 	ctx.RespErr = service.ValidateApiGateway(req, ctx.Logger)
 }
-

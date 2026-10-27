@@ -38,15 +38,10 @@ func ListConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	// TODO: Authorization leak
-	// comment: this API should only be used when the user requires IM app's full information, including AK/SK
-	// however this is currently used in multiple situation, thus having serious security leaks.
-
-	//if !ctx.Resources.IsSystemAdmin {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.RespErr = service.ListConfigurationManagement(c.Query("encryptedKey"), c.Query("type"), ctx.Logger)
 }
@@ -62,15 +57,14 @@ func CreateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	var args commonmodels.ConfigurationManagement
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	var args commonmodels.ConfigurationManagement
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -88,8 +82,7 @@ func GetConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -108,15 +101,14 @@ func UpdateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	var args commonmodels.ConfigurationManagement
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	var args commonmodels.ConfigurationManagement
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -134,8 +126,7 @@ func DeleteConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -153,15 +144,14 @@ func ValidateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	b, err := c.GetRawData()
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	b, err := c.GetRawData()
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 

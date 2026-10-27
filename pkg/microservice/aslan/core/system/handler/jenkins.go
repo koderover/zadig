@@ -55,15 +55,14 @@ func TestJenkinsConnection(c *gin.Context) {
 		return
 	}
 
-	args := new(service.JenkinsArgs)
-	if err := c.BindJSON(args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid jenkinsArgs json args")
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	args := new(service.JenkinsArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid jenkinsArgs json args")
 		return
 	}
 

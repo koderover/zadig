@@ -54,8 +54,19 @@ type ValidateLLMIntegrationRequest struct {
 // @Success 200
 // @Router /api/aslan/system/llm/integration [post]
 func CreateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -77,8 +88,19 @@ func CreateLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/validate [post]
 func ValidateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(ValidateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -115,6 +137,11 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	if !isLogin(ctx) {
 		return
 	}
@@ -141,6 +168,11 @@ func ListLLMIntegration(c *gin.Context) {
 
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -207,8 +239,19 @@ func CheckLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/{id} [put]
 func UpdateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -236,8 +279,19 @@ func UpdateLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/{id} [delete]
 func DeleteLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {

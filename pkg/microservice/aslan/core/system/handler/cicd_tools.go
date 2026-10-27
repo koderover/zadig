@@ -39,6 +39,11 @@ func CreateCICDTools(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(commonmodels.JenkinsIntegration)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid jenkinsIntegration json args")
@@ -47,12 +52,6 @@ func CreateCICDTools(c *gin.Context) {
 
 	if args.Type != setting.CICDToolTypeJenkins && args.Type != setting.CICDToolTypeBlueKing {
 		ctx.RespErr = fmt.Errorf("invalid type: %s. cicd tool type should be of type jenkins or blueKing", args.Type)
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
 		return
 	}
 
@@ -75,8 +74,7 @@ func ListCICDTools(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -99,15 +97,14 @@ func UpdateCICDTools(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.JenkinsIntegration)
-	if err := c.BindJSON(args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid CI/CD tools json args")
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	args := new(commonmodels.JenkinsIntegration)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid CI/CD tools json args")
 		return
 	}
 
@@ -125,8 +122,7 @@ func DeleteCICDTools(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}

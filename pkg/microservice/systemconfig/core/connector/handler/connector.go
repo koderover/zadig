@@ -36,7 +36,7 @@ func CreateConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -61,7 +61,7 @@ func ListConnectors(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -75,8 +75,19 @@ func ListConnectors(c *gin.Context) {
 }
 
 func ListConnectorsInternal(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.RespErr = service.ListConnectorsInternal(ctx.Logger)
 }
@@ -92,7 +103,7 @@ func DeleteConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -111,7 +122,7 @@ func GetConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -130,7 +141,7 @@ func UpdateConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
