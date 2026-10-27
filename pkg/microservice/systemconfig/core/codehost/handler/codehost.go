@@ -67,7 +67,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 func ListCodeHosts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	project := c.Query("project")
+	project := c.Query("projectName")
 	if project != "" {
 		var err error
 		ctx, err = internalhandler.NewContextWithAuthorization(c)
