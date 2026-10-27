@@ -75,19 +75,8 @@ func ListConnectors(c *gin.Context) {
 }
 
 func ListConnectorsInternal(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
-		ctx.UnAuthorized = true
-		return
-	}
 
 	ctx.Resp, ctx.RespErr = service.ListConnectorsInternal(ctx.Logger)
 }
