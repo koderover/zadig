@@ -23,22 +23,25 @@ import (
 	gitlabapi "github.com/xanzy/go-gitlab"
 )
 
-func matchCodeHost(address string, hosts []*codehost.CodeHost) (*codehost.CodeHost, error) {
-	var matches []*codehost.CodeHost
-	var candidates []string
+func prepareHookForHosts(ctx context.Context, hook *common.WebHook, hosts []*codehost.CodeHost, proxy string, allowOrphans bool) (*hookAction, error) {
+	var failures []string
 	for _, host := range hosts {
-		if strings.TrimRight(host.Address, "/") == strings.TrimRight(address, "/") {
-			matches = append(matches, host)
-			candidates = append(candidates, fmt.Sprintf("%d(%s)", host.ID, host.Alias))
+		if strings.TrimRight(host.Address, "/") != strings.TrimRight(hook.Address, "/") {
+			continue
 		}
+		action, err := prepareHook(ctx, hook, host, proxy)
+		if err == nil {
+			return action, nil
+		}
+		failures = append(failures, err.Error())
 	}
-	if len(matches) != 1 {
-		return nil, fmt.Errorf("expected exactly one code host; candidates=%v", candidates)
+	if len(failures) == 0 {
+		if allowOrphans {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("webhook %s/%s hook %s: no matching code host; use --allow-orphan-webhooks only after arranging manual rotation", hook.Owner, hook.Repo, hook.HookID)
 	}
-	if matches[0].AccessToken == "" {
-		return nil, fmt.Errorf("code host %d(%s) has no access token", matches[0].ID, matches[0].Alias)
-	}
-	return matches[0], nil
+	return nil, fmt.Errorf("webhook %s/%s hook %s: no code host can read hook: %s", hook.Owner, hook.Repo, hook.HookID, strings.Join(failures, "; "))
 }
 
 type hookAction struct {
@@ -67,6 +70,9 @@ func (a *hookAction) failure(operation string, err error) error {
 
 func prepareHook(ctx context.Context, hook *common.WebHook, host *codehost.CodeHost, proxy string) (*hookAction, error) {
 	a := &hookAction{hook: hook, host: host}
+	if host.AccessToken == "" {
+		return nil, fmt.Errorf("code host %d(%s) has no access token", host.ID, host.Alias)
+	}
 	if host.EnableProxy {
 		p, err := url.Parse(proxy)
 		if err != nil || p.Scheme == "" || p.Host == "" {

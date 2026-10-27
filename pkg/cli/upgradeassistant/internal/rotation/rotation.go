@@ -13,18 +13,20 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	common "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	codehost "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 )
 
 type Runner struct {
-	Mongo       *mongo.Database
-	SQL         *sql.DB
-	Redis       *redis.Client
-	Keys        *Keys
-	Proxy       string
-	CallbackURL string
+	Mongo               *mongo.Database
+	SQL                 *sql.DB
+	Redis               *redis.Client
+	Keys                *Keys
+	Proxy               string
+	CallbackURL         string
+	AllowOrphanWebhooks bool
 }
 
 type Counts struct {
@@ -44,6 +46,7 @@ type Report struct {
 }
 
 type ManualWebhook struct {
+	HookID      string `json:"hook_id,omitempty"`
 	Repository  string `json:"repository"`
 	CallbackURL string `json:"callback_url"`
 }
@@ -157,7 +160,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	report.Records["mfa_challenges"].Validated = len(challenges)
 
 	var hosts []*codehost.CodeHost
-	cursor, err := r.Mongo.Collection(codehost.CodeHost{}.TableName()).Find(ctx, bson.M{"deleted_at": 0})
+	cursor, err := r.Mongo.Collection(codehost.CodeHost{}.TableName()).Find(ctx, bson.M{"deleted_at": 0}, options.Find().SetSort(bson.D{{Key: "id", Value: 1}}))
 	if err != nil {
 		return fmt.Errorf("cannot scan code hosts")
 	}
@@ -177,20 +180,19 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	for _, hook := range hooks {
 		counts := report.Records["webhook"]
 		counts.Total++
-		if hook.HookID == "" {
+		var action *hookAction
+		if hook.HookID != "" {
+			var err error
+			action, err = prepareHookForHosts(ctx, hook, hosts, r.Proxy, r.AllowOrphanWebhooks)
+			if err != nil {
+				counts.Failed++
+				return err
+			}
+		}
+		if action == nil {
 			counts.Skipped++
-			report.ManualWebhooks = append(report.ManualWebhooks, ManualWebhook{Repository: hook.Address + "/" + hook.Owner + "/" + hook.Repo, CallbackURL: r.CallbackURL})
+			report.ManualWebhooks = append(report.ManualWebhooks, ManualWebhook{Repository: hook.Address + "/" + hook.Owner + "/" + hook.Repo, CallbackURL: r.CallbackURL, HookID: hook.HookID})
 			continue
-		}
-		host, err := matchCodeHost(hook.Address, hosts)
-		if err != nil {
-			counts.Failed++
-			return fmt.Errorf("webhook %s/%s hook %s: %w", hook.Owner, hook.Repo, hook.HookID, err)
-		}
-		action, err := prepareHook(ctx, hook, host, r.Proxy)
-		if err != nil {
-			counts.Failed++
-			return err
 		}
 		actions = append(actions, action)
 		counts.Validated++

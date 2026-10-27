@@ -30,6 +30,7 @@ func init() {
 	cmd.Flags().String("old-key-file", "", "file containing the current AES key (16, 24 or 32 bytes; no newline)")
 	cmd.Flags().String("new-key-file", "", "file containing the new AES key (16, 24 or 32 bytes; no newline)")
 	cmd.Flags().Bool("dry-run", false, "validate records and remote hooks without any writes")
+	cmd.Flags().Bool("allow-orphan-webhooks", false, "report hooks with no matching code host for manual rotation")
 	_ = cmd.MarkFlagRequired("old-key-file")
 	_ = cmd.MarkFlagRequired("new-key-file")
 	rootCmd.AddCommand(cmd)
@@ -39,6 +40,7 @@ func runKeyRotation(cmd *cobra.Command, args []string) error {
 	oldFile, _ := cmd.Flags().GetString("old-key-file")
 	newFile, _ := cmd.Flags().GetString("new-key-file")
 	dry, _ := cmd.Flags().GetBool("dry-run")
+	allowOrphans, _ := cmd.Flags().GetBool("allow-orphan-webhooks")
 	keys, err := rotation.ReadKeys(oldFile, newFile)
 	if err != nil {
 		return err
@@ -83,6 +85,6 @@ func runKeyRotation(cmd *cobra.Command, args []string) error {
 	if len(proxies) > 0 && proxies[0].EnableRepoProxy {
 		proxy = proxies[0].GetProxyURL()
 	}
-	runner := &rotation.Runner{Mongo: mongotool.Database(database), SQL: db, Redis: cache, Keys: keys, Proxy: proxy, CallbackURL: gitservice.WebHookURL()}
+	runner := &rotation.Runner{Mongo: mongotool.Database(database), SQL: db, Redis: cache, Keys: keys, Proxy: proxy, CallbackURL: gitservice.WebHookURL(), AllowOrphanWebhooks: allowOrphans}
 	return runner.Run(ctx, dry, cmd.OutOrStdout())
 }
