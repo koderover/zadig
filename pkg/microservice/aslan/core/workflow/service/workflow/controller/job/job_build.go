@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
@@ -324,10 +325,13 @@ func (j BuildJobController) ClearSelection() {
 func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := make([]*commonmodels.JobTask, 0)
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
 	hasRegistry := j.jobSpec.DockerRegistryID != ""
 	registry := &commonmodels.RegistryNamespace{}
-	if hasRegistry {
-		var err error
+	if hasRegistry || !project.IsCVMProduct() {
 		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
 		if err != nil {
 			return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
