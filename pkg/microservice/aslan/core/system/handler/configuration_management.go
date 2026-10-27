@@ -38,10 +38,15 @@ func ListConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
-		ctx.UnAuthorized = true
-		return
-	}
+	// authorization checks
+	// TODO: Authorization leak
+	// comment: this API should only be used when the user requires IM app's full information, including AK/SK
+	// however this is currently used in multiple situation, thus having serious security leaks.
+
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	ctx.Resp, ctx.RespErr = service.ListConfigurationManagement(c.Query("encryptedKey"), c.Query("type"), ctx.Logger)
 }

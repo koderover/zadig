@@ -128,10 +128,12 @@ func ListSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
-		ctx.UnAuthorized = true
-		return
-	}
+	// TODO: Authorization leak
+	// authorization checks
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
