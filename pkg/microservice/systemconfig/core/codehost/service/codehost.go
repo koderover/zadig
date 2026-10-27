@@ -146,9 +146,11 @@ func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*model
 	})
 }
 
-func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func ListCodeHosts(project, encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
 		IntegrationLevel: setting.IntegrationLevelSystem,
+		Project:          project,
+		IncludeSystem:    project != "",
 		Address:          address,
 		Owner:            owner,
 		Source:           source,
