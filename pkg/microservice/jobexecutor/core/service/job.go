@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type Job struct {
@@ -141,6 +142,10 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
+	logSecrets, err := step.CollectGitLogSecrets(j.Ctx.Steps, j.Ctx.SecretEnvs)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
@@ -150,9 +155,9 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, j.ConfigMapUpdater); err != nil {
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, logSecrets, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
-			respErr = err
+			respErr = fmt.Errorf("%s", util.MaskSecret(logSecrets, err.Error()))
 		}
 	}
 	return respErr

@@ -43,11 +43,12 @@ type DockerBuildStep struct {
 	spec       *step.StepDockerBuildSpec
 	envs       []string
 	secretEnvs []string
+	logSecrets []string
 	workspace  string
 }
 
-func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []string) (*DockerBuildStep, error) {
-	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs, logSecrets []string) (*DockerBuildStep, error) {
+	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logSecrets: logSecrets}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return dockerBuildStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -102,11 +103,11 @@ func (s DockerBuildStep) dockerLogin() error {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			handleCmdOutput(cmdOutReader, true, fileName, s.secretEnvs)
+			handleCmdOutput(cmdOutReader, true, fileName, s.logSecrets)
 		}()
 		go func() {
 			defer wg.Done()
-			handleCmdOutput(cmdErrReader, true, fileName, s.secretEnvs)
+			handleCmdOutput(cmdErrReader, true, fileName, s.logSecrets)
 		}()
 
 		if err := cmd.Start(); err != nil {
@@ -162,11 +163,11 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			handleCmdOutput(cmdOutReader, true, fileName, s.secretEnvs)
+			handleCmdOutput(cmdOutReader, true, fileName, s.logSecrets)
 		}()
 		go func() {
 			defer wg.Done()
-			handleCmdOutput(cmdErrReader, true, fileName, s.secretEnvs)
+			handleCmdOutput(cmdErrReader, true, fileName, s.logSecrets)
 		}()
 
 		c.Dir = s.workspace

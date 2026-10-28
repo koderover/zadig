@@ -37,28 +37,28 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string, updater configmap.Updater) error {
+func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs, logSecrets []string, updater configmap.Updater) error {
 	var stepInstance Step
 	var err error
 
 	switch step.StepType {
 	case "shell":
-		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs)
+		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs, logSecrets)
 		if err != nil {
 			return err
 		}
 	case "git":
-		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
 		if err != nil {
 			return err
 		}
 	case "docker_build":
-		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
 		if err != nil {
 			return err
 		}
 	case "tools":
-		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
 		if err != nil {
 			return err
 		}
@@ -123,11 +123,12 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	default:
-		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
+		err := fmt.Errorf("step type: %s does not match any known type", util.MaskSecret(logSecrets, step.StepType))
 		log.Error(err)
 		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
+		err = fmt.Errorf("%s", util.MaskSecret(logSecrets, err.Error()))
 		log.Error(err)
 		return err
 	}
@@ -147,27 +148,25 @@ func prepareScriptsEnv() []string {
 	return scripts
 }
 
-func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, secretEnvs []string) {
+func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, logSecrets []string) {
 	reader := bufio.NewReader(pipe)
 
 	for {
 		lineBytes, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
+		if len(lineBytes) > 0 {
+			lineBytes = []byte(util.MaskSecret(logSecrets, string(lineBytes)))
+			fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), lineBytes)
+			if needPersistentLog {
+				if err := util.WriteFile(logFile, lineBytes, 0700); err != nil {
+					log.Warnf("Failed to write file when processing cmd output: %s", err)
+				}
 			}
-
-			log.Errorf("Failed to read log when processing cmd output: %s", err)
-			break
 		}
-
-		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecretEnvs(string(lineBytes), secretEnvs))
-
-		if needPersistentLog {
-			err := util.WriteFile(logFile, lineBytes, 0700)
-			if err != nil {
-				log.Warnf("Failed to write file when processing cmd output: %s", err)
+		if err != nil {
+			if err != io.EOF {
+				log.Errorf("Failed to read log when processing cmd output: %s", err)
 			}
+			break
 		}
 	}
 }

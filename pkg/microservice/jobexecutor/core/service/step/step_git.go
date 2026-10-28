@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
 	c "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
@@ -47,19 +49,82 @@ type GitStep struct {
 	spec       *step.StepGitSpec
 	envs       []string
 	secretEnvs []string
+	logSecrets []string
 	workspace  string
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+// CollectGitLogSecrets gathers log-only secrets without exporting Git tokens as environment variables.
+func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, error) {
+	var secrets []string
+	for _, env := range secretEnvs {
+		if pair := strings.SplitN(env, "=", 2); len(pair) == 2 && pair[0] != "" {
+			secrets = append(secrets, pair[1])
+		}
+	}
+	for _, info := range steps {
+		if info.StepType != "git" {
+			continue
+		}
+		s, err := NewGitStep(info.Spec, "", nil, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range s.spec.Repos {
+			if repo != nil {
+				secrets = append(secrets, repo.OauthToken)
+			}
+		}
+		for _, host := range s.spec.CodeHosts {
+			if host != nil {
+				secrets = append(secrets, host.AccessToken)
+			}
+		}
+	}
+	var values []string
+	for _, secret := range secrets {
+		if secret != "" {
+			values = append(values, secret, strings.TrimPrefix(url.UserPassword("", secret).String(), ":"))
+		}
+	}
+	// Match longer credentials first when secrets share a prefix.
+	sort.Slice(values, func(i, j int) bool { return len(values[i]) > len(values[j]) })
+	return values, nil
+}
+
+func NewGitStep(spec interface{}, workspace string, envs, secretEnvs, logSecrets []string) (*GitStep, error) {
+	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logSecrets: logSecrets}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
-		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
+		return gitStep, gitSpecError("marshal", spec, err)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &gitStep.spec); err != nil {
-		return gitStep, fmt.Errorf("unmarshal spec %s to git spec failed", yamlBytes)
+		return gitStep, gitSpecError("unmarshal", spec, err)
+	}
+	if gitStep.spec == nil {
+		return gitStep, fmt.Errorf("git spec is empty")
 	}
 	return gitStep, nil
+}
+
+func gitSpecError(operation string, spec interface{}, err error) error {
+	detail := fmt.Sprintf("error type %T", err)
+	if typeErr, ok := err.(*yaml.TypeError); ok && operation == "unmarshal" {
+		messages := make([]string, 0, len(typeErr.Errors))
+		for _, message := range typeErr.Errors {
+			if !strings.Contains(message, "cannot unmarshal ") {
+				messages = append(messages, "invalid YAML field")
+				continue
+			}
+			// YAML may show only a prefix of the value, so masking full tokens is insufficient.
+			start, end := strings.Index(message, " `"), strings.LastIndex(message, "` into ")
+			if start >= 0 && end > start {
+				message = message[:start] + " ********" + message[end+1:]
+			}
+			messages = append(messages, message)
+		}
+		detail = strings.Join(messages, "; ")
+	}
+	return fmt.Errorf("%s git spec (%T) failed: %s", operation, spec, detail)
 }
 
 func (s *GitStep) Run(ctx context.Context) error {
@@ -151,6 +216,9 @@ func (s *GitStep) runGitCmds() error {
 	if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
 		return err
 	}
+	maskOutput := func(message string) string {
+		return util.MaskSecret(tokens, util.MaskSecret(s.logSecrets, message))
+	}
 
 	for _, c := range cmds {
 		cmdOutReader, err := c.Cmd.StdoutPipe()
@@ -161,7 +229,7 @@ func (s *GitStep) runGitCmds() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(tokens, outScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(outScanner.Text()))
 			}
 		}()
 
@@ -173,17 +241,17 @@ func (s *GitStep) runGitCmds() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(tokens, errScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(errScanner.Text()))
 			}
 		}()
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(strings.Join(c.Cmd.Args, " ")))
 		}
 
 		if err := c.Run(); err != nil {
-			return err
+			return fmt.Errorf("%s", maskOutput(err.Error()))
 		}
 	}
 	return nil

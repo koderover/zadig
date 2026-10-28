@@ -21,17 +21,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ToolInstallStep struct {
 	spec       *step.StepToolInstallSpec
 	envs       []string
 	secretEnvs []string
+	logSecrets []string
 	workspace  string
 }
 
-func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ToolInstallStep, error) {
-	toolInstallStep := &ToolInstallStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs, logSecrets []string) (*ToolInstallStep, error) {
+	toolInstallStep := &ToolInstallStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logSecrets: logSecrets}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return toolInstallStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -142,7 +144,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	outScanner := bufio.NewScanner(cmdOutReader)
 	go func() {
 		for outScanner.Scan() {
-			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(s.logSecrets, outScanner.Text()))
 		}
 	}()
 
@@ -154,7 +156,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	errScanner := bufio.NewScanner(cmdErrReader)
 	go func() {
 		for errScanner.Scan() {
-			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(s.logSecrets, errScanner.Text()))
 		}
 	}()
 

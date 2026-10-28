@@ -38,12 +38,13 @@ type ShellStep struct {
 	spec       *step.StepShellSpec
 	envs       []string
 	secretEnvs []string
+	logSecrets []string
 	workspace  string
 	Paths      string
 }
 
-func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []string) (*ShellStep, error) {
-	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs, logSecrets []string) (*ShellStep, error) {
+	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logSecrets: logSecrets}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -108,7 +109,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs)
+		handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.logSecrets)
 	}()
 
 	cmdStdErrReader, err := cmd.StderrPipe()
@@ -120,7 +121,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs)
+		handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.logSecrets)
 	}()
 
 	if err := cmd.Start(); err != nil {
