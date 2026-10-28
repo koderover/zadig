@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
@@ -324,9 +325,17 @@ func (j BuildJobController) ClearSelection() {
 func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := make([]*commonmodels.JobTask, 0)
-	registry, err := commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
-		return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+		return nil, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	needRegistry := !project.IsCVMProduct() || j.jobSpec.DockerRegistryID != ""
+	registry := &commonmodels.RegistryNamespace{}
+	if needRegistry {
+		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
+		if err != nil {
+			return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+		}
 	}
 
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
@@ -352,19 +361,25 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 	for jobSubTaskID, build := range j.jobSpec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
-		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
-		if len(registry.Namespace) > 0 {
-			image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
-		}
+		image := ""
+		if needRegistry {
+			image = fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
+			if len(registry.Namespace) > 0 {
+				image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
+			}
 
-		image = strings.TrimPrefix(image, "http://")
-		image = strings.TrimPrefix(image, "https://")
+			image = strings.TrimPrefix(image, "http://")
+			image = strings.TrimPrefix(image, "https://")
+		}
 
 		pkgFile := fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
+		}
+		if !needRegistry && buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
+			return nil, fmt.Errorf("build %s/%s has docker build configured but no docker registry selected", build.ServiceName, build.ServiceModule)
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
 		if err != nil {
@@ -567,7 +582,10 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		} else {
-			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+			if needRegistry {
+				scripts = append(scripts, dockerLoginCmd)
+			}
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 			scripts = append(scripts, outputScript(outputs, jobTask.Infrastructure)...)
 		}
 		scriptStep := &commonmodels.StepTask{
@@ -719,7 +737,11 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		// init post build shell step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
-			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
+			scripts := make([]string, 0)
+			if needRegistry {
+				scripts = append(scripts, dockerLoginCmd)
+			}
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-post-shell",
 				JobName:  jobTask.Name,
