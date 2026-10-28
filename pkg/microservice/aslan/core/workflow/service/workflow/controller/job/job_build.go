@@ -329,9 +329,9 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
 	}
-	hasRegistry := j.jobSpec.DockerRegistryID != ""
+	needRegistry := !project.IsCVMProduct() || j.jobSpec.DockerRegistryID != ""
 	registry := &commonmodels.RegistryNamespace{}
-	if hasRegistry || !project.IsCVMProduct() {
+	if needRegistry {
 		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)
 		if err != nil {
 			return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
@@ -362,7 +362,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
 		image := ""
-		if hasRegistry {
+		if needRegistry {
 			image = fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 			if len(registry.Namespace) > 0 {
 				image = fmt.Sprintf("%s/%s/%s", registry.RegAddr, registry.Namespace, imageTag)
@@ -378,7 +378,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		if err != nil {
 			return nil, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
 		}
-		if !hasRegistry && buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
+		if !needRegistry && buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
 			return nil, fmt.Errorf("build %s/%s has docker build configured but no docker registry selected", build.ServiceName, build.ServiceModule)
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
@@ -582,7 +582,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		} else {
-			if hasRegistry {
+			if needRegistry {
 				scripts = append(scripts, dockerLoginCmd)
 			}
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
@@ -737,7 +737,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		// init post build shell step
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
 			scripts := make([]string, 0)
-			if hasRegistry {
+			if needRegistry {
 				scripts = append(scripts, dockerLoginCmd)
 			}
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
