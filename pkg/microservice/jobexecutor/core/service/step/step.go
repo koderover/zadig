@@ -37,28 +37,28 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs, logSecrets []string, updater configmap.Updater) error {
+func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs, gitTokens []string, updater configmap.Updater) error {
 	var stepInstance Step
 	var err error
 
 	switch step.StepType {
 	case "shell":
-		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs, logSecrets)
+		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs, gitTokens)
 		if err != nil {
 			return err
 		}
 	case "git":
-		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
+		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs, gitTokens)
 		if err != nil {
 			return err
 		}
 	case "docker_build":
-		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
+		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs, gitTokens)
 		if err != nil {
 			return err
 		}
 	case "tools":
-		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs, logSecrets)
+		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs, gitTokens)
 		if err != nil {
 			return err
 		}
@@ -123,12 +123,12 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	default:
-		err := fmt.Errorf("step type: %s does not match any known type", util.MaskSecret(logSecrets, step.StepType))
+		err := fmt.Errorf("step type: %s does not match any known type", util.MaskSecretEnvs(util.MaskSecret(gitTokens, step.StepType), secretEnvs))
 		log.Error(err)
 		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
-		err = fmt.Errorf("%s", util.MaskSecret(logSecrets, err.Error()))
+		err = fmt.Errorf("%s", util.MaskSecretEnvs(util.MaskSecret(gitTokens, err.Error()), secretEnvs))
 		log.Error(err)
 		return err
 	}
@@ -148,13 +148,14 @@ func prepareScriptsEnv() []string {
 	return scripts
 }
 
-func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, logSecrets []string) {
+func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, secretEnvs, gitTokens []string) {
 	reader := bufio.NewReader(pipe)
 
 	for {
 		lineBytes, err := reader.ReadBytes('\n')
 		if len(lineBytes) > 0 {
-			lineBytes = []byte(util.MaskSecret(logSecrets, string(lineBytes)))
+			message := util.MaskSecret(gitTokens, string(lineBytes))
+			lineBytes = []byte(util.MaskSecretEnvs(message, secretEnvs))
 			fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), lineBytes)
 			if needPersistentLog {
 				if err := util.WriteFile(logFile, lineBytes, 0700); err != nil {

@@ -49,18 +49,13 @@ type GitStep struct {
 	spec       *step.StepGitSpec
 	envs       []string
 	secretEnvs []string
-	logSecrets []string
+	gitTokens  []string
 	workspace  string
 }
 
-// CollectGitLogSecrets gathers log-only secrets without exporting Git tokens as environment variables.
-func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, error) {
-	var secrets []string
-	for _, env := range secretEnvs {
-		if pair := strings.SplitN(env, "=", 2); len(pair) == 2 && pair[0] != "" {
-			secrets = append(secrets, pair[1])
-		}
-	}
+// CollectGitTokens gathers repository tokens and their URL-escaped forms for log masking.
+func CollectGitTokens(steps []*meta.Step) ([]string, error) {
+	var tokens []string
 	for _, info := range steps {
 		if info.StepType != "git" {
 			continue
@@ -72,7 +67,7 @@ func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, er
 		hasSubmodules := false
 		for _, repo := range s.spec.Repos {
 			if repo != nil {
-				secrets = append(secrets, repo.OauthToken)
+				tokens = append(tokens, repo.OauthToken)
 				hasSubmodules = hasSubmodules || repo.SubModules
 			}
 		}
@@ -81,14 +76,14 @@ func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, er
 		}
 		for _, host := range s.spec.CodeHosts {
 			if host != nil {
-				secrets = append(secrets, host.AccessToken)
+				tokens = append(tokens, host.AccessToken)
 			}
 		}
 	}
 	var values []string
-	for _, secret := range secrets {
-		if secret != "" {
-			values = append(values, secret, strings.TrimPrefix(url.UserPassword("", secret).String(), ":"))
+	for _, token := range tokens {
+		if token != "" {
+			values = append(values, token, strings.TrimPrefix(url.UserPassword("", token).String(), ":"))
 		}
 	}
 	// Match longer credentials first when secrets share a prefix.
@@ -96,8 +91,8 @@ func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, er
 	return values, nil
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs, logSecrets []string) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logSecrets: logSecrets}
+func NewGitStep(spec interface{}, workspace string, envs, secretEnvs, gitTokens []string) (*GitStep, error) {
+	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, gitTokens: gitTokens}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return gitStep, gitSpecError("marshal", spec, err)
@@ -222,7 +217,7 @@ func (s *GitStep) runGitCmds() error {
 		return err
 	}
 	maskOutput := func(message string) string {
-		return util.MaskSecret(tokens, util.MaskSecret(s.logSecrets, message))
+		return util.MaskSecret(tokens, util.MaskSecret(s.gitTokens, message))
 	}
 
 	for _, c := range cmds {

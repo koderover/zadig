@@ -142,11 +142,7 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
-	logSecrets, err := step.CollectGitLogSecrets(j.Ctx.Steps, j.Ctx.SecretEnvs)
-	if err != nil {
-		return err
-	}
-	gitTokens, err := step.CollectGitLogSecrets(j.Ctx.Steps, nil)
+	gitTokens, err := step.CollectGitTokens(j.Ctx.Steps)
 	if err != nil {
 		return err
 	}
@@ -159,13 +155,9 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		stepLogSecrets := logSecrets
-		if stepInfo.StepType == "tools" {
-			stepLogSecrets = gitTokens
-		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, stepLogSecrets, j.ConfigMapUpdater); err != nil {
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, gitTokens, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
-			respErr = fmt.Errorf("%s", util.MaskSecret(logSecrets, err.Error()))
+			respErr = fmt.Errorf("%s", util.MaskSecretEnvs(util.MaskSecret(gitTokens, err.Error()), j.Ctx.SecretEnvs))
 		}
 	}
 	return respErr
