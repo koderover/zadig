@@ -115,15 +115,36 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 }
 
 // Update Service and ServiceDeployStrategy for a single service in environment
-func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail, clusterName string) error {
+func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail, clusterName string) (err error) {
+	started := time.Now()
+	logger := log.SugaredLogger().With("operation", "update_environment", "project", product.ProductName, "env", product.EnvName, "namespace", product.Namespace, "service", productSvc.ServiceName, "cluster_id", product.ClusterID, "operation_started_at", started.Format(time.RFC3339Nano))
+	phase := ""
+	phaseStarted := started
+	nextPhase := func(next string) {
+		if phase != "" {
+			logger.Infow("Helm deploy phase completed", "phase", phase, "duration", time.Since(phaseStarted).String())
+		}
+		phase, phaseStarted = next, time.Now()
+		logger.Infow("Helm deploy phase started", "phase", phase)
+	}
+	defer func() {
+		if err != nil {
+			logger.Errorw("Helm deploy failed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String(), "error", err)
+		} else {
+			logger.Infow("Helm deploy completed", "phase", phase, "phase_duration", time.Since(phaseStarted).String(), "duration", time.Since(started).String())
+		}
+	}()
+
+	nextPhase("start_environment_transaction")
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
-	err := mongo.StartTransaction(session)
+	err = mongo.StartTransaction(session)
 	if err != nil {
 		return err
 	}
 
+	nextPhase("create_service_version")
 	product.LintServices()
 	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, operation, detail, clusterName, session, log.SugaredLogger())
 	if err != nil {
@@ -131,9 +152,13 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 	}
 
 	envLock := cache.NewRedisLock(fmt.Sprintf("%s:%s:%s", UpdateHelmEnvLockKey, product.ProductName, product.EnvName))
-	envLock.Lock()
+	nextPhase("acquire_environment_lock")
+	if lockErr := envLock.Lock(); lockErr != nil {
+		logger.Warnw("Failed to acquire Helm environment lock", "error", lockErr)
+	}
 	defer envLock.Unlock()
 
+	nextPhase("read_environment")
 	productColl := commonrepo.NewProductCollWithSession(session)
 	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
@@ -159,12 +184,14 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 		}
 	}
 
+	nextPhase("read_project_template")
 	templateProduct, err := template.NewProductCollWithSess(session).Find(product.ProductName)
 	if err != nil {
 		mongo.AbortTransaction(session)
 		return errors.Wrapf(err, "failed to find template product %s", product.ProductName)
 	}
 
+	nextPhase("rebuild_environment_services")
 	newProductInfo.Services = [][]*commonmodels.ProductService{}
 	serviceOrchestration := templateProduct.Services
 	if product.Production {
@@ -211,12 +238,14 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 	}
 
 	newProductInfo.UpdateBy = user
+	nextPhase("write_environment")
 	if err = productColl.Update(newProductInfo); err != nil {
 		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
 		mongo.AbortTransaction(session)
 		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
 	}
 
+	nextPhase("commit_environment_transaction")
 	return mongo.CommitTransaction(session)
 }
 
