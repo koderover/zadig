@@ -273,6 +273,7 @@ func (c *authClient) listTags(repoName string) (tags []string, err error) {
 func (c *authClient) tagExists(repoName, tag string) (bool, error) {
 	repo, err := c.getRepository(repoName)
 	if err != nil {
+		c.log.Errorf("failed to get repository for image %s/%s:%s: %v", c.endpoint.Addr, repoName, tag, err)
 		return false, err
 	}
 
@@ -280,6 +281,11 @@ func (c *authClient) tagExists(repoName, tag string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+	details, marshalErr := json.Marshal(err)
+	if marshalErr != nil {
+		c.log.Errorf("failed to encode registry error for image %s/%s:%s: %v", c.endpoint.Addr, repoName, tag, marshalErr)
+	}
+	c.log.Errorf("failed to get registry image %s/%s:%s: %v, details: %s", c.endpoint.Addr, repoName, tag, err, details)
 	if isRegistryImageNotFound(err) {
 		return false, nil
 	}
@@ -575,27 +581,39 @@ func (s *v2RegistryService) GetImageInfo(option GetRepoImageDetailOption, log *z
 func (s *v2RegistryService) CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error) {
 	cli, err := s.createClient(option.Endpoint, log)
 	if err != nil {
+		log.Errorf("failed to create registry client for image %s/%s/%s (tag: %s, digest: %s): %v", option.Addr, option.Namespace, option.Image, option.Tag, option.Digest, err)
 		return false, err
 	}
 
 	repoName := strings.Trim(strings.Join([]string{option.Namespace, option.Image}, "/"), "/")
 	if option.Digest == "" {
-		return cli.tagExists(repoName, option.Tag)
+		exists, err := cli.tagExists(repoName, option.Tag)
+		if err != nil {
+			log.Errorf("failed to check registry image %s/%s:%s: %v", option.Addr, repoName, option.Tag, err)
+		}
+		return exists, err
 	}
 
 	dgst, err := digest.Parse(option.Digest)
 	if err != nil {
+		log.Errorf("failed to parse image digest %s (registry: %s, repository: %s): %v", option.Digest, option.Addr, repoName, err)
 		return false, err
 	}
 	repo, err := cli.getRepository(repoName)
 	if err != nil {
+		log.Errorf("failed to get repository for image %s/%s@%s: %v", option.Addr, repoName, option.Digest, err)
 		return false, err
 	}
 	manifestService, err := repo.Manifests(cli.ctx)
 	if err != nil {
+		log.Errorf("failed to get manifest service for image %s/%s@%s: %v", option.Addr, repoName, option.Digest, err)
 		return false, err
 	}
-	return manifestService.Exists(cli.ctx, dgst)
+	exists, err := manifestService.Exists(cli.ctx, dgst)
+	if err != nil {
+		log.Errorf("failed to check registry manifest %s/%s@%s: %v", option.Addr, repoName, option.Digest, err)
+	}
+	return exists, err
 }
 
 type ReverseStringSlice []string
@@ -783,6 +801,7 @@ func (s *swrService) CheckImageExist(option CheckImageExistOption, log *zap.Suga
 	}
 	repoTags, err := swrCli.ListRepositoryTags(request)
 	if err != nil {
+		log.Errorf("failed to list SWR image tags (registry: %s, namespace: %s, repository: %s, tag: %s, digest: %s): %v", option.Addr, option.Namespace, option.Image, option.Tag, option.Digest, err)
 		return false, err
 	}
 	if repoTags.Body == nil {
@@ -933,6 +952,7 @@ func (s *ecrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 func (s *ecrService) CheckImageExist(option CheckImageExistOption, log *zap.SugaredLogger) (bool, error) {
 	svc, err := s.getECRService(option.Endpoint, log)
 	if err != nil {
+		log.Errorf("failed to create ECR client for image %s/%s (tag: %s, digest: %s): %v", option.Addr, option.Image, option.Tag, option.Digest, err)
 		return false, err
 	}
 	imageID := &ecr.ImageIdentifier{}
@@ -946,6 +966,7 @@ func (s *ecrService) CheckImageExist(option CheckImageExistOption, log *zap.Suga
 		RepositoryName: aws.String(option.Image),
 	})
 	if err != nil {
+		log.Errorf("failed to describe ECR image (registry: %s, repository: %s, tag: %s, digest: %s): %v", option.Addr, option.Image, option.Tag, option.Digest, err)
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == ecr.ErrCodeImageNotFoundException {
 			return false, nil
 		}
