@@ -68,7 +68,7 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 	}
 
 	codehost.IntegrationLevel = setting.IntegrationLevelSystem
-	if err := validateCodeHostBot(codehost); err != nil {
+	if err := ValidateCodeHostBot(codehost); err != nil {
 		return nil, err
 	}
 
@@ -183,7 +183,7 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 	}
 
 	host.IntegrationLevel = oldCodeHost.IntegrationLevel
-	if err := validateCodeHostBot(host); err != nil {
+	if err := ValidateCodeHostBot(host); err != nil {
 		return nil, err
 	}
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)

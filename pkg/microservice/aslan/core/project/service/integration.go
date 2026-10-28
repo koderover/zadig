@@ -18,21 +18,21 @@ package service
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	systemconfig_codehost_service "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func CreateProjectCodeHost(projectName string, codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	// Bot identities are only supported on system codehosts.
-	codehost.AdvancedConfig = nil
-
 	if codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
@@ -45,6 +45,10 @@ func CreateProjectCodeHost(projectName string, codehost *models.CodeHost, _ *zap
 		if _, err := mongodb.NewCodehostColl().GetProjectCodeHostByAlias(projectName, codehost.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
+	}
+
+	if err := systemconfig_codehost_service.ValidateCodeHostBot(codehost); err != nil {
+		return nil, err
 	}
 
 	codehost.CreatedAt = time.Now().Unix()
@@ -82,25 +86,25 @@ func DeleteProjectCodeHostByID(projectName string, id int, _ *zap.SugaredLogger)
 }
 
 func UpdateProjectSystemCodeHost(projectName string, host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	// Bot identities are only supported on system codehosts.
-	host.AdvancedConfig = nil
-
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
 
-	var oldAlias string
-	oldCodeHost, err := mongodb.NewCodehostColl().GetCodeHostByID(host.ID, false)
-	if err == nil {
-		oldAlias = oldCodeHost.Alias
+	oldCodeHost, err := mongodb.NewCodehostColl().GetProjectCodeHostByID(host.ID, projectName, false)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", host.ID))
+		}
+		return nil, err
 	}
-	if oldCodeHost.Project != projectName {
-		return nil, fmt.Errorf("the codehost is not belong to %s project", projectName)
-	}
-	if host.Alias != "" && host.Alias != oldAlias {
+	if host.Alias != "" && host.Alias != oldCodeHost.Alias {
 		if _, err := mongodb.NewCodehostColl().GetProjectCodeHostByAlias(projectName, host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
+	}
+
+	if err := systemconfig_codehost_service.ValidateCodeHostBot(host); err != nil {
+		return nil, err
 	}
 
 	return mongodb.NewCodehostColl().UpdateProjectCodeHost(projectName, host)
@@ -110,8 +114,19 @@ func UpdateCodeHostByToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models
 	return mongodb.NewCodehostColl().UpdateCodeHostToken(host)
 }
 
-func GetProjectCodeHost(id int, projectName string, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().GetProjectCodeHostByID(id, projectName, ignoreDelete)
+func GetProjectCodeHost(id int, projectName string, ignoreDelete bool, encryptedKey string, log *zap.SugaredLogger) (*models.CodeHost, error) {
+	codeHost, err := mongodb.NewCodehostColl().GetProjectCodeHostByID(id, projectName, ignoreDelete)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("代码源 %d 不存在", id))
+		}
+		return nil, err
+	}
+	codeHosts, err := systemconfig_codehost_service.EncypteCodeHost(encryptedKey, []*models.CodeHost{codeHost}, log)
+	if err != nil {
+		return nil, err
+	}
+	return codeHosts[0], nil
 }
 
 func GetAvailableCodehostList(projectName, encryptedKey string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {

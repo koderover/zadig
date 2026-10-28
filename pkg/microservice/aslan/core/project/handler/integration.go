@@ -106,18 +106,13 @@ func ListProjectCodeHost(c *gin.Context) {
 		return
 	}
 
-	// TODO: Authorization leaks
 	// authorization checks
-	//if !ctx.Resources.IsSystemAdmin {
-	//	if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-	//		ctx.UnAuthorized = true
-	//		return
-	//	}
-	//	if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-	//		ctx.UnAuthorized = true
-	//		return
-	//	}
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		if projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok || !projectAuth.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
@@ -255,6 +250,7 @@ func UpdateProjectCodeHost(c *gin.Context) {
 // @Produce json
 // @Param 	name			path		string					true	"project name"
 // @Param 	id				path		int						true	"code host id"
+// @Param 	encryptedKey	query		string					true	"encrypted key"
 // @Success 200  			{object} 	models.CodeHost
 // @Router /api/aslan/project/integration/{name}/codehosts/{id} [get]
 func GetProjectCodeHost(c *gin.Context) {
@@ -301,7 +297,13 @@ func GetProjectCodeHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetProjectCodeHost(id, projectKey, ignoreDelete, ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if len(encryptedKey) == 0 {
+		ctx.RespErr = e.ErrInvalidParam
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetProjectCodeHost(id, projectKey, ignoreDelete, encryptedKey, ctx.Logger)
 }
 
 // @Summary List Available CodeHost
