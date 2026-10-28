@@ -69,10 +69,15 @@ func CollectGitLogSecrets(steps []*meta.Step, secretEnvs []string) ([]string, er
 		if err != nil {
 			return nil, err
 		}
+		hasSubmodules := false
 		for _, repo := range s.spec.Repos {
 			if repo != nil {
 				secrets = append(secrets, repo.OauthToken)
+				hasSubmodules = hasSubmodules || repo.SubModules
 			}
+		}
+		if !hasSubmodules {
+			continue
 		}
 		for _, host := range s.spec.CodeHosts {
 			if host != nil {

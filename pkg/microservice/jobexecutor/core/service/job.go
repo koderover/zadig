@@ -146,6 +146,10 @@ func (j *Job) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	gitTokens, err := step.CollectGitLogSecrets(j.Ctx.Steps, nil)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
@@ -155,7 +159,11 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, logSecrets, j.ConfigMapUpdater); err != nil {
+		stepLogSecrets := logSecrets
+		if stepInfo.StepType == "tools" {
+			stepLogSecrets = gitTokens
+		}
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, stepLogSecrets, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
 			respErr = fmt.Errorf("%s", util.MaskSecret(logSecrets, err.Error()))
 		}
