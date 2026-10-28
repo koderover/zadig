@@ -53,7 +53,7 @@ type GitStep struct {
 	workspace  string
 }
 
-// CollectGitTokens gathers repository tokens and their URL-escaped forms for log masking.
+// CollectGitTokens gathers repository authentication secrets and their URL-escaped forms for log masking.
 func CollectGitTokens(steps []*meta.Step) ([]string, error) {
 	var tokens []string
 	for _, info := range steps {
@@ -68,6 +68,15 @@ func CollectGitTokens(steps []*meta.Step) ([]string, error) {
 		for _, repo := range s.spec.Repos {
 			if repo != nil {
 				tokens = append(tokens, repo.OauthToken)
+				if repo.Source == types.ProviderGerrit {
+					tokens = append(tokens, repo.Password)
+					// Gerrit clone URLs contain the HTTP password decoded from the access token.
+					if userpass, err := base64.StdEncoding.DecodeString(repo.OauthToken); err == nil {
+						if _, password, ok := strings.Cut(string(userpass), ":"); ok {
+							tokens = append(tokens, password)
+						}
+					}
+				}
 				hasSubmodules = hasSubmodules || repo.SubModules
 			}
 		}
@@ -77,6 +86,9 @@ func CollectGitTokens(steps []*meta.Step) ([]string, error) {
 		for _, host := range s.spec.CodeHosts {
 			if host != nil {
 				tokens = append(tokens, host.AccessToken)
+				if host.Type == types.ProviderGerrit {
+					tokens = append(tokens, host.Password)
+				}
 			}
 		}
 	}
