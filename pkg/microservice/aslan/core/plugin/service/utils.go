@@ -44,8 +44,7 @@ func validateWorkflowForLarkPlugin(workflowName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to find workflow %s: %w", workflowName, err)
 	}
-
-	var buildCount, deployCount, testCount, meegoCount int
+	var buildCount, deployCount, testCount, apolloCount, meegoCount int
 	buildIdx, deployIdx := -1, -1
 	jobIdx := 0
 
@@ -55,15 +54,17 @@ func validateWorkflowForLarkPlugin(workflowName string) error {
 			case aslanconfig.JobZadigBuild:
 				buildCount++
 				buildIdx = jobIdx
-			case aslanconfig.JobZadigDeploy:
+			case aslanconfig.JobZadigDeploy, aslanconfig.JobZadigVMDeploy:
 				deployCount++
 				deployIdx = jobIdx
 			case aslanconfig.JobZadigTesting:
 				testCount++
+			case aslanconfig.JobApollo:
+				apolloCount++
 			case aslanconfig.JobMeegoTransition:
 				meegoCount++
 			default:
-				return fmt.Errorf("workflow %s contains unsupported job type %s, only build, deploy, and test jobs are allowed", workflowName, job.JobType)
+				return fmt.Errorf("workflow %s contains unsupported job type %s, only build, kubernetes deploy, host deploy, apollo, meego transition, and test jobs are allowed", workflowName, job.JobType)
 			}
 			jobIdx++
 		}
