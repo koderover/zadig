@@ -587,7 +587,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 	}
 
 	if !spec.SkipCRDs && spec.UpgradeCRDs {
-		crdChart, err := hClient.loadChartForCRDUpgrade(chartPath, spec, values)
+		crdChart, err := hClient.loadChartForCRDUpgrade(chartPath, spec.ReleaseName, values)
 		if err != nil {
 			return nil, err
 		}
@@ -608,24 +608,21 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 
 // loadChartForCRDUpgrade filters dependencies on a separate chart so Helm can
 // still process aliases and imported values on the original chart during upgrade.
-func (hClient *HelmClient) loadChartForCRDUpgrade(chartPath string, spec *hc.ChartSpec, inputValues map[string]interface{}) (*chart.Chart, error) {
+// ponytail: callers use default value options; add reuse/reset handling if enabled.
+func (hClient *HelmClient) loadChartForCRDUpgrade(chartPath, releaseName string, values map[string]interface{}) (*chart.Chart, error) {
 	helmChart, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, err
 	}
-	var values map[string]interface{}
-	if err := util.DeepCopy(&values, inputValues); err != nil {
-		return nil, err
-	}
 
-	// Match Helm Upgrade.reuseValues, including implicit reuse for empty input.
-	if !spec.ResetValues && (spec.ReuseValues || len(values) == 0) {
-		current, err := hClient.ActionConfig.Releases.Last(spec.ReleaseName)
+	// Helm implicitly reuses the current release's config when input is empty.
+	if len(values) == 0 {
+		current, err := hClient.ActionConfig.Releases.Last(releaseName)
 		if err != nil {
 			return nil, err
 		}
 		if current.Info.Status != release.StatusDeployed {
-			deployed, err := hClient.ActionConfig.Releases.Deployed(spec.ReleaseName)
+			deployed, err := hClient.ActionConfig.Releases.Deployed(releaseName)
 			if err != nil {
 				if !errors.Is(err, driver.ErrNoDeployedReleases) ||
 					(current.Info.Status != release.StatusFailed && current.Info.Status != release.StatusSuperseded) {
@@ -635,16 +632,7 @@ func (hClient *HelmClient) loadChartForCRDUpgrade(chartPath string, spec *hc.Cha
 				current = deployed
 			}
 		}
-		if spec.ReuseValues {
-			oldValues, err := helmchartutil.CoalesceValues(current.Chart, current.Config)
-			if err != nil {
-				return nil, err
-			}
-			helmChart.Values = oldValues
-			values = helmchartutil.CoalesceTables(values, current.Config)
-		} else {
-			values = current.Config
-		}
+		values = current.Config
 	}
 
 	if err := helmchartutil.ProcessDependenciesWithMerge(helmChart, values); err != nil {
