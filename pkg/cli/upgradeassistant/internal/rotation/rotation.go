@@ -1,5 +1,5 @@
 // Package rotation performs a one-shot, offline migration. Cross-database and
-// remote writes are not atomic; restore the maintenance backup after any failure.
+// remote writes are not atomic; restore the maintenance backup after local write failures.
 package rotation
 
 import (
@@ -210,6 +210,17 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 		return nil
 	}
 
+	report.Phase = "updating_webhooks"
+	for _, action := range actions {
+		requestCtx, cancel := context.WithTimeout(ctx, webhookRequestTimeout)
+		err := action.refresh(requestCtx, r.Keys.webhookSecret, r.CallbackURL)
+		cancel()
+		if err != nil {
+			report.Records["webhook"].Failed++
+			return action.failure("update remote hook; local stores unchanged; retry with the same keys or restore remote hook secrets before aborting", err)
+		}
+		report.Records["webhook"].Succeeded++
+	}
 	report.Phase = "writing"
 	for _, item := range changes {
 		var matched int64
@@ -239,13 +250,6 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 			return fmt.Errorf("cannot delete MFA challenge; restore the final backup before retrying")
 		}
 		report.Records["mfa_challenges"].Succeeded++
-	}
-	for _, action := range actions {
-		if err := action.update(r.Keys.webhookSecret); err != nil {
-			report.Records["webhook"].Failed++
-			return err
-		}
-		report.Records["webhook"].Succeeded++
 	}
 	report.Phase = "completed"
 	return nil

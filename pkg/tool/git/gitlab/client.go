@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/xanzy/go-gitlab"
 
@@ -103,7 +102,6 @@ func NewOAuthTokenClient(address, token, proxyAddr string, enableProxy, skipTLS 
 	if err != nil {
 		return nil, err
 	}
-	client.Timeout = 30 * time.Second
 	cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
 	if err != nil {
 		return nil, err

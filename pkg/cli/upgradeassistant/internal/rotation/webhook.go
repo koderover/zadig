@@ -5,23 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	githubapi "github.com/google/go-github/v35/github"
 	common "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitee"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gitlab"
 	codehost "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/git"
 	githubtool "github.com/koderover/zadig/v2/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	giteetool "github.com/koderover/zadig/v2/pkg/tool/gitee"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	gitlabapi "github.com/xanzy/go-gitlab"
 )
+
+const webhookRequestTimeout = 30 * time.Second
 
 func prepareHookForHosts(ctx context.Context, hook *common.WebHook, hosts []*codehost.CodeHost, proxy string, allowOrphans bool) (*hookAction, error) {
 	var failures []string
@@ -47,7 +49,7 @@ func prepareHookForHosts(ctx context.Context, hook *common.WebHook, hosts []*cod
 type hookAction struct {
 	hook    *common.WebHook
 	host    *codehost.CodeHost
-	refresh func(secret, owner, repo, hookID string) error
+	refresh func(ctx context.Context, secret, callbackURL string) error
 }
 
 func (a *hookAction) failure(operation string, err error) error {
@@ -56,13 +58,16 @@ func (a *hookAction) failure(operation string, err error) error {
 	var gh *githubapi.ErrorResponse
 	var gl *gitlabapi.ErrorResponse
 	var response *httpclient.Error
-	if errors.As(err, &gh) && gh.Response != nil {
+	switch {
+	case errors.Is(err, context.Canceled):
+		reason = "request canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		reason = "request timed out"
+	case errors.As(err, &gh) && gh.Response != nil:
 		reason = fmt.Sprintf("HTTP %d", gh.Response.StatusCode)
-	}
-	if errors.As(err, &gl) && gl.Response != nil {
+	case errors.As(err, &gl) && gl.Response != nil:
 		reason = fmt.Sprintf("HTTP %d", gl.Response.StatusCode)
-	}
-	if errors.As(err, &response) {
+	case errors.As(err, &response):
 		reason = fmt.Sprintf("HTTP %d", response.Code)
 	}
 	return fmt.Errorf("webhook %s/%s, code host %d(%s), hook %s: %s: %s", a.hook.Owner, a.hook.Repo, a.host.ID, a.host.Alias, a.hook.HookID, operation, reason)
@@ -83,6 +88,8 @@ func prepareHook(ctx context.Context, hook *common.WebHook, host *codehost.CodeH
 	if err != nil || id <= 0 {
 		return nil, fmt.Errorf("webhook %s/%s, code host %d(%s): invalid hook ID", hook.Owner, hook.Repo, host.ID, host.Alias)
 	}
+	ctx, cancel := context.WithTimeout(ctx, webhookRequestTimeout)
+	defer cancel()
 	// Static clients never refresh OAuth tokens or write codehost state during dry-run.
 	switch host.Type {
 	case setting.SourceFromGithub:
@@ -90,32 +97,37 @@ func prepareHook(ctx context.Context, hook *common.WebHook, host *codehost.CodeH
 		if host.EnableProxy {
 			cfg.Proxy = proxy
 		}
-		c := &github.Client{Client: githubtool.NewClient(cfg)}
+		c := githubtool.NewClient(cfg)
 		_, _, err = c.Repositories.GetHook(ctx, hook.Owner, hook.Repo, id)
-		a.refresh = c.RefreshWebHookSecret
+		a.refresh = func(ctx context.Context, secret, callbackURL string) error {
+			_, err := c.UpdateHook(ctx, hook.Owner, hook.Repo, id, &git.Hook{URL: callbackURL, Secret: secret})
+			return err
+		}
 	case setting.SourceFromGitlab:
-		cli, clientErr := gitlabtool.NewOAuthTokenClient(host.Address, host.AccessToken, proxy, host.EnableProxy, host.DisableSSL)
+		c, clientErr := gitlabtool.NewOAuthTokenClient(host.Address, host.AccessToken, proxy, host.EnableProxy, host.DisableSSL)
 		if clientErr != nil {
 			return nil, a.failure("create client", clientErr)
 		}
-		c := &gitlab.Client{Client: cli}
 		_, _, err = c.Projects.GetProjectHook(hook.Owner+"/"+hook.Repo, int(id), gitlabapi.WithContext(ctx))
-		a.refresh = c.RefreshWebHookSecret
+		a.refresh = func(ctx context.Context, secret, callbackURL string) error {
+			_, _, err := c.Projects.EditProjectHook(hook.Owner+"/"+hook.Repo, int(id), &gitlabapi.EditProjectHookOptions{
+				URL: gitlabapi.String(callbackURL), Token: gitlabapi.String(secret),
+			}, gitlabapi.WithContext(ctx))
+			return err
+		}
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		if id > math.MaxInt32 {
 			return nil, fmt.Errorf("webhook %s/%s, code host %d(%s): hook ID exceeds Gitee API range", hook.Owner, hook.Repo, host.ID, host.Alias)
 		}
-		c := &gitee.Client{Client: giteetool.NewStaticClient(strings.TrimRight(host.Address, "/"), host.AccessToken, proxy, host.EnableProxy)}
-		var responseStatus int
+		c := giteetool.NewStaticClient(strings.TrimRight(host.Address, "/"), host.AccessToken, proxy, host.EnableProxy)
 		_, resp, requestErr := c.WebhooksApi.GetV5ReposOwnerRepoHooksId(ctx, hook.Owner, hook.Repo, int32(id), nil)
 		err = requestErr
-		if resp != nil {
-			responseStatus = resp.StatusCode
+		if err != nil && resp != nil && resp.StatusCode >= 300 {
+			err = httpclient.NewGenericServerResponse(resp.StatusCode, http.MethodGet, "")
 		}
-		if err != nil && responseStatus != 0 {
-			return nil, fmt.Errorf("webhook %s/%s, code host %d(%s), hook %s: read remote hook: HTTP %d", hook.Owner, hook.Repo, host.ID, host.Alias, hook.HookID, responseStatus)
+		a.refresh = func(ctx context.Context, secret, callbackURL string) error {
+			return c.UpdateHookSecret(ctx, hook.Owner, hook.Repo, id, &git.Hook{URL: callbackURL, Secret: secret})
 		}
-		a.refresh = c.RefreshWebHookSecret
 	default:
 		return nil, fmt.Errorf("code host %d(%s): unsupported provider %s", host.ID, host.Alias, host.Type)
 	}
@@ -123,11 +135,4 @@ func prepareHook(ctx context.Context, hook *common.WebHook, host *codehost.CodeH
 		return nil, a.failure("read remote hook", err)
 	}
 	return a, nil
-}
-
-func (a *hookAction) update(secret string) error {
-	if err := a.refresh(secret, a.hook.Owner, a.hook.Repo, a.hook.HookID); err != nil {
-		return a.failure("update remote hook; restore the final maintenance backup before retrying", err)
-	}
-	return nil
 }
