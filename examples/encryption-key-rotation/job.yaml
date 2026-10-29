@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zadig-key-rotation-dry-run
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      # Private registries: add your existing imagePullSecrets here.
+      containers:
+        - name: ua
+          image: REPLACE_WITH_PUBLISHED_UA_IMAGE
+          imagePullPolicy: Always
+          args:
+            - rotate-encryption-key
+            - --old-key-file=/keys/old/aes
+            - --new-key-file=/keys/new/aes
+            - --dry-run
+          # Reuse the installed Chart's database connections, including Redis token DB.
+          envFrom:
+            - configMapRef:
+                name: user-config
+          volumeMounts:
+            - name: old-key
+              mountPath: /keys/old
+              readOnly: true
+            - name: new-key
+              mountPath: /keys/new
+              readOnly: true
+      volumes:
+        - name: old-key
+          secret:
+            secretName: zadig-aes-key
+            defaultMode: 0400
+            items:
+              - key: aesKey
+                path: aes
+        - name: new-key
+          secret:
+            secretName: zadig-aes-key-next
+            defaultMode: 0400
+            items:
+              - key: aesKey
+                path: aes

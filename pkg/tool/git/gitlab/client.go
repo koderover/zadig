@@ -96,6 +96,19 @@ func NewAccessTokenClient(address, accessToken, proxyAddr string, enableProxy bo
 	return &Client{Client: cli, httpClient: client}, nil
 }
 
+// NewOAuthTokenClient uses the supplied OAuth token without refreshing or persisting it.
+func NewOAuthTokenClient(address, token, proxyAddr string, enableProxy, skipTLS bool) (*Client, error) {
+	client, err := newHTTPClient(proxyAddr, enableProxy, skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address), gitlab.WithHTTPClient(client))
+	if err != nil {
+		return nil, err
+	}
+	return &Client{Client: cli, httpClient: client}, nil
+}
+
 func newHTTPClient(proxyAddr string, enableProxy bool, skipTLS bool) (*http.Client, error) {
 	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 	if enableProxy {
