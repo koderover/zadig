@@ -32,6 +32,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -480,12 +481,8 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 					gp.Status = setting.PodPending
 				}
 
-				hostInfo := make([]resource.HostInfo, 0)
-				for _, workload := range statusResp.Workloads {
-					hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
-				}
 				gp.Ingress = &commonservice.IngressInfo{
-					HostInfo: hostInfo,
+					HostInfo: getServiceIngressHostInfo(statusResp, commonutil.ServiceIsImported(service.ServiceName, productInfo.ServiceDeployStrategy), hostInfos, k8sServices),
 				}
 
 			} else {
@@ -580,12 +577,8 @@ func (k *K8sService) GetGroupService(service *commonmodels.ProductService, strin
 			gp.Status = setting.PodPending
 		}
 
-		hostInfo := make([]resource.HostInfo, 0)
-		for _, workload := range statusResp.Workloads {
-			hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
-		}
 		gp.Ingress = &commonservice.IngressInfo{
-			HostInfo: hostInfo,
+			HostInfo: getServiceIngressHostInfo(statusResp, commonutil.ServiceIsImported(service.ServiceName, productInfo.ServiceDeployStrategy), hostInfos, k8sServices),
 		}
 
 	} else {
@@ -593,6 +586,20 @@ func (k *K8sService) GetGroupService(service *commonmodels.ProductService, strin
 	}
 
 	return gp
+}
+
+func getServiceIngressHostInfo(statusResp *commonservice.ZadigServiceStatusResp, imported bool, hostInfos []resource.HostInfo, k8sServices []*corev1.Service) []resource.HostInfo {
+	hostInfo := make([]resource.HostInfo, 0)
+	if imported {
+		for _, ingress := range statusResp.Ingress {
+			hostInfo = append(hostInfo, ingress.HostInfo...)
+		}
+		return hostInfo
+	}
+	for _, workload := range statusResp.Workloads {
+		hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+	}
+	return hostInfo
 }
 
 func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, kubeClient client.Client) ([]*commonmodels.Container, error) {
