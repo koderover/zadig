@@ -166,11 +166,13 @@ func buildDeliveryImagesV2(targetRegistry *commonmodels.RegistryNamespace, regis
 		updateVersionStatusV2(deliveryVersion.Version, deliveryVersion.ProjectName, deliveryVersion.Status, deliveryVersion.Error)
 	}()
 
-	// update service image in yaml
-	for _, service := range deliveryVersion.Services {
-		err = updateDeliveryServiceImageInYaml(service, deliveryVersion.Source)
-		if err != nil {
-			return fmt.Errorf("failed to update service image in yaml, serviceName: %s, err: %s", service.ServiceName, err)
+	// Environment-sourced YAML is already updated before the version is saved.
+	if deliveryVersion.Source != setting.DeliveryVersionSourceFromEnv {
+		for _, service := range deliveryVersion.Services {
+			err = updateDeliveryServiceImageInYaml(service, deliveryVersion.Source)
+			if err != nil {
+				return fmt.Errorf("failed to update service image in yaml, serviceName: %s, err: %w", service.ServiceName, err)
+			}
 		}
 	}
 
@@ -214,6 +216,9 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 
 	containers := make([]*commonmodels.Container, 0, len(service.Images))
 	for _, image := range service.Images {
+		if image == nil {
+			continue
+		}
 		containers = append(containers, &commonmodels.Container{
 			Name:      image.ContainerName,
 			ImageName: image.ImageName,
@@ -227,7 +232,7 @@ func updateDeliveryServiceImageInYaml(service *commonmodels.DeliveryVersionServi
 	}
 
 	for _, image := range service.Images {
-		if image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
+		if image == nil || image.SourceImage == "" || image.TargetImage == "" || image.SourceImage == image.TargetImage {
 			continue
 		}
 		replacedYaml = strings.ReplaceAll(replacedYaml, image.SourceImage, image.TargetImage)
@@ -682,6 +687,9 @@ func checkDeliveryVersionRegistry(args *CreateDeliveryVersionRequest, registryMa
 
 	for _, service := range args.Services {
 		for _, image := range service.Images {
+			if image == nil {
+				return nil, fmt.Errorf("image entry must not be null, projectName: %s, serviceName: %s", args.ProjectName, service.ServiceName)
+			}
 			if !image.PushImage {
 				continue
 			}
@@ -1201,10 +1209,10 @@ func fillK8SDeliveryVersionYamlContent(args *CreateDeliveryVersionRequest) error
 		Production: &args.Production,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find env, projectName: %s, envName: %s, err: %v", args.ProjectName, args.EnvName, err)
+		return fmt.Errorf("failed to find env, projectName: %s, envName: %s, err: %w", args.ProjectName, args.EnvName, err)
 	}
 
-	return fillDeliveryVersionServicesYamlContent(env, args.Services)
+	return fillDeliveryVersionServicesYamlContent(env, args.Services, true)
 }
 
 func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersionV2, logger *zap.SugaredLogger) {
@@ -1225,7 +1233,7 @@ func fillDeliveryVersionYamlContentForDetail(version *commonmodels.DeliveryVersi
 		return
 	}
 
-	if err = fillDeliveryVersionServicesYamlContent(env, version.Services); err != nil {
+	if err = fillDeliveryVersionServicesYamlContent(env, version.Services, false); err != nil {
 		logger.Errorf("failed to fill delivery version yaml content, version: %s, projectName: %s, err: %v", version.Version, version.ProjectName, err)
 	}
 }
@@ -1239,28 +1247,69 @@ func hasEmptyDeliveryVersionYamlContent(services []*commonmodels.DeliveryVersion
 	return false
 }
 
-func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService) error {
+func fillDeliveryVersionServicesYamlContent(env *commonmodels.Product, services []*commonmodels.DeliveryVersionService, replaceImageParts bool) error {
 	if env == nil {
 		return fmt.Errorf("env is nil")
 	}
 
 	serviceMap := env.GetServiceMap()
+	clusterName := ""
+	clusterLoaded := false
 	for _, service := range services {
-		if service == nil || service.YamlContent != "" {
+		if service == nil || (service.YamlContent != "" && !replaceImageParts) {
 			continue
 		}
 
 		envSvc := serviceMap[service.ServiceName]
 		if envSvc == nil {
-			return fmt.Errorf("not found service %s in env %s", service.ServiceName, env.EnvName)
+			return fmt.Errorf("service not found, projectName: %s, envName: %s, serviceName: %s", env.ProductName, env.EnvName, service.ServiceName)
+		}
+		templateProject := envSvc.ProductName
+		if templateProject == "" {
+			templateProject = env.ProductName
+		}
+		svcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: envSvc.ServiceName,
+			ProductName: templateProject,
+			Type:        envSvc.Type,
+			Revision:    envSvc.Revision,
+		}, env.Production)
+		if err != nil {
+			return fmt.Errorf("failed to find env service template, projectName: %s, envName: %s, serviceName: %s, err: %w", env.ProductName, env.EnvName, service.ServiceName, err)
 		}
 
-		yamlContent, err := kube.RenderEnvService(env, envSvc.GetServiceRender(), envSvc)
-		if err != nil {
-			return fmt.Errorf("failed to render env service yaml, projectName: %s, envName: %s, serviceName: %s, err: %w",
-				env.ProductName, env.EnvName, service.ServiceName, err)
+		templateYaml := ""
+		if replaceImageParts {
+			templateYaml, err = kube.RenderServiceYaml(svcTmpl.Yaml, env.ProductName, service.ServiceName, envSvc.GetServiceRender())
+			if err != nil {
+				return fmt.Errorf("failed to render env service template, projectName: %s, envName: %s, serviceName: %s, err: %w", env.ProductName, env.EnvName, service.ServiceName, err)
+			}
 		}
-		service.YamlContent = yamlContent
+		if !clusterLoaded && (service.YamlContent == "" || strings.Contains(templateYaml, "$ClusterName$")) {
+			cluster, err := kube.GetCluster(env.ClusterID)
+			if err != nil {
+				return fmt.Errorf("failed to get cluster %s, projectName: %s, envName: %s, serviceName: %s, err: %w", env.ClusterID, env.ProductName, env.EnvName, service.ServiceName, err)
+			}
+			clusterName = cluster.Name
+			clusterLoaded = true
+		}
+		if service.YamlContent == "" {
+			yamlContent, err := kube.RenderEnvServiceWithTempl(env, envSvc.GetServiceRender(), envSvc, svcTmpl, clusterName)
+			if err != nil {
+				return fmt.Errorf("failed to render env service yaml, projectName: %s, envName: %s, serviceName: %s, err: %w",
+					env.ProductName, env.EnvName, service.ServiceName, err)
+			}
+			service.YamlContent = yamlContent
+		}
+
+		if replaceImageParts {
+			templateYaml = kube.ParseSysKeys(env.Namespace, env.EnvName, env.ProductName, service.ServiceName, clusterName, templateYaml)
+			yamlContent, err := replaceDeliveryServiceImagesWithTemplate(service.YamlContent, templateYaml, env.Namespace, service.Images)
+			if err != nil {
+				return fmt.Errorf("failed to replace image parts, projectName: %s, envName: %s, serviceName: %s, err: %w", env.ProductName, env.EnvName, service.ServiceName, err)
+			}
+			service.YamlContent = yamlContent
+		}
 	}
 
 	return nil
