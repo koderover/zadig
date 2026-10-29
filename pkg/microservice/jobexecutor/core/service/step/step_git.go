@@ -49,7 +49,6 @@ type GitStep struct {
 	spec       *step.StepGitSpec
 	envs       []string
 	secretEnvs []string
-	gitTokens  []string
 	workspace  string
 }
 
@@ -60,7 +59,7 @@ func CollectGitTokens(steps []*meta.Step) ([]string, error) {
 		if info.StepType != "git" {
 			continue
 		}
-		s, err := NewGitStep(info.Spec, "", nil, nil, nil)
+		s, err := NewGitStep(info.Spec, "", nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -103,8 +102,8 @@ func CollectGitTokens(steps []*meta.Step) ([]string, error) {
 	return values, nil
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs, gitTokens []string) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, gitTokens: gitTokens}
+func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (*GitStep, error) {
+	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return gitStep, gitSpecError("marshal", spec, err)
@@ -229,7 +228,7 @@ func (s *GitStep) runGitCmds() error {
 		return err
 	}
 	maskOutput := func(message string) string {
-		return util.MaskSecret(tokens, util.MaskSecret(s.gitTokens, message))
+		return util.MaskSecret(tokens, util.MaskSecretEnvs(message, s.secretEnvs))
 	}
 
 	for _, c := range cmds {

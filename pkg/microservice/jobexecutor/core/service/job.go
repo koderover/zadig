@@ -146,6 +146,12 @@ func (j *Job) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Add Git credentials only to log masking, not to the subprocess environment.
+	logSecretEnvs := make([]string, 0, len(gitTokens)+len(j.Ctx.SecretEnvs))
+	for i, token := range gitTokens {
+		logSecretEnvs = append(logSecretEnvs, fmt.Sprintf("ZADIG_GIT_TOKEN_%d=%s", i, token))
+	}
+	logSecretEnvs = append(logSecretEnvs, j.Ctx.SecretEnvs...)
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
@@ -155,9 +161,9 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, gitTokens, j.ConfigMapUpdater); err != nil {
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), logSecretEnvs, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
-			respErr = fmt.Errorf("%s", util.MaskSecretEnvs(util.MaskSecret(gitTokens, err.Error()), j.Ctx.SecretEnvs))
+			respErr = fmt.Errorf("%s", util.MaskSecretEnvs(err.Error(), logSecretEnvs))
 		}
 	}
 	return respErr

@@ -38,13 +38,12 @@ type ShellStep struct {
 	spec       *step.StepShellSpec
 	envs       []string
 	secretEnvs []string
-	gitTokens  []string
 	workspace  string
 	Paths      string
 }
 
-func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs, gitTokens []string) (*ShellStep, error) {
-	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, gitTokens: gitTokens}
+func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []string) (*ShellStep, error) {
+	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -109,7 +108,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, s.gitTokens)
+		handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs)
 	}()
 
 	cmdStdErrReader, err := cmd.StderrPipe()
@@ -121,7 +120,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, s.gitTokens)
+		handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs)
 	}()
 
 	if err := cmd.Start(); err != nil {
