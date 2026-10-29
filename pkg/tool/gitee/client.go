@@ -69,37 +69,19 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 
 // NewStaticClient uses the supplied token without refreshing it or writing codehost state.
 func NewStaticClient(address, accessToken, proxyAddr string, enableProxy bool) *Client {
-	var (
-		client     *gitee.APIClient
-		HttpClient *http.Client
-	)
-
-	conf := gitee.NewConfiguration()
-	// since the default address for gitee is gitee.com, we change it to whatever the user need
-	conf.BasePath = address + "/api"
-	dc := http.DefaultClient
+	client := http.DefaultClient
 	if enableProxy {
 		p, err := url.Parse(proxyAddr)
 		if err == nil {
-			proxy := http.ProxyURL(p)
-			trans := &http.Transport{
-				Proxy: proxy,
-			}
-			dc = &http.Client{Transport: trans}
+			client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(p)}}
 		}
 	}
-
 	if accessToken != "" {
-		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: accessToken},
-		)
-		HttpClient = oauth2.NewClient(ctx, ts)
-	} else {
-		HttpClient = dc
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, client)
+		client = oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken}))
 	}
-	conf.HTTPClient = HttpClient
-	client = gitee.NewAPIClient(conf)
-
-	return &Client{APIClient: client, config: conf}
+	conf := gitee.NewConfiguration()
+	conf.BasePath = address + "/api"
+	conf.HTTPClient = client
+	return &Client{APIClient: gitee.NewAPIClient(conf), config: conf}
 }

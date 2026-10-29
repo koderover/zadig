@@ -76,22 +76,19 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 			return fmt.Errorf("cannot scan %s", kind)
 		}
 		for cursor.Next(ctx) {
-			var id primitive.ObjectID
-			var cipher, hash, field string
-			if kind == "s3storage" {
-				var record common.S3Storage
-				if err := cursor.Decode(&record); err != nil {
-					cursor.Close(ctx)
-					return fmt.Errorf("cannot decode s3storage record")
-				}
-				id, cipher, field = record.ID, record.EncryptedSk, "encryptedSk"
-			} else {
-				var record common.K8SCluster
-				if err := cursor.Decode(&record); err != nil {
-					cursor.Close(ctx)
-					return fmt.Errorf("cannot decode k8s_cluster record")
-				}
-				id, cipher, hash, field = record.ID, record.AgentTokenEnc, record.AgentTokenHash, "agent_token_enc"
+			var record struct {
+				ID             primitive.ObjectID `bson:"_id"`
+				EncryptedSk    string             `bson:"encryptedSk"`
+				AgentTokenEnc  string             `bson:"agent_token_enc"`
+				AgentTokenHash string             `bson:"agent_token_hash"`
+			}
+			if err := cursor.Decode(&record); err != nil {
+				cursor.Close(ctx)
+				return fmt.Errorf("cannot decode %s record", kind)
+			}
+			cipher, field := record.EncryptedSk, "encryptedSk"
+			if kind == "k8s_cluster" {
+				cipher, field = record.AgentTokenEnc, "agent_token_enc"
 			}
 			counts := report.Records[kind]
 			counts.Total++
@@ -99,14 +96,14 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 				counts.Skipped++
 				continue
 			}
-			next, err := r.Keys.reencrypt(cipher, kind, hash)
+			next, err := r.Keys.reencrypt(cipher, kind, record.AgentTokenHash)
 			if err != nil {
 				counts.Failed++
 				cursor.Close(ctx)
-				return fmt.Errorf("%s record %s: %w", kind, id.Hex(), err)
+				return fmt.Errorf("%s record %s: %w", kind, record.ID.Hex(), err)
 			}
 			counts.Validated++
-			changes = append(changes, change{kind: kind, field: field, id: id, old: cipher, next: next})
+			changes = append(changes, change{kind: kind, field: field, id: record.ID, old: cipher, next: next})
 		}
 		err = cursor.Err()
 		cursor.Close(ctx)
