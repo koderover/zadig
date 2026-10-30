@@ -59,6 +59,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 	if err := yaml.Unmarshal(yamlBytes, &gitStep.spec); err != nil {
 		return gitStep, fmt.Errorf("unmarshal spec %s to git spec failed", yamlBytes)
 	}
+	if gitStep.spec == nil {
+		return gitStep, fmt.Errorf("git spec is empty")
+	}
 	return gitStep, nil
 }
 
@@ -151,6 +154,9 @@ func (s *GitStep) runGitCmds() error {
 	if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
 		return err
 	}
+	maskOutput := func(message string) string {
+		return util.MaskSecret(tokens, util.MaskSecretEnvs(message, s.secretEnvs))
+	}
 
 	for _, c := range cmds {
 		cmdOutReader, err := c.Cmd.StdoutPipe()
@@ -161,7 +167,7 @@ func (s *GitStep) runGitCmds() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(tokens, outScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(outScanner.Text()))
 			}
 		}()
 
@@ -173,17 +179,17 @@ func (s *GitStep) runGitCmds() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecret(tokens, errScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(errScanner.Text()))
 			}
 		}()
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskOutput(strings.Join(c.Cmd.Args, " ")))
 		}
 
 		if err := c.Run(); err != nil {
-			return err
+			return fmt.Errorf("%s", maskOutput(err.Error()))
 		}
 	}
 	return nil

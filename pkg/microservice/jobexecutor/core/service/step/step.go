@@ -123,11 +123,12 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	default:
-		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
+		err := fmt.Errorf("step type: %s does not match any known type", util.MaskSecretEnvs(step.StepType, secretEnvs))
 		log.Error(err)
 		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
+		err = fmt.Errorf("%s", util.MaskSecretEnvs(err.Error(), secretEnvs))
 		log.Error(err)
 		return err
 	}
@@ -161,11 +162,11 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecretEnvs(string(lineBytes), secretEnvs))
+		lineBytes = []byte(util.MaskSecretEnvs(string(lineBytes), secretEnvs))
+		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), lineBytes)
 
 		if needPersistentLog {
-			err := util.WriteFile(logFile, lineBytes, 0700)
-			if err != nil {
+			if err := util.WriteFile(logFile, lineBytes, 0700); err != nil {
 				log.Warnf("Failed to write file when processing cmd output: %s", err)
 			}
 		}

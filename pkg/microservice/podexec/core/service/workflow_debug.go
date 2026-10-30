@@ -13,6 +13,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	auditservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -65,7 +66,14 @@ FOR:
 		return e.ErrGetDebugShell.AddDesc(fmt.Sprintf("启动调试终端意外失败: parse job spec: %v", err))
 	}
 
-	var credValues []string
+	steps := make([]*meta.Step, 0, len(jobTaskSpec.Steps))
+	for _, taskStep := range jobTaskSpec.Steps {
+		steps = append(steps, &meta.Step{StepType: string(taskStep.StepType), Spec: taskStep.Spec})
+	}
+	credValues, err := meta.CollectGitTokens(steps)
+	if err != nil {
+		return e.ErrGetDebugShell.AddDesc("启动调试终端失败: 无法获取 Git 凭证脱敏配置")
+	}
 	for _, v := range jobTaskSpec.Properties.Envs {
 		if v.IsCredential {
 			credValues = append(credValues, v.Value)
