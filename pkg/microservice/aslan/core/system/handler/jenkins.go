@@ -70,15 +70,27 @@ func TestJenkinsConnection(c *gin.Context) {
 }
 
 func ListJobNames(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.RespErr = service.ListJobNames(c.Param("id"), ctx.Logger)
 }
 
 func ListJobBuildArgs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.RespErr = service.ListJobBuildArgs(c.Param("id"), strings.TrimPrefix(c.Param("jobName"), "/"), ctx.Logger)
 }
