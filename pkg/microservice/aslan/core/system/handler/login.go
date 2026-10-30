@@ -43,15 +43,14 @@ func UpdateDefaultLogin(c *gin.Context) {
 		return
 	}
 
-	args := new(service.UpdateDefaultLoginParams)
-	if err := c.BindJSON(args); err != nil {
-		ctx.RespErr = err
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	args := new(service.UpdateDefaultLoginParams)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = err
 		return
 	}
 

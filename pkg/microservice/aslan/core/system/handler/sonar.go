@@ -45,6 +45,11 @@ func CreateSonarIntegration(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(service.SonarIntegration)
 
 	data, err := c.GetRawData()
@@ -58,12 +63,6 @@ func CreateSonarIntegration(c *gin.Context) {
 	detail := fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token)
 	detailEn := fmt.Sprintf("Server: %s, Token: %s", args.ServerAddress, args.Token)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
 
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
@@ -88,6 +87,11 @@ func UpdateSonarIntegration(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(service.SonarIntegration)
 
 	data, err := c.GetRawData()
@@ -101,12 +105,6 @@ func UpdateSonarIntegration(c *gin.Context) {
 	detail := fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token)
 	detailEn := fmt.Sprintf("Server: %s, Token: %s", args.ServerAddress, args.Token)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
 
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
@@ -177,8 +175,7 @@ func GetSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -220,8 +217,7 @@ func DeleteSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -243,8 +239,7 @@ func ValidateSonarInformation(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}

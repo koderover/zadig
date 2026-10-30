@@ -41,7 +41,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -100,7 +100,7 @@ func DeleteSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -185,7 +185,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}
