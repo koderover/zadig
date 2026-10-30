@@ -742,8 +742,8 @@ type ZadigDistributeImageJobSpec struct {
 	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
 	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
 	Architecture      string           `bson:"architecture"               json:"architecture"               yaml:"architecture"`
-	// ConcurrencyLimit limits concurrent images within this job; zero means unlimited.
-	ConcurrencyLimit int `bson:"concurrency_limit" json:"concurrency_limit" yaml:"concurrency_limit"`
+	// ImageConcurrencyLimit limits concurrent images within this job; zero means unlimited.
+	ImageConcurrencyLimit int `bson:"image_concurrency_limit" json:"image_concurrency_limit" yaml:"image_concurrency_limit"`
 }
 
 type DistributeTarget struct {

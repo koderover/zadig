@@ -57,12 +57,12 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
-	if s.spec.ConcurrencyLimit < 0 {
+	if s.spec.ImageConcurrencyLimit < 0 {
 		return errors.New("image distribution concurrency limit must not be negative")
 	}
 	concurrencyLimit := len(s.spec.DistributeTarget)
-	if s.spec.ConcurrencyLimit > 0 {
-		concurrencyLimit = min(concurrencyLimit, s.spec.ConcurrencyLimit)
+	if s.spec.ImageConcurrencyLimit > 0 {
+		concurrencyLimit = min(concurrencyLimit, s.spec.ImageConcurrencyLimit)
 	}
 	semaphore := make(chan struct{}, concurrencyLimit)
 
