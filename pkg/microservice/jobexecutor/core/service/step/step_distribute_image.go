@@ -57,6 +57,31 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
+	if s.spec.ConcurrencyLimit < 0 {
+		return errors.New("image distribution concurrency limit must not be negative")
+	}
+	concurrencyLimit := len(s.spec.DistributeTarget)
+	if s.spec.ConcurrencyLimit > 0 {
+		concurrencyLimit = min(concurrencyLimit, s.spec.ConcurrencyLimit)
+	}
+	semaphore := make(chan struct{}, concurrencyLimit)
+	log.Infof("Image distribution concurrency: configured_limit=%d, effective_limit=%d, total_images=%d (configured_limit=0 means unlimited).",
+		s.spec.ConcurrencyLimit, concurrencyLimit, len(s.spec.DistributeTarget))
+	var concurrencyLock sync.Mutex
+	runningImages := 0
+	trackImage := func(stage, image string) func() {
+		concurrencyLock.Lock()
+		runningImages++
+		log.Infof("Image distribution started: stage=%s, image=%s, running=%d/%d.", stage, image, runningImages, concurrencyLimit)
+		concurrencyLock.Unlock()
+		return func() {
+			concurrencyLock.Lock()
+			defer concurrencyLock.Unlock()
+			runningImages--
+			log.Infof("Image distribution finished: stage=%s, image=%s, running=%d/%d.", stage, image, runningImages, concurrencyLimit)
+			<-semaphore
+		}
+	}
 
 	wg := sync.WaitGroup{}
 	errList := new(multierror.Error)
@@ -74,9 +99,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			return err
 		}
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer trackImage("pull_target", target.TargetImage)()
 				pushCmd := dockerPullCmd(target.TargetImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pushCmd.Stdout = &out
@@ -100,9 +127,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		}
 
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer trackImage("pull_source_and_tag", target.SourceImage)()
 				pullCmd := dockerPullCmd(target.SourceImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pullCmd.Stdout = &out
@@ -136,9 +165,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			return err
 		}
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer trackImage("push_target", target.TargetImage)()
 				pushCmd := dockerPush(target.TargetImage)
 				out := bytes.Buffer{}
 				pushCmd.Stdout = &out

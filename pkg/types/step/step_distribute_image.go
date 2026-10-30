@@ -29,6 +29,8 @@ type StepImageDistributeSpec struct {
 	TargetRegistry   *RegistryNamespace           `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
 	DistributeTarget []*DistributeTaskTarget      `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
 	Architecture     string                       `bson:"architecture"                   json:"architecture"                  yaml:"architecture"`
+	// ConcurrencyLimit limits concurrent images within this step; zero means unlimited.
+	ConcurrencyLimit int `bson:"concurrency_limit" json:"concurrency_limit" yaml:"concurrency_limit"`
 }
 
 type DistributeTaskTarget struct {
