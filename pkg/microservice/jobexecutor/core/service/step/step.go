@@ -153,20 +153,22 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 
 	for {
 		lineBytes, err := reader.ReadBytes('\n')
-		if len(lineBytes) > 0 {
-			lineBytes = []byte(util.MaskSecretEnvs(string(lineBytes), secretEnvs))
-			fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), lineBytes)
-			if needPersistentLog {
-				if err := util.WriteFile(logFile, lineBytes, 0700); err != nil {
-					log.Warnf("Failed to write file when processing cmd output: %s", err)
-				}
-			}
-		}
 		if err != nil {
-			if err != io.EOF {
-				log.Errorf("Failed to read log when processing cmd output: %s", err)
+			if err == io.EOF {
+				break
 			}
+
+			log.Errorf("Failed to read log when processing cmd output: %s", err)
 			break
+		}
+
+		lineBytes = []byte(util.MaskSecretEnvs(string(lineBytes), secretEnvs))
+		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), lineBytes)
+
+		if needPersistentLog {
+			if err := util.WriteFile(logFile, lineBytes, 0700); err != nil {
+				log.Warnf("Failed to write file when processing cmd output: %s", err)
+			}
 		}
 	}
 }

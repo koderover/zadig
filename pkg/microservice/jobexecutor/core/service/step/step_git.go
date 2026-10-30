@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -35,7 +34,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
 	c "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
-	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
@@ -52,90 +50,19 @@ type GitStep struct {
 	workspace  string
 }
 
-// CollectGitTokens gathers repository authentication secrets and their URL-escaped forms for log masking.
-func CollectGitTokens(steps []*meta.Step) ([]string, error) {
-	var tokens []string
-	for _, info := range steps {
-		if info.StepType != "git" {
-			continue
-		}
-		s, err := NewGitStep(info.Spec, "", nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		hasSubmodules := false
-		for _, repo := range s.spec.Repos {
-			if repo != nil {
-				tokens = append(tokens, repo.OauthToken)
-				if repo.Source == types.ProviderGerrit {
-					tokens = append(tokens, repo.Password)
-					// Gerrit clone URLs contain the HTTP password decoded from the access token.
-					if userpass, err := base64.StdEncoding.DecodeString(repo.OauthToken); err == nil {
-						if _, password, ok := strings.Cut(string(userpass), ":"); ok {
-							tokens = append(tokens, password)
-						}
-					}
-				}
-				hasSubmodules = hasSubmodules || repo.SubModules
-			}
-		}
-		if !hasSubmodules {
-			continue
-		}
-		for _, host := range s.spec.CodeHosts {
-			if host != nil {
-				tokens = append(tokens, host.AccessToken)
-				if host.Type == types.ProviderGerrit {
-					tokens = append(tokens, host.Password)
-				}
-			}
-		}
-	}
-	var values []string
-	for _, token := range tokens {
-		if token != "" {
-			values = append(values, token, strings.TrimPrefix(url.UserPassword("", token).String(), ":"))
-		}
-	}
-	// Match longer credentials first when secrets share a prefix.
-	sort.Slice(values, func(i, j int) bool { return len(values[i]) > len(values[j]) })
-	return values, nil
-}
-
 func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (*GitStep, error) {
 	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
-		return gitStep, gitSpecError("marshal", spec, err)
+		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &gitStep.spec); err != nil {
-		return gitStep, gitSpecError("unmarshal", spec, err)
+		return gitStep, fmt.Errorf("unmarshal spec %s to git spec failed", yamlBytes)
 	}
 	if gitStep.spec == nil {
 		return gitStep, fmt.Errorf("git spec is empty")
 	}
 	return gitStep, nil
-}
-
-func gitSpecError(operation string, spec interface{}, err error) error {
-	detail := fmt.Sprintf("error type %T", err)
-	if typeErr, ok := err.(*yaml.TypeError); ok && operation == "unmarshal" {
-		messages := make([]string, 0, len(typeErr.Errors))
-		for _, message := range typeErr.Errors {
-			if !strings.Contains(message, "cannot unmarshal ") {
-				messages = append(messages, "invalid YAML field")
-				continue
-			}
-			// YAML may show only a prefix of the value, so masking full tokens is insufficient.
-			start, end := strings.Index(message, " `"), strings.LastIndex(message, "` into ")
-			if start >= 0 && end > start {
-				message = message[:start] + " ********" + message[end+1:]
-			}
-			messages = append(messages, message)
-		}
-		detail = strings.Join(messages, "; ")
-	}
-	return fmt.Errorf("%s git spec (%T) failed: %s", operation, spec, detail)
 }
 
 func (s *GitStep) Run(ctx context.Context) error {

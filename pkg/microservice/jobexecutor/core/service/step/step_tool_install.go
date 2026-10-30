@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -140,10 +141,16 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 		return err
 	}
 
+	var wg sync.WaitGroup
 	outScanner := bufio.NewScanner(cmdOutReader)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for outScanner.Scan() {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecretEnvs(outScanner.Text(), s.secretEnvs))
+		}
+		if err := outScanner.Err(); err != nil {
+			log.Warnf("Failed to read tool installation stdout: %s", util.MaskSecretEnvs(err.Error(), s.secretEnvs))
 		}
 	}()
 
@@ -153,20 +160,26 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	}
 
 	errScanner := bufio.NewScanner(cmdErrReader)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for errScanner.Scan() {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecretEnvs(errScanner.Text(), s.secretEnvs))
+		}
+		if err := errScanner.Err(); err != nil {
+			log.Warnf("Failed to read tool installation stderr: %s", util.MaskSecretEnvs(err.Error(), s.secretEnvs))
 		}
 	}()
 
 	cmd.Dir = s.workspace
 	cmd.Env = s.envs
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	return nil
+	wg.Wait()
+	return cmd.Wait()
 }
 
 func Environs(envs []string) []string {

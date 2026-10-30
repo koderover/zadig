@@ -142,7 +142,7 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
-	gitTokens, err := step.CollectGitTokens(j.Ctx.Steps)
+	gitTokens, err := meta.CollectGitTokens(j.Ctx.Steps)
 	if err != nil {
 		return err
 	}
