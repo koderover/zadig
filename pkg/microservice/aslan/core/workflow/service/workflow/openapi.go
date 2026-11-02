@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -28,10 +29,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // CreateCustomWorkflowTask creates a task for custom workflow with user-friendly inputs, this is currently
@@ -607,6 +610,28 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 		return nil, err
 	}
 
+	var templateBinding *OpenAPIWorkflowTemplateBinding
+	if isTemplateBindingEnabled(workflow) {
+		// the stored binding state is returned as saved; the definition is rendered on the base version
+		templateBinding = &OpenAPIWorkflowTemplateBinding{
+			Enabled:        workflow.TemplateBinding.Enabled,
+			TemplateID:     workflow.TemplateBinding.TemplateID,
+			TemplateName:   workflow.TemplateBinding.TemplateName,
+			BaseVersion:    workflow.TemplateBinding.BaseVersion,
+			BaseVersionID:  workflow.TemplateBinding.BaseVersionID,
+			DeltaPatches:   workflow.TemplateBinding.DeltaPatches,
+			ConflictCount:  workflow.TemplateBinding.ConflictCount,
+			InvalidPatches: workflow.TemplateBinding.InvalidPatches,
+		}
+		if templateBinding.DeltaPatches == nil {
+			templateBinding.DeltaPatches = make([]*commonmodels.JSONPatchOperation, 0)
+		}
+		workflow, err = renderTemplateBoundWorkflowOnBase(workflow)
+		if err != nil {
+			return nil, e.ErrFindWorkflow.AddErr(err)
+		}
+	}
+
 	resp := &OpenAPIWorkflowV4Detail{
 		Name:             workflow.Name,
 		DisplayName:      workflow.DisplayName,
@@ -614,7 +639,9 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 		Description:      workflow.Description,
 		CreatedBy:        workflow.CreatedBy,
 		CreateTime:       workflow.CreateTime,
+		UpdatedBy:        workflow.UpdatedBy,
 		UpdateTime:       workflow.UpdateTime,
+		TemplateBinding:  templateBinding,
 		Params:           workflow.Params,
 		NotifyCtls:       workflow.NotifyCtls,
 		ShareStorages:    workflow.ShareStorages,
@@ -624,6 +651,7 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 	stages := make([]*OpenAPIStage, 0)
 	for _, st := range workflow.Stages {
 		stage := &OpenAPIStage{
+			ID:       st.ID,
 			Name:     st.Name,
 			Parallel: st.Parallel,
 			Jobs:     st.Jobs,
@@ -633,6 +661,41 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 	}
 	resp.Stages = stages
 	return resp, nil
+}
+
+// OpenAPIUpdateWorkflowTemplateBinding replaces the complete delta set of a template bound workflow located by project and name.
+// All instance fields are kept from the stored workflow; only the binding and the fields inherited from the template change.
+func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, user string, deltaPatches []*commonmodels.JSONPatchOperation, logger *zap.SugaredLogger) error {
+	if !isTemplateBindingEnabled(workflow) {
+		return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("workflow %s is not template bound", workflow.Name))
+	}
+
+	updated := new(commonmodels.WorkflowV4)
+	if err := util.DeepCopy(updated, workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	binding, rendered, err := resolveTemplateBindingUpdate(workflow, updated, deltaPatches)
+	if err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	updated.TemplateBinding = binding
+	applyTemplateBindingInheritedFields(updated, rendered)
+
+	if err := controller.CreateWorkflowController(updated).Validate(false); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	if err := runtimeJobController.PrepareAIReleaseSpecialistRulePlans(updated, workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
+	updated.ID = workflow.ID
+	updated.UpdatedBy = user
+	updated.UpdateTime = time.Now().Unix()
+	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), updated); err != nil {
+		logger.Errorf("failed to update template binding of workflow %s: %s", workflow.Name, err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	return nil
 }
 
 func OpenAPIGetCustomWorkflowV4List(args *OpenAPIWorkflowV4ListReq, logger *zap.SugaredLogger) (*OpenAPIWorkflowListResp, error) {
