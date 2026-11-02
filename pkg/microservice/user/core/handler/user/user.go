@@ -18,10 +18,16 @@ package user
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	globalconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
@@ -563,11 +569,29 @@ func UpdatePassword(c *gin.Context) {
 func Reset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	token := c.GetHeader(setting.AuthorizationHeader)
+	if parts := strings.Fields(token); len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		token = parts[1]
+	}
+	claims := &login.Claims{}
+	parser := &jwt.Parser{ValidMethods: []string{jwt.SigningMethodHS256.Alg()}}
+	parsedToken, err := parser.ParseWithClaims(token, claims, func(*jwt.Token) (interface{}, error) {
+		secret := globalconfig.SecretKey()
+		if secret == "" {
+			return nil, fmt.Errorf("JWT signing key is not configured")
+		}
+		return []byte(secret), nil
+	})
+	if err != nil || !parsedToken.Valid || claims.ExpiresAt <= time.Now().Unix() || strings.TrimSpace(claims.UID) == "" {
+		ctx.UnAuthorized = true
+		ctx.RespErr = fmt.Errorf("invalid or expired reset token")
+		return
+	}
 	args := &permission.ResetParams{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = err
 		return
 	}
-	args.Uid = ctx.UserID
+	args.Uid = claims.UID
 	ctx.RespErr = permission.Reset(args, ctx.Logger)
 }
