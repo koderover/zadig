@@ -674,11 +674,13 @@ func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, use
 	if err := util.DeepCopy(updated, workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	binding, rendered, err := resolveTemplateBindingUpdate(workflow, updated, deltaPatches)
+	updated.TemplateBinding.DeltaPatches = deltaPatches
+	rendered, err := renderTemplateBoundWorkflowOnBase(updated)
 	if err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	updated.TemplateBinding = binding
+	updated.TemplateBinding.ConflictCount = 0
+	updated.TemplateBinding.InvalidPatches = nil
 	applyTemplateBindingInheritedFields(updated, rendered)
 
 	if err := controller.CreateWorkflowController(updated).Validate(false); err != nil {
