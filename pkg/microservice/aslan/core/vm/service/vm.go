@@ -378,6 +378,10 @@ func ListVMLabels(projectKey string, logger *zap.SugaredLogger) ([]string, error
 }
 
 func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*RegisterAgentResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -431,6 +435,10 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 }
 
 func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAgentResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -450,6 +458,10 @@ func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAg
 }
 
 func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -640,6 +652,10 @@ type ReportAgentJobResp struct {
 }
 
 func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgentJobResp, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
