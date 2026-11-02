@@ -19,10 +19,13 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -412,10 +415,13 @@ func ListCronjob(name, jobType string) ([]*commonmodels.Cronjob, error) {
 	})
 }
 
-func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+func GetWorkflowV4HTMLTestReport(projectName, workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	if projectName == "" || workflowTask.ProjectName != projectName {
+		return "", fmt.Errorf("workflow task does not belong to project %q", projectName)
 	}
 	var jobTask *commonmodels.JobTask
 	for _, stage := range workflowTask.Stages {
@@ -436,11 +442,14 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 	return downloadHtmlReportFromJobTask(jobTask, workflowTask.ProjectName, workflowName, taskID, log)
 }
 
-func GetTestTaskHTMLTestReport(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+func GetTestTaskHTMLTestReport(projectName, testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	workflowName := commonutil.GenTestingWorkflowName(testName)
 	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	if projectName == "" || workflowTask.ProjectName != projectName {
+		return "", fmt.Errorf("workflow task does not belong to project %q", projectName)
 	}
 	var jobTask *commonmodels.JobTask
 	for _, stage := range workflowTask.Stages {
@@ -484,10 +493,24 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		return "", err
 	}
 
+	for _, name := range []string{projectName, workflowName, jobTask.Name} {
+		if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+			return "", fmt.Errorf("invalid report path component: %q", name)
+		}
+	}
 	htmlReportPath := pkgconfig.LocalHtmlReportPath(projectName, workflowName, jobTask.Name, taskID)
+	dataRoot, err := os.OpenRoot(pkgconfig.DataPath())
+	if err != nil {
+		return "", err
+	}
+	defer dataRoot.Close()
+	reportPath, err := filepath.Rel(pkgconfig.DataPath(), htmlReportPath)
+	if err != nil {
+		return "", err
+	}
 
 	// check if exist first
-	_, err := os.Stat(htmlReportPath)
+	cachedRoot, err := dataRoot.OpenRoot(reportPath)
 	if err != nil && !os.IsNotExist(err) {
 		// err
 		err = fmt.Errorf("failed to check html report file, path: %s, err: %s", htmlReportPath, err)
@@ -495,16 +518,23 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		return "", e.ErrGetTestReport.AddErr(err)
 	} else if err == nil {
 		// exist
+		cachedRoot.Close()
 		return htmlReportPath, nil
 	}
 
 	// not exist
-	err = os.MkdirAll(htmlReportPath, os.ModePerm)
+	err = dataRoot.MkdirAll(reportPath, os.ModePerm)
 	if err != nil {
 		err = fmt.Errorf("failed to create html report path, path: %s, err: %s", htmlReportPath, err)
 		log.Error(err)
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
+
+	reportRoot, err := dataRoot.OpenRoot(reportPath)
+	if err != nil {
+		return "", err
+	}
+	defer reportRoot.Close()
 
 	// download it from s3
 	store, err := s3.FindDefaultS3()
@@ -518,6 +548,22 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	// Keep downloads inside the report root, including when the destination is a symlink.
+	download := func(objectKey, name string) error {
+		object, err := client.GetFile(store.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 3})
+		if err != nil {
+			return err
+		}
+		defer object.Body.Close()
+		file, err := reportRoot.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(file, object.Body)
+		return err
 	}
 
 	if stepTask.StepType == config.StepArchive {
@@ -537,8 +583,7 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		fpath = commonutil.RenderEnv(fpath, jobSpec.Properties.Envs)
 
 		objectKey := store.GetObjectPath(fpath)
-		downloadDest := filepath.Join(htmlReportPath, fname)
-		err = client.Download(store.Bucket, objectKey, downloadDest)
+		err = download(objectKey, fname)
 		if err != nil {
 			err = fmt.Errorf("download html test report error: %s", err)
 			log.Error(err)
@@ -556,7 +601,7 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
 		objectKey = commonutil.RenderEnv(objectKey, jobSpec.Properties.Envs)
 
-		err = client.Download(store.Bucket, objectKey, downloadDest)
+		err = download(objectKey, setting.HtmlReportArchivedFileName)
 		if err != nil {
 			err = fmt.Errorf("download html test report error: %s", err)
 			log.Error(err)
@@ -574,17 +619,18 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 			return "", e.ErrGetTestReport.AddErr(fmt.Errorf("not found html report step in job task"))
 		}
 
-		unTarFilePath := filepath.Join(htmlReportPath, stepSpec.ResultDirs[0])
-		unTarFilePath = commonutil.RenderEnv(unTarFilePath, jobSpec.Properties.Envs)
-		unTarFileInfo, err := os.Stat(unTarFilePath)
+		resultDir := commonutil.RenderEnv(stepSpec.ResultDirs[0], jobSpec.Properties.Envs)
+		resultDir = filepath.Clean(resultDir)
+		unTarFilePath := filepath.Join(htmlReportPath, resultDir)
+		unTarFileInfo, err := reportRoot.Stat(resultDir)
 		if err != nil {
 			err = fmt.Errorf("failed to stat untar files %s, err: %v", unTarFilePath, err)
 			log.Error(err)
 			return "", e.ErrGetTestReport.AddErr(err)
 		}
 
-		if unTarFileInfo.IsDir() {
-			untarFiles, err := os.ReadDir(unTarFilePath)
+		if unTarFileInfo.IsDir() && resultDir != "." {
+			untarFiles, err := fs.ReadDir(reportRoot.FS(), filepath.ToSlash(resultDir))
 			if err != nil {
 				err = fmt.Errorf("failed to read files in extracted directory, path: %s, err: %s", htmlReportPath, err)
 				log.Error(err)
@@ -593,9 +639,9 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 
 			// Batch move files
 			for _, file := range untarFiles {
-				oldPath := filepath.Join(unTarFilePath, file.Name())
-				newPath := filepath.Join(htmlReportPath, file.Name())
-				err := os.Rename(oldPath, newPath)
+				oldPath := filepath.Join(resultDir, file.Name())
+				newPath := file.Name()
+				err := reportRoot.Rename(oldPath, newPath)
 				if err != nil {
 					err = fmt.Errorf("failed to move file from %s to %s, err: %s", oldPath, newPath, err)
 					log.Error(err)
@@ -603,13 +649,13 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 				}
 			}
 
-			err = os.Remove(unTarFilePath)
+			err = reportRoot.Remove(resultDir)
 			if err != nil {
 				log.Errorf("remove extracted directory %s err: %v", downloadDest, err)
 			}
 		}
 
-		err = os.Remove(downloadDest)
+		err = reportRoot.Remove(setting.HtmlReportArchivedFileName)
 		if err != nil {
 			log.Errorf("remove download file %s err: %v", downloadDest, err)
 		}

@@ -26,6 +26,11 @@ import (
 )
 
 func Untar(tarFile, destDir string, gzipCompressed bool) error {
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
 	file, err := os.Open(tarFile)
 	if err != nil {
 		return err
@@ -53,14 +58,19 @@ func Untar(tarFile, destDir string, gzipCompressed bool) error {
 			return err
 		}
 
-		target := filepath.Join(destDir, header.Name)
+		if !filepath.IsLocal(header.Name) {
+			return fmt.Errorf("unsafe archive path: %q", header.Name)
+		}
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0755); err != nil {
+			if err := root.MkdirAll(header.Name, 0755); err != nil {
 				return err
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(target)
+			if err := root.MkdirAll(filepath.Dir(header.Name), 0755); err != nil {
+				return err
+			}
+			outFile, err := root.OpenFile(header.Name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 			if err != nil {
 				return err
 			}
@@ -68,7 +78,9 @@ func Untar(tarFile, destDir string, gzipCompressed bool) error {
 				outFile.Close()
 				return err
 			}
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				return err
+			}
 		default:
 			fmt.Printf("Unable to untar type: %c in file %s", header.Typeflag, header.Name)
 		}
