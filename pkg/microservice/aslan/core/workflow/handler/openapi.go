@@ -320,7 +320,7 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 
 // @Summary Replace the delta patches of a template bound workflow
 // @Description Replace the complete delta set of a template bound workflow. Instance fields are kept by the server; the template identity and version are maintained by the server.
-// @Description The delta must apply to the current base version. The workflow moves to the latest template version only when the relocated delta applies there without conflict.
+// @Description The complete delta must apply to the current base version. The template identity, base version and snapshot ID remain unchanged.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
