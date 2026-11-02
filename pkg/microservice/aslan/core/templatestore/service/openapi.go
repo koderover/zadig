@@ -17,9 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type OpenAPIListChartTemplatesResponse struct {
@@ -80,4 +87,54 @@ func buildOpenAPIListChartTemplatesResponse(chartTemplates *ChartTemplateListRes
 	}
 
 	return resp
+}
+
+type OpenAPIListWorkflowTemplatesResponse struct {
+	WorkflowTemplates []*OpenAPIWorkflowTemplateBrief `json:"workflow_templates"`
+}
+
+type OpenAPIWorkflowTemplateBrief struct {
+	ID            string                   `json:"id"`
+	TemplateName  string                   `json:"template_name"`
+	Description   string                   `json:"description"`
+	Category      setting.WorkflowCategory `json:"category"`
+	BuildIn       bool                     `json:"build_in"`
+	LatestVersion int                      `json:"latest_version"`
+	UpdateBy      string                   `json:"update_by"`
+	UpdateTime    int64                    `json:"update_time"`
+}
+
+func OpenAPIListWorkflowTemplates(category string, excludeBuildIn bool, logger *zap.SugaredLogger) (*OpenAPIListWorkflowTemplatesResponse, error) {
+	templates, err := ListWorkflowTemplate(category, excludeBuildIn, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &OpenAPIListWorkflowTemplatesResponse{
+		WorkflowTemplates: make([]*OpenAPIWorkflowTemplateBrief, 0, len(templates.WorkflowTemplates)),
+	}
+	for _, template := range templates.WorkflowTemplates {
+		latestVersion := 0
+		latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(template.ID.Hex())
+		if err == nil {
+			latestVersion = latest.Version
+		} else if !errors.Is(err, mongo.ErrNoDocuments) {
+			errMsg := fmt.Sprintf("failed to get latest version of workflow template %s: %v", template.TemplateName, err)
+			logger.Error(errMsg)
+			return nil, e.ErrListWorkflowTemplate.AddDesc(errMsg)
+		}
+
+		resp.WorkflowTemplates = append(resp.WorkflowTemplates, &OpenAPIWorkflowTemplateBrief{
+			ID:            template.ID.Hex(),
+			TemplateName:  template.TemplateName,
+			Description:   template.Description,
+			Category:      template.Category,
+			BuildIn:       template.BuildIn,
+			LatestVersion: latestVersion,
+			UpdateBy:      template.UpdateBy,
+			UpdateTime:    template.UpdateTime,
+		})
+	}
+
+	return resp, nil
 }
