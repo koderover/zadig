@@ -123,7 +123,7 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	default:
-		err := fmt.Errorf("step type: %s does not match any known type", util.MaskSecretEnvs(step.StepType, secretEnvs))
+		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		log.Error(err)
 		return err
 	}
