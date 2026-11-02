@@ -35,6 +35,8 @@ func TestIsJiraCloud(t *testing.T) {
 		{"https://ACME.Atlassian.NET", true},
 		{"https://api.atlassian.com/ex/jira/11223344-a1b2-c3d4-e5f6-123456abcdef", true},
 		{"api.atlassian.com/ex/jira/11223344-a1b2-c3d4-e5f6-123456abcdef", true},
+		{"https://api.atlassian.com/ex/jira", true},
+		{"https://api.atlassian.com/ex/jiraX/11223344-a1b2-c3d4-e5f6-123456abcdef", false},
 		{"https://api.atlassian.com/oauth/token", false},
 		{"https://jira.example.com", false},
 		{"http://jira.internal:8080/jira", false},

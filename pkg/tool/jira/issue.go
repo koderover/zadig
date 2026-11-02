@@ -19,7 +19,7 @@ package jira
 import (
 	"fmt"
 	"net/http"
-	neturl "net/url"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -235,9 +235,9 @@ func (s *IssueService) searchByJQLWithToken(jql, token string) ([]*Issue, string
 
 // isJiraCloud reports whether host is a Jira Cloud site (*.atlassian.net or api.atlassian.com/ex/jira)
 func isJiraCloud(host string) bool {
-	u, err := neturl.Parse(host)
+	u, err := url.Parse(host)
 	if err == nil && u.Host == "" {
-		u, err = neturl.Parse("https://" + host)
+		u, err = url.Parse("https://" + host)
 	}
 	if err != nil {
 		return false
@@ -246,7 +246,7 @@ func isJiraCloud(host string) bool {
 	if strings.HasSuffix(hostname, ".atlassian.net") {
 		return true
 	}
-	return hostname == "api.atlassian.com" && strings.HasPrefix(u.Path, "/ex/jira")
+	return hostname == "api.atlassian.com" && (u.Path == "/ex/jira" || strings.HasPrefix(u.Path, "/ex/jira/"))
 }
 
 type updateBody struct {
