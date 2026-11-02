@@ -123,7 +123,8 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
-	err = UpdateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, logger)
+	// keep the template version selected at creation; only later explicit updates may move to a newer version
+	err = updateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, true, logger)
 	if err != nil {
 		logger.Errorf("update workflowV4 error: %s", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
@@ -261,6 +262,10 @@ func GetWorkflowTasksCustomFields(projectName, workflowName string, logger *zap.
 }
 
 func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	return updateWorkflowV4(name, user, inputWorkflow, false, logger)
+}
+
+func updateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4, lockTemplateVersion bool, logger *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
@@ -274,7 +279,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		}
 	}
 
-	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
+	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, lockTemplateVersion, user, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	if !isTemplateBindingEnabled(inputWorkflow) {
@@ -387,6 +392,15 @@ func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.Wo
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
 	return workflow, err
+}
+
+func FindWorkflowV4RawByProject(projectName, name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().FindByOptions(commonrepo.WorkFlowOptions{ProjectName: projectName, WorkflowName: name})
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s in project %s, the error is: %v", name, projectName, err)
+		return nil, e.ErrFindWorkflow.AddErr(err)
+	}
+	return workflow, nil
 }
 
 func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {

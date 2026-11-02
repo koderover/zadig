@@ -52,3 +52,47 @@ func OpenAPIListChartTemplates(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = templateservice.OpenAPIListChartTemplates(ctx.Logger)
 }
+
+// @Summary List workflow templates
+// @Description List workflow template previews and the latest bindable version of each template. latest_version is 0 when the template has no version snapshot.
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param projectKey query string false "Target project key for authorization; required unless the caller is a system admin or has system template view permission"
+// @Param category query string false "Workflow category filter, e.g. release; empty means no filter"
+// @Param excludeBuildIn query string false "Only the string true excludes built-in templates"
+// @Success 200 {object} templateservice.OpenAPIListWorkflowTemplatesResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/templates/workflows [get]
+func OpenAPIListWorkflowTemplates(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check, same as the internal workflow template list
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			projectKey := c.Query("projectKey")
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	excludeBuildIn := c.Query("excludeBuildIn") == "true"
+
+	ctx.Resp, ctx.RespErr = templateservice.OpenAPIListWorkflowTemplates(c.Query("category"), excludeBuildIn, ctx.Logger)
+}

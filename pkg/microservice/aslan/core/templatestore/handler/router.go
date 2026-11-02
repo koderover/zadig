@@ -125,6 +125,11 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		charts.GET("", OpenAPIListChartTemplates)
 	}
 
+	workflows := router.Group("workflows")
+	{
+		workflows.GET("", OpenAPIListWorkflowTemplates)
+	}
+
 	builds := router.Group("builds")
 	{
 		builds.GET("", OpenAPIListBuildTemplates)
