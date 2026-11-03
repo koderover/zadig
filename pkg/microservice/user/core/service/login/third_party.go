@@ -19,13 +19,55 @@ package login
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
+
+const ThirdPartyLoginStateTTL = 5 * time.Minute
+
+func CreateThirdPartyLoginState() (state, browserToken string, err error) {
+	state, err = randomOAuthValue(32)
+	if err != nil {
+		log.Errorf("Failed to generate random state for third-party login, err: %s", err)
+		return "", "", err
+	}
+	browserToken, err = randomOAuthValue(32)
+	if err != nil {
+		log.Errorf("Failed to generate random browser token for third-party login, err: %s", err)
+		return "", "", err
+	}
+	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(
+		oauthKey("login-state", hashOAuthValue(state)), hashOAuthValue(browserToken), ThirdPartyLoginStateTTL,
+	)
+	if err != nil {
+		log.Errorf("Failed to write third-party login state to cache, err: %s", err)
+		return "", "", err
+	}
+	return state, browserToken, nil
+}
+
+func ConsumeThirdPartyLoginState(state, browserToken string) error {
+	if state == "" || browserToken == "" {
+		return fmt.Errorf("missing login state or browser cookie")
+	}
+	consumed, err := cache.NewRedisCache(config.RedisUserTokenDB()).CompareAndDelete(
+		oauthKey("login-state", hashOAuthValue(state)), hashOAuthValue(browserToken),
+	)
+	if err != nil {
+		return err
+	}
+	if !consumed {
+		return fmt.Errorf("invalid or expired login state")
+	}
+	return nil
+}
 
 type enabledStatus struct {
 	Enabled bool `json:"enabled"`

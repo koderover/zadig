@@ -114,10 +114,6 @@ type SyncUserInfo struct {
 	Phone        string `json:"phone"`
 }
 
-type RetrieveResp struct {
-	Email string `json:"email"`
-}
-
 type UserSetting struct {
 	Theme        string `json:"theme"`
 	LogBgColor   string `json:"log_bg_color"`
@@ -823,18 +819,19 @@ func DeleteCollaborationModeByUid(uid string) error {
 //go:embed retrieve.html
 var retrieveHemlTemplate []byte
 
-func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) {
+func Retrieve(account string, logger *zap.SugaredLogger) error {
 	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
-		return nil, fmt.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
+		return fmt.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
 	}
 	if user == nil {
-		return nil, fmt.Errorf("user not exist")
+		logger.Errorf("Retrieve account:%s user not exist", account)
+		return fmt.Errorf("user not exist")
 	}
 	if len(user.Email) == 0 {
 		logger.Errorf("the account:%s has not email", account)
-		return nil, fmt.Errorf("the account has not email")
+		return fmt.Errorf("the account has not email")
 	}
 
 	token, err := login.CreateToken(&login.Claims{
@@ -852,7 +849,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	})
 	if err != nil {
 		logger.Errorf("Retrieve user:%s create token error, error msg:%s", user.Account, err)
-		return nil, err
+		return err
 	}
 	v := url.Values{}
 	v.Add("idtoken", token)
@@ -860,18 +857,18 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	body, err := mail.RenderEmailTemplate(retrieveURL, string(retrieveHemlTemplate))
 	if err != nil {
 		logger.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
-		return nil, fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
+		return fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
 	}
 	systemConfigClient := systemconfig.New()
 	email, err := systemConfigClient.GetEmailHost()
 	if err != nil {
 		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
-		return nil, fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
+		return fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
 	}
 	emailSvc, err := systemConfigClient.GetEmailService()
 	if err != nil {
 		logger.Errorf("Retrieve GetEmailService error, error msg:%s", err)
-		return nil, fmt.Errorf("Retrieve GetEmailService error, error msg:%s ", err)
+		return fmt.Errorf("Retrieve GetEmailService error, error msg:%s ", err)
 	}
 
 	err = mail.SendEmail(&mail.EmailParams{
@@ -887,11 +884,9 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	})
 	if err != nil {
 		logger.Errorf("Retrieve SendEmail error, error msg:%s ", err)
-		return nil, err
+		return err
 	}
-	return &RetrieveResp{
-		Email: user.Email,
-	}, nil
+	return nil
 }
 
 func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {

@@ -16,12 +16,7 @@ limitations under the License.
 
 package config
 
-import (
-	"github.com/koderover/zadig/v2/pkg/setting"
-)
-
 const (
-	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
 	OauthIdentityType  = "oauth"
 	FeiShuEmailHost    = "smtp.feishu.cn"
