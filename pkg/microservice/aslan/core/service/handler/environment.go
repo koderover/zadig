@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
@@ -40,10 +41,53 @@ import (
 // @Success 200 			{object}  	service.DeployableEnvResp
 // @Router /api/aslan/service/services/{name}/environments/deployable [get]
 func GetDeployableEnvs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to get authorization info: %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.RespErr = fmt.Errorf("projectName is required")
+		return
+	}
+
 	production := c.Query("production") == "true"
+	hasPermission := ctx.Resources.IsSystemAdmin
+	if production {
+		if projectInfo := ctx.Resources.ProjectAuthInfo[projectName]; projectInfo != nil {
+			if projectInfo.IsProjectAdmin ||
+				(projectInfo.ProductionEnv != nil && projectInfo.ProductionEnv.View) {
+				hasPermission = true
+			}
+		}
+	} else {
+		if projectInfo := ctx.Resources.ProjectAuthInfo[projectName]; projectInfo != nil {
+			if projectInfo.IsProjectAdmin ||
+				(projectInfo.Env != nil && projectInfo.Env.View) {
+				hasPermission = true
+			}
+		}
+	}
+
+	envFilter := sets.NewString()
+	if !hasPermission {
+		permittedEnv, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
+		if err != nil {
+			ctx.RespErr = fmt.Errorf("failed to get environment permissions: %s", err)
+			ctx.UnAuthorized = true
+			return
+		}
+		if permittedEnv == nil || len(permittedEnv.ReadEnvList) == 0 {
+			ctx.UnAuthorized = true
+			return
+		}
+		envFilter.Insert(permittedEnv.ReadEnvList...)
+	}
+
 	if production {
 		err := commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
@@ -52,7 +96,21 @@ func GetDeployableEnvs(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"), production)
+	resp, err := service.GetDeployableEnvs(c.Param("name"), projectName, production)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !hasPermission {
+		envs := make([]*service.DeployableEnv, 0)
+		for _, env := range resp.Envs {
+			if envFilter.Has(env.EnvName) {
+				envs = append(envs, env)
+			}
+		}
+		resp.Envs = envs
+	}
+	ctx.Resp = resp
 }
 
 // GetKubeWorkloads api used to force user to have get environments privilege to use, now it is removed.
