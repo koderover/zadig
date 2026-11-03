@@ -61,15 +61,14 @@ func CreateIMApp(c *gin.Context) {
 		return
 	}
 
-	var args commonmodels.IMApp
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	var args commonmodels.IMApp
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -93,15 +92,14 @@ func UpdateIMApp(c *gin.Context) {
 		return
 	}
 
-	var args commonmodels.IMApp
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	var args commonmodels.IMApp
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -125,8 +123,7 @@ func DeleteIMApp(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -145,15 +142,14 @@ func ValidateIMApp(c *gin.Context) {
 		return
 	}
 
-	var args commonmodels.IMApp
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+	var args commonmodels.IMApp
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 

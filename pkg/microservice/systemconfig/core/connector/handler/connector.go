@@ -36,7 +36,7 @@ func CreateConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -61,7 +61,7 @@ func ListConnectors(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -92,7 +92,7 @@ func DeleteConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -111,7 +111,7 @@ func GetConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -130,7 +130,7 @@ func UpdateConnector(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
 		ctx.UnAuthorized = true
 		return
 	}

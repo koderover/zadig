@@ -164,6 +164,11 @@ const (
 	VerbCreateDBInstanceManagement = "create_dbinstance_management"
 	VerbEditDBInstanceManagement   = "edit_dbinstance_management"
 	VerbDeleteDBInstanceManagement = "delete_dbinstance_management"
+	// system integration
+	VerbGetSystemIntegration    = "get_system_integration"
+	VerbCreateSystemIntegration = "create_system_integration"
+	VerbEditSystemIntegration   = "edit_system_integration"
+	VerbDeleteSystemIntegration = "delete_system_integration"
 	// label management
 	VerbCreateLabelSetting = "create_label_setting"
 	VerbEditLabelSetting   = "edit_label_setting"
@@ -209,6 +214,7 @@ type SystemActions struct {
 	S3StorageManagement  *S3StorageManagementActions  `json:"s3storage_management"`
 	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
 	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
+	SystemIntegration    *SystemIntegrationActions    `json:"system_integration"`
 	LabelManagement      *LabelManagementActions      `json:"label_management"`
 	LogOperation         *LogOperationActions         `json:"log_operation"`
 }
@@ -401,6 +407,13 @@ type HelmRepoManagementActions struct {
 }
 
 type DBInstanceManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type SystemIntegrationActions struct {
 	Create bool
 	View   bool
 	Edit   bool

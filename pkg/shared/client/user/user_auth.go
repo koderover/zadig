@@ -50,6 +50,7 @@ type SystemActions struct {
 	S3StorageManagement  *S3StorageManagementActions  `json:"s3storage_management"`
 	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
 	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
+	SystemIntegration    *SystemIntegrationActions    `json:"system_integration"`
 	LabelManagement      *LabelManagementActions      `json:"label_management"`
 	LogOperation         *LogOperationActions         `json:"log_operation"`
 }
@@ -226,6 +227,13 @@ type HelmRepoManagementActions struct {
 }
 
 type DBInstanceManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type SystemIntegrationActions struct {
 	Create bool
 	View   bool
 	Edit   bool

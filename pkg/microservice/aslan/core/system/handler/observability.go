@@ -17,6 +17,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -34,15 +36,37 @@ func ListObservability(c *gin.Context) {
 }
 
 func ListObservabilityDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.RespErr = service.ListObservability(c.Query("type"), true)
 }
 
 func CreateObservability(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
@@ -50,7 +74,7 @@ func CreateObservability(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigProfessionalLicense()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.RespErr = err
 		return
@@ -60,8 +84,19 @@ func CreateObservability(c *gin.Context) {
 }
 
 func UpdateObservability(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
@@ -69,7 +104,7 @@ func UpdateObservability(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigProfessionalLicense()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.RespErr = err
 		return
@@ -79,15 +114,37 @@ func UpdateObservability(c *gin.Context) {
 }
 
 func DeleteObservability(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Delete {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.RespErr = service.DeleteObservability(c.Param("id"))
 }
 
 func ValidateObservability(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.SystemIntegration.Create && !ctx.Resources.SystemActions.SystemIntegration.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
