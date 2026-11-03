@@ -570,7 +570,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 		upgrade.Version = ">0.0.0-0"
 	}
 
-	helmChart, _, err := hClient.getChart(spec.ChartName, &upgrade.ChartPathOptions)
+	helmChart, chartPath, err := hClient.getChart(spec.ChartName, &upgrade.ChartPathOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -587,8 +587,12 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 	}
 
 	if !spec.SkipCRDs && spec.UpgradeCRDs {
+		crdChart, err := hClient.loadChartForCRDUpgrade(chartPath, spec.ReleaseName, values)
+		if err != nil {
+			return nil, err
+		}
 		c.DebugLog("upgrading crds")
-		err = hClient.upgradeCRDs(ctx, helmChart)
+		err = hClient.upgradeCRDs(ctx, crdChart)
 		if err != nil {
 			return nil, err
 		}
@@ -600,6 +604,41 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 	}
 	c.DebugLog("release upgraded successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
 	return rel, nil
+}
+
+// loadChartForCRDUpgrade filters dependencies on a separate chart so Helm can
+// still process aliases and imported values on the original chart during upgrade.
+// ponytail: callers use default value options; add reuse/reset handling if enabled.
+func (hClient *HelmClient) loadChartForCRDUpgrade(chartPath, releaseName string, values map[string]interface{}) (*chart.Chart, error) {
+	helmChart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Helm implicitly reuses the current release's config when input is empty.
+	if len(values) == 0 {
+		current, err := hClient.ActionConfig.Releases.Last(releaseName)
+		if err != nil {
+			return nil, err
+		}
+		if current.Info.Status != release.StatusDeployed {
+			deployed, err := hClient.ActionConfig.Releases.Deployed(releaseName)
+			if err != nil {
+				if !errors.Is(err, driver.ErrNoDeployedReleases) ||
+					(current.Info.Status != release.StatusFailed && current.Info.Status != release.StatusSuperseded) {
+					return nil, err
+				}
+			} else {
+				current = deployed
+			}
+		}
+		values = current.Config
+	}
+
+	if err := helmchartutil.ProcessDependenciesWithMerge(helmChart, values); err != nil {
+		return nil, err
+	}
+	return helmChart, nil
 }
 
 // InstallOrUpgradeChart install or upgrade helm chart, use the same rule with helm to determine weather to install or upgrade
