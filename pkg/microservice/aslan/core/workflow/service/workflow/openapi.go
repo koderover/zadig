@@ -610,19 +610,11 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 		return nil, err
 	}
 
-	var templateBinding *OpenAPIWorkflowTemplateBinding
+	var templateBinding *commonmodels.WorkflowTemplateBinding
 	if isTemplateBindingEnabled(workflow) {
 		// the stored binding state is returned as saved; the definition is rendered on the base version
-		templateBinding = &OpenAPIWorkflowTemplateBinding{
-			Enabled:        workflow.TemplateBinding.Enabled,
-			TemplateID:     workflow.TemplateBinding.TemplateID,
-			TemplateName:   workflow.TemplateBinding.TemplateName,
-			BaseVersion:    workflow.TemplateBinding.BaseVersion,
-			BaseVersionID:  workflow.TemplateBinding.BaseVersionID,
-			DeltaPatches:   workflow.TemplateBinding.DeltaPatches,
-			ConflictCount:  workflow.TemplateBinding.ConflictCount,
-			InvalidPatches: workflow.TemplateBinding.InvalidPatches,
-		}
+		binding := *workflow.TemplateBinding
+		templateBinding = &binding
 		if templateBinding.DeltaPatches == nil {
 			templateBinding.DeltaPatches = make([]*commonmodels.JSONPatchOperation, 0)
 		}
@@ -690,7 +682,6 @@ func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, use
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
-	updated.ID = workflow.ID
 	updated.UpdatedBy = user
 	updated.UpdateTime = time.Now().Unix()
 	if err := commonrepo.NewWorkflowV4Coll().Update(workflow.ID.Hex(), updated); err != nil {
