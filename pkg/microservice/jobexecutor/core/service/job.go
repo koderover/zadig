@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type Job struct {
@@ -141,6 +142,16 @@ func (j *Job) getUserEnvs() []string {
 }
 
 func (j *Job) Run(ctx context.Context) error {
+	gitTokens, err := meta.CollectGitTokens(j.Ctx.Steps)
+	if err != nil {
+		return err
+	}
+	// Add Git credentials only to log masking, not to the subprocess environment.
+	logSecretEnvs := make([]string, 0, len(gitTokens)+len(j.Ctx.SecretEnvs))
+	for i, token := range gitTokens {
+		logSecretEnvs = append(logSecretEnvs, fmt.Sprintf("ZADIG_GIT_TOKEN_%d=%s", i, token))
+	}
+	logSecretEnvs = append(logSecretEnvs, j.Ctx.SecretEnvs...)
 	if err := os.MkdirAll(job.JobOutputDir, os.ModePerm); err != nil {
 		return err
 	}
@@ -150,9 +161,9 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, j.ConfigMapUpdater); err != nil {
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), logSecretEnvs, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
-			respErr = err
+			respErr = fmt.Errorf("%s", util.MaskSecretEnvs(err.Error(), logSecretEnvs))
 		}
 	}
 	return respErr

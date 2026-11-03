@@ -30,7 +30,7 @@ func MaskSecretEnvs(message string, secretEnvs []string) string {
 		if len(val) == 0 {
 			continue
 		}
-		sl := strings.Split(val, "=")
+		sl := strings.SplitN(val, "=", 2)
 
 		if len(sl) != 2 {
 			continue
