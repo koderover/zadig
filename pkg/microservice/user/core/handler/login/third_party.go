@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
@@ -48,6 +49,22 @@ func provider() *oidc.Provider {
 	return provider
 }
 
+func thirdPartyLoginCookie() *http.Cookie {
+	secure := strings.HasPrefix(strings.ToLower(configbase.SystemAddress()), "https://")
+	name := "zadig_login_state"
+	if secure {
+		name = "__Host-" + name
+	}
+	return &http.Cookie{
+		Name:     name,
+		Path:     "/",
+		MaxAge:   int(login.ThirdPartyLoginStateTTL / time.Second),
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
 // @Summary 发起第三方登录
 // @Description 跳转到 Dex/OIDC 登录入口
 // @Tags user
@@ -65,12 +82,17 @@ func Login(c *gin.Context) {
 		RedirectURL:  config.RedirectURI(),
 	}
 
-	authCodeURL := oauth2Config.AuthCodeURL(config.AppState, oauth2.AccessTypeOffline)
 	systemConfig, err := aslan.New(configbase.AslanServiceAddress()).GetDefaultLogin()
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
+	state, browserToken, err := login.CreateThirdPartyLoginState()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	authCodeURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	defaultLogin := ""
 	replaceURL := configbase.SystemAddress() + "/dex/auth"
 	if systemConfig.DefaultLogin != setting.DefaultLoginLocal {
@@ -79,6 +101,9 @@ func Login(c *gin.Context) {
 	}
 	authCodeURL = strings.Replace(authCodeURL, config.IssuerURL()+"/auth", replaceURL, -1)
 
+	cookie := thirdPartyLoginCookie()
+	cookie.Value = browserToken
+	http.SetCookie(c.Writer, cookie)
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
@@ -145,6 +170,20 @@ func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	cookie := thirdPartyLoginCookie()
+	browserToken, err := c.Cookie(cookie.Name)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("missing login browser cookie")
+		return
+	}
+	// Atomically validate and consume state before exchanging the authorization code.
+	if err := login.ConsumeThirdPartyLoginState(c.Query("state"), browserToken); err != nil {
+		ctx.RespErr = err
+		return
+	}
+	cookie.MaxAge = -1
+	http.SetCookie(c.Writer, cookie)
+
 	// Authorization redirect callback from OAuth2 auth flow.
 	if errMsg := c.Query("error"); errMsg != "" {
 		ctx.RespErr = e.ErrCallBackUser.AddDesc(errMsg)
@@ -153,10 +192,6 @@ func Callback(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		ctx.RespErr = e.ErrCallBackUser.AddDesc(fmt.Sprintf("no code in request: %q", c.Request.Form))
-		return
-	}
-	if state := c.Query("state"); state != config.AppState {
-		ctx.RespErr = e.ErrCallBackUser.AddDesc(fmt.Sprintf("expected state %q got %q", config.AppState, state))
 		return
 	}
 	claims, err := verifyAndDecode(c.Request.Context(), code)

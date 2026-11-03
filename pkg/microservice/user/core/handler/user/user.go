@@ -551,7 +551,10 @@ func SignUp(c *gin.Context) {
 func Retrieve(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = permission.Retrieve(c.Query("account"), ctx.Logger)
+	// Do not expose account-specific failure details.
+	if err := permission.Retrieve(c.Query("account"), ctx.Logger); err != nil {
+		ctx.RespErr = fmt.Errorf("failed to process password reset request")
+	}
 }
 
 func UpdatePassword(c *gin.Context) {
