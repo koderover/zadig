@@ -78,12 +78,22 @@ func (j FreestyleJobController) Validate(isExecution bool) error {
 	}
 
 	if isExecution {
-		if j.jobSpec.FreestyleJobType == config.VariableGroupFreeStyleJobType {
+		switch j.jobSpec.FreestyleJobType {
+		case config.ServiceFreeStyleJobType:
+			for _, svc := range j.jobSpec.Services {
+				merged := applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
+				if err := ValidateRequiredRuntimeKeyVals(merged, fmt.Sprintf("job %s service %s/%s", j.name, svc.ServiceName, svc.ServiceModule)); err != nil {
+					return err
+				}
+			}
+		case config.VariableGroupFreeStyleJobType:
 			if err := j.validateVariableGroups(); err != nil {
 				return err
 			}
-		} else if err := ValidateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
-			return err
+		default:
+			if err := ValidateRequiredRuntimeKeyVals(j.jobSpec.Envs, fmt.Sprintf("job %s", j.name)); err != nil {
+				return err
+			}
 		}
 	}
 
