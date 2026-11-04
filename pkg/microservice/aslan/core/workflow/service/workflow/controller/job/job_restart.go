@@ -150,7 +150,7 @@ func (j RestartJobController) Update(useUserInput bool, ticket *commonmodels.App
 		j.jobSpec.Env = latestSpec.Env
 		j.jobSpec.Services = make([]string, 0)
 		return nil
-	} else {
+	} else if !useUserInput {
 		j.jobSpec.Env = latestSpec.Env
 	}
 
