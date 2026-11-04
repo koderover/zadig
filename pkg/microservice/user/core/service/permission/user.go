@@ -827,11 +827,11 @@ func Retrieve(account string, logger *zap.SugaredLogger) error {
 	}
 	if user == nil {
 		logger.Errorf("Retrieve account:%s user not exist", account)
-		return fmt.Errorf("user not exist")
+		return nil
 	}
 	if len(user.Email) == 0 {
 		logger.Errorf("the account:%s has not email", account)
-		return fmt.Errorf("the account has not email")
+		return nil
 	}
 
 	token, err := login.CreateToken(&login.Claims{
