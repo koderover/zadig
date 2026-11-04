@@ -19,7 +19,6 @@ package util
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -44,16 +43,7 @@ var (
 		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}
-
-	moduleImagePlaceholderRegex = regexp.MustCompile(`^\$[A-Za-z0-9_-]+-image\$$`)
 )
-
-// IsModuleImagePlaceholder reports whether s is exactly a $<module>-image$
-// placeholder string (no surrounding text). Used to avoid persisting an
-// unresolved placeholder as a stored image URI.
-func IsModuleImagePlaceholder(s string) bool {
-	return moduleImagePlaceholderRegex.MatchString(s)
-}
 
 // FoldManualModulesInto merges user-declared manual modules into an already-
 // populated auto-container slice in place. The intended call site is right

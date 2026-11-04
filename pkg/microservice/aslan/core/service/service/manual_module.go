@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -31,15 +30,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-// moduleImagePlaceholderRegex matches `$<name>-image$` anywhere in a string
-// and captures the name. Mirrors moduleImageRegex in kube/parse.go — kept in
-// a third copy here to avoid an import cycle (service/service → kube has
-// other forward deps).
-//
-// TODO: consolidate the three copies (kube/parse.go, util/service.go, here)
-// once we have a leaf package both can import safely.
-var moduleImagePlaceholderRegex = regexp.MustCompile(`\$([A-Za-z0-9_-]+)-image\$`)
 
 // ManualModuleCreateReq is the API payload for declaring a new manual module.
 // Manual modules attach to a K8s YAML service template and are version-
@@ -272,8 +262,8 @@ func ResolveServiceModules(projectName, serviceName string, production bool, rev
 	return repository.ResolveServiceModules(context.Background(), projectName, serviceName, production, revision)
 }
 
-// ValidatePlaceholderResolution scans the rendered YAML for $<name>-image$
-// placeholders and returns the names that don't match any known module
+// ValidatePlaceholderResolution scans complete and split image variables
+// and returns the names that don't match any known module
 // (parsed containers ∪ manual modules). The caller decides what to do —
 // callers in this package log + include in the response, never reject the
 // save (per the design rule that git-imported templates must not be
@@ -320,7 +310,7 @@ func extractPlaceholderNames(yaml string) []string {
 	if yaml == "" {
 		return nil
 	}
-	matches := moduleImagePlaceholderRegex.FindAllStringSubmatch(yaml, -1)
+	matches := commonutil.ModuleImageRegex.FindAllStringSubmatch(yaml, -1)
 	out := make([]string, 0, len(matches))
 	for _, m := range matches {
 		if len(m) >= 2 {
@@ -357,8 +347,7 @@ func ensureServiceExists(projectName, serviceName string, production bool) error
 
 // isValidModuleName accepts the same character set as parseContainer accepts
 // for K8s container names (the broader [A-Za-z0-9_-]+ form, matching what
-// the moduleImageRegex in kube/parse.go expects). The regex anchors the
-// whole string.
+// the shared ModuleImageRegex expects).
 func isValidModuleName(name string) bool {
 	if name == "" {
 		return false
