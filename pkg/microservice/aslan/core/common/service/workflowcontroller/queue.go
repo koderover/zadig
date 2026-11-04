@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -134,120 +135,216 @@ func InitQueue() error {
 	return nil
 }
 
-// WorfklowTaskSender 监控warpdrive空闲情况, 如果有空闲, 则发现下一个waiting task给warpdrive
-// 并将task状态设置为queued
+const (
+	workflowTaskSenderLockKey = "workflow-task-sender"
+	// Idle replicas poll the queue every 3 seconds.
+	workflowTaskSenderIdleInterval = 3 * time.Second
+	// Shorter interval while a backlog remains, so another replica can take the next batch.
+	workflowTaskSenderBusyInterval = 200 * time.Millisecond
+	// Max workflows released per round, so one replica does not start the whole backlog.
+	workflowTaskSenderBatchSize = 10
+	// redsync does not renew the lock. Expiry must cover this batch of database updates.
+	workflowTaskSenderLockExpiry = 30 * time.Second
+)
+
+// WorfklowTaskSender holds the distributed lock and releases waiting tasks within the global quota and per-workflow concurrency limit.
+// Each round releases at most workflowTaskSenderBatchSize tasks. They run on the replica that acquired the lock.
 func WorfklowTaskSender() {
 	for {
-		time.Sleep(time.Second * 3)
-
-		mutex := cache.NewRedisLock("workflow-task-sender")
-		if err := mutex.TryLock(); err != nil {
-			continue
-		}
-
-		sysSetting, err := commonrepo.NewSystemSettingColl().Get()
-		if err != nil {
-			log.Errorf("get system stettings error: %v", err)
-		}
-		//c.checkAgents()
-		if !hasAgentAvaiable(int(sysSetting.WorkflowConcurrency)) {
-			mutex.Unlock()
-			continue
-		}
-		waitingTasks, err := WaitingTasks()
-		if err != nil || len(waitingTasks) == 0 {
-			mutex.Unlock()
-			continue
-		}
-		var t *commonmodels.WorkflowQueue
-		for _, task := range waitingTasks {
-			var concurrency int
-			workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
-			if err != nil {
-				log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
-				switch task.Type {
-				case config.WorkflowTaskTypeScanning:
-					segs := strings.Split(task.WorkflowName, "-")
-					if len(segs) != 3 {
-						log.Errorf("invalid scanning workflow name: %s", task.WorkflowName)
-						Remove(task)
-						continue
-					}
-					scanningInfo, err := commonrepo.NewScanningColl().GetByID(segs[2])
-					if err != nil {
-						log.Errorf("failed to find scanning of id: %s, error: %s", segs[2], err)
-						Remove(task)
-						continue
-					}
-					concurrencyNum := -1
-					if scanningInfo.AdvancedSetting != nil {
-						concurrencyNum = scanningInfo.AdvancedSetting.ConcurrencyLimit
-					}
-					if concurrencyNum == 0 {
-						concurrencyNum = -1
-					}
-					concurrency = concurrencyNum
-				case config.WorkflowTaskTypeTesting:
-					testingInfo, err := commonrepo.NewTestingColl().Find(task.WorkflowDisplayName, task.ProjectName)
-					if err != nil {
-						log.Errorf("failed to find test of name: %s in project: %s, error: %s", task.WorkflowDisplayName, task.ProjectName, err)
-						Remove(task)
-						continue
-					}
-					concurrencyNum := -1
-					if testingInfo.PreTest != nil {
-						concurrencyNum = testingInfo.PreTest.ConcurrencyLimit
-					}
-					if concurrencyNum == 0 {
-						concurrencyNum = -1
-					}
-					concurrency = concurrencyNum
-				case config.WorkflowTaskTypeDelivery:
-					concurrency = -1
-				default:
-					log.Errorf("unsupported task type: %s, removing from queue", task.Type)
-					Remove(task)
-					continue
-				}
-			} else {
-				concurrency = workflow.ConcurrencyLimit
-			}
-			// no concurrency limit, run task
-			if concurrency == -1 {
-				t = task
-				break
-			}
-			resp, err := RunningWorkflowTasks(task.WorkflowName)
-			if err != nil {
-				log.Errorf("WorkflowV4 Queue: find running workflow %s error: %v", task.WorkflowName, err)
-				continue
-			}
-			resp2, err := WaitForApproveWorkflowTasks(task.WorkflowName)
-			if err != nil {
-				log.Errorf("WorkflowV4 Queue: find waiting approve workflow %s error: %v", task.WorkflowName, err)
-				continue
-			}
-			if len(resp)+len(resp2) < concurrency {
-				t = task
-				break
-			}
-		}
-		// no task to run
-		if t == nil {
-			mutex.Unlock()
-			continue
-		}
-		// update agent and queue
-		if err := updateQueueAndRunTask(t, int(sysSetting.BuildConcurrency)); err != nil {
-			mutex.Unlock()
-			continue
-		}
-		mutex.Unlock()
+		time.Sleep(runWorkflowTaskSenderOnce())
 	}
 }
 
-func hasAgentAvaiable(workflowConcurrency int) bool {
-	return len(RunningAndQueuedTasks()) < int(workflowConcurrency)
+func runWorkflowTaskSenderOnce() time.Duration {
+	mutex := cache.NewRedisTryLock(workflowTaskSenderLockKey, workflowTaskSenderLockExpiry)
+	if err := mutex.TryLock(); err != nil {
+		if cache.IsLockTaken(err) {
+			return workflowTaskSenderBusyInterval
+		}
+		return workflowTaskSenderIdleInterval
+	}
+	defer mutex.Unlock()
+
+	moreWaiting, err := dispatchWaitingWorkflowTasks()
+	if err == nil && moreWaiting {
+		return workflowTaskSenderBusyInterval
+	}
+	return workflowTaskSenderIdleInterval
+}
+
+func dispatchWaitingWorkflowTasks() (bool, error) {
+	sysSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("get system stettings error: %v", err)
+		return false, err
+	}
+
+	waiting, globalUsed, occupied := queueScheduleState(ListTasks())
+	slots := dispatchSlots(int(sysSetting.WorkflowConcurrency), globalUsed)
+	if slots == 0 || len(waiting) == 0 {
+		return false, nil
+	}
+
+	limits := make(map[string]int)
+	var resolveErr error
+	indexes, moreWaiting := pickDispatchBatch(len(waiting), func(i int) (string, int, bool) {
+		if resolveErr != nil {
+			return "", 0, true
+		}
+		task := waiting[i]
+		if limit, ok := limits[task.WorkflowName]; ok {
+			return task.WorkflowName, limit, false
+		}
+		limit, remove, err := taskConcurrencyLimit(task)
+		if err != nil {
+			resolveErr = err
+			return "", 0, true
+		}
+		if remove {
+			return "", 0, true
+		}
+		limits[task.WorkflowName] = limit
+		return task.WorkflowName, limit, false
+	}, occupied, slots)
+
+	started := 0
+	for _, idx := range indexes {
+		if err := updateQueueAndRunTask(waiting[idx], int(sysSetting.BuildConcurrency)); err != nil {
+			continue
+		}
+		started++
+	}
+	if resolveErr != nil {
+		return false, resolveErr
+	}
+	if started == 0 {
+		return false, nil
+	}
+	return moreWaiting, nil
+}
+
+// queueScheduleState splits the queue into tasks waiting to be released, global slots in use, and slots in use per workflow.
+// queued counts toward both the global quota and the workflow quota, so a task that is not yet running is not released again.
+func queueScheduleState(tasks []*commonmodels.WorkflowQueue) (waiting []*commonmodels.WorkflowQueue, globalUsed int, occupied map[string]int) {
+	occupied = make(map[string]int)
+	for _, task := range tasks {
+		switch task.Status {
+		case config.StatusRunning, config.StatusQueued:
+			globalUsed++
+			occupied[task.WorkflowName]++
+		case config.StatusWaitingApprove:
+			occupied[task.WorkflowName]++
+		case config.StatusWaiting:
+			waiting = append(waiting, task)
+		}
+	}
+	return waiting, globalUsed, occupied
+}
+
+func dispatchSlots(globalLimit, globalUsed int) int {
+	slots := globalLimit - globalUsed
+	if slots > workflowTaskSenderBatchSize {
+		slots = workflowTaskSenderBatchSize
+	}
+	if slots < 0 {
+		return 0
+	}
+	return slots
+}
+
+// pickDispatchBatch selects task indexes to release this round, in queue order.
+// limitOf returns -1 when the workflow has no concurrency limit. skip means leave the task for later.
+// Once the round is full, stop reading further tasks. moreWaiting means unseen tasks remain, and the next round should use the short interval.
+func pickDispatchBatch(count int, limitOf func(i int) (name string, limit int, skip bool), occupied map[string]int, slots int) ([]int, bool) {
+	if slots <= 0 || count <= 0 {
+		return nil, false
+	}
+	indexes := make([]int, 0, slots)
+	for i := 0; i < count; i++ {
+		if len(indexes) >= slots {
+			return indexes, true
+		}
+		name, limit, skip := limitOf(i)
+		if skip {
+			continue
+		}
+		if limit != -1 && occupied[name] >= limit {
+			continue
+		}
+		indexes = append(indexes, i)
+		if limit != -1 {
+			occupied[name]++
+		}
+	}
+	return indexes, false
+}
+
+// taskConcurrencyLimit returns the concurrency limit of the workflow that owns the task.
+// remove means the config is missing and the task has been deleted from the queue.
+// A non-nil error means the lookup failed. The task stays queued, and the caller should stop this round and return to the idle interval.
+func taskConcurrencyLimit(task *commonmodels.WorkflowQueue) (int, bool, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
+	if err != nil {
+		log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return 0, false, err
+		}
+		switch task.Type {
+		case config.WorkflowTaskTypeScanning:
+			segs := strings.Split(task.WorkflowName, "-")
+			if len(segs) != 3 {
+				log.Errorf("invalid scanning workflow name: %s", task.WorkflowName)
+				Remove(task)
+				return 0, true, nil
+			}
+			scanningInfo, scanErr := commonrepo.NewScanningColl().GetByID(segs[2])
+			if scanErr != nil {
+				log.Errorf("failed to find scanning of id: %s, error: %s", segs[2], scanErr)
+				if !isMissingWorkflowConfig(scanErr) {
+					return 0, false, scanErr
+				}
+				Remove(task)
+				return 0, true, nil
+			}
+			concurrencyNum := -1
+			if scanningInfo.AdvancedSetting != nil {
+				concurrencyNum = scanningInfo.AdvancedSetting.ConcurrencyLimit
+			}
+			if concurrencyNum == 0 {
+				concurrencyNum = -1
+			}
+			return concurrencyNum, false, nil
+		case config.WorkflowTaskTypeTesting:
+			testingInfo, testErr := commonrepo.NewTestingColl().Find(task.WorkflowDisplayName, task.ProjectName)
+			if testErr != nil {
+				log.Errorf("failed to find test of name: %s in project: %s, error: %s", task.WorkflowDisplayName, task.ProjectName, testErr)
+				if !isMissingWorkflowConfig(testErr) {
+					return 0, false, testErr
+				}
+				Remove(task)
+				return 0, true, nil
+			}
+			concurrencyNum := -1
+			if testingInfo.PreTest != nil {
+				concurrencyNum = testingInfo.PreTest.ConcurrencyLimit
+			}
+			if concurrencyNum == 0 {
+				concurrencyNum = -1
+			}
+			return concurrencyNum, false, nil
+		case config.WorkflowTaskTypeDelivery:
+			return -1, false, nil
+		default:
+			log.Errorf("unsupported task type: %s, removing from queue", task.Type)
+			Remove(task)
+			return 0, true, nil
+		}
+	}
+	return workflow.ConcurrencyLimit, false, nil
+}
+
+func isMissingWorkflowConfig(err error) bool {
+	return errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, primitive.ErrInvalidHex)
 }
 
 func RunningAndQueuedTasks() []*commonmodels.WorkflowQueue {
