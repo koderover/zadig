@@ -553,7 +553,7 @@ func Retrieve(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	// Do not expose account-specific failure details.
 	if err := permission.Retrieve(c.Query("account"), ctx.Logger); err != nil {
-		ctx.RespErr = fmt.Errorf("failed to process password reset request")
+		ctx.RespErr = fmt.Errorf("重置密码错误：%s", err)
 	}
 }
 
