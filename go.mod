@@ -1,6 +1,6 @@
 module github.com/koderover/zadig/v2
 
-go 1.24.1
+go 1.25.9
 
 require (
 	gitee.com/openeuler/go-gitee v0.0.0-20220530104019-3af895bc380c
