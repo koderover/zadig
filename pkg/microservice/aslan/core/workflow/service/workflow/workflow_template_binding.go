@@ -582,7 +582,49 @@ func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*com
 		}
 		rendered = next
 	}
+	if err := validateJobPolicies(base, rendered); err != nil {
+		return nil, nil, err
+	}
 	return patches, rendered, nil
+}
+
+func validateJobPolicies(template, rendered *commonmodels.WorkflowV4) error {
+	renderedJobs := make(map[string]*commonmodels.Job)
+	for _, stage := range rendered.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, job := range stage.Jobs {
+			if job != nil {
+				renderedJobs[job.Name] = job
+			}
+		}
+	}
+
+	for _, stage := range template.Stages {
+		if stage == nil {
+			continue
+		}
+		for _, templateJob := range stage.Jobs {
+			if templateJob == nil {
+				continue
+			}
+			renderedJob, ok := renderedJobs[templateJob.Name]
+			if !ok {
+				continue
+			}
+			if templateJob.RunPolicy != renderedJob.RunPolicy {
+				return fmt.Errorf("job %q run_policy must be consistent with workflow template", templateJob.Name)
+			}
+			if !reflect.DeepEqual(templateJob.ExecutePolicy, renderedJob.ExecutePolicy) {
+				return fmt.Errorf("job %q execute_policy must be consistent with workflow template", templateJob.Name)
+			}
+			if !reflect.DeepEqual(templateJob.ErrorPolicy, renderedJob.ErrorPolicy) {
+				return fmt.Errorf("job %q error_policy must be consistent with workflow template", templateJob.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func validateTemplateBindingPatch(patch *commonmodels.JSONPatchOperation) error {
