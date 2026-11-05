@@ -501,12 +501,12 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 	htmlReportPath := pkgconfig.LocalHtmlReportPath(projectName, workflowName, jobTask.Name, taskID)
 	dataRoot, err := os.OpenRoot(pkgconfig.DataPath())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open data root, path: %s, err: %w", pkgconfig.DataPath(), err)
 	}
 	defer dataRoot.Close()
 	reportPath, err := filepath.Rel(pkgconfig.DataPath(), htmlReportPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to resolve report path, base: %s, path: %s, err: %w", pkgconfig.DataPath(), htmlReportPath, err)
 	}
 
 	// check if exist first
@@ -532,7 +532,7 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 
 	reportRoot, err := dataRoot.OpenRoot(reportPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open report root, path: %s, err: %w", htmlReportPath, err)
 	}
 	defer reportRoot.Close()
 
@@ -651,13 +651,13 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 
 			err = reportRoot.Remove(resultDir)
 			if err != nil {
-				log.Errorf("remove extracted directory %s err: %v", downloadDest, err)
+				log.Errorf("remove extracted directory %s err: %v", resultDir, err)
 			}
 		}
 
 		err = reportRoot.Remove(setting.HtmlReportArchivedFileName)
 		if err != nil {
-			log.Errorf("remove download file %s err: %v", downloadDest, err)
+			log.Errorf("remove download file %s err: %v", setting.HtmlReportArchivedFileName, err)
 		}
 
 		return htmlReportPath, nil
