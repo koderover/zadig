@@ -17,7 +17,12 @@ limitations under the License.
 package login
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/url"
 	"time"
 
@@ -31,6 +36,23 @@ import (
 )
 
 const ThirdPartyLoginStateTTL = 5 * time.Minute
+
+func randomOAuthValue(size int) (string, error) {
+	buffer := make([]byte, size)
+	if _, err := io.ReadFull(rand.Reader, buffer); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buffer), nil
+}
+
+func hashOAuthValue(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
+
+func oauthKey(kind, id string) string {
+	return "zadig:oauth:" + kind + ":" + id
+}
 
 func CreateThirdPartyLoginState() (state, browserToken string, err error) {
 	state, err = randomOAuthValue(32)
