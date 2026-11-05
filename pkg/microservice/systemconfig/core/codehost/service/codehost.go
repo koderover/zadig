@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -225,13 +226,37 @@ type state struct {
 }
 
 func parseCodeHostRedirectURL(rawURL string) (*url.URL, error) {
-	systemURL, err := url.Parse(zadigconfig.SystemAddress())
-	if err != nil || (systemURL.Scheme != "http" && systemURL.Scheme != "https") || systemURL.Host == "" || systemURL.User != nil {
+	systemAddress := zadigconfig.SystemAddress()
+	if !strings.Contains(systemAddress, "://") {
+		systemAddress = "//" + systemAddress
+	}
+	systemURL, err := url.Parse(systemAddress)
+	if err != nil || (systemURL.Scheme != "" && systemURL.Scheme != "http" && systemURL.Scheme != "https") || systemURL.Hostname() == "" || systemURL.User != nil {
 		return nil, fmt.Errorf("invalid system address")
 	}
 	redirectURL, err := url.Parse(rawURL)
-	if err != nil || redirectURL.User != nil || strings.Contains(rawURL, `\`) ||
-		!strings.EqualFold(redirectURL.Scheme, systemURL.Scheme) || !strings.EqualFold(redirectURL.Host, systemURL.Host) {
+	if err != nil || (redirectURL.Scheme != "http" && redirectURL.Scheme != "https") || redirectURL.Hostname() == "" || redirectURL.User != nil || strings.Contains(rawURL, `\`) {
+		return nil, fmt.Errorf("invalid redirect URL")
+	}
+	// A system address without a scheme allows HTTP or HTTPS on the configured host and port.
+	if systemURL.Scheme == "" {
+		systemURL.Scheme = redirectURL.Scheme
+	}
+	systemHost, redirectHost := systemURL.Hostname(), redirectURL.Hostname()
+	if ip, err := netip.ParseAddr(systemHost); err == nil {
+		systemHost = ip.String()
+	}
+	if ip, err := netip.ParseAddr(redirectHost); err == nil {
+		redirectHost = ip.String()
+	}
+	systemPort, redirectPort := systemURL.Port(), redirectURL.Port()
+	if (systemURL.Scheme == "http" && systemPort == "80") || (systemURL.Scheme == "https" && systemPort == "443") {
+		systemPort = ""
+	}
+	if (redirectURL.Scheme == "http" && redirectPort == "80") || (redirectURL.Scheme == "https" && redirectPort == "443") {
+		redirectPort = ""
+	}
+	if systemURL.Scheme != redirectURL.Scheme || !strings.EqualFold(systemHost, redirectHost) || systemPort != redirectPort {
 		return nil, fmt.Errorf("invalid redirect URL")
 	}
 	return redirectURL, nil
