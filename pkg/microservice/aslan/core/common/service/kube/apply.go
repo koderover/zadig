@@ -404,15 +404,15 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
 	}
 
-	return checkResourceAppliedByOtherEnv(unstructuredRes, productInfo, serviceName)
+	return CheckResourcesAppliedByOtherEnv(UnstructuredToResources(unstructuredRes), productInfo, serviceName)
 }
 
-func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product, serviceName string) error {
-	if len(unstructuredRes) == 0 {
+// CheckResourcesAppliedByOtherEnv checks ownership of rendered resource identities.
+func CheckResourcesAppliedByOtherEnv(resources []*commonmodels.ServiceResource, productInfo *commonmodels.Product, serviceName string) error {
+	if len(resources) == 0 {
 		return nil
 	}
 
-	resources := UnstructuredToResources(unstructuredRes)
 	hasClusterScopedResource := false
 	for _, resource := range resources {
 		if isClusterScopedK8sServiceResource(resource.GroupVersionKind.Kind) {
