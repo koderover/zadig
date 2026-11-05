@@ -820,10 +820,22 @@ func DeleteCollaborationModeByUid(uid string) error {
 var retrieveHemlTemplate []byte
 
 func Retrieve(account string, logger *zap.SugaredLogger) error {
+	// Check shared configuration before looking up the account so every account gets the same error.
+	systemConfigClient := systemconfig.New()
+	email, err := systemConfigClient.GetEmailHost()
+	if err != nil {
+		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
+		return fmt.Errorf("找回密码服务暂不可用，请联系管理员")
+	}
+	emailSvc, err := systemConfigClient.GetEmailService()
+	if err != nil {
+		logger.Errorf("Retrieve GetEmailService error, error msg:%s", err)
+		return fmt.Errorf("找回密码服务暂不可用，请联系管理员")
+	}
 	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
-		return fmt.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
+		return fmt.Errorf("找回密码服务暂不可用，请联系管理员")
 	}
 	if user == nil {
 		logger.Errorf("Retrieve account:%s user not exist", account)
@@ -849,7 +861,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) error {
 	})
 	if err != nil {
 		logger.Errorf("Retrieve user:%s create token error, error msg:%s", user.Account, err)
-		return err
+		return nil
 	}
 	v := url.Values{}
 	v.Add("idtoken", token)
@@ -857,18 +869,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) error {
 	body, err := mail.RenderEmailTemplate(retrieveURL, string(retrieveHemlTemplate))
 	if err != nil {
 		logger.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
-		return fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
-	}
-	systemConfigClient := systemconfig.New()
-	email, err := systemConfigClient.GetEmailHost()
-	if err != nil {
-		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
-		return fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
-	}
-	emailSvc, err := systemConfigClient.GetEmailService()
-	if err != nil {
-		logger.Errorf("Retrieve GetEmailService error, error msg:%s", err)
-		return fmt.Errorf("Retrieve GetEmailService error, error msg:%s ", err)
+		return nil
 	}
 
 	err = mail.SendEmail(&mail.EmailParams{
@@ -884,7 +885,6 @@ func Retrieve(account string, logger *zap.SugaredLogger) error {
 	})
 	if err != nil {
 		logger.Errorf("Retrieve SendEmail error, error msg:%s ", err)
-		return err
 	}
 	return nil
 }

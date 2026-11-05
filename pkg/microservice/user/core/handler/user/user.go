@@ -552,9 +552,7 @@ func Retrieve(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	// Do not expose account-specific failure details.
-	if err := permission.Retrieve(c.Query("account"), ctx.Logger); err != nil {
-		ctx.RespErr = fmt.Errorf("重置密码错误：%s", err)
-	}
+	ctx.RespErr = permission.Retrieve(c.Query("account"), ctx.Logger)
 }
 
 func UpdatePassword(c *gin.Context) {

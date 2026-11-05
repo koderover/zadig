@@ -24,7 +24,9 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -330,6 +332,8 @@ func GetTestTaskHtmlReportInfo(c *gin.Context) {
 func serveHTMLTestReport(c *gin.Context, htmlReportDir string) {
 	// Scripts may run for interactive reports, but never with the main site's origin.
 	c.Header("Content-Security-Policy", "sandbox allow-scripts")
+	// Sandboxed reports have an opaque origin and need CORS to load report data.
+	c.Header("Access-Control-Allow-Origin", "*")
 	root, err := os.OpenRoot(htmlReportDir)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -350,46 +354,59 @@ func serveHTMLTestReport(c *gin.Context, htmlReportDir string) {
 		return
 	}
 	if info.IsDir() {
-		// Require an index file to preserve gin.Dir(..., false)'s disabled directory listings.
-		index, err := root.Stat(filepath.Join(relativePath, "index.html"))
-		if err != nil || !index.Mode().IsRegular() {
-			c.AbortWithStatus(http.StatusNotFound)
+		if !strings.HasSuffix(filePath, "/") {
+			redirectURL := url.URL{Path: path.Base(filePath) + "/", RawQuery: c.Request.URL.RawQuery}
+			c.Header("Location", redirectURL.String())
+			c.AbortWithStatus(http.StatusMovedPermanently)
 			return
 		}
+		// Match the file server's optional directory index without listing files.
+		relativePath = filepath.Join(relativePath, "index.html")
 	}
-	c.FileFromFS(filePath, http.FS(root.FS()))
+	file, err := root.Open(relativePath)
+	if err != nil {
+		if info.IsDir() {
+			c.Status(http.StatusOK)
+			return
+		}
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil || !fileInfo.Mode().IsRegular() {
+		if info.IsDir() {
+			c.Status(http.StatusOK)
+			return
+		}
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	http.ServeContent(c.Writer, c.Request, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
 func findDefaultHtmlReportFilePath(root *os.Root, htmlFilepath string) (string, error) {
-	// user specified path, just return
+	// Only select a default HTML file for the report root.
 	if htmlFilepath != "/" {
 		return htmlFilepath, nil
 	}
-
-	// user not specified, find default html file path for user
 	files, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
 		return "", fmt.Errorf("failed to read dir %s, err :%s", root.Name(), err)
 	}
 
 	fileName := ""
-	foundIndex := false
 	for _, file := range files {
 		info, err := root.Stat(file.Name())
 		if err == nil && info.Mode().IsRegular() {
 			if file.Name() == "index.html" {
-				foundIndex = true
+				fileName = file.Name()
 				break
 			}
 			if fileName == "" && filepath.Ext(file.Name()) == ".html" {
 				fileName = file.Name()
 			}
 		}
-	}
-
-	if foundIndex {
-		// return / avoid always 301 redirect
-		return "/", nil
 	}
 
 	if fileName != "" {
