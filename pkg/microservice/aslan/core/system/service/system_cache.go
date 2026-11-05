@@ -231,7 +231,10 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 }
 
 func CleanSharedStorage() error {
-	return os.RemoveAll(config2.DataPath())
+	if err := os.RemoveAll(config2.DataPath()); err != nil {
+		return err
+	}
+	return os.MkdirAll(config2.DataPath(), os.ModePerm)
 }
 
 // GetOrCreateCleanCacheState 获取清理镜像缓存状态，如果数据库中没有数据返回一个临时对象

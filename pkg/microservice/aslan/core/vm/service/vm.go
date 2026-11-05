@@ -653,7 +653,7 @@ func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgen
 		return nil, fmt.Errorf("token is required")
 	}
 
-	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
+	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
 	if err != nil {
@@ -666,6 +666,9 @@ func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgen
 	if err != nil {
 		logger.Errorf("failed to find job %s, error: %s", args.JobID, err)
 		return nil, fmt.Errorf("failed to find job %s, error: %s", args.JobID, err)
+	}
+	if job.VMID != vm.ID.Hex() {
+		return nil, fmt.Errorf("job %s does not belong to this agent", args.JobID)
 	}
 
 	// if job is cancelled or timeout, stop agent job
