@@ -106,7 +106,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 			userToken = segs[1]
 		}
 
-		// token in query has higher priority than auth header
+		// Reject conflicting user tokens before selecting the query token.
 		res, err := url.Parse(requestPath)
 		if err != nil {
 			return denyRequest(
@@ -119,8 +119,19 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 				err,
 			), nil
 		}
-		if res.Query().Get("token") != "" {
-			userToken = res.Query().Get("token")
+		if queryToken := res.Query().Get("token"); queryToken != "" {
+			if userToken != "" && userToken != queryToken {
+				return denyRequest(
+					requestPath,
+					method,
+					body,
+					http.StatusUnauthorized,
+					"authorization header and query token do not match",
+					"",
+					nil,
+				), nil
+			}
+			userToken = queryToken
 		}
 
 		// if no token is provided, respond with 401 unauthorized
