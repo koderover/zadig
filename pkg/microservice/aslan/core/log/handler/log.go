@@ -30,7 +30,30 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// GetWorkflowV4JobContainerLogs godoc
+// @Summary 获取工作流步骤日志
+// @Description 默认保持原有完整日志字符串响应；format=excerpt 时校验当前用户权限及任务、步骤归属，返回从末尾向前读取的有限片段，最多 48 KiB。
+// @Tags logs
+// @Produce json
+// @Param Authorization header string true "Bearer 用户登录令牌"
+// @Param workflowName path string true "工作流标识"
+// @Param taskID path int64 true "工作流任务编号" minimum(1)
+// @Param jobName path string true "任务中的步骤名称"
+// @Param projectName query string false "片段模式必填，须与任务实际项目一致"
+// @Param format query string false "传 excerpt 使用片段模式，不传保持完整日志响应" Enums(excerpt)
+// @Param offset query int false "片段模式从日志末尾跳过的行数，后续使用 next_offset" default(0) minimum(0) maximum(5000)
+// @Param limit query int false "片段模式的窗口行数" default(200) minimum(1) maximum(500)
+// @Success 200 {object} logservice.LogExcerpt "format=excerpt 时返回日志片段；未传时仍返回原有 JSON 字符串"
+// @Failure 400 "参数无效、任务归属不匹配或日志无法读取"
+// @Failure 403 "片段模式缺少当前用户的工作流查看权限"
+// @Failure 404 "工作流、任务或步骤不存在"
+// @Router /api/logs/log/v4/workflow/{workflowName}/tasks/{taskID}/jobs/{jobName} [get]
 func GetWorkflowV4JobContainerLogs(c *gin.Context) {
+	if c.Query("format") == "excerpt" {
+		getWorkflowLogExcerpt(c)
+		return
+	}
+
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -43,7 +66,34 @@ func GetWorkflowV4JobContainerLogs(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
 }
 
+// GetContainerLogs godoc
+// @Summary 获取容器日志
+// @Description 不传 format 时保留原有字符串或流式响应。format=excerpt 时按已有项目和环境名称定位实际环境，校验环境权限及 Pod、容器归属，非流式返回最多 48 KiB 片段；不新增 production 参数。无法唯一定位环境时拒绝读取。
+// @Tags logs
+// @Produce json
+// @Param Authorization header string true "Bearer 用户登录令牌"
+// @Param name path string true "Pod 名称"
+// @Param container query string true "容器名称"
+// @Param projectName query string true "项目标识"
+// @Param envName query string true "环境名称"
+// @Param serviceName query string false "片段模式必填，用于校验 Pod 和容器属于目标服务"
+// @Param format query string false "传 excerpt 使用片段模式" Enums(excerpt)
+// @Param tailLines query int false "最近日志行数；片段模式默认 200，最多 500"
+// @Param previous query bool false "片段模式读取最近一次退出的容器实例日志" default(false)
+// @Param follow query bool false "是否持续跟随日志；片段模式只允许 false" default(false)
+// @Success 200 {object} logservice.LogExcerpt "片段模式响应；未传 format 时保留原有返回格式"
+// @Failure 400 "片段模式参数无效或目标无法读取"
+// @Failure 403 "片段模式缺少环境查看权限或生产环境许可"
+// @Failure 404 "环境、服务、Pod 或容器不存在"
+// @Failure 409 "无法唯一确定目标环境"
+// @Failure 502 "集群或容器日志查询失败"
+// @Router /api/logs/pods/{name} [get]
 func GetContainerLogs(c *gin.Context) {
+	if c.Query("format") == "excerpt" {
+		getContainerLogExcerpt(c)
+		return
+	}
+
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

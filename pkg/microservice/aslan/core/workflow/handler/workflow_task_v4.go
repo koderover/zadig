@@ -173,6 +173,18 @@ func ListWorkflowTaskV4ByFilter(c *gin.Context) {
 	ctx.RespErr = err
 }
 
+// GetWorkflowTaskV4 查询任务详情，可选读取当次任务保存的执行配置摘要。
+// @Summary 查询工作流任务详情
+// @Tags workflow
+// @Produce json
+// @Param workflowName path string true "工作流标识"
+// @Param taskID path int true "任务编号"
+// @Param include_configuration query bool false "包含当次执行配置摘要，默认最多三个失败步骤"
+// @Param job_name query string false "指定步骤的配置摘要，不指定则按失败步骤选取"
+// @Success 200 {object} workflow.WorkflowTaskPreview
+// @Failure 400 {object} e.ErrorResponse "参数错误"
+// @Failure 403 {object} e.ErrorResponse "没有工作流查看权限"
+// @Router /api/aslan/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID} [get]
 func GetWorkflowTaskV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -190,6 +202,14 @@ func GetWorkflowTaskV4(c *gin.Context) {
 	}
 
 	workflowName := c.Param("workflowName")
+	var query struct {
+		IncludeConfiguration bool   `form:"include_configuration"`
+		JobName              string `form:"job_name" binding:"max=128"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
@@ -216,7 +236,7 @@ func GetWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTaskV4(workflowName, taskID, query.IncludeConfiguration, query.JobName, ctx.Logger)
 }
 
 func GetWorkflowTaskV4JobEvents(c *gin.Context) {

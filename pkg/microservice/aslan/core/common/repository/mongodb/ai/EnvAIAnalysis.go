@@ -69,19 +69,19 @@ type EnvAIAnalysisListOption struct {
 }
 
 func (c *EnvAIAnalysisColl) ListByOptions(opts EnvAIAnalysisListOption) ([]*ai.EnvAIAnalysis, int64, error) {
-	query := bson.M{}
-	if opts.ProjectName != "" {
-		query["project_name"] = opts.ProjectName
-	}
-	if opts.EnvName != "" {
-		query["env_name"] = opts.EnvName
+	query, err := envAnalysisHistoryFilter(opts)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	if opts.PageNum == 0 {
 		opts.PageNum = 1
 	}
 	if opts.PageSize == 0 {
-		opts.PageSize = 10
+		opts.PageSize = 5
+	}
+	if opts.PageNum < 1 || opts.PageNum > 10000 || opts.PageSize < 1 || opts.PageSize > 20 {
+		return nil, 0, errors.New("巡检历史分页超出范围")
 	}
 
 	var resp []*ai.EnvAIAnalysis
@@ -105,6 +105,13 @@ func (c *EnvAIAnalysisColl) ListByOptions(opts EnvAIAnalysisListOption) ([]*ai.E
 	}
 
 	return resp, count, nil
+}
+
+func envAnalysisHistoryFilter(opts EnvAIAnalysisListOption) (bson.M, error) {
+	if opts.ProjectName == "" || opts.EnvName == "" {
+		return nil, errors.New("巡检历史必须指定项目和环境")
+	}
+	return bson.M{"project_name": opts.ProjectName, "env_name": opts.EnvName, "production": opts.Production}, nil
 }
 
 func (c *EnvAIAnalysisColl) Create(args *ai.EnvAIAnalysis) error {

@@ -16,7 +16,11 @@ limitations under the License.
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/v2/pkg/types"
+)
 
 const DefaultWorkflowTaskListRefreshInterval int64 = 3
 
@@ -35,6 +39,7 @@ type SystemSetting struct {
 	ReleasePlanHook                 *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
 	DindTLSCerts                    *DindTLSCerts            `bson:"dind_tls_certs,omitempty" json:"-"`
 	AIReviewConfig                  *AIReviewConfig          `bson:"ai_review_config" json:"ai_review_config"`
+	AIAssistantConfig   *types.AIAssistantConfig `bson:"ai_assistant_config,omitempty" json:"ai_assistant_config,omitempty"`
 	UpdateTime                      int64                    `bson:"update_time" json:"update_time"`
 }
 

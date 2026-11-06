@@ -36,6 +36,15 @@ type addChartArgs struct {
 	Name string `json:"name"`
 }
 
+// GetChartTemplate 查询 Chart 模板，元数据模式不读取或下载模板文件。
+// @Summary 查询 Chart 模板
+// @Tags template
+// @Produce json
+// @Param name path string true "模板名称"
+// @Param metadata_only query bool false "仅返回来源、版本摘要及变量，不读取文件"
+// @Success 200 {object} object "Chart 模板来源、修订号、内容摘要、变量及可选文件列表"
+// @Failure 403 {object} errors.ErrorResponse "没有模板查看权限"
+// @Router /api/aslan/template/charts/{name} [get]
 func GetChartTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -55,7 +64,7 @@ func GetChartTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = templateservice.GetChartTemplate(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetChartTemplate(c.Param("name"), c.Query("metadata_only") == "true", ctx.Logger)
 }
 
 func GetTemplateVariables(c *gin.Context) {
