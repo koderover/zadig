@@ -423,6 +423,15 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 		buildJob := &commonmodels.Job{
 			Name:    buildJobName,
 			JobType: config.JobZadigBuild,
+			ExecutePolicy: &commonmodels.JobExecutePolicy{
+				MatchRule: config.JobExecutePolicyMatchRuleAll,
+				Rules:     []*commonmodels.JobExecuteRule{},
+			},
+			ErrorPolicy: &commonmodels.JobErrorPolicy{
+				Policy:        config.JobErrorPolicyStop,
+				MaximumRetry:  3,
+				ApprovalUsers: []*commonmodels.User{},
+			},
 			Spec: &commonmodels.ZadigBuildJobSpec{
 				DockerRegistryID:        arg.RegistryID,
 				ServiceAndBuildsOptions: serviceAndBuilds,
@@ -452,7 +461,16 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 	deployJob := &commonmodels.Job{
 		Name:    deployJobName,
 		JobType: config.JobZadigVMDeploy,
-		Spec:    spec,
+		ExecutePolicy: &commonmodels.JobExecutePolicy{
+			MatchRule: config.JobExecutePolicyMatchRuleAll,
+			Rules:     []*commonmodels.JobExecuteRule{},
+		},
+		ErrorPolicy: &commonmodels.JobErrorPolicy{
+			Policy:        config.JobErrorPolicyStop,
+			MaximumRetry:  3,
+			ApprovalUsers: []*commonmodels.User{},
+		},
+		Spec: spec,
 	}
 
 	deployStageName := "主机部署"
@@ -512,6 +530,15 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 	freestyleJob := &commonmodels.Job{
 		Name:    freestyleJobName,
 		JobType: config.JobFreestyle,
+		ExecutePolicy: &commonmodels.JobExecutePolicy{
+			MatchRule: config.JobExecutePolicyMatchRuleAll,
+			Rules:     []*commonmodels.JobExecuteRule{},
+		},
+		ErrorPolicy: &commonmodels.JobErrorPolicy{
+			Policy:        config.JobErrorPolicyStop,
+			MaximumRetry:  3,
+			ApprovalUsers: []*commonmodels.User{},
+		},
 		Spec: &commonmodels.FreestyleJobSpec{
 			AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
 				JobAdvancedSettings: commonAdvancedSetting,
