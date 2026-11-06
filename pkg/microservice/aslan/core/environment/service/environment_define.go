@@ -85,6 +85,7 @@ type SharedNSEnvs struct {
 type ProductResp struct {
 	ID          string                           `json:"id"`
 	ProductName string                           `json:"product_name"`
+	Production  bool                             `json:"production"`
 	Namespace   string                           `json:"namespace"`
 	Status      string                           `json:"status"`
 	Error       string                           `json:"error"`

@@ -351,6 +351,14 @@ type ListYamlResp struct {
 	Total           int                           `json:"total"`
 }
 
+// ListYamlTemplate 分页查询 YAML 模板。
+// @Summary 查询 YAML 模板列表
+// @Tags template
+// @Produce json
+// @Param page_num query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(100)
+// @Success 200 {object} ListYamlResp
+// @Router /api/aslan/template/yaml [get]
 func ListYamlTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

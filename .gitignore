@@ -42,6 +42,7 @@ godoc-proxy/website/dist
 #Swagger info
 pkg/microservice/aslan/server/rest/doc
 pkg/microservice/user/server/rest/doc
+pkg/microservice/halman/server/rest/doc
 
 npm-debug.log
 .bowerrc
@@ -79,3 +80,19 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/stat/handler/ai_review_stat_query_regression_test.go
 !pkg/microservice/aslan/core/common/service/webhook/manual_webhook_test.go
 !pkg/microservice/aslan/core/workflow/testing/service/scanning_webhook_test.go
+!pkg/microservice/halman/**/*_test.go
+!pkg/microservice/aslan/core/system/handler/ai_assistant_test.go
+!pkg/types/ai_assistant_test.go
+!pkg/microservice/aslan/core/log/service/excerpt_test.go
+!pkg/microservice/aslan/core/log/handler/excerpt_test.go
+!pkg/microservice/aslan/core/project/handler/product_authorization_test.go
+
+!pkg/microservice/aslan/core/common/repository/mongodb/ai_assistant_test.go
+
+!pkg/microservice/aslan/core/stat/handler/ai_assistant_test.go
+!pkg/microservice/aslan/core/stat/service/ai_assistant_test.go
+
+!pkg/microservice/aslan/core/stat/repository/orm/*_test.go
+
+!pkg/tool/language/*_test.go
+!pkg/microservice/aslan/core/common/service/scmnotify/ai_review_language_test.go

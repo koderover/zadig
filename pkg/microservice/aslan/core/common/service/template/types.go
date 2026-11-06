@@ -23,6 +23,9 @@ import (
 )
 
 type Chart struct {
+	Revision   int64                   `json:"revision,omitempty"`
+	Sha1       string                  `json:"sha1,omitempty"`
+	Source     string                  `json:"source,omitempty"`
 	Name       string                  `json:"name"`
 	CodehostID int                     `json:"codehostID"`
 	Owner      string                  `json:"owner"`

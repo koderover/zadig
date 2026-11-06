@@ -32,9 +32,11 @@ import (
 	"gorm.io/gorm/utils"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -53,6 +55,25 @@ type analysisAnswer struct {
 }
 
 func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAnalysisResp, error) {
+	if err := ValidateExplicitAnalysisArgs(args); err != nil {
+		return nil, err
+	}
+	var inputData *UserPromptParseInput
+	if len(args.ProjectList) > 0 {
+		projects, err := templaterepo.NewProductColl().ListProjectBriefs(nil)
+		if err != nil {
+			return nil, err
+		}
+		names := make(map[string]string, len(projects))
+		for _, project := range projects {
+			names[project.Name] = project.Alias
+		}
+		resolved, err := resolveAnalysisProjects(args.ProjectList, names)
+		if err != nil {
+			return nil, e.NewWithDesc(e.ErrInvalidParam, err.Error())
+		}
+		inputData = &UserPromptParseInput{ProjectList: resolved, JobList: []string{"build", "test", "deploy", "release"}, StartTime: args.StartTime, EndTime: args.EndTime}
+	}
 	client, err := service.GetDefaultLLMClient(context.TODO())
 	if err != nil {
 		logger.Errorf("failed to get llm client, the error is: %+v", err)
@@ -60,10 +81,12 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 	}
 
 	// parse user prompt to prepare the input data of projects stat
-	inputData, err := parseUserPrompt(args, client, logger)
-	if err != nil {
-		logger.Errorf("failed to parse user prompt, the error is: %+v", err)
-		return nil, err
+	if inputData == nil {
+		inputData, err = parseUserPrompt(args, client, logger)
+		if err != nil {
+			logger.Errorf("failed to parse user prompt, the error is: %+v", err)
+			return nil, err
+		}
 	}
 
 	// get analysis data from db with parameters projectList, jobList and timeRange
