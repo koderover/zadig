@@ -216,7 +216,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
-	if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) &&
+	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage &&
 		env.GetServiceMap()[c.jobTaskSpec.ServiceName] == nil {
 		msg := fmt.Sprintf("service %s not found in env %s/%s", c.jobTaskSpec.ServiceName, env.ProductName, env.EnvName)
 		logError(c.job, msg, c.logger)
@@ -324,6 +324,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	var moduleResources []*commonmodels.ServiceResource
 	option := &kube.GeneSvcYamlOption{
 		ProductName:                   env.ProductName,
 		EnvName:                       c.jobTaskSpec.Env,
@@ -333,6 +334,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		VariableKVs:                   varKVs,
 		IgnoreCurrentReplicaOverrides: updateRevision,
 		Containers:                    containers,
+	}
+	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage {
+		option.ModuleResources = &moduleResources
 	}
 	candidateYaml, revision, _, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
@@ -381,7 +385,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 
 	// if not only deploy image, we will redeploy service
-	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
+	if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, moduleResources, candidateReplicaOverrides, updateRevision, c.jobTaskSpec.ServiceName, c.jobTaskSpec.OverrideResource); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
@@ -422,7 +426,7 @@ func reconcileReplicaOverridesForDeploy(currentYaml, candidateYaml string, curre
 }
 
 func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
-	containers []*commonmodels.Container, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string, overrideResource bool) error {
+	containers []*commonmodels.Container, moduleResources []*commonmodels.ServiceResource, workLoads []*commonmodels.WorkLoad, updateRevision bool, serviceName string, overrideResource bool) error {
 
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
@@ -432,7 +436,12 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		}
 	}
 
-	err := kube.CheckResourceAppliedByOtherEnv(updatedYaml, env, serviceName)
+	var err error
+	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage {
+		err = kube.CheckResourcesAppliedByOtherEnv(moduleResources, env, serviceName)
+	} else {
+		err = kube.CheckResourceAppliedByOtherEnv(updatedYaml, env, serviceName)
+	}
 	if err != nil {
 		return errors.New(err.Error())
 	}

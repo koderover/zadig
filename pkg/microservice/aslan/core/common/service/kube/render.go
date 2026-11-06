@@ -30,6 +30,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
@@ -66,6 +67,8 @@ type GeneSvcYamlOption struct {
 	IgnoreCurrentReplicaOverrides bool
 	UnInstall                     bool
 	Containers                    []*models.Container
+	// ModuleResources optionally receives rendered resources associated with Containers.
+	ModuleResources *[]*commonmodels.ServiceResource
 	// AllowUnresolvedModuleImages skips the post-render check that errors
 	// when a complete or split module image variable remains in the YAML. Set this on
 	// initial-deploy code paths where the image hasn't been built yet.
@@ -75,6 +78,63 @@ type GeneSvcYamlOption struct {
 type WorkloadResource struct {
 	Type string
 	Name string
+}
+
+func renderModuleResources(serviceYaml string, selectedModules, mergedContainers []*commonmodels.Container) ([]*commonmodels.ServiceResource, error) {
+	resourceYaml, err := moduleResourcesToCheck(serviceYaml, selectedModules)
+	if err != nil {
+		return nil, err
+	}
+	resourceYaml, _, err = ReplaceWorkloadImages(resourceYaml, mergedContainers)
+	if err != nil {
+		return nil, err
+	}
+	resourceYaml, err = ParseModuleImageKeys(resourceYaml, mergedContainers, false)
+	if err != nil {
+		return nil, err
+	}
+	return ManifestToResource(resourceYaml)
+}
+
+func moduleResourcesToCheck(serviceYaml string, selectedModules []*commonmodels.Container) (string, error) {
+	moduleNames := sets.NewString()
+	imageKeys := sets.NewString()
+	for _, module := range selectedModules {
+		moduleNames.Insert(module.Name)
+		imageKeys.Insert(commonutil.ModuleImageKey(module.Name))
+		for _, part := range commonutil.ModuleImagePartVariables {
+			imageKeys.Insert(commonutil.ModuleImagePartKey(module.Name, part.Part))
+		}
+	}
+
+	var manifests []string
+	for _, manifest := range util.SplitManifestsOrdered(serviceYaml) {
+		content, err := yaml.YAMLToJSON([]byte(manifest))
+		if err != nil {
+			return "", err
+		}
+		selected := false
+		for _, key := range commonutil.ModuleImageRegex.FindAllString(string(content), -1) {
+			if imageKeys.Has(key) {
+				selected = true
+				break
+			}
+		}
+		service := &commonmodels.Service{KubeYamls: []string{manifest}}
+		if err := commonutil.SetCurrentContainerImages(service); err != nil {
+			return "", err
+		}
+		for _, container := range service.Containers {
+			if moduleNames.Has(container.Name) {
+				selected = true
+				break
+			}
+		}
+		if selected {
+			manifests = append(manifests, manifest)
+		}
+	}
+	return util.JoinYamls(manifests), nil
 }
 
 func GeneKVFromYaml(yamlContent string) ([]*commonmodels.VariableKV, error) {
@@ -871,8 +931,7 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
-// GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
-// and returns the service yaml, used service revision
+// GenerateRenderedYaml returns the rendered YAML, service revision, and workloads.
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
 	_, err := templaterepo.NewProductColl().Find(option.ProductName)
 	if err != nil {
@@ -1017,6 +1076,13 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	latestSvcTemplate.Containers = commonutil.FoldManualModulesInto(latestSvcTemplate.Containers, manualContainers)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
+	var moduleResources []*commonmodels.ServiceResource
+	if option.ModuleResources != nil {
+		moduleResources, err = renderModuleResources(fullRenderedYaml, option.Containers, mergedContainers)
+		if err != nil {
+			return "", 0, nil, err
+		}
+	}
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
@@ -1054,6 +1120,9 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, fmt.Errorf("failed to apply replica overrides: %v", err)
 	}
 
+	if option.ModuleResources != nil {
+		*option.ModuleResources = moduleResources
+	}
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, nil
 }
 
