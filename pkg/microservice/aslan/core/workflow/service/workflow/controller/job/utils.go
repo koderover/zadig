@@ -290,6 +290,17 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.SSHKey = cv.SSHKey
 			item.PrivateAccessToken = cv.PrivateAccessToken
 
+			// an explicit runtime source decides the commit mode; otherwise keep the configured mode
+			if cv.EnableCommit && cv.CommitID != "" {
+				item.EnableCommit = true
+				// keep the configured branch for image tag naming, the checkout still uses the commit
+				if cv.Branch == "" {
+					item.Branch = repo.Branch
+				}
+			} else if cv.CommitID == "" && (cv.Branch != "" || cv.Tag != "" || cv.PR > 0 || len(cv.PRs) > 0) {
+				item.EnableCommit = false
+			}
+
 			if item.Address == "" {
 				item.Address = cv.Address
 			}
