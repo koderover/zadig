@@ -216,7 +216,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
-	if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) &&
+	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage &&
 		env.GetServiceMap()[c.jobTaskSpec.ServiceName] == nil {
 		msg := fmt.Sprintf("service %s not found in env %s/%s", c.jobTaskSpec.ServiceName, env.ProductName, env.EnvName)
 		logError(c.job, msg, c.logger)
