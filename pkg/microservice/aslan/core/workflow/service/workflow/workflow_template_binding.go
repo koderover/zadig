@@ -161,7 +161,7 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	return nil
 }
 
-// With lockTemplateVersion the current base version is kept, which creation uses so the selected version is not upgraded.
+// prepareTemplateBoundWorkflowForUpdate keeps the current base version when lockTemplateVersion is set during creation.
 func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.WorkflowV4, lockTemplateVersion bool, user string, logger *zap.SugaredLogger) error {
 	if !isTemplateBindingEnabled(existing) {
 		return nil
@@ -218,7 +218,7 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 	return nil
 }
 
-// applyTemplateBindingInheritedFields copies the fields inherited from the template from the rendered workflow.
+// applyTemplateBindingInheritedFields copies the fields shared by snapshot rendering and binding writes, preserving instance-owned fields.
 func applyTemplateBindingInheritedFields(workflow, rendered *commonmodels.WorkflowV4) {
 	workflow.TemplateName = rendered.TemplateName
 	workflow.Category = rendered.Category
@@ -559,13 +559,14 @@ func getTemplateVersion(templateID string, version int) (*commonmodels.WorkflowV
 func workflowFromTemplateSnapshot(template *commonmodels.WorkflowV4Template, instance *commonmodels.WorkflowV4) *commonmodels.WorkflowV4 {
 	rendered := new(commonmodels.WorkflowV4)
 	_ = util.DeepCopy(rendered, instance)
-	rendered.TemplateName = template.TemplateName
-	rendered.Category = template.Category
-	rendered.Params = template.Params
-	rendered.Stages = template.Stages
-	rendered.Description = instance.Description
-	rendered.ShareStorages = template.ShareStorages
-	rendered.ConcurrencyLimit = template.ConcurrencyLimit
+	applyTemplateBindingInheritedFields(rendered, &commonmodels.WorkflowV4{
+		TemplateName:     template.TemplateName,
+		Category:         template.Category,
+		Params:           template.Params,
+		Stages:           template.Stages,
+		ShareStorages:    template.ShareStorages,
+		ConcurrencyLimit: template.ConcurrencyLimit,
+	})
 	return rendered
 }
 
