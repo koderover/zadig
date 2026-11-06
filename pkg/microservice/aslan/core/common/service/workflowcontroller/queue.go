@@ -155,6 +155,9 @@ func WorfklowTaskSender() {
 	}
 }
 
+// runWorkflowTaskSenderOnce attempts one dispatch round and returns the delay before the next attempt.
+// It uses the busy interval on lock contention or when a successful round leaves unseen tasks;
+// other lock errors, dispatch errors, and rounds without unseen tasks use the idle interval.
 func runWorkflowTaskSenderOnce() time.Duration {
 	mutex := cache.NewRedisTryLock(workflowTaskSenderLockKey, workflowTaskSenderLockExpiry)
 	if err := mutex.TryLock(); err != nil {
@@ -172,6 +175,10 @@ func runWorkflowTaskSenderOnce() time.Duration {
 	return workflowTaskSenderIdleInterval
 }
 
+// dispatchWaitingWorkflowTasks releases waiting tasks within the current concurrency limits.
+// The bool is true only when at least one task starts and the batch fills before all waiting tasks are examined.
+// It is false when no task starts, no unseen tasks remain, or an error occurs. An error means the
+// system setting could not be read; in that case the bool is always false.
 func dispatchWaitingWorkflowTasks() (bool, error) {
 	sysSetting, err := commonrepo.NewSystemSettingColl().Get()
 	if err != nil {
@@ -185,27 +192,7 @@ func dispatchWaitingWorkflowTasks() (bool, error) {
 		return false, nil
 	}
 
-	limits := make(map[string]int)
-	var resolveErr error
-	indexes, moreWaiting := pickDispatchBatch(len(waiting), func(i int) (string, int, bool) {
-		if resolveErr != nil {
-			return "", 0, true
-		}
-		task := waiting[i]
-		if limit, ok := limits[task.WorkflowName]; ok {
-			return task.WorkflowName, limit, false
-		}
-		limit, remove, err := taskConcurrencyLimit(task)
-		if err != nil {
-			resolveErr = err
-			return "", 0, true
-		}
-		if remove {
-			return "", 0, true
-		}
-		limits[task.WorkflowName] = limit
-		return task.WorkflowName, limit, false
-	}, occupied, slots)
+	indexes, moreWaiting := pickWaitingDispatchBatch(waiting, occupied, slots, taskConcurrencyLimit)
 
 	started := 0
 	for _, idx := range indexes {
@@ -214,13 +201,36 @@ func dispatchWaitingWorkflowTasks() (bool, error) {
 		}
 		started++
 	}
-	if resolveErr != nil {
-		return false, resolveErr
-	}
 	if started == 0 {
 		return false, nil
 	}
 	return moreWaiting, nil
+}
+
+// pickWaitingDispatchBatch selects waiting task indexes up to slots, skipping workflows whose
+// config lookup fails for the rest of this round. The bool reports whether unexamined tasks remain.
+func pickWaitingDispatchBatch(waiting []*commonmodels.WorkflowQueue, occupied map[string]int, slots int, limitForTask func(*commonmodels.WorkflowQueue) (int, bool, error)) ([]int, bool) {
+	limits := make(map[string]int)
+	failedWorkflows := make(map[string]struct{})
+	return pickDispatchBatch(len(waiting), func(i int) (string, int, bool) {
+		task := waiting[i]
+		if _, failed := failedWorkflows[task.WorkflowName]; failed {
+			return "", 0, true
+		}
+		if limit, ok := limits[task.WorkflowName]; ok {
+			return task.WorkflowName, limit, false
+		}
+		limit, remove, err := limitForTask(task)
+		if err != nil {
+			failedWorkflows[task.WorkflowName] = struct{}{}
+			return "", 0, true
+		}
+		if remove {
+			return "", 0, true
+		}
+		limits[task.WorkflowName] = limit
+		return task.WorkflowName, limit, false
+	}, occupied, slots)
 }
 
 // queueScheduleState splits the queue into tasks waiting to be released, global slots in use, and slots in use per workflow.
@@ -241,6 +251,7 @@ func queueScheduleState(tasks []*commonmodels.WorkflowQueue) (waiting []*commonm
 	return waiting, globalUsed, occupied
 }
 
+// dispatchSlots returns the remaining global capacity, capped at the per-round batch size and never below zero.
 func dispatchSlots(globalLimit, globalUsed int) int {
 	slots := globalLimit - globalUsed
 	if slots > workflowTaskSenderBatchSize {
@@ -279,9 +290,9 @@ func pickDispatchBatch(count int, limitOf func(i int) (name string, limit int, s
 	return indexes, false
 }
 
-// taskConcurrencyLimit returns the concurrency limit of the workflow that owns the task.
+// taskConcurrencyLimit returns the concurrency limit of the workflow that owns the task; -1 means unlimited.
 // remove means the config is missing and the task has been deleted from the queue.
-// A non-nil error means the lookup failed. The task stays queued, and the caller should stop this round and return to the idle interval.
+// A non-nil error means the lookup failed. The task stays queued and other workflows may still be dispatched.
 func taskConcurrencyLimit(task *commonmodels.WorkflowQueue) (int, bool, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
 	if err != nil {
@@ -343,6 +354,7 @@ func taskConcurrencyLimit(task *commonmodels.WorkflowQueue) (int, bool, error) {
 	return workflow.ConcurrencyLimit, false, nil
 }
 
+// isMissingWorkflowConfig reports whether err means a config document is absent or its ID is invalid.
 func isMissingWorkflowConfig(err error) bool {
 	return errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, primitive.ErrInvalidHex)
 }
