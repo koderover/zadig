@@ -17,11 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -110,27 +108,28 @@ func OpenAPIListWorkflowTemplates(category string, excludeBuildIn bool, logger *
 		return nil, err
 	}
 
+	templateIDs := make([]string, 0, len(templates.WorkflowTemplates))
+	for _, template := range templates.WorkflowTemplates {
+		templateIDs = append(templateIDs, template.ID.Hex())
+	}
+	versions, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatestVersions(templateIDs)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get latest versions of workflow templates: %v", err)
+		logger.Error(errMsg)
+		return nil, e.ErrListWorkflowTemplate.AddDesc(errMsg)
+	}
+
 	resp := &OpenAPIListWorkflowTemplatesResponse{
 		WorkflowTemplates: make([]*OpenAPIWorkflowTemplateBrief, 0, len(templates.WorkflowTemplates)),
 	}
 	for _, template := range templates.WorkflowTemplates {
-		latestVersion := 0
-		latest, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatest(template.ID.Hex())
-		if err == nil {
-			latestVersion = latest.Version
-		} else if !errors.Is(err, mongo.ErrNoDocuments) {
-			errMsg := fmt.Sprintf("failed to get latest version of workflow template %s: %v", template.TemplateName, err)
-			logger.Error(errMsg)
-			return nil, e.ErrListWorkflowTemplate.AddDesc(errMsg)
-		}
-
 		resp.WorkflowTemplates = append(resp.WorkflowTemplates, &OpenAPIWorkflowTemplateBrief{
 			ID:            template.ID.Hex(),
 			TemplateName:  template.TemplateName,
 			Description:   template.Description,
 			Category:      template.Category,
 			BuildIn:       template.BuildIn,
-			LatestVersion: latestVersion,
+			LatestVersion: versions[template.ID.Hex()],
 			UpdateBy:      template.UpdateBy,
 			UpdateTime:    template.UpdateTime,
 		})

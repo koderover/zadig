@@ -169,6 +169,33 @@ func (c *WorkflowV4TemplateVersionColl) GetLatest(templateID string) (*models.Wo
 	return resp, nil
 }
 
+// GetLatestVersions returns the latest version number for each template with a published snapshot.
+func (c *WorkflowV4TemplateVersionColl) GetLatestVersions(templateIDs []string) (map[string]int, error) {
+	versions := make(map[string]int, len(templateIDs))
+	if len(templateIDs) == 0 {
+		return versions, nil
+	}
+	pipeline := []bson.M{
+		{"$match": bson.M{"template_id": bson.M{"$in": templateIDs}}},
+		{"$group": bson.M{"_id": "$template_id", "version": bson.M{"$max": "$version"}}},
+	}
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+	var latest []struct {
+		TemplateID string `bson:"_id"`
+		Version    int    `bson:"version"`
+	}
+	if err := cursor.All(context.TODO(), &latest); err != nil {
+		return nil, err
+	}
+	for _, version := range latest {
+		versions[version.TemplateID] = version.Version
+	}
+	return versions, nil
+}
+
 func (c *WorkflowV4TemplateVersionColl) List(templateID string) ([]*models.WorkflowV4TemplateVersion, error) {
 	resp := make([]*models.WorkflowV4TemplateVersion, 0)
 	query := bson.M{"template_id": templateID}
