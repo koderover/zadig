@@ -38,6 +38,15 @@ type HTTPError struct {
 	extra map[string]interface{}
 }
 
+// ErrorResponse 描述 ErrorMessage 返回的标准错误响应，供接口文档引用。
+type ErrorResponse struct {
+	Type        string                 `json:"type" example:"error"`
+	Code        int                    `json:"code"` // 业务错误码，以集中错误码表为准。
+	Message     string                 `json:"message"`
+	Description string                 `json:"description"`
+	Extra       map[string]interface{} `json:"extra"`
+}
+
 // NewHTTPError ...
 func NewHTTPError(code int, errStr string, args ...string) *HTTPError {
 

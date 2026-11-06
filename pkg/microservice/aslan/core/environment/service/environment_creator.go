@@ -82,7 +82,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	productName, log := autoCreator.Param.ProductName, autoCreator.Param.log
 
 	// find product in db
-	productResp, err := GetProduct(autoCreator.Param.UserName, envName, productName, log)
+	productResp, err := GetProduct(autoCreator.Param.UserName, envName, productName, nil, log)
 	if err == nil && productResp != nil { // product exists in db
 		if productResp.Error != "" {
 			return setting.ProductStatusFailed, errors.New(productResp.Error)

@@ -51,6 +51,14 @@ func GetBuildTemplate(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = templateservice.GetBuildTemplateByID(c.Param("id"))
 }
 
+// ListBuildTemplates 分页查询构建模板。
+// @Summary 查询构建模板列表
+// @Tags template
+// @Produce json
+// @Param page_num query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(100)
+// @Success 200 {object} templateservice.BuildTemplateListResp
+// @Router /api/aslan/template/build [get]
 func ListBuildTemplates(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
