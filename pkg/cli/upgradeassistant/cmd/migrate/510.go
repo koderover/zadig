@@ -22,8 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -97,7 +99,13 @@ func backfillWorkflowJobPolicies510(coll *mongo.Collection) error {
 	filter := bson.M{"stages": bson.M{"$elemMatch": bson.M{
 		"jobs": bson.M{"$elemMatch": bson.M{"$or": bson.A{
 			bson.M{"execute_policy": nil},
+			bson.M{"execute_policy.type": nil},
+			bson.M{"execute_policy.match_rule": bson.M{"$in": bson.A{nil, ""}}},
+			bson.M{"execute_policy.rules": nil},
 			bson.M{"error_policy": nil},
+			bson.M{"error_policy.policy": bson.M{"$in": bson.A{nil, ""}}},
+			bson.M{"error_policy.maximum_retry": nil},
+			bson.M{"error_policy.approval_users": nil},
 		}}},
 	}}}
 	cursor, err := coll.Find(ctx, filter)
@@ -128,21 +136,8 @@ func backfillWorkflowJobPolicies510(coll *mongo.Collection) error {
 				if job == nil {
 					continue
 				}
-				if job.ExecutePolicy == nil {
-					job.ExecutePolicy = &commonmodels.JobExecutePolicy{
-						MatchRule: aslanconfig.JobExecutePolicyMatchRuleAll,
-						Rules:     []*commonmodels.JobExecuteRule{},
-					}
-					updates[fmt.Sprintf("stages.%d.jobs.%d.execute_policy", stageIndex, jobIndex)] = job.ExecutePolicy
-				}
-				if job.ErrorPolicy == nil {
-					job.ErrorPolicy = &commonmodels.JobErrorPolicy{
-						Policy:        aslanconfig.JobErrorPolicyStop,
-						MaximumRetry:  3,
-						ApprovalUsers: []*commonmodels.User{},
-					}
-					updates[fmt.Sprintf("stages.%d.jobs.%d.error_policy", stageIndex, jobIndex)] = job.ErrorPolicy
-				}
+				rawJob := cursor.Current.Lookup("stages", strconv.Itoa(stageIndex), "jobs", strconv.Itoa(jobIndex)).Document()
+				backfillJobPolicies510(job, rawJob, fmt.Sprintf("stages.%d.jobs.%d", stageIndex, jobIndex), updates)
 			}
 		}
 		if len(updates) == 0 {
@@ -182,7 +177,13 @@ func backfillWorkflowTemplateVersionJobPolicies510() error {
 	filter := bson.M{"snapshot.stages": bson.M{"$elemMatch": bson.M{
 		"jobs": bson.M{"$elemMatch": bson.M{"$or": bson.A{
 			bson.M{"execute_policy": nil},
+			bson.M{"execute_policy.type": nil},
+			bson.M{"execute_policy.match_rule": bson.M{"$in": bson.A{nil, ""}}},
+			bson.M{"execute_policy.rules": nil},
 			bson.M{"error_policy": nil},
+			bson.M{"error_policy.policy": bson.M{"$in": bson.A{nil, ""}}},
+			bson.M{"error_policy.maximum_retry": nil},
+			bson.M{"error_policy.approval_users": nil},
 		}}},
 	}}}
 	cursor, err := coll.Find(ctx, filter)
@@ -213,21 +214,8 @@ func backfillWorkflowTemplateVersionJobPolicies510() error {
 				if job == nil {
 					continue
 				}
-				if job.ExecutePolicy == nil {
-					job.ExecutePolicy = &commonmodels.JobExecutePolicy{
-						MatchRule: aslanconfig.JobExecutePolicyMatchRuleAll,
-						Rules:     []*commonmodels.JobExecuteRule{},
-					}
-					updates[fmt.Sprintf("snapshot.stages.%d.jobs.%d.execute_policy", stageIndex, jobIndex)] = job.ExecutePolicy
-				}
-				if job.ErrorPolicy == nil {
-					job.ErrorPolicy = &commonmodels.JobErrorPolicy{
-						Policy:        aslanconfig.JobErrorPolicyStop,
-						MaximumRetry:  3,
-						ApprovalUsers: []*commonmodels.User{},
-					}
-					updates[fmt.Sprintf("snapshot.stages.%d.jobs.%d.error_policy", stageIndex, jobIndex)] = job.ErrorPolicy
-				}
+				rawJob := cursor.Current.Lookup("snapshot", "stages", strconv.Itoa(stageIndex), "jobs", strconv.Itoa(jobIndex)).Document()
+				backfillJobPolicies510(job, rawJob, fmt.Sprintf("snapshot.stages.%d.jobs.%d", stageIndex, jobIndex), updates)
 			}
 		}
 		if len(updates) == 0 {
@@ -255,6 +243,53 @@ func backfillWorkflowTemplateVersionJobPolicies510() error {
 	}
 	log.Infof("migration 5.1.0: backfilled job policies for %d documents in %s, failed: %d", modified, coll.Name(), len(failures))
 	return errors.Join(failures...)
+}
+
+// Keep existing policy values and unknown fields; only fill absent/defaulted fields.
+func backfillJobPolicies510(job *commonmodels.Job, rawJob bson.Raw, jobPath string, updates bson.M) {
+	if job.ExecutePolicy == nil {
+		job.ExecutePolicy = &commonmodels.JobExecutePolicy{
+			MatchRule: aslanconfig.JobExecutePolicyMatchRuleAll,
+			Rules:     []*commonmodels.JobExecuteRule{},
+		}
+		updates[jobPath+".execute_policy"] = job.ExecutePolicy
+	} else {
+		policyType := rawJob.Lookup("execute_policy", "type")
+		if policyType.Type == 0 || policyType.Type == bsontype.Null {
+			updates[jobPath+".execute_policy.type"] = job.ExecutePolicy.Type
+		}
+		if job.ExecutePolicy.MatchRule == "" {
+			job.ExecutePolicy.MatchRule = aslanconfig.JobExecutePolicyMatchRuleAll
+			updates[jobPath+".execute_policy.match_rule"] = job.ExecutePolicy.MatchRule
+		}
+		if job.ExecutePolicy.Rules == nil {
+			job.ExecutePolicy.Rules = []*commonmodels.JobExecuteRule{}
+			updates[jobPath+".execute_policy.rules"] = job.ExecutePolicy.Rules
+		}
+	}
+	if job.ErrorPolicy == nil {
+		job.ErrorPolicy = &commonmodels.JobErrorPolicy{
+			Policy:        aslanconfig.JobErrorPolicyStop,
+			MaximumRetry:  3,
+			ApprovalUsers: []*commonmodels.User{},
+		}
+		updates[jobPath+".error_policy"] = job.ErrorPolicy
+	} else {
+		if job.ErrorPolicy.Policy == "" {
+			job.ErrorPolicy.Policy = aslanconfig.JobErrorPolicyStop
+			updates[jobPath+".error_policy.policy"] = job.ErrorPolicy.Policy
+		}
+		// Inspect BSON so an explicitly configured zero retry count is preserved.
+		maximumRetry := rawJob.Lookup("error_policy", "maximum_retry")
+		if maximumRetry.Type == 0 || maximumRetry.Type == bsontype.Null {
+			job.ErrorPolicy.MaximumRetry = 3
+			updates[jobPath+".error_policy.maximum_retry"] = job.ErrorPolicy.MaximumRetry
+		}
+		if job.ErrorPolicy.ApprovalUsers == nil {
+			job.ErrorPolicy.ApprovalUsers = []*commonmodels.User{}
+			updates[jobPath+".error_policy.approval_users"] = job.ErrorPolicy.ApprovalUsers
+		}
+	}
 }
 
 func migrateLarkPreferredUsernameClaim510(migrationInfo *internalmodels.Migration) error {
