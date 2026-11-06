@@ -90,6 +90,7 @@ type CreateTaskV4Resp struct {
 }
 
 type WorkflowTaskPreview struct {
+	Configuration       *TaskConfiguration           `json:"configuration,omitempty"`
 	TaskID              int64                        `bson:"task_id"                   json:"task_id"`
 	WorkflowName        string                       `bson:"workflow_name"             json:"workflow_key"`
 	WorkflowDisplayName string                       `bson:"workflow_display_name"     json:"workflow_name"`
@@ -192,7 +193,7 @@ type ZadigDeployJobPreviewSpec struct {
 	YamlContent        string                 `bson:"yaml_content"                 json:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
-	OverrideKVs      string `bson:"override_kvs" json:"override_kvs" yaml:"override_kvs"`
+	OverrideKVs       string `bson:"override_kvs" json:"override_kvs" yaml:"override_kvs"`
 	// VariableKVs new since 1.18, only used for k8s
 	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"         yaml:"variable_kvs"`
 	OriginRevision     int64                           `bson:"origin_revision"              json:"origin_revision"      yaml:"origin_revision"`
@@ -2691,7 +2692,7 @@ func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *z
 	return nil
 }
 
-func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
+func GetWorkflowTaskV4(workflowName string, taskID int64, includeConfiguration bool, configurationJob string, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -2717,6 +2718,9 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		ApprovalTicketID:    task.ApprovalTicketID,
 		ApprovalID:          task.ApprovalID,
 		ReleasePlan:         task.ReleasePlan,
+	}
+	if includeConfiguration {
+		resp.Configuration = taskConfiguration(task, configurationJob)
 	}
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {

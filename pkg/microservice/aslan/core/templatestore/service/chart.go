@@ -62,13 +62,37 @@ type ChartTemplateListResp struct {
 	ChartTemplates  []*template.Chart             `json:"chartTemplates"`
 }
 
-func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, error) {
+func GetChartTemplate(name string, metadataOnly bool, logger *zap.SugaredLogger) (*template.Chart, error) {
 	chart, err := commonrepo.NewChartColl().Get(name)
 	if err != nil {
 		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
 		return nil, err
 	}
 
+	variables := make([]*commonmodels.ChartVariable, 0, len(chart.ChartVariables))
+	for _, v := range chart.ChartVariables {
+		variables = append(variables, &commonmodels.ChartVariable{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+
+	definition := &template.Chart{
+		Revision:   chart.Revision,
+		Sha1:       chart.Sha1,
+		Source:     chart.Source,
+		Name:       name,
+		CodehostID: chart.CodeHostID,
+		Owner:      chart.Owner,
+		Repo:       chart.Repo,
+		Path:       chart.Path,
+		Branch:     chart.Branch,
+		Namespace:  chart.GetNamespace(),
+		Variables:  variables,
+	}
+	if metadataOnly {
+		return definition, nil
+	}
 	localBase := configbase.LocalChartTemplatePath(name)
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
 	if err = fs.PreloadFiles(name, localBase, s3Base, chart.Source, logger); err != nil {
@@ -83,25 +107,8 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*template.Chart, 
 		return nil, err
 	}
 
-	variables := make([]*commonmodels.ChartVariable, 0, len(chart.ChartVariables))
-	for _, v := range chart.ChartVariables {
-		variables = append(variables, &commonmodels.ChartVariable{
-			Key:   v.Key,
-			Value: v.Value,
-		})
-	}
-
-	return &template.Chart{
-		Name:       name,
-		CodehostID: chart.CodeHostID,
-		Owner:      chart.Owner,
-		Repo:       chart.Repo,
-		Path:       chart.Path,
-		Branch:     chart.Branch,
-		Namespace:  chart.GetNamespace(),
-		Files:      fis,
-		Variables:  variables,
-	}, nil
+	definition.Files = fis
+	return definition, nil
 }
 
 func GetChartTemplateVariables(name string, logger *zap.SugaredLogger) ([]*commonmodels.ChartVariable, error) {

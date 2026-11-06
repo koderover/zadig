@@ -1458,12 +1458,13 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 }
 
 // @Summary Get Product
-// @Description Get Product
+// @Description 按现有 production 参数定位环境并校验对应查看权限；响应 production 为环境实际属性，is_prod 仍为集群属性。
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	name 		path		string										true	"env name"
+// @Param production query bool false "是否生产环境，默认 false"
 // @Success 200 		{object} 	service.ProductResp
 // @Router /api/aslan/environment/environments/{name} [get]
 func GetEnvironment(c *gin.Context) {
@@ -1516,7 +1517,7 @@ func GetEnvironment(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProduct(ctx.UserName, envName, projectKey, &production, ctx.Logger)
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
@@ -2400,6 +2401,21 @@ type EnvAnalysisHistoryResp struct {
 	Result []*ai.EnvAIAnalysis `json:"result"`
 }
 
+// GetEnvAnalysisHistory godoc
+// @Summary 查询环境巡检历史
+// @Description 使用对应环境的查看权限；必须指定项目和环境，测试与生产历史隔离。默认最近五条，不代表当前健康状态。
+// @Tags environment
+// @Produce json
+// @Param Authorization header string true "Bearer 用户登录令牌"
+// @Param projectName query string true "项目标识"
+// @Param envName query string true "环境名称"
+// @Param production query bool false "生产环境" default(false)
+// @Param pageNum query int false "页码，0 使用默认值 1" minimum(0) maximum(10000)
+// @Param pageSize query int false "每页数量，0 使用默认值 5" minimum(0) maximum(20)
+// @Success 200 {object} EnvAnalysisHistoryResp
+// @Failure 400 {object} e.ErrorResponse "参数无效"
+// @Failure 403 {object} e.ErrorResponse "无环境查看权限"
+// @Router /api/aslan/environment/environments/analysis/history [get]
 func GetEnvAnalysisHistory(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -2418,7 +2434,11 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 
 	projectKey := req.ProjectName
 	envName := req.EnvName
-	production := c.Query("production") == "true"
+	if projectKey == "" || envName == "" || req.PageNum < 0 || req.PageNum > 10000 || req.PageSize < 0 || req.PageSize > 20 {
+		ctx.RespErr = e.NewWithDesc(e.ErrInvalidParam, "必须指定项目和环境；pageNum 为 0～10000，pageSize 为 0～20，0 使用默认值")
+		return
+	}
+	production := req.Production
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

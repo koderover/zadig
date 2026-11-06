@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type SystemSettingColl struct {
@@ -332,5 +333,32 @@ func (c *SystemSettingColl) UpdateAIReviewConfig(reviewConfig *models.AIReviewCo
 	change := bson.M{"$set": bson.M{"ai_review_config": reviewConfig}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) GetAIAssistantConfig(ctx context.Context) (*types.AIAssistantConfig, error) {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+	var settings models.SystemSetting
+	if err := c.FindOne(ctx, bson.M{"_id": id}).Decode(&settings); err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+	if settings.AIAssistantConfig == nil {
+		return &types.AIAssistantConfig{HistoryRetentionDays: 90}, nil
+	}
+	if settings.AIAssistantConfig.HistoryRetentionDays == 0 {
+		settings.AIAssistantConfig.HistoryRetentionDays = 90
+	}
+	return settings.AIAssistantConfig, nil
+}
+
+func (c *SystemSettingColl) UpdateAIAssistantConfig(ctx context.Context, config *types.AIAssistantConfig) error {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"ai_assistant_config": config}}, options.Update().SetUpsert(true))
 	return err
 }

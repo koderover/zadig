@@ -1040,4 +1040,20 @@ var (
 	ErrDeleteAgentIntegration   = NewHTTPError(7203, "删除 Agent 集成失败")
 	ErrGetAgentIntegration      = NewHTTPError(7204, "获取 Agent 集成详情失败")
 	ErrValidateAgentIntegration = NewHTTPError(7205, "验证 Agent 集成失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// AI 助手错误码：7210 - 7229
+	//-----------------------------------------------------------------------------------------------
+	ErrGetAIAssistantConfig     = NewHTTPError(7210, "获取 AI 助手配置失败")
+	ErrUpdateAIAssistantConfig  = NewHTTPError(7211, "更新 AI 助手配置失败")
+	ErrGetAIAssistantStats      = NewHTTPError(7212, "获取 AI 助手统计失败")
+	ErrAIAssistantRequest       = NewHTTPError(7213, "AI 助手请求失败")
+	ErrAIAssistantDisabled      = NewHTTPError(7214, "管理员已关闭 AI 助手")
+	ErrAIAssistantBusy          = NewHTTPError(7215, "用户有正在处理的运行")
+	ErrAIAssistantConflict      = NewHTTPError(7216, "AI 助手请求或计划状态冲突")
+	ErrAIAssistantCapacity      = NewHTTPError(7217, "AI 助手当前请求较多，请稍后重试")
+	ErrAIAssistantModel         = NewHTTPError(7218, "AI 助手模型不可用")
+	ErrAIAssistantRuntime       = NewHTTPError(7219, "AI 助手运行配置不可用")
+	ErrAIAssistantUpstream      = NewHTTPError(7220, "AI 助手访问 Zadig 资源失败")
+	ErrAIAssistantResultUnknown = NewHTTPError(7221, "AI 助手操作结果待确认，不可直接重试")
 )

@@ -95,6 +95,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		aiReviewV2.GET("/repo/:name", GetAIReviewStatsRepoPRs)
 	}
 
+	aiAssistantV2 := v2.Group("ai_assistant", authorizeAIAssistantStats)
+	{
+		aiAssistantV2.GET("/overview", GetAIAssistantStatsOverview)
+		aiAssistantV2.GET("/trends", GetAIAssistantStatsTrends)
+		aiAssistantV2.GET("/skills", GetAIAssistantStatsSkills)
+		aiAssistantV2.GET("/rankings", GetAIAssistantStatsRankings)
+	}
+
 	releaseV2 := v2.Group("release")
 	{
 		releaseV2.POST("/monthly", CreateMonthlyReleaseStat)
