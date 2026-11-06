@@ -671,6 +671,7 @@ func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, use
 	if err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	// Discard diagnostics for the replaced delta; latest-template compatibility is computed by the status endpoint.
 	updated.TemplateBinding.ConflictCount = 0
 	updated.TemplateBinding.InvalidPatches = nil
 	applyTemplateBindingInheritedFields(updated, rendered)
