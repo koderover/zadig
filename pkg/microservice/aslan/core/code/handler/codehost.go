@@ -323,7 +323,6 @@ func authorizeOpenAPICodehost(c *gin.Context) {
 	query.Del("page")
 	query.Del("per_page")
 	query.Del("key")
-	query.Del("targetBranch")
 	query.Set("repoOwner", namespace)
 	// Handlers must read URL.Query directly; authorization has already populated Gin's query cache.
 	c.Request.URL.RawQuery = query.Encode()
