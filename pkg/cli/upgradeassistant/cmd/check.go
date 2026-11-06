@@ -38,7 +38,7 @@ var checkUpgradeCmd = &cobra.Command{
 	Short: "check if the upgrade is possible",
 	Long:  `check if the upgrade is possible.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return preRun()
+		return preRun(cmd.Context())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		from, _ := cmd.Flags().GetString("from-version")
