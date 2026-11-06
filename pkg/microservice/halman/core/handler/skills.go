@@ -45,7 +45,7 @@ func (a *API) requireSkillAdmin(c *gin.Context) {
 func (a *API) listSkills(c *gin.Context) {
 	items, err := a.Agent.Store.ListSkills(c.Request.Context())
 	if err != nil {
-		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, "读取 Skill 配置失败，请稍后重试"))
+		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, responseLanguage(c).Text("读取 Skill 配置失败，请稍后重试", "Failed to load Skill configuration; please try again later")))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
@@ -90,7 +90,7 @@ func (a *API) updateSkill(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, "保存 Skill 配置失败，请稍后重试"))
+		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, responseLanguage(c).Text("保存 Skill 配置失败，请稍后重试", "Failed to save Skill configuration; please try again later")))
 		return
 	}
 	c.JSON(http.StatusOK, item)

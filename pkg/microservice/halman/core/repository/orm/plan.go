@@ -7,104 +7,94 @@ import (
 	"fmt"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
 // 领取动作与取消串行；事务提交后才发 HTTP，崩溃后绝不自动重放 submitting。
 func (s *Store) ClaimOperation(ctx context.Context, user string, r *models.Run, rootID, id string) error {
-	tx := s.DB.WithContext(ctx).Begin()
-	err := tx.Error
-	if err != nil {
-		return err
-	}
-
-	defer tx.Rollback()
-	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", r.ConversationID, user).
-		Row().
-		Scan(&found); err != nil {
-		return common.ErrNotFound
-	}
-
-	var active string
-	if err := tx.WithContext(ctx).Raw("SELECT active_plan_run_id FROM ai_run WHERE id=? FOR UPDATE", rootID).Row().
-		Scan(&active); err != nil {
-		return err
-	}
-
-	if active != r.ID {
-		return common.ErrRequestConflict
-	}
-
-	var raw []byte
-	var status string
-	if err := tx.WithContext(ctx).Raw("SELECT plan,status FROM ai_run WHERE id=? FOR UPDATE", r.ID).Row().Scan(&raw, &status); err != nil {
-		return err
-	}
-
-	if status != "executing" {
-		return context.Canceled
-	}
-
-	var plan models.OperationPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
-		return err
-	}
-
-	found = ""
-	for i := range plan.Items {
-		if plan.Items[i].ID == id {
-			if plan.Items[i].Status != "pending" {
-				return common.ErrRequestConflict
-			}
-
-			plan.Items[i].Status = "submitting"
-			found = id
-			break
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var found string
+		if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
+			return common.ErrNotFound
 		}
-	}
 
-	if found == "" {
-		return common.ErrRequestConflict
-	}
+		var active string
+		if err := tx.Raw("SELECT active_plan_run_id FROM ai_run WHERE id=? FOR UPDATE", rootID).Row().
+			Scan(&active); err != nil {
+			return err
+		}
 
-	if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), r.ID).Error; err != nil {
-		return err
-	}
+		if active != r.ID {
+			return common.ErrRequestConflict
+		}
 
-	return tx.Commit().Error
+		var raw []byte
+		var status string
+		if err := tx.Raw("SELECT plan,status FROM ai_run WHERE id=? FOR UPDATE", r.ID).Row().Scan(&raw, &status); err != nil {
+			return err
+		}
+
+		if status != "executing" {
+			return context.Canceled
+		}
+
+		var plan models.OperationPlan
+		if err := json.Unmarshal(raw, &plan); err != nil {
+			return err
+		}
+
+		found = ""
+		for i := range plan.Items {
+			if plan.Items[i].ID == id {
+				if plan.Items[i].Status != "pending" {
+					return common.ErrRequestConflict
+				}
+
+				plan.Items[i].Status = "submitting"
+				found = id
+				break
+			}
+		}
+
+		if found == "" {
+			return common.ErrRequestConflict
+		}
+
+		if err := tx.Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), r.ID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *Store) SaveOperation(ctx context.Context, user, id string, index int, item models.OperationItem) error {
-	tx := s.DB.WithContext(ctx).Begin()
-	err := tx.Error
-	if err != nil {
-		return err
-	}
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var raw []byte
+		if err := tx.Raw("SELECT plan FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", id, user).Row().
+			Scan(&raw); err != nil {
+			return err
+		}
 
-	defer tx.Rollback()
-	var raw []byte
-	if err := tx.WithContext(ctx).Raw("SELECT plan FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", id, user).Row().
-		Scan(&raw); err != nil {
-		return err
-	}
+		var plan models.OperationPlan
+		if err := json.Unmarshal(raw, &plan); err != nil {
+			return err
+		}
 
-	var plan models.OperationPlan
-	if err := json.Unmarshal(raw, &plan); err != nil {
-		return err
-	}
+		if index < 0 || index >= len(plan.Items) || plan.Items[index].ID != item.ID {
+			return common.ErrRequestConflict
+		}
 
-	if index < 0 || index >= len(plan.Items) || plan.Items[index].ID != item.ID {
-		return common.ErrRequestConflict
-	}
+		plan.Items[index] = item
+		if err := tx.Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), id).Error; err != nil {
+			return err
+		}
 
-	plan.Items[index] = item
-	if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), id).Error; err != nil {
-		return err
-	}
-
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 func (s *Store) FinishPlan(ctx context.Context, user string, r *models.Run, rootID, status string, elapsed int64) error {
@@ -177,10 +167,7 @@ func (s *Store) ConfirmPlan(ctx context.Context, user, id string, version int, c
 	}
 
 	defer tx.Rollback()
-	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", r.ConversationID, user).
-		Row().
-		Scan(&found); err != nil {
+	if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
 		return nil, plan, false, common.ErrNotFound
 	}
 
@@ -253,10 +240,7 @@ func (s *Store) SavePlan(ctx context.Context, user string, r *models.Run, rootID
 	}
 
 	defer tx.Rollback()
-	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", r.ConversationID, user).
-		Row().
-		Scan(&found); err != nil {
+	if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
 		return 0, time.Time{}, common.ErrNotFound
 	}
 
@@ -315,44 +299,40 @@ func (s *Store) SavePlan(ctx context.Context, user string, r *models.Run, rootID
 }
 
 func (s *Store) SaveDraft(ctx context.Context, user string, r *models.Run, rootID string, cutoff time.Time, plan models.OperationPlan) error {
-	tx := s.DB.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	defer tx.Rollback()
-	var found string
-	if err := tx.Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", r.ConversationID, user).Row().Scan(&found); err != nil {
-		return common.ErrNotFound
-	}
-	var active, rootStatus sql.NullString
-	if err := tx.Raw("SELECT active_plan_run_id,skill_status FROM ai_run WHERE id=? AND user_id=? AND created_at>=? FOR UPDATE", rootID, user, cutoff).Row().Scan(&active, &rootStatus); err != nil {
-		return common.ErrNotFound
-	}
-	if rootStatus.String == "succeeded" || rootStatus.String == "cancelled" || rootStatus.String == "unknown" {
-		return common.ErrRequestConflict
-	}
-	var status string
-	if err := tx.Raw("SELECT status FROM ai_run WHERE id=? AND user_id=? AND conversation_id=? FOR UPDATE", r.ID, user, r.ConversationID).Row().Scan(&status); err != nil {
-		return common.ErrNotFound
-	}
-	if status != "running" {
-		return common.ErrRequestConflict
-	}
-	if active.Valid && active.String != r.ID {
-		if err := tx.Exec("UPDATE ai_run SET plan_status='superseded' WHERE id=? AND plan_status='pending_confirmation'", active.String).Error; err != nil {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
+			return common.ErrNotFound
+		}
+		var active, rootStatus sql.NullString
+		if err := tx.Raw("SELECT active_plan_run_id,skill_status FROM ai_run WHERE id=? AND user_id=? AND created_at>=? FOR UPDATE", rootID, user, cutoff).Row().Scan(&active, &rootStatus); err != nil {
+			return common.ErrNotFound
+		}
+		if rootStatus.String == "succeeded" || rootStatus.String == "cancelled" || rootStatus.String == "unknown" {
+			return common.ErrRequestConflict
+		}
+		var status string
+		if err := tx.Raw("SELECT status FROM ai_run WHERE id=? AND user_id=? AND conversation_id=? FOR UPDATE", r.ID, user, r.ConversationID).Row().Scan(&status); err != nil {
+			return common.ErrNotFound
+		}
+		if status != "running" {
+			return common.ErrRequestConflict
+		}
+		if active.Valid && active.String != r.ID {
+			if err := tx.Exec("UPDATE ai_run SET plan_status='superseded' WHERE id=? AND plan_status='pending_confirmation'", active.String).Error; err != nil {
+				return err
+			}
+		}
+		// 保存新参数快照后，旧卡片不能再确认执行。
+		if err := tx.Exec("UPDATE ai_run SET active_plan_run_id=NULL WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
 			return err
 		}
-	}
-	// 保存新参数快照后，旧卡片不能再确认执行。
-	if err := tx.Exec("UPDATE ai_run SET active_plan_run_id=NULL WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
-		return err
-	}
-	var planStatus any
-	if len(plan.MissingFields) > 0 {
-		planStatus = "awaiting_input"
-	}
-	if err := tx.Exec("UPDATE ai_run SET plan=?,plan_status=? WHERE id=? AND user_id=?", string(common.JSON(plan)), planStatus, r.ID, user).Error; err != nil {
-		return err
-	}
-	return tx.Commit().Error
+		var planStatus any
+		if len(plan.MissingFields) > 0 {
+			planStatus = "awaiting_input"
+		}
+		if err := tx.Exec("UPDATE ai_run SET plan=?,plan_status=? WHERE id=? AND user_id=?", string(common.JSON(plan)), planStatus, r.ID, user).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }

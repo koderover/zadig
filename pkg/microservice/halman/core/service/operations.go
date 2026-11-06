@@ -97,18 +97,9 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		var templateList []map[string]any
 		var templateValues map[string]any
 		if args.TemplateID != "" {
-			kind := "yaml_template"
-			if args.Source == "helm_template" {
-				kind = "helm_template"
-			}
-
-			raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: kind, ProjectKey: item.ProjectKey, ID: args.TemplateID})
+			raw, err := s.readTemplate(ctx, e, item.ProjectKey, args.Source, args.TemplateID, &args.TemplateFingerprint)
 			if err != nil {
 				return nil, err
-			}
-
-			if fingerprint(raw) != args.TemplateFingerprint {
-				return nil, fmt.Errorf("模板已经变化，请重新生成清单")
 			}
 
 			templateList, templateValues, err = templateVariables(raw, args.Variables)
@@ -229,13 +220,10 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 			return nil, fmt.Errorf("所选构建组件不在服务配置中，请调整清单")
 		}
 
-		raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: "build_template", ProjectKey: item.ProjectKey, ID: args.TemplateID})
-		if err != nil {
+		if _, err := s.readTemplate(ctx, e, item.ProjectKey, "build_template", args.TemplateID, &args.TemplateFingerprint); err != nil {
 			return nil, err
 		}
-		if fingerprint(raw) != args.TemplateFingerprint {
-			return nil, fmt.Errorf("构建模板已经变化，请重新生成清单")
-		}
+
 		repos := []any{}
 		for _, g := range args.Repositories {
 			kind, err := s.Platform.gitSource(ctx, e.Authorization, g.CodehostID)

@@ -20,14 +20,14 @@ func (a titleSourceTime) Match(value driver.Value) bool {
 }
 
 func TestFirstQuestionSetsTitleSourceWithFallback(t *testing.T) {
-	for _, initial := range []string{"新会话", "已有标题"} {
+	for _, initial := range []string{"新会话", "New conversation", "已有标题"} {
 		t.Run(initial, func(t *testing.T) {
 			s, mock := mockStore(t)
 			source := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 			var savedSource any = source
 			var expectedSource any = source
 			wantTitle := initial
-			if initial == "新会话" {
+			if initial == "新会话" || initial == "New conversation" {
 				savedSource = nil
 				expectedSource = titleSourceTime{earliest: time.Now().UTC().Add(-time.Second)}
 				wantTitle = "帮我分析支付服务启动失败"
@@ -53,5 +53,14 @@ func TestGeneratedTitleCannotOverwriteDeletedOrRefreshedConversation(t *testing.
 	mock.ExpectExec("UPDATE ai_conversation SET title=.*WHERE id=.*user_id=.*deleted_at IS NULL AND title_source_at=").WithArgs("AI 标题", "conversation", "user", r.CreatedAt).WillReturnResult(sqlmock.NewResult(0, 0))
 	if updated, err := s.SetGeneratedTitle(context.Background(), "user", r, "AI 标题"); err != nil || updated {
 		t.Fatalf("迟到标题不得覆盖新状态: updated=%v err=%v", updated, err)
+	}
+}
+
+func TestCreateConversationEnglishDefaultTitle(t *testing.T) {
+	store, mock := mockStore(t)
+	mock.ExpectExec("INSERT INTO `ai_conversation`").WillReturnResult(sqlmock.NewResult(1, 1))
+	conversation, err := store.CreateConversation(context.Background(), "user", "en-us")
+	if err != nil || conversation.Title != "New conversation" {
+		t.Fatalf("新会话标题应使用系统语言: %+v %v", conversation, err)
 	}
 }

@@ -6,14 +6,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-resty/resty/v2"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	statorm "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 )
 
 var (
 	ErrAIAssistantStatsUnavailable = errors.New("AI 助手统计数据暂时不可用")
 	ErrAIAssistantStatsRange       = errors.New("统计日期范围无效")
 	getAIAssistantStatsStore       = statorm.GetAIAssistantStatsStore
+	newAIAssistantStatsUserClient  = user.New
 )
 
 func reportRange(from, to string, now time.Time) (time.Time, time.Time, error) {
@@ -99,15 +103,30 @@ func queryAIAssistantStats(ctx context.Context, kind, fromDate, toDate string) (
 	return result, nil
 }
 
-func GetAIAssistantStatsOverview(ctx context.Context, from, to string) (*models.AIAssistantStatsOverviewResponse, error) {
-	report, err := queryAIAssistantStats(ctx, "overview", from, to)
-	if err != nil {
-		return nil, err
-	}
-	result := &models.AIAssistantStatsOverviewResponse{
+// 上期按自然日计算，避免夏令时切换导致周期少一天。
+func previousStatsRange(period models.AIAssistantStatsPeriod) (string, string) {
+	from, _ := time.Parse("2006-01-02", period.From)
+	to, _ := time.Parse("2006-01-02", period.To)
+	days := int(to.Sub(from)/(24*time.Hour)) + 1
+	return from.AddDate(0, 0, -days).Format("2006-01-02"), from.AddDate(0, 0, -1).Format("2006-01-02")
+}
+
+func statsUserClient(ctx context.Context) *user.Client {
+	client := newAIAssistantStatsUserClient()
+	client.SetTimeout(3 * time.Second)
+	client.OnBeforeRequest(func(_ *resty.Client, request *resty.Request) error {
+		request.SetContext(ctx)
+		return nil
+	})
+	return client
+}
+
+func assistantOverviewData(report *aiAssistantStatsData) models.AIAssistantStatsOverviewData {
+	result := models.AIAssistantStatsOverviewData{
 		AIAssistantStatsPeriod: report.period,
 		Estimation:             true,
 		EstimatedSavedMinutes:  report.savedMinutes,
+		Metrics:                models.AIAssistantStatsMetrics{ModelUsage: []models.AIAssistantStatsModelUsage{}},
 	}
 	if len(report.rows) > 0 {
 		result.Metrics = report.rows[0].AIAssistantStatsMetrics
@@ -116,6 +135,32 @@ func GetAIAssistantStatsOverview(ctx context.Context, from, to string) (*models.
 		days := result.EstimatedSavedMinutes * *result.Metrics.AdoptionRate / 60 / 8
 		result.EstimatedSavedPersonDays = &days
 	}
+	return result
+}
+
+func GetAIAssistantStatsOverview(ctx context.Context, from, to string) (*models.AIAssistantStatsOverviewResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	report, err := queryAIAssistantStats(ctx, "overview", from, to)
+	if err != nil {
+		return nil, err
+	}
+	result := &models.AIAssistantStatsOverviewResponse{AIAssistantStatsOverviewData: assistantOverviewData(report)}
+	previousFrom, previousTo := previousStatsRange(report.period)
+	// 上期超出完整保留范围时返回 null，不能把已清理的数据当成零使用量。
+	if _, _, err := reportRange(previousFrom, previousTo, time.Now().In(time.Local)); err == nil {
+		previous, err := queryAIAssistantStats(ctx, "overview", previousFrom, previousTo)
+		if err != nil {
+			return nil, err
+		}
+		data := assistantOverviewData(previous)
+		result.Previous = &data
+	}
+	count, err := statsUserClient(ctx).CountUsers()
+	if err != nil {
+		return nil, fmt.Errorf("%w: 查询系统用户总数失败: %v", ErrAIAssistantStatsUnavailable, err)
+	}
+	result.TotalUsers = count.TotalUser
 	return result, nil
 }
 
@@ -143,6 +188,7 @@ func GetAIAssistantStatsSkills(ctx context.Context, from, to string) (*models.AI
 		{Category: "巡检诊断"},
 	}
 	for i := range items {
+		items[i].ModelUsage = []models.AIAssistantStatsModelUsage{}
 		for _, row := range report.rows {
 			if row.Key == items[i].Category {
 				items[i].AIAssistantStatsMetrics = row.AIAssistantStatsMetrics
@@ -154,13 +200,36 @@ func GetAIAssistantStatsSkills(ctx context.Context, from, to string) (*models.AI
 }
 
 func GetAIAssistantStatsRankings(ctx context.Context, from, to string) (*models.AIAssistantStatsRankingsResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 	report, err := queryAIAssistantStats(ctx, "rankings", from, to)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]models.AIAssistantStatsRankingItem, 0, len(report.rows))
 	for _, row := range report.rows {
-		items = append(items, models.AIAssistantStatsRankingItem{UserID: row.Key, AIAssistantStatsMetrics: row.AIAssistantStatsMetrics})
+		items = append(items, models.AIAssistantStatsRankingItem{UserID: row.Key, UserName: row.Key, AIAssistantStatsMetrics: row.AIAssistantStatsMetrics})
+	}
+	if len(items) > 0 {
+		ids := make([]string, 0, len(items))
+		for _, item := range items {
+			ids = append(ids, item.UserID)
+		}
+		users, err := statsUserClient(ctx).ListUsers(&user.SearchArgs{UIDs: ids})
+		if err != nil {
+			return nil, fmt.Errorf("%w: 查询排行用户名失败: %v", ErrAIAssistantStatsUnavailable, err)
+		}
+		names := make(map[string]string, len(users))
+		for _, user := range users {
+			if user != nil && user.Name != "" {
+				names[user.UID] = user.Name
+			}
+		}
+		for i := range items {
+			if name := names[items[i].UserID]; name != "" {
+				items[i].UserName = name
+			}
+		}
 	}
 	return &models.AIAssistantStatsRankingsResponse{AIAssistantStatsPeriod: report.period, Items: items}, nil
 }

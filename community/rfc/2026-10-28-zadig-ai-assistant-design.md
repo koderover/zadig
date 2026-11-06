@@ -186,6 +186,14 @@ aslan 的 GET/PUT 助手配置接口均复用 `CheckZadigEnterpriseLicense()`，
 
 模型名称、协议、Base URL、Token、代理等仍由现有 AI 模型集成管理，不复制到 AI MySQL 数据库。助手和代码审查分别选择模型，互不影响，不共用同一个功能选择字段。
 
+助手与代码审查的自然语言输出统一使用现有系统配置 `SystemSetting.Language`，支持 `zh-cn`、`en-us`，兼容大小写；空值或未知值默认中文，数据库读取失败按原流程报错。助手加载模型配置时在同一次系统设置查询中读取语言，保存在进程内运行配置，不新增语言接口或数据库字段。每次生成或确认执行固定语言；补问、重新回答和新请求读取最新设置，历史消息、标题及已保存清单保持原文。
+
+助手回答、自动标题、推荐问题的 `title` 与 `prompt`、新生成的确认提示、执行结果及助手专属状态和失败文案使用对应语言。内置 Skill、代码注释和内部工具说明继续使用中文，移除强制中文输出的要求，并明确系统输出语言不能被 Skill、追加规则或历史覆盖。代码、日志、资源名称、JSON 字段、状态枚举及通用平台错误响应不翻译，不对操作参数或整个响应进行字符串替换。
+
+代码审查移除独立的 `AIReviewConfig.OutputLanguage` 和语言必填检查，原配置接口及 Swagger 不再返回 `output_language`；旧数据库字段不批量迁移，后续保存配置自然移除，旧请求字段按原 JSON 绑定方式忽略。创建任务时将系统语言转换为 `zh-CN` 或 `en-US`，沿用现有环境变量和 CLI `--language`。报告收集不变，评论使用已有 `Report.Metadata.Language`，缺失或未知时默认中文，不在 `StepAIReviewReportSpec` 新增语言字段。摘要、行内评论、严重级别及分类展示、反馈提示、归档说明支持中英文；保留指纹、评论标记、去重和历史摘要识别。
+
+本次仅修改后端，不修改前端及审查程序仓库。前端旧语言下拉框需后续移除。语言验证覆盖配置读取、单次生成快照、中英文推荐与标题、确认和状态提示、审查字段移除及评论兼容；真实模型和审查镜像效果留待联调。
+
 模型配置及保留策略继续由 aslan 的现有系统配置存储管理；AI 服务自身的会话和运行状态使用 MySQL。halman 通过现有 MongoDB 连接及公共 repository 只读加载配置，不新增模型配置业务表。
 
 #### 2.2 运行时读取与生效
@@ -262,9 +270,9 @@ AI 服务启动时复用现有 MongoDB 初始化方式并检查连接，通过 `
 
 #### 3.5 历史、重新回答和反馈
 
-历史按对话保存，新会话先使用“新会话”，接收首条问题后以去除首尾空白的前四十字作临时标题，并同步记录 `title_source_at`。
+历史按对话保存，新会话按系统语言先使用“新会话”或“New conversation”，接收首条问题后以去除首尾空白的前四十字作临时标题，并同步记录 `title_source_at`。
 
-首轮得到有效回答或进入补问、待确认状态后，使用本轮选定模型生成一次中文标题，建议十二至二十字、最多四十字；只输入脱敏后的首条用户问题，最多两千字，不包含回答、日志和工具结果，不注册工具。标题生成前复查用户登录态、最新开关及模型可用性，与本轮共用执行名额，最多十秒且不重试；正文已经流式发送，终态可能延后最多十秒。失败或无效输出保留临时标题，不使主回答失败；取消整个运行仍按正常取消处理。Token 计入本轮，运行次数和 Skill 完成数不额外增加。
+首轮得到有效回答或进入补问、待确认状态后，使用本轮选定模型按本轮系统语言生成一次标题，中文建议十二至二十字，英文保持简短，均最多四十字；只输入脱敏后的首条用户问题，最多两千字，不包含回答、日志和工具结果，不注册工具。标题生成前复查用户登录态、最新开关及模型可用性，与本轮共用执行名额，最多十秒且不重试；正文已经流式发送，终态可能延后最多十秒。失败或无效输出保留临时标题，不使主回答失败；取消整个运行仍按正常取消处理。Token 计入本轮，运行次数和 Skill 完成数不额外增加。
 
 写回检查归属、未删除及来源时间匹配，防止覆盖后台已重建的标题；成功后通过 AG-UI `CUSTOM` 事件 `halman.conversation_title` 发送会话 ID 和标题，断线后以会话列表为准。后续提问、重新回答及重试不重复生成。
 
@@ -296,20 +304,18 @@ sequenceDiagram
     F->>A: 问题与任务上下文
     A->>Z: 校验目标并读取任务和失败步骤
     Z-->>A: 任务及步骤信息
-    A->>Z: 查询相关日志和当次配置
+    A->>Z: 查询相关步骤的有限日志
     Z-->>A: 有限证据
     A-->>F: 原因、证据、建议和页面链接
 ```
 
-工作流任务保存在 aslan 的 MongoDB `workflow_task` 集合，按 `workflow_name + task_id` 定位。`workflow_args`、`origin_workflow_args` 保存工作流参数，`stages[].jobs[].spec` 保存具体执行配置。助手的配置证据优先从后者提取，不用当前工作流定义、构建模板或环境补齐历史。
+工作流任务保存在 aslan 的 MongoDB `workflow_task` 集合，按 `workflow_name + task_id` 定位。halman 直接复用原任务详情 `GET /api/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID}`，不增加查询参数、返回字段或 aslan 配置提取函数，不直接读取业务 MongoDB。继续使用原接口的工作流查看及协作权限检查，并核对项目、工作流和任务归属。
 
-复用任务详情 `GET /api/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID}`，增加可选 `include_configuration=true` 和 `job_name`，返回 `configuration`。默认选择最多三个失败或超时步骤，指定名称时可补查其他步骤；原调用及 OpenAPI 不启用该参数时保持原行为。继续复用原工作流查看及协作权限检查，halman 不直接读取业务 MongoDB。
-
-摘要标注集合字段来源、任务编号和创建时间。构建、自定义、测试和扫描步骤提取当次构建环境标识、执行集群、资源配置、超时、代码仓库分支与提交、工具名称和版本；K8s/Helm 部署提取目标环境、生产属性、服务、镜像及 Chart 版本等。只返回白名单字段，不返回仓库凭据、变量值、脚本正文、完整 YAML/values、注册表或代理凭据。单步骤摘要最多 8 KiB，步骤、仓库、工具和镜像列表分别最多二十项，截断显式标记；halman 再限制配置部分为 32 KiB 并脱敏。
+原任务详情已在 `stages[].jobs[].spec` 返回部分执行信息。halman 按白名单提取仓库、分支、提交、服务、部署目标环境名称、镜像及 Chart 版本，保留任务编号和创建时间；不透传原始 `spec`，不返回凭据、变量值、脚本正文、完整 YAML/values。原详情补充的当前环境 `production`、`env_alias` 不进入证据，不能当作历史属性。默认最多提取三个失败或超时步骤，用户指定步骤后在 halman 内筛选，不向 aslan 增加 `job_name` 参数；单步骤最多 8 KiB，仓库、镜像和 Chart 列表分别最多二十项，缺失、超限或截断明确说明。
 
 纯权限复查不读取任务、项目统计或环境配置，统一复用 user 现有授权接口：`auth-info` 检查系统/项目管理员、工作流查看、测试/生产环境查看及效能洞察权限；`collaboration-permission` 检查具体资源及对应查看动作；项目访问只允许系统管理员或 `auth-info.project_auth_info` 中已有该项目权限的用户，包含角色及全局只读；缺少项目条目时拒绝，不通过协作模式补授项目访问权限。仅编辑权限不能放行，授权失败拒绝使用。一次复查内共用权限快照，工作流、环境的协作检查按资源及动作去重；后续模型调用重新查询，不跨调用缓存放行结果。不新增接口或参数。实际诊断和日志查询继续由原接口鉴权并校验资源归属，日志窗口不再预读完整任务。
 
-未支持的步骤类型、缺失或超限配置明确标记不可用，不能把默认值当成已取得的证据。助手结合有限日志分析并说明限制，不推断未读取的脚本、变量值或 YAML。后续如查询当前环境，必须单独标注采集时点，不能假设它等同于失败任务的配置。
+原详情未返回可用字段或筛选后超限时，明确说明证据不足，不能把默认值当成已取得的证据。助手结合有限日志分析，不推断原接口未返回的构建环境、工具版本、脚本、变量值或 YAML。后续如查询当前环境，必须单独标注采集时点，不能假设它等同于失败任务的配置。
 
 日志按失败步骤及时间窗口读取，支持继续向前、向后查询，不默认获取整个任务日志。输出失败位置、证据支持的原因、建议及尚未确认的信息。工具集中不提供重跑或修改能力。
 
@@ -497,7 +503,7 @@ GORM 复用 halman 受限的业务连接池，不连接 user 的业务 database�
 | `ai_conversation` | 会话 ID、用户、标题、最近活动和删除状态；不绑定项目，支持轻量列表 |
 | `ai_run` | 运行/请求 ID、会话、Skill 执行关联、框架运行关联、上下文和资源范围、模型标识、回答替换关系、运行状态、耗时、Token、计划和逐项结果 |
 | `ai_feedback` | 用户、回答运行及版本、反馈和时间；唯一约束防止重复评价 |
-| `ai_usage_daily` | 日期、用户、Skill、完成数、反馈计数、有效耗时和 Token；用于报告 |
+| `ai_usage_daily` | 日期、用户、Skill、模型快照、完成数、反馈计数、有效耗时和 Token；用于报告 |
 | `ai_skill` | 内置定义的完整正文、分类、启停与追加规则；启动同步保留管理员设置，不参与到期清理 |
 
 不建立 `ai_message_index`、`ai_task`、`ai_operation_plan`、`ai_operation_item`、`ai_context_summary`。多轮关系、计划和回答替换由 `ai_run` 承载，摘要复用框架表。
@@ -531,7 +537,7 @@ GORM 复用 halman 受限的业务连接池，不连接 user 的业务 database�
 | 回答版本 | `ai_run(question_source_run_id, answer_available, answer_version, id)`；按当前消息页涉及的运行定位原问题及最新可用回答，不扫描事件 JSON |
 | 异常与未知状态 | 分别按 `(status, created_at, id)`、`(plan_status, created_at, id)` 定位恢复或到期失效候选；实际 OR 条件和排序仍需目标 MySQL 执行计划验证 |
 | 反馈去重 | `ai_feedback` 唯一约束 `(user_id, answer_run_id, answer_version)` |
-| 日聚合 | `ai_usage_daily` 唯一约束 `(date, user_id, skill_id)`，按日期范围读取，不同步更新单一全局计数行 |
+| 日聚合 | `ai_usage_daily` 唯一约束 `(date, user_id, skill_id, model_id, model_name)`，按日期范围读取，不同步更新单一全局计数行 |
 | 到期清理 | 各表按保留时间建立索引；以创建时间清理的明细使用 `(created_at, id)`，反馈及日聚合按各自时间口径处理 |
 
 消息表的会话联合索引不能替代全库按时间清理的索引。按消息生成时间清理时，评估增加 `(created_at, id)`；若使用框架已有 `expires_at` 索引，必须验证过期值符合逐条消息保留规则，不能混用 Session TTL。
@@ -666,6 +672,13 @@ aslan 复用 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`，首次统计查询
 
 四类报告分别声明路由、Handler、服务函数及响应模型，Swagger 分别展示，不使用报告类型路径参数。四份响应都包含 `from`、`to`、`time_zone`；概览用 `metrics` 表示整体指标，并返回 `estimation`、估算节省分钟和人天。趋势、Skill 分类、排行分别使用 `items[].date`、`items[].category`、`items[].user_id` 表示维度；趋势和排行空列表返回 `[]`，Skill 分类固定按发布辅助、故障排查、实施辅助、巡检诊断的顺序返回四项，无数据的分类返回零计数与空比例。概览空数据返回零计数与空比例，无反馈时估算人天为 null；趋势仅返回有记录的日期。底层日期校验、聚合 SQL、比例及节省人力计算继续复用，不复制四套查询逻辑。
 
+概览额外返回 `previous`：紧邻当前周期、自然日数相同的上期，包含上期 `from`、`to`、`time_zone`、`metrics` 与估算节省分钟及人天；不按固定月长或秒数截取，跨月与夏令时仍按自然日计算。上期超出三百六十五天完整保留范围时返回 `null`，避免将已清理数据当成零值。只有概览提供上期，趋势、分类和排行仍仅返回当前周期。
+
+所有报告指标增加 `total_tokens` 和 `model_usage[]`，后者包含 `model_id`、`model`、`input_tokens`、`output_tokens`、`total_tokens`，按模型集成 ID 和调用时的模型名排序，无数据返回 `[]`。`ai_usage_daily` 主键扩展为 `(date, user_id, skill_id, model_id, model_name)`；调用次数、耗时及 Token 从该次 `ai_run` 的模型快照写入对应模型行，任务终态、完成耗时和反馈继续写入空模型维度。修正任务贡献时仅更新空模型行，汇总时跨模型求和并对用户去重，不能按模型重复计算任务数。模型信息随日聚合保留三百六十五天，不依赖已到期的运行记录或当前模型配置，不增加表。
+
+概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。SQL、连接等待与 user 查询共用三秒请求预算。分类和排行的模型明细仅查询报告实际返回的分组。
+
+
 Skill 分类在 SQL 中通过 `ai_usage_daily.skill_id=ai_skill.id` 关联分类汇总，不再硬编码 Skill ID 映射：`workflow_diagnosis`、`service_diagnosis` 归入故障排查，`project_onboarding`、`service_onboarding` 归入实施辅助；`environment_inspection`、`efficiency_diagnosis` 归入巡检诊断；发布辅助当前无对应 Skill，返回零值。普通聊天和未分类 Skill 不计入分类报告。分类内活跃用户跨 Skill 去重，完成率和反馈采纳率按分类总量重新计算，不相加用户数或平均各 Skill 比例。仍按 Skill 写入日聚合，分类取自新增的 `ai_skill` 表；概览节省人力继续按单个 Skill 计算，其他报告口径不变。
 
 | 指标 | 计算口径 |
@@ -714,10 +727,10 @@ Skill 完成数按成功日期归属，调用量和 Token 按实际发生日期�
 | `GET /api/halman/recommendations` | 按启停过滤的页面推荐 |
 | `GET /api/halman/skills` | 系统管理员查看完整内置 Skill 与规则 |
 | `PUT /api/halman/skills/:skill_id` | 系统管理员保存启停与追加规则 |
-| `GET /api/aslan/stat/v2/ai_assistant/overview` | 概览：`metrics`、估算节省分钟及人天 |
+| `GET /api/aslan/stat/v2/ai_assistant/overview` | 概览：`metrics`、等长上期 `previous`、当前系统用户数 `total_users`、估算节省分钟及人天 |
 | `GET /api/aslan/stat/v2/ai_assistant/trends` | 每日趋势：`items[].date`，日期升序，仅返回有聚合记录的日期 |
 | `GET /api/aslan/stat/v2/ai_assistant/skills` | 分类表现：`items[].category`，固定返回发布辅助、故障排查、实施辅助、巡检诊断 |
-| `GET /api/aslan/stat/v2/ai_assistant/rankings` | 用户排行：`items[].user_id`，完成任务数、运行数降序，用户 ID 升序，最多二十条 |
+| `GET /api/aslan/stat/v2/ai_assistant/rankings` | 用户排行：`items[].user_id` 和 `user_name`，完成任务数、运行数降序，用户 ID 升序，最多二十条 |
 | `GET/PUT /api/aslan/system/ai/assistant` | 有效企业版下的 AI 开关、模型及历史保留配置，读取和修改均仅限系统管理员 |
 
 错误响应统一复用 `pkg/tool/errors.ErrorMessage`，包含 `type`、`code`、`message`、`description`、`extra`。遵循现有约定：参数错误使用 HTTP 400/code 400；登录态、权限、资源不存在分别使用 HTTP 401/403/404 及同名 code；6xxx/7xxx 业务错误统一使用 HTTP 400，前端根据响应的 `code` 区分原因。许可证查询异常使用 HTTP 500/code 500；不在错误响应中返回数据库、模型凭据或原始上游响应。AG-UI 流建立前沿用该 HTTP 错误约定；建立后使用 `RUN_ERROR`，其 `code` 为相同错误码的字符串，`message` 为可公开的错误说明，流的 HTTP 状态保持 200，不继续发送旧的 `error` 事件。订阅故障不改变后台运行的实际状态。
@@ -835,7 +848,7 @@ Go 适配器构造参数，不让模型直接拼接 URL 和业务请求体。具
 
 | 查询 | aslan 内部接口 | 适配方式 |
 | --- | --- | --- |
-| 工作流当次配置 | `GET /api/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID}` | 可选 `include_configuration=true`、`job_name`，从原任务记录生成有界白名单摘要 |
+| 工作流任务信息 | `GET /api/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID}` | 直接复用；halman 从原响应中提取有限白名单字段，不扩展接口 |
 | 工作流日志 | `GET /api/logs/log/v4/workflow/{workflowName}/tasks/{taskID}/jobs/{jobName}` | 可选片段模式 `format=excerpt`，校验 `projectName` 与实际任务一致，支持 `offset`、`limit` |
 | 服务 Pod | `GET /openapi/environments/{name}/service/{serviceName}/pods?projectKey=...` | 直接使用已有字段；生产环境使用已有 `/openapi/environments/production/...` 路径 |
 | 容器日志 | `GET /api/logs/pods/{name}` | 可选片段模式 `format=excerpt`、`previous`，约束已有 `tailLines`，增加仅片段模式必填的 `serviceName` 进行 Pod 和容器归属校验 |
@@ -892,7 +905,7 @@ AI 数据位于独立 database，不迁移既有 user、dex 或 aslan 业务数�
 | 场景 | 预期结果 |
 | --- | --- |
 | 任务页输入“检查这次报错” | 解析当前任务、返回证据和建议，不重跑或修改 |
-| 当次配置与当前配置不同 | 优先使用任务记录中的分支、镜像及工具版本；缺失、截断或不支持明确说明，凭据、变量值、脚本和 YAML 不进入配置摘要 |
+| 历史任务与当前配置不同 | 仅使用原任务详情已返回的分支、提交、镜像及 Chart 版本；不返回当前环境补充属性，缺失和截断明确说明，不推断工具版本，不传递凭据、变量值、脚本和 YAML |
 | 服务异常诊断与修复 | 诊断只读，具体确认后才能重启或环境版本回滚 |
 | 切换项目或页面 | 会话不变、标签更新，既有运行目标不变 |
 | 删除上下文标签 | 本轮不隐式使用被删除对象，歧义时补问 |

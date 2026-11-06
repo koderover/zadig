@@ -2,6 +2,8 @@ package mongodb
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -134,4 +136,33 @@ func TestAIAssistantRuntimeProxyFailureBlocksModelWithoutLosingRetention(t *test
 			mt.Fatalf("代理失败必须阻止模型运行并保留历史策略: %+v %v", cfg, err)
 		}
 	})
+}
+
+func TestAIAssistantRuntimeReadsLanguageWithoutExtraQueries(t *testing.T) {
+	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
+	mt.Run("语言更新下次加载生效且不额外查询", func(mt *mtest.T) {
+		for _, input := range []struct{ value, want string }{{"EN-US", "en-us"}, {"zh-cn", "zh-cn"}, {"", "zh-cn"}, {"unknown", "zh-cn"}} {
+			mt.ClearEvents()
+			mt.AddMockResponses(mtest.CreateCursorResponse(0, mt.DB.Name()+"."+mt.Coll.Name(), mtest.FirstBatch, bson.D{{Key: "language", Value: input.value}}))
+			runtime, err := (&SystemSettingColl{Collection: mt.Coll}).GetAIAssistantRuntime(context.Background())
+			if err != nil || runtime.Language != input.want || len(mt.GetAllStartedEvents()) != 1 {
+				mt.Fatalf("助手配置和系统语言必须共用一次查询: %+v %v", runtime, err)
+			}
+		}
+	})
+}
+
+func TestAIReviewConfigRemovesIndependentLanguage(t *testing.T) {
+	var config models.AIReviewConfig
+	if err := json.Unmarshal([]byte(`{"output_language":"English","llm_integration_id":"selected"}`), &config); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(config)
+	if err != nil || strings.Contains(string(raw), "output_language") || config.LLMIntegrationID != "selected" {
+		t.Fatal("旧请求的语言字段应忽略，接口模型不再返回它")
+	}
+	data, err := bson.Marshal(config)
+	if err != nil || bson.Raw(data).Lookup("output_language").Type != 0 {
+		t.Fatal("保存配置时不得继续写入独立语言字段")
+	}
 }

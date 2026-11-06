@@ -21,6 +21,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
 func aguiRequest(input aguitypes.RunAgentInput) (models.RunRequest, error) {
@@ -161,7 +162,7 @@ func (a *API) stream(c *gin.Context, id string, ch <-chan service.StreamEvent, r
 			if !ok {
 				latest, err := a.Agent.Store.GetRun(c.Request.Context(), requestUser(c), id, cutoff(c))
 				if err != nil {
-					stream.fail("读取运行状态失败，请重新查询运行状态")
+					stream.fail(responseLanguage(c).Text("读取运行状态失败，请重新查询运行状态", "Failed to read the run status; query it again"))
 				} else if stream.endMessages() && stream.snapshot(latest) {
 					stream.finish(latest)
 				}
@@ -268,7 +269,7 @@ func (s *aguiStream) event(update service.StreamEvent) bool {
 		item, ok := update.Data.(models.OperationItem)
 		var plan models.OperationPlan
 		if !ok || json.Unmarshal(s.run.Plan, &plan) != nil {
-			s.fail("操作状态同步失败，请重新查询运行状态")
+			s.fail(responseLanguage(s.context).Text("操作状态同步失败，请重新查询运行状态", "Operation status synchronization failed; query the run status again"))
 			return false
 		}
 		for index, existing := range plan.Items {
@@ -283,12 +284,12 @@ func (s *aguiStream) event(update service.StreamEvent) bool {
 		s.resync()
 		return false
 	}
-	s.fail("事件状态同步失败，请重新查询运行状态")
+	s.fail(responseLanguage(s.context).Text("事件状态同步失败，请重新查询运行状态", "Event synchronization failed; query the run status again"))
 	return false
 }
 
-func aguiError(data any) *aguievents.RunErrorEvent {
-	responseErr := e.NewWithDesc(e.ErrAIAssistantRequest, "运行处理失败，请查询运行状态")
+func aguiError(data any, locale string) *aguievents.RunErrorEvent {
+	responseErr := e.NewWithDesc(e.ErrAIAssistantRequest, language.Normalize(locale).Text("运行处理失败，请查询运行状态", "The run failed; check the run status"))
 	switch value := data.(type) {
 	case string:
 		responseErr = e.NewWithDesc(e.ErrAIAssistantRequest, value)
@@ -308,7 +309,7 @@ func aguiError(data any) *aguievents.RunErrorEvent {
 
 func (s *aguiStream) fail(data any) {
 	if s.endMessages() {
-		s.write(aguiError(data))
+		s.write(aguiError(data, string(responseLanguage(s.context))))
 	}
 }
 
@@ -323,7 +324,7 @@ func (s *aguiStream) finish(run *models.Run) {
 	if run.Status == "failed" || run.Status == "interrupted" || run.Status == "expired" {
 		message := run.Error
 		if message == "" {
-			message = "运行未能完成，请查看运行状态"
+			message = responseLanguage(s.context).Text("运行未能完成，请查看运行状态", "The run did not complete; check its status")
 		}
 		s.fail(message)
 		return

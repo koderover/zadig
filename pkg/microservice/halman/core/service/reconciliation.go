@@ -12,6 +12,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
 func (s *AgentService) Reconcile(ctx context.Context, user, authorization, id string, version int, cutoff time.Time) (*models.Run, error) {
@@ -38,6 +39,7 @@ func (s *AgentService) Reconcile(ctx context.Context, user, authorization, id st
 	}
 
 	e := &execution{
+		Language:      language.FromContext(ctx),
 		Run:           source,
 		User:          user,
 		Authorization: authorization,
@@ -48,7 +50,7 @@ func (s *AgentService) Reconcile(ctx context.Context, user, authorization, id st
 		switch item.Status {
 		case "pending", "blocked":
 			item.Status = "failed"
-			item.Error = "此前未提交的动作，可在核实全部结果后重新确认重试"
+			item.Error = e.text("此前未提交的动作，可在核实全部结果后重新确认重试", "This operation was not submitted. After verifying all outcomes, prepare and confirm a retry")
 		case "unknown", "submitting":
 			status, message, err := s.verifyOperationResult(ctx, e, *item)
 			if err != nil {
@@ -97,7 +99,7 @@ func planOutcome(plan models.OperationPlan) string {
 }
 
 func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, item models.OperationItem) (string, string, error) {
-	status, message := "unknown", "尚无足够证据证明结果，未执行或重放业务操作"
+	status, message := "unknown", e.text("尚无足够证据证明结果，未执行或重放业务操作", "There is insufficient evidence to establish the outcome. No operation was executed or replayed")
 	if item.Action == "create_workflow" {
 		return s.verifyDefaultWorkflows(ctx, e, item)
 	}
@@ -108,7 +110,7 @@ func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, 
 		}
 
 		if ready {
-			return "succeeded", "实际实例及发布记录已核实", nil
+			return "succeeded", e.text("实际实例及发布记录已核实", "The actual instances and deployment records have been verified"), nil
 		}
 
 		return status, message, nil
@@ -146,7 +148,7 @@ func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, 
 	if err != nil {
 		var p *PlatformError
 		if errors.As(err, &p) && p.Status == http.StatusNotFound {
-			return status, "目标暂未找到，不能据此断言原写请求已失败；保留待核实", nil
+			return status, e.text("目标暂未找到，不能据此断言原写请求已失败；保留待核实", "The target was not found. This does not prove the original write failed; its outcome remains unknown"), nil
 		}
 
 		return status, message, err
@@ -177,19 +179,19 @@ func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, 
 
 				project := permissions.ProjectAuthInfo[item.ProjectKey]
 				if project == nil || !project.IsProjectAdmin {
-					return status, "项目管理员配置尚未验证一致，保留待核实", nil
+					return status, e.text("项目管理员配置尚未验证一致，保留待核实", "Project administrator configuration could not be verified; the outcome remains unknown"), nil
 				}
 			}
 		}
 
-		return "succeeded", "实际资源与已确认目标匹配，未重复提交", nil
+		return "succeeded", e.text("实际资源与已确认目标匹配，未重复提交", "The actual resource matches the confirmed target. Nothing was resubmitted"), nil
 	}
 
 	if terminalFailure {
-		return "failed", "平台已返回明确失败终态；重试前仍需重新预检并确认", nil
+		return "failed", e.text("平台已返回明确失败终态；重试前仍需重新预检并确认", "The platform reported a terminal failure. A retry requires new checks and confirmation"), nil
 	}
 
-	return status, "实际资源尚未就绪、配置不匹配或证据不足，保留待核实", nil
+	return status, e.text("实际资源尚未就绪、配置不匹配或证据不足，保留待核实", "The resource is not ready, the configuration does not match, or evidence is insufficient; the outcome remains unknown"), nil
 }
 
 func matchesOperation(item models.OperationItem, raw json.RawMessage, created time.Time) (bool, bool, error) {

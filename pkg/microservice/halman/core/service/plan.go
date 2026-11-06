@@ -12,6 +12,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -150,7 +151,7 @@ func (s *AgentService) prepareRepair(ctx context.Context, args models.RepairInpu
 			Params:     common.JSON(args),
 			Status:     "pending",
 		}},
-		Notes: []string{"操作受理后可能继续执行，取消聊天不会撤回已提交的操作"},
+		Notes: []string{e.text("操作受理后可能继续执行，取消聊天不会撤回已提交的操作", "Accepted operations may continue running; cancelling the chat does not undo submitted operations")},
 	}
 	if err := s.preflightPermissions(ctx, e, plan); err != nil {
 		return nil, err
@@ -292,13 +293,13 @@ func (s *AgentService) preflightPermissions(ctx context.Context, e *execution, p
 	return nil
 }
 
-func planError(err error) string {
+func planError(err error, lang language.Language) string {
 	var platform *PlatformError
 	if errors.As(err, &platform) {
-		return platform.Error()
+		return platform.UserMessage(string(lang))
 	}
 
-	return "操作失败，请检查前置条件及资源实际状态"
+	return lang.Text("操作失败，请检查前置条件及资源实际状态", "Operation failed; check prerequisites and the actual resource state")
 }
 
 func (s *AgentService) repairSnapshot(ctx context.Context, e *execution, args *models.RepairInput) error {

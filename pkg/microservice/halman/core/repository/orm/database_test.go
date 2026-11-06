@@ -42,7 +42,7 @@ func TestCancelledContextStopsGORMReadAndWrite(t *testing.T) {
 	store, _ := mockStore(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := store.CreateConversation(ctx, "user"); !errors.Is(err, context.Canceled) {
+	if _, err := store.CreateConversation(ctx, "user", ""); !errors.Is(err, context.Canceled) {
 		t.Fatalf("取消后的请求不能创建会话: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestBusinessInitializationUsesCompleteSchemaWithoutUpgrading(t *testing.T) 
 		expectBusinessTables(mock)
 		mock.ExpectQuery("SELECT title_source_at FROM ai_conversation LIMIT 0").WillReturnRows(sqlmock.NewRows([]string{"title_source_at"}))
 		mock.ExpectQuery(regexp.QuoteMeta("SELECT " + runColumns + ",active_plan_run_id FROM ai_run LIMIT 0")).WillReturnRows(sqlmock.NewRows([]string{"id"}))
-		mock.ExpectQuery("SELECT completed_elapsed_ms FROM ai_usage_daily LIMIT 0").WillReturnRows(sqlmock.NewRows([]string{"completed_elapsed_ms"}))
+		mock.ExpectQuery("SELECT completed_elapsed_ms,model_id,model_name FROM ai_usage_daily LIMIT 0").WillReturnRows(sqlmock.NewRows([]string{"completed_elapsed_ms"}))
 		mock.ExpectQuery("SELECT COUNT.*FROM information_schema.COLUMNS").WithArgs("framework_request_id", "replaces_run_id").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 		if err := store.initializeBusinessTables(context.Background()); err != nil {
 			t.Fatal(err)

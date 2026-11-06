@@ -70,7 +70,7 @@ func TestRecommendationsFilterDisabledSkillsWithoutDuplicates(t *testing.T) {
 			skills[i].Enabled = i < count
 		}
 		for batch := 0; batch < 5; batch++ {
-			items, next := Recommendations(models.PageContext{}, batch, skills)
+			items, next := Recommendations(models.PageContext{}, batch, skills, "")
 			if len(items) != min(3, count) || (count == 0 && next != 0) || (count > 0 && next != (batch+1)%count) {
 				t.Fatalf("数量或轮换不正确: %d %d %+v %d", count, batch, items, next)
 			}

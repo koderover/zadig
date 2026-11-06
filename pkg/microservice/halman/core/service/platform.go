@@ -14,6 +14,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
 var resourceName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$`)
@@ -31,22 +32,27 @@ type PlatformError struct {
 }
 
 func (e *PlatformError) Error() string {
+	return e.UserMessage("")
+}
+
+func (e *PlatformError) UserMessage(locale string) string {
+	lang := language.Normalize(locale)
 	if e.Message != "" {
 		return e.Message
 	}
 	if e.Uncertain {
-		return "Zadig 操作结果待确认，不可直接重试"
+		return lang.Text("Zadig 操作结果待确认，不可直接重试", "The Zadig operation outcome is unknown; do not retry directly")
 	}
 
 	if e.Status == http.StatusForbidden || e.Status == http.StatusUnauthorized {
-		return "当前用户没有资源权限或登录态已失效"
+		return lang.Text("当前用户没有资源权限或登录态已失效", "You do not have permission to access this resource, or your login has expired")
 	}
 
 	if e.Status == http.StatusNotFound {
-		return "指定的 Zadig 资源不存在"
+		return lang.Text("指定的 Zadig 资源不存在", "The specified Zadig resource does not exist")
 	}
 
-	return fmt.Sprintf("Zadig 接口请求失败（状态 %d）", e.Status)
+	return fmt.Sprintf(lang.Text("Zadig 接口请求失败（状态 %d）", "Zadig API request failed (status %d)"), e.Status)
 }
 
 // business 仅供固定业务适配器调用，不注册成模型可选择的 HTTP 工具。
@@ -243,6 +249,10 @@ func safeJSON(raw json.RawMessage) (any, error) {
 		return nil, err
 	}
 
+	return safeJSONValue(value)
+}
+
+func safeJSONValue(value any) (any, error) {
 	value = sanitized(value)
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -257,37 +267,47 @@ func safeJSON(raw json.RawMessage) (any, error) {
 }
 
 func safeCatalogJSON(raw json.RawMessage) (any, error) {
+	return filterEvidenceJSON(raw, 0, func(key string) bool {
+		lower := strings.ToLower(key)
+		return strings.Contains(lower, "yaml") || strings.Contains(lower, "script") ||
+			lower == "content" || lower == "dockerfile" || lower == "build_steps"
+	}, nil)
+}
+
+// 目录和诊断共用遍历，分别保留字段过滤规则及数组读取上限。
+func filterEvidenceJSON(raw json.RawMessage, limit int, exclude func(string) bool, leaf func(any) any) (any, error) {
 	var value any
 	if err := json.Unmarshal(raw, &value); err != nil {
 		return nil, err
 	}
-
 	var trim func(any) any
-	trim = func(v any) any {
-		switch x := v.(type) {
+	trim = func(value any) any {
+		switch v := value.(type) {
 		case map[string]any:
-			result := map[string]any{}
-			for key, item := range x {
-				lower := strings.ToLower(key)
-				if strings.Contains(lower, "yaml") || strings.Contains(lower, "script") || lower == "content" || lower == "dockerfile" ||
-					lower == "build_steps" {
-					continue
+			result := make(map[string]any)
+			for key, item := range v {
+				if !exclude(key) {
+					result[key] = trim(item)
 				}
-
-				result[key] = trim(item)
 			}
 			return result
 		case []any:
-			result := []any{}
-			for _, item := range x {
+			if limit > 0 && len(v) > limit {
+				v = v[:limit]
+			}
+			result := make([]any, 0, len(v))
+			for _, item := range v {
 				result = append(result, trim(item))
 			}
 			return result
 		default:
-			return v
+			if leaf != nil {
+				return leaf(value)
+			}
+			return value
 		}
 	}
-	return safeJSON(common.JSON(trim(value)))
+	return safeJSONValue(trim(value))
 }
 
 func checkNames(values ...string) error {

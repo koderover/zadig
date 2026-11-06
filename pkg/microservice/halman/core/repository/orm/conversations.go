@@ -34,3 +34,9 @@ func cancelWaitingSkills(ctx context.Context, tx *gorm.DB, user, conversation st
 		Error
 	return err
 }
+
+// 调用方决定如何映射查询错误，锁条件与事务中的加锁顺序保持一致。
+func lockActiveConversation(tx *gorm.DB, user, id string) error {
+	var found string
+	return tx.Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", id, user).Row().Scan(&found)
+}

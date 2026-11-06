@@ -19,6 +19,7 @@ func (c AIAssistantConfig) Validate() error {
 // AIAssistantRuntime 由配置数据库加载，仅在进程内使用，不得持久化或返回给聊天用户。
 type AIAssistantRuntime struct {
 	AIAssistantConfig
+	Language   string `json:"-"`
 	Protocol   string `json:"protocol"`
 	Provider   string `json:"provider"`
 	Model      string `json:"model"`
