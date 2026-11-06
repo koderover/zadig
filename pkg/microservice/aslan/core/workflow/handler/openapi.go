@@ -318,6 +318,67 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowV4(workflowName, projectName, ctx.Logger)
 }
 
+// @Summary Replace the delta patches of a template bound workflow
+// @Description Replace the complete delta set of a template bound workflow. Instance fields are kept by the server; the template identity and version are maintained by the server.
+// @Description The complete delta must apply to the current base version. The template identity, base version and snapshot ID remain unchanged.
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "Workflow key"
+// @Param projectKey query string true "Project key the workflow belongs to"
+// @Param body body workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq true "Complete delta set; null or missing is rejected, [] clears all deltas"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/workflows/custom/{name}/template-binding [put]
+func OpenAPIUpdateWorkflowTemplateBinding(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workflowName := c.Param("name")
+	projectKey := c.Query("projectKey")
+	if workflowName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		return
+	}
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
+		return
+	}
+
+	req := new(workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if req.DeltaPatches == nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("delta_patches is required")
+		return
+	}
+
+	w, err := workflowservice.FindWorkflowV4RawByProject(projectKey, workflowName, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !authorizeWorkflowTemplateBindingEditOn(ctx, w) {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// delta values may contain credentials, so the request body is not recorded
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"更新", "工作流模板绑定", w.Name, w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	ctx.RespErr = workflowservice.OpenAPIUpdateWorkflowTemplateBinding(w, ctx.UserName, req.DeltaPatches, ctx.Logger)
+}
+
 func OpenAPIGetWorkflowV4List(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
