@@ -38,9 +38,11 @@ func TestStartStreamSubscribesBeforeModelAndSurvivesRequestDisconnect(t *testing
 	mock.ExpectExec("UPDATE ai_conversation SET last_active_at").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	cfg := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{Enabled: true, HistoryRetentionDays: 90, LLMIntegrationID: "selected"}, Protocol: "openai", BaseURL: "http://model.test/v1", Model: "test", Token: "model-secret"}
+	cfg := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{Enabled: true, HistoryRetentionDays: 90, LLMIntegrationID: "selected"}, Protocol: "openai", BaseURL: "http://model.test/v1", Model: "test", Token: "model-secret", Language: "en-us"}
 	platform := testPlatform(t, func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("{}")) })
-	platform.LoadRuntime = func(context.Context) (*types.AIAssistantRuntime, error) { return cfg, nil }
+	current := *cfg
+	current.Language = "zh-cn"
+	platform.LoadRuntime = func(context.Context) (*types.AIAssistantRuntime, error) { return &current, nil }
 	s := &AgentService{Store: store, Platform: platform, Sessions: inmemory.NewSessionService(), Context: context.Background(), maxConcurrentRuns: 1, active: make(map[string]*activeRun)}
 	t.Cleanup(func() { s.Close() })
 
@@ -50,6 +52,10 @@ func TestStartStreamSubscribesBeforeModelAndSurvivesRequestDisconnect(t *testing
 	defer close(proceed)
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
 		return &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			payload, err := io.ReadAll(r.Body)
+			if err != nil || !strings.Contains(string(payload), "system language for this generation is English") {
+				t.Error("系统语言中途变化不能改变本次生成的英文语言快照")
+			}
 			s.mu.Lock()
 			for _, active := range s.active {
 				if len(active.subscribers) != 1 {

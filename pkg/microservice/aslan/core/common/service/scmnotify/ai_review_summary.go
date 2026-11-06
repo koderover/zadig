@@ -7,6 +7,7 @@ import (
 
 	githubapi "github.com/google/go-github/v35/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -75,7 +76,7 @@ func archiveGitHubAIReviewSummaries(ctx context.Context, cli *githubapi.Client, 
 	return nil
 }
 
-func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, project string, pr int, currentID int64, authorID int) error {
+func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, project string, pr int, currentID int64, authorID int, locale string) error {
 	opts := &gitlab.ListMergeRequestNotesOptions{OrderBy: gitlab.String("created_at"), Sort: gitlab.String("asc"), ListOptions: gitlab.ListOptions{PerPage: 100}}
 	for {
 		notes, resp, err := cli.Notes.ListMergeRequestNotes(project, pr, opts, gitlab.WithContext(ctx))
@@ -86,7 +87,7 @@ func archiveGitLabAIReviewSummaries(ctx context.Context, cli *gitlab.Client, pro
 			if note == nil || note.ID <= 0 || int64(note.ID) >= currentID || note.Author.ID != authorID || note.System || note.Position != nil || note.Type == "DiffNote" || !isAIReviewSummary(note.Body) {
 				continue
 			}
-			body := "<details>\n<summary>点击展开 Zadig AI Review 详情</summary>\n\n" + note.Body + "\n\n</details>"
+			body := language.Normalize(locale).Text("<details>\n<summary>点击展开 Zadig AI Review 详情</summary>\n\n", "<details>\n<summary>Expand Zadig AI Review details</summary>\n\n") + note.Body + "\n\n</details>"
 			if _, _, err := cli.Notes.UpdateMergeRequestNote(project, pr, note.ID, &gitlab.UpdateMergeRequestNoteOptions{Body: &body}, gitlab.WithContext(ctx)); err != nil {
 				return fmt.Errorf("collapse GitLab summary note %d: %w", note.ID, err)
 			}

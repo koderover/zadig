@@ -217,7 +217,7 @@ func TestWorkflowAndEnvironmentRejectMismatchedTargets(t *testing.T) {
 			w.Write([]byte(`{"product_name":"demo","env_name":"dev","production":true}`))
 		}
 	})
-	if _, err := p.workflowTask(context.Background(), "Bearer user", models.WorkflowTarget{ProjectKey: "demo", WorkflowName: "build", TaskID: 8}, false); err == nil {
+	if _, err := p.workflowTask(context.Background(), "Bearer user", models.WorkflowTarget{ProjectKey: "demo", WorkflowName: "build", TaskID: 8}); err == nil {
 		t.Fatal("不能信任与项目不匹配的任务")
 	}
 

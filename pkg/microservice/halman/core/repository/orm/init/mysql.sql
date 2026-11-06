@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS ai_usage_daily (
     date DATE NOT NULL,
     user_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
     skill_id VARCHAR(64) CHARACTER SET ascii NOT NULL DEFAULT '',
+    model_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
+    model_name VARCHAR(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '',
     run_count BIGINT NOT NULL DEFAULT 0,
     completed_count BIGINT NOT NULL DEFAULT 0,
     terminal_count BIGINT NOT NULL DEFAULT 0,
@@ -89,5 +91,5 @@ CREATE TABLE IF NOT EXISTS ai_usage_daily (
     completed_elapsed_ms BIGINT NOT NULL DEFAULT 0,
     positive_count BIGINT NOT NULL DEFAULT 0,
     negative_count BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (date, user_id, skill_id)
+    PRIMARY KEY (date, user_id, skill_id, model_id, model_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

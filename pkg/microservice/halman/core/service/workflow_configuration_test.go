@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -12,7 +13,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
-func TestWorkflowConfigurationUsesExistingTaskEndpointAndReachesModelEvidence(t *testing.T) {
+func TestWorkflowDiagnosisUsesOriginalTaskDetails(t *testing.T) {
 	store, mock := mockStore(t)
 	e := reportExecution("workflow_diagnosis")
 	e.RootID = e.Run.ID
@@ -20,14 +21,14 @@ func TestWorkflowConfigurationUsesExistingTaskEndpointAndReachesModelEvidence(t 
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/workflow/v4/workflowtask/workflow/wf/task/128":
-			if r.URL.Query().Get("include_configuration") != "true" || r.URL.Query().Get("job_name") != "build-api" {
-				t.Fatal("诊断应通过原任务接口请求指定步骤的执行快照")
+			if r.URL.RawQuery != "" {
+				t.Fatal("原任务详情接口不应增加查询参数")
 			}
-			w.Write([]byte(`{"project_key":"p","workflow_key":"wf","task_id":128,"status":"failed","stages":[{"name":"build","jobs":[{"name":"build-api","type":"zadig-build","status":"failed"}]}],"configuration":{"source":"workflow_task.stages.jobs.spec","task_id":128,"jobs":[{"name":"build-api","spec":{"branch":"release/v1","note":"token=hidden-secret"}}]}}`))
+			w.Write([]byte(`{"project_key":"p","workflow_key":"wf","task_id":128,"create_time":1700000000,"status":"failed","stages":[{"name":"build","jobs":[{"name":"build-api","type":"zadig-build","status":"failed","spec":{"repos":[{"repo_name":"api","branch":"release/v1","commit_id":"commit-old","oauth_token":"hidden-secret"}],"envs":[{"key":"TOKEN","value":"hidden-secret"}],"script":"hidden-script"}}]}]}`))
 		case "/api/logs/log/v4/workflow/wf/tasks/128/jobs/build-api":
 			w.Write([]byte(`{"text":"build failed"}`))
 		default:
-			t.Fatalf("不能查询当前工作流、构建模板或环境替代历史配置: %s", r.URL)
+			t.Fatalf("不能读取当前配置替代历史，也不应增加其他请求: %s", r.URL)
 		}
 	})
 	mock.ExpectBegin()
@@ -38,37 +39,82 @@ func TestWorkflowConfigurationUsesExistingTaskEndpointAndReachesModelEvidence(t 
 	s := &AgentService{Store: store, Platform: platform}
 	value, err := s.diagnoseWorkflow(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowTarget{JobName: "build-api"})
 	raw := string(common.JSON(value))
-	if err != nil || !e.EvidenceRead.Load() || !strings.Contains(raw, "release/v1") || strings.Contains(raw, "hidden-secret") {
-		t.Fatalf("模型应取得历史配置及日志，并再次脱敏: %s %v", raw, err)
+	if err != nil || !e.EvidenceRead.Load() || !strings.Contains(raw, "release/v1") || !strings.Contains(raw, "commit-old") || !strings.Contains(raw, "1700000000") || strings.Contains(raw, "hidden-") {
+		t.Fatalf("应从原任务详情中提取分支、提交及时间，不能传递凭据和脚本: %s %v", raw, err)
 	}
 }
 
-func TestWorkflowConfigurationAuthorizationDoesNotRequestSnapshotAndOversizeIsBounded(t *testing.T) {
-	include := false
-	absent := false
+func TestWorkflowJobSpecWhitelistAndLimits(t *testing.T) {
+	for _, tc := range []struct {
+		name, input string
+		expected    []string
+	}{
+		{"构建", `{"repos":[{"repo_owner":"team","repo_name":"api","branch":"release/v1","commit_id":"commit-old","oauth_token":"hidden-token","password":"hidden-password"}],"image":"api:v1","envs":[{"key":"TOKEN","value":"hidden-value"}],"steps":[{"type":"shell","script":"hidden-script"}]}`, []string{"release/v1", "commit-old", "api:v1"}},
+		{"部署", `{"env":"dev","production":true,"env_alias":"current-alias","service_and_images":[{"service_name":"api","service_module":"main","image":"api:v1","password":"hidden-password"}],"yaml_content":"hidden-yaml","variable_kvs":[{"key":"token","value":"hidden-value"}]}`, []string{"dev", "api:v1"}},
+		{"Helm", `{"env":"prod","production":true,"deploy_helm_charts":[{"release_name":"api","chart_name":"app","chart_version":"1.2.3","values_yaml":"hidden-values","override_kvs":"hidden-overrides"}]}`, []string{"prod", "1.2.3"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			spec, note := workflowJobSpec(json.RawMessage(tc.input))
+			if note != "" {
+				t.Fatal(note)
+			}
+			for _, expected := range tc.expected {
+				if !strings.Contains(string(spec), expected) {
+					t.Fatalf("未保留原接口已有信息 %s: %s", expected, spec)
+				}
+			}
+			for _, excluded := range []string{"hidden-", "production", "env_alias", "current-alias", "yaml", "script", "envs", "oauth_token", "password"} {
+				if strings.Contains(string(spec), excluded) {
+					t.Fatalf("不可传递凭据、配置正文及当前环境补充属性: %s", spec)
+				}
+			}
+		})
+	}
+	for _, raw := range []json.RawMessage{nil, json.RawMessage(`null`), json.RawMessage(`{}`), json.RawMessage(`{"unknown":"hidden-value"}`), json.RawMessage(`[]`), common.JSON(map[string]string{"image": strings.Repeat("x", 9<<10)})} {
+		if spec, note := workflowJobSpec(raw); len(spec) != 0 || note == "" {
+			t.Fatalf("缺失、不支持或超大配置应明确说明，不能编造默认值: %s %s", spec, note)
+		}
+	}
+	repos := make([]map[string]string, 21)
+	for i := range repos {
+		repos[i] = map[string]string{"repo_name": fmt.Sprintf("repo-%d", i)}
+	}
+	spec, note := workflowJobSpec(common.JSON(map[string]any{"repos": repos}))
+	var result struct{ Repos []any }
+	if json.Unmarshal(spec, &result) != nil || len(result.Repos) != 20 || note == "" {
+		t.Fatalf("列表截断应明确说明: %s %s", spec, note)
+	}
+	spec, _ = workflowJobSpec(json.RawMessage(`{"image":"https://u:hidden-password@example.com/api:v1"}`))
+	if strings.Contains(string(spec), "hidden-password") {
+		t.Fatalf("白名单字段仍应脱敏: %s", spec)
+	}
+}
+
+func TestWorkflowTaskOnlyKeepsSelectedJobDetails(t *testing.T) {
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if (r.URL.Query().Get("include_configuration") == "true") != include {
-			t.Fatal("仅诊断需要配置，权限校验不额外读取快照")
+		if r.URL.RawQuery != "" {
+			t.Fatal("步骤筛选仅在 halman 内进行，不增加原接口参数")
 		}
-		reply := map[string]any{"project_key": "p", "workflow_key": "wf", "task_id": 128}
-		if !absent {
-			reply["configuration"] = map[string]string{"payload": strings.Repeat("x", 33<<10)}
+		jobs := []map[string]any{}
+		for i := 0; i < 5; i++ {
+			jobs = append(jobs, map[string]any{"name": fmt.Sprintf("job-%d", i), "status": "failed", "spec": map[string]string{"image": "api:v1"}})
 		}
-		w.Write(common.JSON(reply))
+		jobs = append(jobs, map[string]any{"name": "successful", "status": "passed", "spec": map[string]string{"image": "unselected"}})
+		w.Write(common.JSON(map[string]any{"project_key": "p", "workflow_key": "wf", "task_id": 128, "stages": []any{map[string]any{"name": "build", "jobs": jobs}}}))
 	})
-	target := models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128}
-	value, err := platform.workflowTask(context.Background(), token("user"), target, false)
-	if err != nil || value.Configuration != nil {
-		t.Fatalf("权限检查不应保留配置内容: %+v %v", value, err)
-	}
-	include = true
-	value, err = platform.workflowTask(context.Background(), token("user"), target, true)
-	if err != nil || len(value.Configuration) > 32<<10 || !json.Valid(value.Configuration) || !strings.Contains(string(value.Configuration), "unavailable") {
-		t.Fatalf("超大配置不能进入模型，应保留可解释的缺失说明: %+v %v", value, err)
-	}
-	absent = true
-	value, err = platform.workflowTask(context.Background(), token("user"), target, true)
-	if err != nil || !strings.Contains(string(value.Configuration), "未返回") {
-		t.Fatalf("旧接口或缺失快照须明确降级，不能拿当前配置补齐: %+v %v", value, err)
+	for _, name := range []string{"", "job-4"} {
+		evidence, err := platform.workflowTask(context.Background(), token("user"), models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128, JobName: name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, job := range evidence.Stages[0].Jobs {
+			selected := name == "" && i < 3 || name == job.Name
+			if (len(job.Spec) != 0) != selected {
+				t.Fatalf("仅选中步骤可返回有限信息: %s %+v", name, job)
+			}
+			if name == "" && i >= 3 && i < 5 && job.SpecNote == "" {
+				t.Fatal("超过默认窗口时须提示可指定步骤继续查询")
+			}
+		}
 	}
 }

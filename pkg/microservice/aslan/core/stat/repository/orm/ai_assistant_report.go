@@ -69,8 +69,50 @@ func (s *AIAssistantStatsStore) Report(ctx context.Context, kind string, from, t
 			item.AdoptionRate = &rate
 		}
 
+		item.TotalTokens = item.InputTokens + item.OutputTokens
+		item.ModelUsage = []models.AIAssistantStatsModelUsage{}
 		items = append(items, item)
 	}
 
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// 仅加载报告实际返回的分组，避免为用户排行读取全部用户的模型明细。
+	keys := []string{}
+	indices := make(map[string]int, len(items))
+	for i, item := range items {
+		indices[item.Key] = i
+		if item.InputTokens != 0 || item.OutputTokens != 0 {
+			keys = append(keys, item.Key)
+		}
+	}
+	if len(keys) == 0 || kind == "skill_details" {
+		return items, nil
+	}
+	// Token 总数与模型明细使用同一次查询结果，避免并发写入时总量与明细不一致。
+	for _, key := range keys {
+		item := &items[indices[key]]
+		item.InputTokens, item.OutputTokens, item.TotalTokens = 0, 0, 0
+	}
+	modelRows, err := s.DB.WithContext(ctx).Raw("SELECT "+group+" AS group_key,model_id,model_name,SUM(input_tokens),SUM(output_tokens) FROM ai_usage_daily"+join+" WHERE date>=? AND date<=?"+extra+" AND (input_tokens<>0 OR output_tokens<>0) AND "+group+" IN (?) GROUP BY group_key,model_id,model_name ORDER BY group_key,model_id,model_name", from.Format("2006-01-02"), to.Format("2006-01-02"), keys).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer modelRows.Close()
+	for modelRows.Next() {
+		var key string
+		var usage models.AIAssistantStatsModelUsage
+		if err := modelRows.Scan(&key, &usage.ModelID, &usage.Model, &usage.InputTokens, &usage.OutputTokens); err != nil {
+			return nil, err
+		}
+		usage.TotalTokens = usage.InputTokens + usage.OutputTokens
+		if i, ok := indices[key]; ok {
+			items[i].ModelUsage = append(items[i].ModelUsage, usage)
+			items[i].InputTokens += usage.InputTokens
+			items[i].OutputTokens += usage.OutputTokens
+			items[i].TotalTokens += usage.TotalTokens
+		}
+	}
+	return items, modelRows.Err()
 }

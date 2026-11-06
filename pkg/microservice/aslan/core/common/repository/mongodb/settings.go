@@ -313,7 +313,6 @@ func (c *SystemSettingColl) GetAIReviewConfig() (*models.AIReviewConfig, error) 
 				LLMIntegrationID: "",
 				IncludePaths:     []string{},
 				ExcludePaths:     []string{},
-				OutputLanguage:   "",
 				Rules:            []*models.ReviewRule{},
 			}, nil
 		}
@@ -325,7 +324,6 @@ func (c *SystemSettingColl) GetAIReviewConfig() (*models.AIReviewConfig, error) 
 			LLMIntegrationID: "",
 			IncludePaths:     []string{},
 			ExcludePaths:     []string{},
-			OutputLanguage:   "",
 			Rules:            []*models.ReviewRule{},
 		}, nil
 	}
@@ -358,6 +356,14 @@ func (c *SystemSettingColl) UpdateWorkflowTaskListRefreshInterval(interval int64
 }
 
 func (c *SystemSettingColl) GetAIAssistantConfig(ctx context.Context) (*types.AIAssistantConfig, error) {
+	settings, err := c.getAIAssistantSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return settings.AIAssistantConfig, nil
+}
+
+func (c *SystemSettingColl) getAIAssistantSettings(ctx context.Context) (*models.SystemSetting, error) {
 	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	if err != nil {
 		return nil, err
@@ -367,12 +373,12 @@ func (c *SystemSettingColl) GetAIAssistantConfig(ctx context.Context) (*types.AI
 		return nil, err
 	}
 	if settings.AIAssistantConfig == nil {
-		return &types.AIAssistantConfig{HistoryRetentionDays: 90}, nil
+		settings.AIAssistantConfig = &types.AIAssistantConfig{HistoryRetentionDays: 90}
 	}
 	if settings.AIAssistantConfig.HistoryRetentionDays == 0 {
 		settings.AIAssistantConfig.HistoryRetentionDays = 90
 	}
-	return settings.AIAssistantConfig, nil
+	return &settings, nil
 }
 
 func (c *SystemSettingColl) UpdateAIAssistantConfig(ctx context.Context, config *types.AIAssistantConfig) error {

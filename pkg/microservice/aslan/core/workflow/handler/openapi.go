@@ -249,7 +249,7 @@ func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowTaskV4(args.WorkflowName, args.TaskID, false, "", ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowTaskV4(args.WorkflowName, args.TaskID, ctx.Logger)
 }
 
 func OpenAPICancelWorkflowTaskV4(c *gin.Context) {

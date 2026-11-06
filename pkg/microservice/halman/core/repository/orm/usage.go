@@ -23,6 +23,7 @@ func skillTerminal(status string) bool {
 	return status == "succeeded" || status == "failed" || status == "cancelled" || status == "interrupted"
 }
 
+// 任务与反馈写入空模型维度，模型调用单独分组，避免修正任务贡献时重复修改模型行。
 // 根执行只贡献一次完成数；补问和重试替换原终态贡献，模型调用量另行累计。
 func (s *Store) updateSkillUsage(ctx context.Context, tx *gorm.DB, user, root, status string, elapsed int64) error {
 	var skill string
@@ -51,29 +52,16 @@ func (s *Store) updateSkillUsage(ctx context.Context, tx *gorm.DB, user, root, s
 
 	next := previous
 	next.ActiveMS += elapsed
+	updateCompletedElapsed := false
 	if status == "" {
 		status = current.String
-		if previous.Completed > 0 {
-			next.CompletedElapsedMS = next.ActiveMS
-			if delta := next.CompletedElapsedMS - previous.CompletedElapsedMS; delta != 0 {
-				if err := tx.WithContext(ctx).Exec(
-					"UPDATE ai_usage_daily SET completed_elapsed_ms=completed_elapsed_ms+? WHERE date=? AND user_id=? AND skill_id=?",
-					delta,
-					next.Date,
-					user,
-					skill,
-				).
-					Error; err != nil {
-					return err
-				}
-			}
-		}
+		updateCompletedElapsed = previous.Completed > 0
 	} else if current.String != "succeeded" {
 		if previous.Terminal > 0 || previous.Completed > 0 {
 			if err := tx.WithContext(ctx).Exec(
 				"UPDATE ai_usage_daily"+
 					" SET terminal_count=terminal_count-?,completed_count=completed_count-?,"+
-					"completed_elapsed_ms=completed_elapsed_ms-? WHERE date=? AND user_id=? AND skill_id=?",
+					"completed_elapsed_ms=completed_elapsed_ms-? WHERE date=? AND user_id=? AND skill_id=? AND model_id='' AND model_name=''",
 				previous.Terminal,
 				previous.Completed,
 				previous.CompletedElapsedMS,
@@ -115,10 +103,13 @@ func (s *Store) updateSkillUsage(ctx context.Context, tx *gorm.DB, user, root, s
 		}
 	} else {
 		status = "succeeded"
+		updateCompletedElapsed = true
+	}
+	if updateCompletedElapsed {
 		next.CompletedElapsedMS = next.ActiveMS
 		if delta := next.CompletedElapsedMS - previous.CompletedElapsedMS; delta != 0 {
 			if err := tx.WithContext(ctx).Exec(
-				"UPDATE ai_usage_daily SET completed_elapsed_ms=completed_elapsed_ms+? WHERE date=? AND user_id=? AND skill_id=?",
+				"UPDATE ai_usage_daily SET completed_elapsed_ms=completed_elapsed_ms+? WHERE date=? AND user_id=? AND skill_id=? AND model_id='' AND model_name=''",
 				delta,
 				next.Date,
 				user,

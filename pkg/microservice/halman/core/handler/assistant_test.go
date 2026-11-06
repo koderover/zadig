@@ -142,7 +142,7 @@ func TestAssistantAGUIErrorsKeepBusinessCodes(t *testing.T) {
 		{e.NewWithDesc(e.ErrUnauthorized, "登录态已失效"), 401},
 		{errors.New("private model credentials"), 7213},
 	} {
-		raw, err := json.Marshal(aguiError(input.data))
+		raw, err := json.Marshal(aguiError(input.data, ""))
 		if err != nil {
 			t.Fatal(err)
 		}
