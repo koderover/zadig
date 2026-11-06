@@ -12,6 +12,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
 func (s *AgentService) Confirm(ctx context.Context, user, authorization, id string, version int, cutoff time.Time) (*models.Run, error) {
@@ -53,6 +54,7 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 		return nil, err
 	}
 
+	e.Language = language.Normalize(cfg.Language)
 	if !cfg.Enabled {
 		return nil, common.ErrAIDisabled
 	}
@@ -114,18 +116,14 @@ func planAccepted(r *models.Run) bool {
 func (s *AgentService) verifyPlan(ctx context.Context, e *execution, plan models.OperationPlan) error {
 	ctx = withReadPhase(ctx)
 	for _, item := range plan.Items {
-		var id, expected, kind string
+		var id, expected, source string
 		switch item.Action {
 		case "create_service":
 			var args models.ServiceInput
 			if err := json.Unmarshal(item.Params, &args); err != nil {
 				return err
 			}
-			id, expected = args.TemplateID, args.TemplateFingerprint
-			kind = "yaml_template"
-			if args.Source == "helm_template" {
-				kind = "helm_template"
-			}
+			id, expected, source = args.TemplateID, args.TemplateFingerprint, args.Source
 		case "restart_service", "rollback_environment":
 			var args models.RepairInput
 			if err := json.Unmarshal(item.Params, &args); err != nil {
@@ -139,17 +137,12 @@ func (s *AgentService) verifyPlan(ctx context.Context, e *execution, plan models
 			if err := json.Unmarshal(item.Params, &args); err != nil {
 				return err
 			}
-			id, expected, kind = args.TemplateID, args.TemplateFingerprint, "build_template"
+			id, expected, source = args.TemplateID, args.TemplateFingerprint, "build_template"
 		}
 
 		if id != "" {
-			raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: kind, ProjectKey: item.ProjectKey, ID: id})
-			if err != nil {
+			if _, err := s.readTemplate(ctx, e, item.ProjectKey, source, id, &expected); err != nil {
 				return err
-			}
-
-			if fingerprint(raw) != expected {
-				return fmt.Errorf("模板已变化，请重新生成清单")
 			}
 		}
 	}
@@ -182,10 +175,10 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 
 		if ctx.Err() != nil {
 			item.Status = "cancelled"
-			item.Error = "未提交的动作已停止"
+			item.Error = e.text("未提交的动作已停止", "Unsubmitted operations have been stopped")
 		} else if !dependenciesReady(item, statuses) {
 			item.Status = "blocked"
-			item.Error = "前置动作未成功，不提交当前动作"
+			item.Error = e.text("前置动作未成功，不提交当前动作", "A prerequisite did not succeed; this operation was not submitted")
 		} else {
 			cfg, err := s.Platform.Runtime(ctx)
 			if err == nil && !cfg.Enabled {
@@ -213,10 +206,10 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 
 			if err == nil {
 				item.Status = "succeeded"
-				item.Result = common.JSON(map[string]string{"message": "已完成；详细资源请在 Zadig 页面查看"})
+				item.Result = common.JSON(map[string]string{"message": e.text("已完成；详细资源请在 Zadig 页面查看", "Completed; view resource details in Zadig")})
 			} else {
 				item.Status = operationFailureStatus(err, submitted)
-				item.Error = planError(err)
+				item.Error = planError(err, e.Language)
 			}
 		}
 
@@ -230,7 +223,7 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 		err := s.Store.SaveOperation(finishCtx, e.User, e.Run.ID, i, item)
 		finishCancel()
 		if err != nil {
-			s.publish(e.Run.ID, StreamEvent{Type: "error", Data: "动作结果保存失败，停止后续操作；请核实已提交资源"})
+			s.publish(e.Run.ID, StreamEvent{Type: "error", Data: e.text("动作结果保存失败，停止后续操作；请核实已提交资源", "Failed to save an operation result. Remaining operations stopped; verify submitted resources")})
 			recoveryCtx, recoveryCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			_ = s.Store.FinishPlan(recoveryCtx, e.User, e.Run, e.RootID, "unknown", time.Since(started).Milliseconds())
 			recoveryCancel()
@@ -244,7 +237,7 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 	finishCtx, finishCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer finishCancel()
 	if err := s.Store.FinishPlan(finishCtx, e.User, e.Run, e.RootID, overall, time.Since(started).Milliseconds()); err != nil {
-		s.publish(e.Run.ID, StreamEvent{Type: "error", Data: "计划结果保存失败，请核实资源状态"})
+		s.publish(e.Run.ID, StreamEvent{Type: "error", Data: e.text("计划结果保存失败，请核实资源状态", "Failed to save the plan result; verify resource status")})
 	}
 }
 

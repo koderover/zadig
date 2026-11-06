@@ -54,7 +54,7 @@ func TestGenerateTitleBoundsAndFallback(t *testing.T) {
 	} {
 		t.Run(input.name, func(t *testing.T) {
 			m := &titleModel{text: input.text, err: input.err}
-			title, in, out := generateTitle(context.Background(), m, strings.Repeat("中", 2500)+" password=private-value")
+			title, in, out := generateTitle(context.Background(), m, strings.Repeat("中", 2500)+" password=private-value", "")
 			if title != input.want || !utf8.ValidString(title) {
 				t.Fatalf("标题不符: %q", title)
 			}
@@ -67,7 +67,7 @@ func TestGenerateTitleBoundsAndFallback(t *testing.T) {
 		})
 	}
 	m := &titleModel{text: "数据库连接 password=private-value"}
-	title, _, _ := generateTitle(context.Background(), m, "password=private-value")
+	title, _, _ := generateTitle(context.Background(), m, "password=private-value", "")
 	if strings.Contains(title, "private-value") || strings.Contains(m.request.Messages[1].Content, "private-value") {
 		t.Fatal("标题输入输出必须沿用凭据脱敏")
 	}
@@ -124,7 +124,7 @@ func TestExecuteGeneratesTitleAndIncludesUsageWithoutExtraRun(t *testing.T) {
 			mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("conversation", "user").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
 			mock.ExpectQuery("SELECT status FROM ai_run .*FOR UPDATE").WithArgs("run").WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("running"))
 			mock.ExpectExec("UPDATE ai_run SET status").WithArgs("succeeded", "", sqlmock.AnyArg(), in, out, sqlmock.AnyArg(), true, "run").WillReturnResult(sqlmock.NewResult(0, 1))
-			mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "user", "", in, out, sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "user", "", in, out, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectExec("UPDATE ai_conversation SET last_active_at").WithArgs(sqlmock.AnyArg(), "conversation").WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 			updates := make(chan StreamEvent, 4)

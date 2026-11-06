@@ -155,7 +155,7 @@ func TestFinishRespectsCancellationAndCountsOnce(t *testing.T) {
 		AddRow("cancelling"))
 	mock.ExpectExec("UPDATE ai_run SET status").WithArgs("cancelled", "运行已取消", sqlmock.AnyArg(), 12, 5, sqlmock.AnyArg(), false, "run-1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "user-1", "", 12, 5, sqlmock.AnyArg()).
+	mock.ExpectExec("INSERT INTO ai_usage_daily .*SELECT .*model_id,model_name,1,.*FROM ai_run WHERE id").WithArgs(sqlmock.AnyArg(), "user-1", "", 12, 5, sqlmock.AnyArg(), r.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_conversation SET last_active_at").WithArgs(sqlmock.AnyArg(), "conversation-1").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -232,7 +232,7 @@ func TestSkillSuccessDoesNotCountAgain(t *testing.T) {
 	}
 	mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WithArgs("root", "user").WillReturnRows(sqlmock.NewRows([]string{"skill", "status", "usage"}).
 		AddRow("project_onboarding", "succeeded", []byte(common.JSON(previous))))
-	mock.ExpectExec("UPDATE ai_usage_daily SET completed_elapsed_ms").WithArgs(int64(20), "2026-10-28", "user", "project_onboarding").
+	mock.ExpectExec("UPDATE ai_usage_daily SET completed_elapsed_ms.*AND model_id='' AND model_name=''").WithArgs(int64(20), "2026-10-28", "user", "project_onboarding").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_run SET skill_status").WithArgs("succeeded", sqlmock.AnyArg(), "root").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -382,7 +382,7 @@ func TestFinishRegeneratedRunDoesNotChangeSkillOutcome(t *testing.T) {
 	mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WithArgs(root, "user").WillReturnRows(sqlmock.NewRows([]string{"skill", "status", "contribution"}).AddRow(r.SkillID, "pending_confirmation", nil))
 	mock.ExpectExec("UPDATE ai_run SET skill_status=.*usage_contribution=").WithArgs("pending_confirmation", sqlmock.AnyArg(), root).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_run SET status=").WithArgs("succeeded", "", sqlmock.AnyArg(), 10, 2, sqlmock.AnyArg(), true, r.ID).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("INSERT INTO ai_usage_daily .*run_count,input_tokens").WithArgs(sqlmock.AnyArg(), "user", r.SkillID, 10, 2, sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("INSERT INTO ai_usage_daily .*run_count,input_tokens").WithArgs(sqlmock.AnyArg(), "user", r.SkillID, 10, 2, sqlmock.AnyArg(), r.ID).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_conversation SET last_active_at=").WithArgs(sqlmock.AnyArg(), "conversation").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	if err := store.FinishRun(context.Background(), "user", r, "succeeded", "", 10, 2); err != nil {

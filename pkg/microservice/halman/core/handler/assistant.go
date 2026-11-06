@@ -12,6 +12,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -46,11 +47,12 @@ func (a *API) authenticate(c *gin.Context) {
 	}
 	cfg, err := a.Agent.Platform.Runtime(c.Request.Context())
 	if err != nil {
-		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, "运行配置读取失败，请联系管理员"))
+		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, responseLanguage(c).Text("运行配置读取失败，请联系管理员", "Failed to load runtime configuration; contact the administrator")))
 		return
 	}
 
 	c.Set("halman.config", cfg)
+	c.Request = c.Request.WithContext(language.WithContext(c.Request.Context(), cfg.Language))
 }
 
 func requestConfig(c *gin.Context) *types.AIAssistantRuntime {
@@ -72,16 +74,17 @@ func cutoff(c *gin.Context) time.Time {
 func respondError(c *gin.Context, err error) {
 	var httpError *e.HTTPError
 	if errors.As(err, &httpError) {
-		c.AbortWithStatusJSON(e.ErrorMessage(httpError))
+		respondHTTPError(c, httpError)
 		return
 	}
-	template, description := e.ErrAIAssistantRequest, "请稍后重试"
+	lang := responseLanguage(c)
+	template, description := e.ErrAIAssistantRequest, lang.Text("请稍后重试", "Please try again later")
 	var platform *service.PlatformError
 	switch {
 	case errors.Is(err, common.ErrAIDisabled):
-		template, description = e.ErrAIAssistantDisabled, common.ErrAIDisabled.Error()
+		template, description = e.ErrAIAssistantDisabled, lang.Text(common.ErrAIDisabled.Error(), "The administrator has disabled the AI assistant")
 	case errors.As(err, &platform):
-		template, description = e.ErrAIAssistantUpstream, platform.Error()
+		template, description = e.ErrAIAssistantUpstream, platform.UserMessage(string(lang))
 		if platform.Status == http.StatusUnauthorized || platform.Status == http.StatusForbidden {
 			template = e.ErrForbidden
 		}
@@ -89,19 +92,19 @@ func respondError(c *gin.Context, err error) {
 			template = e.ErrAIAssistantResultUnknown
 		}
 	case errors.Is(err, common.ErrNotFound):
-		template, description = e.ErrNotFound, common.ErrNotFound.Error()
+		template, description = e.ErrNotFound, lang.Text(common.ErrNotFound.Error(), "The conversation or run does not exist")
 	case errors.Is(err, common.ErrBusy):
-		template, description = e.ErrAIAssistantBusy, common.ErrBusy.Error()
+		template, description = e.ErrAIAssistantBusy, lang.Text(common.ErrBusy.Error(), "You have an active run; wait or cancel it before trying again")
 	case errors.Is(err, common.ErrRequestConflict):
-		template, description = e.ErrAIAssistantConflict, common.ErrRequestConflict.Error()
+		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrRequestConflict.Error(), "The request or plan state has changed")
 	case errors.Is(err, common.ErrCapacity):
-		template, description = e.ErrAIAssistantCapacity, common.ErrCapacity.Error()
+		template, description = e.ErrAIAssistantCapacity, lang.Text(common.ErrCapacity.Error(), "The assistant is busy; please try again shortly")
 	case errors.Is(err, common.ErrModelUnavailable):
-		template, description = e.ErrAIAssistantModel, common.ErrModelUnavailable.Error()
+		template, description = e.ErrAIAssistantModel, lang.Text(common.ErrModelUnavailable.Error(), "The AI assistant model is unavailable")
 	case errors.Is(err, common.ErrInvalidCursor), errors.Is(err, common.ErrInvalidRequest):
 		template, description = e.ErrInvalidParam, err.Error()
 	}
-	c.AbortWithStatusJSON(e.ErrorMessage(e.NewWithDesc(template, description)))
+	respondHTTPError(c, e.NewWithDesc(template, description).(*e.HTTPError))
 }
 
 func page(c *gin.Context, defaultLimit int) (int, bool) {
@@ -137,7 +140,7 @@ func page(c *gin.Context, defaultLimit int) (int, bool) {
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Router /api/halman/conversations [post]
 func (a *API) createConversation(c *gin.Context) {
-	item, err := a.Agent.Store.CreateConversation(c.Request.Context(), requestUser(c))
+	item, err := a.Agent.Store.CreateConversation(c.Request.Context(), requestUser(c), string(responseLanguage(c)))
 	if err != nil {
 		respondError(c, err)
 		return
@@ -447,10 +450,10 @@ func (a *API) recommendations(c *gin.Context) {
 
 	skills, err := a.Agent.Store.ListSkills(c.Request.Context())
 	if err != nil {
-		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, "读取 Skill 配置失败，请稍后重试"))
+		respondError(c, e.NewWithDesc(e.ErrAIAssistantRuntime, responseLanguage(c).Text("读取 Skill 配置失败，请稍后重试", "Failed to load Skill configuration; please try again later")))
 		return
 	}
-	items, next := service.Recommendations(page, batch, skills)
+	items, next := service.Recommendations(page, batch, skills, string(responseLanguage(c)))
 	c.JSON(http.StatusOK, gin.H{"items": items, "next_batch": next})
 }
 

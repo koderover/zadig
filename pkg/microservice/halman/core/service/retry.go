@@ -16,9 +16,10 @@ import (
 	halmanconfig "github.com/koderover/zadig/v2/pkg/microservice/halman/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
-func retryPlan(sourceID string, original models.OperationPlan) (models.OperationPlan, error) {
+func retryPlan(sourceID string, original models.OperationPlan, locale string) (models.OperationPlan, error) {
 	plan := original
 	plan.Items = append([]models.OperationItem(nil), original.Items...)
 	plan.RetryOfRunID = sourceID
@@ -41,7 +42,7 @@ func retryPlan(sourceID string, original models.OperationPlan) (models.Operation
 		return plan, fmt.Errorf("没有可重试的失败项")
 	}
 
-	plan.Notes = append(append([]string(nil), plan.Notes...), "成功项保留且不会重复执行；仅重试本清单中的失败或被阻塞项，需要再次确认")
+	plan.Notes = append(append([]string(nil), plan.Notes...), language.Normalize(locale).Text("成功项保留且不会重复执行；仅重试本清单中的失败或被阻塞项，需要再次确认", "Successful items are preserved and will not run again. Only failed or blocked items will be retried, after confirmation"))
 	return plan, nil
 }
 
@@ -89,7 +90,7 @@ func (s *AgentService) Retry(ctx context.Context, user, authorization, id, reque
 		return nil, common.ErrRequestConflict
 	}
 
-	plan, err := retryPlan(id, original)
+	plan, err := retryPlan(id, original, string(language.FromContext(ctx)))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", common.ErrRequestConflict, err)
 	}
@@ -99,6 +100,7 @@ func (s *AgentService) Retry(ctx context.Context, user, authorization, id, reque
 	}
 
 	e := &execution{
+		Language:      language.FromContext(ctx),
 		Run:           source,
 		User:          user,
 		Authorization: authorization,
@@ -162,7 +164,7 @@ func (s *AgentService) Retry(ctx context.Context, user, authorization, id, reque
 	}
 
 	if err := s.persistRetryNotice(ctx, user, r); err != nil {
-		r.Error = "清单已保存，但聊天记录保存失败，请保留运行 ID 查询；未执行业务操作"
+		r.Error = language.FromContext(ctx).Text("清单已保存，但聊天记录保存失败，请保留运行 ID 查询；未执行业务操作", "The plan was saved, but chat history could not be saved. Keep the run ID to check it later. No business operations were executed.")
 		return r, nil
 	}
 
@@ -225,7 +227,7 @@ func (s *AgentService) checkRetryConflicts(ctx context.Context, e *execution, pl
 }
 
 func (s *AgentService) persistRetryNotice(ctx context.Context, user string, r *models.Run) error {
-	e := &execution{Run: r, User: user, PersistingSnapshot: true}
+	e := &execution{Run: r, User: user, Language: language.FromContext(ctx), PersistingSnapshot: true}
 	ctx = context.WithValue(ctx, executionKey{}, e)
 	key := session.Key{AppName: halmanconfig.AppName, UserID: user, SessionID: r.ConversationID}
 	sess, err := s.Sessions.GetSession(ctx, key, session.WithEventNum(1))
@@ -241,8 +243,8 @@ func (s *AgentService) persistRetryNotice(ctx context.Context, user string, r *m
 	}
 
 	for _, message := range []model.Message{
-		model.NewUserMessage("请为原操作的失败项生成重试清单"),
-		model.NewAssistantMessage("已生成失败项重试清单，请确认后执行。成功项将保留，不会重复执行。"),
+		model.NewUserMessage(language.FromContext(ctx).Text("请为原操作的失败项生成重试清单", "Prepare a retry plan for the failed items in the original operation")),
+		model.NewAssistantMessage(language.FromContext(ctx).Text("已生成失败项重试清单，请确认后执行。成功项将保留，不会重复执行。", "A retry plan is ready for confirmation. Successful items are preserved and will not run again.")),
 	} {
 		evt := event.NewResponseEvent(common.NewID(), string(message.Role), &model.Response{Choices: []model.Choice{{Message: message}}})
 		if err := s.Sessions.AppendEvent(ctx, sess, evt); err != nil {

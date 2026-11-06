@@ -28,7 +28,7 @@ import (
 )
 
 // @Summary Get System AI review config
-// @Description Get System AI review config
+// @Description 获取 AI 代码审查配置；输出语言统一使用系统语言，不提供独立语言配置。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -48,7 +48,7 @@ func GetSystemAIReviewConfig(c *gin.Context) {
 }
 
 // @Summary Update System AI review config
-// @Description Update System AI review config
+// @Description 更新 AI 代码审查配置；输出语言统一使用系统语言，旧 output_language 参数不再生效。
 // @Tags 	system
 // @Accept 	json
 // @Produce json

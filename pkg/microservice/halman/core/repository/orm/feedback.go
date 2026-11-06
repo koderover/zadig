@@ -20,9 +20,7 @@ func (s *Store) Feedback(ctx context.Context, user string, r *models.Run, versio
 
 	defer tx.Rollback()
 	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", r.ConversationID, user).
-		Row().
-		Scan(&found); err != nil {
+	if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
 		return common.ErrNotFound
 	}
 

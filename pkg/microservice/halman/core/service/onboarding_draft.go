@@ -50,7 +50,7 @@ func mergeOnboardingDraft(base *models.OnboardingInput, patch models.OnboardingI
 	for _, name := range patch.RemoveServices {
 		found := -1
 		for i, item := range services {
-			if objectName(item) == name && name != "" {
+			if draftString(item, "name") == name && name != "" {
 				found = i
 				break
 			}
@@ -109,12 +109,6 @@ func mergeOnboardingDraft(base *models.OnboardingInput, patch models.OnboardingI
 	return result, nil
 }
 
-func objectName(item map[string]json.RawMessage) string {
-	var name string
-	json.Unmarshal(item["name"], &name)
-	return name
-}
-
 func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool) ([]map[string]json.RawMessage, error) {
 	seen := map[string]bool{}
 	used := map[int]bool{}
@@ -122,21 +116,21 @@ func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool
 		if change == nil {
 			return nil, fmt.Errorf("服务或构建条目不能为空")
 		}
-		name := objectName(change)
+		name := draftString(change, "name")
 		if name != "" && seen[name] {
 			return nil, fmt.Errorf("同批名称 %s 重复", name)
 		}
 		seen[name] = true
 		index := -1
 		for i, item := range before {
-			if name != "" && objectName(item) == name {
+			if name != "" && draftString(item, "name") == name {
 				index = i
 				break
 			}
 		}
 		if index < 0 {
 			for i, item := range before {
-				if !used[i] && objectName(item) == "" {
+				if !used[i] && draftString(item, "name") == "" {
 					index = i
 					break
 				}

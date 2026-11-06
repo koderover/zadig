@@ -21,10 +21,7 @@ func (s *Store) CreateRetryPlan(ctx context.Context, user string, source *models
 	}
 
 	defer tx.Rollback()
-	var found string
-	if err := tx.Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", source.ConversationID, user).
-		Row().
-		Scan(&found); err != nil {
+	if err := lockActiveConversation(tx, user, source.ConversationID); err != nil {
 		return nil, common.ErrNotFound
 	}
 
