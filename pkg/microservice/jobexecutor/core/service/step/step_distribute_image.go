@@ -57,6 +57,14 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
+	if s.spec.ImageConcurrencyLimit < 0 {
+		return errors.New("image distribution concurrency limit must not be negative")
+	}
+	concurrencyLimit := len(s.spec.DistributeTarget)
+	if s.spec.ImageConcurrencyLimit > 0 {
+		concurrencyLimit = min(concurrencyLimit, s.spec.ImageConcurrencyLimit)
+	}
+	semaphore := make(chan struct{}, concurrencyLimit)
 
 	wg := sync.WaitGroup{}
 	errList := new(multierror.Error)
@@ -74,9 +82,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			return err
 		}
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer func() { <-semaphore }()
 				pushCmd := dockerPullCmd(target.TargetImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pushCmd.Stdout = &out
@@ -100,9 +110,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		}
 
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer func() { <-semaphore }()
 				pullCmd := dockerPullCmd(target.SourceImage, s.spec.Architecture)
 				out := bytes.Buffer{}
 				pullCmd.Stdout = &out
@@ -136,9 +148,11 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			return err
 		}
 		for _, target := range s.spec.DistributeTarget {
+			semaphore <- struct{}{}
 			wg.Add(1)
 			go func(target *step.DistributeTaskTarget) {
 				defer wg.Done()
+				defer func() { <-semaphore }()
 				pushCmd := dockerPush(target.TargetImage)
 				out := bytes.Buffer{}
 				pushCmd.Stdout = &out
