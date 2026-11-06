@@ -589,29 +589,29 @@ func validateFrontendWorkflowDelta(base *commonmodels.WorkflowV4, patches []*com
 }
 
 func validateJobPolicies(template, rendered *commonmodels.WorkflowV4) error {
-	renderedJobs := make(map[string]*commonmodels.Job)
-	for _, stage := range rendered.Stages {
-		if stage == nil {
-			continue
-		}
-		for _, job := range stage.Jobs {
-			if job != nil {
-				renderedJobs[job.Name] = job
-			}
-		}
+	templateStages, err := indexWorkflowJobsByID(template)
+	if err != nil {
+		return fmt.Errorf("invalid workflow template: %w", err)
 	}
-
-	for _, stage := range template.Stages {
-		if stage == nil {
-			continue
+	renderedStages, err := indexWorkflowJobsByID(rendered)
+	if err != nil {
+		return fmt.Errorf("invalid template bound workflow: %w", err)
+	}
+	if len(templateStages) != len(renderedStages) {
+		return fmt.Errorf("workflow stages must be consistent with workflow template")
+	}
+	for stageID, templateJobs := range templateStages {
+		renderedJobs, ok := renderedStages[stageID]
+		if !ok {
+			return fmt.Errorf("stage id %q must be consistent with workflow template", stageID)
 		}
-		for _, templateJob := range stage.Jobs {
-			if templateJob == nil {
-				continue
-			}
-			renderedJob, ok := renderedJobs[templateJob.Name]
+		if len(templateJobs) != len(renderedJobs) {
+			return fmt.Errorf("jobs in stage %q must be consistent with workflow template", stageID)
+		}
+		for jobID, templateJob := range templateJobs {
+			renderedJob, ok := renderedJobs[jobID]
 			if !ok {
-				continue
+				return fmt.Errorf("job id %q in stage %q must be consistent with workflow template", jobID, stageID)
 			}
 			if templateJob.RunPolicy != renderedJob.RunPolicy {
 				return fmt.Errorf("job %q run_policy must be consistent with workflow template", templateJob.Name)
@@ -625,6 +625,35 @@ func validateJobPolicies(template, rendered *commonmodels.WorkflowV4) error {
 		}
 	}
 	return nil
+}
+
+func indexWorkflowJobsByID(workflow *commonmodels.WorkflowV4) (map[string]map[string]*commonmodels.Job, error) {
+	if workflow == nil {
+		return nil, fmt.Errorf("nil workflow")
+	}
+	stages := make(map[string]map[string]*commonmodels.Job)
+	jobIDs := make(map[string]struct{})
+	for stageIndex, stage := range workflow.Stages {
+		if stage == nil || stage.ID == "" {
+			return nil, fmt.Errorf("stage id is required at index %d", stageIndex)
+		}
+		if _, ok := stages[stage.ID]; ok {
+			return nil, fmt.Errorf("duplicated stage id %q", stage.ID)
+		}
+		jobs := make(map[string]*commonmodels.Job)
+		for jobIndex, job := range stage.Jobs {
+			if job == nil || job.ID == "" {
+				return nil, fmt.Errorf("job id is required in stage %q at index %d", stage.ID, jobIndex)
+			}
+			if _, ok := jobIDs[job.ID]; ok {
+				return nil, fmt.Errorf("duplicated job id %q", job.ID)
+			}
+			jobIDs[job.ID] = struct{}{}
+			jobs[job.ID] = job
+		}
+		stages[stage.ID] = jobs
+	}
+	return stages, nil
 }
 
 func validateTemplateBindingPatch(patch *commonmodels.JSONPatchOperation) error {
