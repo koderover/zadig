@@ -344,3 +344,35 @@ func TestRetryCreatesOnlyPendingPlanAndWithdrawsOldFailureContribution(t *testin
 		t.Fatalf("重试仅创建待确认清单，不执行动作、不重复计终态: %+v %v", r, err)
 	}
 }
+
+func TestSaveOperationTransactionFailuresRemainAtomic(t *testing.T) {
+	for _, stage := range []string{"begin", "read", "write", "commit"} {
+		t.Run(stage, func(t *testing.T) {
+			store, mock := mockStore(t)
+			failure := errors.New("database failure")
+			if stage == "begin" {
+				mock.ExpectBegin().WillReturnError(failure)
+			} else {
+				mock.ExpectBegin()
+				query := mock.ExpectQuery("SELECT plan FROM ai_run WHERE id=.* FOR UPDATE").WithArgs("run", "user")
+				if stage == "read" {
+					query.WillReturnError(failure)
+					mock.ExpectRollback()
+				} else {
+					query.WillReturnRows(sqlmock.NewRows([]string{"plan"}).AddRow(`{"items":[{"id":"service-api","status":"submitting"}]}`))
+					write := mock.ExpectExec("UPDATE ai_run SET plan=.*WHERE id=").WithArgs(sqlmock.AnyArg(), "run")
+					if stage == "write" {
+						write.WillReturnError(failure)
+						mock.ExpectRollback()
+					} else {
+						write.WillReturnResult(sqlmock.NewResult(0, 1))
+						mock.ExpectCommit().WillReturnError(failure)
+					}
+				}
+			}
+			if err := store.SaveOperation(context.Background(), "user", "run", 0, models.OperationItem{ID: "service-api", Status: "succeeded"}); !errors.Is(err, failure) {
+				t.Fatalf("事务 %s 失败不能报告动作已保存: %v", stage, err)
+			}
+		})
+	}
+}

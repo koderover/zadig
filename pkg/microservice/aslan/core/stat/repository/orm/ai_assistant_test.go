@@ -79,6 +79,7 @@ func TestReportOnlyReadsDailyAggregateAndLeavesUnknownRatesEmpty(t *testing.T) {
 		"users",
 	}).
 		AddRow("overview", 1, 0, 0, 10, 5, 100, 0, 0, 0, 1))
+	mock.ExpectQuery("SELECT .*model_id,model_name,SUM").WillReturnRows(sqlmock.NewRows([]string{"key", "id", "model", "in", "out"}))
 	items, err := s.Report(context.Background(), "overview", time.Now(), time.Now())
 	if err != nil || len(items) != 1 || items[0].AdoptionRate != nil || items[0].CompletionRate != nil {
 		t.Fatalf("没有反馈或终态不能伪造百分比: %+v %v", items, err)
@@ -106,6 +107,9 @@ func TestAIAssistantStatsOnlyUsesBoundedWhitelistedReadQueries(t *testing.T) {
 				query += "group_key$"
 			}
 			mock.ExpectQuery(query).WithArgs("2026-11-01", "2026-11-04").WillReturnRows(sqlmock.NewRows([]string{"key", "runs", "completed", "terminal", "in", "out", "elapsed", "completed_elapsed", "positive", "negative", "users"}).AddRow("key", 2, 1, 2, 10, 5, 100, 100, 3, 1, 1))
+			if item.kind != "skill_details" {
+				mock.ExpectQuery("SELECT .*model_id,model_name,SUM").WillReturnRows(sqlmock.NewRows([]string{"key", "id", "model", "in", "out"}))
+			}
 			from, _ := time.Parse("2006-01-02", "2026-11-01")
 			to := from.AddDate(0, 0, 3)
 			rows, err := store.Report(context.Background(), item.kind, from, to)
@@ -124,5 +128,20 @@ func TestAIAssistantStatsReadErrorIsNotReturnedAsEmptySuccess(t *testing.T) {
 	mock.ExpectQuery("SELECT .*FROM ai_usage_daily").WillReturnRows(sqlmock.NewRows([]string{"key", "runs", "completed", "terminal", "in", "out", "elapsed", "completed_elapsed", "positive", "negative", "users"}).AddRow("key", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).RowError(0, errors.New("read failed")))
 	if _, err := store.Report(context.Background(), "overview", time.Now(), time.Now()); err == nil {
 		t.Fatal("读取失败不能伪装为空报告")
+	}
+}
+
+func TestAIAssistantStatsModelUsageIsScopedAndKeepsUserDeduplication(t *testing.T) {
+	store, mock := mockStatsStore(t)
+	mock.ExpectQuery("COUNT\\(DISTINCT CASE.*FROM ai_usage_daily").WillReturnRows(sqlmock.NewRows([]string{"key", "runs", "completed", "terminal", "in", "out", "elapsed", "completed_elapsed", "positive", "negative", "users"}).AddRow("user-1", 3, 1, 1, 999, 999, 100, 100, 1, 0, 1))
+	mock.ExpectQuery("SELECT user_id AS group_key,model_id,model_name,SUM.*AND user_id IN \\(\\?\\).*GROUP BY group_key,model_id,model_name ORDER BY group_key,model_id,model_name").WithArgs("2026-11-01", "2026-11-02", "user-1").WillReturnRows(sqlmock.NewRows([]string{"key", "id", "model", "in", "out"}).AddRow("user-1", "integration-1", "model-v1", 10, 2).AddRow("user-1", "integration-1", "model-v2", 20, 4))
+	from, _ := time.Parse("2006-01-02", "2026-11-01")
+	items, err := store.Report(context.Background(), "rankings", from, from.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := items[0]
+	if row.Completed != 1 || row.ActiveUsers != 1 || row.TotalTokens != 36 || len(row.ModelUsage) != 2 || row.ModelUsage[0].Model != "model-v1" || row.ModelUsage[0].TotalTokens != 12 || row.ModelUsage[1].TotalTokens != 24 {
+		t.Fatalf("模型用量不能重复完成任务或活跃用户: %+v", row)
 	}
 }

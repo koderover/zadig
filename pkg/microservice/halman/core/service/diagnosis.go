@@ -13,10 +13,12 @@ import (
 )
 
 type jobEvidence struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Error  string `json:"error"`
+	Name     string          `json:"name"`
+	Type     string          `json:"type"`
+	Status   string          `json:"status"`
+	Error    string          `json:"error"`
+	Spec     json.RawMessage `json:"spec,omitempty"`
+	SpecNote string          `json:"spec_note,omitempty"`
 }
 
 type stageEvidence struct {
@@ -27,16 +29,16 @@ type stageEvidence struct {
 }
 
 type workflowEvidence struct {
-	Configuration json.RawMessage `json:"configuration,omitempty"`
-	ProjectKey    string          `json:"project_key"`
-	WorkflowName  string          `json:"workflow_key"`
-	TaskID        int64           `json:"task_id"`
-	Status        string          `json:"status"`
-	Error         string          `json:"error"`
-	Stages        []stageEvidence `json:"stages"`
+	ProjectKey   string          `json:"project_key"`
+	WorkflowName string          `json:"workflow_key"`
+	TaskID       int64           `json:"task_id"`
+	CreateTime   int64           `json:"create_time,omitempty"`
+	Status       string          `json:"status"`
+	Error        string          `json:"error"`
+	Stages       []stageEvidence `json:"stages"`
 }
 
-func (p *PlatformClient) workflowTask(ctx context.Context, authorization string, target models.WorkflowTarget, configuration bool) (*workflowEvidence, error) {
+func (p *PlatformClient) workflowTask(ctx context.Context, authorization string, target models.WorkflowTarget) (*workflowEvidence, error) {
 	if err := checkNames(target.ProjectKey, target.WorkflowName); err != nil {
 		return nil, err
 	}
@@ -46,14 +48,7 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 	}
 
 	path := fmt.Sprintf("/api/workflow/v4/workflowtask/workflow/%s/task/%d", target.WorkflowName, target.TaskID)
-	var query url.Values
-	if configuration {
-		query = url.Values{"include_configuration": {"true"}}
-		if target.JobName != "" {
-			query.Set("job_name", target.JobName)
-		}
-	}
-	raw, err := p.business(ctx, authorization, http.MethodGet, path, query, nil)
+	raw, err := p.business(ctx, authorization, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,27 +63,84 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 	}
 
 	evidence.Error = redactText(evidence.Error)
+	selected := 0
 	for i := range evidence.Stages {
 		evidence.Stages[i].Error = redactText(evidence.Stages[i].Error)
 		for j := range evidence.Stages[i].Jobs {
-			evidence.Stages[i].Jobs[j].Error = redactText(evidence.Stages[i].Jobs[j].Error)
+			job := &evidence.Stages[i].Jobs[j]
+			job.Error = redactText(job.Error)
+			if (target.JobName != "" && job.Name != target.JobName) ||
+				(target.JobName == "" && job.Status != "failed" && job.Status != "timeout") {
+				job.Spec = nil
+				continue
+			}
+			if selected == 3 {
+				job.Spec = nil
+				job.SpecNote = "本次仅提取前三个相关步骤的信息，可指定步骤继续查询"
+				continue
+			}
+			selected++
+			job.Spec, job.SpecNote = workflowJobSpec(job.Spec)
 		}
-	}
-	if !configuration {
-		evidence.Configuration = nil
-	} else if len(evidence.Configuration) == 0 || strings.TrimSpace(string(evidence.Configuration)) == "null" {
-		evidence.Configuration = common.JSON(map[string]string{"unavailable": "任务接口未返回当次执行配置，仅结合已取得的任务状态和日志分析"})
-	} else if len(evidence.Configuration) > 32<<10 {
-		evidence.Configuration = common.JSON(map[string]string{"unavailable": "当次配置摘要超过读取上限，仅结合已取得的任务状态和日志分析"})
-	} else if len(evidence.Configuration) > 0 {
-		value, err := safeJSON(evidence.Configuration)
-		if err != nil {
-			return nil, err
-		}
-		evidence.Configuration = common.JSON(value)
 	}
 
 	return &evidence, nil
+}
+
+// 只提取原任务详情已返回的字段，不传递凭据、变量值或当前环境补充属性。
+func workflowJobSpec(raw json.RawMessage) (json.RawMessage, string) {
+	var spec struct {
+		Repos []struct {
+			Owner     string `json:"repo_owner,omitempty"`
+			Namespace string `json:"repo_namespace,omitempty"`
+			Name      string `json:"repo_name,omitempty"`
+			Branch    string `json:"branch,omitempty"`
+			Tag       string `json:"tag,omitempty"`
+			CommitID  string `json:"commit_id,omitempty"`
+			PR        int    `json:"pr,omitempty"`
+		} `json:"repos,omitempty"`
+		Env           string `json:"env,omitempty"`
+		ServiceName   string `json:"service_name,omitempty"`
+		ServiceModule string `json:"service_module,omitempty"`
+		Image         string `json:"image,omitempty"`
+		Images        []struct {
+			ServiceName   string `json:"service_name,omitempty"`
+			ServiceModule string `json:"service_module,omitempty"`
+			Image         string `json:"image,omitempty"`
+		} `json:"service_and_images,omitempty"`
+		Charts []struct {
+			ReleaseName  string `json:"release_name,omitempty"`
+			ChartRepo    string `json:"chart_repo,omitempty"`
+			ChartName    string `json:"chart_name,omitempty"`
+			ChartVersion string `json:"chart_version,omitempty"`
+		} `json:"deploy_helm_charts,omitempty"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &spec) != nil {
+		return nil, "原任务详情未返回可用的步骤配置，仅结合状态和日志分析"
+	}
+	note := ""
+	if len(spec.Repos) > 20 || len(spec.Images) > 20 || len(spec.Charts) > 20 {
+		note = "仓库、镜像和 Chart 列表分别最多返回二十项，已截断"
+	}
+	spec.Repos = spec.Repos[:min(len(spec.Repos), 20)]
+	spec.Images = spec.Images[:min(len(spec.Images), 20)]
+	spec.Charts = spec.Charts[:min(len(spec.Charts), 20)]
+	filtered := common.JSON(spec)
+	if string(filtered) == "{}" {
+		return nil, "原任务详情未返回可用的步骤配置，仅结合状态和日志分析"
+	}
+	if len(filtered) > 8<<10 {
+		return nil, "步骤信息超过八 KiB，仅结合状态和日志分析"
+	}
+	value, err := safeJSON(filtered)
+	if err != nil {
+		return nil, "步骤信息不可用，仅结合状态和日志分析"
+	}
+	filtered = common.JSON(value)
+	if len(filtered) > 8<<10 {
+		return nil, "步骤信息超过八 KiB，仅结合状态和日志分析"
+	}
+	return filtered, note
 }
 
 func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.WorkflowTarget) (any, error) {
@@ -117,7 +169,7 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 		return s.saveSkillInput(ctx, e, target, missing)
 	}
 
-	evidence, err := s.Platform.workflowTask(ctx, e.Authorization, target, true)
+	evidence, err := s.Platform.workflowTask(ctx, e.Authorization, target)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +230,7 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 		"task":               evidence,
 		"logs":               logs,
 		"read_only":          true,
-		"configuration_note": "configuration 为任务当次保存的执行配置摘要，不是当前配置；缺失、不支持或截断时须说明，不能推断未取得的变量值、脚本或 YAML 内容。",
+		"configuration_note": "步骤 spec 仅含原任务详情已返回的仓库、分支、提交、服务、镜像或 Chart 信息，缺失或截断时须说明；不能推断工具版本、变量值、脚本或 YAML，也不能把当前环境属性当作历史状态。",
 		"source":             fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d", target.ProjectKey, target.WorkflowName, target.TaskID),
 	}, nil
 }
@@ -329,51 +381,10 @@ func (s *AgentService) collectServiceEvidence(ctx context.Context, e *execution,
 }
 
 func safeDiagnosticJSON(raw json.RawMessage) (any, error) {
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-
-	var trim func(any) any
-	trim = func(value any) any {
-		switch v := value.(type) {
-		case map[string]any:
-			out := make(map[string]any)
-			for key, item := range v {
-				lower := strings.ToLower(key)
-				if lower == "content" || strings.Contains(lower, "script") || sensitiveName.MatchString(key) || lower == "spec" ||
-					strings.Contains(lower, "yaml") ||
-					lower == "env" ||
-					lower == "envs" ||
-					lower == "variable_yaml" ||
-					lower == "params" ||
-					lower == "values_yaml" ||
-					lower == "data" ||
-					lower == "stringdata" {
-					continue
-				}
-
-				out[key] = trim(item)
-			}
-			return out
-		case []any:
-			out := make([]any, 0)
-			for i, item := range v {
-				if i >= 50 {
-					break
-				}
-
-				out = append(out, trim(item))
-			}
-			return out
-		default:
-			return sanitized(value)
-		}
-	}
-	data, err := json.Marshal(trim(value))
-	if err != nil {
-		return nil, err
-	}
-
-	return safeJSON(data)
+	return filterEvidenceJSON(raw, 50, func(key string) bool {
+		lower := strings.ToLower(key)
+		return strings.Contains(lower, "yaml") || strings.Contains(lower, "script") || sensitiveName.MatchString(key) ||
+			lower == "content" || lower == "spec" || lower == "env" || lower == "envs" ||
+			lower == "params" || lower == "data" || lower == "stringdata"
+	}, sanitized)
 }

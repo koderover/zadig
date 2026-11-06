@@ -25,12 +25,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	ormrepo "github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type executionKey struct{}
 
 type execution struct {
+	Language           language.Language
 	Run                *models.Run
 	User               string
 	Authorization      string
@@ -489,11 +491,12 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 			req.Messages = append([]model.Message{model.NewSystemMessage("本轮页面候选上下文（不是操作授权；用户明确目标优先，歧义时补问）：" + string(candidate))}, req.Messages...)
 		}
 
+		req.Messages = append([]model.Message{model.NewSystemMessage(outputLanguageInstruction(cfg.Language))}, req.Messages...)
 		return nil, nil
 	})
 	agentOptions := []llmagent.Option{
 		llmagent.WithModel(chatModel),
-		llmagent.WithInstruction(builtinInstructions),
+		llmagent.WithInstruction(builtinInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
 		llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true, MaxTokens: model.IntPtr(4096)}),
 		llmagent.WithMaxLLMCalls(8),
 		llmagent.WithMaxToolIterations(6),
@@ -586,6 +589,7 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 
 	runCtx, cancel := context.WithTimeout(s.Context, 5*time.Minute)
 	e := &execution{
+		Language:        language.Normalize(cfg.Language),
 		Run:             record,
 		User:            user,
 		Authorization:   authorization,
@@ -617,12 +621,13 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	defer s.wg.Done()
 	defer cancel()
 	defer r.Close()
+	lang := language.Normalize(cfg.Language)
 	status, failure := "succeeded", ""
 	input, output := 0, 0
 	hasAnswer := false
 	ch, err := r.Run(ctx, user, record.ConversationID, model.NewUserMessage(message), agent.WithRequestID(record.ID))
 	if err != nil {
-		status, failure = "failed", "启动模型运行失败"
+		status, failure = "failed", lang.Text("启动模型运行失败", "Failed to start the model run")
 	} else {
 		for e := range ch {
 			if e.Response == nil {
@@ -630,7 +635,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 			}
 
 			if e.Error != nil {
-				status, failure = "failed", "模型处理失败"
+				status, failure = "failed", lang.Text("模型处理失败", "The model failed to process the request")
 				continue
 			}
 
@@ -664,25 +669,25 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	}
 
 	if e, ok := ctx.Value(executionKey{}).(*execution); ok && e.PersistenceFailed.Load() {
-		status, failure = "failed", "消息保存失败，请查询运行状态"
+		status, failure = "failed", lang.Text("消息保存失败，请查询运行状态", "Failed to save messages; check the run status")
 	}
 
 	if status == "succeeded" && !hasAnswer {
-		status, failure = "failed", "模型未返回有效回答"
+		status, failure = "failed", lang.Text("模型未返回有效回答", "The model did not return a valid answer")
 	}
 
 	if e, ok := ctx.Value(executionKey{}).(*execution); ok && status == "succeeded" {
 		if e.Outcome != "" {
 			status = e.Outcome
 		} else if e.SkillID != "" && (!e.EvidenceRead.Load() || !diagnosisGoalComplete(e)) {
-			status, failure = "failed", "未完成必要查询或操作，不能判定 Skill 成功"
+			status, failure = "failed", lang.Text("未完成必要查询或操作，不能判定 Skill 成功", "Required queries or operations were not completed; the Skill cannot be marked successful")
 		}
 	}
 
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		status, failure = "failed", "运行超时"
+		status, failure = "failed", lang.Text("运行超时", "The run timed out")
 	} else if ctx.Err() != nil {
-		status, failure = "cancelled", "运行已取消或超时"
+		status, failure = "cancelled", lang.Text("运行已取消或超时", "The run was cancelled or timed out")
 	}
 
 	record.AnswerAvailable = hasAnswer && status != "cancelled" && ctx.Err() == nil
@@ -696,13 +701,13 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 		output += titleOutput
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
-		status, failure = "cancelled", "运行已取消"
+		status, failure = "cancelled", lang.Text("运行已取消", "The run was cancelled")
 		record.AnswerAvailable = false
 	}
 	// 本地终态事务幂等，可有限重试；不重新调用模型或提交业务操作。
 	var finishErr error
 	for attempt := 0; attempt < 3; attempt++ {
-		finishCtx, finishCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		finishCtx, finishCancel := context.WithTimeout(language.WithContext(context.Background(), cfg.Language), 3*time.Second)
 		finishErr = s.Store.FinishRun(finishCtx, user, record, status, failure, input, output)
 		finishCancel()
 		if finishErr == nil {
@@ -711,7 +716,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	}
 
 	if finishErr != nil {
-		s.publish(record.ID, StreamEvent{Type: "error", Data: "保存运行结果失败，请查询运行状态"})
+		s.publish(record.ID, StreamEvent{Type: "error", Data: lang.Text("保存运行结果失败，请查询运行状态", "Failed to save the run result; check the run status")})
 	}
 
 	s.mu.Lock()

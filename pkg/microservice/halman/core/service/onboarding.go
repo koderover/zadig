@@ -43,6 +43,22 @@ func validateVariables(values map[string]string) error {
 
 func fingerprint(raw []byte) string { sum := sha256.Sum256(raw); return hex.EncodeToString(sum[:]) }
 
+// expected 仅在预览时为 nil；确认和提交必须提供指纹，空字符串也要校验。
+func (s *AgentService) readTemplate(ctx context.Context, e *execution, project, source, id string, expected *string) ([]byte, error) {
+	kind := source
+	if kind != "helm_template" && kind != "build_template" {
+		kind = "yaml_template"
+	}
+	raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: kind, ProjectKey: project, ID: id})
+	if err != nil {
+		return nil, err
+	}
+	if expected != nil && fingerprint(raw) != *expected {
+		return nil, fmt.Errorf("模板已变化，请重新生成清单")
+	}
+	return raw, nil
+}
+
 func (s *AgentService) prepareProject(ctx context.Context, args models.OnboardingInput) (any, error) {
 	return s.prepareOnboarding(ctx, args, true)
 }
@@ -254,12 +270,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 
 		if item.TemplateID != "" {
-			kind := "yaml_template"
-			if item.Source == "helm_template" {
-				kind = "helm_template"
-			}
-
-			raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: kind, ProjectKey: args.ProjectKey, ID: item.TemplateID})
+			raw, err := s.readTemplate(ctx, e, args.ProjectKey, item.Source, item.TemplateID, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -304,7 +315,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	for i := range args.Builds {
 		build := &args.Builds[i]
 		if build.TemplateID == "" {
-			plan.Notes = append(plan.Notes, "构建 "+build.Name+" 未选择已有模板，按规则跳过")
+			plan.Notes = append(plan.Notes, fmt.Sprintf(e.text("构建 %s 未选择已有模板，按规则跳过", "Build %s has no existing template selected and will be skipped"), build.Name))
 			continue
 		}
 
@@ -344,7 +355,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			return nil, err
 		}
 
-		raw, err := s.Platform.catalog(ctx, e.Authorization, models.CatalogRequest{Kind: "build_template", ProjectKey: args.ProjectKey, ID: build.TemplateID})
+		raw, err := s.readTemplate(ctx, e, args.ProjectKey, "build_template", build.TemplateID, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +437,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				Status:      "pending",
 			},
 		)
-		plan.Notes = append(plan.Notes, "创建环境会实际部署所选服务；缺少镜像、Secret 或必要配置会阻塞，不代表已经部署成功")
+		plan.Notes = append(plan.Notes, e.text("创建环境会实际部署所选服务；缺少镜像、Secret 或必要配置会阻塞，不代表已经部署成功", "Creating an environment deploys the selected services. Missing images, Secrets or required configuration may block deployment; creation alone does not mean deployment succeeded"))
 	}
 
 	if args.CreateWorkflow {

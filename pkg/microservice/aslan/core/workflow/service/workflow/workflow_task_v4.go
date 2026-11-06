@@ -90,7 +90,6 @@ type CreateTaskV4Resp struct {
 }
 
 type WorkflowTaskPreview struct {
-	Configuration       *TaskConfiguration           `json:"configuration,omitempty"`
 	TaskID              int64                        `bson:"task_id"                   json:"task_id"`
 	WorkflowName        string                       `bson:"workflow_name"             json:"workflow_key"`
 	WorkflowDisplayName string                       `bson:"workflow_display_name"     json:"workflow_name"`
@@ -2692,7 +2691,7 @@ func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *z
 	return nil
 }
 
-func GetWorkflowTaskV4(workflowName string, taskID int64, includeConfiguration bool, configurationJob string, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
+func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*WorkflowTaskPreview, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -2718,9 +2717,6 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, includeConfiguration b
 		ApprovalTicketID:    task.ApprovalTicketID,
 		ApprovalID:          task.ApprovalID,
 		ReleasePlan:         task.ReleasePlan,
-	}
-	if includeConfiguration {
-		resp.Configuration = taskConfiguration(task, configurationJob)
 	}
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {

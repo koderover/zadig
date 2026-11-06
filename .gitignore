@@ -93,3 +93,6 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/stat/service/ai_assistant_test.go
 
 !pkg/microservice/aslan/core/stat/repository/orm/*_test.go
+
+!pkg/tool/language/*_test.go
+!pkg/microservice/aslan/core/common/service/scmnotify/ai_review_language_test.go

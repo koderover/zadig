@@ -117,10 +117,10 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 | `GET /api/halman/recommendations` | 按页面候选及 Skill 启停推荐最多三个问题，不重复，按剩余项轮换 |
 | `GET /api/halman/skills` | 系统管理员查询完整内置 Skill 定义及全局规则 |
 | `PUT /api/halman/skills/:skill_id` | 系统管理员保存 `enabled` 和 `custom_rules` |
-| `GET /api/aslan/stat/v2/ai_assistant/overview` | 概览：`metrics`、估算节省分钟及人天 |
+| `GET /api/aslan/stat/v2/ai_assistant/overview` | 概览：`metrics`、等长上期 `previous`、当前系统用户数 `total_users`、估算节省分钟及人天 |
 | `GET /api/aslan/stat/v2/ai_assistant/trends` | 每日趋势：`items[].date`，日期升序，仅返回有聚合记录的日期 |
 | `GET /api/aslan/stat/v2/ai_assistant/skills` | 分类表现：`items[].category`，固定返回发布辅助、故障排查、实施辅助、巡检诊断 |
-| `GET /api/aslan/stat/v2/ai_assistant/rankings` | 用户排行：`items[].user_id`，完成任务数、运行数降序，用户 ID 升序，最多二十条 |
+| `GET /api/aslan/stat/v2/ai_assistant/rankings` | 用户排行：`items[].user_id` 和 `user_name`，完成任务数、运行数降序，用户 ID 升序，最多二十条 |
 
 错误响应统一复用 `pkg/tool/errors.ErrorMessage`，包含 `type`、`code`、`message`、`description`、`extra`。遵循现有约定：参数错误使用 HTTP 400/code 400；登录态、权限、资源不存在分别使用 HTTP 401/403/404 及同名 code；6xxx/7xxx 业务错误统一使用 HTTP 400，前端根据响应的 `code` 区分原因。许可证查询异常使用 HTTP 500/code 500；不在错误响应中返回数据库、模型凭据或原始上游响应。AG-UI 流建立前沿用该 HTTP 错误约定；建立后使用 `RUN_ERROR`，其 `code` 为相同错误码的字符串，`message` 为可公开的错误说明，流的 HTTP 状态保持 200，不继续发送旧的 `error` 事件。订阅故障不改变后台运行的实际状态。
 
@@ -157,6 +157,13 @@ aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，�
 推荐只排列固定问题并返回候选上下文，不查询资源或替代执行时鉴权。报告使用 `from`、`to` 日期，默认最近三十天、最多保留三百六十五天，只读日聚合；无反馈时采纳率和估算人天为空。
 
 四类报告使用独立路由、Handler、服务函数及响应模型，Swagger 在 `stat` 分组分别展示；鉴权和日期校验、指标计算及聚合 SQL 继续复用。所有响应都包含 `from`、`to`、`time_zone`；概览使用 `metrics` 返回整体指标，并包含 `estimation`、`estimated_saved_minutes`、`estimated_saved_person_days`。其他报告使用 `items` 列表及明确的日期、Skill 分类或用户维度字段；趋势和排行空列表返回 `[]`，Skill 分类始终返回四项。halman 停机或 AI 关闭时仍可读取已有统计。
+
+概览额外返回 `previous`：紧邻当前周期、自然日数相同的上期，包含上期 `from`、`to`、`time_zone`、`metrics` 与估算节省分钟及人天；不按固定月长或秒数截取，跨月与夏令时仍按自然日计算。上期超出三百六十五天完整保留范围时返回 `null`，避免将已清理数据当成零值。只有概览提供上期，趋势、分类和排行仍仅返回当前周期。
+
+所有报告指标增加 `total_tokens` 和 `model_usage[]`，后者包含 `model_id`、`model`、`input_tokens`、`output_tokens`、`total_tokens`，按模型集成 ID 和调用时的模型名排序，无数据返回 `[]`。`ai_usage_daily` 主键扩展为 `(date, user_id, skill_id, model_id, model_name)`；调用次数、耗时及 Token 从该次 `ai_run` 的模型快照写入对应模型行，任务终态、完成耗时和反馈继续写入空模型维度。修正任务贡献时仅更新空模型行，汇总时跨模型求和并对用户去重，不能按模型重复计算任务数。模型信息随日聚合保留三百六十五天，不依赖已到期的运行记录或当前模型配置，不增加表。
+
+概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。SQL、连接等待与 user 查询共用三秒请求预算。分类和排行的模型明细仅查询报告实际返回的分组。
+
 
 内置 Skill 完整定义及设置保存在 MySQL `ai_skill`，不保存到 MongoDB。`core/skill/<skill_id>.md` 通过 `go:embed` 打包作为发布源，启动时事务同步名称、分类、说明及正文，保留启停和追加规则，定义未变不更新；未来自定义来源不被覆盖。表包含 `id`、`source`、`name`、`category`、`description`、`content`、`enabled`、`custom_rules`、`created_at`、`updated_at`，没有默认提问字段，也不参与聊天到期清理。
 
@@ -259,13 +266,13 @@ AG-UI 的 `RUN_STARTED.runId` 在 POST 响应中回显请求的 `runId`；实际
 
 协议层复用官方 AG-UI SDK 的 `RunAgentInput`、事件类型和 SSE Writer，以及 tRPC-Agent-Go 自带 Translator，不自行维护标准协议 DTO、消息编号或文本消息边界。AG-UI 子模块固定到与现有框架 v1.11.2 相同的提交，核心框架版本保持不变。Halman 仅适配 Zadig 页面候选、业务状态、确认卡片及恢复订阅，复用原 Runner、执行器、鉴权和原生消息存储；框架提前产生的运行完成事件不作为业务终态，默认开启模型可见推理事件，工具原始结果和参数不直接公开。不新增事件表或逐 token 持久化。标准 AG-UI HTTP 客户端可以向 POST 入口提交上述文本请求；恢复订阅及 Zadig 自定义卡片需要客户端按上述约定处理。参考 [AG-UI 架构](https://docs.ag-ui.com/concepts/architecture) 和 [事件定义](https://docs.ag-ui.com/concepts/events)。
 
-会话创建时使用“新会话”，首条问题接收后立即以去除首尾空白的前四十字作为临时标题，并同步保存 `title_source_at`。首轮得到有效回答或进入补问、待确认状态后，复用本轮选定模型额外生成一次中文标题，建议十二至二十字、最多四十字；只输入经过凭据脱敏的首条用户问题，最多两千字，不传回答、日志或工具结果，也不注册工具。调用前复查用户登录态、最新 AI 开关和模型可用性；标题任务与本轮共用执行名额，最多十秒，不重试。正文已流式发送，但本轮终态可能因此延后最多十秒。
+会话创建时按系统语言使用“新会话”或“New conversation”，首条问题接收后立即以去除首尾空白的前四十字作为临时标题，并同步保存 `title_source_at`。首轮得到有效回答或进入补问、待确认状态后，复用本轮选定模型额外按本轮系统语言生成一次标题，中文建议十二至二十字，英文保持简短，均最多四十字；只输入经过凭据脱敏的首条用户问题，最多两千字，不传回答、日志或工具结果，也不注册工具。调用前复查用户登录态、最新 AI 开关和模型可用性；标题任务与本轮共用执行名额，最多十秒，不重试。正文已流式发送，但本轮终态可能因此延后最多十秒。
 
 标题请求失败、超时、输出无效或保存失败时保留截取标题，不将本轮回答标记为失败；请求期间取消整个运行仍按正常取消处理。标题 Token 计入本轮及日聚合，不额外增加运行次数或 Skill 完成数，不保存额外聊天消息。写回只允许本人未删除且标题来源时间仍匹配的会话，成功后发送 AG-UI `CUSTOM` 事件 `halman.conversation_title`；断线后可重新读取会话列表获取标题。后续提问、重新回答及重试不再次生成标题。来源消息到期时，后台从保留期内消息截取标题，不另行调用模型。
 
 ## 业务调用与确认
 
-四个 Skill 的说明和工具提示均为中文，工具集合固定，不内置 Shell、SQL、任意 HTTP、kubectl、clone 或仓库写工具。aslan 业务 HTTP 使用现有 `config.AslanServiceAddress()`，仅透传当前用户 Authorization，不携带服务 Token；权限查询限定三个只读 user 接口，复用现有 user 客户端及内部认证头。专用模型凭据不会发送给业务接口。查询目录只暴露必要元数据，剔除原始 YAML、脚本及凭据。
+六个 Skill 的定义和工具提示均为中文，但面向用户的模型输出遵循本轮系统语言，工具集合固定，不内置 Shell、SQL、任意 HTTP、kubectl、clone 或仓库写工具。aslan 业务 HTTP 使用现有 `config.AslanServiceAddress()`，仅透传当前用户 Authorization，不携带服务 Token；权限查询限定三个只读 user 接口，复用现有 user 客户端及内部认证头。专用模型凭据不会发送给业务接口。查询目录只暴露必要元数据，剔除原始 YAML、脚本及凭据。
 
 - 工作流：校验任务归属，读取当次任务状态和错误；失败步骤日志每次最多三份，单窗口默认 200 行、最多 500 行，支持向前分页到 5,000 行。接口不会重跑任务。S3 日志仍需下载目标步骤文件到 aslan 临时文件后流式扫描，不会把全文件加载到模型或内存。
 - 服务：校验环境实际生产属性和服务归属，读取运行状态、发布历史、最多三个容器的当前及上次退出日志和 Pod 事件。已有容器日志接口的片段模式检查 Pod 和容器属于目标服务；未取得证据时返回不可用说明。
@@ -286,9 +293,9 @@ AG-UI 的 `RUN_STARTED.runId` 在 POST 响应中回显请求的 `runId`；实际
 
 两条日志接口未传 `format=excerpt` 时保留原字符串或流式行为。片段模式校验当前权限和实际资源归属，默认 200 行、最多 500 行、单次最多 48 KiB；工作流可按 `next_offset` 向前分页，`offset` 最大 5,000。容器日志从数据库中的实际环境记录判断生产属性；无法唯一定位时拒绝读取。容器日志仅支持最近窗口，不分页，`total_lines=-1` 表示完整总行数未知，`next_offset=0`，`truncated=true`；不能将 Kubernetes 截断后的局部行数当作全部日志。
 
-工作流当次配置来自 aslan MongoDB 的 `workflow_task` 集合：`workflow_args`、`origin_workflow_args` 保存工作流参数，`stages[].jobs[].spec` 保存步骤执行配置。halman 通过原任务详情接口传入 `include_configuration=true`，可选 `job_name`，由 aslan 从执行 `spec` 生成 `configuration`；不直接读取业务 MongoDB，不用当前定义替代历史。默认最多三个失败或超时步骤，显式指定名称可补查；普通接口调用和 OpenAPI 默认不附带配置。
+工作流诊断直接复用原任务详情接口，不增加查询参数、返回字段或 aslan 配置提取函数。halman 从原响应的 `stages[].jobs[].spec` 中按白名单提取仓库、分支、提交、服务、部署目标环境名称、镜像及 Chart 版本，保留原任务编号和创建时间；不直接读取业务 MongoDB，也不用当前配置补齐历史。
 
-配置摘要仅包含来源、任务编号和时间、构建环境与资源标识、超时、仓库分支/提交、工具版本、部署目标及镜像/Chart 版本等白名单字段，不包含凭据、变量值、脚本正文和完整 YAML/values。单步骤最多 8 KiB，步骤/仓库/工具/镜像列表分别最多二十项；截断或不支持明确标记，halman 对配置再次脱敏并限制 32 KiB。缺配置仍可基于日志分析，但必须说明证据限制，不能推断未读取的正文或将当前状态描述为任务当次状态。
+默认最多提取三个失败或超时步骤，用户指定步骤时由 halman 本地筛选；单步骤最多 8 KiB，仓库、镜像及 Chart 列表分别最多二十项，缺失、超限和截断明确说明。不透传原始 `spec`，不返回凭据、变量值、脚本正文、完整 YAML/values，以及原接口补充的当前环境 `production`、`env_alias`。原详情没有返回的构建环境和工具版本不推断；证据不足时结合有限日志分析并说明限制。
 
 每次模型调用前，按运行 ID 批量读取本轮及实际载入历史的 `resource_scopes`，覆盖此前读取的全部资源，不仅检查最后一个页面目标；沿用最多六十条历史事件窗口，最多涉及六十一个运行，不扫描聊天正文。来源记录缺失或任一权限撤销后停止本次生成，本人历史快照仍可查看。目录结果继续不进入后续历史上下文。
 
@@ -364,3 +371,13 @@ SQL mock 测试不等同于 MySQL 锁竞争或性能验证；实际数据库初�
 go test ./pkg/microservice/halman/... ./pkg/types ./pkg/middleware/gin
 go test -race ./pkg/microservice/halman/...
 ```
+
+## AI 输出语言
+
+助手和 AI 代码审查统一使用系统配置 `language`，支持 `zh-cn`、`en-us`，兼容大小写；空值或未知值默认中文。halman 与助手设置共用一次 MongoDB 查询加载语言，数据库读取失败不伪装为默认配置。
+
+每次助手生成或确认执行固定语言快照，补问、重新回答和下一次请求使用最新配置。模型回答、自动标题、六类推荐的标题和提问文本，以及新生成的确认说明、操作结果、状态和助手专属错误文案支持中英文；历史消息、标题和已保存清单不重新翻译。代码、日志、资源名称、结构化枚举及公共平台错误响应保留原文。中文 Skill 和追加规则不能覆盖本轮输出语言。
+
+代码审查删除独立的 `output_language` 配置字段。创建任务时将系统语言通过现有环境变量和 `--language` 参数传给审查程序，报告收集不变；摘要、行内评论和归档说明按报告已有的 `metadata.language` 选择文案，缺失或未知时默认中文，不新增步骤语言字段。保留原评论标记、指纹、反馈和历史摘要识别。旧 MongoDB 字段不批量迁移，下一次保存配置自然移除，旧请求携带该字段时忽略。
+
+不修改前端和审查程序仓库；前端独立语言下拉框需后续移除。自动测试使用模拟模型和数据库，真实模型遵循效果和审查镜像需联调验证。

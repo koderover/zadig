@@ -13,7 +13,7 @@ import (
 )
 
 func (s *AgentService) verifyDefaultWorkflows(ctx context.Context, e *execution, item models.OperationItem) (string, string, error) {
-	unknown := "默认工作流尚未完整核实，未调用创建接口"
+	unknown := e.text("默认工作流尚未完整核实，未调用创建接口", "Default workflows have not been fully verified; no creation request was made")
 	if err := checkNames(item.ProjectKey); err != nil {
 		return "unknown", unknown, err
 	}
@@ -32,7 +32,7 @@ func (s *AgentService) verifyDefaultWorkflows(ctx context.Context, e *execution,
 	// 原列表可能静默过滤无权查看的条目，核实完整集合时不能把可见子集当成全部。
 	if !permissions.IsSystemAdmin && (project == nil || (!project.IsProjectAdmin &&
 		(project.Env == nil || !project.Env.View || project.Workflow == nil || !project.Workflow.View))) {
-		return "unknown", "缺少完整环境及工作流查看权限，保留待核实", nil
+		return "unknown", e.text("缺少完整环境及工作流查看权限，保留待核实", "Full environment and workflow view permissions are required; verification remains pending"), nil
 	}
 	raw, err = s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/environment/environments", url.Values{"projectName": {item.ProjectKey}, "production": {"false"}}, nil)
 	if err != nil {
@@ -69,7 +69,7 @@ func (s *AgentService) verifyDefaultWorkflows(ctx context.Context, e *execution,
 		return "unknown", unknown, common.ErrRequestConflict
 	}
 	if workflows.Total != len(workflows.Items) {
-		return "unknown", "工作流列表不完整，保留待核实", nil
+		return "unknown", e.text("工作流列表不完整，保留待核实", "The workflow list is incomplete; verification remains pending"), nil
 	}
 	for _, workflow := range workflows.Items {
 		if _, wanted := expected[workflow.Name]; wanted && workflow.Project == item.ProjectKey && workflow.Type == setting.CustomWorkflowType {
@@ -81,5 +81,5 @@ func (s *AgentService) verifyDefaultWorkflows(ctx context.Context, e *execution,
 			return "unknown", unknown, nil
 		}
 	}
-	return "succeeded", "已有列表中的默认工作流名称及项目归属已核实，未重复创建", nil
+	return "succeeded", e.text("已有列表中的默认工作流名称及项目归属已核实，未重复创建", "Default workflow names and project ownership were verified in the existing lists; nothing was recreated"), nil
 }

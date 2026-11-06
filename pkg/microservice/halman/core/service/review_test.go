@@ -154,7 +154,7 @@ func TestRetryPlanPreservesSuccessAndRejectsUncertainty(t *testing.T) {
 		{ID: "failed", Status: "failed", Error: "旧错误"},
 		{ID: "blocked", Status: "blocked", DependsOn: []string{"failed"}},
 	}}
-	plan, err := retryPlan("source", original)
+	plan, err := retryPlan("source", original, "")
 	if err != nil || plan.RetryOfRunID != "source" || plan.Items[0].Status != "succeeded" ||
 		string(plan.Items[0].Result) != string(original.Items[0].Result) ||
 		plan.Items[1].Status != "pending" ||
@@ -164,7 +164,7 @@ func TestRetryPlanPreservesSuccessAndRejectsUncertainty(t *testing.T) {
 	}
 
 	original.Items[1].Status = "unknown"
-	if _, err := retryPlan("source", original); err == nil {
+	if _, err := retryPlan("source", original, ""); err == nil {
 		t.Fatal("结果未核实不能生成重试清单")
 	}
 
@@ -211,8 +211,8 @@ func TestRecommendationsUsePageAndRotateAtMostThree(t *testing.T) {
 		{models.PageContext{ProjectKey: "p", PageType: "environment", EnvName: "dev"}, "environment_inspection"},
 		{models.PageContext{PageType: "efficiency"}, "efficiency_diagnosis"},
 	} {
-		first, _ := Recommendations(item.page, 0, builtins.Builtins())
-		next, _ := Recommendations(item.page, 1, builtins.Builtins())
+		first, _ := Recommendations(item.page, 0, builtins.Builtins(), "")
+		next, _ := Recommendations(item.page, 1, builtins.Builtins(), "")
 		if len(first) != 3 || len(next) != 3 || first[0].SkillID != item.first || first[0].SkillID == next[0].SkillID ||
 			first[0].Context != item.page {
 			t.Fatalf("页面推荐或轮换不正确: %+v %+v", first, next)

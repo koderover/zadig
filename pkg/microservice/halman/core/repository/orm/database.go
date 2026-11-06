@@ -131,7 +131,7 @@ func (s *Store) initializeBusinessTables(ctx context.Context) error {
 	for _, query := range []string{
 		"SELECT title_source_at FROM ai_conversation LIMIT 0",
 		"SELECT " + runColumns + ",active_plan_run_id FROM ai_run LIMIT 0",
-		"SELECT completed_elapsed_ms FROM ai_usage_daily LIMIT 0",
+		"SELECT completed_elapsed_ms,model_id,model_name FROM ai_usage_daily LIMIT 0",
 	} {
 		rows, err := s.DB.WithContext(ctx).Raw(query).Rows()
 		if err != nil {

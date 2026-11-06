@@ -94,7 +94,6 @@ type AIReviewConfig struct {
 	LLMIntegrationID string        `json:"llm_integration_id" bson:"llm_integration_id"`
 	IncludePaths     []string      `json:"include_paths" bson:"include_paths"`
 	ExcludePaths     []string      `json:"exclude_paths" bson:"exclude_paths"`
-	OutputLanguage   string        `json:"output_language" bson:"output_language"`
 	Rules            []*ReviewRule `json:"rules" bson:"rules"`
 }
 

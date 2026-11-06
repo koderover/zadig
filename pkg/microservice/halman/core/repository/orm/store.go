@@ -16,6 +16,7 @@ import (
 	halmanconfig "github.com/koderover/zadig/v2/pkg/microservice/halman/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
 
 const runColumns = "id, request_id, conversation_id, status, context, created_at, finished_at, error, input_tokens, " +
@@ -90,11 +91,11 @@ func scanRun(row interface{ Scan(...any) error }) (*models.Run, error) {
 	return &r, nil
 }
 
-func (s *Store) CreateConversation(ctx context.Context, user string) (*models.Conversation, error) {
+func (s *Store) CreateConversation(ctx context.Context, user, locale string) (*models.Conversation, error) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	c := &models.Conversation{
 		ID:           common.NewID(),
-		Title:        "新会话",
+		Title:        language.Normalize(locale).Text("新会话", "New conversation"),
 		CreatedAt:    now,
 		LastActiveAt: now,
 	}
@@ -125,9 +126,9 @@ func (s *Store) ListConversations(ctx context.Context, user, after string, limit
 		return nil, "", err
 	}
 	// 到期标题立即隐藏，不等待后台重建。
-	query := "SELECT id,CASE WHEN COALESCE(title_source_at,created_at) >= ? THEN title ELSE '历史会话' END,created_at," +
+	query := "SELECT id,CASE WHEN COALESCE(title_source_at,created_at) >= ? THEN title ELSE ? END,created_at," +
 		"last_active_at FROM ai_conversation WHERE user_id=? AND deleted_at IS NULL AND last_active_at>=?"
-	args := []any{cutoff, user, cutoff}
+	args := []any{cutoff, language.FromContext(ctx).Text("历史会话", "Past conversation"), user, cutoff}
 	if after != "" {
 		query += " AND (last_active_at < ? OR (last_active_at = ? AND id < ?))"
 		args = append(args, c.At, c.At, c.ID)
@@ -304,7 +305,7 @@ func (s *Store) BeginRun(ctx context.Context, user, conversation string, req mod
 		r.AnswerVersion = 1
 	}
 
-	if title == "新会话" && !titleSource.Valid {
+	if (title == "新会话" || title == "New conversation") && !titleSource.Valid {
 		chars := []rune(strings.TrimSpace(req.Message))
 		if len(chars) > 40 {
 			chars = chars[:40]
@@ -361,153 +362,137 @@ func (s *Store) stopRun(ctx context.Context, user, id string, rejectedVersion in
 		return err
 	}
 
-	tx := s.DB.WithContext(ctx).Begin()
-	err := tx.Error
-	if err != nil {
-		return err
-	}
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockActiveConversation(tx, user, conversation); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return common.ErrNotFound
+			}
 
-	defer tx.Rollback()
-	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", conversation, user).
-		Row().
-		Scan(&found); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return common.ErrNotFound
+			return err
 		}
 
-		return err
-	}
+		var active, skillStatus sql.NullString
+		if root.Valid {
+			if err := tx.Raw("SELECT active_plan_run_id,skill_status FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", root.String, user).
+				Row().Scan(&active, &skillStatus); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return common.ErrNotFound
+				}
+				return err
+			}
+		}
 
-	var active, skillStatus sql.NullString
-	if root.Valid {
-		if err := tx.WithContext(ctx).Raw("SELECT active_plan_run_id,skill_status FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", root.String, user).
-			Row().Scan(&active, &skillStatus); err != nil {
+		var status string
+		var version int
+		var planStatus sql.NullString
+		if err := tx.Raw("SELECT status,plan_version,plan_status FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", id, user).
+			Row().Scan(&status, &version, &planStatus); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return common.ErrNotFound
 			}
 			return err
 		}
-	}
 
-	var status string
-	var version int
-	var planStatus sql.NullString
-	if err := tx.WithContext(ctx).Raw("SELECT status,plan_version,plan_status FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", id, user).
-		Row().Scan(&status, &version, &planStatus); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return common.ErrNotFound
-		}
-		return err
-	}
-
-	if rejectedVersion > 0 {
-		// 旧清单自身的版本未变，也必须确认它仍是当前计划。
-		if !root.Valid || !active.Valid || active.String != id || version != rejectedVersion {
-			return common.ErrRequestConflict
-		}
-		if status == "cancelled" && planStatus.String == "cancelled" {
-			return tx.Commit().Error
-		}
-		if status != "pending_confirmation" || planStatus.String != "pending_confirmation" || skillStatus.String != "pending_confirmation" {
-			return common.ErrRequestConflict
-		}
-	} else {
-		switch status {
-		case "pending_confirmation":
-			return common.ErrRequestConflict
-		case "running", "executing":
-			if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET status='cancelling' WHERE id=?", id).Error; err != nil {
-				return err
-			}
-			return tx.Commit().Error
-		case "awaiting_input":
-			if !root.Valid || skillStatus.String != "awaiting_input" || planStatus.String != "awaiting_input" {
+		if rejectedVersion > 0 {
+			// 旧清单自身的版本未变，也必须确认它仍是当前计划。
+			if !root.Valid || !active.Valid || active.String != id || version != rejectedVersion {
 				return common.ErrRequestConflict
 			}
-			var latest string
-			if err := tx.WithContext(ctx).Raw(
-				"SELECT id FROM ai_run WHERE conversation_id=? AND user_id=? AND skill_execution_id=? AND question_source_run_id IS NULL ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE",
-				conversation, user, root.String,
-			).Row().Scan(&latest); err != nil {
-				return err
+			if status == "cancelled" && planStatus.String == "cancelled" {
+				return nil
 			}
-			if latest != id {
+			if status != "pending_confirmation" || planStatus.String != "pending_confirmation" || skillStatus.String != "pending_confirmation" {
 				return common.ErrRequestConflict
 			}
-			// 放弃补问时，同时使该 Skill 尚未执行的旧清单失效。
-			if active.Valid && active.String != id {
-				if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET plan_status='superseded' WHERE id=? AND plan_status='pending_confirmation'", active.String).Error; err != nil {
+		} else {
+			switch status {
+			case "pending_confirmation":
+				return common.ErrRequestConflict
+			case "running", "executing":
+				if err := tx.Exec("UPDATE ai_run SET status='cancelling' WHERE id=?", id).Error; err != nil {
 					return err
 				}
+				return nil
+			case "awaiting_input":
+				if !root.Valid || skillStatus.String != "awaiting_input" || planStatus.String != "awaiting_input" {
+					return common.ErrRequestConflict
+				}
+				var latest string
+				if err := tx.Raw(
+					"SELECT id FROM ai_run WHERE conversation_id=? AND user_id=? AND skill_execution_id=? AND question_source_run_id IS NULL ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE",
+					conversation, user, root.String,
+				).Row().Scan(&latest); err != nil {
+					return err
+				}
+				if latest != id {
+					return common.ErrRequestConflict
+				}
+				// 放弃补问时，同时使该 Skill 尚未执行的旧清单失效。
+				if active.Valid && active.String != id {
+					if err := tx.Exec("UPDATE ai_run SET plan_status='superseded' WHERE id=? AND plan_status='pending_confirmation'", active.String).Error; err != nil {
+						return err
+					}
+				}
+			default:
+				return nil
 			}
-		default:
-			return tx.Commit().Error
 		}
-	}
 
-	if err := s.updateSkillUsage(ctx, tx, user, root.String, "cancelled", 0); err != nil {
-		return err
-	}
-	if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET status='cancelled',plan_status='cancelled',finished_at=? WHERE id=?", time.Now().UTC(), id).Error; err != nil {
-		return err
-	}
+		if err := s.updateSkillUsage(ctx, tx, user, root.String, "cancelled", 0); err != nil {
+			return err
+		}
+		if err := tx.Exec("UPDATE ai_run SET status='cancelled',plan_status='cancelled',finished_at=? WHERE id=?", time.Now().UTC(), id).Error; err != nil {
+			return err
+		}
 
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 func (s *Store) DeleteConversation(ctx context.Context, user, id string) error {
-	tx := s.DB.WithContext(ctx).Begin()
-	err := tx.Error
-	if err != nil {
-		return err
-	}
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockActiveConversation(tx, user, id); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return common.ErrNotFound
+			}
 
-	defer tx.Rollback()
-	var found string
-	if err = tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", id, user).
-		Row().
-		Scan(&found); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return common.ErrNotFound
+			return err
 		}
 
-		return err
-	}
+		var count int
+		if err := tx.Raw(
+			"SELECT COUNT(*)"+
+				" FROM ai_run"+
+				" WHERE conversation_id=?"+
+				" AND (status IN ('running','cancelling','executing','unknown') OR plan_status='unknown')",
+			id,
+		).Row().Scan(&count); err != nil {
+			return err
+		}
 
-	var count int
-	if err = tx.WithContext(ctx).Raw(
-		"SELECT COUNT(*)"+
-			" FROM ai_run"+
-			" WHERE conversation_id=?"+
-			" AND (status IN ('running','cancelling','executing','unknown') OR plan_status='unknown')",
-		id,
-	).Row().Scan(&count); err != nil {
-		return err
-	}
+		if count > 0 {
+			return common.ErrBusy
+		}
 
-	if count > 0 {
-		return common.ErrBusy
-	}
+		if err := cancelWaitingSkills(ctx, tx, user, id); err != nil {
+			return err
+		}
 
-	if err := cancelWaitingSkills(ctx, tx, user, id); err != nil {
-		return err
-	}
+		if err := tx.Exec(
+			"UPDATE ai_run SET plan_status='cancelled' WHERE conversation_id=? AND plan_status IN ('pending_confirmation','ready')",
+			id,
+		).
+			Error; err != nil {
+			return err
+		}
 
-	if err = tx.WithContext(ctx).Exec(
-		"UPDATE ai_run SET plan_status='cancelled' WHERE conversation_id=? AND plan_status IN ('pending_confirmation','ready')",
-		id,
-	).
-		Error; err != nil {
-		return err
-	}
+		if err := tx.Exec("UPDATE ai_conversation SET deleted_at=? WHERE id=?", time.Now().UTC(), id).
+			Error; err != nil {
+			return err
+		}
 
-	if err = tx.WithContext(ctx).Exec("UPDATE ai_conversation SET deleted_at=? WHERE id=?", time.Now().UTC(), id).
-		Error; err != nil {
-		return err
-	}
-
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, status, message string, input, output int) error {
@@ -542,7 +527,7 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 
 	if current == "cancelling" {
 		status = "cancelled"
-		message = "运行已取消"
+		message = language.FromContext(ctx).Text("运行已取消", "The run was cancelled")
 	}
 
 	if r.SkillExecutionID != nil {
@@ -584,8 +569,8 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 	}
 
 	err = tx.WithContext(ctx).Exec(
-		"INSERT INTO ai_usage_daily (date,user_id,skill_id,run_count,input_tokens,output_tokens,elapsed_ms)"+
-			" VALUES (?,?, ?,1,?,?,?)"+
+		"INSERT INTO ai_usage_daily (date,user_id,skill_id,model_id,model_name,run_count,input_tokens,output_tokens,elapsed_ms)"+
+			" SELECT ?,?,?,model_id,model_name,1,?,?,? FROM ai_run WHERE id=?"+
 			" ON DUPLICATE KEY UPDATE run_count=run_count+1,input_tokens=input_tokens+VALUES(input_tokens),"+
 			"output_tokens=output_tokens+VALUES(output_tokens),elapsed_ms=elapsed_ms+VALUES(elapsed_ms)",
 		now.In(time.Local).
@@ -596,6 +581,7 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 		output,
 		now.Sub(r.CreatedAt).
 			Milliseconds(),
+		r.ID,
 	).
 		Error
 	if err != nil {

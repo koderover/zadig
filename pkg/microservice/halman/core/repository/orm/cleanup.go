@@ -303,10 +303,7 @@ func (s *Store) refreshExpiredTitle(ctx context.Context, cutoff time.Time) (int6
 	}
 
 	defer tx.Rollback()
-	var found string
-	if err := tx.WithContext(ctx).Raw("SELECT id FROM ai_conversation WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE", id, user).
-		Row().
-		Scan(&found); err != nil {
+	if err := lockActiveConversation(tx, user, id); err != nil {
 		return 0, err
 	}
 

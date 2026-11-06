@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/reviewfeedback"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -95,7 +96,7 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		}
 	}
 	comment := formatAIReviewSummaryComment(report, inlineResult)
-	summary, summaryErr := s.Client.createAIReviewComment(ctx, cli, projectID, repoOwner, repoName, prID, comment)
+	summary, summaryErr := s.Client.createAIReviewComment(ctx, cli, projectID, repoOwner, repoName, prID, comment, report.Metadata.Language)
 	comments := inlineResult.Comments
 	if summaryErr == nil {
 		comments = append(comments, summary)
@@ -131,32 +132,33 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 }
 
 func formatAIReviewComment(report *stepspec.AIReviewReport) string {
-	return formatAIReviewCommentWithFindings(report, report.Findings, "审查问题", -1)
+	return formatAIReviewCommentWithFindings(report, report.Findings, language.Normalize(report.Metadata.Language).Text("审查问题", "Review findings"), -1)
 }
 
 func formatAIReviewSummaryDetails(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
+	lang := language.Normalize(report.Metadata.Language)
 	var builder strings.Builder
 	if inlineResult.Failed {
-		builder.WriteString("行内评论发布未完成，请查看审查任务日志。\n")
+		builder.WriteString(lang.Text("行内评论发布未完成，请查看审查任务日志。\n", "Inline comment publication is incomplete. Check the review task logs.\n"))
 	}
 	if inlineResult.Skipped > 0 {
-		fmt.Fprintf(&builder, "已跳过 %d 个重复问题，已有未解决线程的问题未重新发送。\n", inlineResult.Skipped)
+		fmt.Fprintf(&builder, lang.Text("已跳过 %d 个重复问题，已有未解决线程的问题未重新发送。\n", "Skipped %d duplicate findings already covered by unresolved threads.\n"), inlineResult.Skipped)
 	}
 	if len(inlineResult.Fallback) > 0 {
-		builder.WriteString("\n### 未能发布为行内评论的问题\n")
-		writeAIReviewFindings(&builder, inlineResult.Fallback)
+		builder.WriteString(lang.Text("\n### 未能发布为行内评论的问题\n", "\n### Findings that could not be published inline\n"))
+		writeAIReviewFindings(&builder, inlineResult.Fallback, lang)
 	}
 	if (report.Incomplete || report.ExitCode == 2) && len(report.Errors) == 0 && len(report.Warnings) == 0 {
-		builder.WriteString("审查未完整完成，请查看审查任务日志。\n")
+		builder.WriteString(lang.Text("审查未完整完成，请查看审查任务日志。\n", "The review is incomplete. Check the review task logs.\n"))
 	}
 	if len(report.Errors) > 0 {
-		builder.WriteString("\n### 错误\n")
+		builder.WriteString(lang.Text("\n### 错误\n", "\n### Errors\n"))
 		for _, reportErr := range report.Errors {
 			fmt.Fprintf(&builder, "\n- %s\n", markdownText(reportErr))
 		}
 	}
 	if len(report.Warnings) > 0 {
-		builder.WriteString("\n### 警告\n")
+		builder.WriteString(lang.Text("\n### 警告\n", "\n### Warnings\n"))
 		for _, warning := range report.Warnings {
 			fmt.Fprintf(&builder, "\n- %s\n", markdownText(warning))
 		}
@@ -165,19 +167,20 @@ func formatAIReviewSummaryDetails(report *stepspec.AIReviewReport, inlineResult 
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
-	status := "🟢 **审查通过**"
-	message := "代码质量良好，未发现明确问题。逻辑清晰，符合规范。🎉"
+	lang := language.Normalize(report.Metadata.Language)
+	status := lang.Text("🟢 **审查通过**", "🟢 **Review passed**")
+	message := lang.Text("代码质量良好，未发现明确问题。逻辑清晰，符合规范。🎉", "No clear issues were found. The code looks good. 🎉")
 	if len(report.Findings) > 0 {
-		message = fmt.Sprintf("**⚠️ 发现 %d 个问题，建议修复后再合并。**", len(report.Findings))
+		message = fmt.Sprintf(lang.Text("**⚠️ 发现 %d 个问题，建议修复后再合并。**", "**⚠️ Found %d issues. Address them before merging.**"), len(report.Findings))
 	}
 	switch {
 	case report.Incomplete || report.ExitCode == 2:
-		status = "🟡 **审查未完整完成**"
-		message = "**⚠️ 审查未完整完成，请查看错误和警告。**"
+		status = lang.Text("🟡 **审查未完整完成**", "🟡 **Review incomplete**")
+		message = lang.Text("**⚠️ 审查未完整完成，请查看错误和警告。**", "**⚠️ The review is incomplete. Check the errors and warnings.**")
 	case report.ExitCode == 1:
-		status = "🔴 **发现阻断问题**"
+		status = lang.Text("🔴 **发现阻断问题**", "🔴 **Blocking issues found**")
 	}
-	duration := "未知"
+	duration := lang.Text("未知", "Unknown")
 	if report.DurationMS > 60000 {
 		duration = fmt.Sprintf("%.2fm", float64(report.DurationMS)/60000)
 	} else if report.DurationMS > 0 {
@@ -188,27 +191,27 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 		counts[strings.ToLower(strings.TrimSpace(finding.Severity))]++
 	}
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "### 🤖 Zadig AI Review\n\n%s · 模型 `%s` · 已扫描 `%d` 个文件 · 耗时 %s\n\n---\n\n%s\n\n`🟥 严重: %d` | `🟧 高: %d` | `🟨 中: %d` | `🟦 低: %d`\n", status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, duration, message, counts["critical"], counts["high"], counts["medium"], counts["low"])
+	fmt.Fprintf(&builder, lang.Text("### 🤖 Zadig AI Review\n\n%s · 模型 `%s` · 已扫描 `%d` 个文件 · 耗时 %s\n\n---\n\n%s\n\n`🟥 严重: %d` | `🟧 高: %d` | `🟨 中: %d` | `🟦 低: %d`\n", "### 🤖 Zadig AI Review\n\n%s · Model `%s` · Scanned `%d` files · Duration %s\n\n---\n\n%s\n\n`🟥 Critical: %d` | `🟧 High: %d` | `🟨 Medium: %d` | `🟦 Low: %d`\n"), status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, duration, message, counts["critical"], counts["high"], counts["medium"], counts["low"])
 	if len(inlineResult.Links) > 0 {
-		fmt.Fprintf(&builder, "\n<details>\n<summary>🔗 <strong>查看 %d 条行内评论</strong></summary>\n\n", len(inlineResult.Links))
-		labels := map[string]string{"critical": "🟥 严重", "high": "🟧 高", "medium": "🟨 中", "low": "🟦 低", "info": "ℹ️ 提示"}
+		fmt.Fprintf(&builder, lang.Text("\n<details>\n<summary>🔗 <strong>查看 %d 条行内评论</strong></summary>\n\n", "\n<details>\n<summary>🔗 <strong>View %d inline comments</strong></summary>\n\n"), len(inlineResult.Links))
+		labels := map[string]string{"critical": lang.Text("🟥 严重", "🟥 Critical"), "high": lang.Text("🟧 高", "🟧 High"), "medium": lang.Text("🟨 中", "🟨 Medium"), "low": lang.Text("🟦 低", "🟦 Low"), "info": lang.Text("ℹ️ 提示", "ℹ️ Info")}
 		for _, link := range inlineResult.Links {
 			label := labels[strings.ToLower(strings.TrimSpace(link.Finding.Severity))]
 			if label == "" {
-				label = "ℹ️ 问题"
+				label = lang.Text("ℹ️ 问题", "ℹ️ Finding")
 			}
-			fmt.Fprintf(&builder, "- [%s：%s · `%s:%d`](<%s>)\n", label, aiReviewFindingTitle(link.Finding), markdownInline(link.Finding.File), link.Line, link.URL)
+			fmt.Fprintf(&builder, lang.Text("- [%s：%s · `%s:%d`](<%s>)\n", "- [%s: %s · `%s:%d`](<%s>)\n"), label, aiReviewFindingTitle(link.Finding, lang), markdownInline(link.Finding.File), link.Line, link.URL)
 		}
 		builder.WriteString("\n</details>\n")
 	} else if inlineResult.Published > 0 {
-		fmt.Fprintf(&builder, "\n已发布 %d 条行内评论，暂未获取跳转链接。\n", inlineResult.Published)
+		fmt.Fprintf(&builder, lang.Text("\n已发布 %d 条行内评论，暂未获取跳转链接。\n", "\nPublished %d inline comments; links are not yet available.\n"), inlineResult.Published)
 	}
 	// Retain details only when publication or review diagnostics need explanation.
 	if inlineResult.Failed || inlineResult.Skipped > 0 || len(inlineResult.Fallback) > 0 || report.Incomplete || report.ExitCode == 2 || len(report.Errors) > 0 || len(report.Warnings) > 0 {
 		details := formatAIReviewSummaryDetails(report, inlineResult)
-		fmt.Fprintf(&builder, "\n<details>\n<summary>点击查看审查明细</summary>\n\n%s\n\n</details>\n", details)
+		fmt.Fprintf(&builder, lang.Text("\n<details>\n<summary>点击查看审查明细</summary>\n\n%s\n\n</details>\n", "\n<details>\n<summary>View review details</summary>\n\n%s\n\n</details>\n"), details)
 	}
-	builder.WriteString("\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n欢迎直接给本条评论添加 👍 (准确) 或 👎 (误报)\n\n" + aiReviewCommentMarker)
+	builder.WriteString(lang.Text("\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n欢迎直接给本条评论添加 👍 (准确) 或 👎 (误报)\n\n", "\n---\n\n*AI-generated. Use human review to make the final decision.*\n\nReact to this comment with 👍 (accurate) or 👎 (false positive).\n\n") + aiReviewCommentMarker)
 	return builder.String()
 }
 
@@ -236,20 +239,21 @@ func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []model
 }
 
 func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings []stepspec.AIReviewFinding, heading string, inlinePublished int) string {
-	status := "✅ 审查通过"
+	lang := language.Normalize(report.Metadata.Language)
+	status := lang.Text("✅ 审查通过", "✅ Review passed")
 	switch {
 	case report.Incomplete || report.ExitCode == 2:
-		status = "⚠️ 审查未完整完成"
+		status = lang.Text("⚠️ 审查未完整完成", "⚠️ Review incomplete")
 	case report.ExitCode == 1:
-		status = "❌ 发现阻断问题"
+		status = lang.Text("❌ 发现阻断问题", "❌ Blocking issues found")
 	}
 
 	var builder strings.Builder
-	builder.WriteString("## Zadig AI 代码审查\n\n")
+	builder.WriteString(lang.Text("## Zadig AI 代码审查\n\n", "## Zadig AI Review\n\n"))
 	fmt.Fprintf(&builder, "**%s**\n\n", status)
 	fmt.Fprintf(
 		&builder,
-		"- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- 问题数量：%d\n- 模型：`%s`\n",
+		lang.Text("- 审查范围：`%s` → `%s`\n- 变更文件：%d\n- 问题数量：%d\n- 模型：`%s`\n", "- Review range: `%s` → `%s`\n- Changed files: %d\n- Findings: %d\n- Model: `%s`\n"),
 		markdownInline(report.Metadata.From),
 		markdownInline(report.Metadata.To),
 		report.Stats.ChangedFiles,
@@ -259,7 +263,7 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 	if len(report.Stats.BySeverity) > 0 {
 		fmt.Fprintf(
 			&builder,
-			"- 严重级别：严重 %d / 高 %d / 中 %d / 低 %d\n",
+			lang.Text("- 严重级别：严重 %d / 高 %d / 中 %d / 低 %d\n", "- Severity: critical %d / high %d / medium %d / low %d\n"),
 			report.Stats.BySeverity["critical"],
 			report.Stats.BySeverity["high"],
 			report.Stats.BySeverity["medium"],
@@ -267,77 +271,78 @@ func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings
 		)
 	}
 	if inlinePublished >= 0 && len(report.Findings) > 0 {
-		fmt.Fprintf(&builder, "- 行内评论：%d / %d\n", inlinePublished, len(report.Findings))
+		fmt.Fprintf(&builder, lang.Text("- 行内评论：%d / %d\n", "- Inline comments: %d / %d\n"), inlinePublished, len(report.Findings))
 	}
 
 	if len(report.Findings) == 0 {
-		builder.WriteString("\n未发现经过验证的问题。\n")
+		builder.WriteString(lang.Text("\n未发现经过验证的问题。\n", "\nNo verified issues were found.\n"))
 	} else if inlinePublished >= 0 && len(findings) == 0 {
-		builder.WriteString("\n所有问题均已发布为行内评论。\n")
+		builder.WriteString(lang.Text("\n所有问题均已发布为行内评论。\n", "\nAll findings have been published as inline comments.\n"))
 	} else {
 		fmt.Fprintf(&builder, "\n### %s\n", heading)
-		writeAIReviewFindings(&builder, findings)
+		writeAIReviewFindings(&builder, findings, lang)
 	}
 	if len(report.Errors) > 0 {
-		builder.WriteString("\n### 错误\n")
+		builder.WriteString(lang.Text("\n### 错误\n", "\n### Errors\n"))
 		for _, reportErr := range report.Errors {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(reportErr))
 		}
 		builder.WriteByte('\n')
 	}
 	if len(report.Warnings) > 0 {
-		builder.WriteString("\n### 警告\n")
+		builder.WriteString(lang.Text("\n### 警告\n", "\n### Warnings\n"))
 		for _, warning := range report.Warnings {
 			fmt.Fprintf(&builder, "\n- %s", markdownText(warning))
 		}
 		builder.WriteByte('\n')
 	}
-	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker)
+	builder.WriteString(lang.Text("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n", "\n---\n\nRate this review with 👍 / 👎.\n\n") + aiReviewCommentMarker)
 	return builder.String()
 }
 
-func writeAIReviewFindings(builder *strings.Builder, findings []stepspec.AIReviewFinding) {
+func writeAIReviewFindings(builder *strings.Builder, findings []stepspec.AIReviewFinding, lang language.Language) {
 	for i, finding := range findings {
 		fmt.Fprintf(
 			builder,
-			"\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · 置信度 %.2f\n\n%s\n",
+			lang.Text("\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · 置信度 %.2f\n\n%s\n", "\n#### %d. [%s] %s\n\n`%s:%d-%d` · `%s` · Confidence %.2f\n\n%s\n"),
 			i+1,
-			markdownText(aiReviewSeverityName(finding.Severity)),
-			aiReviewFindingTitle(finding),
+			markdownText(aiReviewSeverityName(finding.Severity, lang)),
+			aiReviewFindingTitle(finding, lang),
 			markdownInline(finding.File),
 			finding.StartLine,
 			finding.EndLine,
-			markdownInline(aiReviewCategoryName(finding)),
+			markdownInline(aiReviewCategoryName(finding, lang)),
 			finding.Confidence,
 			markdownText(finding.Problem),
 		)
 		if finding.Evidence != "" {
-			fmt.Fprintf(builder, "\n**证据**\n\n%s\n", formatAIReviewEvidence(finding.Evidence, finding.File))
+			fmt.Fprintf(builder, lang.Text("\n**证据**\n\n%s\n", "\n**Evidence**\n\n%s\n"), formatAIReviewEvidence(finding.Evidence, finding.File))
 		}
 		if finding.Suggestion != "" {
-			fmt.Fprintf(builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
+			fmt.Fprintf(builder, lang.Text("\n**建议**\n\n%s\n", "\n**Suggestion**\n\n%s\n"), formatAIReviewSuggestion(finding.Suggestion, finding.File))
 		}
 	}
 }
 
-func formatAIReviewInlineComment(finding stepspec.AIReviewFinding) string {
+func formatAIReviewInlineComment(finding stepspec.AIReviewFinding, locale string) string {
+	lang := language.Normalize(locale)
 	var builder strings.Builder
 	fmt.Fprintf(
 		&builder,
-		"**[%s] %s**\n\n`%s` · 置信度 %.2f\n\n%s\n",
-		markdownText(aiReviewSeverityName(finding.Severity)),
-		aiReviewFindingTitle(finding),
-		markdownInline(aiReviewCategoryName(finding)),
+		lang.Text("**[%s] %s**\n\n`%s` · 置信度 %.2f\n\n%s\n", "**[%s] %s**\n\n`%s` · Confidence %.2f\n\n%s\n"),
+		markdownText(aiReviewSeverityName(finding.Severity, lang)),
+		aiReviewFindingTitle(finding, lang),
+		markdownInline(aiReviewCategoryName(finding, lang)),
 		finding.Confidence,
 		markdownText(finding.Problem),
 	)
 	if finding.Evidence != "" {
-		fmt.Fprintf(&builder, "\n**证据**\n\n%s\n", formatAIReviewEvidence(finding.Evidence, finding.File))
+		fmt.Fprintf(&builder, lang.Text("\n**证据**\n\n%s\n", "\n**Evidence**\n\n%s\n"), formatAIReviewEvidence(finding.Evidence, finding.File))
 	}
 	if finding.Suggestion != "" {
-		fmt.Fprintf(&builder, "\n**建议**\n\n%s\n", formatAIReviewSuggestion(finding.Suggestion, finding.File))
+		fmt.Fprintf(&builder, lang.Text("\n**建议**\n\n%s\n", "\n**Suggestion**\n\n%s\n"), formatAIReviewSuggestion(finding.Suggestion, finding.File))
 	}
-	builder.WriteString("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n" + aiReviewCommentMarker + reviewfeedback.FingerprintMarker(finding.Fingerprint))
+	builder.WriteString(lang.Text("\n---\n\n请使用 👍 / 👎 评价本次审查。\n\n", "\n---\n\nRate this review with 👍 / 👎.\n\n") + aiReviewCommentMarker + reviewfeedback.FingerprintMarker(finding.Fingerprint))
 	return builder.String()
 }
 
@@ -394,53 +399,53 @@ func parseAIReviewHunkNewStart(header string) (int, bool) {
 	return line, err == nil && line > 0
 }
 
-func aiReviewFindingTitle(finding stepspec.AIReviewFinding) string {
+func aiReviewFindingTitle(finding stepspec.AIReviewFinding, lang language.Language) string {
 	title := singleLineText(finding.Title)
 	if title == "" {
-		title = aiReviewCategoryName(finding)
+		title = aiReviewCategoryName(finding, lang)
 	}
 	if title == "" {
-		title = "未命名问题"
+		title = lang.Text("未命名问题", "Untitled finding")
 	}
 	return markdownText(title)
 }
 
-func aiReviewSeverityName(severity string) string {
+func aiReviewSeverityName(severity string, lang language.Language) string {
 	switch strings.ToLower(strings.TrimSpace(severity)) {
 	case "critical":
-		return "严重"
+		return lang.Text("严重", "Critical")
 	case "high":
-		return "高"
+		return lang.Text("高", "High")
 	case "medium":
-		return "中"
+		return lang.Text("中", "Medium")
 	case "low":
-		return "低"
+		return lang.Text("低", "Low")
 	case "info":
-		return "提示"
+		return lang.Text("提示", "Info")
 	default:
 		return singleLineText(severity)
 	}
 }
 
-func aiReviewCategoryName(finding stepspec.AIReviewFinding) string {
+func aiReviewCategoryName(finding stepspec.AIReviewFinding, lang language.Language) string {
 	if name := singleLineText(finding.CategoryName); name != "" {
 		return name
 	}
 	switch strings.ToLower(strings.TrimSpace(finding.Category)) {
 	case "reliability":
-		return "正确性与可靠性"
+		return lang.Text("正确性与可靠性", "Correctness and reliability")
 	case "correctness":
-		return "正确性"
+		return lang.Text("正确性", "Correctness")
 	case "security":
-		return "安全性"
+		return lang.Text("安全性", "Security")
 	case "performance":
-		return "性能"
+		return lang.Text("性能", "Performance")
 	case "maintainability":
-		return "可维护性"
+		return lang.Text("可维护性", "Maintainability")
 	case "readability":
-		return "可读性"
+		return lang.Text("可读性", "Readability")
 	case "style":
-		return "代码风格"
+		return lang.Text("代码风格", "Code style")
 	default:
 		return singleLineText(finding.Category)
 	}
