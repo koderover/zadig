@@ -15,7 +15,7 @@ var englishContent embed.FS
 var englishMetadata = map[string]struct{ name, description string }{
 	"workflow_diagnosis":     {"Workflow failure analysis", "Read task status and log evidence to identify failures and suggest fixes"},
 	"service_diagnosis":      {"Service failure analysis", "Analyze service status, events and logs, and prepare a repair plan when explicitly requested"},
-	"project_onboarding":     {"Project initialization", "Collect existing deployment configuration and template parameters to prepare a project initialization plan"},
+	"project_onboarding":     {"Project initialization", "Collect existing service configuration and template parameters to prepare a project initialization plan"},
 	"service_onboarding":     {"Service initialization", "Add multiple services to an existing project using existing configurations and prepare a plan for confirmation"},
 	"environment_inspection": {"Environment inspection", "Use existing environment inspection reports and history, collect additional evidence and suggest improvements"},
 	"efficiency_diagnosis":   {"Efficiency diagnosis", "Use existing efficiency reports to identify quality and delivery bottlenecks in specified projects"},

@@ -10,5 +10,5 @@ type CatalogRequest struct {
 	RepoOwner  string `json:"repo_owner,omitempty" jsonschema:"description=仓库组织或拥有者"`
 	RepoName   string `json:"repo_name,omitempty" jsonschema:"description=仓库名"`
 	Branch     string `json:"branch,omitempty" jsonschema:"description=分支名"`
-	Path       string `json:"path,omitempty" jsonschema:"description=已有部署配置路径，不读取整仓库"`
+	Path       string `json:"path,omitempty" jsonschema:"description=已有服务配置路径，不读取整仓库"`
 }

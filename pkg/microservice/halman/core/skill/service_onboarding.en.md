@@ -12,7 +12,7 @@ Target project and its type, each service's name, existing configuration source,
 
 1. Query the existing project type, service list, and configurations and templates accessible to the current user. Prevent name collisions and type mismatches.
 2. Include at most twenty services per batch. Confirm each source, name and file grouping. Do not split a service's multiple YAML files into separate services.
-3. Use only existing YAML, Charts or templates. Do not clone or write repositories. If only source code exists without usable deployment configuration, explain what is missing and ask for it.
+3. Use only existing YAML, Charts or templates. Do not clone or write repositories. If only source code exists without usable service configuration, explain what is missing and ask for it.
 4. Create builds only from existing build templates; skip builds if no suitable template exists. Reuse the actual configuration logic of `AutoCreateWorkflow` when workflows are needed.
 5. Use the service initialization tool to prepare a batch operation plan. The program executes each item only after explicit authorization through the confirmation card.
 
