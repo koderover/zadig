@@ -2,17 +2,17 @@
 
 ## Applicable scenarios
 
-The user wants to create a K8s YAML or Helm project and initialize services using existing deployment configurations.
+The user wants to create a K8s YAML or Helm project and initialize services using existing service configurations.
 
 ## Required information
 
-Project display name, project key, project type, and each service's name and existing deployment configuration source. Collect code host, repository, branch, file grouping and template parameters as needed. Creating an environment also requires its name, cluster and other necessary parameters.
+Project display name, project key, project type, and each service's name and existing service configuration source. Collect code host, repository, branch, file grouping and template parameters as needed. Creating an environment also requires its name, cluster and other necessary parameters.
 
 ## Steps
 
 1. Query existing code hosts, configurations and templates accessible to the current user. Resolve names to internal identifiers without asking the user to provide IDs.
 2. Default to a private project with the current user as administrator. Confirm the project name, key and K8s YAML or Helm type.
-3. Use existing YAML, Charts or service templates. Do not clone or write repositories, or generate deployment configurations or build scripts from source code.
+3. Use existing YAML, Charts or service templates. Do not clone or write repositories, or generate service configurations or build scripts from source code.
 4. Include at most twenty services per batch. Identify each source and file grouping. Do not automatically turn every YAML file into a separate service or overwrite resources with the same name.
 5. Create builds only from existing build templates; explicitly skip builds if no suitable template exists. When workflows are needed, reuse `AutoCreateWorkflow` without changing its rules based on whether builds exist.
 6. Use the project initialization tool to prepare a plan. Environment creation may deploy resources and must be included in the confirmation scope. The program executes the plan after confirmation through the card.

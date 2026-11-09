@@ -115,19 +115,19 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	}
 
 	if args.ProjectType == "" {
-		missing = append(missing, "项目类型（K8s YAML 或 Helm）")
+		missing = append(missing, "项目类型（K8s YAML 或 Helm；已有项目请从项目信息中读取）")
 	} else if args.ProjectType != "k8s" && args.ProjectType != "helm" {
 		return nil, fmt.Errorf("只支持 K8s YAML 和 Helm 项目")
 	}
 
 	if len(args.Services) == 0 {
 		if args.ExpectedServiceCount > 0 {
-			missing = append(missing, fmt.Sprintf("%d 个服务的名称及已有部署配置或模板", args.ExpectedServiceCount))
+			missing = append(missing, fmt.Sprintf("本次要新建的 %d 个服务的名称", args.ExpectedServiceCount))
 		} else {
-			missing = append(missing, "本次服务总数、名称及已有部署配置或模板")
+			missing = append(missing, "本次要新建的服务名称列表")
 		}
 	}
-	if args.ExpectedServiceCount > 0 && len(args.Services) != args.ExpectedServiceCount {
+	if len(args.Services) > 0 && args.ExpectedServiceCount > 0 && len(args.Services) != args.ExpectedServiceCount {
 		missing = append(missing, fmt.Sprintf("本次需要 %d 个服务，当前清单为 %d 个；请补齐服务，或明确调整总数、移除多余服务", args.ExpectedServiceCount, len(args.Services)))
 	}
 
@@ -138,16 +138,16 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	seen := make(map[string]bool)
 	for i := range args.Services {
 		item := &args.Services[i]
-		label := item.Name
-		if label == "" {
+		label := "服务 " + item.Name
+		if item.Name == "" {
 			label = fmt.Sprintf("第 %d 个服务", i+1)
 		}
 		if strings.ToLower(item.Name) != item.Name {
-			return nil, fmt.Errorf("服务名必须使用小写字母")
+			return nil, fmt.Errorf("服务名不能包含大写字母")
 		}
 
 		if item.Git != nil && item.Source != "" && item.Source != "yaml_git" && item.Source != "helm_git" {
-			return nil, fmt.Errorf("只有仓库来源服务可以指定部署配置 Git 参数")
+			return nil, fmt.Errorf("只有仓库来源服务可以指定服务配置 Git 参数")
 		}
 
 		if len(item.Variables) > 0 && item.Source != "" && item.Source != "yaml_template" && item.Source != "helm_template" {
@@ -169,7 +169,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 
 		if item.Source == "" {
-			missing = append(missing, label+" 的配置来源")
+			missing = append(missing, label+" 的服务配置来源（按项目类型选择代码仓库、服务模板或 Chart 仓库）")
 			continue
 		}
 
@@ -186,14 +186,14 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			}
 		case "yaml_template", "helm_template":
 			if item.TemplateID == "" {
-				missing = append(missing, label+" 的已有模板")
+				missing = append(missing, label+" 要使用的已有服务模板（不是构建模板）")
 			}
 		case "helm_repository":
 			if item.ChartRepo == "" || item.ChartName == "" || item.ChartVersion == "" {
 				missing = append(missing, label+" 的 Chart 仓库、名称及具体版本")
 			}
 		default:
-			return nil, fmt.Errorf("服务来源不受支持；不生成源码部署配置，不 clone 仓库")
+			return nil, fmt.Errorf("服务来源不受支持；仅使用已有服务配置或服务模板，不从源码生成配置，不 clone 仓库")
 		}
 
 		if args.ProjectType == "k8s" && strings.HasPrefix(item.Source, "helm_") ||
@@ -334,10 +334,10 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			missing = append(missing, label+" 的名称")
 		}
 		if build.ServiceName == "" {
-			missing = append(missing, label+" 绑定的服务")
+			missing = append(missing, "构建 "+label+" 关联的服务名称")
 		}
 		if build.ServiceModule == "" {
-			missing = append(missing, label+" 的构建组件或容器名称")
+			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
 		}
 		if build.Name == "" || build.ServiceName == "" || build.ServiceModule == "" {
 			continue
@@ -347,7 +347,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 
 		if !seen[build.ServiceName] {
-			missing = append(missing, "构建 "+build.Name+" 绑定的服务不在本批清单，请调整绑定或明确清空构建")
+			missing = append(missing, "构建 "+build.Name+" 关联的服务 "+build.ServiceName+" 不在本次新建服务清单中；当前初始化流程仅支持为本批新建服务附带创建构建，不支持仅创建构建")
 			continue
 		}
 

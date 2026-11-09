@@ -84,6 +84,31 @@ func TestOnboardingCountMismatchAsksBeforeReadingConfiguration(t *testing.T) {
 	}
 }
 
+func TestOnboardingMissingFieldsAskForSpecificServiceInformation(t *testing.T) {
+	for _, tc := range []struct {
+		name, services, expected string
+	}{
+		{"未提供服务", `[]`, "本次要新建的 3 个服务的名称"},
+		{"缺少配置来源", `[{"name":"api"},{"name":"web"},{"name":"worker"}]`, "服务 api 的服务配置来源"},
+		{"缺少服务模板", `[{"name":"api","source":"yaml_template"},{"name":"web","source":"yaml_template"},{"name":"worker","source":"yaml_template"}]`, "服务 api 要使用的已有服务模板（不是构建模板）"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, mock := mockStore(t)
+			e := reportExecution("project_onboarding")
+			e.RootID = "run"
+			e.Cutoff = time.Now().Add(-time.Hour)
+			expectOnboardingDraftSave(mock)
+			s := &AgentService{Store: store}
+			args := onboardingInput(t, `{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":`+tc.services+`}`)
+			value, err := s.prepareProject(context.WithValue(context.Background(), executionKey{}, e), args)
+			text := string(common.JSON(value))
+			if err != nil || !strings.Contains(text, tc.expected) || strings.Contains(text, "当前清单为 0 个") {
+				t.Fatalf("应逐项补问，空清单不重复提示数量不足: %s %v", text, err)
+			}
+		})
+	}
+}
+
 func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *testing.T) {
 	store, mock := mockStore(t)
 	reads := 0

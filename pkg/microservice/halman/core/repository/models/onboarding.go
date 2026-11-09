@@ -17,7 +17,7 @@ type GitConfig struct {
 
 type ServiceInput struct {
 	Name                string            `json:"name" jsonschema:"description=服务名，不能与已有服务重名"`
-	Source              string            `json:"source,omitempty" jsonschema:"enum=yaml_git,enum=yaml_template,enum=helm_git,enum=helm_repository,enum=helm_template,description=已有部署配置或已有模板来源"`
+	Source              string            `json:"source,omitempty" jsonschema:"enum=yaml_git,enum=yaml_template,enum=helm_git,enum=helm_repository,enum=helm_template,description=已有服务配置或已有模板来源"`
 	Git                 *GitConfig        `json:"git,omitempty"`
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有 YAML 模板 ID 或 Chart 模板名称"`
 	Variables           map[string]string `json:"variables,omitempty" jsonschema:"description=模板定义的变量，不接受脚本或原始 YAML"`
@@ -33,7 +33,7 @@ type BuildInput struct {
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
 	ServiceName         string            `json:"service_name,omitempty"`
 	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称"`
-	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与部署配置来源分开"`
+	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
 }
