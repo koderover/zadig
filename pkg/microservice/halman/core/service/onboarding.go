@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mozillazg/go-pinyin"
@@ -89,6 +90,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	if err != nil {
 		return nil, err
 	}
+	if !newProject && args.CreateWorkflow {
+		return nil, fmt.Errorf("服务初始化不支持创建工作流，请移除 create_workflow 或设为 false")
+	}
 
 	if err := validateDraftSecrets(args); err != nil {
 		return nil, err
@@ -114,13 +118,63 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		return nil, fmt.Errorf("项目标识只能包含小写字母、数字和短横线，最长三十二位")
 	}
 
+	existingServices := map[string]bool{}
+	buildTargets := map[string]bool{}
+	projectLoaded := false
+	if !newProject && len(args.Builds) > 0 && args.ProjectKey != "" {
+		project, err := s.Platform.project(ctx, e.Authorization, args.ProjectKey)
+		if err != nil {
+			return nil, err
+		}
+		if args.ProjectType != "" && args.ProjectType != project.Type {
+			return nil, fmt.Errorf("已有项目类型与输入不一致")
+		}
+		args.ProjectType = project.Type
+		if err := s.recordScope(ctx, e, models.PageContext{PageType: "project", ProjectKey: args.ProjectKey}); err != nil {
+			return nil, err
+		}
+		if err := s.preflightPermissions(ctx, e, models.OperationPlan{Items: []models.OperationItem{{Action: "create_build", ProjectKey: args.ProjectKey}}}); err != nil {
+			return nil, err
+		}
+		raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/project/products/"+args.ProjectKey+"/services", url.Values{"projectName": {args.ProjectKey}}, nil)
+		if err != nil {
+			return nil, err
+		}
+		var listed struct {
+			Services [][]string `json:"services"`
+		}
+		if err := json.Unmarshal(raw, &listed); err != nil {
+			return nil, fmt.Errorf("已有服务列表无法解析")
+		}
+		for _, group := range listed.Services {
+			for _, name := range group {
+				existingServices[name] = true
+			}
+		}
+		names := map[string]bool{}
+		for _, item := range args.Services {
+			names[item.Name] = true
+		}
+		for _, build := range args.Builds {
+			if build.ServiceName == "" {
+				continue
+			}
+			buildTargets[build.ServiceName] = true
+			if !names[build.ServiceName] && existingServices[build.ServiceName] {
+				args.Services = append(args.Services, models.ServiceInput{Name: build.ServiceName})
+				names[build.ServiceName] = true
+			}
+		}
+		projectLoaded = true
+	}
+
 	if args.ProjectType == "" {
 		missing = append(missing, "项目类型（K8s YAML 或 Helm；已有项目请从项目信息中读取）")
 	} else if args.ProjectType != "k8s" && args.ProjectType != "helm" {
 		return nil, fmt.Errorf("只支持 K8s YAML 和 Helm 项目")
 	}
 
-	if len(args.Services) == 0 {
+	if len(args.Services) == 0 && (newProject || len(args.Builds) == 0) {
 		if args.ExpectedServiceCount > 0 {
 			missing = append(missing, fmt.Sprintf("本次要新建的 %d 个服务的名称", args.ExpectedServiceCount))
 		} else {
@@ -168,6 +222,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			seen[item.Name] = true
 		}
 
+		if item.Source == "" && existingServices[item.Name] && buildTargets[item.Name] {
+			continue
+		}
 		if item.Source == "" {
 			missing = append(missing, label+" 的服务配置来源（按项目类型选择代码仓库、服务模板或 Chart 仓库）")
 			continue
@@ -231,7 +288,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 	}
 
-	if !newProject {
+	if !newProject && !projectLoaded {
 		project, err := s.Platform.project(ctx, e.Authorization, args.ProjectKey)
 		if err != nil {
 			return nil, err
@@ -265,6 +322,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 
 	for i := range args.Services {
 		item := &args.Services[i]
+		if item.Source == "" && existingServices[item.Name] && buildTargets[item.Name] {
+			continue
+		}
 		if err := s.preflightService(ctx, e, args.ProjectKey, *item, !newProject); err != nil {
 			return nil, err
 		}
@@ -308,7 +368,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 
 	serviceIDs := make([]string, 0, len(args.Services))
 	for _, item := range args.Services {
-		serviceIDs = append(serviceIDs, "service-"+item.Name)
+		if item.Source != "" {
+			serviceIDs = append(serviceIDs, "service-"+item.Name)
+		}
 	}
 
 	seenBuild := map[string]bool{}
@@ -336,7 +398,30 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if build.ServiceName == "" {
 			missing = append(missing, "构建 "+label+" 关联的服务名称")
 		}
-		if build.ServiceModule == "" {
+
+		existing := existingServices[build.ServiceName] && !hasNewService(args.Services, build.ServiceName)
+		if build.ServiceName != "" && !hasNewService(args.Services, build.ServiceName) && !existing {
+			missing = append(missing, "构建 "+label+" 关联的服务 "+build.ServiceName+" 不存在；请选择已有服务，或明确提供新服务配置")
+			continue
+		}
+		if existing && build.Name != "" && build.ServiceName != "" {
+			modules, err := s.Platform.buildServiceModules(ctx, e.Authorization, args.ProjectKey, args.ProjectType, build.ServiceName)
+			if err != nil {
+				return nil, err
+			}
+			if build.ServiceModule == "" && len(modules) == 1 {
+				build.ServiceModule = modules[0]
+			}
+			if build.ServiceModule == "" {
+				if len(modules) == 0 {
+					missing = append(missing, "服务 "+build.ServiceName+" 没有可用构建组件，请先检查已有服务配置")
+				} else {
+					missing = append(missing, "构建 "+label+" 请选择已有服务组件："+strings.Join(modules, "、"))
+				}
+			} else if !slices.Contains(modules, build.ServiceModule) {
+				return nil, fmt.Errorf("构建 %s 选择的组件不属于服务 %s", build.Name, build.ServiceName)
+			}
+		} else if build.ServiceModule == "" {
 			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
 		}
 		if build.Name == "" || build.ServiceName == "" || build.ServiceModule == "" {
@@ -344,11 +429,6 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 		if err := checkNames(build.Name, build.ServiceName, build.ServiceModule); err != nil {
 			return nil, err
-		}
-
-		if !seen[build.ServiceName] {
-			missing = append(missing, "构建 "+build.Name+" 关联的服务 "+build.ServiceName+" 不在本次新建服务清单中；当前初始化流程仅支持为本批新建服务附带创建构建，不支持仅创建构建")
-			continue
 		}
 
 		if err := validateVariables(build.Variables); err != nil {
@@ -400,7 +480,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				ProjectKey:  args.ProjectKey,
 				ProjectType: args.ProjectType,
 				Params:      common.JSON(build),
-				DependsOn:   []string{"service-" + build.ServiceName},
+				DependsOn:   buildDependencies(args.Services, build.ServiceName),
 				Status:      "pending",
 			},
 		)
@@ -459,6 +539,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		)
 	}
 
+	if len(plan.Items) == 0 {
+		return s.saveDraft(ctx, e, args, []string{"未生成可执行操作：构建仅使用已有模板，请选择模板或取消本次任务"})
+	}
 	if err := s.preflightPermissions(ctx, e, plan); err != nil {
 		return nil, err
 	}
@@ -605,4 +688,52 @@ func containsName(raw []byte, name string) bool {
 func checkTemplateVariables(raw []byte, values map[string]string) error {
 	_, _, err := templateVariables(raw, values)
 	return err
+}
+
+func hasNewService(services []models.ServiceInput, name string) bool {
+	for _, item := range services {
+		if item.Name == name && item.Source != "" {
+			return true
+		}
+	}
+	return false
+}
+func buildDependencies(services []models.ServiceInput, name string) []string {
+	if hasNewService(services, name) {
+		return []string{"service-" + name}
+	}
+	return nil
+}
+
+func (p *PlatformClient) buildServiceModules(ctx context.Context, auth, project, projectType, name string) ([]string, error) {
+	if err := checkNames(project, name); err != nil {
+		return nil, err
+	}
+	path := "/api/service/services/" + name
+	if projectType == "helm" {
+		path = "/api/service/helm/" + project + "/" + name + "/serviceModule"
+	}
+	raw, err := p.business(ctx, auth, http.MethodGet, path, url.Values{"projectName": {project}}, nil)
+	if err != nil {
+		return nil, err
+	}
+	var service struct {
+		Modules []struct {
+			Name string `json:"name"`
+		} `json:"service_module"`
+		HelmModules []struct {
+			Name string `json:"name"`
+		} `json:"service_modules"`
+	}
+	if json.Unmarshal(raw, &service) != nil {
+		return nil, fmt.Errorf("服务组件读取失败")
+	}
+	if projectType == "helm" {
+		service.Modules = service.HelmModules
+	}
+	names := []string{}
+	for _, module := range service.Modules {
+		names = append(names, module.Name)
+	}
+	return names, nil
 }

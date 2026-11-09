@@ -2,19 +2,23 @@
 
 ## Applicable scenarios
 
-The user wants to add one or more services to an existing K8s YAML or Helm project.
+The user wants to add services to an existing K8s YAML or Helm project using existing YAML, Helm Charts or service templates, or create builds for services already in Zadig.
 
 ## Required information
 
-Target project and its type, each service's name, existing configuration source, file grouping and required template parameters. Select an existing build template if a build is needed.
+Target project and its type, each new service's name, the source of its YAML, Helm Chart or service template, file grouping and required template parameters. Select an existing build template if a build is needed.
 
 ## Steps
 
 1. Query the existing project type, service list, and configurations and templates accessible to the current user. Prevent name collisions and type mismatches.
 2. Include at most twenty services per batch. Confirm each source, name and file grouping. Do not split a service's multiple YAML files into separate services.
 3. Use only existing YAML, Charts or templates. Do not clone or write repositories. If only source code exists without usable service configuration, explain what is missing and ask for it.
-4. Create builds only from existing build templates; skip builds if no suitable template exists. Reuse the actual configuration logic of `AutoCreateWorkflow` when workflows are needed.
+4. Create builds only from existing build templates; skip builds if no suitable template exists. Service initialization does not create workflows. Do not ask about workflows or list them as skipped in responses or plans. Omit `create_workflow` or set it to false.
 5. Use the service initialization tool to prepare a batch operation plan. The program executes each item only after explicit authorization through the confirmation card.
+
+For Chart repository imports, pass the target `project_key` when querying `helm_repositories` and select the repository by `repo_name`. For `chart_versions`, pass the repository name as `repo_name` (or `id`), never its internal ID. The result contains versions for every Chart in that repository: query once and reuse it across the batch. Preserve the returned version order; when the user requests the latest version, select each Chart's first entry and show the concrete version in the plan. Set each service's `chart_repo` to the repository name as well. Do not ask for code hosts, source repositories or branches unless Git configuration or builds are needed.
+
+For builds targeting existing services, use `builds` directly; `services` may be omitted or contain only their names. Read the project type and service components from Zadig. Never ask again for YAML/Chart sources. Auto-select a sole component, and ask the user to choose if multiple components exist. Collect only build names, the existing build template, source repositories/branches and required variables. Do not create services or environments unless explicitly requested. A new build request after service initialization is a new task: do not reuse the completed initialization draft or its service sources.
 
 ## Clarification
 
@@ -34,4 +38,4 @@ Use the system language selected for this generation to show service names, sour
 
 ## Completion criteria
 
-Report batch completion only when all services in the confirmed scope have been created successfully. Accurately explain partial failures, a plan that has only been prepared, or unknown results.
+Report batch completion only when all operations in the confirmed scope have succeeded (including builds when the request is build-only). Accurately explain partial failures, a plan that has only been prepared, or unknown results.

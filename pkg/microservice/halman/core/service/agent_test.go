@@ -25,6 +25,7 @@ import (
 
 func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	enabled, modelCalls := true, 0
+	inspectionStarted := false
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
@@ -58,6 +59,9 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			}
 			if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
 				t.Error("模型应收到数据库规则快照，且停用 Skill 的工具声明必须移除")
+			}
+			if strings.Contains(string(body), `"name":"environment_service_evidence"`) != inspectionStarted {
+				t.Error("只有已经开始的环境巡检才能向模型提供补充服务证据工具")
 			}
 
 			if r.Header.Get("Authorization") != "Bearer model-secret" || r.URL.Host != "model.internal" {
@@ -111,10 +115,12 @@ data: [DONE]
 	defer r.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = context.WithValue(ctx, executionKey{}, &execution{Run: &models.Run{}, Skills: []models.Skill{
+	exec := &execution{Run: &models.Run{}, Skills: []models.Skill{
 		{ID: "workflow_diagnosis", Source: "builtin", Enabled: false},
 		{ID: "service_diagnosis", Source: "builtin", Enabled: true, Content: "诊断正文", CustomRules: "本轮追加规则"},
-	}})
+		{ID: "environment_inspection", Source: "builtin", Enabled: true},
+	}}
+	ctx = context.WithValue(ctx, executionKey{}, exec)
 	events, err := r.Run(ctx, "user-1", "conversation-1", model.NewUserMessage("你好"), agent.WithRequestID("run-1"))
 	if err != nil {
 		t.Fatal(err)
@@ -175,6 +181,20 @@ data: [DONE]
 	history, _ := json.Marshal(saved.Events)
 	if strings.Contains(string(history), "current-account") || strings.Contains(string(history), "当前登录用户（") {
 		t.Fatal("每轮注入的身份资料不能写入框架历史消息")
+	}
+
+	inspectionStarted, exec.SkillID = true, "environment_inspection"
+	inspection, err := r.Run(ctx, "user-1", "inspection-conversation", model.NewUserMessage("补充服务证据"), agent.WithRequestID("run-inspection"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for e := range inspection {
+		if e.Error != nil {
+			t.Fatalf("已有巡检仍应可补充证据: %+v", e.Error)
+		}
+	}
+	if modelCalls != 2 {
+		t.Fatal("应分别验证新任务与已有巡检的模型工具列表")
 	}
 
 	enabled = false

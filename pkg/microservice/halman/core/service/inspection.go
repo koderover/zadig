@@ -201,6 +201,9 @@ func (s *AgentService) environmentInspectionHistory(ctx context.Context, input m
 }
 
 func (s *AgentService) environmentServiceEvidence(ctx context.Context, target models.ServiceTarget) (any, error) {
+	if e, ok := ctx.Value(executionKey{}).(*execution); ok && e.SkillID == "" {
+		return nil, fmt.Errorf("请先调用环境巡检或巡检历史工具；仅查看服务日志请调用 service_diagnosis，goal=diagnose")
+	}
 	e, err := s.skillExecution(ctx, "environment_inspection")
 	if err != nil {
 		return nil, err
