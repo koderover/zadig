@@ -23,33 +23,43 @@ type PlatformClient struct {
 	LoadRuntime            func(context.Context) (*types.AIAssistantRuntime, error)
 }
 
+// 仅提取身份展示所需字段，不向模型传递完整 Token 或其他 Claims。
+type authenticatedUser struct {
+	UID     string `json:"uid"`
+	Name    string `json:"name,omitempty"`
+	Account string `json:"preferred_username,omitempty"`
+}
+
 func (p *PlatformClient) Authenticate(ctx context.Context, authorization string) (string, error) {
+	user, err := p.authenticateUser(ctx, authorization)
+	return user.UID, err
+}
+
+func (p *PlatformClient) authenticateUser(ctx context.Context, authorization string) (authenticatedUser, error) {
 	parts := strings.Fields(authorization)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "", fmt.Errorf("需要有效的用户登录态")
+		return authenticatedUser{}, fmt.Errorf("需要有效的用户登录态")
 	}
 	if err := p.checkUserAuthorization(ctx, authorization); err != nil {
-		return "", err
+		return authenticatedUser{}, err
 	}
 
 	jwtParts := strings.Split(parts[1], ".")
 	if len(jwtParts) != 3 {
-		return "", fmt.Errorf("用户登录态格式无效")
+		return authenticatedUser{}, fmt.Errorf("用户登录态格式无效")
 	}
 
 	data, err := base64.RawURLEncoding.DecodeString(jwtParts[1])
 	if err != nil {
-		return "", fmt.Errorf("用户登录态格式无效")
+		return authenticatedUser{}, fmt.Errorf("用户登录态格式无效")
 	}
 
-	var claims struct {
-		UID string `json:"uid"`
-	}
+	var claims authenticatedUser
 	if json.Unmarshal(data, &claims) != nil || claims.UID == "" || len(claims.UID) > 128 {
-		return "", fmt.Errorf("用户登录态缺少有效用户标识")
+		return authenticatedUser{}, fmt.Errorf("用户登录态缺少有效用户标识")
 	}
 
-	return claims.UID, nil
+	return claims, nil
 }
 
 func (p *PlatformClient) Runtime(ctx context.Context) (*types.AIAssistantRuntime, error) {
