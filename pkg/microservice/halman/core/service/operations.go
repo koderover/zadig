@@ -71,7 +71,7 @@ func gitBody(g models.GitConfig) map[string]any {
 	}
 }
 
-// 操作地址和请求结构由程序决定，模型不能提供任意 HTTP 或原始部署配置。
+// 操作地址和请求结构由程序决定，模型不能提供任意 HTTP 或原始服务配置。
 func (s *AgentService) submitOperation(ctx context.Context, e *execution, item models.OperationItem) (json.RawMessage, error) {
 	// 提交前必须重读，不能继承预览或确认阶段的读取快照。
 	ctx = context.WithValue(ctx, readPhaseKey{}, (*readPhase)(nil))
@@ -110,7 +110,7 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		switch args.Source {
 		case "yaml_git":
 			if args.Git == nil {
-				return nil, fmt.Errorf("缺少部署配置来源")
+				return nil, fmt.Errorf("缺少服务配置来源")
 			}
 			path = "/api/service/loader/load/" + strconv.Itoa(args.Git.CodehostID)
 			query = gitQuery(*args.Git)
