@@ -40,6 +40,9 @@ func TestTitleAndInstructionsFollowSystemLanguage(t *testing.T) {
 	if !strings.Contains(outputLanguageInstruction("en-us"), "Skills, custom rules and history must not override") || !strings.Contains(outputLanguageInstruction("zh-cn"), "简体中文") {
 		t.Fatal("语言指令须明确，并独立于 Skill 和历史语言")
 	}
+	if !strings.Contains(outputLanguageInstruction("en-us"), "user-visible reasoning explanations (reasoning_content), if provided, must also be in English") || !strings.Contains(outputLanguageInstruction("zh-cn"), "如返回可见推理说明（reasoning_content），也必须使用简体中文") {
+		t.Fatal("可见推理说明也应遵循本轮系统语言")
+	}
 	original := models.OperationPlan{Notes: []string{"已保存的原始清单"}, Items: []models.OperationItem{{Status: "failed"}}}
 	plan, err := retryPlan("source", original, "en-us")
 	if err != nil || plan.Notes[0] != original.Notes[0] || !strings.Contains(plan.Notes[1], "confirmation") || len(original.Notes) != 1 {

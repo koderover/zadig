@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
@@ -12,7 +13,7 @@ import (
 
 func TestTemplateCatalogMatchesFullNameAcrossOriginalPages(t *testing.T) {
 	for _, tc := range []struct{ kind, path, key string }{
-		{"yaml_templates", "/api/template/yaml", "yamlTemplates"},
+		{"yaml_templates", "/api/template/yaml", "yaml_template"},
 		{"build_templates", "/api/template/build", "build_templates"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
@@ -98,10 +99,44 @@ func TestTemplateCatalogRejectsInvalidPageBeforeRequest(t *testing.T) {
 }
 
 func TestTemplateCatalogRejectsIncompletePage(t *testing.T) {
-	if _, err := filterTemplatePage(json.RawMessage(`{"yamlTemplates":[],"total":51}`), "yaml_templates", "Go", 1); err == nil {
+	if _, err := filterTemplatePage(json.RawMessage(`{"yaml_template":[],"total":51}`), "yaml_templates", "Go", 1); err == nil {
 		t.Fatal("总量表明仍有模板时，不能将不完整响应当作模板不存在")
 	}
 	if _, err := filterTemplatePage(json.RawMessage(`{"build_templates":null}`), "build_templates", "Go", 1); err != nil {
 		t.Fatalf("原接口空列表可能不返回 total，应正常处理: %v", err)
+	}
+}
+
+func TestYAMLTemplateNameResolvesToIDBeforeReadingDetails(t *testing.T) {
+	const id = "507f1f77bcf86cd799439011"
+	calls := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		switch r.URL.Path {
+		case "/api/template/yaml":
+			// 与 aslan 的 ListYamlResp 一致：列表字段为 yaml_template，名称与 ID 不相同。
+			w.Write([]byte(`{"system_variables":[],"yaml_template":[{"id":"507f1f77bcf86cd799439011","name":"general"},{"id":"507f1f77bcf86cd799439012","name":"general-chart"}],"total":2}`))
+		case "/api/template/yaml/" + id:
+			w.Write([]byte(`{"id":"507f1f77bcf86cd799439011","name":"general","service_variable_kvs":[{"key":"IMAGE","value":"example/app:v1","type":"string"}]}`))
+		default:
+			t.Fatalf("只能按列表返回的真实 ID 查详情，不能将 general 当成 ID: %s", r.URL)
+		}
+	})
+	raw, err := platform.catalog(context.Background(), token("user"), models.CatalogRequest{Kind: "yaml_templates", Keyword: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listed struct {
+		Items    []struct{ ID, Name string }
+		Total    int
+		NextPage int `json:"next_page"`
+	}
+	if err := json.Unmarshal(raw, &listed); err != nil || len(listed.Items) != 1 || listed.Items[0].ID != id || listed.Items[0].Name != "general" || listed.Total != 2 || listed.NextPage != 0 {
+		t.Fatalf("真实响应应能按完整名称解析 ID，不能误报分页失败或选择相似名称: %s %v", raw, err)
+	}
+	s := &AgentService{Platform: platform}
+	detail, err := s.readTemplate(context.Background(), &execution{Authorization: token("user")}, "p", "yaml_template", listed.Items[0].ID, nil)
+	if err != nil || !strings.Contains(string(detail), "service_variable_kvs") || calls != 2 {
+		t.Fatalf("应能读取匹配模板的变量，不能反复重试列表: %s %v calls=%d", detail, err, calls)
 	}
 }

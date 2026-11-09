@@ -174,7 +174,7 @@ func filterTemplatePage(raw json.RawMessage, kind, name string, page int) (json.
 		Name string `json:"name"`
 	}
 	var response struct {
-		YamlTemplates  []entry `json:"yamlTemplates"`
+		YamlTemplates  []entry `json:"yaml_template"`
 		BuildTemplates []entry `json:"build_templates"`
 		Total          int     `json:"total"`
 	}
