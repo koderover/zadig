@@ -87,10 +87,73 @@ func OpenAPICreateRegistry(c *gin.Context) {
 }
 
 func OpenAPIListRegistry(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	registry, err := service.ListRegistries(ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	resp := make([]*service.OpenAPIRegistry, 0)
+	for _, reg := range registry {
+		resp = append(resp, &service.OpenAPIRegistry{
+			ID:        reg.ID.Hex(),
+			Address:   reg.RegAddr,
+			Provider:  config.RegistryProvider(reg.RegProvider),
+			Region:    reg.Region,
+			IsDefault: reg.IsDefault,
+			Namespace: reg.Namespace,
+		})
+	}
+	ctx.Resp = resp
+}
+
+func OpenAPIListProjectRegistry(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			// collaboration mode users have no entry in ProjectAuthInfo, they are granted
+			// access to the project by the workflows shared with them.
+			permitted, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	registry, err := service.ListRegistriesByProject(projectKey, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
