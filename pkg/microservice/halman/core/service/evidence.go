@@ -6,11 +6,25 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
+
+var workflowJobName = regexp.MustCompile(`^[a-zA-Z0-9\p{Han}][a-zA-Z0-9\p{Han}_.-]{0,127}$`)
+
+// 步骤名可能包含中文，不能沿用项目或 Kubernetes 资源的纯英文标识校验。
+func checkWorkflowJobName(name string) error {
+	if name == "" {
+		return fmt.Errorf("需要明确工作流步骤名称")
+	}
+	if !workflowJobName.MatchString(name) {
+		return fmt.Errorf("工作流步骤名称不合法")
+	}
+	return nil
+}
 
 func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogWindow) (any, error) {
 	e, err := s.skillExecution(ctx, "workflow_diagnosis")
@@ -22,7 +36,10 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 		return nil, fmt.Errorf("日志窗口超出允许范围")
 	}
 
-	if err := checkNames(args.Target.ProjectKey, args.Target.WorkflowName, args.Target.JobName); err != nil {
+	if err := checkNames(args.Target.ProjectKey, args.Target.WorkflowName); err != nil {
+		return nil, err
+	}
+	if err := checkWorkflowJobName(args.Target.JobName); err != nil {
 		return nil, err
 	}
 	if args.Target.TaskID < 1 {
@@ -38,7 +55,7 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 			"/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s",
 			args.Target.WorkflowName,
 			args.Target.TaskID,
-			args.Target.JobName,
+			url.PathEscape(args.Target.JobName),
 		),
 		url.Values{
 			"projectName": {args.Target.ProjectKey},

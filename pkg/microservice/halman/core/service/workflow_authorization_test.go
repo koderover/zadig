@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -38,7 +40,7 @@ func TestWorkflowLogDoesNotPrefetchTaskDetails(t *testing.T) {
 	store, mock := mockStore(t)
 	e := reportExecution("workflow_diagnosis")
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/logs/log/v4/workflow/wf/tasks/128/jobs/build" || r.URL.Query().Get("format") != "excerpt" || r.URL.Query().Get("projectName") != "p" {
+		if r.URL.Path != "/api/logs/log/v4/workflow/wf/tasks/128/jobs/job-0-0-0-构建" || !strings.HasSuffix(r.URL.EscapedPath(), url.PathEscape("job-0-0-0-构建")) || r.URL.Query().Get("format") != "excerpt" || r.URL.Query().Get("projectName") != "p" {
 			t.Fatalf("日志片段接口已校验权限和归属，不应预读任务详情: %s", r.URL)
 		}
 		w.Write([]byte(`{"text":"build failed"}`))
@@ -49,10 +51,26 @@ func TestWorkflowLogDoesNotPrefetchTaskDetails(t *testing.T) {
 	mock.ExpectCommit()
 	s := &AgentService{Store: store, Platform: platform}
 	_, err := s.workflowLog(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowLogWindow{
-		Target: models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128, JobName: "build"}, Limit: 200,
+		Target: models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128, JobName: "job-0-0-0-构建"}, Limit: 200,
 	})
 	if err != nil || !e.EvidenceRead.Load() {
 		t.Fatalf("应保留日志证据和权限范围: %v", err)
+	}
+}
+
+func TestWorkflowJobNameAllowsChineseWithoutRelaxingResourceNames(t *testing.T) {
+	for _, name := range []string{"build-api", "job-0-0-0-构建", "构建服务", "job-1-0-0-部署"} {
+		if err := checkWorkflowJobName(name); err != nil {
+			t.Fatalf("合法步骤名不能被拒绝: %s %v", name, err)
+		}
+	}
+	for _, name := range []string{"", "..", "../logs", "build/api", `build\api`, "build?limit=0", "build#fragment", "build%2Fapi", "build\napi", strings.Repeat("a", 129)} {
+		if err := checkWorkflowJobName(name); err == nil {
+			t.Fatalf("不安全或缺失的步骤名应拒绝: %q", name)
+		}
+	}
+	if checkNames("中文项目") == nil {
+		t.Fatal("步骤名修复不能放宽其他资源标识校验")
 	}
 }
 
