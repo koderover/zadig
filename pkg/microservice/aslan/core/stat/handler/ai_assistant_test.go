@@ -55,7 +55,7 @@ func TestAIAssistantStatsRoutesRejectAnonymous(t *testing.T) {
 	}
 }
 
-func TestAIAssistantStatsRequiresUserSystemAdmin(t *testing.T) {
+func TestAIAssistantStatsRequiresReportPermission(t *testing.T) {
 	for _, input := range []struct {
 		name    string
 		ctx     *internalhandler.Context
@@ -67,11 +67,16 @@ func TestAIAssistantStatsRequiresUserSystemAdmin(t *testing.T) {
 		{name: "缺少权限", ctx: &internalhandler.Context{UserID: "user"}},
 		{name: "普通用户", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{}}},
 		{name: "项目管理员", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"p": {IsProjectAdmin: true}}}}},
+
+		{name: "缺少数据视图权限", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{}}}},
+		{name: "仅效能洞察权限", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{DataCenter: &user.DataCenterActions{ViewInsight: true}}}}},
+		{name: "仅审查分析权限", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{DataCenter: &user.DataCenterActions{ViewAIReviewInsight: true}}}}},
+		{name: "查看助手报告", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{DataCenter: &user.DataCenterActions{ViewAIAssistantReport: true}}}}, allowed: true},
 		{name: "系统管理员", ctx: &internalhandler.Context{UserID: "user", Resources: &user.AuthorizedResources{IsSystemAdmin: true}}, allowed: true},
 	} {
 		t.Run(input.name, func(t *testing.T) {
-			if isAIAssistantStatsAdmin(input.ctx) != input.allowed {
-				t.Fatal("统计权限必须同时要求用户身份及系统管理员")
+			if canViewAIAssistantStats(input.ctx) != input.allowed {
+				t.Fatal("统计权限要求用户身份及系统管理员或专用报告权限")
 			}
 		})
 	}
