@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -34,8 +35,26 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if strings.Contains(string(body), "model-secret") || strings.Contains(string(body), "signature") {
+			if strings.Contains(string(body), "model-secret") || strings.Contains(string(body), "signature") || strings.Contains(string(body), "hidden-") {
 				t.Error("凭据不能进入模型上下文")
+			}
+			var payload struct{ Messages []model.Message }
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatal(err)
+			}
+			identityFound := false
+			for _, message := range payload.Messages {
+				if message.Role != model.RoleSystem || !strings.HasPrefix(message.Content, "当前登录用户（") {
+					continue
+				}
+				var user authenticatedUser
+				if err := json.Unmarshal([]byte(strings.SplitN(message.Content, "）：", 2)[1]), &user); err != nil || user.UID != "user-1" || user.Name != "当前用户" || user.Account != "current-account" {
+					t.Fatalf("模型必须收到已验证的当前用户资料: %s %v", message.Content, err)
+				}
+				identityFound = true
+			}
+			if !identityFound {
+				t.Error("模型请求缺少当前用户上下文")
 			}
 			if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
 				t.Error("模型应收到数据库规则快照，且停用 Skill 的工具声明必须移除")
@@ -82,7 +101,7 @@ data: [DONE]
 		},
 		mem,
 		platform,
-		token("user-1"),
+		"Bearer header."+base64.RawURLEncoding.EncodeToString([]byte(`{"uid":"user-1","name":"当前用户","preferred_username":"current-account","email":"hidden-email","phone":"hidden-phone","role":"hidden-role","token":"hidden-token"}`))+".signature",
 		&AgentService{},
 	)
 	if err != nil {
@@ -152,6 +171,10 @@ data: [DONE]
 
 	if !found {
 		t.Fatal("最终回答未保存为框架消息事件")
+	}
+	history, _ := json.Marshal(saved.Events)
+	if strings.Contains(string(history), "current-account") || strings.Contains(string(history), "当前登录用户（") {
+		t.Fatal("每轮注入的身份资料不能写入框架历史消息")
 	}
 
 	enabled = false
