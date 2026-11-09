@@ -165,10 +165,11 @@ type DeliveryCenterActions struct {
 }
 
 type DataCenterActions struct {
-	ViewOverView        bool
-	ViewInsight         bool
-	ViewAIReviewInsight bool
-	EditInsightConfig   bool
+	ViewOverView          bool
+	ViewInsight           bool
+	ViewAIReviewInsight   bool
+	ViewAIAssistantReport bool
+	EditInsightConfig     bool
 }
 
 type ReleasePlanActions struct {

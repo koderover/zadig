@@ -844,10 +844,11 @@ func generateDefaultSystemActions() *SystemActions {
 			ViewVersion:  false,
 		},
 		DataCenter: &DataCenterActions{
-			ViewOverView:        false,
-			ViewInsight:         false,
-			ViewAIReviewInsight: false,
-			EditInsightConfig:   false,
+			ViewOverView:          false,
+			ViewInsight:           false,
+			ViewAIReviewInsight:   false,
+			ViewAIAssistantReport: false,
+			EditInsightConfig:     false,
 		},
 		ReleasePlan: &ReleasePlanActions{
 			Create:       false,
@@ -1059,6 +1060,8 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DataCenter.ViewInsight = true
 	case VerbGetDataCenterAIReviewInsight:
 		systemActions.DataCenter.ViewAIReviewInsight = true
+	case VerbGetDataCenterAIAssistantReport:
+		systemActions.DataCenter.ViewAIAssistantReport = true
 	case VerbEditDataCenterInsightConfig:
 		systemActions.DataCenter.EditInsightConfig = true
 	case VerbCreateReleasePlan:

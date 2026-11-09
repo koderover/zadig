@@ -106,6 +106,7 @@ VALUES
     ("查看数据概览", "data_over", "DataCenter", 2),
     ("查看效能洞察", "efficiency_over", "DataCenter", 2),
     ("查看AI审查分析", "ai_review_insight", "DataCenter", 2),
+    ("查看 AI 助手报告", "ai_assistant_report", "DataCenter", 2),
     ("配置效能洞察", "edit_dashboard_config", "DataCenter", 2),
     ("新建", "create_label_setting", "LabelManagement", 2),
     ("编辑", "edit_label_setting", "LabelManagement", 2),

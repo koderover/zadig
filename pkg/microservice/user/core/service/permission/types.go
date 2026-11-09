@@ -117,10 +117,11 @@ const (
 	VerbDeliveryCenterGetVersions = "release_get"
 	VerbDeliveryCenterGetArtifact = "delivery_get"
 	// data center
-	VerbGetDataCenterOverview        = "data_over"
-	VerbGetDataCenterInsight         = "efficiency_over"
-	VerbGetDataCenterAIReviewInsight = "ai_review_insight"
-	VerbEditDataCenterInsightConfig  = "edit_dashboard_config"
+	VerbGetDataCenterOverview          = "data_over"
+	VerbGetDataCenterInsight           = "efficiency_over"
+	VerbGetDataCenterAIReviewInsight   = "ai_review_insight"
+	VerbGetDataCenterAIAssistantReport = "ai_assistant_report"
+	VerbEditDataCenterInsightConfig    = "edit_dashboard_config"
 	// release plan
 	VerbGetReleasePlan          = "get_release_plan"
 	VerbCreateReleasePlan       = "create_release_plan"
@@ -341,10 +342,11 @@ type DeliveryCenterActions struct {
 }
 
 type DataCenterActions struct {
-	ViewOverView        bool
-	ViewInsight         bool
-	ViewAIReviewInsight bool
-	EditInsightConfig   bool
+	ViewOverView          bool
+	ViewInsight           bool
+	ViewAIReviewInsight   bool
+	ViewAIAssistantReport bool
+	EditInsightConfig     bool
 }
 
 type ReleasePlanActions struct {
