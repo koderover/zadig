@@ -175,17 +175,15 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 	allowed := map[string]bool{}
 	authorizationCache := map[string]bool{}
 	for _, item := range metadata {
-		page := item.Context
-		allowed[item.ID] = !item.Scoped && page.ProjectKey == "" && page.WorkflowName == "" && page.EnvName == "" && page.ServiceName == "" &&
-			page.TaskID == 0 &&
-			page.JobName == ""
+		// 页面只是候选；历史复用按实际资源范围验权，不要求与当前页面一致。
+		allowed[item.ID] = !item.Scoped
 		if !item.Scoped {
 			continue
 		}
 
 		permitted := true
 		for _, scope := range item.Scopes {
-			if scope.Catalog != "" || (scope.SystemAction == "" && (scope.ProjectKey == "" || !sameTarget(page, e.Run.Context))) {
+			if scope.Catalog != "" || (scope.SystemAction == "" && scope.ProjectKey == "") {
 				permitted = false
 				break
 			}
@@ -451,6 +449,9 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 
 		if e, ok := ctx.Value(executionKey{}).(*execution); ok {
 			req.Messages = append([]model.Message{model.NewSystemMessage(skillInstructions(e))}, req.Messages...)
+			if e.SkillID != "environment_inspection" {
+				delete(req.Tools, "environment_service_evidence")
+			}
 			for name := range req.Tools {
 				if skill := businessToolSkill(name); skill != "" && !skillAllowed(e, skill) {
 					delete(req.Tools, name)
@@ -478,7 +479,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 			}
 
 			if e.RootID != "" && e.RootID != e.Run.ID && e.RegenerateFrom == nil {
-				instruction := "本轮明确关联原 Skill 执行，业务工具自动恢复参数草稿；只提交用户本轮补充或修改的字段。不要根据新页面或模糊历史覆盖原参数；需要查看草稿时可调用 read_saved_operation。收到 missing_fields 后只补问缺失项，不报告完成。"
+				instruction := fmt.Sprintf("本轮继续原 Skill %s，根执行 skill_execution_id=%s，使用对应业务工具，不切换 Skill。业务工具自动恢复参数草稿；只提交用户本轮补充或修改的字段。不要根据新页面或模糊历史覆盖原参数；需要查看草稿时可调用 read_saved_operation。收到 missing_fields 后只补问缺失项，不报告完成。", e.ContinuingSkill, e.RootID)
 				req.Messages = append(
 					[]model.Message{model.NewSystemMessage(instruction)},
 					req.Messages...,

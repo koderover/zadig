@@ -2,11 +2,11 @@
 
 ## Applicable scenarios
 
-The user wants to create a K8s YAML or Helm project and initialize services using existing service configurations.
+The user wants to create a K8s YAML or Helm project and add services using existing YAML, Helm Charts or service templates. The deployment configuration must already be available; the services do not need to exist in Zadig.
 
 ## Required information
 
-Project display name, project key, project type, and each service's name and existing service configuration source. Collect code host, repository, branch, file grouping and template parameters as needed. Creating an environment also requires its name, cluster and other necessary parameters.
+Project display name, project key, project type, and each new service's name and the source of its YAML, Helm Chart or service template. Collect code host, repository, branch, file grouping and template parameters as needed. Creating an environment also requires its name, cluster and other necessary parameters.
 
 ## Steps
 

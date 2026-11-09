@@ -71,6 +71,41 @@ func expectOnboardingDraftSave(mock sqlmock.Sqlmock) {
 	expectSkillInputSave(mock, reportExecution(""), "awaiting_input")
 }
 
+func TestOnboardingWorkflowScope(t *testing.T) {
+	for _, tc := range []struct {
+		name, skill, input string
+		draft              *models.OnboardingInput
+		reject             bool
+	}{
+		{"服务初始化拒绝工作流", "service_onboarding", `{"create_workflow":true}`, nil, true},
+		{"恢复草稿也拒绝工作流", "service_onboarding", `{}`, &models.OnboardingInput{CreateWorkflow: true}, true},
+		{"可以关闭草稿中的工作流", "service_onboarding", `{"create_workflow":false}`, &models.OnboardingInput{CreateWorkflow: true}, false},
+		{"项目初始化保留工作流", "project_onboarding", `{"create_workflow":true}`, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, mock := mockStore(t)
+			e := reportExecution(tc.skill)
+			e.RootID = e.Run.ID
+			e.OnboardingDraft = tc.draft
+			s := &AgentService{Store: store}
+			if !tc.reject {
+				expectOnboardingDraftSave(mock)
+			}
+			_, err := s.prepareOnboarding(context.WithValue(context.Background(), executionKey{}, e), onboardingInput(t, tc.input), tc.skill == "project_onboarding")
+			if tc.reject {
+				if err == nil || !strings.Contains(err.Error(), "服务初始化不支持创建工作流") {
+					t.Fatalf("服务初始化必须拒绝工作流: %v", err)
+				}
+			} else if err != nil || e.OnboardingDraft.CreateWorkflow != (tc.skill == "project_onboarding") {
+				t.Fatalf("工作流开关错误: %+v %v", e.OnboardingDraft, err)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestOnboardingCountMismatchAsksBeforeReadingConfiguration(t *testing.T) {
 	store, mock := mockStore(t)
 	e := reportExecution("project_onboarding")

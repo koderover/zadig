@@ -122,12 +122,14 @@ func TestEveryHistoricalResourceMustStillBeAuthorized(t *testing.T) {
 		"latest",
 	}).
 		AddRow("past", "past", 1, false, true, "past"))
+	checks := 0
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/project/products/a" {
-			t.Errorf("不应使用后读取的 B 覆盖 A 的权限范围: %s", r.URL.Path)
+		checks++
+		if r.URL.Path != "/api/v1/authorization/auth-info" {
+			t.Errorf("应使用当前权限检查全部历史资源: %s", r.URL.Path)
 		}
 
-		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"project_auth_info":{"b":{}}}`))
 	})
 	s := &AgentService{Store: store, Platform: platform}
 	exec := &execution{
@@ -137,13 +139,13 @@ func TestEveryHistoricalResourceMustStillBeAuthorized(t *testing.T) {
 			Context:        models.PageContext{ProjectKey: "b"},
 		},
 		User:          "user",
-		Authorization: "user-token",
+		Authorization: token("user"),
 		Cutoff:        cutoff,
 	}
 	state := session.NewSession("halman", "user", "conversation")
-	state.Events = []event.Event{historyEvent("past", "assistant", "来自 A 和 B 的结果", now)}
+	state.Events = []event.Event{historyEvent("past", "user", "查询 A 和 B", now), historyEvent("past", "assistant", "来自 A 和 B 的结果", now)}
 	result, err := s.sessionContext(&session.GetSessionContext{Context: context.WithValue(context.Background(), executionKey{}, exec)}, func() (*session.Session, error) { return state, nil })
-	if err != nil || len(result.Events) != 0 {
+	if err != nil || len(result.Events) != 0 || checks != 1 {
 		t.Fatalf("任一必要范围失权后都不能注入: %v", err)
 	}
 }

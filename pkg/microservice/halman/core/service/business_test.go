@@ -86,14 +86,15 @@ func TestStartDuplicateAtCapacityAndAfterModelDeletion(t *testing.T) {
 	}
 }
 
-func TestSessionContextExcludesExpiredAndResourceHistory(t *testing.T) {
+func TestSessionContextExcludesExpiredAndUnauthorizedHistory(t *testing.T) {
 	s, mock := mockStore(t)
 	now := time.Now().UTC()
 	cutoff := now.Add(-24 * time.Hour)
 	exec := &execution{
-		Run:    &models.Run{ID: "current", ConversationID: "conversation-1"},
-		User:   "user-1",
-		Cutoff: cutoff,
+		Run:           &models.Run{ID: "current", ConversationID: "conversation-1"},
+		User:          "user-1",
+		Authorization: token("user-1"),
+		Cutoff:        cutoff,
 	}
 	state := session.NewSession(halmanconfig.AppName, "user-1", "conversation-1")
 	for _, entry := range []struct {
@@ -124,7 +125,13 @@ func TestSessionContextExcludesExpiredAndResourceHistory(t *testing.T) {
 			AddRow("plain", "plain", 1, false, true, "plain").
 			AddRow("scoped", "scoped", 1, false, true, "scoped").
 			AddRow("old", "old", 1, false, false, "old"))
-	a := &AgentService{Store: s}
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/authorization/auth-info" {
+			t.Fatalf("历史资源应通过当前权限过滤: %s", r.URL)
+		}
+		w.Write([]byte(`{}`))
+	})
+	a := &AgentService{Store: s, Platform: platform}
 	filtered, err := a.sessionContext(&session.GetSessionContext{Context: context.WithValue(context.Background(), executionKey{}, exec)}, func() (*session.Session, error) { return state, nil })
 	if err != nil || len(filtered.Events) != 1 || filtered.Events[0].RequestID != "plain" {
 		t.Fatalf("历史上下文过滤失败: %+v %v", filtered, err)
@@ -248,7 +255,7 @@ func TestCatalogAndDiagnosticExcludeCredentialsAndRawConfiguration(t *testing.T)
 func TestGitConfigurationUsesFilesAPIAndChecksChartName(t *testing.T) {
 	fileReads := 0
 	p := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/codehosts" {
+		if r.URL.Path == "/api/code/codehost" {
 			w.Write([]byte(`[{"id":1,"type":"gitlab"}]`))
 			return
 		}

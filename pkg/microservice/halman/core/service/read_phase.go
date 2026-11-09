@@ -29,7 +29,7 @@ func phaseReads(ctx context.Context, method, path string) *readPhase {
 	template := len(parts) == 5 && parts[1] == "api" && parts[2] == "template" &&
 		(parts[3] == "yaml" || parts[3] == "charts" || parts[3] == "build")
 	services := len(parts) == 6 && parts[1] == "api" && parts[2] == "project" && parts[3] == "products" && parts[5] == "services"
-	if path != "/api/v1/codehosts" && !template && !services {
+	if path != "/api/code/codehost" && !template && !services {
 		return nil
 	}
 	cache, _ := ctx.Value(readPhaseKey{}).(*readPhase)
