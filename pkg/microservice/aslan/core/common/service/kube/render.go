@@ -67,8 +67,8 @@ type GeneSvcYamlOption struct {
 	IgnoreCurrentReplicaOverrides bool
 	UnInstall                     bool
 	Containers                    []*models.Container
-	// ModuleResources optionally receives rendered resources associated with Containers.
-	ModuleResources *[]*commonmodels.ServiceResource
+	// IncludeModuleResources includes rendered resources associated with Containers in the result.
+	IncludeModuleResources bool
 	// AllowUnresolvedModuleImages skips the post-render check that errors
 	// when a complete or split module image variable remains in the YAML. Set this on
 	// initial-deploy code paths where the image hasn't been built yet.
@@ -931,11 +931,11 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
-// GenerateRenderedYaml returns the rendered YAML, service revision, and workloads.
-func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
+// GenerateRenderedYaml returns the rendered YAML, service revision, workloads, and optional module resources.
+func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, []*commonmodels.ServiceResource, error) {
 	_, err := templaterepo.NewProductColl().Find(option.ProductName)
 	if err != nil {
-		return "", 0, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
+		return "", 0, nil, nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
 	}
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -943,20 +943,20 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		Name:    option.ProductName,
 	})
 	if err != nil {
-		return "", 0, nil, errors.Wrapf(err, "failed to find product %s", option.ProductName)
+		return "", 0, nil, nil, errors.Wrapf(err, "failed to find product %s", option.ProductName)
 	}
 
 	// get cluster name by id
 	cluster, err := GetCluster(productInfo.ClusterID)
 	if err != nil {
-		return "", 0, nil, err
+		return "", 0, nil, nil, err
 	}
 
 	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
 
 	// nothing to render when trying to uninstall a service which is not deployed
 	if option.UnInstall && curProductSvc == nil {
-		return "", 0, nil, nil
+		return "", 0, nil, nil, nil
 	}
 
 	var prodSvcTemplate, latestSvcTemplate *commonmodels.Service
@@ -969,7 +969,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		IgnoreNoDocumentErr: true,
 	}, productInfo.Production)
 	if err != nil {
-		return "", 0, nil, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
+		return "", 0, nil, nil, errors.Wrapf(err, "failed to find latest service template %s", option.ServiceName)
 	}
 
 	var svcContainersInProduct []*models.Container
@@ -981,7 +981,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 			Revision:    curProductSvc.Revision,
 		}, productInfo.Production)
 		if err != nil {
-			return "", 0, nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
+			return "", 0, nil, nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 		}
 	} else {
 		prodSvcTemplate = latestSvcTemplate
@@ -996,7 +996,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	if latestSvcTemplate == nil {
-		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
+		return "", 0, nil, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
 	}
 
 	serviceRender := productInfo.GetSvcRender(option.ServiceName)
@@ -1011,12 +1011,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		!option.IgnoreCurrentReplicaOverrides {
 		currentRenderedYaml, renderErr := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
 		if renderErr != nil {
-			return "", 0, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
+			return "", 0, nil, nil, fmt.Errorf("failed to render current service yaml: %v", renderErr)
 		}
 		currentRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, cluster.Name, currentRenderedYaml)
 		currentBaseReplicaMap, err = ExtractWorkloadReplicas(currentRenderedYaml)
 		if err != nil {
-			return "", 0, nil, fmt.Errorf("failed to extract workload replicas: %v", err)
+			return "", 0, nil, nil, fmt.Errorf("failed to extract workload replicas: %v", err)
 		}
 		hasCurrentBaseReplicaMap = true
 	}
@@ -1032,12 +1032,12 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		// baselines make it always fall back to the latest default image.
 		curUsedMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, prodSvcTemplate.Revision)
 		if err != nil {
-			return "", 0, nil, fmt.Errorf("failed to resolve current service modules: %v", err)
+			return "", 0, nil, nil, fmt.Errorf("failed to resolve current service modules: %v", err)
 		}
 		prodSvcTemplate.Containers = curUsedMerged
 		latestMerged, _, err := repository.ResolveServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production, latestSvcTemplate.Revision)
 		if err != nil {
-			return "", 0, nil, fmt.Errorf("failed to resolve latest service modules: %v", err)
+			return "", 0, nil, nil, fmt.Errorf("failed to resolve latest service modules: %v", err)
 		}
 		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestMerged, productInfo)
 	}
@@ -1048,14 +1048,14 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	templVariableKV := commontypes.ServiceToRenderVariableKVs(latestSvcTemplate.ServiceVariableKVs)
 	mergedYaml, _, err := commontypes.MergeRenderVariableKVs(templVariableKV, renderVariableKVs, option.VariableKVs)
 	if err != nil {
-		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
+		return "", 0, nil, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
 
 	serviceRender.OverrideYaml.YamlContent = mergedYaml
 
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, serviceRender)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("failed to render service yaml: %v", err)
+		return "", 0, nil, nil, fmt.Errorf("failed to render service yaml: %v", err)
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, cluster.Name, fullRenderedYaml)
 
@@ -1071,28 +1071,28 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	// participate at the template-baseline level.
 	manualContainers, err := repository.ListManualServiceModules(context.Background(), option.ProductName, option.ServiceName, productInfo.Production)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("failed to list manual service modules: %v", err)
+		return "", 0, nil, nil, fmt.Errorf("failed to list manual service modules: %v", err)
 	}
 	latestSvcTemplate.Containers = commonutil.FoldManualModulesInto(latestSvcTemplate.Containers, manualContainers)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	var moduleResources []*commonmodels.ServiceResource
-	if option.ModuleResources != nil {
+	if option.IncludeModuleResources {
 		moduleResources, err = renderModuleResources(fullRenderedYaml, option.Containers, mergedContainers)
 		if err != nil {
-			return "", 0, nil, err
+			return "", 0, nil, nil, err
 		}
 	}
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("failed to replace workload images: %v", err)
+		return "", 0, nil, nil, fmt.Errorf("failed to replace workload images: %v", err)
 	}
 	// Second image-substitution pass — complete and split module image variables
 	// for any workload kind not handled by ReplaceWorkloadImages (e.g. DaemonSets,
 	// Argo Rollouts, other CRDs).
 	fullRenderedYaml, err = ParseModuleImageKeys(fullRenderedYaml, mergedContainers, option.AllowUnresolvedModuleImages)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("failed to parse module image keys: %v", err)
+		return "", 0, nil, nil, fmt.Errorf("failed to parse module image keys: %v", err)
 	}
 
 	var currentReplicaOverrides []*commonmodels.WorkLoad
@@ -1117,13 +1117,10 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 	fullRenderedYaml, err = ApplyReplicaOverrides(fullRenderedYaml, replicaOverrides)
 	if err != nil {
-		return "", 0, nil, fmt.Errorf("failed to apply replica overrides: %v", err)
+		return "", 0, nil, nil, fmt.Errorf("failed to apply replica overrides: %v", err)
 	}
 
-	if option.ModuleResources != nil {
-		*option.ModuleResources = moduleResources
-	}
-	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, nil
+	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, moduleResources, nil
 }
 
 func resolveReplicaOverrides(currentOverrides, optionOverrides []*commonmodels.WorkLoad, ignoreCurrent bool) []*commonmodels.WorkLoad {

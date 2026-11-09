@@ -324,7 +324,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	var moduleResources []*commonmodels.ServiceResource
 	option := &kube.GeneSvcYamlOption{
 		ProductName:                   env.ProductName,
 		EnvName:                       c.jobTaskSpec.Env,
@@ -334,11 +333,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		VariableKVs:                   varKVs,
 		IgnoreCurrentReplicaOverrides: updateRevision,
 		Containers:                    containers,
+		IncludeModuleResources:        len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage,
 	}
-	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage {
-		option.ModuleResources = &moduleResources
-	}
-	candidateYaml, revision, _, err := kube.GenerateRenderedYaml(option)
+	candidateYaml, revision, _, moduleResources, err := kube.GenerateRenderedYaml(option)
 	if err != nil {
 		msg := fmt.Sprintf("generate service yaml error: %v", err)
 		logError(c.job, msg, c.logger)

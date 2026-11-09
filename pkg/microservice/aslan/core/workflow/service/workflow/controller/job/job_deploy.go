@@ -749,7 +749,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					AllowUnresolvedModuleImages: true,
 				}
 
-				updatedYaml, _, _, err := kube.GenerateRenderedYaml(option)
+				updatedYaml, _, _, _, err := kube.GenerateRenderedYaml(option)
 				if err != nil {
 					return nil, fmt.Errorf("generate service yaml error: %v", err)
 				}

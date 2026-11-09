@@ -512,7 +512,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			VariableKVs:           envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs,
 			Containers:            envSvcVersion.Service.Containers,
 		}
-		_, _, resources, err := kube.GenerateRenderedYaml(option)
+		_, _, resources, _, err := kube.GenerateRenderedYaml(option)
 		if err != nil {
 			return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 		}
@@ -579,7 +579,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					Containers:            envSvcVersion.Service.Containers,
 				}
 				var resources []*kube.WorkloadResource
-				_, _, resources, err = kube.GenerateRenderedYaml(option)
+				_, _, resources, _, err = kube.GenerateRenderedYaml(option)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 				}
