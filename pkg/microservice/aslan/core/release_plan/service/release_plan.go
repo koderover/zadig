@@ -76,7 +76,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.Manager != userInfo.Name {
 		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
-
 	for _, job := range args.Jobs {
 		// release job will be linted when we finish planning instead of saving
 		// if err := lintReleaseJob(job.Type, job.Spec); err != nil {
@@ -451,6 +450,9 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if plan.Status != config.ReleasePlanStatusPlanning {
 		return errors.Errorf("plan status is %s, can not update", plan.Status)
 	}
+	if err := checkReleaseJobOwnerPermission(c, plan, args); err != nil {
+		return err
+	}
 
 	updater, err := NewPlanUpdater(args)
 	if err != nil {
@@ -547,6 +549,80 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	}
 
 	return nil
+}
+
+func checkReleaseJobOwnerPermission(c *handler.Context, plan *models.ReleasePlan, args *UpdateReleasePlanArgs) error {
+	if args == nil || c.UserID == plan.ManagerID || (c.Resources != nil && c.Resources.IsSystemAdmin) {
+		return nil
+	}
+
+	var ownerSet bool
+	var ownerChanged bool
+	switch args.Verb {
+	case ActionCreateReleaseJob:
+		updater, err := NewCreateReleaseJobUpdater(args)
+		if err != nil {
+			return errors.Wrap(err, "parse release job")
+		}
+		ownerSet = len(updater.Managers) > 0
+	case ActionUpdateReleaseJob:
+		updater, err := NewUpdateReleaseJobUpdater(args)
+		if err != nil {
+			return errors.Wrap(err, "parse release job")
+		}
+		for _, job := range plan.Jobs {
+			if job.ID != updater.ID {
+				continue
+			}
+			ownerChanged = releaseJobOwnerChanged(job, updater)
+			break
+		}
+	}
+
+	if ownerSet || ownerChanged {
+		return errors.New("only the release plan manager or system administrator can update release job owners")
+	}
+	return nil
+}
+
+func releaseJobOwnerChanged(job *models.ReleaseJob, updater *UpdateReleaseJobUpdater) bool {
+	if updater.Managers == nil {
+		return false
+	}
+
+	currentManagers := job.Managers
+	if len(currentManagers) == 0 && job.ManagerID != "" {
+		currentManagers = []*types.Identity{{
+			IdentityType: "user",
+			UID:          job.ManagerID,
+		}}
+	}
+	return !sameReleaseJobManagers(updater.Managers, currentManagers)
+}
+
+func sameReleaseJobManagers(left, right []*types.Identity) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	managers := make(map[string]int, len(left))
+	for _, manager := range left {
+		managers[releaseJobManagerKey(manager)]++
+	}
+	for _, manager := range right {
+		key := releaseJobManagerKey(manager)
+		managers[key]--
+		if managers[key] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func releaseJobManagerKey(manager *types.Identity) string {
+	if manager == nil {
+		return ""
+	}
+	return manager.IdentityType + "\x00" + manager.UID + "\x00" + manager.GID
 }
 
 func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, error) {
@@ -2040,6 +2116,7 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 			Name:      job.Name,
 			Manager:   job.Manager,
 			ManagerID: job.ManagerID,
+			Managers:  job.Managers,
 			Type:      job.Type,
 			ReleasePlanHookJobRuntime: webhooknotify.ReleasePlanHookJobRuntime{
 				Status:       job.Status,
