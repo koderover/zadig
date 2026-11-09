@@ -112,7 +112,7 @@ func TestCatalogSearchForwardsSupportedFiltersAndRejectsOversizedKeywords(t *tes
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 		switch r.URL.Path {
-		case "/api/v1/codehosts":
+		case "/api/code/codehost":
 			w.Write([]byte(`[{"id":1,"type":"gitlab"}]`))
 			return
 		case "/api/code/codehost/1/projects", "/api/code/codehost/1/branches":

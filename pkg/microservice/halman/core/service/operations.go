@@ -188,34 +188,17 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		if containsName(existing, args.Name) {
 			return nil, fmt.Errorf("同名构建已存在，不覆盖")
 		}
-		modulePath := "/api/service/services/" + args.ServiceName
-		if item.ProjectType == "helm" {
-			modulePath = "/api/service/helm/" + item.ProjectKey + "/" + args.ServiceName + "/serviceModule"
-		}
-		modules, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, modulePath, query, nil)
+		modules, err := s.Platform.buildServiceModules(ctx, e.Authorization, item.ProjectKey, item.ProjectType, args.ServiceName)
 		if err != nil {
 			return nil, err
 		}
-		var service struct {
-			Modules []struct {
-				Name string `json:"name"`
-			} `json:"service_module"`
-			HelmModules []struct {
-				Name string `json:"name"`
-			} `json:"service_modules"`
-		}
-		if json.Unmarshal(modules, &service) != nil {
-			return nil, fmt.Errorf("服务组件读取失败")
-		}
-		if item.ProjectType == "helm" {
-			service.Modules = service.HelmModules
-		}
 		found := false
-		for _, module := range service.Modules {
-			if module.Name == args.ServiceModule {
+		for _, name := range modules {
+			if name == args.ServiceModule {
 				found = true
 			}
 		}
+
 		if !found {
 			return nil, fmt.Errorf("所选构建组件不在服务配置中，请调整清单")
 		}

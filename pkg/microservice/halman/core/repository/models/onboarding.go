@@ -16,14 +16,14 @@ type GitConfig struct {
 }
 
 type ServiceInput struct {
-	Name                string            `json:"name" jsonschema:"description=服务名，不能与已有服务重名"`
-	Source              string            `json:"source,omitempty" jsonschema:"enum=yaml_git,enum=yaml_template,enum=helm_git,enum=helm_repository,enum=helm_template,description=已有服务配置或已有模板来源"`
+	Name                string            `json:"name" jsonschema:"description=新建服务名不能重名；为已有服务创建构建时可仅提供名称并省略来源"`
+	Source              string            `json:"source,omitempty" jsonschema:"enum=yaml_git,enum=yaml_template,enum=helm_git,enum=helm_repository,enum=helm_template,description=新建服务的配置来源；已有服务仅创建构建时省略"`
 	Git                 *GitConfig        `json:"git,omitempty"`
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有 YAML 模板 ID 或 Chart 模板名称"`
 	Variables           map[string]string `json:"variables,omitempty" jsonschema:"description=模板定义的变量，不接受脚本或原始 YAML"`
-	ChartRepo           string            `json:"chart_repo,omitempty"`
-	ChartName           string            `json:"chart_name,omitempty"`
-	ChartVersion        string            `json:"chart_version,omitempty"`
+	ChartRepo           string            `json:"chart_repo,omitempty" jsonschema:"description=Chart 仓库名称，使用 helm_repositories 返回的 repo_name，不是内部 ID"`
+	ChartName           string            `json:"chart_name,omitempty" jsonschema:"description=Chart 名称，须与导入的服务名称一致"`
+	ChartVersion        string            `json:"chart_version,omitempty" jsonschema:"description=从 chart_versions 查询得到的具体版本；要求最新时选该 Chart 返回列表的首项，不填写 latest"`
 	ValuesGit           *GitConfig        `json:"values_git,omitempty" jsonschema:"description=可选的已有 values Git 文件来源"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
 }
@@ -32,7 +32,7 @@ type BuildInput struct {
 	Name                string            `json:"name"`
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
 	ServiceName         string            `json:"service_name,omitempty"`
-	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称"`
+	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
 	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
@@ -60,7 +60,7 @@ type OnboardingInput struct {
 	Services             []ServiceInput    `json:"services,omitempty"`
 	Builds               []BuildInput      `json:"builds,omitempty"`
 	Environment          *EnvironmentInput `json:"environment,omitempty"`
-	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=是否创建现有逻辑生成的默认工作流，不执行工作流"`
+	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=仅项目初始化支持创建默认工作流，不执行工作流；服务初始化不支持，须省略或设为 false"`
 	providedFields       map[string]json.RawMessage
 }
 

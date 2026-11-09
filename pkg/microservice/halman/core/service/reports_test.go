@@ -156,6 +156,52 @@ func TestInspectionHistoryRejectsProductionMixing(t *testing.T) {
 	}
 }
 
+func TestInspectionServiceEvidenceCannotStartSkill(t *testing.T) {
+	e := reportExecution("")
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	value, err := nativeSkillTool(t, &AgentService{}, "environment_service_evidence").Call(ctx, []byte(`{"service_name":"api"}`))
+	if err == nil || value != nil || !strings.Contains(err.Error(), "service_diagnosis") || e.SkillID != "" || e.Run.SkillID != "" || e.RootID != "" {
+		t.Fatalf("补充证据不能绑定新的巡检，应引导独立日志查询使用服务诊断: %v %v %+v", value, err, e)
+	}
+}
+
+func TestServiceLogQueryFromEnvironmentPageCompletesWithoutInspection(t *testing.T) {
+	store, mock := mockStore(t)
+	e := reportExecution("service_diagnosis")
+	logs := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatal("查看日志不得发起环境巡检或写操作")
+		}
+		switch r.URL.Path {
+		case "/api/v1/authorization/auth-info":
+			w.Write([]byte(`{"project_auth_info":{"p":{"env":{"view":true}}}}`))
+		case "/openapi/environments/dev/service/api/pods":
+			w.Write([]byte(`{"service_name":"api","pods":[{"pod_name":"api-1","containers":[{"name":"api"}]}]}`))
+		case "/api/logs/pods/api-1":
+			if r.URL.Query().Get("previous") == "true" {
+				w.WriteHeader(http.StatusBadGateway)
+				return
+			}
+			logs++
+			w.Write([]byte(`{"text":"service is ready","truncated":true}`))
+		case "/api/environment/kube/pods/api-1/events":
+			w.Write([]byte(`[]`))
+		case "/api/environment/environments/dev/services/api", "/api/environment/environments/dev/services/api/resources", "/api/environment/environments/dev/version/api":
+			w.Write([]byte(`{}`))
+		default:
+			t.Fatalf("意外调用: %s", r.URL)
+		}
+	})
+	expectReportScope(mock, false)
+	expectSkillInputSave(mock, e, nil)
+	s := &AgentService{Store: store, Platform: platform}
+	value, err := nativeSkillTool(t, s, "service_diagnosis").Call(context.WithValue(context.Background(), executionKey{}, e), []byte(`{"goal":"diagnose","service_name":"api"}`))
+	if err != nil || logs != 1 || !e.EvidenceRead.Load() || !diagnosisGoalComplete(e) || e.Outcome != "" || e.Run.Context.PageType != "service" || !strings.Contains(string(common.JSON(value)), "service is ready") {
+		t.Fatalf("环境页的服务日志查询应能独立完成，历史容器日志不可用不影响当前日志: %v %v", value, err)
+	}
+}
+
 func TestInspectionServiceEvidenceKeepsParentSkillAndDoesNotCompleteInspection(t *testing.T) {
 	store, mock := mockStore(t)
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {

@@ -78,7 +78,7 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 		query.Set("ungrouped", "false")
 		query.Set("filter", regexp.QuoteMeta(args.Keyword))
 	case "codehosts":
-		path = "/api/v1/codehosts"
+		path = "/api/code/codehost"
 	case "repositories", "branches", "configuration_paths":
 		if err := p.requireGitSource(ctx, auth, args.CodehostID); err != nil {
 			return nil, err
@@ -136,8 +136,17 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 	case "registries":
 		path = "/api/system/registry/namespaces"
 	case "helm_repositories":
-		path = "/api/system/helm"
+		path = "/api/system/helm/public"
+		if args.ProjectKey != "" {
+			path = "/api/system/helm/project"
+		}
 	case "chart_versions":
+		if args.ID == "" {
+			args.ID = args.RepoName
+		}
+		if args.ID == "" {
+			return nil, fmt.Errorf("查询 Chart 版本须通过 repo_name（或 id）提供 Chart 仓库名称，例如 test；不使用仓库内部 ID")
+		}
 		if err := checkNames(args.ID); err != nil {
 			return nil, err
 		}
@@ -149,6 +158,31 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 	raw, err := p.business(ctx, auth, http.MethodGet, path, query, nil)
 	if err != nil {
 		return nil, err
+	}
+	if args.Kind == "codehosts" {
+		// 模型只需要选择代码源，不传递原接口中的凭据和连接配置。
+		var hosts []struct {
+			ID        int    `json:"id"`
+			Alias     string `json:"alias"`
+			Type      string `json:"type"`
+			Address   string `json:"address"`
+			Namespace string `json:"namespace"`
+		}
+		if err := json.Unmarshal(raw, &hosts); err != nil {
+			return nil, err
+		}
+		raw = common.JSON(hosts)
+	}
+	if args.Kind == "helm_repositories" {
+		// 原列表可能包含凭据，只向模型提供选择仓库所需的标识和名称。
+		var repositories []struct {
+			ID       string `json:"id"`
+			RepoName string `json:"repo_name"`
+		}
+		if err := json.Unmarshal(raw, &repositories); err != nil {
+			return nil, err
+		}
+		raw = common.JSON(repositories)
 	}
 	if args.Kind == "helm_template" {
 		var version struct {
@@ -216,7 +250,7 @@ func filterCatalogNames(raw json.RawMessage, keyword string) (json.RawMessage, e
 				matched = strings.Contains(strings.ToLower(name), keyword)
 			}
 			if object, ok := item.(map[string]any); ok {
-				for _, key := range []string{"name", "alias", "id", "namespace", "address", "reg_addr"} {
+				for _, key := range []string{"name", "repo_name", "alias", "id", "namespace", "address", "reg_addr"} {
 					if name, ok := object[key].(string); ok && strings.Contains(strings.ToLower(name), keyword) {
 						matched = true
 					}
@@ -264,7 +298,7 @@ func (p *PlatformClient) gitSource(ctx context.Context, auth string, id int) (st
 		return "", fmt.Errorf("请选择已集成的 GitHub 或 GitLab 代码源")
 	}
 
-	raw, err := p.business(ctx, auth, http.MethodGet, "/api/v1/codehosts", nil, nil)
+	raw, err := p.business(ctx, auth, http.MethodGet, "/api/code/codehost", nil, nil)
 	if err != nil {
 		return "", err
 	}

@@ -60,7 +60,7 @@ func TestReadPhaseMergesCodehostsAndExistingServicesOnlyWithinSameScope(t *testi
 	calls := map[string]int{}
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		calls[r.URL.Path]++
-		if r.URL.Path == "/api/v1/codehosts" {
+		if r.URL.Path == "/api/code/codehost" {
 			w.Write([]byte(`[{"id":1,"type":"github"}]`))
 		} else {
 			w.Write([]byte(`{"services":[]}`))
@@ -77,21 +77,21 @@ func TestReadPhaseMergesCodehostsAndExistingServicesOnlyWithinSameScope(t *testi
 			t.Fatal(err)
 		}
 	}
-	if calls["/api/v1/codehosts"] != 1 || calls["/api/project/products/p/services"] != 1 {
+	if calls["/api/code/codehost"] != 1 || calls["/api/project/products/p/services"] != 1 {
 		t.Fatalf("同一批应合并目录和服务列表读取: %+v", calls)
 	}
-	if err := platform.requireGitSource(ctx, token("other-user"), 1); err != nil || calls["/api/v1/codehosts"] != 2 {
+	if err := platform.requireGitSource(ctx, token("other-user"), 1); err != nil || calls["/api/code/codehost"] != 2 {
 		t.Fatal("不能跨用户复用读取结果")
 	}
-	if err := platform.requireGitSource(withReadPhase(ctx), e.Authorization, 1); err != nil || calls["/api/v1/codehosts"] != 3 {
+	if err := platform.requireGitSource(withReadPhase(ctx), e.Authorization, 1); err != nil || calls["/api/code/codehost"] != 3 {
 		t.Fatal("新阶段必须重新读取")
 	}
 	for _, query := range []url.Values{{"id": {"1"}}, {"id": {"2"}}} {
-		if _, err := platform.business(ctx, e.Authorization, http.MethodGet, "/api/v1/codehosts", query, nil); err != nil {
+		if _, err := platform.business(ctx, e.Authorization, http.MethodGet, "/api/code/codehost", query, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if calls["/api/v1/codehosts"] != 5 {
+	if calls["/api/code/codehost"] != 5 {
 		t.Fatal("不同查询参数不能复用响应")
 	}
 }

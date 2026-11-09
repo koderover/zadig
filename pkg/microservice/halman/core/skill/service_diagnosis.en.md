@@ -2,7 +2,7 @@
 
 ## Applicable scenarios
 
-The user wants to investigate service problems in an environment, or explicitly requests a service restart or an environment version rollback.
+The user wants to view service logs, status or events, investigate service problems in an environment, or explicitly requests a service restart or an environment version rollback. Viewing logs does not require a service failure or an inspection of the entire environment. Use this Skill even when the current page is an environment page.
 
 ## Required information
 
@@ -10,7 +10,7 @@ The current `goal` (`diagnose`, `restart_service` or `rollback_environment`), pr
 
 ## Steps
 
-1. The first call must specify `goal` according to the user's explicit intent. Ask for clarification if the repair action is unclear; do not silently complete a diagnosis instead. Read actual status, workloads, events, bounded logs and deployment history using the service diagnosis tool.
+1. The first call must specify `goal` according to the user's explicit intent. Use `diagnose` for requests to view logs, status or events or analyze a problem, without asking for a repair action. When the user requests a repair but the action is unclear, ask for clarification; do not silently complete a diagnosis instead. Read actual status, workloads, events, bounded logs and deployment history using the service diagnosis tool.
 2. Distinguish startup failures, image pull failures, probe failures, insufficient resources and configuration problems based on evidence. Explain the certainty of the diagnosis.
 3. Default to read-only diagnosis and repair suggestions. Prepare a concrete repair plan only when the user explicitly requests a restart or rollback.
 4. Repairs require authorization through a confirmation card, followed by programmatic permission checks and execution. Chat confirmation cannot replace the confirmation API. Verify unknown results before submitting anything again.
