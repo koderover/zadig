@@ -827,7 +827,7 @@ AG-UI 的 `RUN_STARTED.runId` 在 POST 响应中回显请求的 `runId`；实际
 | 恢复提示 | `CUSTOM`，`name=halman.resync_required`，`value.run_id` 为实际运行 ID；随后断开，调用方重新获取历史和状态，再按需订阅 |
 | 保活 | 每 15 秒发送 SSE 注释 `: heartbeat` 并复查登录态，不产生业务事件或数据库写入 |
 
-可见推理展示通过框架 `WithReasoningContentEnabled(true)` 开启，不调整模型推理模式、推理强度或 Token 上限，也不额外调用模型。仅展示模型实际返回的 `reasoning_content`，不会获取模型未公开的内部思考。历史消息沿用原生消息中的 `reasoning_content` 恢复推理内容，遵循相同的归属、回答版本和保留期规则；不新增表或逐 Token 写入。前端分别展示推理和正文，不能把推理内容当作操作确认或成功依据。客户端需支持上述 `REASONING_*` 事件；所锁定 Go SDK 的通用 JSON Decoder 尚未注册这些事件，服务端使用官方事件类型及 SSE Writer 输出，协议测试直接校验官方推理事件类型。
+可见推理展示通过框架 `WithReasoningContentEnabled(true)` 开启，不调整模型推理模式、推理强度或 Token 上限，也不额外调用模型。仅展示模型实际返回的 `reasoning_content`，不会获取模型未公开的内部思考。每次生成的语言提示词明确要求可见推理说明也遵循本轮系统语言；不强制生成额外推理、不增加翻译调用，历史推理保留原文。语言遵循取决于模型，提示词不能保证所有模型始终使用指定语言。历史消息沿用原生消息中的 `reasoning_content` 恢复推理内容，遵循相同的归属、回答版本和保留期规则；不新增表或逐 Token 写入。前端分别展示推理和正文，不能把推理内容当作操作确认或成功依据。客户端需支持上述 `REASONING_*` 事件；所锁定 Go SDK 的通用 JSON Decoder 尚未注册这些事件，服务端使用官方事件类型及 SSE Writer 输出，协议测试直接校验官方推理事件类型。
 
 `RUN_FINISHED.result` 保留运行快照。`pending_confirmation`、`awaiting_input`、`unknown` 或 `cancelled` 均不能解释为 Skill 成功；完成任务仍由既有业务状态及日聚合决定。协议的生成阶段在等待用户时结束，确认后的执行通过 GET 另行订阅；不引入草案中断协议代替后端确认检查。
 

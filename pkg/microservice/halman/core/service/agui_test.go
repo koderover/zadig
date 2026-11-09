@@ -53,8 +53,8 @@ func TestStartStreamSubscribesBeforeModelAndSurvivesRequestDisconnect(t *testing
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
 		return &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			payload, err := io.ReadAll(r.Body)
-			if err != nil || !strings.Contains(string(payload), "system language for this generation is English") {
-				t.Error("系统语言中途变化不能改变本次生成的英文语言快照")
+			if err != nil || !strings.Contains(string(payload), "system language for this generation is English") || !strings.Contains(string(payload), "reasoning_content), if provided, must also be in English") {
+				t.Error("回答和可见推理均须使用本次生成的英文语言快照")
 			}
 			s.mu.Lock()
 			for _, active := range s.active {
