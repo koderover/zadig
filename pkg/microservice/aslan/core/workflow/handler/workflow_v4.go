@@ -262,7 +262,7 @@ func CheckApisixCompatibility(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.ApisixJobSpec)
+	args := new(workflow.ApisixCompatibilityCheckRequest)
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return

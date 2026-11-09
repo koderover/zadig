@@ -24,10 +24,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/apisix"
 )
 
+type ApisixCompatibilityCheckRequest struct {
+	Tasks []*commonmodels.ApisixItemSpec `json:"tasks"`
+}
+
 type ApisixCompatibilityError struct {
-	Code         string                      `json:"code"`
 	Message      string                      `json:"message"`
-	ApisixID     string                      `json:"apisix_id"`
 	TaskIndex    int                         `json:"task_index"`
 	ResourceType config.ApisixItemType       `json:"resource_type"`
 	ResourceName string                      `json:"resource_name"`
@@ -43,12 +45,12 @@ type ApisixCompatibilityCheckResponse struct {
 // CheckApisixJobCompatibility checks for known unsupported proto3 optional
 // declarations. The frontend must block execution when Valid is false.
 // This does not contact the gateway or perform full configuration validation.
-func CheckApisixJobCompatibility(spec *commonmodels.ApisixJobSpec) *ApisixCompatibilityCheckResponse {
+func CheckApisixJobCompatibility(req *ApisixCompatibilityCheckRequest) *ApisixCompatibilityCheckResponse {
 	resp := &ApisixCompatibilityCheckResponse{Valid: true, Errors: make([]*ApisixCompatibilityError, 0)}
-	if spec == nil {
+	if req == nil {
 		return resp
 	}
-	for index, task := range spec.Tasks {
+	for index, task := range req.Tasks {
 		if task == nil || task.Type != config.ApisixItemTypeProto ||
 			(task.Action != config.ApisixActionTypeCreate && task.Action != config.ApisixActionTypeUpdate) {
 			continue
@@ -69,9 +71,7 @@ func CheckApisixJobCompatibility(spec *commonmodels.ApisixJobSpec) *ApisixCompat
 			name = fmt.Sprintf("tasks[%d]", index)
 		}
 		resp.Errors = append(resp.Errors, &ApisixCompatibilityError{
-			Code:         "apisix_proto3_optional",
 			Message:      fmt.Sprintf("Proto 资源 %q 包含不支持的 proto3 optional 字段，请修改配置后再执行。", name),
-			ApisixID:     spec.ApisixID,
 			TaskIndex:    index,
 			ResourceType: task.Type,
 			ResourceName: proto.Name,
