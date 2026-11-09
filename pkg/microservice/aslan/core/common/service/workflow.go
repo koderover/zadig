@@ -101,6 +101,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 					SK:          ch.SecretKey,
 					Region:      ch.Region,
 					EnableProxy: ch.EnableProxy,
+					DisableSSL:  ch.DisableSSL,
 					Ref:         name,
 					From:        ch.Type,
 					IsManual:    wh.IsManual,
@@ -128,19 +129,20 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromGitee, setting.SourceFromGiteeEE:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
-					ID:        ch.ID,
-					Name:      wh.name,
-					Owner:     wh.owner,
-					Namespace: wh.namespace,
-					Repo:      wh.repo,
-					Address:   ch.Address,
-					Token:     ch.AccessToken,
-					Ref:       name,
-					AK:        ch.AccessKey,
-					SK:        ch.SecretKey,
-					Region:    ch.Region,
-					From:      ch.Type,
-					IsManual:  wh.IsManual,
+					ID:         ch.ID,
+					Name:       wh.name,
+					Owner:      wh.owner,
+					Namespace:  wh.namespace,
+					Repo:       wh.repo,
+					Address:    ch.Address,
+					Token:      ch.AccessToken,
+					Ref:        name,
+					AK:         ch.AccessKey,
+					SK:         ch.SecretKey,
+					Region:     ch.Region,
+					From:       ch.Type,
+					IsManual:   wh.IsManual,
+					DisableSSL: ch.DisableSSL,
 				})
 				if err != nil {
 					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)
