@@ -58,7 +58,7 @@ func (v *VMJobLogManager) IsJobRunning(key string) bool {
 
 func (v *VMJobLogManager) SetJobStatusRunning(key string) {
 	// use the timeout value of task timeout should be better
-	err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(v.vmJobKey(key), "1", 24*time.Hour)
+	_, err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(v.vmJobKey(key), "1", 24*time.Hour)
 	if err != nil {
 		log.Errorf("reids set nx err: %s for key: %s", err, v.vmJobKey(key))
 	}

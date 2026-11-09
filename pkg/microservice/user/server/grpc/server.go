@@ -59,6 +59,9 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 	body := request.GetAttributes().GetRequest().GetHttp().GetBody()
 	headers := request.GetAttributes().GetRequest().GetHttp().GetHeaders()
 	method := request.GetAttributes().GetRequest().GetHttp().GetMethod()
+	if strings.HasPrefix(stripQuery(requestPath), "/oauth/") || strings.HasPrefix(stripQuery(requestPath), "/api/oauth/") {
+		body = ""
+	}
 
 	isPublicRequest := permission.IsPublicURL(requestPath, method)
 
@@ -164,7 +167,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 			}
 
 			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
-			if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
+			if claims.TokenUse != loginsvc.OAuthLocalTokenUseAccess && claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 				// check if the given token is removed from the cache
 				token, err := cache.NewRedisCache(config.RedisUserTokenDB()).GetString(claims.UID)
 				if err != nil {
@@ -223,7 +226,7 @@ allowed:
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
 	logger.Info("Request Allowed",
-		zap.String("path", requestPath),
+		zap.String("path", oauthLogPath(requestPath)),
 		zap.String("method", method),
 		zap.String("body", body),
 	)
@@ -298,6 +301,20 @@ func stripQuery(path string) string {
 	return segments[0]
 }
 
+func oauthLogPath(path string) string {
+	base := stripQuery(path)
+	if strings.HasPrefix(base, "/api/oauth/device/authorizations/") {
+		if strings.HasSuffix(base, "/approval") {
+			return "/api/oauth/device/authorizations/:userCode/approval"
+		}
+		return "/api/oauth/device/authorizations/:userCode"
+	}
+	if strings.HasPrefix(base, "/oauth/") || strings.HasPrefix(base, "/api/oauth/") {
+		return base
+	}
+	return path
+}
+
 func denyRequest(requestPath, method, body string, statusCode int, reason, responseReason string, err error) *ext_authz_v3.CheckResponse {
 	resp := &ext_authz_v3.CheckResponse{
 		Status: &rpc_status.Status{Code: int32(toRPCCode(statusCode))},
@@ -316,7 +333,7 @@ func denyRequest(requestPath, method, body string, statusCode int, reason, respo
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: denied}
 
 	fields := []zap.Field{
-		zap.String("path", requestPath),
+		zap.String("path", oauthLogPath(requestPath)),
 		zap.String("method", method),
 		zap.String("body", body),
 		zap.String("reason", reason),

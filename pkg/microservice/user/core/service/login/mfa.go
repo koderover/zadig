@@ -533,6 +533,9 @@ func DisableUserMFA(uid string, args *MFADisableArgs, logger *zap.SugaredLogger)
 	if err := orm.DeleteUserMFA(uid, repository.DB); err != nil {
 		return nil, err
 	}
+	if err := NewOAuthService().RevokeUserSessions(uid); err != nil && logger != nil {
+		logger.Warnf("failed to revoke OAuth sessions after disabling mfa, uid: %s, err: %v", uid, err)
+	}
 	if cacheErr := setUserMFAEnabledCache(uid, false); cacheErr != nil && logger != nil {
 		logger.Warnf("failed to sync user mfa cache during disable, uid: %s, err: %v", uid, cacheErr)
 	}
@@ -646,6 +649,9 @@ func ResetUserMFA(uid string, logger *zap.SugaredLogger) error {
 	}
 	if err := orm.DeleteUserMFA(uid, repository.DB); err != nil {
 		return err
+	}
+	if err := NewOAuthService().RevokeUserSessions(uid); err != nil && logger != nil {
+		logger.Warnf("failed to revoke OAuth sessions after resetting mfa, uid: %s, err: %v", uid, err)
 	}
 	if cacheErr := setUserMFAEnabledCache(uid, false); cacheErr != nil && logger != nil {
 		logger.Warnf("failed to sync user mfa cache during reset, uid: %s, err: %v", uid, cacheErr)
