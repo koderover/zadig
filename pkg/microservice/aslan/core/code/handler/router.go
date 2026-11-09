@@ -50,3 +50,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	codehost := router.Group(":codehostName")
+	codehost.Use(authorizeOpenAPICodehost)
+	codehost.GET("/branches", CodeHostGetBranchList)
+	codehost.GET("/tags", CodeHostGetTagList)
+	codehost.GET("/pull-requests", CodeHostGetPRList)
+}
