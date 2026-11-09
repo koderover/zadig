@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -195,21 +196,59 @@ type state struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
+func parseCodeHostRedirectURL(rawURL string) (*url.URL, error) {
+	systemAddress := zadigconfig.SystemAddress()
+	if !strings.Contains(systemAddress, "://") {
+		systemAddress = "//" + systemAddress
+	}
+	systemURL, err := url.Parse(systemAddress)
+	if err != nil || (systemURL.Scheme != "" && systemURL.Scheme != "http" && systemURL.Scheme != "https") || systemURL.Hostname() == "" || systemURL.User != nil {
+		return nil, fmt.Errorf("invalid system address")
+	}
+	redirectURL, err := url.Parse(rawURL)
+	if err != nil || (redirectURL.Scheme != "http" && redirectURL.Scheme != "https") || redirectURL.Hostname() == "" || redirectURL.User != nil || strings.Contains(rawURL, `\`) {
+		return nil, fmt.Errorf("invalid redirect URL")
+	}
+	// A system address without a scheme allows HTTP or HTTPS on the configured host and port.
+	if systemURL.Scheme == "" {
+		systemURL.Scheme = redirectURL.Scheme
+	}
+	systemHost, redirectHost := systemURL.Hostname(), redirectURL.Hostname()
+	if ip, err := netip.ParseAddr(systemHost); err == nil {
+		systemHost = ip.String()
+	}
+	if ip, err := netip.ParseAddr(redirectHost); err == nil {
+		redirectHost = ip.String()
+	}
+	systemPort, redirectPort := systemURL.Port(), redirectURL.Port()
+	if (systemURL.Scheme == "http" && systemPort == "80") || (systemURL.Scheme == "https" && systemPort == "443") {
+		systemPort = ""
+	}
+	if (redirectURL.Scheme == "http" && redirectPort == "80") || (redirectURL.Scheme == "https" && redirectPort == "443") {
+		redirectPort = ""
+	}
+	if systemURL.Scheme != redirectURL.Scheme || !strings.EqualFold(systemHost, redirectHost) || systemPort != redirectPort {
+		return nil, fmt.Errorf("invalid redirect URL")
+	}
+	return redirectURL, nil
+}
+
 func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (string, error) {
+	redirectParsedURL, err := parseCodeHostRedirectURL(redirectURI)
+	if err != nil {
+		return "", err
+	}
 	codeHost, err := GetCodeHost(codeHostID, false, logger)
 	if err != nil {
 		logger.Errorf("GetCodeHost:%d err:%s", codeHostID, err)
 		return "", err
 	}
-	redirectParsedURL, err := url.Parse(redirectURI)
-	if err != nil {
-		logger.Errorf("Parse redirectURI:%s err:%s", redirectURI, err)
-		return "", err
+	callbackURL := url.URL{
+		Scheme: redirectParsedURL.Scheme,
+		Host:   redirectParsedURL.Host,
+		Path:   callback,
 	}
-	redirectParsedURL.Path = callback
-	// we need to ignore query parameters to keep grant valid
-	redirectParsedURL.RawQuery = ""
-	oauth, err := newOAuth(codeHost.Type, redirectParsedURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	oauth, err := newOAuth(codeHost.Type, callbackURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)
 		return "", err
@@ -239,14 +278,13 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("Unmarshal err:%s", err)
 		return "", err
 	}
-	redirectParsedURL, err := url.Parse(sta.RedirectURL)
+	redirectParsedURL, err := parseCodeHostRedirectURL(sta.RedirectURL)
 	if err != nil {
-		logger.Errorf("ParseURL:%s err:%s", sta.RedirectURL, err)
 		return "", err
 	}
 	codehost, err := GetCodeHost(sta.CodeHostID, false, logger)
 	if err != nil {
-		return handle(redirectParsedURL, err)
+		return "", err
 	}
 	callbackURL := url.URL{
 		Scheme: redirectParsedURL.Scheme,
@@ -257,21 +295,21 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("newOAuth err:%s", err)
-		return handle(redirectParsedURL, err)
+		return "", err
 	}
 	token, err := o.HandleCallback(r, codehost)
 	if err != nil {
 		logger.Errorf("HandleCallback err:%s", err)
-		return handle(redirectParsedURL, err)
+		return "", err
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
 	if _, err := UpdateCodeHostToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return handle(redirectParsedURL, err)
+		return "", err
 	}
 	logger.Infof("success update codehost ready status")
-	return handle(redirectParsedURL, nil)
+	return redirectParsedURL.String(), nil
 }
 
 func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
@@ -293,15 +331,6 @@ func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 		}), nil
 	}
 	return nil, errors.New("illegal provider")
-}
-
-func handle(url *url.URL, err error) (string, error) {
-	if err != nil {
-		url.Query().Add("err", err.Error())
-	} else {
-		url.Query().Add("success", "true")
-	}
-	return url.String(), nil
 }
 
 func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) error {
