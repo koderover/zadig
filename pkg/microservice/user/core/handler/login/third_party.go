@@ -87,7 +87,7 @@ func Login(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	state, browserToken, err := login.CreateThirdPartyLoginState()
+	state, browserToken, err := login.CreateThirdPartyLoginState(c.Query("redirect"))
 	if err != nil {
 		ctx.RespErr = err
 		return
@@ -177,7 +177,8 @@ func Callback(c *gin.Context) {
 		return
 	}
 	// Atomically validate and consume state before exchanging the authorization code.
-	if err := login.ConsumeThirdPartyLoginState(c.Query("state"), browserToken); err != nil {
+	redirectPath, err := login.ConsumeThirdPartyLoginState(c.Query("state"), browserToken)
+	if err != nil {
 		ctx.RespErr = err
 		return
 	}
@@ -212,7 +213,7 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, ctx.Logger)
+	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, redirectPath, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
