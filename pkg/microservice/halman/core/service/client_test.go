@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -80,6 +82,40 @@ func TestAuthenticateRequiresExplicitUserServiceApproval(t *testing.T) {
 				t.Fatal("不能只解码 JWT，必须得到 user 服务的明确允许")
 			}
 		})
+	}
+}
+
+func TestAuthenticatedUserOnlyExposesVerifiedIdentityFields(t *testing.T) {
+	checks := 0
+	p := &PlatformClient{Auth: fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
+		checks++
+		return &authv3.CheckResponse{Status: &rpcstatus.Status{}, HttpResponse: &authv3.CheckResponse_OkResponse{OkResponse: &authv3.OkHttpResponse{}}}, nil
+	}}}
+	for _, claims := range []string{
+		`{"uid":"user","name":"张三","preferred_username":"zhangsan","email":"hidden-email","phone":"hidden-phone","role":"hidden-role","token":"hidden-token"}`,
+		`{"uid":"user"}`,
+	} {
+		authorization := "Bearer header." + base64.RawURLEncoding.EncodeToString([]byte(claims)) + ".signature"
+		user, err := p.authenticateUser(context.Background(), authorization)
+		if err != nil || user.UID != "user" {
+			t.Fatalf("应兼容完整资料及仅包含 UID 的旧 Token: %+v %v", user, err)
+		}
+		if strings.Contains(claims, "preferred_username") && (user.Name != "张三" || user.Account != "zhangsan") {
+			t.Fatal("应提取显示名称及登录账号")
+		}
+		raw, _ := json.Marshal(user)
+		if strings.Contains(string(raw), "hidden-") || strings.Contains(string(raw), "signature") {
+			t.Fatal("完整 Token、联系方式及角色声明不能进入身份上下文")
+		}
+	}
+	if checks != 2 {
+		t.Fatal("提取资料必须复用且仅执行一次平台鉴权")
+	}
+	p.Auth = fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
+		return &authv3.CheckResponse{Status: &rpcstatus.Status{Code: 7}}, nil
+	}}
+	if user, err := p.authenticateUser(context.Background(), token("forged")); err == nil || user != (authenticatedUser{}) {
+		t.Fatal("未经平台鉴权通过的 Claims 不可作为身份上下文")
 	}
 }
 

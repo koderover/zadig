@@ -78,6 +78,9 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 登录校验通过 `HALMAN_USER_AUTH_ADDRESS` 指向的 user gRPC `envoy.service.auth.v3.Authorization/Check` 实现，复用 Token 签名、有效期、撤销及 MFA 检查；只有 user 明确允许后才从 JWT 取得用户标识。不是只在本地解码 JWT，也不需要为每个普通聊天请求再调用 HTTP `auth-info`。`NewContextWithAuthorization()` 依赖调用链已完成登录校验，负责获取资源权限，不能替代这一步 user 鉴权。资源操作和管理员权限仍按需调用现有 HTTP 授权及业务接口。企业版检查在启动时直接装配现有 `commonutil.CheckZadigEnterpriseLicense()`，由该函数复用 plutusenterprise 客户端及现有企业版判定，halman 不拼接许可证请求或重复判断状态。沿用既有服务地址和 HTTP 客户端超时（60 秒），不新增许可证接口、配置项或缓存。
 
+每次模型调用在原有 user 鉴权明确通过后，从同一 JWT 仅提取 `uid`、`name`、`preferred_username`，以独立的系统消息注入当前登录用户上下文，用于回答“我是谁”等身份问题。身份字段作为资料处理，不作为指令或角色、资源权限依据；缺少名称或账号时不猜测，仍兼容仅含 UID 的旧 Token。信息以本次已验证 Token 的 Claims 为准，资料更新后随新的 Token 生效；补问和重新回答也经过同一注入流程。不传入完整 Token、邮箱、手机号、角色声明或其他 Claims，不增加 user 请求、数据库查询、接口或字段，也不将该系统消息保存为历史消息；模型正常回答中引用的身份信息仍按普通聊天内容保存。
+
+
 其他权限检查分布在业务服务和 DAO 中，没有新增可在角色管理中分配的“AI 助手使用”权限项：
 
 | 入口 | 当前权限要求 |
