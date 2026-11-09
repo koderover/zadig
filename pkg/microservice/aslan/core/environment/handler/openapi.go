@@ -1685,10 +1685,28 @@ func OpenAPIProductionRestartService(c *gin.Context) {
 	ctx.RespErr = service.OpenAPIRestartService(projectName, envName, serviceName, true, ctx.Logger)
 }
 
+// @Summary 获取测试环境服务 Pod 列表
+// @Description 获取测试环境服务关联的 Pod 和容器信息
+// @Tags OpenAPI
+// @Produce json
+// @Param projectKey query string true "项目标识"
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称"
+// @Success 200 {object} service.OpenAPIListServicePodsResponse
+// @Router /openapi/environments/{name}/service/{serviceName}/pods [get]
 func OpenAPIListServicePods(c *gin.Context) {
 	openAPIListServicePods(c, false)
 }
 
+// @Summary 获取生产环境服务 Pod 列表
+// @Description 获取生产环境服务关联的 Pod 和容器信息
+// @Tags OpenAPI
+// @Produce json
+// @Param projectKey query string true "项目标识"
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称"
+// @Success 200 {object} service.OpenAPIListServicePodsResponse
+// @Router /openapi/environments/production/{name}/service/{serviceName}/pods [get]
 func OpenAPIListProductionServicePods(c *gin.Context) {
 	openAPIListServicePods(c, true)
 }
