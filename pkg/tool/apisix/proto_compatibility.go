@@ -56,9 +56,14 @@ func FindProto3OptionalFields(content string) []ProtoOptionalField {
 	for i := 4; i < len(tokens); i++ {
 		t := tokens[i]
 		inMessage := len(scopes) > 0 && scopes[len(scopes)-1] != ""
-		if t.text == "package" && len(scopes) == 0 {
-			for i++; i < len(tokens) && tokens[i].text != ";"; i++ {
-				packageName += tokens[i].text
+		if t.text == "package" && len(scopes) == 0 && i+1 < len(tokens) && tokens[i+1].kind == scanner.Ident {
+			i++
+			packageName = tokens[i].text
+			// Read only the qualified name so a missing semicolon cannot
+			// consume subsequent message declarations.
+			for i+2 < len(tokens) && tokens[i+1].text == "." && tokens[i+2].kind == scanner.Ident {
+				packageName += "." + tokens[i+2].text
+				i += 2
 			}
 			continue
 		}
