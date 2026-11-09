@@ -516,8 +516,8 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 		}
 	}
 
-	var current string
-	if err = tx.WithContext(ctx).Raw("SELECT status FROM ai_run WHERE id=? FOR UPDATE", r.ID).Row().Scan(&current); err != nil {
+	var current, modelID, modelName string
+	if err = tx.WithContext(ctx).Raw("SELECT status,model_id,model_name FROM ai_run WHERE id=? FOR UPDATE", r.ID).Row().Scan(&current, &modelID, &modelName); err != nil {
 		return err
 	}
 
@@ -568,20 +568,22 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 		return err
 	}
 
+	// 使用已锁定运行的模型快照，避免 INSERT SELECT 中来源表与统计表的字段歧义。
 	err = tx.WithContext(ctx).Exec(
 		"INSERT INTO ai_usage_daily (date,user_id,skill_id,model_id,model_name,run_count,input_tokens,output_tokens,elapsed_ms)"+
-			" SELECT ?,?,?,model_id,model_name,1,?,?,? FROM ai_run WHERE id=?"+
+			" VALUES (?,?,?,?,?,1,?,?,?)"+
 			" ON DUPLICATE KEY UPDATE run_count=run_count+1,input_tokens=input_tokens+VALUES(input_tokens),"+
 			"output_tokens=output_tokens+VALUES(output_tokens),elapsed_ms=elapsed_ms+VALUES(elapsed_ms)",
 		now.In(time.Local).
 			Format("2006-01-02"),
 		user,
 		r.SkillID,
+		modelID,
+		modelName,
 		input,
 		output,
 		now.Sub(r.CreatedAt).
 			Milliseconds(),
-		r.ID,
 	).
 		Error
 	if err != nil {

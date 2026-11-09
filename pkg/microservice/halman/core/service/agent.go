@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
 
 	"trpc.group/trpc-go/trpc-agent-go/agent"
 	"trpc.group/trpc-go/trpc-agent-go/agent/llmagent"
@@ -613,6 +616,7 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 	}
 	s.mu.Unlock()
 	s.wg.Add(1)
+	slog.Info("AI 模型运行已开始", "run_id", record.ID, "request_id", req.RequestID, "conversation_id", conversation, "model_id", cfg.LLMIntegrationID, "model", cfg.Model)
 	go s.execute(runCtx, cancel, r, user, record, req.Message, cfg)
 	return result, nil
 }
@@ -716,8 +720,16 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	}
 
 	if finishErr != nil {
+		// 数据库错误可能包含输入值，只记录错误类型和错误码，不输出原文或 SQL。
+		var mysqlErr *mysql.MySQLError
+		var code uint16
+		if errors.As(finishErr, &mysqlErr) {
+			code = mysqlErr.Number
+		}
+		slog.Error("保存 AI 运行结果失败", "run_id", record.ID, "error_type", fmt.Sprintf("%T", finishErr), "mysql_error_code", code, "deadline_exceeded", errors.Is(finishErr, context.DeadlineExceeded))
 		s.publish(record.ID, StreamEvent{Type: "error", Data: lang.Text("保存运行结果失败，请查询运行状态", "Failed to save the run result; check the run status")})
 	}
+	slog.Info("AI 模型运行已结束", "run_id", record.ID, "skill_id", record.SkillID, "result_status", status, "result_saved", finishErr == nil, "elapsed_ms", time.Since(record.CreatedAt).Milliseconds(), "input_tokens", input, "output_tokens", output)
 
 	s.mu.Lock()
 	if active := s.active[record.ID]; active != nil {
@@ -796,6 +808,7 @@ func (s *AgentService) Cancel(ctx context.Context, user, id string) error {
 	if err := s.Store.CancelRun(ctx, user, id); err != nil {
 		return err
 	}
+	slog.Info("AI 运行取消请求已受理", "run_id", id)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

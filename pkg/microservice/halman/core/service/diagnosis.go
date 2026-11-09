@@ -204,12 +204,12 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 				break
 			}
 
-			if err := checkNames(job.Name); err != nil {
+			if err := checkWorkflowJobName(job.Name); err != nil {
 				continue
 			}
 
 			query := url.Values{"projectName": {target.ProjectKey}, "format": {"excerpt"}, "offset": {"0"}, "limit": {"200"}}
-			path := fmt.Sprintf("/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s", target.WorkflowName, target.TaskID, job.Name)
+			path := fmt.Sprintf("/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s", target.WorkflowName, target.TaskID, url.PathEscape(job.Name))
 			raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, path, query, nil)
 			if err != nil {
 				logs[job.Name] = map[string]string{"unavailable": err.Error()}

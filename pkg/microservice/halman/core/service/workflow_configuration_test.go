@@ -24,8 +24,8 @@ func TestWorkflowDiagnosisUsesOriginalTaskDetails(t *testing.T) {
 			if r.URL.RawQuery != "" {
 				t.Fatal("原任务详情接口不应增加查询参数")
 			}
-			w.Write([]byte(`{"project_key":"p","workflow_key":"wf","task_id":128,"create_time":1700000000,"status":"failed","stages":[{"name":"build","jobs":[{"name":"build-api","type":"zadig-build","status":"failed","spec":{"repos":[{"repo_name":"api","branch":"release/v1","commit_id":"commit-old","oauth_token":"hidden-secret"}],"envs":[{"key":"TOKEN","value":"hidden-secret"}],"script":"hidden-script"}}]}]}`))
-		case "/api/logs/log/v4/workflow/wf/tasks/128/jobs/build-api":
+			w.Write([]byte(`{"project_key":"p","workflow_key":"wf","task_id":128,"create_time":1700000000,"status":"failed","stages":[{"name":"build","jobs":[{"name":"job-0-0-0-构建","type":"zadig-build","status":"failed","spec":{"repos":[{"repo_name":"api","branch":"release/v1","commit_id":"commit-old","oauth_token":"hidden-secret"}],"envs":[{"key":"TOKEN","value":"hidden-secret"}],"script":"hidden-script"}}]}]}`))
+		case "/api/logs/log/v4/workflow/wf/tasks/128/jobs/job-0-0-0-构建":
 			w.Write([]byte(`{"text":"build failed"}`))
 		default:
 			t.Fatalf("不能读取当前配置替代历史，也不应增加其他请求: %s", r.URL)
@@ -37,9 +37,9 @@ func TestWorkflowDiagnosisUsesOriginalTaskDetails(t *testing.T) {
 	mock.ExpectCommit()
 	expectSkillInputSave(mock, e, nil)
 	s := &AgentService{Store: store, Platform: platform}
-	value, err := s.diagnoseWorkflow(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowTarget{JobName: "build-api"})
+	value, err := s.diagnoseWorkflow(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowTarget{JobName: "job-0-0-0-构建"})
 	raw := string(common.JSON(value))
-	if err != nil || !e.EvidenceRead.Load() || !strings.Contains(raw, "release/v1") || !strings.Contains(raw, "commit-old") || !strings.Contains(raw, "1700000000") || strings.Contains(raw, "hidden-") {
+	if err != nil || !e.EvidenceRead.Load() || !strings.Contains(raw, `"logs":{"job-0-0-0-构建":`) || !strings.Contains(raw, "release/v1") || !strings.Contains(raw, "commit-old") || !strings.Contains(raw, "1700000000") || strings.Contains(raw, "hidden-") {
 		t.Fatalf("应从原任务详情中提取分支、提交及时间，不能传递凭据和脚本: %s %v", raw, err)
 	}
 }

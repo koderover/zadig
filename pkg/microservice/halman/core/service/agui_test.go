@@ -32,7 +32,7 @@ func TestStartStreamSubscribesBeforeModelAndSurvivesRequestDisconnect(t *testing
 	mock.ExpectQuery("SELECT count.* FROM `ai_conversation`").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
-	mock.ExpectQuery("SELECT status FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("running"))
+	mock.ExpectQuery("SELECT status,model_id,model_name FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status", "model_id", "model_name"}).AddRow("running", "stored-model-id", "stored-model-name"))
 	mock.ExpectExec("UPDATE ai_run SET status").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("INSERT INTO ai_usage_daily").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_conversation SET last_active_at").WillReturnResult(sqlmock.NewResult(0, 1))

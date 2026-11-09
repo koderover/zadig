@@ -122,9 +122,9 @@ func TestExecuteGeneratesTitleAndIncludesUsageWithoutExtraRun(t *testing.T) {
 			}
 			mock.ExpectBegin()
 			mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("conversation", "user").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
-			mock.ExpectQuery("SELECT status FROM ai_run .*FOR UPDATE").WithArgs("run").WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("running"))
+			mock.ExpectQuery("SELECT status,model_id,model_name FROM ai_run .*FOR UPDATE").WithArgs("run").WillReturnRows(sqlmock.NewRows([]string{"status", "model_id", "model_name"}).AddRow("running", "stored-model-id", "stored-model-name"))
 			mock.ExpectExec("UPDATE ai_run SET status").WithArgs("succeeded", "", sqlmock.AnyArg(), in, out, sqlmock.AnyArg(), true, "run").WillReturnResult(sqlmock.NewResult(0, 1))
-			mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "user", "", in, out, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "user", "", "stored-model-id", "stored-model-name", in, out, sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectExec("UPDATE ai_conversation SET last_active_at").WithArgs(sqlmock.AnyArg(), "conversation").WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 			updates := make(chan StreamEvent, 4)

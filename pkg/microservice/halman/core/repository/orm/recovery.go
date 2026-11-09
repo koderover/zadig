@@ -3,6 +3,7 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -126,5 +127,9 @@ func (s *Store) recoverRun(ctx context.Context, item abandonedRun) error {
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	slog.Info("AI 异常运行已恢复", "run_id", item.id, "previous_status", status, "status", next)
+	return nil
 }
