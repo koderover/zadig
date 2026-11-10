@@ -10,10 +10,12 @@ Target project and its type, each new service's name, the source of its YAML, He
 
 ## Steps
 
-1. Query the existing project type, service list, and configurations and templates accessible to the current user. Prevent name collisions and type mismatches.
+If the user has not named another project and the current page identifies a project, use it for queries and plan preparation and state the target in the response; do not ask for a separate project confirmation. Explicit user targets and saved drafts take precedence. Ask only when no page project is available or targets conflict. Preparing a plan does not execute writes; the confirmation card still authorizes execution. The service initialization tool reads the existing project's type.
+
+1. The service initialization tool checks the existing project type and service name conflicts. Use catalog tools for configurations and templates accessible to the current user. Prevent name collisions and type mismatches.
 2. Include at most twenty services per batch. Confirm each source, name and file grouping. Do not split a service's multiple YAML files into separate services.
 3. Use only existing YAML, Charts or templates. Do not clone or write repositories. If only source code exists without usable service configuration, explain what is missing and ask for it.
-4. Create builds only from existing build templates; skip builds if no suitable template exists. Service initialization does not create workflows. Do not ask about workflows or list them as skipped in responses or plans. Omit `create_workflow` or set it to false.
+4. Create builds only from existing build templates; skip builds if no suitable template exists. Saying "only use existing build templates" constrains how builds are created; it does not request builds. Do not ask for build details unless the user explicitly requests builds. Service initialization does not create workflows. Do not ask about workflows or list them as skipped in responses or plans. Omit `create_workflow` or set it to false.
 5. Use the service initialization tool to prepare a batch operation plan. The program executes each item only after explicit authorization through the confirmation card.
 
 For Chart repository imports, pass the target `project_key` when querying `helm_repositories` and select the repository by `repo_name`. For `chart_versions`, pass the repository name as `repo_name` (or `id`), never its internal ID. The result contains versions for every Chart in that repository: query once and reuse it across the batch. Preserve the returned version order; when the user requests the latest version, select each Chart's first entry and show the concrete version in the plan. Set each service's `chart_repo` to the repository name as well. Do not ask for code hosts, source repositories or branches unless Git configuration or builds are needed.
@@ -21,6 +23,8 @@ For Chart repository imports, pass the target `project_key` when querying `helm_
 For builds targeting existing services, use `builds` directly; `services` may be omitted or contain only their names. Read the project type and service components from Zadig. Never ask again for YAML/Chart sources. Auto-select a sole component, and ask the user to choose if multiple components exist. Collect only build names, the existing build template, source repositories/branches and required variables. Do not create services or environments unless explicitly requested. A new build request after service initialization is a new task: do not reuse the completed initialization draft or its service sources.
 
 ## Clarification
+
+The tool collects service name conflicts, saves the draft, and returns them as `awaiting_input`. Explain those conflicts and ask how to resolve them; do not query the project catalog or change the service list to probe for more conflicts. Never remove services without an explicit request. Chart repository imports require the service name to match the Chart name: renaming only the service cannot resolve a conflict. Ask whether to remove conflicting services from this batch or select other Charts, preserving existing project services.
 
 Prefer the exact full template name supplied by the user; do not ask for IDs. For YAML and build templates, pass the full name as `query_catalog.keyword`. If unmatched, follow `next_page` until an exact match is found, then read its details. Ask about unclear or ambiguous names instead of substituting similar names. Other resources use the existing interfaces' name lookup. Do not conclude a resource is absent because the first page has no match.
 

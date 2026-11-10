@@ -182,10 +182,10 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 		r, err = s.Store.GetRun(ctx, e.User, e.RegenerateFrom.ID, e.Cutoff)
 	} else {
 		if e.RootID == "" || e.RootID == e.Run.ID {
-			return nil, fmt.Errorf("请明确要继续的 skill_execution_id")
+			r, err = s.Store.LatestSavedSkillRun(ctx, e.User, e.Run.ConversationID, e.Cutoff, e.Run.CreatedAt)
+		} else {
+			r, err = s.Store.SavedSkillRun(ctx, e.User, e.Run.ConversationID, e.RootID, e.Cutoff)
 		}
-
-		r, err = s.Store.SavedSkillRun(ctx, e.User, e.Run.ConversationID, e.RootID, e.Cutoff)
 	}
 
 	if err != nil {
@@ -196,17 +196,25 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 		return nil, err
 	}
 
+	continuable := r.SkillStatus != nil && (*r.SkillStatus == "awaiting_input" || *r.SkillStatus == "pending_confirmation")
 	if e.RegenerateFrom == nil {
-		if _, err := s.skillExecution(ctx, r.SkillID); err != nil {
-			return nil, err
-		}
 		var saved models.OperationPlan
 		if json.Unmarshal(r.Plan, &saved) != nil {
 			return nil, common.ErrRequestConflict
 		}
-		e.SkillInput = saved.Input
-		if r.SkillID == "project_onboarding" || r.SkillID == "service_onboarding" {
-			e.OnboardingDraft = saved.Draft
+		if continuable {
+			if e.SkillID != "" && (e.SkillID != r.SkillID || e.RootID != *r.SkillExecutionID) {
+				return nil, common.ErrRequestConflict
+			}
+			e.RootID = *r.SkillExecutionID
+			e.ContinuingSkill = r.SkillID
+			if _, err := s.skillExecution(ctx, r.SkillID); err != nil {
+				return nil, err
+			}
+			e.SkillInput = saved.Input
+			if r.SkillID == "project_onboarding" || r.SkillID == "service_onboarding" {
+				e.OnboardingDraft = saved.Draft
+			}
 		}
 
 		metadata, err := s.Store.ContextScopes(ctx, e.User, r.ConversationID, e.Cutoff, []string{r.ID})
@@ -235,17 +243,21 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 			return nil, err
 		}
 
-		e.Outcome = "awaiting_input"
+		if continuable {
+			e.Outcome = "awaiting_input"
+		}
 	} else {
 		e.EvidenceRead.Store(true)
 	}
 
 	value, err := safeJSON(common.JSON(map[string]any{
-		"run_id":      r.ID,
-		"status":      r.Status,
-		"plan_status": r.PlanStatus,
-		"plan":        r.Plan,
-		"read_only":   true,
+		"run_id":       r.ID,
+		"status":       r.Status,
+		"plan_status":  r.PlanStatus,
+		"skill_status": r.SkillStatus,
+		"can_continue": continuable,
+		"plan":         r.Plan,
+		"read_only":    true,
 	}))
 	if err != nil {
 		return nil, err

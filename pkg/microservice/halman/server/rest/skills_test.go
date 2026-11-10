@@ -26,19 +26,17 @@ type skillAuthTransport func(*http.Request) (*http.Response, error)
 
 func (f skillAuthTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func TestSkillManagementRequiresAdminAndWorksWhenAIDisabled(t *testing.T) {
+func TestSkillManagementRequiresAIManagementPermissionAndWorksWhenAIDisabled(t *testing.T) {
 	log.Init(&log.Config{Level: "error"})
 	store, mock := mockStore(t)
-	admin, permissionFailure := false, false
+	permissionFailure := false
+	permissionBody := `{"is_system_admin":false}`
 	users := &userclient.Client{Client: httpclient.New(httpclient.SetHostURL("http://user/api/v1"))}
 	users.SetTransport(skillAuthTransport(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path != "/api/v1/authorization/auth-info" || r.URL.Query().Get("uid") != "actual-user" {
 			t.Fatalf("必须查询已鉴权用户的系统权限: %s", r.URL)
 		}
-		status, body := http.StatusOK, `{"is_system_admin":false}`
-		if admin {
-			body = `{"is_system_admin":true}`
-		}
+		status, body := http.StatusOK, permissionBody
 		if permissionFailure {
 			status, body = http.StatusInternalServerError, "private permission details"
 		}
@@ -62,16 +60,36 @@ func TestSkillManagementRequiresAdminAndWorksWhenAIDisabled(t *testing.T) {
 		router.ServeHTTP(rec, req)
 		return rec
 	}
-	for _, method := range []string{http.MethodGet, http.MethodPut} {
-		path := "/api/halman/skills"
-		if method == http.MethodPut {
-			path += "/workflow_diagnosis"
-		}
-		if rec := request(method, path, "{}"); rec.Code != http.StatusForbidden {
-			t.Fatalf("普通用户不得管理: %d %s", rec.Code, rec.Body)
-		}
+	for _, input := range []struct {
+		name, body string
+		read, edit bool
+	}{
+		{name: "no permissions", body: `{"is_system_admin":false}`},
+		{name: "no AI permissions", body: `{"system_actions":{}}`},
+		{name: "empty AI permissions", body: `{"system_actions":{"ai_management":{}}}`},
+		{name: "view", body: `{"system_actions":{"ai_management":{"View":true}}}`, read: true},
+		{name: "edit", body: `{"system_actions":{"ai_management":{"Edit":true}}}`, read: true, edit: true},
+		{name: "admin", body: `{"is_system_admin":true}`, read: true, edit: true},
+	} {
+		t.Run(input.name, func(t *testing.T) {
+			permissionBody = input.body
+			readStatus, editStatus := http.StatusForbidden, http.StatusForbidden
+			if input.read {
+				readStatus = http.StatusOK
+				mock.ExpectQuery("SELECT .*FROM `ai_skill`").WithArgs("builtin").WillReturnRows(sqlmock.NewRows([]string{"id"}))
+			}
+			if input.edit {
+				editStatus = http.StatusBadRequest
+			}
+			if rec := request(http.MethodGet, "/api/halman/skills", ""); rec.Code != readStatus {
+				t.Fatalf("GET: expected %d, got %d %s", readStatus, rec.Code, rec.Body)
+			}
+			if rec := request(http.MethodPut, "/api/halman/skills/workflow_diagnosis", "{}"); rec.Code != editStatus {
+				t.Fatalf("PUT: expected %d, got %d %s", editStatus, rec.Code, rec.Body)
+			}
+		})
 	}
-	admin = true
+	permissionBody = `{"system_actions":{"ai_management":{"Edit":true}}}`
 	mock.ExpectQuery("SELECT .*FROM `ai_skill`").WithArgs("builtin").WillReturnRows(sqlmock.NewRows([]string{"id", "source", "content", "enabled"}).AddRow("workflow_diagnosis", "builtin", "中文内置正文", true))
 	if rec := request(http.MethodGet, "/api/halman/skills", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "中文内置正文") || strings.Contains(rec.Body.String(), "prompt") {
 		t.Fatalf("总开关关闭时仍应展示完整定义，且不返回默认提问: %d %s", rec.Code, rec.Body)
