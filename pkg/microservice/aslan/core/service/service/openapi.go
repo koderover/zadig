@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -12,13 +13,17 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
 func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
 	if err != nil {
-		logger.Errorf("Failed to find template of name: %s, err: %w", req.TemplateName, err)
+		logger.Errorf("Failed to find template of name: %s, err: %v", req.TemplateName, err)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return e.ErrNotFound.AddDesc(fmt.Sprintf("yaml template %q not found, template_name must match the template name exactly", req.TemplateName))
+		}
 		return fmt.Errorf("failed to find template of name: %s, err: %w", req.TemplateName, err)
 	}
 
