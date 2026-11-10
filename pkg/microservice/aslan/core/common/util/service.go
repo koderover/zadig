@@ -403,24 +403,33 @@ func FilterKV(varKV *commonmodels.VariableKV, keySet sets.String) bool {
 }
 
 func MergeServiceVariableKVsAndKVInput(serviceKVs []*commontypes.ServiceVariableKV, kvinput util.KVInput) (string, []*commontypes.ServiceVariableKV, error) {
-	svcVarMap := map[string]*commontypes.ServiceVariableKV{}
-	for _, kv := range serviceKVs {
-		svcVarMap[kv.Key] = kv
+	inputMap := map[string]*util.KeyValue{}
+	for _, kv := range kvinput {
+		inputMap[kv.Key] = kv
 	}
 
-	mergedKVs := make([]*commontypes.ServiceVariableKV, 0)
-	for _, kv := range kvinput {
-		templKV, ok := svcVarMap[kv.Key]
-		if !ok {
-			mergedKVs = append(mergedKVs, &commontypes.ServiceVariableKV{
-				Key:   kv.Key,
-				Type:  commontypes.ServiceVariableKVTypeString,
-				Value: kv.Value,
-			})
-		} else {
-			templKV.Value = kv.Value
-			mergedKVs = append(mergedKVs, templKV)
+	// keep every template variable so the saved service matches the template defaults used to render it
+	mergedKVs := make([]*commontypes.ServiceVariableKV, 0, len(serviceKVs)+len(kvinput))
+	templateKeys := map[string]bool{}
+	for _, kv := range serviceKVs {
+		if kv == nil {
+			continue
 		}
+		templateKeys[kv.Key] = true
+		if input, ok := inputMap[kv.Key]; ok {
+			kv.Value = input.Value
+		}
+		mergedKVs = append(mergedKVs, kv)
+	}
+	for _, kv := range kvinput {
+		if templateKeys[kv.Key] {
+			continue
+		}
+		mergedKVs = append(mergedKVs, &commontypes.ServiceVariableKV{
+			Key:   kv.Key,
+			Type:  commontypes.ServiceVariableKVTypeString,
+			Value: kv.Value,
+		})
 	}
 
 	mergedYaml, err := commontypes.ServiceVariableKVToYaml(mergedKVs, true)
