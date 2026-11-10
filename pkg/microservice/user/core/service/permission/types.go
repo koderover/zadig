@@ -101,6 +101,9 @@ const (
 
 // system level authorization actions
 const (
+	// AI management
+	VerbGetAIManagement  = "get_ai_management"
+	VerbEditAIManagement = "edit_ai_management"
 	// project
 	VerbCreateProject = "create_project"
 	VerbDeleteProject = "delete_project"
@@ -195,7 +198,13 @@ type ProjectActions struct {
 	SprintWorkItem    *SprintWorkItemActions    `json:"sprint_workitem"`
 }
 
+type AIManagementActions struct {
+	View bool
+	Edit bool
+}
+
 type SystemActions struct {
+	AIManagement         *AIManagementActions         `json:"ai_management"`
 	Project              *SystemProjectActions        `json:"project"`
 	Template             *TemplateActions             `json:"template"`
 	TestCenter           *TestCenterActions           `json:"test_center"`

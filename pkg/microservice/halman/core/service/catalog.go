@@ -134,7 +134,7 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 	case "clusters":
 		path = "/api/cluster/clusters"
 	case "registries":
-		path = "/api/system/registry/namespaces"
+		path = "/api/system/registry/project"
 	case "helm_repositories":
 		path = "/api/system/helm/public"
 		if args.ProjectKey != "" {
@@ -183,6 +183,18 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 			return nil, err
 		}
 		raw = common.JSON(repositories)
+	}
+	if args.Kind == "registries" {
+		var registries []struct {
+			ID        string `json:"id"`
+			RegAddr   string `json:"reg_addr"`
+			Namespace string `json:"namespace"`
+			IsDefault bool   `json:"is_default"`
+		}
+		if err := json.Unmarshal(raw, &registries); err != nil {
+			return nil, err
+		}
+		raw = common.JSON(registries)
 	}
 	if args.Kind == "helm_template" {
 		var version struct {

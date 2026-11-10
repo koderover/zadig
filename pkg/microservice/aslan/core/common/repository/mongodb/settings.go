@@ -368,3 +368,27 @@ func (c *SystemSettingColl) UpdateAIAssistantConfig(ctx context.Context, config 
 	_, err = c.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"ai_assistant_config": config}}, options.Update().SetUpsert(true))
 	return err
 }
+
+func (c *SystemSettingColl) GetAIReleaseSpecialistConfig(ctx context.Context) (*models.AIReleaseSpecialistConfig, error) {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+	var settings models.SystemSetting
+	if err := c.FindOne(ctx, bson.M{"_id": id}).Decode(&settings); err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+	if settings.AIReleaseSpecialistConfig == nil {
+		return &models.AIReleaseSpecialistConfig{}, nil
+	}
+	return settings.AIReleaseSpecialistConfig, nil
+}
+
+func (c *SystemSettingColl) UpdateAIReleaseSpecialistConfig(ctx context.Context, config *models.AIReleaseSpecialistConfig) error {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"ai_release_specialist_config": config}}, options.Update().SetUpsert(true))
+	return err
+}

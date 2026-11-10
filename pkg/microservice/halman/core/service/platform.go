@@ -37,11 +37,15 @@ func (e *PlatformError) Error() string {
 
 func (e *PlatformError) UserMessage(locale string) string {
 	lang := language.Normalize(locale)
-	if e.Message != "" {
-		return e.Message
-	}
 	if e.Uncertain {
-		return lang.Text("Zadig 操作结果待确认，不可直接重试", "The Zadig operation outcome is unknown; do not retry directly")
+		message := lang.Text("Zadig 操作结果待确认，不可直接重试", "The Zadig operation outcome is unknown; do not retry directly")
+		if e.Message != "" {
+			message += ": " + e.Message
+		}
+		return message
+	}
+	if e.Message != "" && e.Status != http.StatusUnauthorized && e.Status != http.StatusForbidden {
+		return e.Message
 	}
 
 	if e.Status == http.StatusForbidden || e.Status == http.StatusUnauthorized {
@@ -164,17 +168,22 @@ func readBusinessResponse(resp *http.Response, write bool, path string) (json.Ra
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var reply struct {
+			Code        int    `json:"code"`
+			Description string `json:"description"`
+		}
+		message := ""
+		if json.NewDecoder(io.LimitReader(resp.Body, 8192)).Decode(&reply) == nil && len(reply.Description) <= 2000 {
+			message = redactText(reply.Description)
+		}
 		if resp.StatusCode == http.StatusBadRequest && isOriginalReportRequest(http.MethodPost, path) {
-			var reply struct {
-				Code        int    `json:"code"`
-				Description string `json:"description"`
-			}
-			if json.NewDecoder(io.LimitReader(resp.Body, 8192)).Decode(&reply) == nil && reply.Code == 400 && reply.Description != "" && len(reply.Description) <= 2000 {
-				return nil, &PlatformError{Status: 400, Message: redactText(reply.Description)}
+			if reply.Code == 400 && message != "" {
+				return nil, &PlatformError{Status: 400, Message: message}
 			}
 		}
 		return nil, &PlatformError{
-			Status: resp.StatusCode,
+			Status:  resp.StatusCode,
+			Message: message,
 			Uncertain: write && resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden &&
 				resp.StatusCode != http.StatusNotFound,
 		}
@@ -202,7 +211,11 @@ func readBusinessResponse(resp *http.Response, write bool, path string) (json.Ra
 		Description string `json:"description"`
 	}
 	if json.Unmarshal(data, &envelope) == nil && envelope.Code != 0 && envelope.Code != 200 {
-		return nil, &PlatformError{Status: 400, Uncertain: write}
+		message := ""
+		if len(envelope.Description) <= 2000 {
+			message = redactText(envelope.Description)
+		}
+		return nil, &PlatformError{Status: 400, Uncertain: write, Message: message}
 	}
 
 	return json.RawMessage(data), nil

@@ -52,6 +52,7 @@ var systemResourceActionAliasMap = map[string]string{
 	"HelmRepoManagement":   "Chart 仓库",
 	"DBInstanceManagement": "数据库",
 	"LabelManagement":      "标签管理",
+	"AIManagement":         "AI 能力",
 	"LogOperation":         "审计日志",
 }
 
@@ -70,6 +71,7 @@ var systemResourceSequence = []string{
 	"HelmRepoManagement",
 	"DBInstanceManagement",
 	"LabelManagement",
+	"AIManagement",
 	"LogOperation",
 }
 

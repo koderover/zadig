@@ -21,6 +21,7 @@ out
 *.out
 *.exe
 *_test.go
+!pkg/microservice/aslan/core/stat/service/ai/ai_analysis_test.go
 
 node_modules
 bower_components
@@ -100,3 +101,11 @@ debug/zadig-agent
 !pkg/microservice/user/core/service/permission/ai_assistant_test.go
 !pkg/microservice/aslan/core/system/service/custom_navigation_ai_assistant_test.go
 !pkg/microservice/aslan/core/system/handler/custom_navigation_ai_assistant_test.go
+
+# AI management regression tests
+!pkg/microservice/user/core/service/permission/ai_management_test.go
+!pkg/microservice/aslan/core/system/handler/ai_management_test.go
+!pkg/microservice/aslan/core/system/service/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/service/llmservice/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/repository/mongodb/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller/ai_release_specialist_test.go

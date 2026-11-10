@@ -167,6 +167,31 @@ func testPlatform(t *testing.T, handler http.HandlerFunc) *PlatformClient {
 	}}}
 }
 
+func TestBusinessErrorsKeepRedactedDescriptionWithoutMakingWritesReplayable(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
+		platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+			w.Write([]byte(`{"code":500,"description":"template validate err: missing keys [replica]; token=hidden-token"}`))
+		})
+		_, err := platform.business(context.Background(), token("user"), http.MethodPost, "/api/environment/environments", nil, nil)
+		var failure *PlatformError
+		if !errors.As(err, &failure) || !failure.Uncertain || !strings.Contains(err.Error(), "missing keys [replica]") || !strings.Contains(err.Error(), "不可直接重试") || strings.Contains(err.Error(), "hidden-token") || operationFailureStatus(err, false) != "unknown" {
+			t.Fatalf("保留脱敏后的具体原因且不允许重放不确定写入: %v", err)
+		}
+	}
+	for _, description := range []string{strings.Repeat("x", 2001), ""} {
+		platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(common.JSON(map[string]any{"code": 400, "description": description, "debug": "hidden-body"}))
+		})
+		_, err := platform.business(context.Background(), token("user"), http.MethodPost, "/api/environment/environments", nil, nil)
+		var failure *PlatformError
+		if !errors.As(err, &failure) || failure.Message != "" || strings.Contains(err.Error(), "hidden-body") {
+			t.Fatalf("超长或无结构化说明时不能输出原始响应: %v", err)
+		}
+	}
+}
+
 func TestBusinessUsesUserIdentityAndNeverRetriesWrite(t *testing.T) {
 	calls := 0
 	p := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
@@ -317,6 +342,85 @@ func expectClaim(mock sqlmock.Sqlmock, e *execution, plan models.OperationPlan, 
 		mock.ExpectCommit()
 	} else {
 		mock.ExpectRollback()
+	}
+}
+
+func TestEnvironmentDeploymentPreservesServiceVariablesAndContainers(t *testing.T) {
+	store, mock := mockStore(t)
+	posts := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/service/services/api" {
+			w.Write([]byte(`{"service":{"revision":3,"containers":[{"name":"api","image":"example/api:v1"}]},"service_variable_kvs":[{"key":"replica","value":"1","type":"string"},{"key":"enabled","value":false,"type":"bool"}]}`))
+			return
+		}
+		posts++
+		if r.Method != http.MethodPost || r.URL.Path != "/api/environment/environments" {
+			t.Fatalf("环境创建接口错误: %s %s", r.Method, r.URL)
+		}
+		var body []struct {
+			Services [][]struct {
+				Revision   int64            `json:"revision"`
+				Variables  []map[string]any `json:"variable_kvs"`
+				Containers []map[string]any `json:"containers"`
+			} `json:"services"`
+		}
+		if json.NewDecoder(r.Body).Decode(&body) != nil || len(body) != 1 || len(body[0].Services) != 1 || len(body[0].Services[0]) != 1 {
+			t.Fatal("环境服务请求格式错误")
+		}
+		svc := body[0].Services[0][0]
+		if svc.Revision != 3 || len(svc.Variables) != 2 || svc.Variables[0]["key"] != "replica" || svc.Variables[0]["value"] != "1" || svc.Variables[1]["value"] != false || svc.Variables[1]["type"] != "bool" || len(svc.Containers) != 1 || svc.Containers[0]["image"] != "example/api:v1" {
+			t.Fatalf("必须透传实际服务版本、变量类型和值、容器镜像: %+v", svc)
+		}
+		w.Write([]byte(`{}`))
+	})
+	e := reportExecution("project_onboarding")
+	item := models.OperationItem{ID: "environment", Action: "create_environment", ProjectKey: "demo", ProjectType: "k8s", Status: "pending", Params: common.JSON(models.EnvironmentInput{Name: "dev", ClusterID: "local", Namespace: "demo-dev", RegistryID: "registry", Services: []string{"api"}})}
+	expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
+	if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+		t.Fatalf("应提交一次包含部署变量的环境请求: %v posts=%d", err, posts)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEmptyEnvironmentDoesNotDeployServices(t *testing.T) {
+	for _, projectType := range []string{"k8s", "helm"} {
+		t.Run(projectType, func(t *testing.T) {
+			store, mock := mockStore(t)
+			posts := 0
+			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+				posts++
+				if r.Method != http.MethodPost || r.URL.Path != "/api/environment/environments" || r.URL.Query().Get("type") != projectType {
+					t.Fatalf("空环境不应读取或部署任何服务: %s %s", r.Method, r.URL)
+				}
+				var body []struct {
+					Services    [][]any `json:"services"`
+					ChartValues []any   `json:"chartValues"`
+				}
+				if json.NewDecoder(r.Body).Decode(&body) != nil || len(body) != 1 {
+					t.Fatal("环境请求格式错误")
+				}
+				for _, group := range body[0].Services {
+					if len(group) != 0 {
+						t.Fatal("空环境不得包含 K8s 服务")
+					}
+				}
+				if len(body[0].ChartValues) != 0 {
+					t.Fatal("空环境不得包含 Helm 服务")
+				}
+				w.Write([]byte(`{}`))
+			})
+			e := reportExecution("project_onboarding")
+			item := models.OperationItem{ID: "environment", Action: "create_environment", ProjectKey: "demo", ProjectType: projectType, Status: "pending", Params: common.JSON(models.EnvironmentInput{Name: "dev", ClusterID: "local", Namespace: "demo-dev", RegistryID: "registry"})}
+			expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
+			if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+				t.Fatalf("应仅提交一次空环境创建: %v posts=%d", err, posts)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func TestAssistantConfigRequiresSystemAdmin(t *testing.T) {
+func TestAssistantConfigRequiresAIManagementPermission(t *testing.T) {
 	originalContext := newAIAssistantContext
 	originalLicense := checkAIAssistantEnterpriseLicense
 	t.Cleanup(func() {
@@ -36,6 +36,8 @@ func TestAssistantConfigRequiresSystemAdmin(t *testing.T) {
 		{name: "缺少权限信息", uid: "user"},
 		{name: "无用户身份的内部调用", resources: &user.AuthorizedResources{IsSystemAdmin: true}},
 		{name: "权限查询失败", uid: "admin", resources: &user.AuthorizedResources{IsSystemAdmin: true}, err: errors.New("unavailable")},
+		{name: "仅查看", uid: "viewer", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{AIManagement: &user.AIManagementActions{View: true}}}, allowed: true},
+		{name: "仅编辑", uid: "editor", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{AIManagement: &user.AIManagementActions{Edit: true}}}, allowed: true},
 		{name: "系统管理员", uid: "admin", resources: &user.AuthorizedResources{IsSystemAdmin: true}, allowed: true},
 	} {
 		t.Run(input.name, func(t *testing.T) {
@@ -55,7 +57,7 @@ func TestAssistantConfigRequiresSystemAdmin(t *testing.T) {
 				w := httptest.NewRecorder()
 				r.ServeHTTP(w, httptest.NewRequest(method, "/config", nil))
 				wantStatus, wantCalls := http.StatusForbidden, 0
-				if input.allowed {
+				if input.allowed && !(input.name == "仅查看" && method == http.MethodPut) {
 					wantStatus, wantCalls = http.StatusInternalServerError, 1
 				}
 				if w.Code != wantStatus || licenseCalls != wantCalls {

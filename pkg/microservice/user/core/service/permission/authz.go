@@ -823,6 +823,7 @@ func generateDefaultProjectActions() *ProjectActions {
 
 func generateDefaultSystemActions() *SystemActions {
 	return &SystemActions{
+		AIManagement: &AIManagementActions{},
 		Project: &SystemProjectActions{
 			Create: false,
 			Delete: false,
@@ -1034,6 +1035,10 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 
 func modifySystemAction(systemActions *SystemActions, verb string) {
 	switch verb {
+	case VerbGetAIManagement:
+		systemActions.AIManagement.View = true
+	case VerbEditAIManagement:
+		systemActions.AIManagement.Edit = true
 	case VerbCreateProject:
 		systemActions.Project.Create = true
 	case VerbDeleteProject:

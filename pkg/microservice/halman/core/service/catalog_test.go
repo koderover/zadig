@@ -12,6 +12,45 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
+func TestRegistryCatalogUsesUserListAndKeepsDefaultWithoutCredentials(t *testing.T) {
+	for _, project := range []string{"", "demo"} {
+		t.Run("project="+project, func(t *testing.T) {
+			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.URL.Path != "/api/system/registry/project" || r.URL.Query().Get("projectName") != project || r.Header.Get("Authorization") != token("user") || r.URL.Query().Has("encryptedKey") {
+					t.Fatalf("应使用用户可读的镜像仓库列表: %s %s", r.Method, r.URL)
+				}
+				w.Write([]byte(`[{"id":"default","reg_addr":"harbor.local","namespace":"apps","is_default":true,"access_key":"hidden-user","secret_key":"hidden-secret","advanced_setting":{"tls_cert":"hidden-cert"},"projects":["hidden-project"]},{"id":"other","reg_addr":"other.local","is_default":false}]`))
+			})
+			for _, keyword := range []string{"", "harbor"} {
+				raw, err := platform.catalog(context.Background(), token("user"), models.CatalogRequest{Kind: "registries", ProjectKey: project, Keyword: keyword})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var registries []map[string]any
+				if json.Unmarshal(raw, &registries) != nil || len(registries) == 0 || registries[0]["id"] != "default" || registries[0]["is_default"] != true || len(registries[0]) != 4 || strings.Contains(string(raw), "hidden") || (keyword != "" && len(registries) != 1) {
+					t.Fatalf("只返回选择所需字段，保留默认标记并支持名称搜索: %s", raw)
+				}
+			}
+		})
+	}
+}
+
+func TestRegistryCatalogDoesNotFallBackAfterPermissionDenied(t *testing.T) {
+	calls := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/api/system/registry/project" {
+			t.Fatalf("不能退回凭据管理接口: %s", r.URL)
+		}
+		w.WriteHeader(http.StatusForbidden)
+	})
+	_, err := platform.catalog(context.Background(), token("user"), models.CatalogRequest{Kind: "registries", ProjectKey: "demo"})
+	var denied *PlatformError
+	if !errors.As(err, &denied) || denied.Status != http.StatusForbidden || calls != 1 {
+		t.Fatalf("必须保留权限错误，不重试其他入口: %v calls=%d", err, calls)
+	}
+}
+
 func TestHelmRepositoryCatalogUsesReadOnlyListsAndMatchesRepositoryName(t *testing.T) {
 	for _, project := range []string{"", "aiceshi-helm"} {
 		t.Run("project="+project, func(t *testing.T) {

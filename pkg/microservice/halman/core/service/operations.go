@@ -281,8 +281,10 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 
 				var svc struct {
 					Service struct {
-						Revision int64 `json:"revision"`
+						Revision   int64             `json:"revision"`
+						Containers []json.RawMessage `json:"containers"`
 					} `json:"service"`
+					Variables []json.RawMessage `json:"service_variable_kvs"`
 				}
 				if json.Unmarshal(raw, &svc) != nil || svc.Service.Revision < 1 {
 					return nil, fmt.Errorf("无法读取待部署服务版本")
@@ -295,6 +297,8 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 						"product_name":    item.ProjectKey,
 						"type":            "k8s",
 						"revision":        svc.Service.Revision,
+						"variable_kvs":    svc.Variables,
+						"containers":      svc.Service.Containers,
 						"deploy_strategy": "deploy",
 					},
 				)

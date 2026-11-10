@@ -43,7 +43,7 @@ type EnvironmentInput struct {
 	ClusterID  string            `json:"cluster_id,omitempty"`
 	Namespace  string            `json:"namespace,omitempty"`
 	RegistryID string            `json:"registry_id,omitempty"`
-	Services   []string          `json:"services,omitempty"`
+	Services   []string          `json:"services,omitempty" jsonschema:"description=要部署的服务名；只创建环境不部署服务时传空列表，不自动选择全部服务"`
 	Variables  map[string]string `json:"variables,omitempty"`
 }
 
@@ -60,8 +60,18 @@ type OnboardingInput struct {
 	Services             []ServiceInput    `json:"services,omitempty"`
 	Builds               []BuildInput      `json:"builds,omitempty"`
 	Environment          *EnvironmentInput `json:"environment,omitempty"`
-	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=仅项目初始化支持创建默认工作流，不执行工作流；服务初始化不支持，须省略或设为 false"`
+	SkipEnvironment      bool              `json:"skip_environment,omitempty" jsonschema:"description=仅在用户明确选择不创建环境时设为 true；只创建环境不部署服务时填写 environment 并将 services 设为空列表；未提供 environment 时必须先询问"`
+	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=项目初始化默认创建工作流但不执行，仅用户明确拒绝时设为 false；服务初始化不支持，须省略或设为 false"`
 	providedFields       map[string]json.RawMessage
+}
+
+// 草稿必须保存 false，工具 schema 仍允许省略开关以使用默认值。
+func (a OnboardingInput) MarshalJSON() ([]byte, error) {
+	type plain OnboardingInput
+	return json.Marshal(struct {
+		plain
+		CreateWorkflow bool `json:"create_workflow"`
+	}{plain: plain(a), CreateWorkflow: a.CreateWorkflow})
 }
 
 // 保留实际提供的字段，区分局部修改中的省略、false、空字符串及 null。

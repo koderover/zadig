@@ -86,9 +86,17 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	if err := s.restoreOnboardingDraft(ctx, e); err != nil {
 		return nil, err
 	}
-	args, err = mergeOnboardingDraft(e.OnboardingDraft, args)
+	draft := e.OnboardingDraft
+	if !newProject && draft == nil && e.RootID == e.Run.ID {
+		// 新任务可用当前项目准备清单，续接任务始终沿用已保存的目标。
+		draft = &models.OnboardingInput{ProjectKey: e.Run.Context.ProjectKey}
+	}
+	args, err = mergeOnboardingDraft(draft, args)
 	if err != nil {
 		return nil, err
+	}
+	if _, provided := args.ProvidedFields()["create_workflow"]; newProject && !provided {
+		args.CreateWorkflow = true
 	}
 	if !newProject && args.CreateWorkflow {
 		return nil, fmt.Errorf("服务初始化不支持创建工作流，请移除 create_workflow 或设为 false")
@@ -121,7 +129,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	existingServices := map[string]bool{}
 	buildTargets := map[string]bool{}
 	projectLoaded := false
-	if !newProject && len(args.Builds) > 0 && args.ProjectKey != "" {
+	if !newProject && args.ProjectKey != "" && (args.ProjectType == "" || len(args.Builds) > 0) {
 		project, err := s.Platform.project(ctx, e.Authorization, args.ProjectKey)
 		if err != nil {
 			return nil, err
@@ -133,36 +141,38 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if err := s.recordScope(ctx, e, models.PageContext{PageType: "project", ProjectKey: args.ProjectKey}); err != nil {
 			return nil, err
 		}
-		if err := s.preflightPermissions(ctx, e, models.OperationPlan{Items: []models.OperationItem{{Action: "create_build", ProjectKey: args.ProjectKey}}}); err != nil {
-			return nil, err
-		}
-		raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/project/products/"+args.ProjectKey+"/services", url.Values{"projectName": {args.ProjectKey}}, nil)
-		if err != nil {
-			return nil, err
-		}
-		var listed struct {
-			Services [][]string `json:"services"`
-		}
-		if err := json.Unmarshal(raw, &listed); err != nil {
-			return nil, fmt.Errorf("已有服务列表无法解析")
-		}
-		for _, group := range listed.Services {
-			for _, name := range group {
-				existingServices[name] = true
+		if len(args.Builds) > 0 {
+			if err := s.preflightPermissions(ctx, e, models.OperationPlan{Items: []models.OperationItem{{Action: "create_build", ProjectKey: args.ProjectKey}}}); err != nil {
+				return nil, err
 			}
-		}
-		names := map[string]bool{}
-		for _, item := range args.Services {
-			names[item.Name] = true
-		}
-		for _, build := range args.Builds {
-			if build.ServiceName == "" {
-				continue
+			raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/project/products/"+args.ProjectKey+"/services", url.Values{"projectName": {args.ProjectKey}}, nil)
+			if err != nil {
+				return nil, err
 			}
-			buildTargets[build.ServiceName] = true
-			if !names[build.ServiceName] && existingServices[build.ServiceName] {
-				args.Services = append(args.Services, models.ServiceInput{Name: build.ServiceName})
-				names[build.ServiceName] = true
+			var listed struct {
+				Services [][]string `json:"services"`
+			}
+			if err := json.Unmarshal(raw, &listed); err != nil {
+				return nil, fmt.Errorf("已有服务列表无法解析")
+			}
+			for _, group := range listed.Services {
+				for _, name := range group {
+					existingServices[name] = true
+				}
+			}
+			names := map[string]bool{}
+			for _, item := range args.Services {
+				names[item.Name] = true
+			}
+			for _, build := range args.Builds {
+				if build.ServiceName == "" {
+					continue
+				}
+				buildTargets[build.ServiceName] = true
+				if !names[build.ServiceName] && existingServices[build.ServiceName] {
+					args.Services = append(args.Services, models.ServiceInput{Name: build.ServiceName})
+					names[build.ServiceName] = true
+				}
 			}
 		}
 		projectLoaded = true
@@ -326,6 +336,11 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			continue
 		}
 		if err := s.preflightService(ctx, e, args.ProjectKey, *item, !newProject); err != nil {
+			var conflict *serviceNameConflict
+			if errors.As(err, &conflict) {
+				missing = append(missing, conflict.Error()+"；请明确是否从本批清单移除该服务，不会删除项目中的已有服务")
+				continue
+			}
 			return nil, err
 		}
 
@@ -489,10 +504,24 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		return s.saveDraft(ctx, e, args, missing)
 	}
 
+	if newProject && args.Environment == nil && !args.SkipEnvironment {
+		return s.saveDraft(ctx, e, args, []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群、Kubernetes namespace 和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"})
+	}
+
 	if args.Environment != nil {
 		env := args.Environment
-		if env.Name == "" || env.ClusterID == "" || env.Namespace == "" || env.RegistryID == "" || len(env.Services) == 0 {
-			return s.saveDraft(ctx, e, args, []string{"环境名称、集群、Kubernetes namespace、镜像仓库及待部署服务"})
+		for _, field := range []struct{ value, label string }{
+			{env.Name, "环境名称"},
+			{env.ClusterID, "环境的集群"},
+			{env.Namespace, "环境的 Kubernetes namespace"},
+			{env.RegistryID, "环境的镜像仓库"},
+		} {
+			if field.value == "" {
+				missing = append(missing, field.label)
+			}
+		}
+		if len(missing) > 0 {
+			return s.saveDraft(ctx, e, args, missing)
 		}
 
 		if err := checkNames(env.Name, env.Namespace); err != nil {
@@ -517,7 +546,11 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				Status:      "pending",
 			},
 		)
-		plan.Notes = append(plan.Notes, e.text("创建环境会实际部署所选服务；缺少镜像、Secret 或必要配置会阻塞，不代表已经部署成功", "Creating an environment deploys the selected services. Missing images, Secrets or required configuration may block deployment; creation alone does not mean deployment succeeded"))
+		if len(env.Services) == 0 {
+			plan.Notes = append(plan.Notes, e.text("仅创建环境，不部署服务", "Create the environment without deploying services"))
+		} else {
+			plan.Notes = append(plan.Notes, e.text("创建环境会实际部署所选服务；缺少镜像、Secret 或必要配置会阻塞，不代表已经部署成功", "Creating an environment deploys the selected services. Missing images, Secrets or required configuration may block deployment; creation alone does not mean deployment succeeded"))
+		}
 	}
 
 	if args.CreateWorkflow {
@@ -593,6 +626,12 @@ func (p *PlatformClient) project(ctx context.Context, auth, key string) (*projec
 	return &projectDefinition{Key: key, Type: definition.Feature.Type}, nil
 }
 
+type serviceNameConflict struct{ name string }
+
+func (e *serviceNameConflict) Error() string {
+	return fmt.Sprintf("服务 %s 已存在，不能覆盖", e.name)
+}
+
 func (s *AgentService) preflightService(ctx context.Context, e *execution, project string, item models.ServiceInput, checkExisting bool) error {
 	if err := s.Platform.checkConfiguration(ctx, e.Authorization, item); err != nil {
 		return err
@@ -640,7 +679,7 @@ func (s *AgentService) preflightService(ctx context.Context, e *execution, proje
 		}
 
 		if found {
-			return fmt.Errorf("服务 %s 已存在，不能覆盖", item.Name)
+			return &serviceNameConflict{name: item.Name}
 		}
 	}
 
