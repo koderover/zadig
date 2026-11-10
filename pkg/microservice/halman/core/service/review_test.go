@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -294,6 +295,22 @@ func TestReconciliationMatchesExactServiceSourceAndFreshness(t *testing.T) {
 }
 
 func TestSavedDraftCanBeRestoredByExplicitRootWithoutFalseCompletion(t *testing.T) {
+	testSavedDraftRecovery(t, false, "awaiting_input", true)
+}
+
+func TestSavedOperationWithoutExplicitRoot(t *testing.T) {
+	for _, status := range []string{"awaiting_input", "pending_confirmation", "cancelled", "succeeded", "unknown"} {
+		t.Run(status, func(t *testing.T) {
+			testSavedDraftRecovery(t, true, status, true)
+		})
+	}
+	t.Run("permission_revoked", func(t *testing.T) {
+		testSavedDraftRecovery(t, true, "pending_confirmation", false)
+	})
+}
+
+func testSavedDraftRecovery(t *testing.T, discover bool, status string, authorized bool) {
+	t.Helper()
 	store, mock := mockStore(t)
 	now := time.Now().UTC()
 	cutoff := now.Add(-time.Hour)
@@ -347,39 +364,52 @@ func TestSavedDraftCanBeRestoredByExplicitRootWithoutFalseCompletion(t *testing.
 				true,
 			)
 	}
-	mock.ExpectQuery("SELECT r.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_id", "created_at", "skill_id", "skill_execution_id", "skill_status"}).AddRow("root", "c", now, "project_onboarding", "root", "awaiting_input"))
-	mock.ExpectQuery("SELECT .*FROM ai_run WHERE user_id=.*question_source_run_id IS NULL.*plan_status IN").WillReturnRows(rows())
+	if discover {
+		mock.ExpectQuery("SELECT r.id FROM ai_run r JOIN ai_conversation.*r.question_source_run_id IS NULL.*r.plan IS NOT NULL.*ORDER BY r.created_at DESC,r.id DESC LIMIT 1").
+			WithArgs("u", "u", "c", cutoff, now).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("root"))
+		mock.ExpectQuery("SELECT r.id,.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(rows())
+	}
+	mock.ExpectQuery("SELECT r.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_id", "created_at", "skill_id", "skill_execution_id", "skill_status"}).AddRow("root", "c", now, "project_onboarding", "root", status))
+	if !discover {
+		mock.ExpectQuery("SELECT .*FROM ai_run WHERE user_id=.*question_source_run_id IS NULL.*plan_status IN").WillReturnRows(rows())
+	}
 	metadata := func() *sqlmock.Rows {
 		return sqlmock.NewRows([]string{"id", "context", "scopes"}).AddRow("root", "{}", "[]")
 	}
 	mock.ExpectQuery("SELECT id,context,resource_scopes").WillReturnRows(metadata())
-	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT user_id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"user"}).
-		AddRow("u"))
-	mock.ExpectQuery("SELECT skill_id,conversation_id,user_id,created_at,status,skill_execution_id,skill_status").
-		WillReturnRows(sqlmock.NewRows([]string{
-			"skill",
-			"conversation",
-			"user",
-			"created",
-			"status",
-			"parent",
-			"goal",
-		}).
-			AddRow("project_onboarding", "c", "u", now, "awaiting_input", "root", "awaiting_input"))
-	mock.ExpectExec("UPDATE ai_run SET skill_id=.*skill_execution_id").WithArgs("project_onboarding", "root", "current").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WillReturnRows(sqlmock.NewRows([]string{"skill", "status", "contribution"}).
-		AddRow("project_onboarding", "awaiting_input", nil))
-	mock.ExpectExec("UPDATE ai_run SET skill_status=.*usage_contribution").WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
-	mock.ExpectQuery("SELECT id,context,resource_scopes").WillReturnRows(metadata())
-	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT resource_scopes FROM ai_run .*FOR UPDATE").WithArgs("current", "u").WillReturnRows(sqlmock.NewRows([]string{"scopes"}).
-		AddRow("[]"))
-	mock.ExpectExec("UPDATE ai_run SET resource_scopes").WithArgs(`[{"catalog":"saved_operation"}]`, "current", "u").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
+	continuable := status == "awaiting_input" || status == "pending_confirmation"
+	if authorized {
+		if continuable {
+			mock.ExpectBegin()
+			mock.ExpectQuery("SELECT user_id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"user"}).
+				AddRow("u"))
+			mock.ExpectQuery("SELECT skill_id,conversation_id,user_id,created_at,status,skill_execution_id,skill_status").
+				WillReturnRows(sqlmock.NewRows([]string{
+					"skill",
+					"conversation",
+					"user",
+					"created",
+					"status",
+					"parent",
+					"goal",
+				}).
+					AddRow("project_onboarding", "c", "u", now, "awaiting_input", "root", "awaiting_input"))
+			mock.ExpectExec("UPDATE ai_run SET skill_id=.*skill_execution_id").WithArgs("project_onboarding", "root", "current").
+				WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WillReturnRows(sqlmock.NewRows([]string{"skill", "status", "contribution"}).
+				AddRow("project_onboarding", "awaiting_input", nil))
+			mock.ExpectExec("UPDATE ai_run SET skill_status=.*usage_contribution").WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectCommit()
+		}
+		mock.ExpectQuery("SELECT id,context,resource_scopes").WillReturnRows(metadata())
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT resource_scopes FROM ai_run .*FOR UPDATE").WithArgs("current", "u").WillReturnRows(sqlmock.NewRows([]string{"scopes"}).
+			AddRow("[]"))
+		mock.ExpectExec("UPDATE ai_run SET resource_scopes").WithArgs(`[{"catalog":"saved_operation"}]`, "current", "u").
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+	}
 	reads := 0
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		reads++
@@ -387,21 +417,40 @@ func TestSavedDraftCanBeRestoredByExplicitRootWithoutFalseCompletion(t *testing.
 			t.Errorf("恢复草稿只读重验当前用户的创建权限: %s %s", r.Method, r.URL)
 		}
 
-		w.Write([]byte(`{"is_system_admin":true}`))
+		if authorized {
+			w.Write([]byte(`{"is_system_admin":true}`))
+		} else {
+			w.Write([]byte(`{}`))
+		}
 	})
 	s := &AgentService{Store: store, Platform: platform}
 	e := &execution{
-		Run:           &models.Run{ID: "current", ConversationID: "c"},
+		Run:           &models.Run{ID: "current", ConversationID: "c", CreatedAt: now},
 		User:          "u",
 		RootID:        "root",
 		Skills:        builtins.Builtins(),
 		Authorization: "user-token",
 		Cutoff:        cutoff,
 	}
+	if discover {
+		e.RootID = ""
+	}
 	value, err := s.readSavedOperation(context.WithValue(context.Background(), executionKey{}, e), struct{}{})
-	if err != nil || !strings.Contains(string(common.JSON(value)), "示例") || e.Outcome != "awaiting_input" || e.EvidenceRead.Load() ||
+	if !authorized {
+		if err == nil || value != nil || e.RootID != "" || e.OnboardingDraft != nil {
+			t.Fatalf("失权后不能返回或恢复草稿: %+v %v", value, err)
+		}
+		return
+	}
+	if err != nil || !strings.Contains(string(common.JSON(value)), "示例") || (e.Outcome == "awaiting_input") != continuable || e.EvidenceRead.Load() ||
 		reads != 1 {
 		t.Fatalf("恢复草稿不能计为目标完成: %+v %v %+v", value, err, e)
+	}
+	if (e.RootID == "root" && e.OnboardingDraft != nil) != continuable {
+		t.Fatalf("只应恢复尚可继续的执行，不能复活已取消或已完成的操作: %+v", e)
+	}
+	if !strings.Contains(string(common.JSON(value)), fmt.Sprintf(`"can_continue":%t`, continuable)) {
+		t.Fatalf("快照应明确是否可继续: %+v", value)
 	}
 }
 

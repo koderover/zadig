@@ -47,6 +47,7 @@ type ValidateLLMIntegrationRequest struct {
 
 // @Summary Create a llm integration
 // @Description Create a llm integration
+// @Description 需要 AI 能力编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -54,8 +55,11 @@ type ValidateLLMIntegrationRequest struct {
 // @Success 200
 // @Router /api/aslan/system/llm/integration [post]
 func CreateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx, allowed := newAIManagementContext(c, true)
+	if !allowed {
+		return
+	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -70,6 +74,7 @@ func CreateLLMIntegration(c *gin.Context) {
 
 // @Summary 验证 LLM 集成
 // @Description
+// @Description 需要 AI 能力编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -77,8 +82,11 @@ func CreateLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/validate [post]
 func ValidateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx, allowed := newAIManagementContext(c, true)
+	if !allowed {
+		return
+	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	args := new(ValidateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -99,6 +107,7 @@ type GetLLMIntegrationRespone struct {
 
 // @Summary Get a llm integration
 // @Description Get a llm integration
+// @Description 需要 AI 能力查看或编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -106,18 +115,11 @@ type GetLLMIntegrationRespone struct {
 // @Success 200 		{object} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration/{id} [get]
 func GetLLMIntegration(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
+	ctx, allowed := newAIManagementContext(c, false)
+	if !allowed {
 		return
 	}
-
-	if !isLogin(ctx) {
-		return
-	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -130,24 +132,18 @@ func GetLLMIntegration(c *gin.Context) {
 
 // @Summary List llm integrations
 // @Description List llm integrations
+// @Description 需要 AI 能力查看或编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
 // @Success 200 		{array} 	commonmodels.LLMIntegration
 // @Router /api/aslan/system/llm/integration [get]
 func ListLLMIntegration(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
+	ctx, allowed := newAIManagementContext(c, false)
+	if !allowed {
 		return
 	}
-
-	if !isLogin(ctx) {
-		return
-	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
 }
@@ -199,6 +195,7 @@ func CheckLLMIntegration(c *gin.Context) {
 
 // @Summary Update a llm integration
 // @Description Update a llm integration
+// @Description 需要 AI 能力编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -207,8 +204,11 @@ func CheckLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/{id} [put]
 func UpdateLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx, allowed := newAIManagementContext(c, true)
+	if !allowed {
+		return
+	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -229,6 +229,7 @@ func UpdateLLMIntegration(c *gin.Context) {
 
 // @Summary Delete a llm integration
 // @Description Delete a llm integration
+// @Description 需要 AI 能力编辑权限。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -236,8 +237,11 @@ func UpdateLLMIntegration(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/llm/integration/{id} [delete]
 func DeleteLLMIntegration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx, allowed := newAIManagementContext(c, true)
+	if !allowed {
+		return
+	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	id := c.Param("id")
 	if len(id) == 0 {

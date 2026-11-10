@@ -21,13 +21,16 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 		scopes      string
 		permissions string
 		keep        bool
+		userOnly    bool
 	}{
-		{"service_to_environment", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true},
-		{"different_environment", models.PageContext{ProjectKey: "p", EnvName: "other"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true},
-		{"different_project", models.PageContext{ProjectKey: "other"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true},
-		{"revoked_resource", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{}`, false},
-		{"plain_chat_with_page", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[]`, "", true},
-		{"catalog_stays_excluded", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"catalog":"projects"}]`, "", false},
+		{"service_to_environment", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true, false},
+		{"different_environment", models.PageContext{ProjectKey: "p", EnvName: "other"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true, false},
+		{"different_project", models.PageContext{ProjectKey: "other"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{"project_auth_info":{"p":{"env":{"view":true}}}}`, true, false},
+		{"revoked_resource", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"project_key":"p","env_name":"dev","service_name":"api"}]`, `{}`, false, false},
+		{"plain_chat_with_page", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[]`, "", true, false},
+		{"catalog_keeps_user_question", models.PageContext{ProjectKey: "p", EnvName: "dev"}, `[{"catalog":"projects"}]`, "", true, true},
+		{"catalog_with_project", models.PageContext{}, `[{"catalog":"chart_versions"},{"project_key":"p"}]`, `{"project_auth_info":{"p":{}}}`, true, true},
+		{"catalog_with_revoked_project", models.PageContext{}, `[{"catalog":"projects"},{"project_key":"p"}]`, `{}`, false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store, mock := mockStore(t)
@@ -55,6 +58,9 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 			}
 			state.Events = append(state.Events, historyEvent("past", "assistant", "诊断回答", now))
 			want := len(state.Events)
+			if tc.userOnly {
+				want = 1
+			}
 			if !tc.keep {
 				want = 0
 			}
@@ -66,6 +72,9 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 			}
 			if len(got.Events) != want {
 				t.Fatalf("页面变化不应丢失已授权的完整对话: got=%d want=%d", len(got.Events), want)
+			}
+			if tc.keep && tc.userOnly && (!userEvent(got.Events[0]) || got.Events[0].Choices[0].Message.Content != "看下 api 日志") {
+				t.Fatal("目录轮次只能保留用户原话，不能复用工具结果或助手转述")
 			}
 			if (len(e.HistoryRunIDs) == 1 && e.HistoryRunIDs[0] == "past") != tc.keep {
 				t.Fatalf("仅保留的历史应进入每次模型调用前的权限复查: %v", e.HistoryRunIDs)

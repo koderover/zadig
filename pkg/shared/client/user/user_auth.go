@@ -35,7 +35,13 @@ type ProjectActions struct {
 	SprintWorkItem    *SprintWorkItemActions    `json:"sprint_workitem"`
 }
 
+type AIManagementActions struct {
+	View bool
+	Edit bool
+}
+
 type SystemActions struct {
+	AIManagement         *AIManagementActions         `json:"ai_management"`
 	Project              *SystemProjectActions        `json:"project"`
 	Template             *TemplateActions             `json:"template"`
 	TestCenter           *TestCenterActions           `json:"test_center"`

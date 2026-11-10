@@ -23,6 +23,7 @@ import (
 	"trpc.group/trpc-go/trpc-agent-go/runner"
 	"trpc.group/trpc-go/trpc-agent-go/session"
 	sessionmysql "trpc.group/trpc-go/trpc-agent-go/session/mysql"
+	"trpc.group/trpc-go/trpc-agent-go/tool"
 
 	halmanconfig "github.com/koderover/zadig/v2/pkg/microservice/halman/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
@@ -52,6 +53,7 @@ type execution struct {
 	RootID             string
 	RegenerateFrom     *models.Run
 	Outcome            string
+	ToolFailures       map[string]string
 	PersistingSnapshot bool
 	HistoryRunIDs      []string
 }
@@ -173,6 +175,7 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 	}
 
 	allowed := map[string]bool{}
+	userOnly := map[string]bool{}
 	authorizationCache := map[string]bool{}
 	for _, item := range metadata {
 		// 页面只是候选；历史复用按实际资源范围验权，不要求与当前页面一致。
@@ -183,7 +186,11 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 
 		permitted := true
 		for _, scope := range item.Scopes {
-			if scope.Catalog != "" || (scope.SystemAction == "" && scope.ProjectKey == "") {
+			if scope.Catalog != "" {
+				userOnly[item.ID] = true
+				continue
+			}
+			if scope.SystemAction == "" && scope.ProjectKey == "" {
 				permitted = false
 				break
 			}
@@ -221,6 +228,10 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 		}
 
 		groups[item.RequestID] = version.OriginalID
+		// 目录结果及其衍生回答需重新查询，用户原话不随目录结果一起丢弃。
+		if userOnly[item.RequestID] && !userEvent(item) {
+			continue
+		}
 		if item.RequestID == version.LatestID || (!version.Regenerated && userEvent(item)) {
 			filtered = append(filtered, item)
 		}
@@ -493,7 +504,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 			}
 
 			candidate, _ := json.Marshal(e.Run.Context)
-			req.Messages = append([]model.Message{model.NewSystemMessage("本轮页面候选上下文（不是操作授权；用户明确目标优先，歧义时补问）：" + string(candidate))}, req.Messages...)
+			req.Messages = append([]model.Message{model.NewSystemMessage("本轮页面上下文（可用于只读查询和准备待确认清单；用户明确目标及原草稿优先，业务写入仍须权限校验和确认）：" + string(candidate))}, req.Messages...)
 		}
 
 		identity, _ := json.Marshal(user)
@@ -504,11 +515,12 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 	agentOptions := []llmagent.Option{
 		llmagent.WithModel(chatModel),
 		llmagent.WithInstruction(builtinInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
-		llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true, MaxTokens: model.IntPtr(4096)}),
+		llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true, MaxTokens: model.IntPtr(8192)}),
 		llmagent.WithMaxLLMCalls(8),
 		llmagent.WithMaxToolIterations(6),
 		llmagent.WithEnableParallelTools(false),
 		llmagent.WithModelCallbacks(callbacks),
+		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterAfterTool(recordToolFailure)),
 	}
 	if len(services) > 0 {
 		agentOptions = append(agentOptions, llmagent.WithTools(services[0].tools()))
@@ -688,7 +700,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 		if e.Outcome != "" {
 			status = e.Outcome
 		} else if e.SkillID != "" && (!e.EvidenceRead.Load() || !diagnosisGoalComplete(e)) {
-			status, failure = "failed", lang.Text("未完成必要查询或操作，不能判定 Skill 成功", "Required queries or operations were not completed; the Skill cannot be marked successful")
+			status, failure = "failed", incompleteSkillFailure(e, lang)
 		}
 	}
 
