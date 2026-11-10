@@ -214,6 +214,9 @@ func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLo
 	if err != nil {
 		msg := fmt.Errorf("failed to get service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
 		logger.Errorf(msg.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("service %q not found in project %q", serviceName, projectKey))
+		}
 		return nil, msg
 	}
 
