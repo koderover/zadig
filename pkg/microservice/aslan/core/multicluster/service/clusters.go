@@ -67,6 +67,8 @@ import (
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z-]{1,100}$`)
 
+var aliyunRoleARNPattern = regexp.MustCompile(`^acs:ram::[0-9]+:role/[a-zA-Z0-9.-]{1,64}$`)
+
 type K8SCluster struct {
 	ID                     string                   `json:"id,omitempty"`
 	Name                   string                   `json:"name"`
@@ -174,6 +176,12 @@ func (k *K8SCluster) Clean() error {
 
 	if !namePattern.MatchString(k.Name) {
 		return fmt.Errorf("The cluster name does not meet the rules")
+	}
+	if k.Provider == config.ClusterProviderAlibabaACK && k.AdvancedConfig != nil && k.AdvancedConfig.EnableIRSA {
+		k.AdvancedConfig.IRSARoleARM = strings.TrimSpace(k.AdvancedConfig.IRSARoleARM)
+		if !aliyunRoleARNPattern.MatchString(k.AdvancedConfig.IRSARoleARM) {
+			return fmt.Errorf("invalid Alibaba Cloud RAM role ARN, expected acs:ram::<account-id>:role/<role-name>")
+		}
 	}
 
 	return nil
@@ -951,10 +959,15 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return errors.Errorf("cluster %s get serviceAccount err: %s", id, err)
 		}
 
-		if clusterInfo.AdvancedConfig != nil && clusterInfo.AdvancedConfig.EnableIRSA {
-			serviceAccount.Annotations["eks.amazonaws.com/role-arn"] = clusterInfo.AdvancedConfig.IRSARoleARM
-		} else {
-			delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		delete(serviceAccount.Annotations, "pod-identity.alibabacloud.com/role-name")
+		if clusterInfo.AdvancedConfig != nil {
+			for key, value := range kube.WorkflowServiceAccountAnnotations(clusterInfo.Provider, clusterInfo.AdvancedConfig.EnableIRSA, clusterInfo.AdvancedConfig.IRSARoleARM) {
+				if serviceAccount.Annotations == nil {
+					serviceAccount.Annotations = make(map[string]string)
+				}
+				serviceAccount.Annotations[key] = value
+			}
 		}
 		_, err = clientset.CoreV1().ServiceAccounts(config.Namespace()).Update(context.Background(), serviceAccount, metav1.UpdateOptions{})
 		if err != nil {
