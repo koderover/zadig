@@ -107,6 +107,46 @@ func Login(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
+type completeLocalLoginArgs struct {
+	State string `json:"state"`
+}
+
+// CompleteLocalLogin restores the saved redirect after a local password or MFA login.
+func CompleteLocalLogin(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	authorization := strings.Fields(c.GetHeader(setting.AuthorizationHeader))
+	if len(authorization) != 2 || !strings.EqualFold(authorization[0], "Bearer") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	claims, valid, err := permission.ValidateWebSessionToken(authorization[1])
+	if err != nil || !valid || claims == nil || claims.UID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	args := new(completeLocalLoginArgs)
+	if err := c.ShouldBindJSON(args); err != nil || strings.TrimSpace(args.State) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "state is required"})
+		return
+	}
+
+	cookie := thirdPartyLoginCookie()
+	browserToken, err := c.Cookie(cookie.Name)
+	if err != nil || browserToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "login browser cookie is required"})
+		return
+	}
+	redirectPath, err := login.ConsumeThirdPartyLoginState(args.State, browserToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired login state"})
+		return
+	}
+	cookie.MaxAge = -1
+	http.SetCookie(c.Writer, cookie)
+	c.JSON(http.StatusOK, gin.H{"redirect": redirectPath})
+}
+
 // @Summary 查询第三方登录是否开启
 // @Description 返回系统当前是否配置了可用的第三方登录连接器
 // @Tags user
