@@ -17,11 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -352,6 +355,10 @@ func InitWorkflowTemplate() {
 		template.ConcurrencyLimit = 1
 		if err := commonrepo.NewWorkflowV4TemplateColl().UpsertByName(template); err != nil {
 			logger.Errorf("update build-in workflow template error: %v", err)
+			continue
+		}
+		if err := initWorkflowTemplateVersion(template.TemplateName); err != nil {
+			logger.Errorf("initialize build-in workflow template %q version: %v", template.TemplateName, err)
 		}
 	}
 	for _, name := range DeprecatedWorkflowTemplateName() {
@@ -359,6 +366,28 @@ func InitWorkflowTemplate() {
 			logger.Errorf("delete deprecated workflow template error: %v", err)
 		}
 	}
+}
+
+func initWorkflowTemplateVersion(name string) error {
+	templates := commonrepo.NewWorkflowV4TemplateColl()
+	template, err := templates.Find(&commonrepo.WorkflowTemplateQueryOption{Name: name})
+	if err != nil {
+		return err
+	}
+	count, err := commonrepo.NewWorkflowV4TemplateVersionColl().CountDocuments(context.TODO(),
+		bson.M{"template_id": template.ID.Hex()}, options.Count().SetLimit(1))
+	if err != nil {
+		log.Errorf("failed to check versions for built-in workflow template %q (%s): %v", name, template.ID.Hex(), err)
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	if err := reconcileWorkflowTemplateIDs(nil, template); err != nil {
+		log.Errorf("failed to initialize stage and job IDs for built-in workflow template %q (%s): %v", name, template.ID.Hex(), err)
+		return err
+	}
+	return templates.Update(template)
 }
 
 func DeprecatedWorkflowTemplateName() []string {
