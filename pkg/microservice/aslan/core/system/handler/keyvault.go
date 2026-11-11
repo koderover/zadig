@@ -148,7 +148,11 @@ func CreateKeyVaultItem(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("group:%s key:%s project:%s", args.Group, args.Key, args.ProjectName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "系统设置-密钥库", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	function := "系统设置-共享变量"
+	if args.ProjectName != "" {
+		function = "项目管理-共享变量"
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", function, detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// Authorization check
 	if args.ProjectName != "" {
@@ -220,7 +224,6 @@ func UpdateKeyVaultItem(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("id:%s group:%s key:%s", id, args.Group, args.Key)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "系统设置-密钥库", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// First get the existing item to check project access
 	existingItem, err := service.GetKeyVaultItem(id, ctx.Logger)
@@ -228,6 +231,12 @@ func UpdateKeyVaultItem(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+
+	function := "系统设置-共享变量"
+	if existingItem.ProjectName != "" {
+		function = "项目管理-共享变量"
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, existingItem.ProjectName, "更新", function, detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// Authorization check on existing item
 	if existingItem.ProjectName != "" {
@@ -313,7 +322,11 @@ func DeleteKeyVaultItem(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("id:%s group:%s key:%s", id, item.Group, item.Key)
-	internalhandler.InsertOperationLog(c, ctx.UserName, item.ProjectName, "删除", "系统设置-密钥库", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+	function := "系统设置-共享变量"
+	if item.ProjectName != "" {
+		function = "项目管理-共享变量"
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, item.ProjectName, "删除", function, detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// Authorization check
 	if item.ProjectName != "" {
@@ -384,14 +397,14 @@ func DeleteKeyVaultGroup(c *gin.Context) {
 				return
 			}
 		}
-		internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "系统设置-密钥库分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "项目管理-共享变量分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 	} else if isSystemVariable == "true" {
 		// System-wide item requires system admin
 		if !ctx.Resources.IsSystemAdmin {
 			ctx.UnAuthorized = true
 			return
 		}
-		internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-密钥库分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-共享变量分组", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 	} else {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("either projectName or isSystem must be set")
 		return

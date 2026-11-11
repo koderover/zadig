@@ -27,6 +27,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetThemeInfos(c *gin.Context) {
@@ -75,5 +76,6 @@ func UpdateThemeInfo(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "主题设置", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateThemeInfo(theme, ctx.Logger)
 }

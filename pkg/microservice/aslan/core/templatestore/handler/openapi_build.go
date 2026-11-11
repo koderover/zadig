@@ -100,7 +100,7 @@ func OpenAPICreateBuildTemplate(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid build template request body")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "模板-构建", req.Name, req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "模板库-构建", req.Name, req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.OpenAPICreateBuildTemplate(req, ctx.UserName, ctx.Logger)
 }
 
@@ -131,7 +131,7 @@ func OpenAPIUpdateBuildTemplate(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid build template request body")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "模板-构建", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "模板库-构建", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.OpenAPIUpdateBuildTemplate(c.Param("id"), req, ctx.UserName, ctx.Logger)
 }
 
@@ -152,6 +152,6 @@ func OpenAPIDeleteBuildTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板-构建", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板库-构建", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetEmailHost(c *gin.Context) {
@@ -97,6 +98,7 @@ func CreateEmailHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-邮件配置", fmt.Sprintf("邮件服务器:%s", req.Name), fmt.Sprintf("SMTP server:%s", req.Name), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.CreateEmailHost(req, ctx.Logger)
 }
 
@@ -153,6 +155,7 @@ func UpdateEmailHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-邮件配置", fmt.Sprintf("邮件服务器:%s", req.Name), fmt.Sprintf("SMTP server:%s", req.Name), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateEmailHost(req, ctx.Logger)
 }
 
@@ -172,6 +175,7 @@ func DeleteEmailHost(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-邮件配置", "邮件服务器", "SMTP server", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteEmailHost(ctx.Logger)
 }
 
@@ -215,6 +219,7 @@ func CreateEmailService(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-邮件配置", fmt.Sprintf("邮件服务:%s", req.Name), fmt.Sprintf("Email service:%s", req.Name), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.CreateEmailService(req, ctx.Logger)
 }
 
@@ -239,6 +244,7 @@ func UpdateEmailService(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-邮件配置", fmt.Sprintf("邮件服务:%s", req.Name), fmt.Sprintf("Email service:%s", req.Name), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateEmailService(req, ctx.Logger)
 }
 
@@ -258,5 +264,6 @@ func DeleteEmailService(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-邮件配置", "邮件服务", "Email service", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteEmailService(ctx.Logger)
 }

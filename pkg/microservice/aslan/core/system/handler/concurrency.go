@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -24,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetWorkflowConcurrency(c *gin.Context) {
@@ -75,5 +77,7 @@ func UpdateWorkflowConcurrency(c *gin.Context) {
 		return
 	}
 
+	data, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-任务配置", fmt.Sprintf("workflow_concurrency:%d build_concurrency:%d", args.WorkflowConcurrency, args.BuildConcurrency), fmt.Sprintf("workflow_concurrency:%d build_concurrency:%d", args.WorkflowConcurrency, args.BuildConcurrency), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateWorkflowConcurrency(args.WorkflowConcurrency, args.BuildConcurrency, ctx.Logger)
 }

@@ -442,7 +442,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-服务镜像匹配规则", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(projectservice.CustomParseDataArgs)
 	data, err := c.GetRawData()
@@ -600,7 +600,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-测试全局变量", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -652,7 +652,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-生产全局变量", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {

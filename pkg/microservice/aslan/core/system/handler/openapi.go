@@ -291,7 +291,7 @@ func OpenAPICreateCluster(c *gin.Context) {
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "创建", "资源配置-集群", req.Name, req.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "创建", "资源配置-集群管理", req.Name, req.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	clusterAccessYaml := `apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -443,7 +443,7 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
@@ -464,7 +464,7 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 

@@ -19,6 +19,8 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"regexp"
+	"sort"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -34,6 +36,7 @@ type OperationLogArgs struct {
 	Username     string `json:"username"`
 	ProductName  string `json:"product_name"`
 	ExactProduct string `json:"exact_product"`
+	Method       string `json:"method"`
 	Function     string `json:"function"`
 	Status       int    `json:"status"`
 	PerPage      int    `json:"per_page"`
@@ -41,6 +44,8 @@ type OperationLogArgs struct {
 	Scene        string `json:"scene"`
 	TargetID     string `json:"target_id"`
 	Detail       string `json:"detail"`
+	StartTime    int64  `json:"start_time"`
+	EndTime      int64  `json:"end_time"`
 }
 
 type OperationLogColl struct {
@@ -77,6 +82,10 @@ func (c *OperationLogColl) EnsureIndex(ctx context.Context) error {
 		},
 		{
 			Keys:    bson.D{{Key: "function", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "method", Value: 1}},
 			Options: options.Index().SetUnique(false),
 		},
 		{
@@ -129,20 +138,63 @@ func (c *OperationLogColl) Update(id string, status int) error {
 	return err
 }
 
+// ListDistinctValues returns the non-empty values present in existing logs.
+func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string) ([]string, error) {
+	values, err := c.Collection.Distinct(ctx, field, bson.M{
+		field: bson.M{"$type": "string", "$ne": ""},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if name, ok := value.(string); ok && name != "" {
+			result = append(result, name)
+		}
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+// ListDistinctStatuses excludes the zero placeholder used for an unfiltered query.
+func (c *OperationLogColl) ListDistinctStatuses(ctx context.Context) ([]int, error) {
+	values, err := c.Collection.Distinct(ctx, "status", bson.M{
+		"status": bson.M{"$type": bson.A{"int", "long"}, "$gt": 0},
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]int, 0, len(values))
+	for _, value := range values {
+		switch status := value.(type) {
+		case int32:
+			result = append(result, int(status))
+		case int64:
+			result = append(result, int(status))
+		}
+	}
+	sort.Ints(result)
+	return result, nil
+}
+
 func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog, int, error) {
-	var res []*models2.OperationLog
+	res := make([]*models2.OperationLog, 0)
 	query := bson.M{}
 	if args.ProductName != "" {
-		query["product_name"] = bson.M{"$regex": args.ProductName}
+		query["product_name"] = args.ProductName
 	}
 	if args.ExactProduct != "" {
 		query["product_name"] = args.ExactProduct
 	}
 	if args.Username != "" {
-		query["username"] = bson.M{"$regex": args.Username}
+		query["username"] = args.Username
+	}
+	if args.Method != "" {
+		query["method"] = args.Method
 	}
 	if args.Function != "" {
-		query["function"] = bson.M{"$regex": args.Function}
+		query["function"] = args.Function
 	}
 	if args.Status != 0 {
 		query["status"] = args.Status
@@ -154,13 +206,27 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 		query["targets"] = bson.M{"$elemMatch": bson.M{"$eq": args.TargetID}}
 	}
 	if args.Detail != "" {
-		query["name"] = bson.M{"$regex": args.Detail}
+		detail := regexp.QuoteMeta(args.Detail)
+		query["$or"] = bson.A{
+			bson.M{"name": bson.M{"$regex": detail}},
+			bson.M{"name_en": bson.M{"$regex": detail}},
+		}
+	}
+	createdAt := bson.M{}
+	if args.StartTime > 0 {
+		createdAt["$gte"] = args.StartTime
+	}
+	if args.EndTime > 0 {
+		createdAt["$lt"] = args.EndTime
+	}
+	if len(createdAt) > 0 {
+		query["created_at"] = createdAt
 	}
 
 	opts := options.Find()
 	opts.SetSort(bson.D{{"created_at", -1}})
 	if args.Page > 0 && args.PerPage > 0 {
-		opts.SetSkip(int64(args.PerPage * (args.Page - 1))).SetLimit(int64(args.PerPage))
+		opts.SetSkip(int64(args.PerPage) * int64(args.Page-1)).SetLimit(int64(args.PerPage))
 	}
 	cursor, err := c.Collection.Find(context.TODO(), query, opts)
 	if err != nil {

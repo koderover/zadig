@@ -31,6 +31,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/jira"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListProjectManagement(c *gin.Context) {
@@ -151,6 +152,7 @@ func CreateProjectManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-项目管理", req.SystemIdentity, req.SystemIdentity, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateProjectManagement(req, ctx.Logger)
 }
 
@@ -181,6 +183,7 @@ func UpdateProjectManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-项目管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)
 }
 
@@ -200,6 +203,7 @@ func DeleteProjectManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-项目管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteProjectManagement(c.Param("id"), ctx.Logger)
 }
 

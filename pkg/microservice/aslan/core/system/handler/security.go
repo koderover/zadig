@@ -61,7 +61,7 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 
 	detail := fmt.Sprintf("token expiration: %d \n mfa enabled: %v \n improvement plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
 	detailEn := fmt.Sprintf("Token Expiration: %d \n MFA Enabled: %v \n Improvement Plan: %v", args.TokenExpirationTime, args.MFAEnabled, args.ImprovementPlan)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-安全与隐私", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

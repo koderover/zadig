@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CreateSystemCodeHost(c *gin.Context) {
@@ -60,6 +61,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-代码源", req.Alias, req.Alias, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.Logger)
 }
 
@@ -111,6 +113,7 @@ func DeleteSystemCodeHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-代码源", idParam, idParam, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteCodeHost(id, ctx.Logger)
 }
 
@@ -211,6 +214,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-代码源", idParam, idParam, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.Logger)
 }
 

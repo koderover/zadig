@@ -27,6 +27,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type AgentIntegrationRequest struct {
@@ -91,6 +92,7 @@ func CreateAgentIntegration(c *gin.Context) {
 	}
 	integration := convertAgentIntegrationRequest(projectName, request)
 	integration.UpdatedBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-智能体管理", request.Name, request.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateAgentIntegration(context.TODO(), integration)
 }
 
@@ -253,6 +255,7 @@ func UpdateAgentIntegration(c *gin.Context) {
 	}
 	integration := convertAgentIntegrationRequest(projectName, request)
 	integration.UpdatedBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-智能体管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateAgentIntegration(context.TODO(), projectName, c.Param("id"), integration)
 }
 
@@ -284,6 +287,7 @@ func DeleteAgentIntegration(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid agent integration id")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "项目管理-智能体管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteAgentIntegration(context.TODO(), projectName, c.Param("id"))
 }
 

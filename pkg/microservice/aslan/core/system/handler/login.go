@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetDefaultLogin(c *gin.Context) {
@@ -54,5 +55,6 @@ func UpdateDefaultLogin(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-默认账号系统", args.DefaultLogin, args.DefaultLogin, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateDefaultLogin(args.DefaultLogin, ctx.Logger)
 }

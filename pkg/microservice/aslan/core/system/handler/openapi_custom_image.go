@@ -93,7 +93,7 @@ func OpenAPICreateCustomImage(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "基础镜像", req.Label, req.Label, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "自定义镜像", req.Label, req.Label, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateBasicImage(&commonmodels.BasicImage{
 		Label:     strings.TrimSpace(req.Label),
 		Value:     strings.TrimSpace(req.Value),
@@ -129,7 +129,7 @@ func OpenAPIUpdateCustomImage(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid custom image request body")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "基础镜像", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "自定义镜像", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateCustomImageOpenAPI(c.Param("id"), req, ctx.UserName, ctx.Logger)
 }
 
@@ -150,6 +150,6 @@ func OpenAPIDeleteCustomImage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "基础镜像", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "自定义镜像", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteCustomImageOpenAPI(c.Param("id"), ctx.Logger)
 }

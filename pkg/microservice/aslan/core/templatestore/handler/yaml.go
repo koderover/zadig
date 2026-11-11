@@ -70,7 +70,7 @@ func CreateYamlTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板-YAML", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板库-YAML", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -177,7 +177,7 @@ func LoadYamlTemplateFromCodeHost(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板-YAML", "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板库-YAML", "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.Create {
@@ -254,7 +254,7 @@ func SyncYamlTemplateFromCodeHost(c *gin.Context) {
 		templateNames = append(templateNames, loadPath.Name)
 	}
 	templateNameStr := strings.Join(templateNames, ",")
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML", templateNameStr, templateNameStr, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-YAML", templateNameStr, templateNameStr, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.Edit {
@@ -294,7 +294,7 @@ func UpdateYamlTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-YAML", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = templateservice.UpdateYamlTemplate(c.Param("id"), req, ctx.Logger)
 }
@@ -327,7 +327,7 @@ func UpdateYamlTemplateVariable(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML-变量", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-YAML-变量", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -437,7 +437,7 @@ func DeleteYamlTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-YAML", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-YAML", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -469,7 +469,7 @@ func SyncYamlTemplateReference(c *gin.Context) {
 	}
 
 	detail, detailEn := buildYamlTemplateSyncLogDetail(c.Param("id"), ctx.Logger)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板-YAML", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板库-YAML", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
