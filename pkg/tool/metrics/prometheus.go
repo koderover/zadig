@@ -42,7 +42,6 @@ var (
 		"vendor-portal",
 		"warpdrive",
 		"zadig-portal",
-		"time-nlp",
 	}
 
 	RunningWorkflows = prometheus.NewGauge(

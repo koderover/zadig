@@ -13,7 +13,8 @@
 | 变量 | 说明 |
 | --- | --- |
 | `MYSQL_HOST` | 现有 MySQL 的 `主机:端口` |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | 复用现有账号；仅连接独立的 `zadig_ai` database |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | 复用现有账号；仅连接独立的 AI database |
+| `MYSQL_AI_DB` | AI 数据库名，须显式配置（例如 `zadig_ai`），无默认值；halman 和 aslan 须设置为同一值 |
 | `MONGODB_CONNECTION_STRING` / `ASLAN_DB` | 复用现有 MongoDB 连接和配置数据库名，读取助手、模型集成及代理配置 |
 | `HALMAN_USER_AUTH_ADDRESS` | user 的鉴权 gRPC 地址，默认 `user:8080` |
 | `HALMAN_LISTEN_ADDRESS` | HTTP 监听地址，默认 `:8080` |
@@ -26,7 +27,7 @@ halman 直接连接 MongoDB，复用现有 repository 读取配置，不新增�
 
 ## 初始化与启动
 
-初始化方式参考 user 服务：启动时使用复用账号创建 `zadig_ai` database（若不存在），再执行嵌入的完整建表 SQL；初始化仅作用于 `zadig_ai`。数据库版本至少支持 JSON，实际建表和查询需在目标 MySQL 版本验证。
+初始化方式参考 user 服务：启动时使用复用账号创建 `MYSQL_AI_DB` 指定的 database（若不存在），再执行嵌入的完整建表 SQL；初始化仅作用于该 AI 数据库。数据库版本至少支持 JSON，实际建表和查询需在目标 MySQL 版本验证。
 
 配置好上述环境变量后执行：
 
@@ -164,7 +165,7 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 报告权限在 user 的 `DataCenter`（数据视图）中注册为“查看 AI 助手报告”，动作 `ai_assistant_report`，授权结果及 user SDK 字段为 `SystemActions.DataCenter.ViewAIAssistantReport`。系统管理员直接允许，其他用户需显式授予该权限；项目管理员、效能洞察或 AI 审查分析权限不能代替。四个报告接口共用同一权限及企业版校验。user 启动时通过已有 MySQL/达梦初始化 SQL 幂等注册动作，无需新增迁移；部署后需重启 user，再由管理员为角色分配权限。
 
-`GET /api/aslan/system/navigation` 的默认“数据视图”新增 `AI 助手报告` / `AI Assistant Report`，`key` 和 `url` 均为 `aiAssistantReport`。同组也提供 `AI 审查分析` / `AI Review Insights`，`key` 和 `url` 均为 `aiReviewInsight`，复用其已有 `ai_review_insight` 权限及许可证检查。非管理员的两个入口分别按对应报告权限过滤；助手报告要求有效企业版，审查分析保留原有许可证规则。AI 总开关不控制已有报告入口。已保存的自定义导航保持原样，需要时通过原导航设置添加该系统页面；不自动覆盖或补回管理员移除的入口。本次不实现前端页面或路由。
+`GET /api/aslan/system/navigation` 的默认“数据视图”统一提供 `AI 效能报告` / `AI Insights`，`key` 为 `aiInsights`，`url` 为 `insight/ai`，图标为 `iconfont iconai-trend`。非管理员具有 AI 审查分析或 AI 助手报告任一权限即可看到入口；入口要求有效企业版，具体报告接口继续分别校验各自权限。AI 总开关不控制已有报告入口。已保存的自定义导航保持原样，需要时通过原导航设置添加该系统页面；不自动覆盖或补回管理员移除的入口。本次不实现前端页面或路由。
 
 Skill 分类表现按发布辅助、故障排查、实施辅助、巡检诊断的顺序固定返回四项，维度为 `category`；工作流和服务报错分析归入故障排查，项目和服务初始化归入实施辅助，环境巡检和效能诊断归入巡检诊断，发布辅助当前无对应 Skill。无数据分类返回零计数与空比例；普通聊天及未分类 Skill 不计入。分类通过 `ai_usage_daily.skill_id=ai_skill.id` 关联，分类内用户跨 Skill 去重，比例按分类总量计算；不按启停过滤历史贡献。日聚合仍按 Skill 保存，其他报告及概览估算口径不变。
 
@@ -193,7 +194,7 @@ aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，�
 
 原报告融合：环境巡检调用原 `POST /api/environment/environments/{name}/analysis` 的 `result`，固定触发来源为 `ai-assistant`；历史复用原接口，默认五条、每页最多二十条、页码最多一万，按项目、环境和生产属性隔离。补充服务证据复用原采集函数，限当前环境三个服务，不另计 Skill。空报告或失败不代表健康，也不计完成。
 
-效能诊断调用原 `POST /api/stat/v2/ai/analysis`，仅将 `answer` 返回模型，过滤内部提示词、输入数据及估算 Token。系统管理员或有 `SystemActions.DataCenter.ViewInsight` 权限即可，不要求项目权限；名称解析在 aslan 内按同一权限进行。只接受指定项目，默认三十天、最多十个项目和九十天。完整显式范围生效且不由旧解析覆盖，仅传问题的旧调用保持原行为。系统级范围记录在现有 `resource_scopes.system_action`，上下文及重新回答按该权限复查，历史聊天快照查看规则不变。
+效能诊断调用原 `POST /api/stat/v2/ai/analysis`，仅将 `answer` 返回模型，过滤内部提示词、输入数据及估算 Token。系统管理员或有 `SystemActions.DataCenter.ViewInsight` 权限即可，不要求项目权限；名称解析在 aslan 内按同一权限进行。只接受指定项目，默认三十天、最多十个项目和九十天。完整显式范围生效且不由旧解析覆盖，仅传问题的调用由同一次 LLM 请求解析项目、任务类型和时间范围，时间文本按部署时区转换；缺失或含糊的时间会返回错误。此规则不改变助手效能诊断工具已有的显式范围和默认三十天规则。系统级范围记录在现有 `resource_scopes.system_action`，上下文及重新回答按该权限复查，历史聊天快照查看规则不变。
 
 不增加证据模式或新数据接口，原功能继续使用原模型，助手使用原报告回答。仅原报告调用放宽到三分钟，普通 HTTP 仍为十秒；同次运行缓存相同参数的报告及失败，默认范围锚定运行时间，不自动重复调用。超时或取消可能无法停止原模块，可稍后查原结果。聊天仍存 MySQL，原巡检历史继续落原 MongoDB。两种新 Skill 采用十五分钟基准；原模块未提供完整实际模型用量，不将旧估算 `token_num` 混入助手 Token 统计。巡检不配置计划、不发送定时通知、不自动修复。
 
@@ -409,3 +410,8 @@ go test -race ./pkg/microservice/halman/...
 代码审查删除独立的 `output_language` 配置字段。创建任务时将系统语言通过现有环境变量和 `--language` 参数传给审查程序，报告收集不变；摘要、行内评论和归档说明按报告已有的 `metadata.language` 选择文案，缺失或未知时默认中文，不新增步骤语言字段。保留原评论标记、指纹、反馈和历史摘要识别。旧 MongoDB 字段不批量迁移，下一次保存配置自然移除，旧请求携带该字段时忽略。
 
 不修改前端和审查程序仓库；前端独立语言下拉框需后续移除。自动测试使用模拟模型和数据库，真实模型遵循效果和审查镜像需联调验证。
+
+
+### 移除时间解析组件的升级顺序
+
+先部署使用现有 LLM 解析时间的 aslan，再升级移除 time-nlp Deployment 和 Service 的 Helm chart。回滚到仍依赖时间解析服务的旧版 aslan 时，须同时恢复旧 chart。发布前使用实际配置模型验证明确日期、昨天、上周、上月、最近一个月及缺失/含糊时间的行为；模拟测试不能证明真实模型的时间提取准确率。

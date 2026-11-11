@@ -50,7 +50,7 @@ func GetAIAssistantStatsStore() (*AIAssistantStatsStore, error) {
 	}
 	cfg := mysql.NewConfig()
 	cfg.User, cfg.Passwd, cfg.Addr = config.MysqlUser(), config.MysqlPassword(), config.MysqlHost()
-	cfg.Net, cfg.DBName = "tcp", "zadig_ai"
+	cfg.Net, cfg.DBName = "tcp", config.MysqlAIDB()
 	cfg.ParseTime, cfg.Loc = true, time.UTC
 	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 3*time.Second, 3*time.Second, 3*time.Second
 	db, err := sql.Open("mysql", cfg.FormatDSN())

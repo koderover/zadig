@@ -136,3 +136,13 @@ func TestRemovedDevelopmentColumnsFailBeforeAcceptingRuns(t *testing.T) {
 		t.Fatalf("不能让旧的必填字段在接收问题后才导致 INSERT 失败: %v", err)
 	}
 }
+
+func TestOpenStoreRejectsOtherDatabase(t *testing.T) {
+	t.Setenv("MYSQL_AI_DB", "custom_ai")
+	for _, dsn := range []string{"invalid", "user@tcp(localhost:3306)/zadig_ai", "user@tcp(localhost:3306)/"} {
+		store, err := OpenStore(context.Background(), dsn, 50)
+		if store != nil || err == nil || err.Error() != "必须连接配置的 AI 数据库" {
+			t.Fatalf("必须在连接前拒绝其他数据库: %v", err)
+		}
+	}
+}

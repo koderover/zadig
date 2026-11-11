@@ -138,7 +138,7 @@ const (
 	Policy               // 11
 	Vendor
 	User
-	TimeNlp
+	_ // Reserved service code for the removed time parser; keep Enterprise unchanged.
 	Enterprise
 )
 
@@ -199,10 +199,6 @@ var Services = map[int]*ServiceInfo{
 	User: {
 		Name: "user",
 		Port: 80,
-	},
-	TimeNlp: {
-		Name: "time-nlp",
-		Port: 8000,
 	},
 	Enterprise: {
 		Name: "plutus-enterprise",

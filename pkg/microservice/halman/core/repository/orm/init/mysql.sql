@@ -1,4 +1,4 @@
--- 只对独立的 zadig_ai 数据库执行，不修改 user、dex 或 aslan 数据。
+-- 只对 MYSQL_AI_DB 指定的独立 AI 数据库执行，不修改 user、dex 或 aslan 数据。
 CREATE TABLE IF NOT EXISTS ai_conversation (
     id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
     user_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
