@@ -425,10 +425,7 @@ func mergeOpenAPIServiceVariableKVs(current, updates []*commontypes.ServiceVaria
 			return nil, e.ErrInvalidParam.AddDesc("service variable key cannot be empty")
 		}
 		if kv, ok := index[newKv.Key]; ok {
-			kv.Value = newKv.Value
-			kv.Desc = newKv.Desc
-			kv.Type = newKv.Type
-			kv.Options = newKv.Options
+			*kv = *newKv
 			continue
 		}
 		added := *newKv
