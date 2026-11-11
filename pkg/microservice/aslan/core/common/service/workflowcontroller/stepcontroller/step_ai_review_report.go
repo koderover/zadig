@@ -69,6 +69,7 @@ func (s *aiReviewReportCtl) AfterRun(ctx context.Context) error {
 		s.workflowCtx.GlobalContextSet(key, "")
 	}
 	s.reportSpec.Report = nil
+	s.reportSpec.Publication = nil
 	if !ok {
 		s.reportSpec.CollectionError = "AI review report was not returned by the job executor"
 		s.step.Spec = s.reportSpec
@@ -105,6 +106,11 @@ func (s *aiReviewReportCtl) AfterRun(ctx context.Context) error {
 	)
 	if err != nil {
 		s.log.Warnf("failed to publish AI review result: %v", err)
+	}
+	s.reportSpec.Publication = &stepspec.AIReviewPublication{
+		PRRef: metadata.PRRef, PRTitle: metadata.Title, PRURL: metadata.URL,
+		SourceBranch: metadata.SourceBranch, TargetBranch: metadata.TargetBranch,
+		InlinePublished: metadata.InlinePublished, InlineComments: metadata.InlineComments,
 	}
 	s.saveAIReviewStat(metadata, report, reviewedAt)
 	return nil

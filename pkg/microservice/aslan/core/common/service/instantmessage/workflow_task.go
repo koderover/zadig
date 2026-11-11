@@ -1512,6 +1512,21 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		return title, content, nil, webhookNotify, nil
 	}
 
+	workflowDetailURLTpl, _ = getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
+	if task.Type == config.WorkflowTaskTypeScanning && isAIReviewCompletedStatus(task.Status) {
+		if reportSpec, job := findAIReviewReportSpec(task); reportSpec != nil {
+			return "", "", buildAIReviewLarkCard(&aiReviewCardInput{
+				Spec:           reportSpec,
+				JobError:       job.Error,
+				Creator:        task.TaskCreator,
+				ProjectName:    project.ProjectName,
+				StartTime:      task.StartTime,
+				DurationSecond: workflowNotification.TotalTime,
+				DetailURL:      workflowDetailURLTpl,
+			}), nil, nil
+		}
+	}
+
 	lc := NewLarkCard()
 	lc.SetConfig(true)
 	lc.SetHeader(getColorTemplateWithStatus(task.Status), title, feiShuTagText)
@@ -1523,7 +1538,6 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, true)
 	}
-	workflowDetailURLTpl, _ = getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURLTpl)
 	return "", "", lc, nil, nil
 }
