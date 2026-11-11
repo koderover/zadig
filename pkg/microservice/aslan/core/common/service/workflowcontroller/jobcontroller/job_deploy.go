@@ -435,9 +435,9 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 
 	var err error
 	if len(c.jobTaskSpec.DeployContents) == 1 && c.jobTaskSpec.DeployContents[0] == config.DeployImage {
-		err = kube.CheckResourcesAppliedByOtherEnv(moduleResources, env, serviceName)
+		err = kube.CheckResourceListOwnership(moduleResources, env, serviceName)
 	} else {
-		err = kube.CheckResourceAppliedByOtherEnv(updatedYaml, env, serviceName)
+		err = kube.CheckYamlResourceOwnership(updatedYaml, env, serviceName)
 	}
 	if err != nil {
 		return errors.New(err.Error())

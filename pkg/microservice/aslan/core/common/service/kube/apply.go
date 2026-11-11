@@ -398,17 +398,18 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
-func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product, serviceName string) error {
+// CheckYamlResourceOwnership checks ownership of all resources in the service YAML.
+func CheckYamlResourceOwnership(serviceYaml string, productInfo *commonmodels.Product, serviceName string) error {
 	unstructuredRes, _, err := ManifestToUnstructured(serviceYaml)
 	if err != nil {
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
 	}
 
-	return CheckResourcesAppliedByOtherEnv(UnstructuredToResources(unstructuredRes), productInfo, serviceName)
+	return CheckResourceListOwnership(UnstructuredToResources(unstructuredRes), productInfo, serviceName)
 }
 
-// CheckResourcesAppliedByOtherEnv checks ownership of rendered resource identities.
-func CheckResourcesAppliedByOtherEnv(resources []*commonmodels.ServiceResource, productInfo *commonmodels.Product, serviceName string) error {
+// CheckResourceListOwnership checks ownership of rendered resource identities.
+func CheckResourceListOwnership(resources []*commonmodels.ServiceResource, productInfo *commonmodels.Product, serviceName string) error {
 	if len(resources) == 0 {
 		return nil
 	}
