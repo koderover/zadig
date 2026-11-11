@@ -17,13 +17,10 @@ limitations under the License.
 package ai
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +32,6 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -58,6 +54,7 @@ type analysisAnswer struct {
 const analysisCompletionMaxTokens = 16384
 
 func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAnalysisResp, error) {
+	now := time.Now()
 	if err := ValidateExplicitAnalysisArgs(args); err != nil {
 		return nil, err
 	}
@@ -85,7 +82,7 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 
 	// parse user prompt to prepare the input data of projects stat
 	if inputData == nil {
-		inputData, err = parseUserPrompt(args, client, logger)
+		inputData, err = parseUserPrompt(args, client, now)
 		if err != nil {
 			logger.Errorf("failed to parse user prompt, the error is: %+v", err)
 			return nil, err
@@ -222,49 +219,12 @@ func combineAiAnswer(projects []*ProjectData, ans map[string]string, startTime, 
 }
 
 // parseUserPrompt parse the user prompt to prepare the input data of projects stat
-func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.SugaredLogger) (*UserPromptParseInput, error) {
-	input := &UserPromptParseInput{}
+func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, now time.Time) (*UserPromptParseInput, error) {
 	projectList, err := commonrepo.NewJobInfoColl().GetAllProjectNameByTypeName(0, 0, "")
 	if err != nil {
-		return input, err
+		return nil, err
 	}
-
-	jobs := []string{
-		"build",
-		"test",
-		"deploy",
-		"release",
-	}
-
-	prompt := fmt.Sprintf("%s;\"\"\"%s\"\"\"", util.RemoveExtraSpaces(ParseUserPromptPrompt), args.Prompt)
-	options := []llm.ParamOption{}
-	if aiClient.GetModel() != "" {
-		options = append(options, llm.WithModel(aiClient.GetModel()))
-	} else {
-		options = append(options, llm.WithModel(AnalysisModel))
-	}
-	resp, err := aiClient.GetCompletion(context.TODO(), prompt, options...)
-	if err != nil {
-		return input, fmt.Errorf("failed to get completion, error: %v", err)
-	}
-	resp = strings.TrimPrefix(resp, "```json\n")
-	resp = strings.TrimSuffix(resp, "```")
-
-	// parse the user prompt to prepare the input data of projects stat
-	err = json.Unmarshal([]byte(resp), &input)
-	if err != nil {
-		return input, fmt.Errorf("failed to unmarshal response, error: %v", err)
-	}
-
-	if err := checkInputData(input, jobs, projectList); err != nil {
-		return nil, fmt.Errorf("failed to check input data, error: %v", err)
-	}
-
-	err = getTimeParseResult(args.Prompt, input, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get time parse result, error: %v", err)
-	}
-	return input, nil
+	return parseAnalysisPrompt(args.Prompt, aiClient, projectList, now)
 }
 
 // TODO: check the input data
@@ -291,65 +251,6 @@ func checkInputData(input *UserPromptParseInput, jobs, projects []string) error 
 		input.JobList = jobs
 	}
 
-	return nil
-}
-
-type UserPromptTimeParseResult struct {
-	Prompt      string   `json:"prompt"`
-	ErrMessage  string   `json:"err_message"`
-	ParseResult []string `json:"parse_result"`
-}
-
-func getTimeParseResult(prompt string, input *UserPromptParseInput, logger *zap.SugaredLogger) error {
-	// parse the time in user prompt by rest api
-	userPrompt := struct {
-		Prompt string `json:"prompt"`
-	}{
-		Prompt: prompt,
-	}
-	body, err := json.Marshal(userPrompt)
-	if err != nil {
-		return err
-	}
-
-	host := setting.Services[setting.TimeNlp]
-	url := fmt.Sprintf("http://%s:%d/%s", host.Name, host.Port, "api/prompt/time")
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	logger.Infof("finished Request NLP in getTimeParseResult method, the response is: \n%s", string(responseBody))
-
-	result := &UserPromptTimeParseResult{}
-	err = json.Unmarshal(responseBody, result)
-	if err != nil {
-		return err
-	}
-
-	// check the parse result
-	if len(result.ParseResult) != 2 {
-		return fmt.Errorf("the parse result is not correct, the parse result is: %s", result.ParseResult)
-	}
-	start, err := time.ParseInLocation("2006-01-02 15:04:05", result.ParseResult[0], time.Local)
-	if err != nil {
-		return err
-	}
-	end, err := time.ParseInLocation("2006-01-02 15:04:05", result.ParseResult[1], time.Local)
-	if err != nil {
-		return err
-	}
-	input.StartTime = start.Unix()
-	input.EndTime = end.Unix()
-	now := time.Now().Unix()
-	if end.Unix() > now {
-		input.EndTime = now
-	}
 	return nil
 }
 

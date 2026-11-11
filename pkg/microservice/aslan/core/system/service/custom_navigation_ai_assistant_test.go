@@ -13,8 +13,7 @@ func TestDefaultNavigationIncludesAIReportsInDataView(t *testing.T) {
 		t.Fatal(err)
 	}
 	reports := map[config.NavigationItemKey]struct{ name, english string }{
-		config.NavigationKeyAIReviewInsight:   {"AI 审查分析", "AI Review Insights"},
-		config.NavigationKeyAIAssistantReport: {"AI 助手报告", "AI Assistant Report"},
+		config.NavigationKeyAIInsights: {"AI 效能报告", "AI Insights"},
 	}
 	counts := make(map[config.NavigationItemKey]int)
 	for _, folder := range items {
@@ -22,9 +21,12 @@ func TestDefaultNavigationIncludesAIReportsInDataView(t *testing.T) {
 			continue
 		}
 		for _, item := range folder.Children {
+			if item.Key == config.NavigationKeyAIReviewInsight || item.Key == config.NavigationKeyAIAssistantReport {
+				t.Fatalf("默认导航不应包含旧 AI 报告入口: %s", item.Key)
+			}
 			if expected, ok := reports[item.Key]; ok {
 				counts[item.Key]++
-				if item.Name != expected.name || item.EnName != expected.english || item.URL != string(item.Key) || item.Type != config.NavigationItemTypePage || item.PageType != config.NavigationPageTypeSystem {
+				if item.Name != expected.name || item.EnName != expected.english || item.URL != "insight/ai" || item.IconType != "class" || item.Icon != "iconfont iconai-trend" || item.Type != config.NavigationItemTypePage || item.PageType != config.NavigationPageTypeSystem {
 					t.Fatalf("AI 报告必须提供完整的系统页面导航信息: %+v", item)
 				}
 			}

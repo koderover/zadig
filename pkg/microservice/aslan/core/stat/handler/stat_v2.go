@@ -117,7 +117,7 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 
 // GetAIStatsAnalysis godoc
 // @Summary 分析指定项目的质量和效率
-// @Description 系统管理员或具有查看效能洞察权限的用户可访问，不要求逐项目权限。提供 project_list 和起止时间时直接使用该范围；仅提供问题时保留原解析流程。使用原效能分析模型和报告格式。
+// @Description 系统管理员或具有查看效能洞察权限的用户可访问，不要求逐项目权限。提供 project_list 和起止时间时直接使用该范围；仅提供问题时由现有 LLM 同时提取项目、任务和时间范围，未明确时间时返回错误。使用原效能分析模型和报告格式。
 // @Tags stat
 // @Accept json
 // @Produce json

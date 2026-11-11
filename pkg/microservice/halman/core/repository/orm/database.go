@@ -16,6 +16,7 @@ import (
 	sessionmysql "trpc.group/trpc-go/trpc-agent-go/session/mysql"
 	storagemysql "trpc.group/trpc-go/trpc-agent-go/storage/mysql"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	halmanconfig "github.com/koderover/zadig/v2/pkg/microservice/halman/config"
 )
 
@@ -58,8 +59,8 @@ func NewStore(db *sql.DB, maxConnections int) (*Store, error) {
 
 func OpenStore(ctx context.Context, dsn string, maxConnections int) (*Store, error) {
 	cfg, err := mysql.ParseDSN(dsn)
-	if err != nil || cfg.DBName != "zadig_ai" {
-		return nil, fmt.Errorf("必须连接独立的 zadig_ai 数据库")
+	if err != nil || cfg.DBName != config.MysqlAIDB() {
+		return nil, fmt.Errorf("必须连接配置的 AI 数据库")
 	}
 
 	cfg.ParseTime = true
@@ -110,8 +111,8 @@ func initializeDatabase(ctx context.Context, cfg *mysql.Config) error {
 	// 引导连接在业务池和框架池创建前关闭，不叠加运行期连接预算。
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(0)
-	if _, err := db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS `zadig_ai` DEFAULT CHARACTER SET utf8mb4"); err != nil {
-		return fmt.Errorf("初始化 zadig_ai 数据库失败")
+	if _, err := db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS `"+strings.ReplaceAll(cfg.DBName, "`", "``")+"` DEFAULT CHARACTER SET utf8mb4"); err != nil {
+		return fmt.Errorf("初始化 AI 数据库失败")
 	}
 
 	return nil

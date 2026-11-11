@@ -249,6 +249,10 @@ func MysqlUserDB() string {
 	return viper.GetString(setting.ENVMysqlUserDB)
 }
 
+func MysqlAIDB() string {
+	return viper.GetString(setting.ENVMysqlAIDB)
+}
+
 func MysqlPassword() string {
 	return viper.GetString(setting.ENVMysqlPassword)
 }
