@@ -25,7 +25,7 @@ spec:
             - name: http
               containerPort: 8080
           envFrom:
-            # 包含 MYSQL_HOST、MYSQL_USER、MYSQL_PASSWORD，以及现有 MONGODB_CONNECTION_STRING、ASLAN_DB。
+            # 包含 MYSQL_HOST、MYSQL_USER、MYSQL_PASSWORD、MYSQL_AI_DB，以及现有 MONGODB_CONNECTION_STRING、ASLAN_DB。
             - secretRef:
                 name: halman-database
           env:

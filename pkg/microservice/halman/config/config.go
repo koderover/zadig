@@ -80,6 +80,6 @@ func DatabaseDSN() string {
 	cfg.Passwd = config.MysqlPassword()
 	cfg.Net = "tcp"
 	cfg.Addr = config.MysqlHost()
-	cfg.DBName = "zadig_ai"
+	cfg.DBName = config.MysqlAIDB()
 	return cfg.FormatDSN()
 }
