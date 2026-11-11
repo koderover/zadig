@@ -106,7 +106,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		var err error
 		switch namespace.Action {
 		case commonmodels.ApolloActionCreate:
-			err = c.createNamespace(ctx, client, namespace, info.ApolloAuthConfig.User, releaseArgs)
+			err = c.createNamespace(client, namespace, info.ApolloAuthConfig.User, releaseArgs)
 		case commonmodels.ApolloActionUpdate:
 			err = c.updateNamespace(ctx, client, &namespace.ApolloNamespace, info.ApolloAuthConfig.User, releaseArgs)
 		default:
@@ -130,7 +130,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 	c.ack()
 }
 
-func (c *ApolloJobCtl) createNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.JobTaskApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonmodels.JobTaskApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
 	// Resolve every concrete target before creating the global AppNamespace.
 	targets, err := client.ListAppEnvsAndClusters(namespace.AppID)
 	if err != nil {
@@ -186,7 +186,7 @@ func (c *ApolloJobCtl) createNamespace(ctx context.Context, client *apollo.Clien
 			concrete := namespace.ApolloNamespace
 			concrete.Env = env.Env
 			concrete.ClusterID = cluster
-			if err := c.updateNamespace(ctx, client, &concrete, user, releaseArgs); err != nil {
+			if err := updateAndReleaseNamespace(client, &concrete, user, releaseArgs); err != nil {
 				partialFailure = true
 				targetErrors = append(targetErrors, fmt.Sprintf("env=%s, cluster=%s: %v", env.Env, cluster, err))
 				continue
@@ -217,10 +217,10 @@ func (c *ApolloJobCtl) updateNamespace(ctx context.Context, client *apollo.Clien
 		}),
 		BaseURL: client.BaseURL,
 	}
-	return updateAndReleaseNamespace(ctx, client, namespace, user, releaseArgs)
+	return mergeAndReleaseNamespace(ctx, client, namespace, user, releaseArgs)
 }
 
-func updateAndReleaseNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+func mergeAndReleaseNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
 	current, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
 	if err != nil {
 		return fmt.Errorf("get current namespace failed: %w", err)
@@ -265,18 +265,14 @@ func updateAndReleaseNamespace(ctx context.Context, client *apollo.Client, names
 		seen[key] = true
 		base, hadOriginal := original[key]
 		value, exists := latest[key]
-		if namespace.Action != commonmodels.ApolloActionCreate {
-			if hadOriginal && kv.Val == base {
-				continue // Preserve concurrent changes, including deleted items.
-			}
-			if len(original) == 0 && value != "" && kv.Val != value {
-				return fmt.Errorf("config key %s is missing its original configuration; refresh the original configuration and edit again", key)
-			}
-			if hadOriginal && !exists {
-				return fmt.Errorf("config key %s was deleted in Apollo; refresh the original configuration and edit again", key)
-			}
-		} else {
-			base = value
+		if hadOriginal && kv.Val == base {
+			continue // Preserve concurrent changes, including deleted items.
+		}
+		if len(original) == 0 && value != "" && kv.Val != value {
+			return fmt.Errorf("config key %s is missing its original configuration; refresh the original configuration and edit again", key)
+		}
+		if hadOriginal && !exists {
+			return fmt.Errorf("config key %s was deleted in Apollo; refresh the original configuration and edit again", key)
 		}
 		merged, err := apollo.MergeConfig(ctx, format, base, kv.Val, value)
 		if err != nil {
@@ -286,7 +282,18 @@ func updateAndReleaseNamespace(ctx context.Context, client *apollo.Client, names
 			updates = append(updates, &commonmodels.ApolloKV{Key: key, Val: merged})
 		}
 	}
-	for _, kv := range updates {
+	mergedNamespace := *namespace
+	mergedNamespace.Type = format
+	mergedNamespace.KeyValList = updates
+	return updateAndReleaseNamespace(client, &mergedNamespace, user, releaseArgs)
+}
+
+func updateAndReleaseNamespace(client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+	for _, kv := range namespace.KeyValList {
+		if kv == nil {
+			return errors.New("update item failed: config item is nil")
+		}
+		kv.Key = apollo.NormalizeItemKey(namespace.Type, kv.Key)
 		if err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, user); err != nil {
 			return fmt.Errorf("update item failed: %w", err)
 		}
