@@ -33,6 +33,14 @@ type aiReviewSeverity struct {
 	dot   string
 }
 
+// Feishu limits webhook cards to 20 KB (30 KB for app cards); collapsing a panel does not shrink the payload,
+// so free-text and the inline comment list are bounded and the rest is left to the task detail page.
+const (
+	aiReviewCardMaxInlineComments = 10
+	aiReviewCardMaxTitleRunes     = 40
+	aiReviewCardMaxReasonRunes    = 200
+)
+
 var aiReviewSeverities = []aiReviewSeverity{
 	{key: "critical", label: "严重", dot: "🔴"},
 	{key: "high", label: "高", dot: "🟠"},
@@ -79,10 +87,11 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 	lc := NewLarkCard()
 	lc.SetConfig(true)
 
-	if report == nil || report.Verdict() == stepspec.AIReviewVerdictIncomplete {
+	failureReason := fmt.Sprintf("<font color='grey'>失败原因：%s</font>", larkMarkdownText(aiReviewFailureReason(spec, input.JobError), aiReviewCardMaxReasonRunes))
+	if report == nil {
 		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
 		lc.AddI18NElementsZhcnMarkdown("**任务执行失败，未生成审查报告。**")
-		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("<font color='grey'>失败原因：%s</font>", larkMarkdownText(aiReviewFailureReason(spec, input.JobError))))
+		lc.AddI18NElementsZhcnMarkdown(failureReason)
 		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("<font color='grey'>%s，耗时 %s</font>", aiReviewExecutorText(input), formatAIReviewDuration(input.DurationSecond)))
 		lc.AddI18NElementsZhcnMarkdown("<font color='grey'>请查看执行日志排查原因。</font>")
 		lc.AddI18NElementsZhcnAction("查看任务详情", input.DetailURL)
@@ -91,6 +100,11 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 
 	counts := report.SeverityCounts()
 	switch report.Verdict() {
+	case stepspec.AIReviewVerdictIncomplete:
+		// Keep the partial results so the card matches the PR comment.
+		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
+		lc.AddI18NElementsZhcnMarkdown("**审查未完整完成，以下为已完成部分的结果。**")
+		lc.AddI18NElementsZhcnMarkdown(failureReason)
 	case stepspec.AIReviewVerdictBlocked:
 		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
 		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("**审查失败：%s。**", aiReviewBlockedReason(counts)))
@@ -124,8 +138,12 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 	}
 
 	if len(publication.InlineComments) > 0 {
-		lines := make([]string, 0, len(publication.InlineComments))
-		for _, comment := range publication.InlineComments {
+		shown := publication.InlineComments
+		if len(shown) > aiReviewCardMaxInlineComments {
+			shown = shown[:aiReviewCardMaxInlineComments]
+		}
+		lines := make([]string, 0, len(shown)+1)
+		for _, comment := range shown {
 			label := "问题"
 			for _, severity := range aiReviewSeverities {
 				if severity.key == comment.Severity {
@@ -133,11 +151,14 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 					break
 				}
 			}
-			title := larkMarkdownText(comment.Title)
+			title := larkMarkdownText(comment.Title, aiReviewCardMaxTitleRunes)
 			if title == "" {
 				title = "行内评论"
 			}
 			lines = append(lines, fmt.Sprintf("- [%s：%s](%s)", label, title, comment.URL))
+		}
+		if rest := len(publication.InlineComments) - len(shown); rest > 0 {
+			lines = append(lines, fmt.Sprintf("<font color='grey'>其余 %d 条请在合并请求或任务详情中查看。</font>", rest))
 		}
 		lc.AddI18NElementsZhcnCollapsiblePanel(
 			fmt.Sprintf("查看 %d 条行内评论", len(publication.InlineComments)),
@@ -196,7 +217,7 @@ func aiReviewPRText(prID int, publication *stepspec.AIReviewPublication) string 
 	if publication.SourceBranch != "" && publication.TargetBranch != "" {
 		text = fmt.Sprintf("%s · %s → %s", ref, publication.SourceBranch, publication.TargetBranch)
 	}
-	text = larkMarkdownText(text)
+	text = larkMarkdownText(text, aiReviewCardMaxReasonRunes)
 	if publication.PRURL == "" {
 		return text
 	}
@@ -204,8 +225,8 @@ func aiReviewPRText(prID int, publication *stepspec.AIReviewPublication) string 
 }
 
 func aiReviewExecutorText(input *aiReviewCardInput) string {
-	return fmt.Sprintf("%s 于 %s 在项目「%s」执行", larkMarkdownText(input.Creator),
-		time.Unix(input.StartTime, 0).Format("2006-01-02 15:04:05"), larkMarkdownText(input.ProjectName))
+	return fmt.Sprintf("%s 于 %s 在项目「%s」执行", larkMarkdownText(input.Creator, aiReviewCardMaxTitleRunes),
+		time.Unix(input.StartTime, 0).Format("2006-01-02 15:04:05"), larkMarkdownText(input.ProjectName, aiReviewCardMaxTitleRunes))
 }
 
 func formatAIReviewDuration(seconds int64) string {
@@ -215,9 +236,12 @@ func formatAIReviewDuration(seconds int64) string {
 	return (time.Duration(seconds) * time.Second).String()
 }
 
-// larkMarkdownText flattens text to one line and escapes characters that would break lark markdown.
-func larkMarkdownText(value string) string {
+// larkMarkdownText flattens text to one line, truncates it to maxRunes and escapes characters that would break lark markdown.
+func larkMarkdownText(value string, maxRunes int) string {
 	value = strings.Join(strings.Fields(value), " ")
+	if runes := []rune(value); len(runes) > maxRunes {
+		value = string(runes[:maxRunes]) + "…"
+	}
 	return strings.NewReplacer("<", "&lt;", ">", "&gt;", "[", "\\[", "]", "\\]", "*", "\\*").Replace(value)
 }
 
