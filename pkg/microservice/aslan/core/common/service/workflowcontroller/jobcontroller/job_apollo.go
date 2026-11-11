@@ -24,13 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/imroc/req/v3"
 	"go.uber.org/zap"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	apolloservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
@@ -210,82 +210,12 @@ func (c *ApolloJobCtl) updateNamespace(ctx context.Context, client *apollo.Clien
 	// Bound the entire read/merge/write/release operation below the lock lease.
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	client = &apollo.Client{
-		Client: client.Client.Clone().OnBeforeRequest(func(_ *req.Client, request *req.Request) error {
-			request.SetContext(ctx)
-			return nil
-		}),
-		BaseURL: client.BaseURL,
-	}
-	return mergeAndReleaseNamespace(ctx, client, namespace, user, releaseArgs)
-}
-
-func mergeAndReleaseNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
-	current, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+	client = client.WithContext(ctx)
+	merged, err := apolloservice.MergeNamespace(ctx, client, namespace)
 	if err != nil {
-		return fmt.Errorf("get current namespace failed: %w", err)
+		return err
 	}
-	if current == nil {
-		return errors.New("current namespace not found")
-	}
-	format := current.Format
-	if format == "" {
-		format = namespace.Type
-	}
-	original := make(map[string]string, len(namespace.OriginalConfig))
-	for _, kv := range namespace.OriginalConfig {
-		if kv == nil {
-			return errors.New("original config item is nil; refresh the original configuration and edit again")
-		}
-		key := apollo.NormalizeItemKey(format, kv.Key)
-		if _, exists := original[key]; exists {
-			return fmt.Errorf("duplicate original config key %s", key)
-		}
-		original[key] = kv.Val
-	}
-	latest := make(map[string]string, len(current.Items))
-	for _, item := range current.Items {
-		if item == nil {
-			return errors.New("current config item is nil")
-		}
-		latest[apollo.NormalizeItemKey(format, item.Key)] = item.Value
-	}
-
-	// Merge and validate every item before writing anything to Apollo.
-	updates := make([]*commonmodels.ApolloKV, 0, len(namespace.KeyValList))
-	seen := make(map[string]bool, len(namespace.KeyValList))
-	for _, kv := range namespace.KeyValList {
-		if kv == nil {
-			return errors.New("update item failed: config item is nil")
-		}
-		key := apollo.NormalizeItemKey(format, kv.Key)
-		if seen[key] {
-			return fmt.Errorf("duplicate config key %s", key)
-		}
-		seen[key] = true
-		base, hadOriginal := original[key]
-		value, exists := latest[key]
-		if hadOriginal && kv.Val == base {
-			continue // Preserve concurrent changes, including deleted items.
-		}
-		if len(original) == 0 && value != "" && kv.Val != value {
-			return fmt.Errorf("config key %s is missing its original configuration; refresh the original configuration and edit again", key)
-		}
-		if hadOriginal && !exists {
-			return fmt.Errorf("config key %s was deleted in Apollo; refresh the original configuration and edit again", key)
-		}
-		merged, err := apollo.MergeConfig(ctx, format, base, kv.Val, value)
-		if err != nil {
-			return fmt.Errorf("merge config key %s failed: %w", key, err)
-		}
-		if !exists || merged != value {
-			updates = append(updates, &commonmodels.ApolloKV{Key: key, Val: merged})
-		}
-	}
-	mergedNamespace := *namespace
-	mergedNamespace.Type = format
-	mergedNamespace.KeyValList = updates
-	return updateAndReleaseNamespace(client, &mergedNamespace, user, releaseArgs)
+	return updateAndReleaseNamespace(client, merged, user, releaseArgs)
 }
 
 func updateAndReleaseNamespace(client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {

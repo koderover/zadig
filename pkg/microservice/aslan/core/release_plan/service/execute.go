@@ -17,7 +17,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -153,6 +155,14 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		}
 
 		ctx := e.Ctx
+		check := checkWorkflowApolloNamespaces(context.Background(), workflowController.WorkflowV4)
+		if !check.Passed {
+			messages := make([]string, 0, len(check.Errors))
+			for _, item := range check.Errors {
+				messages = append(messages, fmt.Sprintf("job %s [appID=%s, env=%s, cluster=%s, namespace=%s]: %s", item.JobName, item.AppID, item.Env, item.ClusterID, item.Namespace, item.Message))
+			}
+			return fmt.Errorf("Apollo precheck failed: %s", strings.Join(messages, "; "))
+		}
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
 			Account: ctx.Account,
