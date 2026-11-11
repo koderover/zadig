@@ -190,11 +190,11 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 	if len(report.Findings) > 0 {
 		message = fmt.Sprintf("**⚠️ 发现 %d 个问题，建议修复后再合并。**", len(report.Findings))
 	}
-	switch report.Verdict() {
-	case stepspec.AIReviewVerdictIncomplete:
+	switch {
+	case report.Incomplete || report.ExitCode == 2:
 		status = "🟡 **审查未完整完成**"
 		message = "**⚠️ 审查未完整完成，请查看错误和警告。**"
-	case stepspec.AIReviewVerdictBlocked:
+	case report.ExitCode == 1:
 		status = "🔴 **发现阻断问题**"
 	}
 	duration := "未知"
@@ -254,10 +254,10 @@ func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []model
 
 func formatAIReviewCommentWithFindings(report *stepspec.AIReviewReport, findings []stepspec.AIReviewFinding, heading string, inlinePublished int) string {
 	status := "✅ 审查通过"
-	switch report.Verdict() {
-	case stepspec.AIReviewVerdictIncomplete:
+	switch {
+	case report.Incomplete || report.ExitCode == 2:
 		status = "⚠️ 审查未完整完成"
-	case stepspec.AIReviewVerdictBlocked:
+	case report.ExitCode == 1:
 		status = "❌ 发现阻断问题"
 	}
 
