@@ -169,7 +169,7 @@ func (c *WorkflowV4TemplateVersionColl) GetLatest(templateID string) (*models.Wo
 	return resp, nil
 }
 
-// GetLatestVersions returns the latest version number for each template with a published snapshot.
+// GetLatestVersions returns the highest stored snapshot version for each template.
 func (c *WorkflowV4TemplateVersionColl) GetLatestVersions(templateIDs []string) (map[string]int, error) {
 	versions := make(map[string]int, len(templateIDs))
 	if len(templateIDs) == 0 {

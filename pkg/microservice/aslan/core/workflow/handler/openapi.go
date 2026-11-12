@@ -319,17 +319,17 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 }
 
 // @Summary Replace the delta patches of a template bound workflow
-// @Description Replace the complete delta set of a template bound workflow. Instance fields are kept by the server; the template identity and version are maintained by the server.
-// @Description The complete delta must apply to the current base version. The template identity, base version and snapshot ID remain unchanged.
+// @Description Replace all delta patches against the bound base version; preserve instance configuration, template identity and version.
+// @Description Patches are limited to params, stages, share_storages and concurrency_limit. Stage/job IDs and counts, job types and job run/execute/error policies must remain consistent with the base template.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
 // @Param name path string true "Workflow key"
 // @Param projectKey query string true "Project key the workflow belongs to"
 // @Param body body workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq true "Complete delta set; null or missing is rejected, [] clears all deltas"
-// @Success 200 "Updated successfully; no business response body"
+// @Success 200 {object} map[string]string "Returns message=success"
 // @Failure 400 {object} map[string]interface{}
-// @Failure 403 {object} map[string]interface{}
+// @Failure 403 "Forbidden"
 // @Failure 500 {object} map[string]interface{}
 // @Router /openapi/workflows/custom/{name}/template-binding [put]
 func OpenAPIUpdateWorkflowTemplateBinding(c *gin.Context) {

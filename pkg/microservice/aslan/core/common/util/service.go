@@ -408,7 +408,7 @@ func MergeServiceVariableKVsAndKVInput(serviceKVs []*commontypes.ServiceVariable
 		inputMap[kv.Key] = kv
 	}
 
-	// keep every template variable so the saved service matches the template defaults used to render it
+	// Preserve template defaults for variables omitted from the request.
 	mergedKVs := make([]*commontypes.ServiceVariableKV, 0, len(serviceKVs)+len(kvinput))
 	templateKeys := map[string]bool{}
 	for _, kv := range serviceKVs {
