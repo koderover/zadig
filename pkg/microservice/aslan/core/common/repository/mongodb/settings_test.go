@@ -1,9 +1,11 @@
 package mongodb
 
 import (
+	"errors"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
@@ -57,4 +59,21 @@ func TestWorkflowTaskListRefreshInterval(t *testing.T) {
 			t.Fatalf("saved interval = %d; want 10", got)
 		}
 	})
+
+	for _, tc := range []struct {
+		name    string
+		matched int
+		wantErr error
+	}{
+		{name: "settings document missing", matched: 0, wantErr: mongo.ErrNoDocuments},
+		{name: "interval unchanged", matched: 1},
+	} {
+		mt.Run(tc.name, func(mt *mtest.T) {
+			coll := &SystemSettingColl{Collection: mt.Coll}
+			mt.AddMockResponses(mtest.CreateSuccessResponse(bson.E{Key: "n", Value: tc.matched}, bson.E{Key: "nModified", Value: 0}))
+			if err := coll.UpdateWorkflowTaskListRefreshInterval(10); !errors.Is(err, tc.wantErr) {
+				t.Fatalf("update error = %v; want %v", err, tc.wantErr)
+			}
+		})
+	}
 }

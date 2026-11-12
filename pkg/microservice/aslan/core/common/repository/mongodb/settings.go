@@ -346,6 +346,12 @@ func (c *SystemSettingColl) UpdateWorkflowTaskListRefreshInterval(interval int64
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	query := bson.M{"_id": id}
 	change := bson.M{"$set": bson.M{"workflow_task_list_refresh_interval": interval}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
-	return err
+	result, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
 }

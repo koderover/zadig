@@ -35,10 +35,6 @@ func GetWorkflowTaskListSettings(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
 
 	ctx.Resp, ctx.RespErr = service.GetWorkflowTaskListSettings()
 }
