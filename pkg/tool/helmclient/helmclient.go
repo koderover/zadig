@@ -60,12 +60,10 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	k8schartutil "k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -874,25 +872,7 @@ func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, err
 		if !filepath.IsAbs(ud) {
 			ud = filepath.Join(p.DestDir, ud)
 		}
-		// Let udCheck to check conflict file/dir without replacing ud when untarDir is the current directory(.).
-		udCheck := ud
-		if udCheck == "." {
-			_, udCheck = filepath.Split(chartRef)
-		} else {
-			_, chartName := filepath.Split(chartRef)
-			udCheck = filepath.Join(udCheck, chartName)
-		}
-
-		if _, err := os.Stat(udCheck); err != nil {
-			if err := os.MkdirAll(udCheck, 0755); err != nil {
-				return out.String(), errors.Wrap(err, "failed to untar (mkdir)")
-			}
-
-		} else {
-			return out.String(), errors.Errorf("failed to untar: a file or directory with the name %s already exists", udCheck)
-		}
-
-		return out.String(), k8schartutil.ExpandFile(ud, saved)
+		return out.String(), expandDownloadedChart(saved, ud)
 	}
 	return out.String(), nil
 }
@@ -1093,23 +1073,17 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string, pr
 
 func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string, isProduction bool) (string, error) {
 	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
-	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
+	// Values reads must not replace a chart that another request is deploying.
+	localPath, err := os.MkdirTemp("", "helm-values-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(localPath)
 
-	lock := cache.NewRedisLock(fmt.Sprintf("download-chart-%s", localPath))
-	lock.Lock()
-	defer lock.Unlock()
-
-	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
-	mutex.Lock()
-	defer mutex.Unlock()
-	// remove local file to untar
-	_ = os.RemoveAll(localPath)
-
-	err := hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
+	err = hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
 	}
-	mutex.Unlock()
 
 	fsTree := os.DirFS(localPath)
 	valuesYAML, err := util.ReadValuesYAML(fsTree, chartName, log.SugaredLogger())

@@ -598,8 +598,6 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName, args.Production)
 
 	log.Infof("downloading chart %s to %s", chartRef, localPath)
-	// remove local file to untar
-	_ = os.RemoveAll(localPath)
 	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to download chart %s/%s-%s", chartRepo.RepoName, chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))

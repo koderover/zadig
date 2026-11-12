@@ -81,6 +81,7 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/stat/handler/ai_review_stat_query_regression_test.go
 !pkg/microservice/aslan/core/common/service/webhook/manual_webhook_test.go
 !pkg/microservice/aslan/core/workflow/testing/service/scanning_webhook_test.go
+!pkg/tool/helmclient/chart_download_test.go
 !pkg/microservice/halman/**/*_test.go
 !pkg/microservice/aslan/core/system/handler/ai_assistant_test.go
 !pkg/types/ai_assistant_test.go
