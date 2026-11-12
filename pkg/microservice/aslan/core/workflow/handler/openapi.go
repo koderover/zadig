@@ -327,7 +327,7 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 // @Param name path string true "Workflow key"
 // @Param projectKey query string true "Project key the workflow belongs to"
 // @Param body body workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq true "Complete delta set; null or missing is rejected, [] clears all deltas"
-// @Success 200 {object} map[string]string
+// @Success 200 "Updated successfully; no business response body"
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
