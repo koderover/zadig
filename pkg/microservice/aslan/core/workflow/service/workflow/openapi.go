@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -666,11 +667,15 @@ func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, use
 	if err := util.DeepCopy(updated, workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	updated.TemplateBinding.DeltaPatches = deltaPatches
-	rendered, err := renderTemplateBoundWorkflowOnBase(updated)
+	version, err := getTemplateVersion(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
 	if err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+	rendered, err := applyOpenAPIWorkflowTemplateBindingDelta(workflowFromTemplateSnapshot(version.Snapshot, workflow), deltaPatches)
+	if err != nil {
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	updated.TemplateBinding.DeltaPatches = deltaPatches
 	// Discard diagnostics for the replaced delta; latest-template compatibility is computed by the status endpoint.
 	updated.TemplateBinding.ConflictCount = 0
 	updated.TemplateBinding.InvalidPatches = nil
@@ -690,6 +695,41 @@ func OpenAPIUpdateWorkflowTemplateBinding(workflow *commonmodels.WorkflowV4, use
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	return nil
+}
+
+func applyOpenAPIWorkflowTemplateBindingDelta(base *commonmodels.WorkflowV4, patches []*commonmodels.JSONPatchOperation) (*commonmodels.WorkflowV4, error) {
+	for _, patch := range patches {
+		if patch == nil {
+			return nil, fmt.Errorf("nil json patch operation")
+		}
+		if !isTemplateBindingInheritedPath(patch.Path) || (patch.From != "" && !isTemplateBindingInheritedPath(patch.From)) {
+			return nil, fmt.Errorf("delta patch must stay within template inherited fields: path %q, from %q", patch.Path, patch.From)
+		}
+	}
+	_, rendered, err := validateFrontendWorkflowDelta(base, patches)
+	if err != nil {
+		return nil, err
+	}
+	// Compare the result so replacing an entire stage or job cannot bypass the restrictions.
+	if len(base.Stages) != len(rendered.Stages) {
+		return nil, fmt.Errorf("stages cannot be added or removed from a template bound workflow")
+	}
+	for stageIndex, stage := range rendered.Stages {
+		baseStage := base.Stages[stageIndex]
+		if stage == nil || baseStage == nil || stage.ID != baseStage.ID || len(stage.Jobs) != len(baseStage.Jobs) {
+			return nil, fmt.Errorf("stage %d must retain the template's ID and job structure", stageIndex)
+		}
+		for jobIndex, job := range stage.Jobs {
+			baseJob := baseStage.Jobs[jobIndex]
+			if job == nil || baseJob == nil || job.ID != baseJob.ID || job.JobType != baseJob.JobType {
+				return nil, fmt.Errorf("stage %d job %d must retain the template's job ID and type", stageIndex, jobIndex)
+			}
+			if job.RunPolicy != baseJob.RunPolicy || !reflect.DeepEqual(job.ExecutePolicy, baseJob.ExecutePolicy) || !reflect.DeepEqual(job.ErrorPolicy, baseJob.ErrorPolicy) {
+				return nil, fmt.Errorf("stage %d job %d must retain the template's run_policy, execute_policy and error_policy", stageIndex, jobIndex)
+			}
+		}
+	}
+	return rendered, nil
 }
 
 func OpenAPIGetCustomWorkflowV4List(args *OpenAPIWorkflowV4ListReq, logger *zap.SugaredLogger) (*OpenAPIWorkflowListResp, error) {

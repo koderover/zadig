@@ -41,12 +41,12 @@ type openAPIYamlTemplateList struct {
 }
 
 // @Summary List K8s YAML service templates
-// @Description List K8s YAML service templates with their exact names
+// @Description List K8s YAML service templates with their exact names. Available to authenticated users, matching the web endpoint.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
-// @Param pageNum query int false "page number"
-// @Param pageSize query int false "page size"
+// @Param pageNum query int false "Page number, greater than 0" default(1)
+// @Param pageSize query int false "Page size, greater than 0" default(20)
 // @Success 200 {object} openAPIYamlTemplateList
 // @Router /openapi/templates/yaml [get]
 func OpenAPIListYamlTemplates(c *gin.Context) {
@@ -54,10 +54,6 @@ func OpenAPIListYamlTemplates(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.Template.View {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -78,7 +74,7 @@ func OpenAPIListYamlTemplates(c *gin.Context) {
 }
 
 // @Summary Get K8s YAML service template
-// @Description Get a K8s YAML service template with its content and variable definitions
+// @Description Get a K8s YAML service template with its content and variable definitions. Available to authenticated users, matching the web endpoint.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
@@ -90,10 +86,6 @@ func OpenAPIGetYamlTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.Template.View {
 		ctx.UnAuthorized = true
 		return
 	}

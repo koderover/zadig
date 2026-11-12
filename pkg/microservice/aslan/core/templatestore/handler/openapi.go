@@ -54,7 +54,7 @@ func OpenAPIListChartTemplates(c *gin.Context) {
 }
 
 // @Summary List workflow templates
-// @Description List workflow template previews and the latest bindable version of each template. latest_version is 0 when the template has no version snapshot.
+// @Description List workflow template previews and the latest stored snapshot version of each template. latest_version is 0 when the template has no version snapshot.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
@@ -63,7 +63,7 @@ func OpenAPIListChartTemplates(c *gin.Context) {
 // @Param excludeBuildIn query string false "Only the string true excludes built-in templates"
 // @Success 200 {object} templateservice.OpenAPIListWorkflowTemplatesResponse
 // @Failure 400 {object} map[string]interface{}
-// @Failure 403 {object} map[string]interface{}
+// @Failure 403 "Forbidden"
 // @Failure 500 {object} map[string]interface{}
 // @Router /openapi/templates/workflows [get]
 func OpenAPIListWorkflowTemplates(c *gin.Context) {
