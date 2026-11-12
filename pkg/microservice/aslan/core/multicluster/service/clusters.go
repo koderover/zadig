@@ -90,15 +90,15 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	Strategy          string              `json:"strategy,omitempty"        bson:"strategy,omitempty"`
-	NodeLabels        []string            `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
-	ProjectNames      []string            `json:"project_names"             bson:"project_names"`
-	Tolerations       string              `json:"tolerations"               bson:"tolerations"`
-	ClusterAccessYaml string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
-	ScheduleWorkflow  bool                `json:"schedule_workflow"         bson:"schedule_workflow"`
-	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
-	EnableIRSA        bool                `json:"enable_irsa"               bson:"enable_irsa"`
-	IRSARoleARM       string              `json:"irsa_role_arn"             bson:"irsa_role_arn"`
+	Strategy             string              `json:"strategy,omitempty"        bson:"strategy,omitempty"`
+	NodeLabels           []string            `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
+	ProjectNames         []string            `json:"project_names"             bson:"project_names"`
+	Tolerations          string              `json:"tolerations"               bson:"tolerations"`
+	ClusterAccessYaml    string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
+	WorkflowProjectNames []string            `json:"workflow_project_names"      bson:"workflow_project_names"`
+	ScheduleStrategy     []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
+	EnableIRSA           bool                `json:"enable_irsa"               bson:"enable_irsa"`
+	IRSARoleARM          string              `json:"irsa_role_arn"             bson:"irsa_role_arn"`
 
 	AgentNodeSelector       string `json:"agent_node_selector"            bson:"agent_node_selector"`
 	AgentToleration         string `json:"agent_toleration"               bson:"agent_toleration"`
@@ -180,6 +180,14 @@ func (k *K8SCluster) Clean() error {
 }
 
 func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
+	return ListClustersByResource(ids, projectName, "environment", logger)
+}
+
+// ListClustersByResource keeps environment and workflow access independent.
+func ListClustersByResource(ids []string, projectName, resourceType string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
+	if resourceType != "environment" && resourceType != "workflow" {
+		return nil, fmt.Errorf("invalid cluster resource type %q", resourceType)
+	}
 	idSet := sets.NewString(ids...)
 	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
@@ -188,7 +196,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 	}
 
 	existClusterID := sets.NewString()
-	if projectName != "" {
+	if resourceType == "environment" && projectName != "" {
 		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
 			ProjectName: projectName,
 		})
@@ -217,7 +225,11 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 
 	var res []*K8SCluster
 	for _, c := range cs {
-		if projectName != "" && !existClusterID.Has(c.ID.Hex()) {
+		if resourceType == "workflow" {
+			if !c.WorkflowEnabled() || (projectName != "" && !c.CanScheduleWorkflow(projectName)) {
+				continue
+			}
+		} else if projectName != "" && !existClusterID.Has(c.ID.Hex()) {
 			continue
 		}
 
@@ -233,17 +245,14 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 				Strategy:                c.AdvancedConfig.Strategy,
 				NodeLabels:              convertToNodeLabels(c.AdvancedConfig.NodeLabels),
 				ProjectNames:            GetProjectNames(c.ID.Hex(), logger),
+				WorkflowProjectNames:    c.AdvancedConfig.WorkflowProjectNames,
 				AgentToleration:         c.AdvancedConfig.AgentToleration,
 				AgentNodeSelector:       c.AdvancedConfig.AgentNodeSelector,
 				AgentAffinity:           c.AdvancedConfig.AgentAffinity,
 				AgentDisableHostNetwork: c.AdvancedConfig.AgentDisableHostNetwork,
 				ClusterAccessYaml:       c.AdvancedConfig.ClusterAccessYaml,
 			}
-			if advancedConfig.ClusterAccessYaml != "" {
-				advancedConfig.ScheduleWorkflow = c.AdvancedConfig.ScheduleWorkflow
-				advancedConfig.ClusterAccessYaml = c.AdvancedConfig.ClusterAccessYaml
-			} else {
-				advancedConfig.ScheduleWorkflow = true
+			if advancedConfig.ClusterAccessYaml == "" {
 				advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
 			}
 
@@ -318,6 +327,7 @@ func GetCluster(id string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster,
 }
 
 func GetProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames []string) {
+	projectNames = []string{}
 	projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID})
 	if err != nil {
 		logger.Errorf("Failed to list projectClusterRelation, err:%s", err)
@@ -372,6 +382,13 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		return nil, err
 	}
 
+	if cluster.AdvancedConfig.ProjectNames == nil {
+		cluster.AdvancedConfig.ProjectNames = []string{setting.AllProjects}
+	}
+	if cluster.AdvancedConfig.WorkflowProjectNames == nil {
+		cluster.AdvancedConfig.WorkflowProjectNames = []string{setting.AllProjects}
+	}
+
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
@@ -424,7 +441,9 @@ func UpdateCluster(ctx *handler.Context, id string, args *K8SCluster) (*commonmo
 	cluster.Production = clusterArgs.Production
 	cluster.KubeConfig = clusterArgs.KubeConfig
 	cluster.AdvancedConfig.ClusterAccessYaml = clusterArgs.AdvancedConfig.ClusterAccessYaml
-	cluster.AdvancedConfig.ScheduleWorkflow = clusterArgs.AdvancedConfig.ScheduleWorkflow
+	if clusterArgs.AdvancedConfig.WorkflowProjectNames != nil {
+		cluster.AdvancedConfig.WorkflowProjectNames = clusterArgs.AdvancedConfig.WorkflowProjectNames
+	}
 	cluster.AdvancedConfig.EnableIRSA = clusterArgs.AdvancedConfig.EnableIRSA
 	cluster.AdvancedConfig.IRSARoleARM = clusterArgs.AdvancedConfig.IRSARoleARM
 	cluster.AdvancedConfig.AgentNodeSelector = clusterArgs.AdvancedConfig.AgentNodeSelector
@@ -432,28 +451,31 @@ func UpdateCluster(ctx *handler.Context, id string, args *K8SCluster) (*commonmo
 	cluster.AdvancedConfig.AgentAffinity = clusterArgs.AdvancedConfig.AgentAffinity
 	cluster.AdvancedConfig.AgentDisableHostNetwork = clusterArgs.AdvancedConfig.AgentDisableHostNetwork
 
-	// Delete all projects associated with clusterID
-	hasErr := false
-	err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
-	if err != nil {
-		hasErr = true
-		ctx.Logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
-	}
-	for _, projectName := range args.AdvancedConfig.ProjectNames {
-		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
-			ProjectName: projectName,
-			ClusterID:   id,
-			CreatedBy:   args.CreatedBy,
-		})
+	// Omitted environment scope keeps the existing relations; [] explicitly clears them.
+	if clusterArgs.AdvancedConfig.ProjectNames != nil {
+		// Delete all projects associated with clusterID
+		hasErr := false
+		err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
 		if err != nil {
 			hasErr = true
-			ctx.Logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+			ctx.Logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
 		}
-	}
-	if !hasErr {
-		cluster.AdvancedConfig.ProjectNames = args.AdvancedConfig.ProjectNames
-	} else {
-		cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+		for _, projectName := range clusterArgs.AdvancedConfig.ProjectNames {
+			err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+				ProjectName: projectName,
+				ClusterID:   id,
+				CreatedBy:   args.CreatedBy,
+			})
+			if err != nil {
+				hasErr = true
+				ctx.Logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+			}
+		}
+		if !hasErr {
+			cluster.AdvancedConfig.ProjectNames = clusterArgs.AdvancedConfig.ProjectNames
+		} else {
+			cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+		}
 	}
 
 	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
@@ -461,8 +483,8 @@ func UpdateCluster(ctx *handler.Context, id string, args *K8SCluster) (*commonmo
 		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
 	}
 
-	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	// Only update workflow components when the cluster has workflow resources.
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -533,7 +555,7 @@ func AddOrUpdateClusterStrategy(ctx *handler.Context, id string, strategy *Sched
 	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -584,7 +606,7 @@ func DeleteClusterStrategy(ctx *handler.Context, id, strategyID string) (*common
 	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -619,7 +641,7 @@ func UpdateClusterCache(ctx *handler.Context, id string, cache *types.Cache) (*c
 	}
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -637,7 +659,7 @@ func UpdateClusterCache(ctx *handler.Context, id string, cache *types.Cache) (*c
 	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -680,7 +702,7 @@ func UpdateClusterStorage(ctx *handler.Context, id string, shareStorage *types.S
 	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -729,7 +751,7 @@ func UpdateClusterDind(ctx *handler.Context, id string, dindCfg *commonmodels.Di
 	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+	if !cluster.WorkflowEnabled() {
 		return cluster, nil
 	}
 
@@ -976,10 +998,12 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return err
 		}
 		dindNamespace := kube.ResolveDindNamespace(clusterInfo)
-		if _, err := kube.EnsureDindTLSSecret(clientset, dindNamespace); err != nil {
-			err = fmt.Errorf("failed to ensure dind TLS secret in cluster %s before applying yaml: %s", clusterInfo.Name, err)
-			logger.Error(err)
-			return err
+		if clusterInfo.WorkflowEnabled() {
+			if _, err := kube.EnsureDindTLSSecret(clientset, dindNamespace); err != nil {
+				err = fmt.Errorf("failed to ensure dind TLS secret in cluster %s before applying yaml: %s", clusterInfo.Name, err)
+				logger.Error(err)
+				return err
+			}
 		}
 
 		// Upgrade attached cluster.
@@ -1900,7 +1924,7 @@ func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
 		advancedConfig.AgentAffinity = args.AdvancedConfig.AgentAffinity
 		advancedConfig.AgentDisableHostNetwork = args.AdvancedConfig.AgentDisableHostNetwork
 		advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
-		advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		advancedConfig.WorkflowProjectNames = args.AdvancedConfig.WorkflowProjectNames
 		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
 		advancedConfig.IRSARoleARM = args.AdvancedConfig.IRSARoleARM
 
@@ -1926,7 +1950,6 @@ func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" {
 			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
-			advancedConfig.ScheduleWorkflow = true
 		} else {
 			// check the cluster access yaml
 			err := kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, log.SugaredLogger())
@@ -1934,12 +1957,10 @@ func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
 				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
 			}
 			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
-			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
 		}
 	} else {
 		advancedConfig = &commonmodels.AdvancedConfig{
 			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
-			ScheduleWorkflow:  true,
 			Strategy:          setting.NormalSchedule,
 			ScheduleStrategy: []*commonmodels.ScheduleStrategy{
 				{

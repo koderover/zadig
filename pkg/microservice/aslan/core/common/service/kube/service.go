@@ -169,7 +169,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	if cluster.Type == setting.KubeConfigClusterType {
 		// if scheduleWorkflow==false, we don't need to create resources in the cluster
 		// resource: Namespace: koderover-agent | Service: dind | StatefulSet: dind
-		if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ScheduleWorkflow {
+		if cluster.WorkflowEnabled() {
 			// since we will always be able to connect with direct connection
 			err := InitializeExternalCluster(cluster.ID.Hex())
 			if err != nil {
@@ -281,8 +281,10 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 		}
 	}
 
-	if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ClusterAccessYaml == "" {
-		cluster.AdvancedConfig.ScheduleWorkflow = true
+	if cluster.AdvancedConfig == nil {
+		cluster.AdvancedConfig = &models.AdvancedConfig{}
+	}
+	if cluster.AdvancedConfig.ClusterAccessYaml == "" {
 		cluster.AdvancedConfig.ClusterAccessYaml = ClusterAccessYamlTemplate
 	}
 
@@ -360,26 +362,17 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 	}
 
 	dindReplicas, dindLimitsCPU, dindLimitsMemory, dindEnablePV, dindSCName, dindStorageSizeInGiB, dindStorageDriver := getDindCfg(cluster)
-	dindTLSCerts, err := EnsureDindTLSCerts()
-	if err != nil {
-		return nil, fmt.Errorf("failed to ensure dind TLS certs: %w", err)
-	}
-	dindTLS := DindTLSSecretTemplate(dindTLSCerts)
-
-	yaml := agentYaml
-	if cluster.AdvancedConfig != nil {
-		if cluster.AdvancedConfig.ClusterAccessYaml != "" {
-			yaml = fmt.Sprintf("%s\n---\n%s", yaml, cluster.AdvancedConfig.ClusterAccessYaml)
-			if cluster.AdvancedConfig.ScheduleWorkflow {
-				yaml = fmt.Sprintf("%s\n---\n%s", yaml, WorkflowResourceYaml)
-			}
-			// if cluster.AdvancedConfig.ClusterAccessYaml is empty, it means the cluster is created before the cluster access function, so we need to contain the old one.
-		} else {
-			yaml = fmt.Sprintf("%s\n---\n%s", yaml, ClusterAccessYamlTemplate)
-			yaml = fmt.Sprintf("%s\n---\n%s", yaml, WorkflowResourceYaml)
+	var dindTLS DindTLSSecretTemplateData
+	if cluster.WorkflowEnabled() {
+		dindTLSCerts, err := EnsureDindTLSCerts()
+		if err != nil {
+			return nil, fmt.Errorf("failed to ensure dind TLS certs: %w", err)
 		}
-	} else {
-		yaml = fmt.Sprintf("%s\n---\n%s", yaml, ClusterAccessYamlTemplate)
+		dindTLS = DindTLSSecretTemplate(dindTLSCerts)
+	}
+
+	yaml := fmt.Sprintf("%s\n---\n%s", agentYaml, cluster.AdvancedConfig.ClusterAccessYaml)
+	if cluster.WorkflowEnabled() {
 		yaml = fmt.Sprintf("%s\n---\n%s", yaml, WorkflowResourceYaml)
 	}
 
@@ -396,10 +389,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 				return strings.Join(lines, "\n")
 			},
 		}).Parse(yaml))
-	scheduleWorkflow := true
-	if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ClusterAccessYaml != "" {
-		scheduleWorkflow = cluster.AdvancedConfig.ScheduleWorkflow
-	}
+	scheduleWorkflow := cluster.WorkflowEnabled()
 
 	serverURL, err := GetSystemServerURL()
 	if err != nil {
@@ -450,6 +440,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			DindStorageDriver:    dindStorageDriver,
 			DindTLS:              dindTLS,
+			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
 			Toleration:           cluster.AdvancedConfig.AgentToleration,
@@ -976,6 +967,7 @@ rules:
   verbs:
   - '*'
 
+{{- if .ScheduleWorkflow }}
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1015,6 +1007,7 @@ roleRef:
   name: workflow-cm-manager
   apiGroup: rbac.authorization.k8s.io
 
+{{- end }}
 ---
 
 apiVersion: v1
@@ -1090,6 +1083,8 @@ spec:
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
           value: "{{.AslanBaseAddr}}"
+        - name: SCHEDULE_WORKFLOW
+          value: "{{.ScheduleWorkflow}}"
         resources:
           limits:
             cpu: 1000m
@@ -1104,6 +1099,7 @@ spec:
     type: RollingUpdate
 {{- end }}
 
+{{- if .ScheduleWorkflow }}
 ---
 
 apiVersion: v1
@@ -1231,6 +1227,7 @@ spec:
   selector:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
+{{- end }}
 `))
 
 var ClusterAccessYamlTemplate = `

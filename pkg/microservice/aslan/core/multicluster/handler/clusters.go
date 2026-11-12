@@ -70,7 +70,8 @@ func ListClusters(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListClusters(clusters, projectName, ctx.Logger)
+	resourceType := c.DefaultQuery("resourceType", "environment")
+	ctx.Resp, ctx.RespErr = service.ListClustersByResource(clusters, projectName, resourceType, ctx.Logger)
 }
 
 func GetCluster(c *gin.Context) {
