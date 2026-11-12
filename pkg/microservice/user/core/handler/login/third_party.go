@@ -92,8 +92,7 @@ func Login(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	authCodeURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline,
-		oauth2.SetAuthURLParam("redirect", c.Query("redirect")))
+	authCodeURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	defaultLogin := ""
 	replaceURL := configbase.SystemAddress() + "/dex/auth"
 	if systemConfig.DefaultLogin != setting.DefaultLoginLocal {
