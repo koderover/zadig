@@ -38,6 +38,7 @@ import (
 
 	hc "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -71,11 +72,7 @@ import (
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
-const (
-	HelmPluginsDirectory = "/app/.helm/helmplugin"
-	helmClientQPS        = 50
-	helmClientBurst      = 300
-)
+const HelmPluginsDirectory = "/app/.helm/helmplugin"
 
 var repoInfo *repo.File
 var generalSettings *cli.EnvSettings
@@ -169,9 +166,18 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
 // kubeClient is nil until supplied by NewClientFromNamespace or Clone.
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, error) {
+	helmClientQPS := viper.GetInt("HELM_CLIENT_QPS")
+	if helmClientQPS <= 0 {
+		helmClientQPS = 50
+	}
+	helmClientBurst := viper.GetInt("HELM_CLIENT_BURST")
+	if helmClientBurst <= 0 {
+		helmClientBurst = 300
+	}
+
 	// Keep Helm's rate limits separate from the shared Kubernetes clients.
 	restConfig = rest.CopyConfig(restConfig)
-	restConfig.QPS = helmClientQPS
+	restConfig.QPS = float32(helmClientQPS)
 	restConfig.Burst = helmClientBurst
 	restConfig.RateLimiter = nil
 
