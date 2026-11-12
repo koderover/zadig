@@ -17,11 +17,11 @@ limitations under the License.
 package kube
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
-	"sort"
 	"time"
 
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -67,17 +67,20 @@ func orderedResourcesToUpdate(resources []*unstructured.Unstructured, pending ma
 	for i, kind := range releaseutil.InstallOrder {
 		priorities[kind] = i
 	}
-	sort.SliceStable(ordered, func(i, j int) bool {
-		a, b := ordered[i].GetKind(), ordered[j].GetKind()
+	slices.SortStableFunc(ordered, func(left, right *unstructured.Unstructured) int {
+		a, b := left.GetKind(), right.GetKind()
 		ai, aKnown := priorities[a]
 		bi, bKnown := priorities[b]
 		if aKnown != bKnown {
-			return aKnown
+			if aKnown {
+				return -1
+			}
+			return 1
 		}
 		if aKnown {
-			return ai < bi
+			return cmp.Compare(ai, bi)
 		}
-		return a < b
+		return cmp.Compare(a, b)
 	})
 	return ordered
 }
@@ -106,12 +109,12 @@ func orderedResourcesToRemove(current, desired []*unstructured.Unstructured) []*
 			ordered = append(ordered, u)
 		}
 	}
-	sort.SliceStable(ordered, func(i, j int) bool {
-		a, b := deletionPriority(ordered[i]), deletionPriority(ordered[j])
+	slices.SortStableFunc(ordered, func(left, right *unstructured.Unstructured) int {
+		a, b := deletionPriority(left), deletionPriority(right)
 		if a != b {
-			return a < b
+			return cmp.Compare(a, b)
 		}
-		return ordered[i].GetKind() < ordered[j].GetKind()
+		return cmp.Compare(left.GetKind(), right.GetKind())
 	})
 	return ordered
 }
