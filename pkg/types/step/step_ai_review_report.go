@@ -28,6 +28,8 @@ type StepAIReviewReportSpec struct {
 	RepoOwner       string          `bson:"repo_owner" json:"repo_owner" yaml:"repo_owner"`
 	RepoName        string          `bson:"repo_name" json:"repo_name" yaml:"repo_name"`
 	PR              int             `bson:"pr" json:"pr" yaml:"pr"`
+	// FailOn lists the severities that block the review when the quality gate is enabled.
+	FailOn []string `bson:"fail_on,omitempty" json:"fail_on,omitempty" yaml:"fail_on,omitempty"`
 	Report          *AIReviewReport `bson:"report,omitempty" json:"report,omitempty" yaml:"report,omitempty"`
 	CollectionError string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
 	// Publication records what was posted to the pull/merge request, for notifications.

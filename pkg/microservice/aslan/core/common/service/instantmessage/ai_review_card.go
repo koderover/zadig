@@ -107,7 +107,7 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 		lc.AddI18NElementsZhcnMarkdown(failureReason)
 	case stepspec.AIReviewVerdictBlocked:
 		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
-		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("**审查失败：%s。**", aiReviewBlockedReason(counts)))
+		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("**审查失败：%s。**", aiReviewBlockedReason(counts, spec.FailOn)))
 	case stepspec.AIReviewVerdictPassedWithFindings:
 		lc.SetHeader(feishuHeaderTemplateOrange, aiReviewCardTitle(fmt.Sprintf("⚠️ AI 审查通过，发现 %d 个问题", len(report.Findings)), spec.RepoName), feiShuTagText)
 		lc.AddI18NElementsZhcnMarkdown(fmt.Sprintf("**审查通过，发现 %d 个问题，建议修复后再合并。**", len(report.Findings)))
@@ -178,16 +178,27 @@ func aiReviewCardTitle(prefix, repoName string) string {
 	return prefix + " · " + repoName
 }
 
-func aiReviewBlockedReason(counts map[string]int) string {
-	switch {
-	case counts["critical"] > 0 && counts["high"] > 0:
-		return "存在严重、高危问题"
-	case counts["critical"] > 0:
-		return "存在严重问题"
-	case counts["high"] > 0:
-		return "存在高危问题"
+// aiReviewBlockedReason names the found severities that tripped the quality gate, e.g. "存在严重、高危问题".
+func aiReviewBlockedReason(counts map[string]int, failOn []string) string {
+	blocking := make(map[string]bool, len(failOn))
+	for _, severity := range failOn {
+		blocking[strings.ToLower(strings.TrimSpace(severity))] = true
 	}
-	return "存在阻断问题"
+	if len(blocking) == 0 {
+		// Tasks created before fail_on was recorded: fall back to the default gate.
+		blocking["critical"], blocking["high"] = true, true
+	}
+	names := map[string]string{"critical": "严重", "high": "高危", "medium": "中危", "low": "低危"}
+	found := make([]string, 0, len(aiReviewSeverities))
+	for _, severity := range aiReviewSeverities {
+		if blocking[severity.key] && counts[severity.key] > 0 {
+			found = append(found, names[severity.key])
+		}
+	}
+	if len(found) == 0 {
+		return "存在阻断问题"
+	}
+	return "存在" + strings.Join(found, "、") + "问题"
 }
 
 func aiReviewFailureReason(spec *stepspec.StepAIReviewReportSpec, jobError string) string {

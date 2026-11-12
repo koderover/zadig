@@ -1210,6 +1210,7 @@ func (j ScanningJobController) toAIReviewJobTask(
 				RepoOwner:  repo.GetRepoNamespace(),
 				RepoName:   repo.RepoName,
 				PR:         repo.PR,
+				FailOn:     aiReviewFailOn(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn),
 			},
 		},
 	)
@@ -1223,10 +1224,14 @@ func (j ScanningJobController) toAIReviewJobTask(
 }
 
 func aiReviewFailOnValue(checkQualityGate bool, failOn []string) string {
+	return strings.Join(aiReviewFailOn(checkQualityGate, failOn), ",")
+}
+
+func aiReviewFailOn(checkQualityGate bool, failOn []string) []string {
 	if !checkQualityGate {
-		return ""
+		return nil
 	}
-	return strings.Join(failOn, ",")
+	return append([]string(nil), failOn...)
 }
 
 func buildAIReviewScript() string {
