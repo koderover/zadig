@@ -600,15 +600,17 @@ func validateJobPolicies(template, rendered *commonmodels.WorkflowV4) error {
 	if len(templateStages) != len(renderedStages) {
 		return fmt.Errorf("workflow stages must be consistent with workflow template")
 	}
-	for stageID, templateJobs := range templateStages {
+	for _, templateStage := range template.Stages {
+		stageID := templateStage.ID
 		renderedJobs, ok := renderedStages[stageID]
 		if !ok {
 			return fmt.Errorf("stage id %q must be consistent with workflow template", stageID)
 		}
-		if len(templateJobs) != len(renderedJobs) {
+		if len(templateStage.Jobs) != len(renderedJobs) {
 			return fmt.Errorf("jobs in stage %q must be consistent with workflow template", stageID)
 		}
-		for jobID, templateJob := range templateJobs {
+		for _, templateJob := range templateStage.Jobs {
+			jobID := templateJob.ID
 			renderedJob, ok := renderedJobs[jobID]
 			if !ok {
 				return fmt.Errorf("job id %q in stage %q must be consistent with workflow template", jobID, stageID)
