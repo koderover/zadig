@@ -146,6 +146,8 @@ type EnvRendersetArg struct {
 	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData"`
 	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues"`
 	UpdateServiceTmpl bool                              `json:"updateServiceTmpl"`
+	// UpgradeCRD controls whether CRDs in the chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgradeCRD,omitempty"`
 }
 
 type K8sRendersetArg struct {
@@ -200,6 +202,8 @@ type UpdateMultiHelmProductArg struct {
 	ChartValues     []*commonservice.HelmSvcRenderArg `json:"chartValues"`
 	DeletedServices []string                          `json:"deletedServices"`
 	ReplacePolicy   string                            `json:"replacePolicy"` // TODO logic not implemented
+	// UpgradeCRD controls whether CRDs in the chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgradeCRD,omitempty"`
 }
 
 type RawYamlResp struct {

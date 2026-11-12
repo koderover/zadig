@@ -1004,7 +1004,7 @@ func UpdateProductAlias(envName, productName, alias string, production bool) err
 	return nil
 }
 
-func updateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
+func updateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1204,7 +1204,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 
 	go func() {
 		errMsg := ""
-		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, filter, log)
+		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, filter, skipUpgradeCRDs, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -2076,7 +2076,7 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 			}
 		}
 	}
-	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, nil, nil, log)
+	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, nil, nil, false, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, production bool, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -2148,6 +2148,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 				ProductName: productName,
 				EnvNames:    []string{envName},
 				ChartValues: changedCharts,
+				UpgradeCRD:  args.UpgradeCRD,
 			}
 			_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, product.Production, log)
 			return err
@@ -2158,7 +2159,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 				rcList = append(rcList, rc)
 			}
 
-			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, deployStrategyMap, nil, log)
+			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, deployStrategyMap, nil, kube.SkipUpgradeCRDs(args.UpgradeCRD), log)
 		}
 	}
 }
@@ -2319,11 +2320,11 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
 	unlockOnReturn = false
-	return UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, nil, syncLock, log)
+	return UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, nil, syncLock, false, log)
 }
 
 func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender,
-	_ []*commontypes.GlobalVariableKV, defaultValue string, yamlData *templatemodels.CustomYaml, newDeployStrategyMap map[string]setting.ServiceDeployStrategy, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
+	_ []*commontypes.GlobalVariableKV, defaultValue string, yamlData *templatemodels.CustomYaml, newDeployStrategyMap map[string]setting.ServiceDeployStrategy, syncLock *cache.RedisLock, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -2388,7 +2389,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		return commonrepo.NewProductColl().UpdateProductVariables(productResp)
 	}
 
-	return updateHelmProductVariable(productResp, username, requestID, syncLock, log)
+	return updateHelmProductVariable(productResp, username, requestID, syncLock, skipUpgradeCRDs, log)
 }
 
 func updateK8sProductVariable(productResp *commonmodels.Product, userName, requestID string, log *zap.SugaredLogger) error {
@@ -2403,7 +2404,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, nil, false, productResp.GlobalVariables, log)
 }
 
-func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, log *zap.SugaredLogger) error {
+func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, syncLock *cache.RedisLock, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 	envName, productName := productResp.EnvName, productResp.ProductName
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
@@ -2449,7 +2450,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 			}
 		}()
 
-		err := kube.DeployMultiHelmRelease(productResp, helmClient, nil, userName, log)
+		err := kube.DeployMultiHelmRelease(productResp, helmClient, nil, userName, skipUpgradeCRDs, log)
 		if err != nil {
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 			// 发送更新产品失败消息给用户
@@ -2517,7 +2518,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
-		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
+		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, kube.SkipUpgradeCRDs(args.UpgradeCRD), log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())
@@ -3401,7 +3402,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		}
 	}()
 
-	err = kube.DeployMultiHelmRelease(args, helmClient, nil, user, log)
+	err = kube.DeployMultiHelmRelease(args, helmClient, nil, user, false, log)
 	if err != nil {
 		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
 		errList = multierror.Append(errList, err)
@@ -3434,7 +3435,7 @@ func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRe
 }
 
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, filter kube.DeploySvcFilter, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, filter kube.DeploySvcFilter, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -3476,7 +3477,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		return err
 	}
 
-	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, log)
+	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, skipUpgradeCRDs, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
@@ -3528,7 +3529,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 		return err
 	}
 
-	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, log)
+	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, false, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err

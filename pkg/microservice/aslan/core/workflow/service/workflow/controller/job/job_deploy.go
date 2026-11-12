@@ -766,8 +766,10 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 
 	if j.jobSpec.DeployType == setting.HelmDeployType {
 		serviceVariableConfigMap := make(map[string][]*commonmodels.DeployVariableConfig)
+		skipUpgradeCRDsMap := make(map[string]bool)
 		for _, serviceConfig := range j.jobSpec.ServiceVariableConfig {
 			serviceVariableConfigMap[serviceConfig.ServiceName] = serviceConfig.VariableConfigs
+			skipUpgradeCRDsMap[serviceConfig.ServiceName] = kube.SkipUpgradeCRDs(serviceConfig.UpgradeCRD)
 		}
 
 		for jobSubTaskID, svc := range j.jobSpec.Services {
@@ -815,6 +817,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				IsProduction:                 j.jobSpec.Production,
 				ValueMergeStrategy:           svc.ValueMergeStrategy,
 				MaxHistory:                   templateProduct.ReleaseMaxHistory,
+				SkipUpgradeCRDs:              skipUpgradeCRDsMap[svc.ServiceName],
 			}
 			if slices.Contains(j.jobSpec.DeployContents, config.DeployVars) {
 				// The environment render is the source of truth for existing Helm

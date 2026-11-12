@@ -783,7 +783,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
 				go func(done chan bool) {
-					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
+					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName, false)
 					if err != nil {
 						title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 						notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)
