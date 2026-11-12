@@ -36,6 +36,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	resourceDeletionTimeout      = time.Second
+	resourceDeletionPollInterval = 100 * time.Millisecond
+	crdRegistrationTimeout       = 60 * time.Second
+	crdRegistrationPollInterval  = time.Second
+)
+
+func resourceGVKNKey(u *unstructured.Unstructured) string {
+	return fmt.Sprintf("%s-%s", u.GroupVersionKind(), u.GetName())
+}
+
+func resourceKindNameKey(u *unstructured.Unstructured) string {
+	return fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())
+}
+
 func isCRD(u *unstructured.Unstructured) bool {
 	return u.GroupVersionKind().Group == apiextensionsv1.GroupName && u.GetKind() == "CustomResourceDefinition"
 }
@@ -43,7 +58,7 @@ func isCRD(u *unstructured.Unstructured) bool {
 func orderedResourcesToUpdate(resources []*unstructured.Unstructured, pending map[string]*Resource) []*unstructured.Unstructured {
 	ordered := make([]*unstructured.Unstructured, 0, len(pending))
 	for _, u := range resources {
-		key := fmt.Sprintf("%s-%s", u.GroupVersionKind(), u.GetName())
+		key := resourceGVKNKey(u)
 		if r, ok := pending[key]; ok && r.Unstructured == u {
 			ordered = append(ordered, u)
 		}
@@ -78,15 +93,15 @@ func deletionPriority(u *unstructured.Unstructured) int {
 func orderedResourcesToRemove(current, desired []*unstructured.Unstructured) []*unstructured.Unstructured {
 	keep := make(map[string]bool, len(desired))
 	for _, u := range desired {
-		keep[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = true
+		keep[resourceKindNameKey(u)] = true
 	}
 	last := make(map[string]*unstructured.Unstructured, len(current))
 	for _, u := range current {
-		last[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
+		last[resourceKindNameKey(u)] = u
 	}
 	ordered := make([]*unstructured.Unstructured, 0, len(current))
 	for _, u := range current {
-		key := fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())
+		key := resourceKindNameKey(u)
 		if !keep[key] && last[key] == u {
 			ordered = append(ordered, u)
 		}
@@ -102,10 +117,10 @@ func orderedResourcesToRemove(current, desired []*unstructured.Unstructured) []*
 }
 
 func waitForDeletedResources(ctx context.Context, resources []*unstructured.Unstructured, reader client.Reader) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	ctx, cancel := context.WithTimeout(ctx, resourceDeletionTimeout)
 	defer cancel()
 	for _, u := range resources {
-		err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextCancel(ctx, resourceDeletionPollInterval, true, func(ctx context.Context) (bool, error) {
 			err := reader.Get(ctx, client.ObjectKeyFromObject(u), u.DeepCopy())
 			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 				return true, nil
@@ -122,7 +137,7 @@ func waitForDeletedResources(ctx context.Context, resources []*unstructured.Unst
 // CRDs must be registered and discoverable before ordinary resources can use their APIs.
 func applyCRDs(ctx context.Context, crds []*unstructured.Unstructured, pending map[string]*Resource, apiClient rest.Interface, apply func(*unstructured.Unstructured) error) error {
 	for _, crd := range crds {
-		key := fmt.Sprintf("%s-%s", crd.GroupVersionKind(), crd.GetName())
+		key := resourceGVKNKey(crd)
 		if r, ok := pending[key]; !ok || r.Unstructured != crd {
 			continue
 		}
@@ -145,7 +160,7 @@ func applyCRDs(ctx context.Context, crds []*unstructured.Unstructured, pending m
 				definition.Spec.Versions = []apiextensionsv1.CustomResourceDefinitionVersion{{Name: version, Served: true}}
 			}
 		}
-		err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextCancel(ctx, crdRegistrationPollInterval, true, func(ctx context.Context) (bool, error) {
 			data, err := apiClient.Get().AbsPath("/apis", crd.GetAPIVersion(), "customresourcedefinitions", crd.GetName()).Do(ctx).Raw()
 			if apierrors.IsNotFound(err) {
 				return false, nil

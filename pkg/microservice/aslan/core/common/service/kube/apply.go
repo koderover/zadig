@@ -275,7 +275,7 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 			errList = multierror.Append(errList, err)
 			continue
 		}
-		GVKN := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+		GVKN := resourceGVKNKey(u)
 		resourceMap[GVKN] = &Resource{
 			Manifest:     item,
 			Unstructured: u,
@@ -653,7 +653,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	removeRes := []*unstructured.Unstructured{}
 	unchangedResources := []*unstructured.Unstructured{}
 	for _, u := range curResources {
-		GVKN := fmt.Sprintf("%s-%s", u.GroupVersionKind(), u.GetName())
+		GVKN := resourceGVKNKey(u)
 		cr := curResourceMap[GVKN]
 		if cr.Unstructured != u {
 			continue
@@ -696,7 +696,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		}
 	}
 	if len(crds) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), crdRegistrationTimeout)
 		err := applyCRDs(ctx, crds, updateResourceMap, clientSet.Discovery().RESTClient(), func(u *unstructured.Unstructured) error {
 			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
 			jobLogManager.SaveJobLog(fmt.Sprintf("Applying %s/%s", u.GetKind(), u.GetName()))
@@ -734,7 +734,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -758,7 +758,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -873,7 +873,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -909,7 +909,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -944,7 +944,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1045,7 +1045,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1083,7 +1083,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1107,7 +1107,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -1130,7 +1130,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -1156,7 +1156,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest

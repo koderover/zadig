@@ -79,7 +79,7 @@ func TestOrderedResourcesToUpdate(t *testing.T) {
 		u.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: kind})
 		u.SetName(fmt.Sprintf("resource-%d", i))
 		resources = append(resources, u)
-		pending[fmt.Sprintf("%s-%s", u.GroupVersionKind(), u.GetName())] = &Resource{Unstructured: u}
+		pending[resourceGVKNKey(u)] = &Resource{Unstructured: u}
 	}
 	assertOrder := func(want []int) {
 		t.Helper()
@@ -98,13 +98,48 @@ func TestOrderedResourcesToUpdate(t *testing.T) {
 	}
 	assertOrder([]int{10, 6, 5, 2, 4, 9, 13, 8, 7, 1, 3, 0, 12, 11})
 	// Unchanged resources are removed from the lookup, without reordering pending resources.
-	delete(pending, fmt.Sprintf("%s-%s", resources[2].GroupVersionKind(), resources[2].GetName()))
+	delete(pending, resourceGVKNKey(resources[2]))
 	assertOrder([]int{10, 6, 5, 4, 9, 13, 8, 7, 1, 3, 0, 12, 11})
 	// Keep the existing last-document-wins behavior for duplicate resource identities.
 	duplicate := resources[4].DeepCopy()
 	resources = append(resources, duplicate)
-	pending[fmt.Sprintf("%s-%s", duplicate.GroupVersionKind(), duplicate.GetName())] = &Resource{Unstructured: duplicate}
+	pending[resourceGVKNKey(duplicate)] = &Resource{Unstructured: duplicate}
 	assertOrder([]int{10, 6, 5, 4, 9, 13, 8, 7, 1, 3, 0, 12, 11})
+}
+
+func TestParsedResourceKeysMatchDeployment(t *testing.T) {
+	resources, pending, err := ManifestToUnstructured(`apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.example.com
+---
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: example
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordered := orderedResourcesToUpdate(resources, pending)
+	if len(ordered) != 3 || ordered[0] != resources[2] || ordered[1] != resources[0] || ordered[2] != resources[1] {
+		t.Fatalf("parsed resources were skipped or reordered incorrectly: %v", ordered)
+	}
+	applyErr := errors.New("reached CRD apply")
+	err = applyCRDs(context.Background(), resources[:1], pending, &restfake.RESTClient{Err: errors.New("unexpected registration request")}, func(u *unstructured.Unstructured) error {
+		if u != resources[0] {
+			t.Fatalf("unexpected CRD: %v", u)
+		}
+		return applyErr
+	})
+	if !errors.Is(err, applyErr) {
+		t.Fatalf("CRD from parser was not passed to apply: %v", err)
+	}
 }
 
 func TestApplyCRDs(t *testing.T) {
@@ -148,7 +183,7 @@ func TestApplyCRDs(t *testing.T) {
 			}
 			pending := make(map[string]*Resource)
 			for _, crd := range crds {
-				pending[fmt.Sprintf("%s-%s", crd.GroupVersionKind(), crd.GetName())] = &Resource{Unstructured: crd}
+				pending[resourceGVKNKey(crd)] = &Resource{Unstructured: crd}
 			}
 			if scenario == "unchanged" {
 				pending = nil
@@ -401,5 +436,31 @@ func TestWaitForDeletedResourcesTimeout(t *testing.T) {
 	err := waitForDeletedResources(ctx, []*unstructured.Unstructured{u}, cl)
 	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), u.GetName()) {
 		t.Fatalf("expected timeout identifying stuck CR, got %v", err)
+	}
+}
+
+func TestWaitForDeletedResourcesDetectsDeletionWithinWindow(t *testing.T) {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Widget"})
+	u.SetName("deleted-after-150ms")
+	checks := 0
+	var deletedAt time.Time
+	cl := clientfake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			checks++
+			if time.Now().Before(deletedAt) {
+				return nil
+			}
+			return apierrors.NewNotFound(schema.GroupResource{Resource: "widgets"}, key.Name)
+		},
+	}).Build()
+	deletedAt = time.Now().Add(150 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if err := waitForDeletedResources(ctx, []*unstructured.Unstructured{u}, cl); err != nil {
+		t.Fatalf("deletion inside the wait window was not detected: %v", err)
+	}
+	if checks < 2 {
+		t.Fatalf("expected repeated checks before timeout, got %d", checks)
 	}
 }
