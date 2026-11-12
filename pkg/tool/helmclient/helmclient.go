@@ -39,6 +39,7 @@ import (
 
 	hc "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -72,9 +73,7 @@ import (
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
-const (
-	HelmPluginsDirectory = "/app/.helm/helmplugin"
-)
+const HelmPluginsDirectory = "/app/.helm/helmplugin"
 
 var repoInfo *repo.File
 var generalSettings *cli.EnvSettings
@@ -142,18 +141,11 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 		return nil, err
 	}
 
-	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
-		Options: &hc.Options{
-			Namespace: namespace,
-			DebugLog:  log.Debugf,
-		},
-		RestConfig: restConfig,
-	})
+	helmClient, err := NewClientFromRestConf(restConfig, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	helmClient := hcClient.(*hc.HelmClient)
 	clientset, err := kubeManager.GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes clientset for cluster %s: %v", clusterID, err)
@@ -169,21 +161,30 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 		return nil, fmt.Errorf("failed to parse kubernetes server version %q for cluster %s: %v", versionInfo.GitVersion, clusterID, err)
 	}
 
-	return &HelmClient{
-		HelmClient:     helmClient,
-		kubeClient:     kubeClient,
-		ClusterID:      clusterID,
-		Namespace:      namespace,
-		KubeVersion:    kubeVersion,
-		lock:           &sync.Mutex{},
-		RestConfig:     restConfig,
-		RegistryClient: nil,
-	}, nil
+	helmClient.kubeClient = kubeClient
+	helmClient.ClusterID = clusterID
+	helmClient.KubeVersion = kubeVersion
+	return helmClient, nil
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
-// only used to list/uninstall helm release because kubeClient is nil
+// kubeClient is nil until supplied by NewClientFromNamespace or Clone.
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, error) {
+	helmClientQPS := viper.GetInt("HELM_CLIENT_QPS")
+	if helmClientQPS <= 0 {
+		helmClientQPS = 50
+	}
+	helmClientBurst := viper.GetInt("HELM_CLIENT_BURST")
+	if helmClientBurst <= 0 {
+		helmClientBurst = 300
+	}
+
+	// Keep Helm's rate limits separate from the shared Kubernetes clients.
+	restConfig = rest.CopyConfig(restConfig)
+	restConfig.QPS = float32(helmClientQPS)
+	restConfig.Burst = helmClientBurst
+	restConfig.RateLimiter = nil
+
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
 			Namespace: ns,
@@ -196,6 +197,12 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, err
 	}
 
 	helmClient := hcClient.(*hc.HelmClient)
+	// go-helm-client resets discovery Burst to 100 unless an option overrides it.
+	getter := hc.NewRESTClientGetter(ns, nil, restConfig, hc.Burst(helmClientBurst))
+	if err := helmClient.ActionConfig.Init(getter, ns, os.Getenv("HELM_DRIVER"), log.Debugf); err != nil {
+		return nil, err
+	}
+
 	return &HelmClient{
 		HelmClient:     helmClient,
 		kubeClient:     nil,
