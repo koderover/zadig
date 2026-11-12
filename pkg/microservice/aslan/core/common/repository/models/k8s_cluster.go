@@ -72,14 +72,16 @@ type K8SClusterInfo struct {
 }
 
 type AdvancedConfig struct {
-	Strategy          string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
-	NodeLabels        []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
-	ProjectNames      []string                   `json:"-"                        bson:"-"`
-	ClusterAccessYaml string                     `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
-	ScheduleWorkflow  bool                       `json:"schedule_workflow"        bson:"schedule_workflow"`
-	ScheduleStrategy  []*ScheduleStrategy        `json:"schedule_strategy"        bson:"schedule_strategy"`
-	EnableIRSA        bool                       `json:"enable_irsa"              bson:"enable_irsa"`
-	IRSARoleARM       string                     `json:"irsa_role_arn"            bson:"irsa_role_arn"`
+	Strategy             string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
+	NodeLabels           []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
+	ProjectNames         []string                   `json:"-"                        bson:"-"`
+	WorkflowProjectNames []string                   `json:"workflow_project_names"      bson:"workflow_project_names"`
+	ClusterAccessYaml    string                     `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
+	// Deprecated: retained only to migrate historical project scopes.
+	ScheduleWorkflow bool                `json:"-"                        bson:"schedule_workflow"`
+	ScheduleStrategy []*ScheduleStrategy `json:"schedule_strategy"        bson:"schedule_strategy"`
+	EnableIRSA       bool                `json:"enable_irsa"              bson:"enable_irsa"`
+	IRSARoleARM      string              `json:"irsa_role_arn"            bson:"irsa_role_arn"`
 
 	AgentNodeSelector       string `json:"agent_node_selector"            bson:"agent_node_selector"`
 	AgentToleration         string `json:"agent_toleration"               bson:"agent_toleration"`
@@ -134,4 +136,20 @@ type DindStorage struct {
 
 func (K8SCluster) TableName() string {
 	return "k8s_cluster"
+}
+
+func (c *K8SCluster) WorkflowEnabled() bool {
+	return c.AdvancedConfig != nil && len(c.AdvancedConfig.WorkflowProjectNames) > 0
+}
+
+func (c *K8SCluster) CanScheduleWorkflow(projectName string) bool {
+	if c.AdvancedConfig == nil {
+		return false
+	}
+	for _, name := range c.AdvancedConfig.WorkflowProjectNames {
+		if name == setting.AllProjects || name == projectName {
+			return true
+		}
+	}
+	return false
 }
