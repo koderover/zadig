@@ -81,3 +81,4 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/workflow/testing/service/scanning_webhook_test.go
 !pkg/microservice/aslan/core/common/repository/mongodb/settings_test.go
 !pkg/microservice/aslan/core/system/service/workflow_task_list_test.go
+!pkg/microservice/aslan/core/system/handler/workflow_task_list_test.go
