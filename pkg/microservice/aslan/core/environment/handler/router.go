@@ -317,6 +317,12 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
 		common.POST("/:name/pod/:podName/restart", OpenAPIRestartServicePod)
 
+		common.GET("/:name/version/:serviceName", OpenAPIListEnvServiceVersions)
+		common.GET("/:name/version/:serviceName/revision/:revision", OpenAPIGetEnvServiceVersionYaml)
+		common.GET("/:name/version/:serviceName/diff", OpenAPIDiffEnvServiceVersions)
+		common.GET("/:name/version/:serviceName/rollback/check", OpenAPICheckRollbackEnvServiceVersion)
+		common.POST("/:name/version/:serviceName/rollback", OpenAPIRollbackEnvServiceVersion)
+
 		common.GET("/:name/check/workloads/k8services", OpenAPICheckWorkloadsK8sServices)
 		common.POST("/:name/share/enable", OpenAPIEnableBaseEnv)
 		common.DELETE("/:name/share/enable", OpenAPIDsiableBaseEnv)
