@@ -1039,6 +1039,12 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ImageName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
 		currentRule = customRule.BranchRule
+	} else if candidate.CommitID != "" {
+		// commit-only source without a branch
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-%s", candidate.ImageName, candidate.Timestamp, candidate.TaskID, candidate.CommitID)
+		}
+		currentRule = customRule.BranchRule
 	}
 
 	currentRule = ReplaceRuleVariable(currentRule, &Variable{
