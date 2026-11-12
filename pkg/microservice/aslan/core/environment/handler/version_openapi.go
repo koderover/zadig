@@ -41,6 +41,21 @@ type openAPIEnvServiceVersionParams struct {
 	isHelmChart bool
 }
 
+// @Summary 获取环境服务版本列表
+// @Description 获取指定环境服务的全部历史版本，按版本号从小到大排列
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
+// @Param projectKey query string true "项目标识"
+// @Param production query bool false "是否为生产环境，默认为 false"
+// @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
+// @Success 200 {array} service.ListEnvServiceVersionsResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/environments/{name}/version/{serviceName} [get]
 func OpenAPIListEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -56,6 +71,22 @@ func OpenAPIListEnvServiceVersions(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.ListEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, params.isHelmChart, params.production, ctx.Logger)
 }
 
+// @Summary 获取环境服务版本详情
+// @Description 获取指定环境服务版本的配置和镜像
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
+// @Param revision path int true "环境服务版本号"
+// @Param projectKey query string true "项目标识"
+// @Param production query bool false "是否为生产环境，默认为 false"
+// @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
+// @Success 200 {object} service.GetEnvServiceVersionYamlResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/environments/{name}/version/{serviceName}/revision/{revision} [get]
 func OpenAPIGetEnvServiceVersionYaml(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -75,6 +106,23 @@ func OpenAPIGetEnvServiceVersionYaml(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.GetEnvServiceVersionYaml(ctx, params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
 }
 
+// @Summary 对比环境服务版本
+// @Description 获取两个环境服务版本的配置和镜像，供调用方对比差异
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
+// @Param projectKey query string true "项目标识"
+// @Param revisionA query int true "版本 A 的版本号，-1 表示最新版本"
+// @Param revisionB query int true "版本 B 的版本号，-1 表示最新版本"
+// @Param production query bool false "是否为生产环境，默认为 false"
+// @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
+// @Success 200 {object} service.DiffEnvServiceVersionsResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/environments/{name}/version/{serviceName}/diff [get]
 func OpenAPIDiffEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -99,6 +147,22 @@ func OpenAPIDiffEnvServiceVersions(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.DiffEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, revisionA, revisionB, params.isHelmChart, params.production, ctx.Logger)
 }
 
+// @Summary 检查环境服务版本是否可回滚
+// @Description 检查目标版本使用的镜像是否仍存在于已集成的镜像仓库中
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
+// @Param projectKey query string true "项目标识"
+// @Param revision query int true "要回滚到的目标版本号"
+// @Param production query bool false "是否为生产环境，默认为 false"
+// @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
+// @Success 200 {object} service.CheckRollbackEnvServiceVersionResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/environments/{name}/version/{serviceName}/rollback/check [get]
 func OpenAPICheckRollbackEnvServiceVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -118,6 +182,24 @@ func OpenAPICheckRollbackEnvServiceVersion(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.CheckRollbackEnvServiceVersion(params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
 }
 
+// @Summary 回滚环境服务版本
+// @Description 将环境中的服务回滚到指定的历史版本；Helm 服务和独立 Chart 在后台异步升级
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "环境标识"
+// @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
+// @Param projectKey query string true "项目标识"
+// @Param revision query int true "要回滚到的目标版本号"
+// @Param production query bool false "是否为生产环境，默认为 false"
+// @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
+// @Param overrideResource query bool false "是否以目标版本的配置完整覆盖集群资源，默认为 false"
+// @Param body body RollbackEnvServiceVersionRequest false "回滚说明，请求体可选"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/environments/{name}/version/{serviceName}/rollback [post]
 func OpenAPIRollbackEnvServiceVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
