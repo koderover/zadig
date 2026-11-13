@@ -26,6 +26,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type getSystemServerURLResp struct {
@@ -85,5 +86,6 @@ func SetSystemServerURL(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-系统访问", serverURLSetting.ServerURL, serverURLSetting.ServerURL, string(args), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.SetSystemServerURL(serverURLSetting.ServerURL)
 }

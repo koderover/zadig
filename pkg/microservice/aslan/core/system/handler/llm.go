@@ -27,6 +27,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type CreateLLMIntegrationRequest struct {
@@ -65,6 +66,7 @@ func CreateLLMIntegration(c *gin.Context) {
 
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模型管理", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateLLMIntegration(context.TODO(), llmProvider)
 }
 
@@ -224,6 +226,7 @@ func UpdateLLMIntegration(c *gin.Context) {
 
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模型管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateLLMIntegration(context.TODO(), c.Param("id"), llmProvider)
 }
 
@@ -245,6 +248,7 @@ func DeleteLLMIntegration(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模型管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteLLMIntegration(context.TODO(), id)
 }
 

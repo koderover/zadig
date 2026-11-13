@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary 获取系统工作流 WebHook 配置
@@ -92,5 +93,6 @@ func UpdateWorkflowHookSetting(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-系统钩子", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateWorkflowHookSetting(req)
 }

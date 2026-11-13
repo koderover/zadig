@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
@@ -28,6 +30,7 @@ type OperationLogArgs struct {
 	Username     string `json:"username"`
 	ProductName  string `json:"product_name"`
 	ExactProduct string `json:"exact_product"`
+	Method       string `json:"method"`
 	Function     string `json:"function"`
 	Status       int    `json:"status"`
 	PerPage      int    `json:"per_page"`
@@ -35,6 +38,8 @@ type OperationLogArgs struct {
 	Scene        string `json:"scene"`
 	TargetID     string `json:"target_id"`
 	Detail       string `json:"detail"`
+	StartTime    int64  `json:"start_time"`
+	EndTime      int64  `json:"end_time"`
 }
 
 var OperationLogI18NMethodMap = map[string]string{
@@ -72,6 +77,10 @@ var OperationLogI18NMethodMap = map[string]string{
 	"设置Istio灰度配置":        "Set Istio Gray Release Config",
 	"开启自测模式":             "Enable Self-Test Mode",
 	"关闭自测模式":             "Disable Self-Test Mode",
+	"更新测试服务配置":           "Update Test Service Config",
+	"更新生产服务配置":           "Update Production Service Config",
+	"更新测试服务变量":           "Update Test Service Variables",
+	"更新生产服务变量":           "Update Production Service Variables",
 	"OpenAPI初始化":         "(OpenAPI) Initialize",
 	"(OpenAPI)初始化":       "(OpenAPI) Initialize",
 	"(openAPI)更新":        "(OpenAPI) Update",
@@ -92,6 +101,8 @@ var OperationLogI18NMethodMap = map[string]string{
 	"(OpenAPI)更新生产服务配置":  "(OpenAPI) Update Production Service Config",
 	"(OpenAPI)更新测试服务变量":  "(OpenAPI) Update Test Service Variables",
 	"(OpenAPI)更新生产服务变量":  "(OpenAPI) Update Production Service Variables",
+	"断开连接":               "Disconnect",
+	"重新连接":               "Reconnect",
 }
 
 var OperationLogI18NFunctionMap = map[string]string{
@@ -152,29 +163,29 @@ var OperationLogI18NFunctionMap = map[string]string{
 	"项目管理-构建":        "Project Management - Build",
 	"项目管理-服务组件":      "Project Management - Service Component",
 
-	"服务":             "Service",
-	"测试服务":           "Test Service",
-	"生产服务":           "Production Service",
+	"服务":   "Service",
+	"测试服务": "Test Service",
+	"生产服务": "Production Service",
 
-	"迭代管理-流程":        "Iteration Management - Sprint",
-	"迭代管理-流程添加阶段":    "Iteration Management - Sprint Template Add Stage",
-	"迭代管理-流程删除阶段":    "Iteration Management - Sprint Template Delete Stage",
-	"迭代管理-流程阶段名称":    "Iteration Management - Sprint Template Stage Name",
-	"迭代管理-流程阶段工作流":   "Iteration Management - Sprint Template Stage Workflows",
-	"迭代管理-工作项":       "Iteration Management - WorkItem",
-	"迭代管理-迭代":        "Iteration Management - Sprint",
+	"迭代管理-流程":      "Iteration Management - Sprint",
+	"迭代管理-流程添加阶段":  "Iteration Management - Sprint Template Add Stage",
+	"迭代管理-流程删除阶段":  "Iteration Management - Sprint Template Delete Stage",
+	"迭代管理-流程阶段名称":  "Iteration Management - Sprint Template Stage Name",
+	"迭代管理-流程阶段工作流": "Iteration Management - Sprint Template Stage Workflows",
+	"迭代管理-工作项":     "Iteration Management - WorkItem",
+	"迭代管理-迭代":      "Iteration Management - Sprint",
 
-	"系统配置-自定义导航":     "System Configuration - Custom Navigation",
-	"系统配置-快捷链接":      "System Configuration - Shortcut Link",
-	"系统配置-外部系统":      "System Configuration - External System",
-	"系统配置-应用设置":      "System Configuration - Application Settings",
-	"系统配置-Sonar集成":   "System Configuration - Sonar Integration",
-	"资源设置-插件管理":      "Resource Settings - Plugin Management",
-	"系统设置-Registry":  "Resource Configuration - Image Repository",
-	"系统设置-对象存储":      "System Configuration - Object Storage",
-	"资源配置-镜像仓库":      "Resource Configuration - Image Repository",
-	"资源配置-集群":        "Resource Configuration - Cluster",
-	"资源管理-主机管理":      "Resource Management - Host Management",
+	"系统配置-自定义导航":    "System Configuration - Custom Navigation",
+	"系统配置-快捷链接":     "System Configuration - Shortcut Link",
+	"系统配置-外部系统":     "System Configuration - External System",
+	"系统配置-应用设置":     "System Configuration - Application Settings",
+	"系统配置-Sonar集成":  "System Configuration - Sonar Integration",
+	"资源设置-插件管理":     "Resource Settings - Plugin Management",
+	"系统设置-Registry": "Resource Configuration - Image Repository",
+	"系统设置-对象存储":     "System Configuration - Object Storage",
+	"资源配置-镜像仓库":     "Resource Configuration - Image Repository",
+	"资源配置-集群":       "Resource Configuration - Cluster",
+	"资源管理-主机管理":     "Resource Management - Host Management",
 
 	"模版-构建":          "Template - Build",
 	"模版-YAML":        "Template - YAML",
@@ -198,11 +209,12 @@ var OperationLogI18NFunctionMap = map[string]string{
 
 	"OpenAPI测试task": "OpenAPI - Test Task",
 	"OpenAPI测试任务":   "OpenAPI - Test Task",
+	"测试task":        "Test Task",
 	"测试-任务":         "Test Task",
 	"测试任务":          "Test Task",
 
-	"分组":             "Group",
-	"发布计划":           "Release Plan",
+	"分组":    "Group",
+	"发布计划":  "Release Plan",
 	"基础镜像":  "Base Image",
 	"任务配置":  "Task Configuration",
 	"代理":    "Proxy",
@@ -212,6 +224,52 @@ var OperationLogI18NFunctionMap = map[string]string{
 	"角色绑定":  "Role Binding",
 	"全局角色":  "Global Role",
 	"角色":    "Role",
+	// Current feature names; legacy keys above remain available for historical logs.
+	"自定义镜像":          "Custom Image",
+	"模板库-构建":         "Template Library - Build",
+	"模板库-YAML":       "Template Library - YAML",
+	"模板库-YAML-变量":    "Template Library - YAML - Variables",
+	"模板库-代码扫描":       "Template Library - Code Scan",
+	"模板库-Chart":      "Template Library - Chart",
+	"模板库-Dockerfile": "Template Library - Dockerfile",
+	"资源配置-集群管理":      "Resource Configuration - Cluster Management",
+	"资源配置-主机管理":      "Resource Configuration - Host Management",
+	"资源配置-对象存储":      "Resource Configuration - Object Storage",
+	"系统设置-软件包管理":     "System Settings - Software Package Management",
+	"系统设置-共享变量":      "System Settings - Shared Variables",
+	"项目管理-共享变量":      "Project Management - Shared Variables",
+	"系统设置-共享变量分组":    "System Settings - Shared Variable Groups",
+	"项目管理-共享变量分组":    "Project Management - Shared Variable Groups",
+	"项目管理-服务镜像匹配规则":  "Project Management - Service Image Matching Rules",
+	"项目管理-测试全局变量":    "Project Management - Test Global Variables",
+	"项目管理-生产全局变量":    "Project Management - Production Global Variables",
+	"版本管理":           "Version Management",
+	"资源配置-Chart仓库":   "Resource Configuration - Chart Repository",
+	"资源配置-数据库":       "Resource Configuration - Database",
+	"系统集成-CI工具":      "System Integration - CI Tools",
+	"系统集成-CI/CD工具":   "System Integration - CI/CD Tools",
+	"系统集成-配置管理":      "System Integration - Configuration Management",
+	"系统集成-IM应用":      "System Integration - IM Applications",
+	"系统集成-IM集成":      "System Integration - IM Integration",
+	"系统集成-项目管理":      "System Integration - Project Management",
+	"系统集成-网关组件":      "System Integration - Gateway",
+	"系统集成-监控系统":      "System Integration - Monitor System",
+	"系统集成-云服务":       "System Integration - Cloud Services",
+	"模型管理":           "Model Management",
+	"项目管理-智能体管理":     "Project Management - Agent Management",
+	"系统集成-代码源":       "System Integration - Code Hosts",
+	"系统配置-任务配置":      "System Configuration - Task Configuration",
+	"系统配置-系统访问":      "System Configuration - System Access",
+	"系统配置-系统钩子":      "System Configuration - System Hook",
+	"系统配置-缓存清理":      "System Configuration - Cache Cleanup",
+	"主题设置":           "Theme Settings",
+	"系统语言":           "System Language",
+	"系统集成-默认账号系统":    "System Integration - Default Account System",
+	"代码审查":           "Code Review",
+	"公告管理":           "Announcement Management",
+	"系统配置-邮件配置":      "System Configuration - Email Configuration",
+	"系统配置-代理配置":      "System Configuration - Proxy Configuration",
+	"系统配置-安全与隐私":     "System Configuration - Security & Privacy",
 }
 
 type OperationLogI18N struct {
@@ -225,11 +283,61 @@ type FindOperationResponse struct {
 	I18N          *OperationLogI18N      `json:"i18n"`
 }
 
+type OperationLogOptions struct {
+	Usernames []string          `json:"usernames"`
+	Projects  []string          `json:"projects"`
+	Functions []string          `json:"functions"`
+	Methods   []string          `json:"methods"`
+	Statuses  []int             `json:"statuses"`
+	I18N      *OperationLogI18N `json:"i18n"`
+}
+
+func ListOperationLogOptions(ctx context.Context, log *zap.SugaredLogger) (*OperationLogOptions, error) {
+	coll := mongodb.NewOperationLogColl()
+	usernames, err := coll.ListDistinctValues(ctx, "username")
+	if err != nil {
+		log.Errorf("list operation log usernames error: %v", err)
+		return nil, e.ErrFindOperationLog.AddErr(err)
+	}
+	projects, err := coll.ListDistinctValues(ctx, "product_name")
+	if err != nil {
+		log.Errorf("list operation log projects error: %v", err)
+		return nil, e.ErrFindOperationLog.AddErr(err)
+	}
+	functions, err := coll.ListDistinctValues(ctx, "function")
+	if err != nil {
+		log.Errorf("list operation log functions error: %v", err)
+		return nil, e.ErrFindOperationLog.AddErr(err)
+	}
+	methods, err := coll.ListDistinctValues(ctx, "method")
+	if err != nil {
+		log.Errorf("list operation log methods error: %v", err)
+		return nil, e.ErrFindOperationLog.AddErr(err)
+	}
+	statuses, err := coll.ListDistinctStatuses(ctx)
+	if err != nil {
+		log.Errorf("list operation log statuses error: %v", err)
+		return nil, e.ErrFindOperationLog.AddErr(err)
+	}
+	return &OperationLogOptions{
+		Usernames: usernames,
+		Projects:  projects,
+		Functions: functions,
+		Methods:   methods,
+		Statuses:  statuses,
+		I18N: &OperationLogI18N{
+			MethodI18Map:   OperationLogI18NMethodMap,
+			FunctionI18Map: OperationLogI18NFunctionMap,
+		},
+	}, nil
+}
+
 func FindOperation(args *OperationLogArgs, log *zap.SugaredLogger) (*FindOperationResponse, int, error) {
 	logs, count, err := mongodb.NewOperationLogColl().Find(&mongodb.OperationLogArgs{
 		Username:     args.Username,
 		ProductName:  args.ProductName,
 		ExactProduct: args.ExactProduct,
+		Method:       args.Method,
 		Function:     args.Function,
 		Status:       args.Status,
 		PerPage:      args.PerPage,
@@ -237,6 +345,8 @@ func FindOperation(args *OperationLogArgs, log *zap.SugaredLogger) (*FindOperati
 		Scene:        args.Scene,
 		TargetID:     args.TargetID,
 		Detail:       args.Detail,
+		StartTime:    args.StartTime,
+		EndTime:      args.EndTime,
 	})
 	if err != nil {
 		log.Errorf("find operation log error: %v", err)

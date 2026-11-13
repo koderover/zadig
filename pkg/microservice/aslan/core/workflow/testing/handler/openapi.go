@@ -93,7 +93,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"新增", "代码扫描任务", args.ScanName, args.ScanName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "新增", "代码扫描任务", args.ScanName, args.ScanName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
@@ -162,7 +162,7 @@ func OpenAPICreateTestTask(c *gin.Context) {
 
 	detail := fmt.Sprintf("%s-%s", args.TestName, "job")
 	detailEn := fmt.Sprintf("%s-%s", args.TestName, "job")
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)新增", "OpenAPI"+"测试任务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "新增", "测试任务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {

@@ -55,7 +55,7 @@ func CreateInstall(c *gin.Context) {
 
 	detail := fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version)
 	detailEn := fmt.Sprintf("Application Name: %s, Application Version: %s", args.Name, args.Version)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-应用设置", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-软件包管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -95,7 +95,7 @@ func UpdateInstall(c *gin.Context) {
 
 	detail := fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version)
 	detailEn := fmt.Sprintf("Application Name: %s, Application Version: %s", args.Name, args.Version)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-应用设置", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-软件包管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -159,7 +159,7 @@ func DeleteInstall(c *gin.Context) {
 
 	detail := fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version)
 	detailEn := fmt.Sprintf("Application Name: %s, Application Version: %s", args.Name, args.Version)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-应用设置", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-软件包管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks

@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CreateAnnouncement(c *gin.Context) {
@@ -51,6 +52,7 @@ func CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "公告管理", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateAnnouncement(ctx.UserName, args, ctx.Logger)
 }
 
@@ -79,6 +81,7 @@ func UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "公告管理", args.ID.Hex(), args.ID.Hex(), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateAnnouncement(ctx.UserName, args.ID.Hex(), args, ctx.Logger)
 }
 
@@ -115,5 +118,6 @@ func DeleteAnnouncement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "公告管理", ID, ID, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteAnnouncement(ctx.UserName, ID, ctx.Logger)
 }
