@@ -927,7 +927,7 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 	err = helmtool.WithChartDirectoryLock(deliveryChartDir, func(ctx context.Context) error {
 		deliveryChartPath, err := ensureChartFilesFromVersion(ctx, projectName, versionName, sourceChartRepoInfo, service)
 		if err != nil {
-			return fmt.Errorf("failed to ensure chart files from version, err: %v", err)
+			return fmt.Errorf("failed to ensure chart files from version: %w", err)
 		}
 
 		// write values.yaml file before load
@@ -971,7 +971,7 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 		//create local chart package
 		chartPackagePath, err = helmchartutil.Save(chartRequested, dir)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to package chart %s version %s in %s", service.ChartName, service.ChartVersion, dir)
 		}
 
 		return nil
@@ -1084,12 +1084,15 @@ func ensureChartFilesFromVersion(ctx context.Context, projectName, versionName s
 			return err
 		}
 		if err := os.RemoveAll(newPath); err != nil {
-			return err
+			return fmt.Errorf("failed to remove local chart directory %s: %w", newPath, err)
 		}
-		return copy.Copy(source, newPath)
+		if err := copy.Copy(source, newPath); err != nil {
+			return fmt.Errorf("failed to copy chart files from %s to %s: %w", source, newPath, err)
+		}
+		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to prepare chart %s version %s: %w", chartRef, service.OriginalChartVersion, err)
 	}
 
 	return newPath, nil
