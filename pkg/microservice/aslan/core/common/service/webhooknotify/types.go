@@ -80,6 +80,32 @@ type WorkflowNotify struct {
 	TaskCreatorID       string                        `json:"task_creator_id"`
 	TaskCreatorEmail    string                        `json:"task_creator_email"`
 	TaskType            config.CustomWorkflowTaskType `json:"task_type"`
+	AIReview            *WorkflowNotifyAIReview       `json:"ai_review,omitempty"`
+}
+
+// WorkflowNotifyAIReview is set for code scanning tasks that run an AI review.
+type WorkflowNotifyAIReview struct {
+	// Verdict is one of passed, passed_with_findings, blocked, incomplete, abnormal and failed (no report generated).
+	Verdict         string                           `json:"verdict"`
+	Title           string                           `json:"title"`
+	Conclusion      string                           `json:"conclusion"`
+	FailureReason   string                           `json:"failure_reason,omitempty"`
+	RepoName        string                           `json:"repo_name"`
+	PR              int                              `json:"pr,omitempty"`
+	PRURL           string                           `json:"pr_url,omitempty"`
+	SourceBranch    string                           `json:"source_branch,omitempty"`
+	TargetBranch    string                           `json:"target_branch,omitempty"`
+	FindingsCount   int                              `json:"findings_count"`
+	SeverityCounts  map[string]int                   `json:"severity_counts,omitempty"`
+	ChangedFiles    int                              `json:"changed_files"`
+	InlinePublished int                              `json:"inline_published"`
+	InlineComments  []*WorkflowNotifyAIReviewComment `json:"inline_comments,omitempty"`
+}
+
+type WorkflowNotifyAIReviewComment struct {
+	Severity string `json:"severity"`
+	Title    string `json:"title"`
+	URL      string `json:"url"`
 }
 
 type WorkflowNotifyReleasePlan struct {

@@ -1442,19 +1442,42 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	webhookNotify.DetailURL = workflowDetailURL
 	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURLTpl)
 
-	if notify.WebHookType == setting.NotifyWebHookTypeMail {
-		title, err := getWorkflowTaskTplExec(mailTplTitle, workflowNotification)
-		if err != nil {
-			return "", "", nil, nil, err
+	// AI review scans replace the generic job list with the review summary on every channel.
+	var aiReviewInput *aiReviewCardInput
+	if task.Type == config.WorkflowTaskTypeScanning && isAIReviewCompletedStatus(task.Status) {
+		if reportSpec, job := findAIReviewReportSpec(task); reportSpec != nil {
+			detailURL, _ := getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
+			aiReviewInput = &aiReviewCardInput{
+				Spec:           reportSpec,
+				JobError:       job.Error,
+				Creator:        task.TaskCreator,
+				ProjectName:    project.ProjectName,
+				StartTime:      task.StartTime,
+				DurationSecond: workflowNotification.TotalTime,
+				DetailURL:      detailURL,
+			}
+			webhookNotify.AIReview = buildAIReviewWebhookPayload(aiReviewInput)
 		}
+	}
 
-		tplcontent := strings.Join(mailTplBaseInfo, "")
-		tplcontent += strings.Join(jobContents, "")
-		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
-		if err != nil {
-			return "", "", nil, nil, err
+	if notify.WebHookType == setting.NotifyWebHookTypeMail {
+		var title, content string
+		if aiReviewInput != nil {
+			title, content = buildAIReviewMailContent(aiReviewInput)
+		} else {
+			title, err = getWorkflowTaskTplExec(mailTplTitle, workflowNotification)
+			if err != nil {
+				return "", "", nil, nil, err
+			}
+
+			tplcontent := strings.Join(mailTplBaseInfo, "")
+			tplcontent += strings.Join(jobContents, "")
+			content, err = getWorkflowTaskTplExec(tplcontent, workflowNotification)
+			if err != nil {
+				return "", "", nil, nil, err
+			}
+			content = strings.TrimSpace(content)
 		}
-		content = strings.TrimSpace(content)
 
 		t, err := template.New("workflow_notification").Funcs(template.FuncMap{
 			"getTaskType": func(taskType config.CustomWorkflowTaskType) string {
@@ -1497,6 +1520,10 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
 		return "", "", nil, webhookNotify, nil
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
+		if aiReviewInput != nil {
+			aiReviewTitle, aiReviewContent := buildAIReviewMarkdown(aiReviewInput, notify.WebHookType)
+			return aiReviewTitle, appendInlineNotifyAtContent(aiReviewContent, notify), nil, webhookNotify, nil
+		}
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
 		tplcontent = appendInlineNotifyAtContent(tplcontent, notify)
@@ -1513,18 +1540,8 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 	}
 
 	workflowDetailURLTpl, _ = getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
-	if task.Type == config.WorkflowTaskTypeScanning && isAIReviewCompletedStatus(task.Status) {
-		if reportSpec, job := findAIReviewReportSpec(task); reportSpec != nil {
-			return "", "", buildAIReviewLarkCard(&aiReviewCardInput{
-				Spec:           reportSpec,
-				JobError:       job.Error,
-				Creator:        task.TaskCreator,
-				ProjectName:    project.ProjectName,
-				StartTime:      task.StartTime,
-				DurationSecond: workflowNotification.TotalTime,
-				DetailURL:      workflowDetailURLTpl,
-			}), nil, nil
-		}
+	if aiReviewInput != nil {
+		return "", "", buildAIReviewLarkCard(aiReviewInput), nil, nil
 	}
 
 	lc := NewLarkCard()
