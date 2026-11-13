@@ -21,6 +21,7 @@ import (
 	"errors"
 	"regexp"
 	"sort"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -138,7 +139,9 @@ func (c *OperationLogColl) Update(id string, status int) error {
 	return err
 }
 
-// ListDistinctValues returns the non-empty values present in existing logs.
+var operationLogOpenAPIMarker = regexp.MustCompile(`(?i)(?:[(（]\s*openapi\s*[)）]|openapi)\s*-?\s*`)
+
+// ListDistinctValues removes OpenAPI markers from user, method and function options.
 func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string) ([]string, error) {
 	values, err := c.Collection.Distinct(ctx, field, bson.M{
 		field: bson.M{"$type": "string", "$ne": ""},
@@ -148,10 +151,20 @@ func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string)
 	}
 
 	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
-		if name, ok := value.(string); ok && name != "" {
-			result = append(result, name)
+		name, ok := value.(string)
+		if !ok {
+			continue
 		}
+		if field == "username" || field == "method" || field == "function" {
+			name = strings.TrimSpace(operationLogOpenAPIMarker.ReplaceAllString(name, ""))
+		}
+		if _, exists := seen[name]; name == "" || exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		result = append(result, name)
 	}
 	sort.Strings(result)
 	return result, nil
@@ -188,13 +201,13 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 		query["product_name"] = args.ExactProduct
 	}
 	if args.Username != "" {
-		query["username"] = args.Username
+		query["username"] = bson.M{"$regex": regexp.QuoteMeta(args.Username), "$options": "i"}
 	}
 	if args.Method != "" {
-		query["method"] = args.Method
+		query["method"] = bson.M{"$regex": regexp.QuoteMeta(args.Method), "$options": "i"}
 	}
 	if args.Function != "" {
-		query["function"] = args.Function
+		query["function"] = bson.M{"$regex": regexp.QuoteMeta(args.Function), "$options": "i"}
 	}
 	if args.Status != 0 {
 		query["status"] = args.Status

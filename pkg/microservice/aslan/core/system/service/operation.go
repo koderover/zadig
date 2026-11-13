@@ -77,6 +77,10 @@ var OperationLogI18NMethodMap = map[string]string{
 	"设置Istio灰度配置":        "Set Istio Gray Release Config",
 	"开启自测模式":             "Enable Self-Test Mode",
 	"关闭自测模式":             "Disable Self-Test Mode",
+	"更新测试服务配置":           "Update Test Service Config",
+	"更新生产服务配置":           "Update Production Service Config",
+	"更新测试服务变量":           "Update Test Service Variables",
+	"更新生产服务变量":           "Update Production Service Variables",
 	"OpenAPI初始化":         "(OpenAPI) Initialize",
 	"(OpenAPI)初始化":       "(OpenAPI) Initialize",
 	"(openAPI)更新":        "(OpenAPI) Update",
@@ -205,6 +209,7 @@ var OperationLogI18NFunctionMap = map[string]string{
 
 	"OpenAPI测试task": "OpenAPI - Test Task",
 	"OpenAPI测试任务":   "OpenAPI - Test Task",
+	"测试task":        "Test Task",
 	"测试-任务":         "Test Task",
 	"测试任务":          "Test Task",
 

@@ -125,7 +125,7 @@ func OpenAPICreateDockerfileTemplate(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid dockerfile content")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新建", "模板库-Dockerfile", req.Name, req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", "", "新建", "模板库-Dockerfile", req.Name, req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	if err := templateservice.CreateDockerfileTemplate(req, ctx.Logger); err != nil {
 		ctx.RespErr = e.ErrCreateTemplate.AddErr(err)
 	}
@@ -166,7 +166,7 @@ func OpenAPIUpdateDockerfileTemplate(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid dockerfile content")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "模板库-Dockerfile", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", "", "更新", "模板库-Dockerfile", c.Param("id"), c.Param("id"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	if err := templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger); err != nil {
 		ctx.RespErr = e.ErrUpdateTemplate.AddErr(err)
 	}
@@ -188,7 +188,7 @@ func OpenAPIDeleteDockerfileTemplate(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid dockerfile template id")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "模板库-Dockerfile", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", "", "删除", "模板库-Dockerfile", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	if err := templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger); err != nil {
 		ctx.RespErr = e.ErrDeleteTemplate.AddErr(err)
 	}

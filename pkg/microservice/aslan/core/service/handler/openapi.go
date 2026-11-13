@@ -203,7 +203,7 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 
 	detail := fmt.Sprintf("服务名称:%s", req.ServiceName)
 	detailEn := fmt.Sprintf("Service Name: %s", req.ServiceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-测试服务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "新增", "项目管理-测试服务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -251,7 +251,7 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 
 	detail := fmt.Sprintf("服务名称:%s", req.ServiceName)
 	detailEn := fmt.Sprintf("Service Name: %s", req.ServiceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-生产服务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "新增", "项目管理-生产服务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -300,7 +300,7 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	detail := fmt.Sprintf("服务名称:%s", args.ServiceName)
 	detailEn := fmt.Sprintf("Service: %s", args.ServiceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新测试服务配置", "项目管理-服务", detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "更新测试服务配置", "项目管理-服务", detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
@@ -343,7 +343,7 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	detail := fmt.Sprintf("服务名称:%s", args.ServiceName)
 	detailEn := fmt.Sprintf("Service Name:%s", args.ServiceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新生产服务配置", "项目管理-服务", detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "更新生产服务配置", "项目管理-服务", detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -396,7 +396,7 @@ func UpdateServiceVariableOpenAPI(c *gin.Context) {
 
 	detail := fmt.Sprintf("服务名称:%s", serviceName)
 	detailEn := fmt.Sprintf("Service Name:%s", serviceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"更新测试服务变量", "项目管理-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "更新测试服务变量", "项目管理-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -443,7 +443,7 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 
 	detail := fmt.Sprintf("服务名称:%s", serviceName)
 	detailEn := fmt.Sprintf("Service Name: %s", serviceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"更新生产服务变量", "项目管理-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "更新生产服务变量", "项目管理-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -488,7 +488,7 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "项目管理-测试服务", serviceName, serviceName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "删除", "项目管理-测试服务", serviceName, serviceName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -526,7 +526,7 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "项目管理-生产服务", serviceName, serviceName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "删除", "项目管理-生产服务", serviceName, serviceName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -803,7 +803,7 @@ func LoadHelmServiceFromTemplateOpenAPI(c *gin.Context) {
 
 	detail := fmt.Sprintf("服务名称:%s", req.ServiceName)
 	detailEn := fmt.Sprintf("Service Name: %s", req.ServiceName)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"新增", function, detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "新增", function, detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
