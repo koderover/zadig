@@ -17,11 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -352,6 +355,10 @@ func InitWorkflowTemplate() {
 		template.ConcurrencyLimit = 1
 		if err := commonrepo.NewWorkflowV4TemplateColl().UpsertByName(template); err != nil {
 			logger.Errorf("update build-in workflow template error: %v", err)
+			continue
+		}
+		if err := initWorkflowTemplateVersion(template.TemplateName); err != nil {
+			logger.Errorf("initialize build-in workflow template %q version: %v", template.TemplateName, err)
 		}
 	}
 	for _, name := range DeprecatedWorkflowTemplateName() {
@@ -359,6 +366,28 @@ func InitWorkflowTemplate() {
 			logger.Errorf("delete deprecated workflow template error: %v", err)
 		}
 	}
+}
+
+func initWorkflowTemplateVersion(name string) error {
+	templates := commonrepo.NewWorkflowV4TemplateColl()
+	template, err := templates.Find(&commonrepo.WorkflowTemplateQueryOption{Name: name})
+	if err != nil {
+		return err
+	}
+	count, err := commonrepo.NewWorkflowV4TemplateVersionColl().CountDocuments(context.TODO(),
+		bson.M{"template_id": template.ID.Hex()}, options.Count().SetLimit(1))
+	if err != nil {
+		log.Errorf("failed to check versions for built-in workflow template %q (%s): %v", name, template.ID.Hex(), err)
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	if err := reconcileWorkflowTemplateIDs(nil, template); err != nil {
+		log.Errorf("failed to initialize stage and job IDs for built-in workflow template %q (%s): %v", name, template.ID.Hex(), err)
+		return err
+	}
+	return templates.Update(template)
 }
 
 func DeprecatedWorkflowTemplateName() []string {
@@ -964,6 +993,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -977,6 +1015,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -999,6 +1046,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1012,6 +1068,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy-env-dev",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1027,6 +1092,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "image-distribute",
 							JobType: config.JobZadigDistributeImage,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDistributeImageJobSpec{
 								Source:  config.SourceFromJob,
 								JobName: "build",
@@ -1041,6 +1115,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy-env-qa",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1063,6 +1146,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage, config.DeployVars, config.DeployConfig},
 								Source:         config.SourceRuntime,
@@ -1077,6 +1169,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: "",
 								Source:   config.SourceRuntime,
@@ -1098,7 +1199,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "offline-service",
 							JobType: config.JobOfflineService,
-							Spec:    commonmodels.JobTaskOfflineServiceSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.JobTaskOfflineServiceSpec{},
 						},
 					},
 				},
@@ -1118,6 +1228,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1131,6 +1250,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1146,6 +1274,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: config.ServiceTestType,
 							},
@@ -1166,6 +1303,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1179,6 +1325,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1194,6 +1349,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: config.ProductTestType,
 							},
@@ -1214,6 +1378,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "code-scanning",
 							JobType: config.JobZadigScanning,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigScanningJobSpec{
 								Source:       config.SourceRuntime,
 								ScanningType: config.NormalScanningType,
@@ -1228,6 +1401,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "code-analyse",
 							JobType: config.JobFreestyle,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.FreestyleJobSpec{
 								Repos:      make([]*types.Repository, 0),
 								Script:     "#!/bin/bash\nset -e",
@@ -1260,6 +1442,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1273,6 +1464,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1295,6 +1495,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1308,6 +1517,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1323,6 +1541,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: "",
 								Source:   config.SourceRuntime,
@@ -1346,7 +1573,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigHelmChartDeploy,
-							Spec:    commonmodels.ZadigHelmChartDeployJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.ZadigHelmChartDeployJobSpec{},
 						},
 					},
 				},
@@ -1357,6 +1593,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: "",
 							},
@@ -1377,6 +1622,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "gray-20",
 							JobType: config.JobK8sGrayRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.GrayReleaseJobSpec{
 								DeployTimeout: 10,
 								GrayScale:     20,
@@ -1391,6 +1645,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "approval",
 							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -1410,6 +1673,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "gray-50",
 							JobType: config.JobK8sGrayRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.GrayReleaseJobSpec{
 								FromJob:       "gray-20",
 								DeployTimeout: 10,
@@ -1423,8 +1695,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval-2",
-							JobType:   config.JobApproval,
+							Name:    "approval-2",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1445,6 +1726,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "gray-100",
 							JobType: config.JobK8sGrayRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.GrayReleaseJobSpec{
 								FromJob:       "gray-20",
 								DeployTimeout: 10,
@@ -1467,6 +1757,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "blue-green-deploy",
 							JobType: config.JobK8sBlueGreenDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.BlueGreenDeployV2JobSpec{
 								Version:    "v2",
 								Production: true,
@@ -1481,6 +1780,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.FreestyleJobSpec{
 								Repos:      make([]*types.Repository, 0),
 								Script:     "#!/bin/bash\nset -e",
@@ -1511,8 +1819,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval",
-							JobType:   config.JobApproval,
+							Name:    "approval",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1533,6 +1850,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "blue-green-release",
 							JobType: config.JobK8sBlueGreenRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.BlueGreenReleaseV2JobSpec{
 								FromJob: "blue-green-deploy",
 							},
@@ -1553,7 +1879,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "canary-deploy",
 							JobType: config.JobK8sCanaryDeploy,
-							Spec:    commonmodels.CanaryDeployJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.CanaryDeployJobSpec{},
 						},
 					},
 				},
@@ -1564,6 +1899,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.FreestyleJobSpec{
 								Repos:      make([]*types.Repository, 0),
 								Script:     "#!/bin/bash\nset -e",
@@ -1594,8 +1938,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval",
-							JobType:   config.JobApproval,
+							Name:    "approval",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1616,6 +1969,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "canary-release",
 							JobType: config.JobK8sCanaryRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.CanaryReleaseJobSpec{
 								FromJob:        "canary-deploy",
 								ReleaseTimeout: 10,
@@ -1637,6 +1999,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "istio-20",
 							JobType: config.JobIstioRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.IstioJobSpec{
 								First:             true,
 								ClusterID:         setting.LocalClusterID,
@@ -1652,8 +2023,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval",
-							JobType:   config.JobApproval,
+							Name:    "approval",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1674,6 +2054,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "istio-60",
 							JobType: config.JobIstioRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.IstioJobSpec{
 								First:             false,
 								FromJob:           "istio-20",
@@ -1689,8 +2078,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval-2",
-							JobType:   config.JobApproval,
+							Name:    "approval-2",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1711,6 +2109,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "istio-100",
 							JobType: config.JobIstioRelease,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.IstioJobSpec{
 								First:             false,
 								FromJob:           "istio-20",
@@ -1733,8 +2140,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval",
-							JobType:   config.JobApproval,
+							Name:    "approval",
+							JobType: config.JobApproval,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1755,7 +2171,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "mse-release",
 							JobType: config.JobMseGrayRelease,
-							Spec:    commonmodels.MseGrayReleaseJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.MseGrayReleaseJobSpec{},
 						},
 					},
 				},
@@ -1766,6 +2191,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.FreestyleJobSpec{
 								Repos:      make([]*types.Repository, 0),
 								Script:     "#!/bin/bash\nset -e",
@@ -1807,6 +2241,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1820,6 +2263,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1835,6 +2287,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: "",
 							},
@@ -1848,7 +2309,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "jira-update",
 							JobType: config.JobJira,
-							Spec:    commonmodels.JiraJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.JiraJobSpec{},
 						},
 					},
 				},
@@ -1866,6 +2336,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1879,6 +2358,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1894,6 +2382,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigTestingJobSpec{
 								TestType: "",
 							},
@@ -1907,7 +2404,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "lark-update",
 							JobType: config.JobMeegoTransition,
-							Spec:    commonmodels.MeegoTransitionJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.MeegoTransitionJobSpec{},
 						},
 					},
 				},
@@ -1927,6 +2433,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1940,7 +2455,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "nacos-update",
 							JobType: config.JobNacos,
-							Spec:    commonmodels.NacosJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.NacosJobSpec{},
 						},
 					},
 				},
@@ -1951,6 +2475,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -1973,6 +2506,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -1986,7 +2528,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "apollo-update",
 							JobType: config.JobApollo,
-							Spec:    commonmodels.ApolloJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.ApolloJobSpec{},
 						},
 					},
 				},
@@ -1997,6 +2548,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -2020,7 +2580,16 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "sql-update",
 							JobType: config.JobSQL,
-							Spec:    commonmodels.SQLJobSpec{},
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
+							Spec: commonmodels.SQLJobSpec{},
 						},
 					},
 				},
@@ -2031,6 +2600,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -2044,6 +2622,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
@@ -2067,6 +2654,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "dms-update",
 							JobType: config.JobPlugin,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.PluginJobSpec{
 								Properties: &commonmodels.JobProperties{
 									Timeout:         60,
@@ -2150,6 +2746,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigBuildJobSpec{
 								Source: config.SourceRuntime,
 							},
@@ -2163,6 +2768,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "deploy",
 							JobType: config.JobZadigDeploy,
+							ExecutePolicy: &commonmodels.JobExecutePolicy{
+								MatchRule: config.JobExecutePolicyMatchRuleAll,
+								Rules:     []*commonmodels.JobExecuteRule{},
+							},
+							ErrorPolicy: &commonmodels.JobErrorPolicy{
+								Policy:        config.JobErrorPolicyStop,
+								MaximumRetry:  3,
+								ApprovalUsers: []*commonmodels.User{},
+							},
 							Spec: commonmodels.ZadigDeployJobSpec{
 								DeployContents: []config.DeployContent{config.DeployImage},
 								Source:         config.SourceFromJob,
