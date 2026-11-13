@@ -158,6 +158,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
 	}
 
+	workflowTaskList := router.Group("workflowTaskList")
+	{
+		workflowTaskList.GET("", GetWorkflowTaskListSettings)
+		workflowTaskList.PUT("", UpdateWorkflowTaskListSettings)
+	}
+
 	// default login default login home page settings
 	login := router.Group("login")
 	{

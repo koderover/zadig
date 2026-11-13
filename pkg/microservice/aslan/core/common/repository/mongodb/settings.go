@@ -56,6 +56,9 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	resp := &models.SystemSetting{}
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if resp.WorkflowTaskListRefreshInterval <= 0 {
+		resp.WorkflowTaskListRefreshInterval = models.DefaultWorkflowTaskListRefreshInterval
+	}
 	return resp, err
 }
 
@@ -69,6 +72,9 @@ func (c *SystemSettingColl) GetByID() (*models.SystemSetting, error) {
 	resp := &models.SystemSetting{}
 
 	err = c.FindOne(context.TODO(), query).Decode(resp)
+	if resp.WorkflowTaskListRefreshInterval <= 0 {
+		resp.WorkflowTaskListRefreshInterval = models.DefaultWorkflowTaskListRefreshInterval
+	}
 	return resp, err
 }
 
@@ -119,9 +125,10 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 	// if we didn't find anything
 	if err != nil {
 		return c.CreateOrUpdate(setting.LocalClusterID, &models.SystemSetting{
-			WorkflowConcurrency: 2,
-			BuildConcurrency:    5,
-			DefaultLogin:        setting.DefaultLoginLocal,
+			WorkflowTaskListRefreshInterval: models.DefaultWorkflowTaskListRefreshInterval,
+			WorkflowConcurrency:             2,
+			BuildConcurrency:                5,
+			DefaultLogin:                    setting.DefaultLoginLocal,
 			Theme: &models.Theme{
 				ThemeType: aslanConfig.DEFAULT_THEME,
 				CustomTheme: &models.CustomTheme{
@@ -333,4 +340,18 @@ func (c *SystemSettingColl) UpdateAIReviewConfig(reviewConfig *models.AIReviewCo
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
+}
+
+func (c *SystemSettingColl) UpdateWorkflowTaskListRefreshInterval(interval int64) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+	change := bson.M{"$set": bson.M{"workflow_task_list_refresh_interval": interval}}
+	result, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
 }
