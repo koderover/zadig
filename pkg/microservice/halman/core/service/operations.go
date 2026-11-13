@@ -203,8 +203,17 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 			return nil, fmt.Errorf("所选构建组件不在服务配置中，请调整清单")
 		}
 
-		if _, err := s.readTemplate(ctx, e, item.ProjectKey, "build_template", args.TemplateID, &args.TemplateFingerprint); err != nil {
+		rawTemplate, err := s.readTemplate(ctx, e, item.ProjectKey, "build_template", args.TemplateID, &args.TemplateFingerprint)
+		if err != nil {
 			return nil, err
+		}
+		envs, _, err := templateVariables(rawTemplate, args.Variables)
+		if err != nil {
+			return nil, err
+		}
+		// 构建接口使用 KeyVal：value 为字符串，type 保留模板类型。
+		for _, env := range envs {
+			env["value"] = fmt.Sprint(env["value"])
 		}
 
 		repos := []any{}
@@ -240,7 +249,7 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 					"service_module": args.ServiceModule,
 				},
 				"repos": repos,
-				"envs":  variableList(args.Variables),
+				"envs":  envs,
 			}},
 		}
 	case "create_environment":

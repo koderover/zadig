@@ -49,6 +49,7 @@ type execution struct {
 	Reports            map[string]reportResult
 	InspectedServices  map[string]bool
 	OnboardingDraft    *models.OnboardingInput
+	OnboardingChecks   map[string]models.DraftCheck
 	SkillInput         json.RawMessage
 	RootID             string
 	RegenerateFrom     *models.Run
@@ -371,7 +372,7 @@ func (s *AgentService) beforePersist(h *session.AppendEventContext, next func() 
 	}
 
 	if h.Event.Response != nil && h.Event.Error != nil {
-		h.Event.Error = &model.ResponseError{Message: "模型处理失败", Type: "model_error"}
+		h.Event.Error = publicRunError(h.Event.Error, e)
 	}
 
 	if !h.Event.IsPartial {
@@ -385,6 +386,9 @@ func (s *AgentService) beforePersist(h *session.AppendEventContext, next func() 
 		}
 	}
 
+	original := h.Event
+	h.Event = privateEventSnapshot(original)
+	defer func() { h.Event = original }()
 	return next()
 }
 
@@ -524,12 +528,19 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 		llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true, MaxTokens: model.IntPtr(8192)}),
 		llmagent.WithMaxLLMCalls(8),
 		llmagent.WithMaxToolIterations(6),
+		llmagent.WithToolIterationLimitFinalization(callLimitFinalizationInstruction(cfg.Language)),
 		llmagent.WithEnableParallelTools(false),
 		llmagent.WithModelCallbacks(callbacks),
 		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure)),
 	}
 	if len(services) > 0 {
-		agentOptions = append(agentOptions, llmagent.WithTools(services[0].tools()))
+		tools := services[0].tools()
+		for i, item := range tools {
+			if item.Declaration().Name == "project_onboarding" || item.Declaration().Name == "service_onboarding" {
+				tools[i] = privateOnboardingTool{item.(tool.CallableTool)}
+			}
+		}
+		agentOptions = append(agentOptions, llmagent.WithTools(tools))
 	}
 
 	ag := llmagent.New("zadig-assistant", agentOptions...)
@@ -652,6 +663,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	status, failure := "succeeded", ""
 	input, output := 0, 0
 	hasAnswer := false
+	var lastAssistantChoice model.Choice
 	ch, err := r.Run(ctx, user, record.ConversationID, model.NewUserMessage(message), agent.WithRequestID(record.ID))
 	if err != nil {
 		status, failure = "failed", lang.Text("启动模型运行失败", "Failed to start the model run")
@@ -662,7 +674,18 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 			}
 
 			if e.Error != nil {
-				status, failure = "failed", lang.Text("模型处理失败", "The model failed to process the request")
+				current, ok := ctx.Value(executionKey{}).(*execution)
+				if !ok {
+					current = &execution{Run: record, Language: lang}
+				}
+				failureInfo := publicRunError(e.Error, current)
+				status, failure = "failed", failureInfo.Message
+				if (failureInfo.Type == "tool_iteration_limit" || failureInfo.Type == "llm_call_limit") && current.OnboardingDraft != nil {
+					status = "awaiting_input"
+					if current.Outcome == "pending_confirmation" {
+						status = current.Outcome
+					}
+				}
 				continue
 			}
 
@@ -687,6 +710,20 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 			}
 
 			for _, choice := range e.Choices {
+				if !e.IsPartial {
+					if choice.Message.Role == model.RoleAssistant {
+						lastAssistantChoice = choice
+					}
+					finishReason := ""
+					if choice.FinishReason != nil {
+						finishReason = *choice.FinishReason
+					}
+					slog.Info("AI 模型响应已结束", "run_id", record.ID, "response_id", e.Response.ID,
+						"choice_index", choice.Index, "finish_reason", finishReason, "usage", e.Usage,
+						"has_content", strings.TrimSpace(choice.Message.Content) != "",
+						"has_reasoning", strings.TrimSpace(choice.Message.ReasoningContent) != "",
+						"tool_call_count", len(choice.Message.ToolCalls))
+				}
 				if !e.IsPartial && choice.Message.Role == model.RoleAssistant && len(choice.Message.ToolCalls) == 0 &&
 					strings.TrimSpace(choice.Message.Content) != "" {
 					hasAnswer = true
@@ -700,7 +737,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	}
 
 	if status == "succeeded" && !hasAnswer {
-		status, failure = "failed", lang.Text("模型未返回有效回答", "The model did not return a valid answer")
+		status, failure = "failed", missingAnswerFailure(lastAssistantChoice, lang)
 	}
 
 	if e, ok := ctx.Value(executionKey{}).(*execution); ok && status == "succeeded" {
