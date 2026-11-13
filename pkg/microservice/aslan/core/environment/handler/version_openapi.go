@@ -17,9 +17,7 @@ limitations under the License.
 package handler
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -182,19 +180,24 @@ func OpenAPICheckRollbackEnvServiceVersion(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.CheckRollbackEnvServiceVersion(params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
 }
 
+// OpenAPIRollbackEnvServiceVersionRequest carries the rollback action; the target service is located by path and query.
+type OpenAPIRollbackEnvServiceVersionRequest struct {
+	Revision         int64  `json:"revision"`
+	OverrideResource bool   `json:"override_resource"`
+	Detail           string `json:"detail"`
+}
+
 // @Summary 回滚环境服务版本
-// @Description 将环境中的服务回滚到指定的历史版本；Helm 服务和独立 Chart 在后台异步升级
+// @Description 将环境中的服务回滚到指定的历史版本。Helm 服务和独立 Chart 等待 Release 升级完成后返回，升级失败时返回错误；不等待 Pod 就绪
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
 // @Param name path string true "环境标识"
 // @Param serviceName path string true "服务名称；独立 Chart 填写 Release 名称"
 // @Param projectKey query string true "项目标识"
-// @Param revision query int true "要回滚到的目标版本号"
 // @Param production query bool false "是否为生产环境，默认为 false"
 // @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
-// @Param overrideResource query bool false "是否以目标版本的配置完整覆盖集群资源，默认为 false"
-// @Param body body RollbackEnvServiceVersionRequest false "回滚说明，请求体可选"
+// @Param body body OpenAPIRollbackEnvServiceVersionRequest true "回滚请求"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
@@ -212,31 +215,40 @@ func OpenAPIRollbackEnvServiceVersion(c *gin.Context) {
 	if !ok {
 		return
 	}
-	revision, ok := parseOpenAPIRevision(ctx, "revision", c.Query("revision"))
-	if !ok {
+
+	req := new(OpenAPIRollbackEnvServiceVersionRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid rollback request body: %v", err))
 		return
 	}
-	overrideResource, ok := parseOpenAPIOptionalBool(ctx, c, "overrideResource")
-	if !ok {
+	if req.Revision < 1 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("revision must be a positive integer")
 		return
 	}
 
-	// the request body is optional for OpenAPI callers
-	req := new(RollbackEnvServiceVersionRequest)
-	if err := c.ShouldBindJSON(req); err != nil && !errors.Is(err, io.EOF) {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid rollback request body")
-		return
-	}
-
-	detail := fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", params.envName, params.serviceName, revision)
-	detailEn := fmt.Sprintf("Environment: %s, Service: %s, Version: %d", params.envName, params.serviceName, revision)
+	detail := fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", params.envName, params.serviceName, req.Revision)
+	detailEn := fmt.Sprintf("Environment: %s, Service: %s, Version: %d", params.envName, params.serviceName, req.Revision)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", params.projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, params.envName)
 
-	// same as the internal API: Helm releases are upgraded asynchronously after this returns
-	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, overrideResource, req.Detail, ctx.Logger)
-	if ctx.RespErr == nil {
-		ctx.Resp = gin.H{"message": "success"}
+	rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, req.Revision, params.isHelmChart, params.production, req.OverrideResource, req.Detail, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
+	// Unlike the console, OpenAPI callers have no notification channel, so wait for the Helm upgrade result.
+	if rollbackStatus != nil && rollbackStatus.HelmDeployStatusChan != nil {
+		select {
+		case ok := <-rollbackStatus.HelmDeployStatusChan:
+			if !ok {
+				ctx.RespErr = e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release: %w", rollbackStatus.HelmDeployErr))
+				return
+			}
+		case <-c.Request.Context().Done():
+			ctx.RespErr = e.ErrRollbackEnvServiceVersion.AddDesc("request canceled before the helm release upgrade finished; the upgrade continues in the background")
+			return
+		}
+	}
+	ctx.Resp = gin.H{"message": "success"}
 }
 
 // parseOpenAPIEnvServiceVersionParams validates the common params, checks permission and license,
