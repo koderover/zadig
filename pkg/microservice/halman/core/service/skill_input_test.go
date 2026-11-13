@@ -14,7 +14,11 @@ import (
 	"trpc.group/trpc-go/trpc-agent-go/tool"
 )
 
-func expectSkillInputSave(mock sqlmock.Sqlmock, e *execution, status any) {
+func expectSkillInputSave(mock sqlmock.Sqlmock, e *execution, status any, plan ...sqlmock.Argument) {
+	planArgument := sqlmock.AnyArg()
+	if len(plan) > 0 {
+		planArgument = plan[0]
+	}
 	root := e.RootID
 	if root == "" {
 		root = e.Run.ID
@@ -24,7 +28,7 @@ func expectSkillInputSave(mock sqlmock.Sqlmock, e *execution, status any) {
 	mock.ExpectQuery("SELECT active_plan_run_id,skill_status FROM ai_run").WithArgs(root, e.User, sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"active", "status"}).AddRow(nil, "running"))
 	mock.ExpectQuery("SELECT status FROM ai_run").WithArgs(e.Run.ID, e.User, e.Run.ConversationID).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("running"))
 	mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=NULL").WithArgs(root, e.User).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_status=").WithArgs(sqlmock.AnyArg(), status, e.Run.ID, e.User).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_status=").WithArgs(planArgument, status, e.Run.ID, e.User).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 }
 

@@ -254,7 +254,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					t.Fatalf("局部补参应保留项目和另外两个服务: %v %v", value, err)
 				}
 				missing := value.(map[string]any)["missing_fields"].([]string)
-				if len(missing) != 2 || strings.Contains(strings.Join(missing, " "), "服务 web") || reads != 2 {
+				if len(missing) != 3 || strings.Contains(strings.Join(missing, " "), "服务 web") || !strings.Contains(strings.Join(missing, " "), "只创建环境不部署服务") || reads != 2 {
 					t.Fatalf("只应询问剩余两服务的缺参: %v，读取 %d 次", missing, reads)
 				}
 				expectOnboardingDraftSave(mock)
@@ -287,6 +287,9 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					t.Fatalf("补齐后必须生成确认清单: %v %v", value, err)
 				}
 				plan := value.(map[string]any)["plan"].(models.OperationPlan)
+				if len(plan.DraftChecks) != 0 || len(e.OnboardingChecks) != 0 {
+					t.Fatal("补参缓存不能跨完整清单准备复用，模板变化后必须能重新生成清单")
+				}
 				itemCount := 5
 				if emptyEnvironment {
 					itemCount = 6
@@ -294,7 +297,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 						t.Fatalf("空环境应纳入清单并明确不部署服务: %+v", plan)
 					}
 				}
-				if len(plan.Items) != itemCount || plan.Items[itemCount-1].Action != "create_workflow" || len(plan.Items[itemCount-1].DependsOn) != itemCount-1 || plan.Draft == nil || plan.Draft.SkipEnvironment == emptyEnvironment || plan.Draft.ExpectedServiceCount != 3 || len(plan.Draft.Services) != 3 || plan.Draft.Services[1].Variables["PORT"] != "8080" || reads != 5 {
+				if len(plan.Items) != itemCount || plan.Items[itemCount-1].Action != "create_workflow" || len(plan.Items[itemCount-1].DependsOn) != itemCount-1 || plan.Draft == nil || plan.Draft.SkipEnvironment == emptyEnvironment || plan.Draft.ExpectedServiceCount != 3 || len(plan.Draft.Services) != 3 || plan.Draft.Services[1].Variables["PORT"] != "8080" || reads != 3 {
 					t.Fatalf("完整清单必须保留三个服务及可恢复草稿: %+v", plan)
 				}
 				return
@@ -318,14 +321,12 @@ func TestMissingTemplateVariablesKeepValidationAndCredentialBoundaries(t *testin
 		definition string
 		values     map[string]string
 	}{
-		{`{"variables":[{"key":"PASSWORD","required":true}]}`, nil},
-		{`{"variables":[{"key":"cred","required":true,"is_credential":true}]}`, nil},
 		{string(raw), map[string]string{"unknown": "x"}},
 		{string(raw), map[string]string{"A": "x", "B": "invalid"}},
 	} {
 		_, _, err := templateVariables([]byte(test.definition), test.values)
 		if err == nil || errors.As(err, &missing) {
-			t.Fatalf("凭据和非法覆盖不能转成普通缺参补问: %v", err)
+			t.Fatalf("非法覆盖不能转成普通缺参补问: %v", err)
 		}
 	}
 	if err := checkTemplateVariables([]byte(`{"pre_build":{"envs":[{"key":"TARGET","type":"choice","choice_option":["dev","prod"],"required":true}]}}`), map[string]string{"TARGET": "dev"}); err != nil {

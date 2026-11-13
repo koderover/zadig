@@ -17,12 +17,19 @@ type OperationItem struct {
 }
 
 type OperationPlan struct {
-	RetryOfRunID  string           `json:"retry_of_run_id,omitempty"`
-	Items         []OperationItem  `json:"items"`
-	Notes         []string         `json:"notes,omitempty"`
-	Draft         *OnboardingInput `json:"draft,omitempty"`
-	Input         json.RawMessage  `json:"input,omitempty" swaggertype:"object"`
-	MissingFields []string         `json:"missing_fields,omitempty"`
+	RetryOfRunID  string                `json:"retry_of_run_id,omitempty"`
+	Items         []OperationItem       `json:"items"`
+	Notes         []string              `json:"notes,omitempty"`
+	Draft         *OnboardingInput      `json:"draft,omitempty"`
+	Input         json.RawMessage       `json:"input,omitempty" swaggertype:"object"`
+	MissingFields []string              `json:"missing_fields,omitempty"`
+	DraftChecks   map[string]DraftCheck `json:"draft_checks,omitempty"`
+}
+
+// 仅保存后端校验结果，不保存模板内容、凭据或模型提供的校验标记。
+type DraftCheck struct {
+	InputHash string          `json:"input_hash"`
+	Result    json.RawMessage `json:"result"`
 }
 
 type RepairInput struct {

@@ -29,6 +29,7 @@ func (s *AgentService) restoreOnboardingDraft(ctx context.Context, e *execution)
 		return fmt.Errorf("原清单没有可恢复的初始化参数，请重新提供完整服务列表")
 	}
 	e.OnboardingDraft = plan.Draft
+	e.OnboardingChecks = plan.DraftChecks
 	return nil
 }
 

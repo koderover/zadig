@@ -229,13 +229,42 @@ func sanitized(value any) any {
 	switch v := value.(type) {
 	case map[string]any:
 		result := make(map[string]any, len(v))
-		secretValue := false
+		secretValue, _ := v["is_credential"].(bool)
 		for _, key := range []string{"key", "name"} {
 			if name, ok := v[key].(string); ok && sensitiveName.MatchString(name) {
 				secretValue = true
 			}
 		}
 		for key, item := range v {
+			if key == "is_credential" {
+				if flag, ok := item.(bool); ok {
+					result[key] = flag
+					continue
+				}
+			}
+			if key == "credential_variables" {
+				result[key] = item
+				continue
+			}
+			if key == "variables" {
+				if variables, ok := item.(map[string]any); ok {
+					copy := make(map[string]any, len(variables))
+					for name, value := range variables {
+						copy[name] = sanitized(value)
+					}
+					if keys, ok := v["credential_variables"].([]any); ok {
+						for _, key := range keys {
+							if name, ok := key.(string); ok {
+								if _, exists := copy[name]; exists {
+									copy[name] = "[已隐藏]"
+								}
+							}
+						}
+					}
+					result[key] = sanitized(copy)
+					continue
+				}
+			}
 			if sensitiveName.MatchString(key) || (secretValue && (key == "value" || key == "default")) {
 				result[key] = "[已隐藏]"
 			} else {

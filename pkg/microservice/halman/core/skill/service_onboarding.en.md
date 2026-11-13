@@ -36,7 +36,9 @@ When the user specifies a count, such as three services, record `expected_servic
 
 Continue the task using its original `skill_execution_id`. The backend restores and merges the draft; submit only changed parameters and the relevant service names instead of repeating the entire list. Omitting services or sending an empty list does not delete existing entries. Use `remove_services` only for explicit removal. Renaming requires explicitly removing the old name and adding the new one. Explicitly update `expected_service_count` when the count changes; omissions must not shrink the scope. Pass `false` explicitly to disable a boolean option, and `null` to clear optional configuration.
 
-Group missing template parameters by service using the tool's returned fields. Do not ask again for supplied values. After a template change, recheck variables for that service without affecting others. Credentials and YAML-type parameters must be preconfigured in the original template; do not request them in chat.
+Group missing template parameters by service using the tool's returned fields. Do not ask again for supplied values. After a template change, recheck variables for that service without affecting others. Unchanged variables inherit template values. Submit only overrides explicitly requested by the user; credential variables support overrides too. Do not copy template defaults back as overrides or submit redaction placeholders. Do not echo credential values in replies or confirmation descriptions. YAML-type parameters must still be preconfigured in the original template.
+
+When collecting additional information, query only resources needed by newly supplied or changed fields and their dependencies. Do not repeat catalog queries for unchanged templates, code sources or resolved parameters. Submit the changes directly to the business tool; the backend reuses draft validation results and collects missing fields. The program rechecks permissions and template changes before execution.
 
 ## Output requirements
 

@@ -214,6 +214,7 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 			e.SkillInput = saved.Input
 			if r.SkillID == "project_onboarding" || r.SkillID == "service_onboarding" {
 				e.OnboardingDraft = saved.Draft
+				e.OnboardingChecks = saved.DraftChecks
 			}
 		}
 
@@ -250,13 +251,17 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 		e.EvidenceRead.Store(true)
 	}
 
+	var publicPlan models.OperationPlan
+	if err := json.Unmarshal(r.Plan, &publicPlan); err != nil {
+		return nil, common.ErrRequestConflict
+	}
 	value, err := safeJSON(common.JSON(map[string]any{
 		"run_id":       r.ID,
 		"status":       r.Status,
 		"plan_status":  r.PlanStatus,
 		"skill_status": r.SkillStatus,
 		"can_continue": continuable,
-		"plan":         r.Plan,
+		"plan":         publicPlan.Redacted(),
 		"read_only":    true,
 	}))
 	if err != nil {

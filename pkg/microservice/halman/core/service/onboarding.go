@@ -34,8 +34,11 @@ func checkConfigPath(value string) error {
 
 func validateVariables(values map[string]string) error {
 	for key, value := range values {
-		if key == "" || len(key) > 128 || len(value) > 4096 || sensitiveName.MatchString(key) {
-			return fmt.Errorf("变量名、大小或凭据参数不受支持；请引用模板中已有凭据，不在聊天中填写密钥")
+		if key == "" || len(key) > 128 || len(value) > 4096 {
+			return fmt.Errorf("变量名或大小不受支持")
+		}
+		if value == "[已隐藏]" || value == "********" {
+			return fmt.Errorf("变量 %s 是脱敏占位符；沿用模板值时请省略该项，覆盖时提供新值", key)
 		}
 	}
 
@@ -130,7 +133,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	buildTargets := map[string]bool{}
 	projectLoaded := false
 	if !newProject && args.ProjectKey != "" && (args.ProjectType == "" || len(args.Builds) > 0) {
-		project, err := s.Platform.project(ctx, e.Authorization, args.ProjectKey)
+		project, err := onboardingCheck(e, "project", args.ProjectKey, func() (*projectDefinition, error) {
+			return s.Platform.project(ctx, e.Authorization, args.ProjectKey)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -145,20 +150,27 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			if err := s.preflightPermissions(ctx, e, models.OperationPlan{Items: []models.OperationItem{{Action: "create_build", ProjectKey: args.ProjectKey}}}); err != nil {
 				return nil, err
 			}
-			raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/project/products/"+args.ProjectKey+"/services", url.Values{"projectName": {args.ProjectKey}}, nil)
+			existingServices, err = onboardingCheck(e, "existing_services", args.ProjectKey, func() (map[string]bool, error) {
+				raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/project/products/"+args.ProjectKey+"/services", url.Values{"projectName": {args.ProjectKey}}, nil)
+				if err != nil {
+					return nil, err
+				}
+				var listed struct {
+					Services [][]string `json:"services"`
+				}
+				if err := json.Unmarshal(raw, &listed); err != nil {
+					return nil, fmt.Errorf("已有服务列表无法解析")
+				}
+				names := map[string]bool{}
+				for _, group := range listed.Services {
+					for _, name := range group {
+						names[name] = true
+					}
+				}
+				return names, nil
+			})
 			if err != nil {
 				return nil, err
-			}
-			var listed struct {
-				Services [][]string `json:"services"`
-			}
-			if err := json.Unmarshal(raw, &listed); err != nil {
-				return nil, fmt.Errorf("已有服务列表无法解析")
-			}
-			for _, group := range listed.Services {
-				for _, name := range group {
-					existingServices[name] = true
-				}
 			}
 			names := map[string]bool{}
 			for _, item := range args.Services {
@@ -276,8 +288,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			missing = append(missing, missingGit(*item.ValuesGit, label+" values", true)...)
 		}
 	}
-
 	if len(missing) > 0 {
+		// 结构尚不完整时只汇总本地可确定的缺项，不读取配置和模板。
+		missing = append(missing, missingOnboardingOptions(args, newProject)...)
 		return s.saveDraft(ctx, e, args, missing)
 	}
 
@@ -298,8 +311,10 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		}
 	}
 
-	if !newProject && !projectLoaded {
-		project, err := s.Platform.project(ctx, e.Authorization, args.ProjectKey)
+	if !newProject && !projectLoaded && args.ProjectKey != "" {
+		project, err := onboardingCheck(e, "project", args.ProjectKey, func() (*projectDefinition, error) {
+			return s.Platform.project(ctx, e.Authorization, args.ProjectKey)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -335,30 +350,35 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if item.Source == "" && existingServices[item.Name] && buildTargets[item.Name] {
 			continue
 		}
-		if err := s.preflightService(ctx, e, args.ProjectKey, *item, !newProject); err != nil {
+		configuration := *item
+		configuration.Variables, configuration.TemplateFingerprint, configuration.CredentialVariables = nil, "", nil
+		conflict, err := onboardingCheck(e, "service/"+item.Name, []any{args.ProjectKey, args.ProjectType, newProject, configuration}, func() (string, error) {
+			err := s.preflightService(ctx, e, args.ProjectKey, *item, !newProject)
 			var conflict *serviceNameConflict
 			if errors.As(err, &conflict) {
-				missing = append(missing, conflict.Error()+"；请明确是否从本批清单移除该服务，不会删除项目中的已有服务")
-				continue
+				return conflict.Error(), nil
 			}
+			return "", err
+		})
+		if err != nil {
 			return nil, err
+		}
+		if conflict != "" {
+			missing = append(missing, conflict+"；请明确是否从本批清单移除该服务，不会删除项目中的已有服务")
+			continue
 		}
 
 		if item.TemplateID != "" {
-			raw, err := s.readTemplate(ctx, e, args.ProjectKey, item.Source, item.TemplateID, nil)
+			check, err := s.checkOnboardingTemplate(ctx, e, "service_template/"+item.Name, args.ProjectKey, item.Source, item.TemplateID, item.Variables)
 			if err != nil {
 				return nil, err
 			}
-
-			item.TemplateFingerprint = fingerprint(raw)
-			if err := checkTemplateVariables(raw, item.Variables); err != nil {
-				var required *missingTemplateVariables
-				if !errors.As(err, &required) {
-					return nil, err
-				}
-				for _, key := range required.Keys {
-					missing = append(missing, "服务 "+item.Name+" 的模板必填变量 "+key)
-				}
+			item.TemplateFingerprint = check.Fingerprint
+			item.CredentialVariables = check.Credentials
+			for _, key := range check.Missing {
+				missing = append(missing, "服务 "+item.Name+" 的模板必填变量 "+key)
+			}
+			if len(check.Missing) > 0 {
 				continue
 			}
 		}
@@ -377,10 +397,6 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			},
 		)
 	}
-	if len(missing) > 0 {
-		return s.saveDraft(ctx, e, args, missing)
-	}
-
 	serviceIDs := make([]string, 0, len(args.Services))
 	for _, item := range args.Services {
 		if item.Source != "" {
@@ -420,7 +436,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			continue
 		}
 		if existing && build.Name != "" && build.ServiceName != "" {
-			modules, err := s.Platform.buildServiceModules(ctx, e.Authorization, args.ProjectKey, args.ProjectType, build.ServiceName)
+			modules, err := onboardingCheck(e, "modules/"+build.Name, []string{args.ProjectKey, args.ProjectType, build.ServiceName}, func() ([]string, error) {
+				return s.Platform.buildServiceModules(ctx, e.Authorization, args.ProjectKey, args.ProjectType, build.ServiceName)
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -440,34 +458,28 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
 		}
 		if build.Name == "" || build.ServiceName == "" || build.ServiceModule == "" {
+			for _, repo := range build.Repositories {
+				missing = append(missing, missingGit(repo, "构建 "+label, false)...)
+			}
+			if len(build.Repositories) == 0 {
+				missing = append(missing, "构建 "+label+" 的源码仓库及分支")
+			}
 			continue
 		}
-		if err := checkNames(build.Name, build.ServiceName, build.ServiceModule); err != nil {
-			return nil, err
-		}
-
 		if err := validateVariables(build.Variables); err != nil {
 			return nil, err
 		}
-
-		raw, err := s.readTemplate(ctx, e, args.ProjectKey, "build_template", build.TemplateID, nil)
+		check, err := s.checkOnboardingTemplate(ctx, e, "build_template/"+label, args.ProjectKey, "build_template", build.TemplateID, build.Variables)
 		if err != nil {
 			return nil, err
 		}
-
-		build.TemplateFingerprint = fingerprint(raw)
-		if err := checkTemplateVariables(raw, build.Variables); err != nil {
-			var required *missingTemplateVariables
-			if !errors.As(err, &required) {
-				return nil, err
-			}
-			for _, key := range required.Keys {
-				missing = append(missing, "构建 "+build.Name+" 的模板必填变量 "+key)
-			}
-			continue
+		build.TemplateFingerprint = check.Fingerprint
+		build.CredentialVariables = check.Credentials
+		for _, key := range check.Missing {
+			missing = append(missing, "构建 "+label+" 的模板必填变量 "+key)
 		}
 
-		for _, repo := range build.Repositories {
+		for repoIndex, repo := range build.Repositories {
 			fields := missingGit(repo, "构建 "+build.Name, false)
 			missing = append(missing, fields...)
 			if len(fields) > 0 {
@@ -477,7 +489,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				return nil, err
 			}
 
-			if err := s.Platform.requireGitSource(ctx, e.Authorization, repo.CodehostID); err != nil {
+			if _, err := onboardingCheck(e, fmt.Sprintf("build_source/%s/%d", label, repoIndex), repo.CodehostID, func() (bool, error) {
+				return true, s.Platform.requireGitSource(ctx, e.Authorization, repo.CodehostID)
+			}); err != nil {
 				return nil, err
 			}
 		}
@@ -487,6 +501,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			continue
 		}
 
+		if err := checkNames(build.Name, build.ServiceName, build.ServiceModule); err != nil {
+			return nil, err
+		}
 		plan.Items = append(
 			plan.Items,
 			models.OperationItem{
@@ -500,32 +517,13 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			},
 		)
 	}
-	if len(missing) > 0 {
-		return s.saveDraft(ctx, e, args, missing)
-	}
-
-	if newProject && args.Environment == nil && !args.SkipEnvironment {
-		return s.saveDraft(ctx, e, args, []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群、Kubernetes namespace 和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"})
-	}
-
+	missing = append(missing, missingOnboardingEnvironment(args, newProject)...)
 	if args.Environment != nil {
 		env := args.Environment
-		for _, field := range []struct{ value, label string }{
-			{env.Name, "环境名称"},
-			{env.ClusterID, "环境的集群"},
-			{env.Namespace, "环境的 Kubernetes namespace"},
-			{env.RegistryID, "环境的镜像仓库"},
-		} {
-			if field.value == "" {
-				missing = append(missing, field.label)
+		if env.Name != "" && env.Namespace != "" {
+			if err := checkNames(env.Name, env.Namespace); err != nil {
+				return nil, err
 			}
-		}
-		if len(missing) > 0 {
-			return s.saveDraft(ctx, e, args, missing)
-		}
-
-		if err := checkNames(env.Name, env.Namespace); err != nil {
-			return nil, err
 		}
 
 		for _, name := range env.Services {
@@ -551,6 +549,10 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		} else {
 			plan.Notes = append(plan.Notes, e.text("创建环境会实际部署所选服务；缺少镜像、Secret 或必要配置会阻塞，不代表已经部署成功", "Creating an environment deploys the selected services. Missing images, Secrets or required configuration may block deployment; creation alone does not mean deployment succeeded"))
 		}
+	}
+
+	if len(missing) > 0 {
+		return s.saveDraft(ctx, e, args, missing)
 	}
 
 	if args.CreateWorkflow {

@@ -231,7 +231,7 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 		}
 
 		statuses[item.ID] = item.Status
-		s.publish(e.Run.ID, StreamEvent{Type: "operation", Data: item})
+		s.publish(e.Run.ID, StreamEvent{Type: "operation", Data: item.Redacted()})
 	}
 
 	finishCtx, finishCancel := context.WithTimeout(context.Background(), 5*time.Second)
