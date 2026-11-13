@@ -24,6 +24,8 @@ For builds targeting existing services, use `builds` directly; `services` may be
 
 ## Clarification
 
+For Git configurations, use only file or directory paths explicitly supplied by the user, including paths already saved in the original task draft. If the repository is known but the path is missing, save the known parameters and ask for the path. Do not search the repository, browse directories, guess common paths, reinterpret template names as paths, or call `configuration_paths` to explore. Query only the supplied path without expanding to parent directories or other paths. Do not request Git paths for template-library or Chart-repository sources.
+
 The tool collects service name conflicts, saves the draft, and returns them as `awaiting_input`. Explain those conflicts and ask how to resolve them; do not query the project catalog or change the service list to probe for more conflicts. Never remove services without an explicit request. Chart repository imports require the service name to match the Chart name: renaming only the service cannot resolve a conflict. Ask whether to remove conflicting services from this batch or select other Charts, preserving existing project services.
 
 Prefer the exact full template name supplied by the user; do not ask for IDs. For YAML and build templates, pass the full name as `query_catalog.keyword`. If unmatched, follow `next_page` until an exact match is found, then read its details. Ask about unclear or ambiguous names instead of substituting similar names. Other resources use the existing interfaces' name lookup. Do not conclude a resource is absent because the first page has no match.
