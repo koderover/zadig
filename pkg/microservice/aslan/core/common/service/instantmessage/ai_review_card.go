@@ -99,11 +99,15 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 	}
 
 	counts := report.SeverityCounts()
-	switch report.Verdict() {
+	switch aiReviewCardVerdict(spec) {
 	case stepspec.AIReviewVerdictIncomplete:
 		// Keep the partial results so the card matches the PR comment.
 		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
 		lc.AddI18NElementsZhcnMarkdown("**审查未完整完成，以下为已完成部分的结果。**")
+		lc.AddI18NElementsZhcnMarkdown(failureReason)
+	case stepspec.AIReviewVerdictAbnormal:
+		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
+		lc.AddI18NElementsZhcnMarkdown("**审查异常退出，无法给出审查结论。**")
 		lc.AddI18NElementsZhcnMarkdown(failureReason)
 	case stepspec.AIReviewVerdictBlocked:
 		lc.SetHeader(feishuHeaderTemplateRed, aiReviewCardTitle("❗ AI 审查失败", spec.RepoName), feiShuTagText)
@@ -171,6 +175,19 @@ func buildAIReviewLarkCard(input *aiReviewCardInput) *LarkCard {
 	return lc
 }
 
+// aiReviewCardVerdict adjusts the report verdict to the task outcome: with the quality gate off,
+// the run script turns exit code 1 into success, so blocking findings only mean "passed with findings".
+func aiReviewCardVerdict(spec *stepspec.StepAIReviewReportSpec) stepspec.AIReviewVerdict {
+	verdict := spec.Report.Verdict()
+	if verdict == stepspec.AIReviewVerdictBlocked && spec.QualityGateEnabled != nil && !*spec.QualityGateEnabled {
+		if len(spec.Report.Findings) > 0 {
+			return stepspec.AIReviewVerdictPassedWithFindings
+		}
+		return stepspec.AIReviewVerdictPassed
+	}
+	return verdict
+}
+
 func aiReviewCardTitle(prefix, repoName string) string {
 	if repoName == "" {
 		return prefix
@@ -203,6 +220,9 @@ func aiReviewBlockedReason(counts map[string]int, failOn []string) string {
 
 func aiReviewFailureReason(spec *stepspec.StepAIReviewReportSpec, jobError string) string {
 	if spec.Report != nil {
+		if spec.Report.Verdict() == stepspec.AIReviewVerdictAbnormal {
+			return fmt.Sprintf("审查进程异常退出（退出码 %d）", spec.Report.ExitCode)
+		}
 		for _, reportErr := range spec.Report.Errors {
 			if reportErr = strings.TrimSpace(reportErr); reportErr != "" {
 				return reportErr

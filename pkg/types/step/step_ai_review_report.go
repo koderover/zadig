@@ -23,15 +23,17 @@ import (
 )
 
 type StepAIReviewReportSpec struct {
-	ReportPath      string          `bson:"report_path" json:"report_path" yaml:"report_path"`
-	CodehostID      int             `bson:"codehost_id" json:"codehost_id" yaml:"codehost_id"`
-	RepoOwner       string          `bson:"repo_owner" json:"repo_owner" yaml:"repo_owner"`
-	RepoName        string          `bson:"repo_name" json:"repo_name" yaml:"repo_name"`
-	PR              int             `bson:"pr" json:"pr" yaml:"pr"`
+	ReportPath string `bson:"report_path" json:"report_path" yaml:"report_path"`
+	CodehostID int    `bson:"codehost_id" json:"codehost_id" yaml:"codehost_id"`
+	RepoOwner  string `bson:"repo_owner" json:"repo_owner" yaml:"repo_owner"`
+	RepoName   string `bson:"repo_name" json:"repo_name" yaml:"repo_name"`
+	PR         int    `bson:"pr" json:"pr" yaml:"pr"`
 	// FailOn lists the severities that block the review when the quality gate is enabled.
 	FailOn []string `bson:"fail_on,omitempty" json:"fail_on,omitempty" yaml:"fail_on,omitempty"`
-	Report          *AIReviewReport `bson:"report,omitempty" json:"report,omitempty" yaml:"report,omitempty"`
-	CollectionError string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
+	// QualityGateEnabled is nil for tasks created before it was recorded.
+	QualityGateEnabled *bool           `bson:"quality_gate_enabled,omitempty" json:"quality_gate_enabled,omitempty" yaml:"quality_gate_enabled,omitempty"`
+	Report             *AIReviewReport `bson:"report,omitempty" json:"report,omitempty" yaml:"report,omitempty"`
+	CollectionError    string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
 	// Publication records what was posted to the pull/merge request, for notifications.
 	Publication *AIReviewPublication `bson:"publication,omitempty" json:"publication,omitempty" yaml:"publication,omitempty"`
 }
@@ -59,6 +61,8 @@ const (
 	AIReviewVerdictPassedWithFindings AIReviewVerdict = "passed_with_findings"
 	AIReviewVerdictBlocked            AIReviewVerdict = "blocked"
 	AIReviewVerdictIncomplete         AIReviewVerdict = "incomplete"
+	// AIReviewVerdictAbnormal means the review exited with an unexpected code, so no pass conclusion can be drawn.
+	AIReviewVerdictAbnormal AIReviewVerdict = "abnormal"
 )
 
 // AIReviewReport mirrors the JSON report emitted by zadig-review-agent.
@@ -101,6 +105,8 @@ func (r *AIReviewReport) Verdict() AIReviewVerdict {
 		return AIReviewVerdictIncomplete
 	case r.ExitCode == 1:
 		return AIReviewVerdictBlocked
+	case r.ExitCode != 0:
+		return AIReviewVerdictAbnormal
 	case len(r.Findings) > 0:
 		return AIReviewVerdictPassedWithFindings
 	}
