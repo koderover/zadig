@@ -24,6 +24,8 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/repo"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
 func TestReplaceChartDirectory(t *testing.T) {
@@ -50,16 +52,13 @@ func TestReplaceChartDirectory(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			backup, err := replaceChartDirectory(source, target)
+			err := replaceChartDirectory(source, target)
 			if err != nil {
 				t.Fatal(err)
 			}
 			values, err := os.ReadFile(filepath.Join(target, "values.yaml"))
 			if err != nil || string(values) != "replicas: 2\n" {
 				t.Fatalf("unexpected values %q, err: %v", values, err)
-			}
-			if err := os.RemoveAll(backup); err != nil {
-				t.Fatal(err)
 			}
 			entries, err := os.ReadDir(base)
 			if err != nil || len(entries) != 1 || entries[0].Name() != "chart" {
@@ -79,7 +78,7 @@ func TestReplaceChartDirectoryRestoresPreviousOnFailure(t *testing.T) {
 	if err := os.WriteFile(valuesPath, []byte("original"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := replaceChartDirectory(filepath.Join(base, "missing"), target); err == nil {
+	if err := replaceChartDirectory(filepath.Join(base, "missing"), target); err == nil {
 		t.Fatal("expected publication to fail")
 	}
 	values, err := os.ReadFile(valuesPath)
@@ -320,6 +319,23 @@ func TestChartCacheAndReaders(t *testing.T) {
 			t.Fatal("delivery downloaded an already cached chart")
 		}
 	})
+	t.Run("revision snapshot remains valid after cache unlock", func(t *testing.T) {
+		snapshot := filepath.Join(t.TempDir(), "collector")
+		err := client.WithDownloadedChart(entry, "test/collector", "2.0.0", dest, func(ctx context.Context, source string) error {
+			return copy.Copy(source, snapshot)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Database creation can now use the snapshot while another request refreshes latest.
+		if err := pull("1.0.0"); err != nil {
+			t.Fatal(err)
+		}
+		ch, err := loader.Load(snapshot)
+		if err != nil || ch.Metadata.Version != "2.0.0" {
+			t.Fatalf("cache refresh changed the revision snapshot: %v, %v", ch, err)
+		}
+	})
 	t.Run("repository identity is checked", func(t *testing.T) {
 		before := requests.Load()
 		alias := &repo.Entry{Name: "alias", URL: server.URL}
@@ -328,6 +344,134 @@ func TestChartCacheAndReaders(t *testing.T) {
 		}
 		if requests.Load() != before+1 {
 			t.Fatal("different chart reference reused stale cache")
+		}
+	})
+	t.Run("failed refresh leaves a pending cache marker", func(t *testing.T) {
+		if err := pull("9.0.0"); err == nil {
+			t.Fatal("expected missing chart version to fail")
+		}
+		marker := filepath.Join(dest, ".zadig-chart-collector.source")
+		data, err := os.ReadFile(marker)
+		if err != nil || len(data) != 0 {
+			t.Fatalf("failed refresh must leave a pending marker: %q, %v", data, err)
+		}
+		loaded := make(chan error, 1)
+		err = WithChartDirectoryLock(dest, func(ctx context.Context) error {
+			go func() {
+				loaded <- withChartReadLock(chartPath, func() error { return nil })
+			}()
+			select {
+			case err := <-loaded:
+				return fmt.Errorf("pending marker allowed reader to bypass lock: %v", err)
+			case <-time.After(150 * time.Millisecond):
+				return nil
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := <-loaded; err != nil {
+			t.Fatal(err)
+		}
+		before := requests.Load()
+		if err := pull("2.0.0"); err != nil {
+			t.Fatal(err)
+		}
+		if requests.Load() != before+1 {
+			t.Fatal("pending cache was reused without a successful refresh")
+		}
+	})
+	t.Run("latest always clears and downloads again", func(t *testing.T) {
+		parent := t.TempDir()
+		latest := filepath.Join(parent, "latest")
+		revision := filepath.Join(parent, "123")
+		if err := os.Mkdir(revision, 0755); err != nil {
+			t.Fatal(err)
+		}
+		marker := ".zadig-chart-collector.source"
+		certificate, err := os.ReadFile(filepath.Join(dest, marker))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 2; i++ {
+			if err := copy.Copy(chartPath, filepath.Join(latest, "collector")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(latest, marker), certificate, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(latest, "collector", "values.yaml"), []byte("replicas: 99\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(latest, "stale"), nil, 0644); err != nil {
+				t.Fatal(err)
+			}
+			before := requests.Load()
+			if err := client.DownloadChart(entry, "test/collector", "2.0.0", latest, true); err != nil {
+				t.Fatal(err)
+			}
+			if requests.Load() != before+1 {
+				t.Fatal("latest incorrectly reused cached or edited files")
+			}
+			values, err := os.ReadFile(filepath.Join(latest, "collector", "values.yaml"))
+			if err != nil || string(values) != "replicas: 1\n" {
+				t.Fatalf("latest did not restore repository Values: %q, %v", values, err)
+			}
+			for _, name := range []string{"stale", marker} {
+				if _, err := os.Stat(filepath.Join(latest, name)); !os.IsNotExist(err) {
+					t.Fatalf("latest retained old %s: %v", name, err)
+				}
+			}
+			if _, err := os.Stat(revision); err != nil {
+				t.Fatalf("refresh removed a historical revision: %v", err)
+			}
+		}
+	})
+	t.Run("latest reader locks without a cache marker", func(t *testing.T) {
+		latest := filepath.Join(t.TempDir(), "latest")
+		if err := client.DownloadChart(entry, "test/collector", "2.0.0", latest, true); err != nil {
+			t.Fatal(err)
+		}
+		loaded := make(chan error, 1)
+		err := WithChartDirectoryLock(latest, func(ctx context.Context) error {
+			go func() {
+				_, _, err := client.getChart(filepath.Join(latest, "collector"), &action.ChartPathOptions{})
+				loaded <- err
+			}()
+			select {
+			case err := <-loaded:
+				return fmt.Errorf("latest reader bypassed the writer lock: %v", err)
+			case <-time.After(150 * time.Millisecond):
+				return nil
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := <-loaded; err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("latest deletion failure stops download", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("requires filesystem permission checks")
+		}
+		parent := t.TempDir()
+		latest := filepath.Join(parent, "latest")
+		if err := os.Mkdir(latest, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(parent, 0500); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chmod(parent, 0755)
+		before := requests.Load()
+		err := client.DownloadChart(entry, "test/collector", "2.0.0", latest, true)
+		if err == nil || !strings.Contains(err.Error(), "failed to clear latest chart") {
+			t.Fatalf("expected cleanup failure, got %v", err)
+		}
+		if requests.Load() != before {
+			t.Fatal("download continued after cleanup failed")
 		}
 	})
 	t.Run("cancelled extraction preserves old chart", func(t *testing.T) {
@@ -377,7 +521,57 @@ func TestChartDirectoryLockRenewalAndLoss(t *testing.T) {
 			return fmt.Errorf("lost lock did not cancel the operation")
 		}
 	})
-	if err == nil || !strings.Contains(err.Error(), "lost chart directory lock") {
+	if err == nil || !strings.Contains(err.Error(), "lost redis lock") {
 		t.Fatalf("expected lock-loss error, got %v", err)
+	}
+}
+
+func TestServiceLockSerializesPublication(t *testing.T) {
+	if os.Getenv("HELM_DOWNLOAD_TEST_REDIS") != "1" {
+		t.Skip("requires a test Redis")
+	}
+	key := "helm_service_edit:test:collector:false"
+	entered, release := make(chan struct{}), make(chan struct{})
+	firstDone, secondDone := make(chan error, 1), make(chan error, 1)
+	events := make(chan string, 4)
+	go func() {
+		firstDone <- cache.WithRedisLock(key, func(context.Context) error {
+			events <- "allocate 100"
+			close(entered)
+			<-release
+			events <- "publish 100"
+			return nil
+		})
+	}()
+	select {
+	case <-entered:
+	case err := <-firstDone:
+		t.Fatalf("first import failed: %v", err)
+	}
+	go func() {
+		secondDone <- cache.WithRedisLock(key, func(context.Context) error {
+			events <- "allocate 101"
+			events <- "publish 101"
+			return nil
+		})
+	}()
+	select {
+	case err := <-secondDone:
+		close(release)
+		<-firstDone
+		t.Fatalf("second import bypassed the service lock: %v", err)
+	case <-time.After(150 * time.Millisecond):
+	}
+	close(release)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-secondDone; err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"allocate 100", "publish 100", "allocate 101", "publish 101"} {
+		if got := <-events; got != want {
+			t.Fatalf("publication order: got %q, want %q", got, want)
+		}
 	}
 }

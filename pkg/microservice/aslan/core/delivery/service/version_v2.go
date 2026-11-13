@@ -925,12 +925,56 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 	var chartPackagePath string
 	deliveryChartDir := filepath.Join(cacheDir, service.ChartName+"-"+service.OriginalChartVersion)
 	err = helmtool.WithChartDirectoryLock(deliveryChartDir, func(ctx context.Context) error {
-		var err error
-		chartPackagePath, err = packageDeliveryChartFromVersion(ctx, projectName, versionName, service, sourceChartRepoInfo, dir)
+		deliveryChartPath, err := ensureChartFilesFromVersion(ctx, projectName, versionName, sourceChartRepoInfo, service)
+		if err != nil {
+			return fmt.Errorf("failed to ensure chart files from version, err: %v", err)
+		}
+
+		// write values.yaml file before load
+		if err = yaml.Unmarshal([]byte(service.YamlContent), map[string]interface{}{}); err != nil {
+			log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", service.ServiceName, service.YamlContent)
+			return errors.Wrapf(err, "invalid yaml content for service: %s", service.ServiceName)
+		}
+
+		updatedValues, err := updateValuesImage(service)
+		if err != nil {
+			return fmt.Errorf("failed to update values image, serviceName: %s, err: %s", service.ServiceName, err)
+		}
+		service.YamlContent = string(updatedValues)
+
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
+		err = os.WriteFile(valuesFilePath, updatedValues, 0644)
+		if err != nil {
+			return errors.Wrapf(err, "failed to write values.yaml file for service %s", service.ServiceName)
+		}
+
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		//load chart info from local storage
+		chartRequested, err := chartloader.Load(deliveryChartPath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
+		}
+
+		//set metadata
+		chartRequested.Metadata.Name = service.ChartName
+		chartRequested.Metadata.Version = service.ChartVersion
+		chartRequested.Metadata.AppVersion = service.ChartVersion
+
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		//create local chart package
+		chartPackagePath, err = helmchartutil.Save(chartRequested, dir)
 		if err != nil {
 			return err
 		}
-		return ctx.Err()
+
+		return nil
 	})
 	if err != nil {
 		return err
@@ -952,59 +996,6 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 		return errors.Wrapf(err, "failed to push chart: %s", chartPackagePath)
 	}
 	return nil
-}
-
-func packageDeliveryChartFromVersion(ctx context.Context, projectName, versionName string, service *commonmodels.DeliveryVersionService, sourceChartRepoInfo *commonmodels.HelmRepo, dir string) (string, error) {
-	deliveryChartPath, err := ensureChartFilesFromVersion(ctx, projectName, versionName, sourceChartRepoInfo, service)
-	if err != nil {
-		return "", fmt.Errorf("failed to ensure chart files from version, err: %v", err)
-	}
-
-	// write values.yaml file before load
-	if err = yaml.Unmarshal([]byte(service.YamlContent), map[string]interface{}{}); err != nil {
-		log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", service.ServiceName, service.YamlContent)
-		return "", errors.Wrapf(err, "invalid yaml content for service: %s", service.ServiceName)
-	}
-
-	updatedValues, err := updateValuesImage(service)
-	if err != nil {
-		return "", fmt.Errorf("failed to update values image, serviceName: %s, err: %s", service.ServiceName, err)
-	}
-	service.YamlContent = string(updatedValues)
-
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
-	err = os.WriteFile(valuesFilePath, updatedValues, 0644)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to write values.yaml file for service %s", service.ServiceName)
-	}
-
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	//load chart info from local storage
-	chartRequested, err := chartloader.Load(deliveryChartPath)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
-	}
-
-	//set metadata
-	chartRequested.Metadata.Name = service.ChartName
-	chartRequested.Metadata.Version = service.ChartVersion
-	chartRequested.Metadata.AppVersion = service.ChartVersion
-
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	//create local chart package
-	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
-	if err != nil {
-		return "", err
-	}
-
-	return chartPackagePath, nil
 }
 
 func ensureChartFilesFromEnv(service *commonmodels.DeliveryVersionService, env *commonmodels.Product) (string, error) {
@@ -1099,14 +1090,6 @@ func ensureChartFilesFromVersion(ctx context.Context, projectName, versionName s
 	})
 	if err != nil {
 		return "", err
-	}
-
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	err = os.WriteFile(filepath.Join(newPath, setting.ValuesYaml), []byte(service.YamlContent), 0644)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to write values.yaml")
 	}
 
 	return newPath, nil
