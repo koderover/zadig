@@ -41,6 +41,8 @@ type aiReviewInlinePublishResult struct {
 	Title     string
 	Author    string
 	URL       string
+	Source    string
+	Target    string
 	ProjectID int
 	Threads   []models.AIReviewInlineThread
 	Fallback  []stepspec.AIReviewFinding
@@ -54,9 +56,15 @@ type aiReviewInlineLink struct {
 }
 
 type AIReviewPRMetadata struct {
-	Title  string
-	Author string
-	URL    string
+	Title        string
+	Author       string
+	URL          string
+	SourceBranch string
+	TargetBranch string
+	// PRRef is the platform-style reference, e.g. "!86" for GitLab or "#86" for GitHub.
+	PRRef           string
+	InlinePublished int
+	InlineComments  []stepspec.AIReviewInlineComment
 }
 
 func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) (AIReviewPRMetadata, error) {
@@ -101,7 +109,7 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 		comments = append(comments, summary)
 	}
 	numericProjectID, title := inlineResult.ProjectID, inlineResult.Title
-	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL}
+	metadata := AIReviewPRMetadata{Title: title, Author: inlineResult.Author, URL: inlineResult.URL, SourceBranch: inlineResult.Source, TargetBranch: inlineResult.Target}
 	if title == "" {
 		resolvedProjectID, fetched, err := s.Client.getAIReviewPRMetadata(ctx, cli, projectID, repoOwner, repoName, prID)
 		if err != nil {
@@ -110,6 +118,18 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 			numericProjectID, metadata = resolvedProjectID, fetched
 		}
 		title = metadata.Title
+	}
+	metadata.PRRef = "#" + strconv.Itoa(prID)
+	if cli.gitlab != nil {
+		metadata.PRRef = "!" + strconv.Itoa(prID)
+	}
+	metadata.InlinePublished = inlineResult.Published
+	for _, link := range inlineResult.Links {
+		metadata.InlineComments = append(metadata.InlineComments, stepspec.AIReviewInlineComment{
+			Severity: strings.ToLower(strings.TrimSpace(link.Finding.Severity)),
+			Title:    singleLineText(link.Finding.Title),
+			URL:      link.URL,
+		})
 	}
 	// Register confirmed comments even when publication exhausted its deadline.
 	registerCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -183,10 +203,7 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 	} else if report.DurationMS > 0 {
 		duration = strconv.FormatFloat(float64(report.DurationMS)/1000, 'f', -1, 64) + "s"
 	}
-	counts := make(map[string]int)
-	for _, finding := range report.Findings {
-		counts[strings.ToLower(strings.TrimSpace(finding.Severity))]++
-	}
+	counts := report.SeverityCounts()
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "### 🤖 Zadig AI Review\n\n%s · 模型 `%s` · 已扫描 `%d` 个文件 · 耗时 %s\n\n---\n\n%s\n\n`🟥 严重: %d` | `🟧 高: %d` | `🟨 中: %d` | `🟦 低: %d`\n", status, markdownInline(report.Metadata.Model), report.Stats.ChangedFiles, duration, message, counts["critical"], counts["high"], counts["medium"], counts["low"])
 	if len(inlineResult.Links) > 0 {

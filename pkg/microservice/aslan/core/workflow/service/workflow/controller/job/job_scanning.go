@@ -1187,6 +1187,7 @@ func (j ScanningJobController) toAIReviewJobTask(
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_FAIL_ON", Value: aiReviewFailOnValue(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn)},
 	)
 	reportRelativePath := path.Join(repoDir, ".zadig-review", "zadig-review-report.json")
+	qualityGateEnabled := scanningInfo.CheckQualityGate
 	reviewScript := buildAIReviewScript()
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps,
 		&commonmodels.StepTask{
@@ -1210,6 +1211,9 @@ func (j ScanningJobController) toAIReviewJobTask(
 				RepoOwner:  repo.GetRepoNamespace(),
 				RepoName:   repo.RepoName,
 				PR:         repo.PR,
+				FailOn:     aiReviewFailOn(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn),
+				// The run script turns exit code 1 into success when the gate is off; the card must know that.
+				QualityGateEnabled: &qualityGateEnabled,
 			},
 		},
 	)
@@ -1223,10 +1227,14 @@ func (j ScanningJobController) toAIReviewJobTask(
 }
 
 func aiReviewFailOnValue(checkQualityGate bool, failOn []string) string {
+	return strings.Join(aiReviewFailOn(checkQualityGate, failOn), ",")
+}
+
+func aiReviewFailOn(checkQualityGate bool, failOn []string) []string {
 	if !checkQualityGate {
-		return ""
+		return nil
 	}
-	return strings.Join(failOn, ",")
+	return append([]string(nil), failOn...)
 }
 
 func buildAIReviewScript() string {
