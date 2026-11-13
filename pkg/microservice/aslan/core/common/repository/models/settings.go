@@ -16,23 +16,33 @@ limitations under the License.
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/v2/pkg/types"
+)
+
+type AIReleaseSpecialistConfig struct {
+	LLMIntegrationID string `json:"llm_integration_id" bson:"llm_integration_id"`
+}
 
 type SystemSetting struct {
-	ID                  primitive.ObjectID       `bson:"_id,omitempty" json:"id,omitempty"`
-	WorkflowConcurrency int64                    `bson:"workflow_concurrency" json:"workflow_concurrency"`
-	BuildConcurrency    int64                    `bson:"build_concurrency" json:"build_concurrency"`
-	DefaultLogin        string                   `bson:"default_login" json:"default_login"`
-	Theme               *Theme                   `bson:"theme" json:"theme"`
-	Security            *SecuritySettings        `bson:"security" json:"security"`
-	Privacy             *PrivacySettings         `bson:"privacy"  json:"privacy"`
-	Language            string                   `bson:"language" json:"language"`
-	ServerURL           string                   `bson:"server_url" json:"server_url"`
-	WorkflowHook        *WorkflowHookSettings    `bson:"workflow_hook" json:"workflow_hook"`
-	ReleasePlanHook     *ReleasePlanHookSettings `bson:"release_plan_hook" json:"release_plan_hook"`
-	DindTLSCerts        *DindTLSCerts            `bson:"dind_tls_certs,omitempty" json:"-"`
-	AIReviewConfig      *AIReviewConfig          `bson:"ai_review_config" json:"ai_review_config"`
-	UpdateTime          int64                    `bson:"update_time" json:"update_time"`
+	ID                        primitive.ObjectID         `bson:"_id,omitempty" json:"id,omitempty"`
+	WorkflowConcurrency       int64                      `bson:"workflow_concurrency" json:"workflow_concurrency"`
+	BuildConcurrency          int64                      `bson:"build_concurrency" json:"build_concurrency"`
+	DefaultLogin              string                     `bson:"default_login" json:"default_login"`
+	Theme                     *Theme                     `bson:"theme" json:"theme"`
+	Security                  *SecuritySettings          `bson:"security" json:"security"`
+	Privacy                   *PrivacySettings           `bson:"privacy"  json:"privacy"`
+	Language                  string                     `bson:"language" json:"language"`
+	ServerURL                 string                     `bson:"server_url" json:"server_url"`
+	WorkflowHook              *WorkflowHookSettings      `bson:"workflow_hook" json:"workflow_hook"`
+	ReleasePlanHook           *ReleasePlanHookSettings   `bson:"release_plan_hook" json:"release_plan_hook"`
+	DindTLSCerts              *DindTLSCerts              `bson:"dind_tls_certs,omitempty" json:"-"`
+	AIReviewConfig            *AIReviewConfig            `bson:"ai_review_config" json:"ai_review_config"`
+	AIAssistantConfig         *types.AIAssistantConfig   `bson:"ai_assistant_config,omitempty" json:"ai_assistant_config,omitempty"`
+	AIReleaseSpecialistConfig *AIReleaseSpecialistConfig `bson:"ai_release_specialist_config,omitempty" json:"ai_release_specialist_config,omitempty"`
+	UpdateTime                int64                      `bson:"update_time" json:"update_time"`
 }
 
 type DindTLSCerts struct {
@@ -89,7 +99,6 @@ type AIReviewConfig struct {
 	LLMIntegrationID string        `json:"llm_integration_id" bson:"llm_integration_id"`
 	IncludePaths     []string      `json:"include_paths" bson:"include_paths"`
 	ExcludePaths     []string      `json:"exclude_paths" bson:"exclude_paths"`
-	OutputLanguage   string        `json:"output_language" bson:"output_language"`
 	Rules            []*ReviewRule `json:"rules" bson:"rules"`
 }
 

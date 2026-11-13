@@ -129,7 +129,7 @@ func (c *Client) newAIReviewCommentClient(ctx context.Context, codehostID int, r
 	}
 }
 
-func (c *Client) createAIReviewComment(ctx context.Context, cli *aiReviewCommentClient, projectID, repoOwner, repoName string, prID int, comment string) (reviewfeedback.PublishedComment, error) {
+func (c *Client) createAIReviewComment(ctx context.Context, cli *aiReviewCommentClient, projectID, repoOwner, repoName string, prID int, comment, locale string) (reviewfeedback.PublishedComment, error) {
 	if prID <= 0 {
 		return reviewfeedback.PublishedComment{}, fmt.Errorf("invalid pull/merge request ID %d", prID)
 	}
@@ -141,7 +141,7 @@ func (c *Client) createAIReviewComment(ctx context.Context, cli *aiReviewComment
 		if isAIReviewSummary(comment) {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
-			if err := archiveGitLabAIReviewSummaries(ctx, cli.gitlab, projectID, prID, int64(item.ID), item.Author.ID); err != nil && c.logger != nil {
+			if err := archiveGitLabAIReviewSummaries(ctx, cli.gitlab, projectID, prID, int64(item.ID), item.Author.ID, locale); err != nil && c.logger != nil {
 				c.logger.Warnf("failed to collapse previous GitLab AI review summaries for %s#%d: %v", projectID, prID, err)
 			}
 		}
@@ -247,7 +247,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 		publishedFindings = append(publishedFindings, finding)
 		comments = append(comments, &githubapi.DraftReviewComment{
 			Path: githubapi.String(finding.File),
-			Body: githubapi.String(formatAIReviewInlineComment(finding)),
+			Body: githubapi.String(formatAIReviewInlineComment(finding, report.Metadata.Language)),
 			Side: githubapi.String("RIGHT"),
 			Line: githubapi.Int(anchor),
 		})
@@ -340,7 +340,7 @@ func (c *Client) createGitLabAIReviewInlineComments(ctx context.Context, cli *gi
 			projectID,
 			prID,
 			&gitlab.CreateMergeRequestDiscussionOptions{
-				Body: gitlab.String(formatAIReviewInlineComment(finding)),
+				Body: gitlab.String(formatAIReviewInlineComment(finding, report.Metadata.Language)),
 				Position: &gitlab.NotePosition{
 					BaseSHA:      mergeRequest.DiffRefs.BaseSha,
 					StartSHA:     mergeRequest.DiffRefs.StartSha,

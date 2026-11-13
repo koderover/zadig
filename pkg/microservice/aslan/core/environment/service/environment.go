@@ -632,7 +632,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(username, envName, productName, log)
+		productResp, err := GetProduct(username, envName, productName, nil, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}
@@ -957,7 +957,7 @@ func UpdateMultiCVMProducts(envNames []string, productName, user, requestID stri
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(user, envName, productName, log)
+		productResp, err := GetProduct(user, envName, productName, nil, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}
@@ -2526,7 +2526,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
+		productResp, err := GetProduct(setting.SystemUser, envName, productName, nil, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}
@@ -2588,7 +2588,7 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
+		productResp, err := GetProduct(setting.SystemUser, envName, productName, nil, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}

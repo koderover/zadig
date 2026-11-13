@@ -115,9 +115,25 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
 }
 
+// GetAIStatsAnalysis godoc
+// @Summary 分析指定项目的质量和效率
+// @Description 系统管理员或具有查看效能洞察权限的用户可访问，不要求逐项目权限。提供 project_list 和起止时间时直接使用该范围；仅提供问题时由现有 LLM 同时提取项目、任务和时间范围，未明确时间时返回错误。使用原效能分析模型和报告格式。
+// @Tags stat
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer 用户登录令牌"
+// @Param body body ai.AiAnalysisReq true "问题及可选显式分析范围"
+// @Success 200 {object} ai.AiAnalysisResp
+// @Failure 400 {object} e.ErrorResponse "参数或分析失败"
+// @Failure 403 {object} e.ErrorResponse "无效能洞察权限"
+// @Router /api/aslan/stat/v2/ai/analysis [post]
 func GetAIStatsAnalysis(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, authErr := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if authErr != nil || !authorizeEfficiencyStats(ctx) {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// get params prompt, projectList, duration from query
 	reqData, err := c.GetRawData()
@@ -128,6 +144,10 @@ func GetAIStatsAnalysis(c *gin.Context) {
 	args := new(ai.AiAnalysisReq)
 	if err := json.Unmarshal(reqData, args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err := ai.ValidateExplicitAnalysisArgs(args); err != nil {
+		ctx.RespErr = e.NewWithDesc(e.ErrInvalidParam, err.Error())
 		return
 	}
 

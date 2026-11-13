@@ -37,10 +37,19 @@ import (
 )
 
 func GetProductTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("项目访问权限查询失败: %w", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	productTemplatName := c.Param("name")
+	if !ctx.Resources.IsSystemAdmin && ctx.Resources.ProjectAuthInfo[productTemplatName] == nil {
+		ctx.UnAuthorized = true
+		return
+	}
 	ctx.Resp, ctx.RespErr = commonservice.GetProductTemplate(productTemplatName, ctx.Logger)
 }
 

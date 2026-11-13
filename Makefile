@@ -2,7 +2,7 @@
 # WARNING:
 # This makefile used docker buildx to build multi-arch image
 # Please make sure you have the right version of docker.
-.PHONY: microservice.push swag zadig-agent zadig-agent-clean
+.PHONY: microservice.push swag swag-user swag-halman zadig-agent zadig-agent-clean
 
 IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/koderover-public
 IMAGE_REPOSITORY := $(IMAGE_REPOSITORY)
@@ -10,7 +10,7 @@ DEV_IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/test
 DEV_IMAGE_REPOSITORY := $(DEV_IMAGE_REPOSITORY)
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
-MICROSERVICE_TARGETS = aslan cron executor hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
+MICROSERVICE_TARGETS = aslan cron executor halman hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
 BUILD_BASE_TARGETS = focal bionic
 DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
 
@@ -49,6 +49,8 @@ swag:
 	swag init --parseDependency --parseInternal --parseDepth 3 -d cmd/aslan,pkg/microservice/aslan,pkg/microservice/systemconfig/core -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
 swag-user:
 	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/user -g ../../pkg/microservice/user/server/rest/router.go -o pkg/microservice/user/server/rest/doc
+swag-halman:
+	swag init --parseDependency --parseInternal --parseDepth 1 -d pkg/microservice/halman/server/rest,pkg/microservice/halman/core/handler,pkg/microservice/halman/core/repository/models -g server.go -o pkg/microservice/halman/server/rest/doc
 
 # zadig-agent
 # Usage:

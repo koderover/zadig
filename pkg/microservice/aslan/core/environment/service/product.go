@@ -208,8 +208,8 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	return ret, err
 }
 
-func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (*ProductResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+func GetProduct(username, envName, productName string, production *bool, log *zap.SugaredLogger) (*ProductResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: production}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %s", username, envName, productName, err)
@@ -223,6 +223,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	prodResp := &ProductResp{
 		ID:                    prod.ID.Hex(),
 		ProductName:           prod.ProductName,
+		Production:            prod.Production,
 		Namespace:             prod.Namespace,
 		Status:                setting.PodUnstable,
 		EnvName:               prod.EnvName,

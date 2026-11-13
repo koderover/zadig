@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/terminalaudit"
+	statorm "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -42,6 +43,7 @@ func Serve(ctx context.Context) error {
 
 	core.Start(ctx)
 	defer core.Stop(ctx)
+	defer statorm.CloseAIAssistantStatsStore()
 
 	log.Infof("App Aslan Started at %s", time.Now())
 

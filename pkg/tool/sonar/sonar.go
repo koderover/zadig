@@ -26,7 +26,6 @@ import (
 
 	"github.com/spf13/viper"
 
-	vmlog "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -235,7 +234,8 @@ func PrintSonarConditionTables(conditions []Condition) {
 	log.Infof("")
 }
 
-func VMPrintSonarConditionTables(conditions []Condition, logger *vmlog.JobLogger) {
+// 公共工具只依赖日志方法，避免导入客户端日志包时创建本地目录。
+func VMPrintSonarConditionTables(conditions []Condition, logger interface{ Infof(string, ...any) }) {
 	logger.Infof("")
 	logger.Infof("%-40s|%-10s|%-10s|%-10s|%-20s|", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
 	for _, condition := range conditions {

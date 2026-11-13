@@ -21,6 +21,7 @@ out
 *.out
 *.exe
 *_test.go
+!pkg/microservice/aslan/core/stat/service/ai/ai_analysis_test.go
 
 node_modules
 bower_components
@@ -42,6 +43,7 @@ godoc-proxy/website/dist
 #Swagger info
 pkg/microservice/aslan/server/rest/doc
 pkg/microservice/user/server/rest/doc
+pkg/microservice/halman/server/rest/doc
 
 npm-debug.log
 .bowerrc
@@ -79,3 +81,31 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/stat/handler/ai_review_stat_query_regression_test.go
 !pkg/microservice/aslan/core/common/service/webhook/manual_webhook_test.go
 !pkg/microservice/aslan/core/workflow/testing/service/scanning_webhook_test.go
+!pkg/microservice/halman/**/*_test.go
+!pkg/microservice/aslan/core/system/handler/ai_assistant_test.go
+!pkg/types/ai_assistant_test.go
+!pkg/microservice/aslan/core/log/service/excerpt_test.go
+!pkg/microservice/aslan/core/log/handler/excerpt_test.go
+!pkg/microservice/aslan/core/project/handler/product_authorization_test.go
+
+!pkg/microservice/aslan/core/common/repository/mongodb/ai_assistant_test.go
+
+!pkg/microservice/aslan/core/stat/handler/ai_assistant_test.go
+!pkg/microservice/aslan/core/stat/service/ai_assistant_test.go
+
+!pkg/microservice/aslan/core/stat/repository/orm/*_test.go
+
+!pkg/tool/language/*_test.go
+!pkg/microservice/aslan/core/common/service/scmnotify/ai_review_language_test.go
+
+!pkg/microservice/user/core/service/permission/ai_assistant_test.go
+!pkg/microservice/aslan/core/system/service/custom_navigation_ai_assistant_test.go
+!pkg/microservice/aslan/core/system/handler/custom_navigation_ai_assistant_test.go
+
+# AI management regression tests
+!pkg/microservice/user/core/service/permission/ai_management_test.go
+!pkg/microservice/aslan/core/system/handler/ai_management_test.go
+!pkg/microservice/aslan/core/system/service/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/service/llmservice/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/repository/mongodb/ai_release_specialist_test.go
+!pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller/ai_release_specialist_test.go

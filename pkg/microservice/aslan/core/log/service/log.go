@@ -47,17 +47,33 @@ func GetWorkflowV4JobContainerLogs(workflowName, jobName string, taskID int64, l
 }
 
 func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	file, cleanup, err := downloadContainerLog(pipelineName, filenamePrefix, taskID, log)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	containerLog, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Errorf("GetContainerLogFromS3 Read file err:%v", err)
+		return "", err
+	}
+	return string(containerLog), nil
+}
+
+func downloadContainerLog(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, func(), error) {
 	fileName := strings.Replace(filenamePrefix, "_", "-", -1)
 	fileName += ".log"
-	tempFile, _ := util.GenerateTmpFile()
-	defer func() {
-		_ = os.Remove(tempFile)
-	}()
+	tempFile, err := util.GenerateTmpFile()
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup := func() { _ = os.Remove(tempFile) }
 
 	storage, err := s3service.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 FindDefaultS3 err:%v", err)
-		return "", err
+		cleanup()
+		return "", func() {}, err
 	}
 
 	if storage.Subfolder != "" {
@@ -68,7 +84,8 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
-		return "", err
+		cleanup()
+		return "", func() {}, err
 	}
 	fullPath := storage.GetObjectPath(fileName)
 	err = client.DownloadWithOption(storage.Bucket, fullPath, tempFile, &s3tool.DownloadOption{
@@ -77,15 +94,11 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	})
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
-		return "", err
+		cleanup()
+		return "", func() {}, err
 	}
 
-	containerLog, err := ioutil.ReadFile(tempFile)
-	if err != nil {
-		log.Errorf("GetContainerLogFromS3 Read file err:%v", err)
-		return "", err
-	}
-	return string(containerLog), nil
+	return tempFile, cleanup, nil
 }
 
 func GetCurrentContainerLogs(podName, containerName, envName, productName string, tailLines int64, log *zap.SugaredLogger) (string, error) {

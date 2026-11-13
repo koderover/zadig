@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: halman
+spec:
+  replicas: 1
+  # 第一期在进程内控制运行入场，升级时先停止旧实例，避免重叠执行。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: halman
+  template:
+    metadata:
+      labels:
+        app: halman
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: halman
+          # 发布时替换为实际构建的固定版本镜像。
+          image: halman:VERSION
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            # 包含 MYSQL_HOST、MYSQL_USER、MYSQL_PASSWORD、MYSQL_AI_DB，以及现有 MONGODB_CONNECTION_STRING、ASLAN_DB。
+            - secretRef:
+                name: halman-database
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zadig-aes-key
+                  key: aesKey
+            - name: BE_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # 三项均在启动时读取；调整后重新部署，数值需结合目标环境压测。
+            - name: HALMAN_MAX_CONCURRENT_RUNS
+              value: "32"
+            - name: HALMAN_ADMISSION_WAIT_TIMEOUT
+              value: "2s"
+            - name: HALMAN_DB_MAX_CONNECTIONS
+              value: "50"
+            - name: TZ
+              value: Asia/Shanghai
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/encryption
+              name: aes-key
+              readOnly: true
+      volumes:
+        - name: aes-key
+          secret:
+            secretName: zadig-aes-key
+            items:
+              - key: aesKey
+                path: aes
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: halman
+spec:
+  selector:
+    app: halman
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

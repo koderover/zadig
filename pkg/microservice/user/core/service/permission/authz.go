@@ -823,6 +823,7 @@ func generateDefaultProjectActions() *ProjectActions {
 
 func generateDefaultSystemActions() *SystemActions {
 	return &SystemActions{
+		AIManagement: &AIManagementActions{},
 		Project: &SystemProjectActions{
 			Create: false,
 			Delete: false,
@@ -844,10 +845,11 @@ func generateDefaultSystemActions() *SystemActions {
 			ViewVersion:  false,
 		},
 		DataCenter: &DataCenterActions{
-			ViewOverView:        false,
-			ViewInsight:         false,
-			ViewAIReviewInsight: false,
-			EditInsightConfig:   false,
+			ViewOverView:          false,
+			ViewInsight:           false,
+			ViewAIReviewInsight:   false,
+			ViewAIAssistantReport: false,
+			EditInsightConfig:     false,
 		},
 		ReleasePlan: &ReleasePlanActions{
 			Create:       false,
@@ -1039,6 +1041,10 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 
 func modifySystemAction(systemActions *SystemActions, verb string) {
 	switch verb {
+	case VerbGetAIManagement:
+		systemActions.AIManagement.View = true
+	case VerbEditAIManagement:
+		systemActions.AIManagement.Edit = true
 	case VerbCreateProject:
 		systemActions.Project.Create = true
 	case VerbDeleteProject:
@@ -1065,6 +1071,8 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DataCenter.ViewInsight = true
 	case VerbGetDataCenterAIReviewInsight:
 		systemActions.DataCenter.ViewAIReviewInsight = true
+	case VerbGetDataCenterAIAssistantReport:
+		systemActions.DataCenter.ViewAIAssistantReport = true
 	case VerbEditDataCenterInsightConfig:
 		systemActions.DataCenter.EditInsightConfig = true
 	case VerbCreateReleasePlan:
