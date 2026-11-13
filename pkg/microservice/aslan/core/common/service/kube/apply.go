@@ -19,6 +19,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -37,10 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -179,114 +179,42 @@ func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.Grou
 }
 
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, jobLogContext *joblog.JobLogContext, log *zap.SugaredLogger) error {
-	itemsMap := make(map[string]*unstructured.Unstructured)
-	errList := &multierror.Error{}
-	for _, u := range newItems {
-		itemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
-	}
-
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, jobLogContext *joblog.JobLogContext, log *zap.SugaredLogger) error {
+	ctx := context.Background()
 	jobLogManager := joblog.NewJobLogManager(jobLogContext)
-
-	oldItemsMap := make(map[string]*unstructured.Unstructured)
-	for _, u := range currentItems {
-		oldItemsMap[fmt.Sprintf("%s/%s", u.GetKind(), u.GetName())] = u
-	}
-
-	for name, item := range oldItemsMap {
-		_, exists := itemsMap[name]
-		item.SetNamespace(namespace)
-		if exists {
+	errList := &multierror.Error{}
+	for _, resource := range orderedResourcesToRemove(currentItems, newItems) {
+		item := resource.DeepCopy()
+		namespaced, err := kubeClient.IsObjectNamespaced(item)
+		if meta.IsNoMatchError(err) {
+			log.Infof("skip removing %s/%s: API is absent", item.GetKind(), item.GetName())
 			continue
-		}
-		if err := updater.DeleteUnstructured(item, kubeClient); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				log.Infof("skip removing old item %s/%v from %s, resource is already absent: %v", item.GetName(), item.GroupVersionKind(), namespace, err)
-				continue
-			}
-			item.SetGroupVersionKind(GetValidGVK(item.GroupVersionKind(), version))
-			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
-			continue
-		}
-
-		logContent := fmt.Sprintf("Delete resource %s/%s in namespace %s", item.GetKind(), item.GetName(), namespace)
-		jobLogManager.SaveJobLog(logContent)
-
-		if !waitForDelete {
-			continue
-		}
-
-		labelSelector := fmt.Sprintf("app=%s", item.GetName())
-		watchOpts := metav1.ListOptions{
-			TypeMeta:      metav1.TypeMeta{},
-			LabelSelector: labelSelector,
-			FieldSelector: "",
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
-		defer cancel()
-
-		var watcher watch.Interface
-		var err error
-		switch item.GetKind() {
-		case setting.Deployment:
-			watcher, err = clientSet.AppsV1().Deployments(namespace).Watch(ctx, watchOpts)
-		case setting.DaemonSet:
-			watcher, err = clientSet.AppsV1().DaemonSets(namespace).Watch(ctx, watchOpts)
-		case setting.Service:
-			watcher, err = clientSet.CoreV1().Services(namespace).Watch(ctx, watchOpts)
-		case setting.StatefulSet:
-			watcher, err = clientSet.AppsV1().StatefulSets(namespace).Watch(ctx, watchOpts)
-		case setting.Secret:
-			watcher, err = clientSet.CoreV1().Secrets(namespace).Watch(ctx, watchOpts)
-		case setting.ConfigMap:
-			watcher, err = clientSet.CoreV1().ConfigMaps(namespace).Watch(ctx, watchOpts)
-		case setting.Ingress:
-			watcher, err = clientSet.ExtensionsV1beta1().Ingresses(namespace).Watch(ctx, watchOpts)
-		case setting.PersistentVolumeClaim:
-			watcher, err = clientSet.CoreV1().PersistentVolumeClaims(namespace).Watch(ctx, watchOpts)
-		case setting.Pod:
-			watcher, err = clientSet.CoreV1().Pods(namespace).Watch(ctx, watchOpts)
-		case setting.ReplicaSet:
-			watcher, err = clientSet.AppsV1().ReplicaSets(namespace).Watch(ctx, watchOpts)
-		case setting.Job:
-			watcher, err = clientSet.BatchV1().Jobs(namespace).Watch(ctx, watchOpts)
-		case setting.CronJob:
-			watcher, err = clientSet.BatchV1beta1().CronJobs(namespace).Watch(ctx, watchOpts)
-		case setting.ClusterRoleBinding:
-			watcher, err = clientSet.RbacV1().ClusterRoleBindings().Watch(ctx, watchOpts)
-		case setting.ServiceAccount:
-			watcher, err = clientSet.CoreV1().ServiceAccounts(namespace).Watch(ctx, watchOpts)
-		case setting.ClusterRole:
-			watcher, err = clientSet.RbacV1().ClusterRoles().Watch(ctx, watchOpts)
-		case setting.Role:
-			watcher, err = clientSet.RbacV1().Roles(namespace).Watch(ctx, watchOpts)
-		case setting.RoleBinding:
-			watcher, err = clientSet.RbacV1().RoleBindings(namespace).Watch(ctx, watchOpts)
-		default:
-			err = fmt.Errorf("unknown kind %s to watch", item.GetKind())
-			log.Error(err)
 		}
 		if err != nil {
-			log.Errorf("failed to watch %s in namespace %s, error: %v", item.GetKind(), namespace, err)
+			errList = multierror.Append(errList, errors.Wrapf(err, "failed to determine scope for %s/%s", item.GetKind(), item.GetName()))
 			continue
 		}
-		defer watcher.Stop()
-
-	FOR:
-		for {
-			select {
-			case event := <-watcher.ResultChan():
-				if event.Type == watch.Deleted {
-					log.Infof("succeed to remove old item %s/%v from %s", item.GetName(), item.GroupVersionKind(), namespace)
-					break FOR
-				}
-			case <-ctx.Done():
-				log.Error("Context timeout for delete %s/%s", item.GetKind(), item.GetName())
-				break FOR
+		if namespaced {
+			item.SetNamespace(namespace)
+		} else {
+			item.SetNamespace("")
+		}
+		propagation := metav1.DeletePropagationForeground
+		if err := kubeClient.Delete(ctx, item, &client.DeleteOptions{PropagationPolicy: &propagation}); err != nil {
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+				log.Infof("skip removing %s/%s: resource is already absent", item.GetKind(), item.GetName())
+				continue
+			}
+			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove %s/%s from %s", item.GetKind(), item.GetName(), item.GetNamespace()))
+			continue
+		}
+		jobLogManager.SaveJobLog(fmt.Sprintf("Delete resource %s/%s in namespace %s", item.GetKind(), item.GetName(), item.GetNamespace()))
+		if waitForDelete {
+			if err := waitForDeletedResources(ctx, []*unstructured.Unstructured{item}, kubeClient); err != nil {
+				log.Errorf("failed to wait for resource deletion: %v", err)
 			}
 		}
 	}
-
 	return errList.ErrorOrNil()
 }
 
@@ -319,10 +247,16 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 		return nil, nil, nil
 	}
 	manifests := releaseutil.SplitManifests(manifest)
+	keys := make([]string, 0, len(manifests))
+	for key := range manifests {
+		keys = append(keys, key)
+	}
+	sort.Sort(releaseutil.BySplitManifestsOrder(keys))
 	errList := &multierror.Error{}
 	resources := []*unstructured.Unstructured{}
 	resourceMap := make(map[string]*Resource)
-	for _, item := range manifests {
+	for _, key := range keys {
+		item := manifests[key]
 		isEmpty := true
 		for _, line := range strings.Split(strings.TrimSpace(item), "\n") {
 			trimmedLine := strings.TrimSpace(line)
@@ -341,7 +275,7 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 			errList = multierror.Append(errList, err)
 			continue
 		}
-		GVKN := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+		GVKN := resourceGVKNKey(u)
 		resourceMap[GVKN] = &Resource{
 			Manifest:     item,
 			Unstructured: u,
@@ -690,11 +624,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		err = errors.WithMessagef(errGetClientSet, "failed to init k8s clientset")
 		return nil, err
 	}
-	versionInfo, errGetVersion := clientSet.ServerVersion()
-	if errGetVersion != nil {
-		err = errors.WithMessagef(errGetVersion, "failed to get k8s server version")
-		return nil, err
-	}
 
 	curResources, curResourceMap, err := ManifestToUnstructured(applyParam.CurrentResourceYaml)
 	if err != nil {
@@ -707,13 +636,14 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
 		return nil, err
 	}
+	allUpdateResources := orderedResourcesToUpdate(updateResources, updateResourceMap)
 
 	if applyParam.Uninstall {
 		if !commonutil.ServiceIsDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
 
-		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, applyParam.JobLogContext, log)
+		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, applyParam.JobLogContext, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
@@ -723,7 +653,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	// calc resources to be removed and resources to be created or updated
 	removeRes := []*unstructured.Unstructured{}
 	unchangedResources := []*unstructured.Unstructured{}
-	for GVKN, cr := range curResourceMap {
+	for _, u := range curResources {
+		GVKN := resourceGVKNKey(u)
+		cr := curResourceMap[GVKN]
+		if cr.Unstructured != u {
+			continue
+		}
 		r, ok := updateResourceMap[GVKN]
 		if !ok {
 			removeRes = append(removeRes, cr.Unstructured)
@@ -734,12 +669,9 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			}
 		}
 	}
-	updateResources = []*unstructured.Unstructured{}
-	for _, r := range updateResourceMap {
-		updateResources = append(updateResources, r.Unstructured)
-	}
+	updateResources = orderedResourcesToUpdate(updateResources, updateResourceMap)
 
-	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, applyParam.JobLogContext, log)
+	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, applyParam.JobLogContext, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -758,7 +690,35 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	for _, u := range unchangedResources {
 		res = append(res, u)
 	}
+	crds := []*unstructured.Unstructured{}
+	for _, u := range allUpdateResources {
+		if isCRD(u) {
+			crds = append(crds, u)
+		}
+	}
+	if len(crds) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), crdRegistrationTimeout)
+		err := applyCRDs(ctx, crds, updateResourceMap, clientSet.Discovery().RESTClient(), func(u *unstructured.Unstructured) error {
+			u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
+			jobLogManager.SaveJobLog(fmt.Sprintf("Applying %s/%s", u.GetKind(), u.GetName()))
+			if err := updater.CreateOrPatchUnstructured(u, kubeClient); err != nil {
+				return err
+			}
+			res = append(res, u)
+			return nil
+		})
+		cancel()
+		if err != nil {
+			return res, err
+		}
+		if mapper, ok := kubeClient.RESTMapper().(meta.ResettableRESTMapper); ok {
+			mapper.Reset()
+		}
+	}
 	for _, u := range updateResources {
+		if isCRD(u) {
+			continue
+		}
 		switch u.GetKind() {
 		case setting.Ingress:
 			ls := MergeLabels(labels, u.GetLabels())
@@ -775,7 +735,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -799,7 +759,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -914,7 +874,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -950,7 +910,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -985,7 +945,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1086,7 +1046,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1124,7 +1084,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, marshalErr)
 					continue
 				}
-				gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+				gvkn := resourceGVKNKey(u)
 				originalYAML := ""
 				if curRes, ok := curResourceMap[gvkn]; ok {
 					originalYAML = curRes.Manifest
@@ -1148,7 +1108,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -1171,7 +1131,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -1197,7 +1157,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, marshalErr)
 				continue
 			}
-			gvkn := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+			gvkn := resourceGVKNKey(u)
 			originalYAML := ""
 			if curRes, ok := curResourceMap[gvkn]; ok {
 				originalYAML = curRes.Manifest
@@ -1228,10 +1188,20 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				continue
 			}
 		default:
-			u.SetNamespace(namespace)
-			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+			namespaced, scopeErr := kubeClient.IsObjectNamespaced(u)
+			if scopeErr != nil {
+				errList = multierror.Append(errList, errors.Wrapf(scopeErr, "failed to determine scope for %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
+			if namespaced {
+				u.SetNamespace(namespace)
+				u.SetLabels(MergeLabels(labels, u.GetLabels()))
+			} else {
+				u.SetNamespace("")
+				u.SetLabels(MergeLabels(clusterLabels, u.GetLabels()))
+			}
 
-			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), namespace)
+			logContent := fmt.Sprintf("Applying %s/%s in namespace %s", u.GetKind(), u.GetName(), u.GetNamespace())
 			jobLogManager.SaveJobLog(logContent)
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
