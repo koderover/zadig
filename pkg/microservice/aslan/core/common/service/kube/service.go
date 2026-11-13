@@ -424,8 +424,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageDriver:    dindStorageDriver,
 			DindTLS:              dindTLS,
 			ScheduleWorkflow:     scheduleWorkflow,
-			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
-			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
+			IRSAAnnotations:      WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM),
 			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
 			Toleration:           cluster.AdvancedConfig.AgentToleration,
 			Affinity:             cluster.AdvancedConfig.AgentAffinity,
@@ -450,12 +449,11 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			DindStorageDriver:    dindStorageDriver,
 			DindTLS:              dindTLS,
-			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
+			IRSAAnnotations:      WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM),
 			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
 			Toleration:           cluster.AdvancedConfig.AgentToleration,
 			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			DisableHostNetwork:   cluster.AdvancedConfig.AgentDisableHostNetwork,
-			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 		})
 	}
@@ -579,11 +577,7 @@ func InitializeExternalCluster(clusterID string) error {
 	if err != nil {
 		return err
 	}
-	if cluster.AdvancedConfig.EnableIRSA {
-		serviceAccount.Annotations = map[string]string{
-			"eks.amazonaws.com/role-arn": cluster.AdvancedConfig.IRSARoleARM,
-		}
-	}
+	serviceAccount.Annotations = WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM)
 
 	if _, err := clientset.CoreV1().ServiceAccounts(namespace).Create(context.Background(), serviceAccount, metav1.CreateOptions{}); err != nil {
 		return errors.Errorf("cluster %s create serviceAccount err: %s", clusterID, err)
@@ -781,8 +775,7 @@ type TemplateSchema struct {
 	DindStorageDriver    string
 	DindTLS              DindTLSSecretTemplateData
 	ScheduleWorkflow     bool
-	EnableIRSA           bool
-	IRSARoleARN          string
+	IRSAAnnotations      map[string]string
 	ImagePullPolicy      string
 	NodeSelector         string
 	Toleration           string
@@ -994,9 +987,11 @@ kind: ServiceAccount
 metadata:
   name: workflow-cm-sa
   namespace: {{.Namespace}}
-  {{- if .EnableIRSA }}
+  {{- if .IRSAAnnotations }}
   annotations:
-    eks.amazonaws.com/role-arn: {{.IRSARoleARN}}
+    {{- range $key, $value := .IRSAAnnotations }}
+    {{$key}}: {{$value}}
+    {{- end }}
   {{- end }}
 
 ---
@@ -1269,9 +1264,11 @@ kind: ServiceAccount
 metadata:
   name: workflow-cm-sa
   namespace: koderover-agent
-  {{- if .EnableIRSA }}
+  {{- if .IRSAAnnotations }}
   annotations:
-    eks.amazonaws.com/role-arn: {{.IRSARoleARN}}
+    {{- range $key, $value := .IRSAAnnotations }}
+    {{$key}}: {{$value}}
+    {{- end }}
   {{- end }}
 
 ---
