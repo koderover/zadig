@@ -10,5 +10,5 @@ type CatalogRequest struct {
 	RepoOwner  string `json:"repo_owner,omitempty" jsonschema:"description=仓库组织或拥有者"`
 	RepoName   string `json:"repo_name,omitempty" jsonschema:"description=仓库名；chart_versions 必须提供 Chart 仓库名称（或通过 id 提供），返回该仓库全部 Chart 版本，一次查询可供多个服务复用"`
 	Branch     string `json:"branch,omitempty" jsonschema:"description=分支名"`
-	Path       string `json:"path,omitempty" jsonschema:"description=已有服务配置路径，不读取整仓库"`
+	Path       string `json:"path,omitempty" jsonschema:"description=用户明确提供或原任务草稿已保存的服务配置文件或目录路径；未提供时补问，不猜测路径或搜索仓库，不读取整仓库"`
 }

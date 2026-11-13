@@ -20,6 +20,8 @@ Project display name, project key, project type, and each new service's name and
 
 ## Clarification
 
+For Git configurations, use only file or directory paths explicitly supplied by the user, including paths already saved in the original task draft. If the repository is known but the path is missing, save the known parameters and ask for the path. Do not search the repository, browse directories, guess common paths, reinterpret template names as paths, or call `configuration_paths` to explore. Query only the supplied path without expanding to parent directories or other paths. Do not request Git paths for template-library or Chart-repository sources.
+
 Prefer the exact full template name supplied by the user; do not ask for IDs. For YAML and build templates, pass the full name as `query_catalog.keyword`. If unmatched, follow `next_page` until an exact match is found, then read its details. Ask about unclear or ambiguous names instead of substituting similar names. Other resources use the existing interfaces' name lookup. Do not conclude a resource is absent because the first page has no match.
 
 If all template pages are exhausted without an exact match, immediately explain which name could not be matched and ask for the full name or configuration source. Do not reinterpret the template name as a branch, directory or build template to continue exploring. Offer only candidates already returned by tools. When asking for service configuration sources, offer a code repository or an existing service template and collect fields for the chosen source rather than always requesting repository paths.

@@ -12,6 +12,25 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
+func TestConfigurationPathsRequiresPathBeforeAnyRepositoryRequest(t *testing.T) {
+	requests := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	for _, path := range []string{"", "/", "../yaml", "yaml/../config"} {
+		_, err := platform.catalog(context.Background(), token("user"), models.CatalogRequest{
+			Kind: "configuration_paths", CodehostID: 1, RepoOwner: "kr-poc", RepoName: "multi-service-demo", Path: path,
+		})
+		if err == nil || !strings.Contains(err.Error(), "请用户提供") {
+			t.Fatalf("must ask for a path instead of exploring the repository: %q %v", path, err)
+		}
+	}
+	if requests != 0 {
+		t.Fatalf("invalid or missing paths must not contact the code host: %d requests", requests)
+	}
+}
+
 func TestRegistryCatalogUsesUserListAndKeepsDefaultWithoutCredentials(t *testing.T) {
 	for _, project := range []string{"", "demo"} {
 		t.Run("project="+project, func(t *testing.T) {

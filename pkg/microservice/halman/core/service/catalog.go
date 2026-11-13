@@ -107,6 +107,11 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 	case "codehosts":
 		path = "/api/code/codehost"
 	case "repositories", "branches", "configuration_paths":
+		if args.Kind == "configuration_paths" {
+			if err := checkConfigPath(args.Path); err != nil {
+				return nil, fmt.Errorf("请用户提供仓库内的配置文件或目录路径，不要自行搜索或猜测路径：%w", err)
+			}
+		}
 		if err := p.requireGitSource(ctx, auth, args.CodehostID); err != nil {
 			return nil, err
 		}
@@ -121,10 +126,6 @@ func (p *PlatformClient) catalog(ctx context.Context, auth string, args models.C
 			path = "/api/code/codehost/" + strconv.Itoa(args.CodehostID) + "/branches"
 		}
 		if args.Kind == "configuration_paths" {
-			if err := checkConfigPath(args.Path); err != nil {
-				return nil, err
-			}
-
 			path = "/api/code/workspace/tree"
 			query = url.Values{
 				"codehost_id": {strconv.Itoa(args.CodehostID)},
