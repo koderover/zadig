@@ -96,6 +96,8 @@ type OpenAPIUpdateHelmValuesReq struct {
 	SyncValuesFromSource  bool                     `json:"sync_values_from_source,omitempty"`
 	UpdateServiceRevision bool                     `json:"update_service_revision,omitempty"`
 	ValueMergeStrategy    string                   `json:"value_merge_strategy,omitempty"`
+	// UpgradeCRD controls whether CRDs in the chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgrade_crd,omitempty"`
 }
 
 func (r *OpenAPIUpdateHelmValuesReq) Validate() error {
@@ -287,6 +289,7 @@ func UpdateHelmServiceValuesOpenAPI(projectKey, envName, serviceName, userName, 
 		DeployType:        setting.HelmDeployType,
 		ChartValues:       []*commonservice.HelmSvcRenderArg{renderArg},
 		UpdateServiceTmpl: req.UpdateServiceRevision,
+		UpgradeCRD:        req.UpgradeCRD,
 	}, logger)
 }
 

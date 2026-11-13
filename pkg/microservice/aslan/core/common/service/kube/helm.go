@@ -81,6 +81,13 @@ type ReleaseInstallParam struct {
 	DryRun         bool
 	Production     bool
 	MaxHistory     int
+	// SkipUpgradeCRDs skips upgrading the CRDs in the chart's crds/ directory; zero value keeps the default behavior.
+	SkipUpgradeCRDs bool
+}
+
+// SkipUpgradeCRDs converts an optional upgrade-CRD request option into a skip flag; nil means upgrading CRDs as before.
+func SkipUpgradeCRDs(upgradeCRD *bool) bool {
+	return upgradeCRD != nil && !*upgradeCRD
 }
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
@@ -100,7 +107,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		Namespace:     namespace,
 		Version:       renderChart.ChartVersion,
 		ValuesYaml:    valuesYaml,
-		UpgradeCRDs:   true,
+		UpgradeCRDs:   !param.SkipUpgradeCRDs,
 		CleanupOnFail: true,
 		MaxHistory:    param.MaxHistory,
 	}
@@ -653,7 +660,7 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 	return nil
 }
 func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, maxHistory, timeout int, user string) error {
+	svcTemp *commonmodels.Service, images []string, maxHistory, timeout int, user string, skipUpgradeCRDs bool) error {
 	chartInfo := productSvc.GetServiceRender()
 
 	var (
@@ -708,15 +715,16 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 	}
 
 	param := &ReleaseInstallParam{
-		ProductName:  svcTemp.ProductName,
-		Namespace:    product.Namespace,
-		ReleaseName:  releaseName,
-		MergedValues: replacedMergedValuesYaml,
-		RenderChart:  chartInfo,
-		ServiceObj:   svcTemp,
-		Timeout:      timeout,
-		Production:   product.Production,
-		MaxHistory:   maxHistory,
+		ProductName:     svcTemp.ProductName,
+		Namespace:       product.Namespace,
+		ReleaseName:     releaseName,
+		MergedValues:    replacedMergedValuesYaml,
+		RenderChart:     chartInfo,
+		ServiceObj:      svcTemp,
+		Timeout:         timeout,
+		Production:      product.Production,
+		MaxHistory:      maxHistory,
+		SkipUpgradeCRDs: skipUpgradeCRDs,
 	}
 	if !productSvc.FromZadig() {
 		param.IsChartInstall = true
@@ -796,7 +804,7 @@ func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, r
 	return nil
 }
 
-func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter DeploySvcFilter, user string, log *zap.SugaredLogger) error {
+func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter DeploySvcFilter, user string, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
 
 	session := mongotool.Session()
@@ -909,6 +917,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				mongotool.AbortTransaction(session)
 				return err
 			}
+			param.SkipUpgradeCRDs = skipUpgradeCRDs
 			prodSvc.Render = chartInfo
 			prodSvc.UpdateTime = time.Now().Unix()
 			installParamList = append(installParamList, param)
