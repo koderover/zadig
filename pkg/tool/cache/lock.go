@@ -18,6 +18,8 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -71,14 +73,6 @@ func (lock *RedisLock) UnlockContext(ctx context.Context) error {
 	return err
 }
 
-func (lock *RedisLock) ExtendContext(ctx context.Context) error {
-	ok, err := lock.mutex.ExtendContext(ctx)
-	if err == nil && !ok {
-		return redsync.ErrExtendFailed
-	}
-	return err
-}
-
 func (lock *RedisLock) TryLock() error {
 	err := lock.mutex.TryLock()
 	if err != nil {
@@ -92,4 +86,48 @@ func (lock *RedisLock) TryLock() error {
 func (lock *RedisLock) Unlock() error {
 	_, err := lock.mutex.Unlock()
 	return err
+}
+
+// WithRedisLock renews the lease until the operation completes.
+// The callback must stop using protected state when its context is cancelled.
+func WithRedisLock(key string, use func(context.Context) error) (err error) {
+	mutex := NewRedisLockWithExpiry(key, time.Minute)
+	if err := mutex.Lock(); err != nil {
+		return fmt.Errorf("failed to acquire redis lock %s: %w", key, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				done <- nil
+				return
+			case <-ticker.C:
+				renewCtx, stop := context.WithTimeout(ctx, 5*time.Second)
+				ok, err := mutex.mutex.ExtendContext(renewCtx)
+				if err == nil && !ok {
+					err = redsync.ErrExtendFailed
+				}
+				stop()
+				if err != nil {
+					if ctx.Err() != nil {
+						done <- nil
+					} else {
+						cancel()
+						done <- fmt.Errorf("lost redis lock %s: %w", key, err)
+					}
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		cancel()
+		renewErr := <-done
+		err = errors.Join(err, renewErr, mutex.Unlock())
+	}()
+	return errors.Join(use(ctx), ctx.Err())
 }

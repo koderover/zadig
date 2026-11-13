@@ -80,3 +80,4 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/common/service/webhook/manual_webhook_test.go
 !pkg/microservice/aslan/core/workflow/testing/service/scanning_webhook_test.go
 !pkg/tool/helmclient/chart_download_test.go
+!pkg/microservice/aslan/core/common/service/fs/s3_cleanup_test.go
