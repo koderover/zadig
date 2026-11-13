@@ -123,8 +123,7 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
-	// keep the template version selected at creation; only later explicit updates may move to a newer version
-	err = updateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, true, logger)
+	err = UpdateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, logger)
 	if err != nil {
 		logger.Errorf("update workflowV4 error: %s", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
@@ -262,10 +261,6 @@ func GetWorkflowTasksCustomFields(projectName, workflowName string, logger *zap.
 }
 
 func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
-	return updateWorkflowV4(name, user, inputWorkflow, false, logger)
-}
-
-func updateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4, lockTemplateVersion bool, logger *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", name, err)
@@ -279,7 +274,7 @@ func updateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		}
 	}
 
-	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, lockTemplateVersion, user, logger); err != nil {
+	if err := prepareTemplateBoundWorkflowForUpdate(workflow, inputWorkflow, user, logger); err != nil {
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	if !isTemplateBindingEnabled(inputWorkflow) {

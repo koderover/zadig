@@ -136,7 +136,8 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 		return nil
 	}
 
-	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
+	// a new binding always starts from the latest template version
+	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, 0)
 	if err != nil {
 		return err
 	}
@@ -161,8 +162,7 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	return nil
 }
 
-// prepareTemplateBoundWorkflowForUpdate keeps the current base version when lockTemplateVersion is set during creation.
-func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.WorkflowV4, lockTemplateVersion bool, user string, logger *zap.SugaredLogger) error {
+func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.WorkflowV4, user string, logger *zap.SugaredLogger) error {
 	if !isTemplateBindingEnabled(existing) {
 		return nil
 	}
@@ -187,7 +187,7 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 
 	input.TemplateBinding.DeltaPatches = frontendDeltaPatches
 	conflicts := calculateBindingConflicts(input, targetVersion.Version)
-	if lockTemplateVersion || targetVersion.Version <= currentVersion.Version || len(conflicts) > 0 {
+	if targetVersion.Version <= currentVersion.Version || len(conflicts) > 0 {
 		targetVersion = currentVersion
 	}
 
@@ -203,11 +203,7 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 	input.TemplateBinding.ConflictCount = len(conflicts)
 	input.TemplateBinding.InvalidPatches = invalidPatches
 
-	renderVersion := 0
-	if lockTemplateVersion {
-		renderVersion = targetVersion.Version
-	}
-	rendered, _, err := renderWorkflowWithTemplateBinding(input, renderVersion)
+	rendered, _, err := renderWorkflowWithTemplateBinding(input, 0)
 	if err != nil {
 		return err
 	}
