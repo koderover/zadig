@@ -71,6 +71,14 @@ func (lock *RedisLock) UnlockContext(ctx context.Context) error {
 	return err
 }
 
+func (lock *RedisLock) ExtendContext(ctx context.Context) error {
+	ok, err := lock.mutex.ExtendContext(ctx)
+	if err == nil && !ok {
+		return redsync.ErrExtendFailed
+	}
+	return err
+}
+
 func (lock *RedisLock) TryLock() error {
 	err := lock.mutex.TryLock()
 	if err != nil {
