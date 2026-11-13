@@ -135,14 +135,21 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 }
 
 func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.SugaredLogger) error {
+	if len(names) == 0 {
+		return nil
+	}
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
 		return err
 	}
 
+	return deleteArchivedFilesFromS3(names, s3Base, s3, logger)
+}
+
+func deleteArchivedFilesFromS3(names []string, s3Base string, s3 *s3service.S3, logger *zap.SugaredLogger) error {
 	s3PathList := make([]string, 0, len(names))
-	for _, name := range s3PathList {
+	for _, name := range names {
 		tarball := fmt.Sprintf("%s.tar.gz", name)
 		s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
 		s3PathList = append(s3PathList, s3Path)

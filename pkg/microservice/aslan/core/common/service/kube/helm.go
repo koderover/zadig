@@ -19,7 +19,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -777,12 +776,6 @@ func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, r
 	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
 	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, production)
 
-	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
-	mutex.Lock()
-	defer mutex.Unlock()
-	// remove local file to untar
-	_ = os.RemoveAll(localPath)
-
 	hClient, err := commonutil.NewHelmClient(chartRepoEntry)
 	if err != nil {
 		return err
@@ -792,7 +785,6 @@ func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, r
 	if err != nil {
 		return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, chartRepo, err)
 	}
-	mutex.Unlock()
 	return nil
 }
 
@@ -841,13 +833,6 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			chartRef := fmt.Sprintf("%s/%s", param.RenderChart.ChartRepo, param.RenderChart.ChartName)
 			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, param.Production)
 
-			mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
-			mutex.Lock()
-			defer mutex.Unlock()
-
-			// remove local file to untar
-			_ = os.RemoveAll(localPath)
-
 			hClient, err := commonutil.NewHelmClient(chartRepo)
 			if err != nil {
 				return err
@@ -857,7 +842,6 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			if err != nil {
 				return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", param.RenderChart.ChartName, chartRepo.RepoName, err)
 			}
-			mutex.Unlock()
 		}
 
 		errInstall := InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
