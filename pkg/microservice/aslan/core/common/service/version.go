@@ -298,6 +298,8 @@ type RollbackEnvServiceVersionData struct {
 	ReplaceResources     []commonmodels.Resource
 	RelatedPodLabels     []map[string]string
 	HelmDeployStatusChan chan bool
+	// HelmDeployErr is set before false is sent on HelmDeployStatusChan, so it is safe to read after receiving.
+	HelmDeployErr error
 }
 
 type CheckRollbackEnvServiceVersionResponse struct {
@@ -479,9 +481,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	session := mongotool.Session()
 	defer session.EndSession(context.Background())
 
-	rollbackStatus := &RollbackEnvServiceVersionData{
-		HelmDeployStatusChan: make(chan bool),
-	}
+	rollbackStatus := &RollbackEnvServiceVersionData{}
 
 	if envSvcVersion.ProductFeature.IsHostProduct() {
 		project, err := template.NewProductColl().Find(projectName)
@@ -782,15 +782,19 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
 			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
-				go func(done chan bool) {
-					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
+				// buffered so the deploy goroutine never blocks when the caller does not wait for the result
+				rollbackStatus.HelmDeployStatusChan = make(chan bool, 1)
+				go func(status *RollbackEnvServiceVersionData) {
+					err := kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
 					if err != nil {
 						title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 						notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)
-						done <- false
+						status.HelmDeployErr = err
+						status.HelmDeployStatusChan <- false
+						return
 					}
-					done <- true
-				}(rollbackStatus.HelmDeployStatusChan)
+					status.HelmDeployStatusChan <- true
+				}(rollbackStatus)
 			}
 
 			rollbackRecord := &commonmodels.EnvInfo{
