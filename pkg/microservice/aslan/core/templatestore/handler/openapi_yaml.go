@@ -41,10 +41,11 @@ type openAPIYamlTemplateList struct {
 }
 
 // @Summary List K8s YAML service templates
-// @Description List K8s YAML service templates with their exact names. Available to authenticated users, matching the web endpoint.
+// @Description List K8s YAML service templates with their exact names. Requires template view permission, or project admin or service create permission in projectKey.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
+// @Param projectKey query string false "Project key, required without template view permission"
 // @Param pageNum query int false "Page number, greater than 0" default(1)
 // @Param pageSize query int false "Page size, greater than 0" default(20)
 // @Success 200 {object} openAPIYamlTemplateList
@@ -54,6 +55,10 @@ func OpenAPIListYamlTemplates(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !authorizeOpenAPIYamlTemplateView(ctx, c.Query("projectKey")) {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -74,10 +79,11 @@ func OpenAPIListYamlTemplates(c *gin.Context) {
 }
 
 // @Summary Get K8s YAML service template
-// @Description Get a K8s YAML service template with its content and variable definitions. Available to authenticated users, matching the web endpoint.
+// @Description Get a K8s YAML service template with its content and variable definitions. Requires template view permission, or project admin or service create permission in projectKey.
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
+// @Param projectKey query string false "Project key, required without template view permission"
 // @Param id path string true "template id"
 // @Success 200 {object} template.YamlDetail
 // @Router /openapi/templates/yaml/{id} [get]
@@ -86,6 +92,10 @@ func OpenAPIGetYamlTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !authorizeOpenAPIYamlTemplateView(ctx, c.Query("projectKey")) {
 		ctx.UnAuthorized = true
 		return
 	}
@@ -99,4 +109,17 @@ func OpenAPIGetYamlTemplate(c *gin.Context) {
 	} else if ctx.RespErr != nil {
 		ctx.RespErr = e.ErrGetTemplate.AddErr(ctx.RespErr)
 	}
+}
+
+// authorizeOpenAPIYamlTemplateView allows template viewers, and project members who can create services
+// from templates, matching the workflow template list.
+func authorizeOpenAPIYamlTemplateView(ctx *internalhandler.Context, projectKey string) bool {
+	if ctx.Resources.IsSystemAdmin || ctx.Resources.SystemActions.Template.View {
+		return true
+	}
+	projectAuth, ok := ctx.Resources.ProjectAuthInfo[projectKey]
+	if !ok {
+		return false
+	}
+	return projectAuth.IsProjectAdmin || projectAuth.Service.Create || projectAuth.ProductionService.Create
 }
