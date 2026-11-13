@@ -13,7 +13,33 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"trpc.group/trpc-go/trpc-agent-go/model"
 )
+
+func applyCatalogClarification(e *execution, req *model.Request) {
+	if !e.CatalogNeedsInput {
+		return
+	}
+	delete(req.Tools, "query_catalog")
+	req.Messages = append([]model.Message{model.NewSystemMessage("目录查询未能确定用户指定的资源，本轮停止继续猜测和查询。只保存用户已明确提供的参数草稿，不以相似名称替代，不生成依赖猜测的确认清单。直接说明无法匹配的名称或查询失败原因；有已查到的候选时列出供选择，没有候选时请求完整名称或配置来源。只补问解决当前歧义所需的信息，不声称资源不存在或操作已完成。")}, req.Messages...)
+}
+
+func recordCatalogResult(e *execution, args models.CatalogRequest, raw json.RawMessage, err error) {
+	if err != nil {
+		return
+	}
+	if (args.Kind != "yaml_templates" && args.Kind != "build_templates") || strings.TrimSpace(args.Keyword) == "" {
+		return
+	}
+	var page struct {
+		Items    []json.RawMessage `json:"items"`
+		NextPage int               `json:"next_page"`
+	}
+	// 未翻完分页时仍允许继续查找，末页无精确匹配才要求澄清。
+	if json.Unmarshal(raw, &page) == nil && len(page.Items) == 0 && page.NextPage == 0 {
+		e.CatalogNeedsInput = true
+	}
+}
 
 func (s *AgentService) catalog(ctx context.Context, args models.CatalogRequest) (any, error) {
 	e, ok := ctx.Value(executionKey{}).(*execution)
@@ -22,6 +48,7 @@ func (s *AgentService) catalog(ctx context.Context, args models.CatalogRequest) 
 	}
 
 	raw, err := s.Platform.catalog(ctx, e.Authorization, args)
+	recordCatalogResult(e, args, raw, err)
 	if err != nil {
 		return nil, err
 	}
