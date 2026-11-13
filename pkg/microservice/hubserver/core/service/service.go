@@ -520,6 +520,7 @@ func checkConnectionStatus(server *remotedialer.Server) {
 		cluster, found, err := GetClusterInfo(clusterID)
 		if err != nil {
 			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
+			continue
 		}
 
 		if !found {
