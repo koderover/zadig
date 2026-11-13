@@ -24,8 +24,11 @@ func (s *AgentService) saveDraft(ctx context.Context, e *execution, args models.
 	if err := validateDraftSecrets(args); err != nil {
 		return nil, err
 	}
+	if err := s.markDraftCredentials(ctx, e, &args); err != nil {
+		return nil, err
+	}
 
-	plan := models.OperationPlan{Items: []models.OperationItem{}, Draft: &args, MissingFields: missing}
+	plan := models.OperationPlan{Items: []models.OperationItem{}, Draft: &args, MissingFields: missing, DraftChecks: e.OnboardingChecks}
 	if len(common.JSON(plan)) > 128<<10 {
 		return nil, fmt.Errorf("参数草稿过大，请减少本批服务或变量")
 	}
@@ -38,7 +41,7 @@ func (s *AgentService) saveDraft(ctx context.Context, e *execution, args models.
 	return map[string]any{
 		"status":                 "awaiting_input",
 		"missing_fields":         missing,
-		"draft":                  args,
+		"draft":                  *plan.Redacted().Draft,
 		"skill_execution_id":     e.RootID,
 		"expected_service_count": args.ExpectedServiceCount,
 		"service_count":          len(args.Services),
@@ -59,6 +62,11 @@ func validateDraftSecrets(args models.OnboardingInput) error {
 	}
 
 	if args.Environment != nil {
+		for key := range args.Environment.Variables {
+			if sensitiveName.MatchString(key) {
+				return fmt.Errorf("环境凭据变量暂不支持通过聊天配置")
+			}
+		}
 		return validateVariables(args.Environment.Variables)
 	}
 
@@ -71,6 +79,8 @@ func (s *AgentService) savePlan(ctx context.Context, e *execution, plan models.O
 	}
 
 	plan.Input = e.SkillInput
+	// 仅在补参期间复用；完整清单重新准备时须能取得新的模板基线。
+	plan.DraftChecks = nil
 	raw, err := json.Marshal(plan)
 	if err != nil {
 		return nil, err
@@ -86,6 +96,7 @@ func (s *AgentService) savePlan(ctx context.Context, e *execution, plan models.O
 	}
 
 	e.Outcome = "pending_confirmation"
+	e.OnboardingChecks = nil
 	if plan.Draft != nil {
 		e.OnboardingDraft = plan.Draft
 	}
@@ -94,7 +105,7 @@ func (s *AgentService) savePlan(ctx context.Context, e *execution, plan models.O
 		"run_id":             e.Run.ID,
 		"version":            version,
 		"expires_at":         expires,
-		"plan":               plan,
+		"plan":               plan.Redacted(),
 		"skill_execution_id": e.RootID,
 	}
 	s.publish(e.Run.ID, StreamEvent{Type: "confirmation_required", Data: card})

@@ -147,6 +147,9 @@ data: [DONE]
 				delta += choice.Delta.Content
 			} else if choice.Message.Role == model.RoleAssistant {
 				final = choice.Message.Content
+				if choice.FinishReason == nil || *choice.FinishReason != "stop" {
+					t.Fatalf("完整响应必须保留结束原因: %v", choice.FinishReason)
+				}
 			}
 		}
 	}

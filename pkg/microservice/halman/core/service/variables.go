@@ -24,6 +24,9 @@ func (e *missingTemplateVariables) Error() string {
 }
 
 func templateVariables(raw []byte, values map[string]string) ([]map[string]any, map[string]any, error) {
+	if err := validateVariables(values); err != nil {
+		return nil, nil, err
+	}
 	var definition struct {
 		Variables        []templateVariable `json:"variables"`
 		ServiceVariables []templateVariable `json:"service_variable_kvs"`
@@ -67,9 +70,6 @@ func templateVariables(raw []byte, values map[string]string) ([]map[string]any, 
 		required := variable.Required != nil && *variable.Required
 		missingValue := !provided && (variable.Value == nil || variable.Value == "")
 		if (required && (missingValue || (provided && strings.TrimSpace(value) == ""))) || (serviceVariables && variable.Required == nil && missingValue) {
-			if variable.Credential || sensitiveName.MatchString(variable.Key) {
-				return nil, nil, fmt.Errorf("模板凭据变量必须在模板中预先配置，不能通过聊天补齐")
-			}
 			if variable.Type == "yaml" {
 				return nil, nil, fmt.Errorf("YAML 类型变量 %s 必须在模板中预先配置", variable.Key)
 			}
@@ -78,10 +78,6 @@ func templateVariables(raw []byte, values map[string]string) ([]map[string]any, 
 		}
 		if !provided {
 			continue
-		}
-
-		if variable.Credential || sensitiveName.MatchString(variable.Key) {
-			return nil, nil, fmt.Errorf("凭据变量必须使用模板已有配置")
 		}
 
 		var converted any = value
@@ -115,10 +111,12 @@ func templateVariables(raw []byte, values map[string]string) ([]map[string]any, 
 		list = append(
 			list,
 			map[string]any{
-				"key":     variable.Key,
-				"value":   converted,
-				"type":    kind,
-				"options": variable.Options,
+				"key":           variable.Key,
+				"value":         converted,
+				"type":          kind,
+				"is_credential": variable.Credential,
+				"choice_option": variable.Options,
+				"options":       variable.Options,
 			},
 		)
 		overrides[variable.Key] = converted
@@ -130,7 +128,7 @@ func templateVariables(raw []byte, values map[string]string) ([]map[string]any, 
 		}
 	}
 	if len(missing) > 0 {
-		return nil, nil, &missingTemplateVariables{Keys: missing}
+		return list, overrides, &missingTemplateVariables{Keys: missing}
 	}
 
 	return list, overrides, nil

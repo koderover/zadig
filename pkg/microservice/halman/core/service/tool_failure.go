@@ -75,6 +75,11 @@ func recordToolFailure(ctx context.Context, args *tool.AfterToolArgs) (*tool.Aft
 		return nil, nil
 	}
 	updateToolErrorTarget(e, args.Arguments)
+	if failure, ok := args.Result.(*onboardingToolFailure); ok {
+		copy := *args
+		copy.Error = errors.New(failure.Message)
+		args = &copy
+	}
 	// 同一批剩余调用被拦截后，保留触发停止的计数和原始错误。
 	if e.ToolErrorCount >= maxConsecutiveToolErrors {
 		return nil, nil

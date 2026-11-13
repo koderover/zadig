@@ -25,6 +25,7 @@ type ServiceInput struct {
 	ChartName           string            `json:"chart_name,omitempty" jsonschema:"description=Chart 名称，须与导入的服务名称一致"`
 	ChartVersion        string            `json:"chart_version,omitempty" jsonschema:"description=从 chart_versions 查询得到的具体版本；要求最新时选该 Chart 返回列表的首项，不填写 latest"`
 	ValuesGit           *GitConfig        `json:"values_git,omitempty" jsonschema:"description=可选的已有 values Git 文件来源"`
+	CredentialVariables []string          `json:"credential_variables,omitempty" jsonschema:"description=由后端根据模板生成，调用时省略"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
 }
 
@@ -35,6 +36,7 @@ type BuildInput struct {
 	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
 	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
+	CredentialVariables []string          `json:"credential_variables,omitempty" jsonschema:"description=由后端根据模板生成，调用时省略"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
 }
 
