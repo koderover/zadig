@@ -18,6 +18,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -48,8 +49,31 @@ func NewRedisLock(key string) *RedisLock {
 
 func NewRedisLockWithExpiry(key string, expiry time.Duration) *RedisLock {
 	return &RedisLock{
+		key:   key,
 		mutex: resync.NewMutex(key, redsync.WithRetryDelay(time.Millisecond*500), redsync.WithExpiry(expiry)),
 	}
+}
+
+// NewRedisTryLock attempts the lock once. redsync returns the underlying ErrTaken only on the last attempt.
+// With the default of 32 attempts, TryLock only returns ErrFailed, so the caller cannot tell lock contention from a Redis failure.
+func NewRedisTryLock(key string, expiry time.Duration) *RedisLock {
+	return &RedisLock{
+		key: key,
+		mutex: resync.NewMutex(key,
+			redsync.WithRetryDelay(time.Millisecond*500),
+			redsync.WithExpiry(expiry),
+			redsync.WithTries(1),
+		),
+	}
+}
+
+func IsLockTaken(err error) bool {
+	var taken *redsync.ErrTaken
+	if errors.As(err, &taken) {
+		return true
+	}
+	var nodeTaken *redsync.ErrNodeTaken
+	return errors.As(err, &nodeTaken)
 }
 
 func (lock *RedisLock) Lock() error {
@@ -73,10 +97,8 @@ func (lock *RedisLock) UnlockContext(ctx context.Context) error {
 
 func (lock *RedisLock) TryLock() error {
 	err := lock.mutex.TryLock()
-	if err != nil {
-		if strings.Contains(err.Error(), "lock already taken") {
-			log.Errorf("failed to try acquire redis lock: %s, err: %s", lock.key, err)
-		}
+	if err != nil && !IsLockTaken(err) && !errors.Is(err, redsync.ErrFailed) {
+		log.Errorf("failed to try acquire redis lock: %s, err: %s", lock.key, err)
 	}
 	return err
 }
