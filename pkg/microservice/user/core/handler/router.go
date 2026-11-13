@@ -86,6 +86,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		general.GET("/callback", login.Callback)
 		general.GET("/login", login.Login)
 		general.POST("/login", login.LocalLogin)
+		general.POST("/login/complete", login.CompleteLocalLogin)
 		general.POST("/login/mfa/setup", login.MFASetup)
 		general.POST("/login/mfa/enroll", login.MFAEnroll)
 		general.POST("/login/mfa/verify", login.MFAVerify)

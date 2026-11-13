@@ -721,12 +721,15 @@ func mfaChallengeKey(challengeToken string) string {
 	return fmt.Sprintf("%s:%s", mfaChallengePrefix, challengeToken)
 }
 
-func buildMFARedirectURL(challengeToken string, action MFARequiredAction, expiresAt int64) string {
+func buildMFARedirectURL(challengeToken string, action MFARequiredAction, expiresAt int64, redirectPath string) string {
 	query := url.Values{}
 	query.Set("mfa_required", "true")
 	query.Set("required_action", string(action))
 	query.Set("mfa_challenge_token", challengeToken)
 	query.Set("mfa_expires_at", fmt.Sprintf("%d", expiresAt))
+	if redirectPath != "" {
+		query.Set("redirect", redirectPath)
+	}
 	return "/mfa-enroll?" + query.Encode()
 }
 

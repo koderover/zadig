@@ -17,10 +17,13 @@ limitations under the License.
 package login
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
@@ -32,7 +35,14 @@ import (
 
 const ThirdPartyLoginStateTTL = 5 * time.Minute
 
-func CreateThirdPartyLoginState() (state, browserToken string, err error) {
+func CreateThirdPartyLoginState(redirectPath string) (state, browserToken string, err error) {
+	if redirectPath != "" {
+		target, parseErr := url.ParseRequestURI(redirectPath)
+		if parseErr != nil || target.IsAbs() || !strings.HasPrefix(target.Path, "/") ||
+			strings.HasPrefix(target.Path, "//") || strings.Contains(target.Path, "\\") {
+			return "", "", fmt.Errorf("login redirect must be a site-relative path")
+		}
+	}
 	state, err = randomOAuthValue(32)
 	if err != nil {
 		log.Errorf("Failed to generate random state for third-party login, err: %s", err)
@@ -43,7 +53,13 @@ func CreateThirdPartyLoginState() (state, browserToken string, err error) {
 		log.Errorf("Failed to generate random browser token for third-party login, err: %s", err)
 		return "", "", err
 	}
-	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(
+	redisCache := cache.NewRedisCache(config.RedisUserTokenDB())
+	if redirectPath != "" {
+		if err = redisCache.Write(oauthKey("login-redirect", hashOAuthValue(state)), redirectPath, ThirdPartyLoginStateTTL); err != nil {
+			return "", "", err
+		}
+	}
+	err = redisCache.Write(
 		oauthKey("login-state", hashOAuthValue(state)), hashOAuthValue(browserToken), ThirdPartyLoginStateTTL,
 	)
 	if err != nil {
@@ -53,20 +69,25 @@ func CreateThirdPartyLoginState() (state, browserToken string, err error) {
 	return state, browserToken, nil
 }
 
-func ConsumeThirdPartyLoginState(state, browserToken string) error {
+func ConsumeThirdPartyLoginState(state, browserToken string) (string, error) {
 	if state == "" || browserToken == "" {
-		return fmt.Errorf("missing login state or browser cookie")
+		return "", fmt.Errorf("missing login state or browser cookie")
 	}
-	consumed, err := cache.NewRedisCache(config.RedisUserTokenDB()).CompareAndDelete(
+	redisCache := cache.NewRedisCache(config.RedisUserTokenDB())
+	consumed, err := redisCache.CompareAndDelete(
 		oauthKey("login-state", hashOAuthValue(state)), hashOAuthValue(browserToken),
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !consumed {
-		return fmt.Errorf("invalid or expired login state")
+		return "", fmt.Errorf("invalid or expired login state")
 	}
-	return nil
+	redirectPath, err := redisCache.GetString(oauthKey("login-redirect", hashOAuthValue(state)))
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	return redirectPath, err
 }
 
 type enabledStatus struct {
@@ -83,7 +104,7 @@ func ThirdPartyLoginEnabled() *enabledStatus {
 	}
 }
 
-func HandleThirdPartyLoginSuccess(user *models.User, logger *zap.SugaredLogger) (string, error) {
+func HandleThirdPartyLoginSuccess(user *models.User, redirectPath string, logger *zap.SugaredLogger) (string, error) {
 	if user == nil {
 		return "", fmt.Errorf("user not found")
 	}
@@ -104,6 +125,9 @@ func HandleThirdPartyLoginSuccess(user *models.User, logger *zap.SugaredLogger) 
 		}
 		v := url.Values{}
 		v.Add("token", resp.Token)
+		if redirectPath != "" {
+			v.Set("redirect", redirectPath)
+		}
 		return "/?" + v.Encode(), nil
 	}
 
@@ -111,5 +135,5 @@ func HandleThirdPartyLoginSuccess(user *models.User, logger *zap.SugaredLogger) 
 	if err != nil {
 		return "", err
 	}
-	return buildMFARedirectURL(challengeToken, action, expiresAt), nil
+	return buildMFARedirectURL(challengeToken, action, expiresAt, redirectPath), nil
 }
