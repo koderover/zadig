@@ -174,15 +174,23 @@ func migrateClusterWorkflowProjects510() error {
 	}
 	for _, cluster := range clusters {
 		workflowProjects := []string{}
-		if cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ScheduleWorkflow {
+		// Before cluster access settings existed, workflow scheduling was enabled by default.
+		if cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow {
 			workflowProjects = append(workflowProjects, projects[cluster.ID.Hex()]...)
 		}
-		_, err := coll.UpdateOne(ctx, bson.M{
+		filter := bson.M{
 			"_id":                                    cluster.ID,
 			"advanced_config.workflow_project_names": nil,
-		}, bson.M{"$set": bson.M{
+		}
+		fields := bson.M{
 			"advanced_config.workflow_project_names": workflowProjects,
-		}})
+		}
+		if cluster.AdvancedConfig == nil {
+			// A dotted update cannot create a child under an explicit null parent.
+			filter["advanced_config"] = nil
+			fields = bson.M{"advanced_config": bson.M{"workflow_project_names": workflowProjects}}
+		}
+		_, err := coll.UpdateOne(ctx, filter, bson.M{"$set": fields})
 		if err != nil {
 			return fmt.Errorf("failed to migrate cluster %s workflow projects: %w", cluster.Name, err)
 		}
