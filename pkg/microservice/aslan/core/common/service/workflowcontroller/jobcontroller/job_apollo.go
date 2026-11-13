@@ -30,7 +30,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	apolloservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
 type ApolloJobCtl struct {
@@ -106,7 +108,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 		case commonmodels.ApolloActionCreate:
 			err = c.createNamespace(client, namespace, info.ApolloAuthConfig.User, releaseArgs)
 		case commonmodels.ApolloActionUpdate:
-			err = updateAndReleaseNamespace(client, &namespace.ApolloNamespace, info.ApolloAuthConfig.User, releaseArgs)
+			err = c.updateNamespace(ctx, client, &namespace.ApolloNamespace, info.ApolloAuthConfig.User, releaseArgs)
 		default:
 			err = fmt.Errorf("unsupported apollo action: %s", namespace.Action)
 		}
@@ -195,6 +197,25 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 		return fmt.Errorf("create namespace partially failed: %s", strings.Join(targetErrors, "; "))
 	}
 	return nil
+}
+
+func (c *ApolloJobCtl) updateNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
+	key := fmt.Sprintf("apollo_namespace:%q:%q:%q:%q:%q", strings.TrimRight(client.BaseURL, "/"), namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+	lock := cache.NewRedisLockWithExpiry(key, 2*time.Minute)
+	if err := lock.LockContext(ctx); err != nil {
+		return fmt.Errorf("lock Apollo namespace failed: %w", err)
+	}
+	defer lock.Unlock()
+
+	// Bound the entire read/merge/write/release operation below the lock lease.
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	client = client.WithContext(ctx)
+	merged, err := apolloservice.MergeNamespace(ctx, client, namespace)
+	if err != nil {
+		return err
+	}
+	return updateAndReleaseNamespace(client, merged, user, releaseArgs)
 }
 
 func updateAndReleaseNamespace(client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
