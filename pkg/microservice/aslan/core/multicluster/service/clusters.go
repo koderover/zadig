@@ -945,29 +945,28 @@ func preserveHubAgentToken(agent *unstructured.Unstructured, clusterID string, c
 		return nil
 	}
 
+	// the rendered manifest comes from our own template, so any unexpected shape is reported as one error
+	errInvalidManifest := fmt.Errorf("rendered hub-agent deployment has an unexpected structure")
 	containers, exists, err := unstructured.NestedSlice(agent.Object, "spec", "template", "spec", "containers")
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("rendered hub-agent deployment is missing containers")
+	if err != nil || !exists {
+		return errInvalidManifest
 	}
 	for _, item := range containers {
 		container, ok := item.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("rendered hub-agent deployment contains an invalid container")
+			return errInvalidManifest
 		}
 		if container["name"] != "agent" {
 			continue
 		}
 		envs, ok := container["env"].([]interface{})
 		if !ok {
-			return fmt.Errorf("rendered hub-agent container env is missing or not a list")
+			return errInvalidManifest
 		}
 		for _, item := range envs {
 			env, ok := item.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("rendered hub-agent container contains an invalid env entry")
+				return errInvalidManifest
 			}
 			if env["name"] == setting.HubAgentToken {
 				env["value"] = token
