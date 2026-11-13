@@ -28,6 +28,7 @@ import (
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	connectormodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
@@ -48,6 +49,11 @@ func V500ToV510() error {
 	defer func() {
 		updateMigrationError(migrationInfo.ID, err)
 	}()
+
+	err = migrateClusterWorkflowProjects510()
+	if err != nil {
+		return err
+	}
 
 	err = migrateLarkPreferredUsernameClaim510(migrationInfo)
 	if err != nil {
@@ -139,4 +145,55 @@ func migrateDockerBuildProxy510(migrationInfo *internalmodels.Migration) error {
 	return internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration510DockerBuildProxy): true,
 	})
+}
+
+// migrateClusterWorkflowProjects510 copies the original environment project
+// range when workflow scheduling was enabled. Explicit workflow ranges are kept.
+func migrateClusterWorkflowProjects510() error {
+	ctx := context.Background()
+	coll := commonrepo.NewK8SClusterColl()
+	cursor, err := coll.Collection.Find(ctx, bson.M{"advanced_config.workflow_project_names": nil})
+	if err != nil {
+		return fmt.Errorf("failed to list cluster project scopes: %w", err)
+	}
+	defer cursor.Close(ctx)
+	var clusters []*commonmodels.K8SCluster
+	if err := cursor.All(ctx, &clusters); err != nil {
+		return fmt.Errorf("failed to decode cluster project scopes: %w", err)
+	}
+	if len(clusters) == 0 {
+		return nil
+	}
+	relations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list cluster project relations: %w", err)
+	}
+	projects := make(map[string][]string)
+	for _, relation := range relations {
+		projects[relation.ClusterID] = append(projects[relation.ClusterID], relation.ProjectName)
+	}
+	for _, cluster := range clusters {
+		workflowProjects := []string{}
+		// Before cluster access settings existed, workflow scheduling was enabled by default.
+		if cluster.AdvancedConfig == nil || cluster.AdvancedConfig.ClusterAccessYaml == "" || cluster.AdvancedConfig.ScheduleWorkflow {
+			workflowProjects = append(workflowProjects, projects[cluster.ID.Hex()]...)
+		}
+		filter := bson.M{
+			"_id":                                    cluster.ID,
+			"advanced_config.workflow_project_names": nil,
+		}
+		fields := bson.M{
+			"advanced_config.workflow_project_names": workflowProjects,
+		}
+		if cluster.AdvancedConfig == nil {
+			// A dotted update cannot create a child under an explicit null parent.
+			filter["advanced_config"] = nil
+			fields = bson.M{"advanced_config": bson.M{"workflow_project_names": workflowProjects}}
+		}
+		_, err := coll.UpdateOne(ctx, filter, bson.M{"$set": fields})
+		if err != nil {
+			return fmt.Errorf("failed to migrate cluster %s workflow projects: %w", cluster.Name, err)
+		}
+	}
+	return nil
 }
