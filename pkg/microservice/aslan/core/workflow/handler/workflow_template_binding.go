@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -136,6 +137,10 @@ func authorizeWorkflowTemplateBindingEdit(ctx *internalhandler.Context, workflow
 		ctx.RespErr = errors.ErrFindWorkflow.AddErr(err)
 		return false
 	}
+	return authorizeWorkflowTemplateBindingEditOn(ctx, w)
+}
+
+func authorizeWorkflowTemplateBindingEditOn(ctx *internalhandler.Context, w *commonmodels.WorkflowV4) bool {
 	if ctx.Resources.IsSystemAdmin {
 		return true
 	}

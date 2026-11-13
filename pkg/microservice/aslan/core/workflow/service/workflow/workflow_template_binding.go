@@ -136,13 +136,14 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 		return nil
 	}
 
-	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
+	// a new binding always starts from the latest template version
+	template, version, err := getTemplateAndVersionForBinding(workflow.TemplateBinding.TemplateID, 0)
 	if err != nil {
 		return err
 	}
 
 	base := workflowFromTemplateSnapshot(version.Snapshot, workflow)
-	delta, _, err := validateFrontendWorkflowDelta(base, workflow.TemplateBinding.DeltaPatches)
+	delta, rendered, err := validateFrontendWorkflowDelta(base, workflow.TemplateBinding.DeltaPatches)
 	if err != nil {
 		return err
 	}
@@ -155,17 +156,9 @@ func prepareTemplateBoundWorkflowForCreate(user string, workflow *commonmodels.W
 	workflow.TemplateBinding.ConflictCount = 0
 	workflow.TemplateBinding.InvalidPatches = nil
 
-	rendered, preview, err := renderWorkflowWithTemplateBinding(workflow, 0)
-	if err != nil {
-		return err
-	}
-	if len(preview.InvalidPatches) > 0 {
-		return fmt.Errorf("invalid workflow template delta")
-	}
-	workflowController := controller.CreateWorkflowController(rendered)
-	if err := workflowController.Validate(false); err != nil {
-		return err
-	}
+	// the selected snapshot plus the delta is the only source of the inherited fields,
+	// so the caller validates and saves exactly what was rendered here.
+	applyTemplateBindingInheritedFields(workflow, rendered)
 	return nil
 }
 
@@ -219,6 +212,29 @@ func prepareTemplateBoundWorkflowForUpdate(existing, input *commonmodels.Workflo
 		return err
 	}
 	return nil
+}
+
+// applyTemplateBindingInheritedFields copies the fields shared by snapshot rendering and binding writes, preserving instance-owned fields.
+func applyTemplateBindingInheritedFields(workflow, rendered *commonmodels.WorkflowV4) {
+	workflow.TemplateName = rendered.TemplateName
+	workflow.Category = rendered.Category
+	workflow.Params = rendered.Params
+	workflow.Stages = rendered.Stages
+	workflow.ShareStorages = rendered.ShareStorages
+	workflow.ConcurrencyLimit = rendered.ConcurrencyLimit
+}
+
+// renderTemplateBoundWorkflowOnBase renders a template bound workflow on its base version and fails on any invalid delta.
+func renderTemplateBoundWorkflowOnBase(workflow *commonmodels.WorkflowV4) (*commonmodels.WorkflowV4, error) {
+	version, err := getTemplateVersion(workflow.TemplateBinding.TemplateID, workflow.TemplateBinding.BaseVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template version %d: %w", workflow.TemplateBinding.BaseVersion, err)
+	}
+	_, rendered, err := validateFrontendWorkflowDelta(workflowFromTemplateSnapshot(version.Snapshot, workflow), workflow.TemplateBinding.DeltaPatches)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render workflow on template version %d: %w", version.Version, err)
+	}
+	return rendered, nil
 }
 
 func RenderWorkflowV4WithTemplateBinding(workflow *commonmodels.WorkflowV4) (*commonmodels.WorkflowV4, *WorkflowTemplateBindingPreviewResponse, error) {
@@ -539,13 +555,14 @@ func getTemplateVersion(templateID string, version int) (*commonmodels.WorkflowV
 func workflowFromTemplateSnapshot(template *commonmodels.WorkflowV4Template, instance *commonmodels.WorkflowV4) *commonmodels.WorkflowV4 {
 	rendered := new(commonmodels.WorkflowV4)
 	_ = util.DeepCopy(rendered, instance)
-	rendered.TemplateName = template.TemplateName
-	rendered.Category = template.Category
-	rendered.Params = template.Params
-	rendered.Stages = template.Stages
-	rendered.Description = instance.Description
-	rendered.ShareStorages = template.ShareStorages
-	rendered.ConcurrencyLimit = template.ConcurrencyLimit
+	applyTemplateBindingInheritedFields(rendered, &commonmodels.WorkflowV4{
+		TemplateName:     template.TemplateName,
+		Category:         template.Category,
+		Params:           template.Params,
+		Stages:           template.Stages,
+		ShareStorages:    template.ShareStorages,
+		ConcurrencyLimit: template.ConcurrencyLimit,
+	})
 	return rendered
 }
 
