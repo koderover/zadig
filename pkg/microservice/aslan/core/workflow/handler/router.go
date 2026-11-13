@@ -72,6 +72,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/auto", AutoCreateWorkflow)
 		workflowV4.GET("/trigger", ListWorkflowV4CanTrigger)
 		workflowV4.POST("/lint", LintWorkflowV4)
+		workflowV4.POST("/apisix/check", CheckApisixCompatibility)
 		workflowV4.POST("/check/:name", CheckWorkflowV4Approval)
 		workflowV4.GET("/templates/:templateID/versions", ListWorkflowTemplateVersions)
 		workflowV4.GET("/templates/:templateID/diff", DiffWorkflowTemplateVersions)

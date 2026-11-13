@@ -22,6 +22,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
+	github.com/bufbuild/protocompile v0.14.1
 	github.com/buraksezer/consistent v0.10.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cespare/xxhash v1.1.0
