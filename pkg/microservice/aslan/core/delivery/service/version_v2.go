@@ -19,6 +19,7 @@ package service
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -917,42 +918,20 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 		sourceChartRepoInfo = originalChartRepoInfo
 	}
 
-	deliveryChartPath, err := ensureChartFilesFromVersion(projectName, versionName, sourceChartRepoInfo, service)
+	cacheDir, err := makeChartFilesDir(projectName, versionName)
 	if err != nil {
-		return fmt.Errorf("failed to ensure chart files from version, err: %v", err)
+		return err
 	}
-
-	// write values.yaml file before load
-	if err = yaml.Unmarshal([]byte(service.YamlContent), map[string]interface{}{}); err != nil {
-		log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", service.ServiceName, service.YamlContent)
-		return errors.Wrapf(err, "invalid yaml content for service: %s", service.ServiceName)
-	}
-
-	updatedValues, err := updateValuesImage(service)
-	if err != nil {
-		return fmt.Errorf("failed to update values image, serviceName: %s, err: %s", service.ServiceName, err)
-	}
-	service.YamlContent = string(updatedValues)
-
-	valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
-	err = os.WriteFile(valuesFilePath, updatedValues, 0644)
-	if err != nil {
-		return errors.Wrapf(err, "failed to write values.yaml file for service %s", service.ServiceName)
-	}
-
-	//load chart info from local storage
-	chartRequested, err := chartloader.Load(deliveryChartPath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
-	}
-
-	//set metadata
-	chartRequested.Metadata.Name = service.ChartName
-	chartRequested.Metadata.Version = service.ChartVersion
-	chartRequested.Metadata.AppVersion = service.ChartVersion
-
-	//create local chart package
-	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
+	var chartPackagePath string
+	deliveryChartDir := filepath.Join(cacheDir, service.ChartName+"-"+service.OriginalChartVersion)
+	err = helmtool.WithChartDirectoryLock(deliveryChartDir, func(ctx context.Context) error {
+		var err error
+		chartPackagePath, err = packageDeliveryChartFromVersion(ctx, projectName, versionName, service, sourceChartRepoInfo, dir)
+		if err != nil {
+			return err
+		}
+		return ctx.Err()
+	})
 	if err != nil {
 		return err
 	}
@@ -973,6 +952,59 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 		return errors.Wrapf(err, "failed to push chart: %s", chartPackagePath)
 	}
 	return nil
+}
+
+func packageDeliveryChartFromVersion(ctx context.Context, projectName, versionName string, service *commonmodels.DeliveryVersionService, sourceChartRepoInfo *commonmodels.HelmRepo, dir string) (string, error) {
+	deliveryChartPath, err := ensureChartFilesFromVersion(ctx, projectName, versionName, sourceChartRepoInfo, service)
+	if err != nil {
+		return "", fmt.Errorf("failed to ensure chart files from version, err: %v", err)
+	}
+
+	// write values.yaml file before load
+	if err = yaml.Unmarshal([]byte(service.YamlContent), map[string]interface{}{}); err != nil {
+		log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", service.ServiceName, service.YamlContent)
+		return "", errors.Wrapf(err, "invalid yaml content for service: %s", service.ServiceName)
+	}
+
+	updatedValues, err := updateValuesImage(service)
+	if err != nil {
+		return "", fmt.Errorf("failed to update values image, serviceName: %s, err: %s", service.ServiceName, err)
+	}
+	service.YamlContent = string(updatedValues)
+
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
+	err = os.WriteFile(valuesFilePath, updatedValues, 0644)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to write values.yaml file for service %s", service.ServiceName)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	//load chart info from local storage
+	chartRequested, err := chartloader.Load(deliveryChartPath)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
+	}
+
+	//set metadata
+	chartRequested.Metadata.Name = service.ChartName
+	chartRequested.Metadata.Version = service.ChartVersion
+	chartRequested.Metadata.AppVersion = service.ChartVersion
+
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	//create local chart package
+	chartPackagePath, err := helmchartutil.Save(chartRequested, dir)
+	if err != nil {
+		return "", err
+	}
+
+	return chartPackagePath, nil
 }
 
 func ensureChartFilesFromEnv(service *commonmodels.DeliveryVersionService, env *commonmodels.Product) (string, error) {
@@ -1039,36 +1071,39 @@ func ensureChartFilesFromEnv(service *commonmodels.DeliveryVersionService, env *
 	return deliveryChartPath, nil
 }
 
-func ensureChartFilesFromVersion(projectName, versionName string, chartRepo *commonmodels.HelmRepo, service *commonmodels.DeliveryVersionService) (string, error) {
+func ensureChartFilesFromVersion(ctx context.Context, projectName, versionName string, chartRepo *commonmodels.HelmRepo, service *commonmodels.DeliveryVersionService) (string, error) {
 	chartNameWithVersion := fmt.Sprintf("%s-%s", service.ChartName, service.OriginalChartVersion)
 	chartFilesParent, err := makeChartFilesDir(projectName, versionName)
 	if err != nil {
 		return "", err
 	}
 
-	err = os.RemoveAll(filepath.Join(chartFilesParent, chartNameWithVersion))
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to remove old chart files")
-	}
-
 	hClient, err := commonutil.NewHelmClient(chartRepo)
 	if err != nil {
 		return "", err
 	}
-
-	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, service.ChartName)
-	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, service.OriginalChartVersion, chartFilesParent, true)
-	if err != nil {
-		return "", fmt.Errorf("failed to download chart %s", chartRef)
-	}
-
-	oldPath := filepath.Join(chartFilesParent, service.ChartName)
+	sourceDir := filepath.Join(chartFilesParent, ".chart-cache", chartNameWithVersion)
 	newPath := filepath.Join(chartFilesParent, chartNameWithVersion)
-	err = os.Rename(oldPath, newPath)
+	chartRef := chartRepo.RepoName + "/" + service.ChartName
+	err = hClient.WithDownloadedChart(commonutil.GeneHelmRepo(chartRepo), chartRef, service.OriginalChartVersion, sourceDir, func(sourceCtx context.Context, source string) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := sourceCtx.Err(); err != nil {
+			return err
+		}
+		if err := os.RemoveAll(newPath); err != nil {
+			return err
+		}
+		return copy.Copy(source, newPath)
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed rename chart files dir, old: %s, new: %s, err: %s", oldPath, newPath, err)
+		return "", err
 	}
 
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	err = os.WriteFile(filepath.Join(newPath, setting.ValuesYaml), []byte(service.YamlContent), 0644)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to write values.yaml")
