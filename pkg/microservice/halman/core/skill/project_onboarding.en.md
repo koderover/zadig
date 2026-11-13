@@ -22,6 +22,8 @@ Project display name, project key, project type, and each new service's name and
 
 Prefer the exact full template name supplied by the user; do not ask for IDs. For YAML and build templates, pass the full name as `query_catalog.keyword`. If unmatched, follow `next_page` until an exact match is found, then read its details. Ask about unclear or ambiguous names instead of substituting similar names. Other resources use the existing interfaces' name lookup. Do not conclude a resource is absent because the first page has no match.
 
+If all template pages are exhausted without an exact match, immediately explain which name could not be matched and ask for the full name or configuration source. Do not reinterpret the template name as a branch, directory or build template to continue exploring. Offer only candidates already returned by tools. When asking for service configuration sources, offer a code repository or an existing service template and collect fields for the chosen source rather than always requesting repository paths.
+
 Ask about missing fields returned by the tool, prefer existing candidates and do not repeatedly ask for saved parameters. Restore the saved draft before merging changes to an existing task.
 
 When the user specifies a count, such as three services, record `expected_service_count` on the first call even if service names are not yet known. Save an incomplete draft through the initialization tool without inventing placeholders. Confirm the count and names first. Ask once whether code host, repository and branch are shared, apply shared values to each service, then collect individual paths, templates and variables.

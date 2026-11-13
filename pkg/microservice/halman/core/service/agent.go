@@ -54,6 +54,10 @@ type execution struct {
 	RegenerateFrom     *models.Run
 	Outcome            string
 	ToolFailures       map[string]string
+	ToolErrorCount     int
+	ToolErrorTarget    map[string]string
+	Message            string
+	CatalogNeedsInput  bool
 	PersistingSnapshot bool
 	HistoryRunIDs      []string
 }
@@ -502,6 +506,8 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 					return nil, err
 				}
 			}
+			applyCatalogClarification(e, req)
+			applyToolFailureLimit(e, req)
 
 			candidate, _ := json.Marshal(e.Run.Context)
 			req.Messages = append([]model.Message{model.NewSystemMessage("本轮页面上下文（可用于只读查询和准备待确认清单；用户明确目标及原草稿优先，业务写入仍须权限校验和确认）：" + string(candidate))}, req.Messages...)
@@ -520,7 +526,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 		llmagent.WithMaxToolIterations(6),
 		llmagent.WithEnableParallelTools(false),
 		llmagent.WithModelCallbacks(callbacks),
-		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterAfterTool(recordToolFailure)),
+		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure)),
 	}
 	if len(services) > 0 {
 		agentOptions = append(agentOptions, llmagent.WithTools(services[0].tools()))
@@ -608,6 +614,7 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 
 	runCtx, cancel := context.WithTimeout(s.Context, 5*time.Minute)
 	e := &execution{
+		Message:         req.Message,
 		Language:        language.Normalize(cfg.Language),
 		Run:             record,
 		User:            user,
