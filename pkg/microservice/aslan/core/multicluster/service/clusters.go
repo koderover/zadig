@@ -945,17 +945,30 @@ func preserveHubAgentToken(agent *unstructured.Unstructured, clusterID string, c
 		return nil
 	}
 
-	containers, _, err := unstructured.NestedSlice(agent.Object, "spec", "template", "spec", "containers")
+	containers, exists, err := unstructured.NestedSlice(agent.Object, "spec", "template", "spec", "containers")
 	if err != nil {
 		return err
 	}
+	if !exists {
+		return fmt.Errorf("rendered hub-agent deployment is missing containers")
+	}
 	for _, item := range containers {
-		container := item.(map[string]interface{})
+		container, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("rendered hub-agent deployment contains an invalid container")
+		}
 		if container["name"] != "agent" {
 			continue
 		}
-		for _, item := range container["env"].([]interface{}) {
-			env := item.(map[string]interface{})
+		envs, ok := container["env"].([]interface{})
+		if !ok {
+			return fmt.Errorf("rendered hub-agent container env is missing or not a list")
+		}
+		for _, item := range envs {
+			env, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("rendered hub-agent container contains an invalid env entry")
+			}
 			if env["name"] == setting.HubAgentToken {
 				env["value"] = token
 				break
