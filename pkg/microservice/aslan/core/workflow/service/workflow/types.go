@@ -1971,19 +1971,24 @@ type WorkflowBrief struct {
 }
 
 type OpenAPIWorkflowV4Detail struct {
-	Name             string                       `json:"workflow_key"`
-	DisplayName      string                       `json:"workflow_name"`
-	ProjectName      string                       `json:"project_key"`
-	Description      string                       `json:"description"`
-	CreatedBy        string                       `json:"created_by"`
-	CreateTime       int64                        `json:"create_time"`
-	UpdatedBy        string                       `json:"updated_by"`
-	UpdateTime       int64                        `json:"update_time"`
-	Params           []*commonmodels.Param        `json:"params"`
-	Stages           []*OpenAPIStage              `json:"stages"`
-	NotifyCtls       []*commonmodels.NotifyCtl    `json:"notify_ctls"`
-	ShareStorages    []*commonmodels.ShareStorage `json:"share_storages"`
-	ConcurrencyLimit int                          `json:"concurrency_limit"`
+	Name             string                                `json:"workflow_key"`
+	DisplayName      string                                `json:"workflow_name"`
+	ProjectName      string                                `json:"project_key"`
+	Description      string                                `json:"description"`
+	CreatedBy        string                                `json:"created_by"`
+	CreateTime       int64                                 `json:"create_time"`
+	UpdatedBy        string                                `json:"updated_by"`
+	UpdateTime       int64                                 `json:"update_time"`
+	Params           []*commonmodels.Param                 `json:"params"`
+	Stages           []*OpenAPIStage                       `json:"stages"`
+	NotifyCtls       []*commonmodels.NotifyCtl             `json:"notify_ctls"`
+	ShareStorages    []*commonmodels.ShareStorage          `json:"share_storages"`
+	ConcurrencyLimit int                                   `json:"concurrency_limit"`
+	TemplateBinding  *commonmodels.WorkflowTemplateBinding `json:"template_binding,omitempty"`
+}
+
+type OpenAPIUpdateWorkflowTemplateBindingReq struct {
+	DeltaPatches []*commonmodels.JSONPatchOperation `json:"delta_patches"`
 }
 
 type Param struct {
@@ -2003,6 +2008,7 @@ type Param struct {
 }
 
 type OpenAPIStage struct {
+	ID       string              `json:"id,omitempty"`
 	Name     string              `json:"name"`
 	Parallel bool                `json:"parallel,omitempty"`
 	Jobs     []*commonmodels.Job `json:"jobs,omitempty"`

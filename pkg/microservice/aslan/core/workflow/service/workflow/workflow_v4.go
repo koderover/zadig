@@ -389,6 +389,15 @@ func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.Wo
 	return workflow, err
 }
 
+func FindWorkflowV4RawByProject(projectName, name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().FindByOptions(commonrepo.WorkFlowOptions{ProjectName: projectName, WorkflowName: name})
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s in project %s, the error is: %v", name, projectName, err)
+		return nil, e.ErrFindWorkflow.AddErr(err)
+	}
+	return workflow, nil
+}
+
 func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	// Cancel any queued or running tasks before deleting the workflow.
 	taskQueue, err := commonrepo.NewWorkflowQueueColl().List(&commonrepo.ListWorfklowQueueOption{
