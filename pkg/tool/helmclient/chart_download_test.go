@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,7 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func TestReplaceChartDirectory(t *testing.T) {
@@ -88,6 +90,90 @@ func TestReplaceChartDirectoryRestoresPreviousOnFailure(t *testing.T) {
 	entries, err := os.ReadDir(base)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("backup was not cleaned: %v, err: %v", entries, err)
+	}
+}
+
+func TestReplaceChartDirectoryBackupCleanupFailure(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("requires directory permissions to prevent cleanup")
+	}
+	log.Init(&log.Config{Level: "warn"})
+	base := t.TempDir()
+	source, target := filepath.Join(base, "new"), filepath.Join(base, "chart")
+	for _, dir := range []string{source, target} {
+		if err := os.Mkdir(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "values.yaml"), []byte(filepath.Base(dir)), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	protected := filepath.Join(target, "protected")
+	if err := os.Mkdir(protected, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(protected, "values.yaml"), []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(protected, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(protected, 0755)
+		backups, _ := filepath.Glob(filepath.Join(base, ".helm-backup-*", "chart", "protected"))
+		for _, backup := range backups {
+			_ = os.Chmod(backup, 0755)
+		}
+	})
+	if err := replaceChartDirectory(source, target); err != nil {
+		t.Fatalf("backup cleanup turned a successful publication into failure: %v", err)
+	}
+	values, err := os.ReadFile(filepath.Join(target, "values.yaml"))
+	if err != nil || string(values) != "new" {
+		t.Fatalf("new chart was not published: %q, err: %v", values, err)
+	}
+	backups, err := filepath.Glob(filepath.Join(base, ".helm-backup-*", "chart", "protected", "values.yaml"))
+	if err != nil || len(backups) != 1 {
+		t.Fatalf("expected an unremovable backup, got %v, err: %v", backups, err)
+	}
+}
+
+func TestRunPullCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		cancel()
+		_, _ = w.Write([]byte("unused archive"))
+	}))
+	defer server.Close()
+	client := &HelmClient{}
+	pull := action.NewPullWithOpts()
+	pull.Settings = cli.New()
+	pull.Settings.RepositoryConfig = filepath.Join(t.TempDir(), "repositories.yaml")
+	pull.DestDir = filepath.Join(t.TempDir(), "chart")
+	pull.Untar = true
+	ref := server.URL + "/collector-1.0.0.tgz"
+	cancelledCtx, stop := context.WithCancel(context.Background())
+	stop()
+	if _, err := client.runPull(cancelledCtx, pull, ref); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation before download, got %v", err)
+	}
+	if requests.Load() != 0 {
+		t.Fatal("cancelled pull made a network request")
+	}
+	if _, err := client.runPull(ctx, pull, ref); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation after download, got %v", err)
+	}
+	if requests.Load() != 1 {
+		t.Fatalf("expected one download request, got %d", requests.Load())
+	}
+	if _, err := os.Stat(pull.DestDir); !os.IsNotExist(err) {
+		t.Fatalf("cancelled pull touched the extraction directory: %v", err)
+	}
+	if err := expandDownloadedChart(ctx, "missing.tgz", pull.DestDir); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled extraction accessed the archive: %v", err)
 	}
 }
 

@@ -764,8 +764,14 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 }
 
 func (hClient *HelmClient) downloadChart(ctx context.Context, repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// download chart from ocr registry
 	if registry.IsOCI(repoEntry.URL) {
@@ -825,6 +831,9 @@ func (hClient *HelmClient) downloadOCIChart(ctx context.Context, repoEntry *repo
 
 // rewrite Pull.Run in helm.sh/helm/v3/pkg/action to support proxy
 func (hClient *HelmClient) runPull(ctx context.Context, p *action.Pull, chartRef string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	var out strings.Builder
 
 	c := downloader.ChartDownloader{
@@ -864,7 +873,11 @@ func (hClient *HelmClient) runPull(ctx context.Context, p *action.Pull, chartRef
 		if err != nil {
 			return out.String(), errors.Wrap(err, "failed to untar")
 		}
-		defer os.RemoveAll(dest)
+		defer func() {
+			if err := os.RemoveAll(dest); err != nil {
+				log.Warnf("Failed to clean chart download directory %s: %v", dest, err)
+			}
+		}()
 	}
 
 	if p.RepoURL != "" {
@@ -875,7 +888,14 @@ func (hClient *HelmClient) runPull(ctx context.Context, p *action.Pull, chartRef
 		chartRef = chartURL
 	}
 
+	if err := ctx.Err(); err != nil {
+		return out.String(), err
+	}
+	// shortcut: Helm DownloadTo cannot interrupt an in-flight pull; use a context-aware downloader if needed.
 	saved, v, err := c.DownloadTo(chartRef, p.Version, dest)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return out.String(), ctxErr
+	}
 	if err != nil {
 		return out.String(), err
 	}

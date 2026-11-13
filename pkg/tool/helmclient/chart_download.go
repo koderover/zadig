@@ -12,9 +12,13 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func expandDownloadedChart(ctx context.Context, archive, dest string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	dest, err := filepath.Abs(dest)
 	if err != nil {
 		return err
@@ -31,9 +35,13 @@ func expandDownloadedChart(ctx context.Context, archive, dest string) error {
 	}
 	staging, err := os.MkdirTemp(dest, ".helm-download-")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create chart staging directory in %s: %w", dest, err)
 	}
-	defer os.RemoveAll(staging)
+	defer func() {
+		if err := os.RemoveAll(staging); err != nil {
+			log.Warnf("Failed to clean chart staging directory %s: %v", staging, err)
+		}
+	}()
 	if err := chartutil.ExpandFile(staging, archive); err != nil {
 		return fmt.Errorf("failed to untar chart: %w", err)
 	}
@@ -48,7 +56,7 @@ func expandDownloadedChart(ctx context.Context, archive, dest string) error {
 func replaceChartDirectory(source, target string) error {
 	backup, err := os.MkdirTemp(filepath.Dir(target), ".helm-backup-")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create backup directory for chart %s: %w", target, err)
 	}
 	previous := filepath.Join(backup, "chart")
 	err = os.Rename(target, previous)
@@ -67,7 +75,7 @@ func replaceChartDirectory(source, target string) error {
 		return fmt.Errorf("failed to publish chart %s: %w", target, err)
 	}
 	if err := os.RemoveAll(backup); err != nil {
-		return fmt.Errorf("failed to clean old chart %s: %w", backup, err)
+		log.Warnf("Failed to clean old chart backup %s: %v", backup, err)
 	}
 	return nil
 }
@@ -75,6 +83,9 @@ func replaceChartDirectory(source, target string) error {
 // WithDownloadedChart holds the cache lock until the caller finishes using its files.
 func (hClient *HelmClient) WithDownloadedChart(entry *repo.Entry, ref, version, dest string, use func(context.Context, string) error) error {
 	return WithChartDirectoryLock(dest, func(ctx context.Context) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		name := filepath.Base(ref)
 		chartPath := filepath.Join(dest, name)
 		if filepath.Base(filepath.Clean(dest)) == "latest" {
@@ -86,13 +97,13 @@ func (hClient *HelmClient) WithDownloadedChart(entry *repo.Entry, ref, version, 
 			}
 		} else {
 			if err := os.MkdirAll(dest, 0755); err != nil {
-				return err
+				return fmt.Errorf("failed to create chart cache directory %s: %w", dest, err)
 			}
 			source := fmt.Sprintf("%x", sha256.Sum256([]byte(entry.URL+"\x00"+ref+"\x00"+version)))
 			sourceFile := filepath.Join(dest, ".zadig-chart-"+name+".source")
 			previous, err := os.ReadFile(sourceFile)
 			if err != nil && !os.IsNotExist(err) {
-				return err
+				return fmt.Errorf("failed to read chart cache source marker %s: %w", sourceFile, err)
 			}
 			hit := false
 			if version != "" && string(previous) == source {
@@ -102,7 +113,7 @@ func (hClient *HelmClient) WithDownloadedChart(entry *repo.Entry, ref, version, 
 			if !hit {
 				// An empty marker keeps readers locked while the cache is being refreshed.
 				if err := os.WriteFile(sourceFile, nil, 0644); err != nil {
-					return err
+					return fmt.Errorf("failed to mark chart cache refresh pending in %s: %w", sourceFile, err)
 				}
 				if err := hClient.downloadChart(ctx, entry, ref, version, dest, true); err != nil {
 					return err
@@ -111,7 +122,7 @@ func (hClient *HelmClient) WithDownloadedChart(entry *repo.Entry, ref, version, 
 					return err
 				}
 				if err := os.WriteFile(sourceFile, []byte(source), 0644); err != nil {
-					return err
+					return fmt.Errorf("failed to write chart cache source marker %s: %w", sourceFile, err)
 				}
 			}
 		}
