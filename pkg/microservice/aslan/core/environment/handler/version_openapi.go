@@ -49,7 +49,7 @@ type openAPIEnvServiceVersionParams struct {
 // @Param projectKey query string true "项目标识"
 // @Param production query bool false "是否为生产环境，默认为 false"
 // @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
-// @Success 200 {array} service.ListEnvServiceVersionsResponse
+// @Success 200 {array} service.OpenAPIEnvServiceVersion
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -66,7 +66,7 @@ func OpenAPIListEnvServiceVersions(c *gin.Context) {
 	if !ok {
 		return
 	}
-	ctx.Resp, ctx.RespErr = commonservice.ListEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, params.isHelmChart, params.production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = envservice.OpenAPIListEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, params.isHelmChart, params.production, ctx.Logger)
 }
 
 // @Summary 获取环境服务版本详情
@@ -80,7 +80,7 @@ func OpenAPIListEnvServiceVersions(c *gin.Context) {
 // @Param projectKey query string true "项目标识"
 // @Param production query bool false "是否为生产环境，默认为 false"
 // @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
-// @Success 200 {object} service.GetEnvServiceVersionYamlResponse
+// @Success 200 {object} service.OpenAPIEnvServiceVersionDetail
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -101,7 +101,7 @@ func OpenAPIGetEnvServiceVersionYaml(c *gin.Context) {
 	if !ok {
 		return
 	}
-	ctx.Resp, ctx.RespErr = commonservice.GetEnvServiceVersionYaml(ctx, params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = envservice.OpenAPIGetEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
 }
 
 // @Summary 对比环境服务版本
@@ -116,7 +116,7 @@ func OpenAPIGetEnvServiceVersionYaml(c *gin.Context) {
 // @Param revisionB query int true "版本 B 的版本号，-1 表示最新版本"
 // @Param production query bool false "是否为生产环境，默认为 false"
 // @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
-// @Success 200 {object} service.DiffEnvServiceVersionsResponse
+// @Success 200 {object} service.OpenAPIEnvServiceVersionDiff
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -142,7 +142,7 @@ func OpenAPIDiffEnvServiceVersions(c *gin.Context) {
 	if !ok {
 		return
 	}
-	ctx.Resp, ctx.RespErr = commonservice.DiffEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, revisionA, revisionB, params.isHelmChart, params.production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = envservice.OpenAPIDiffEnvServiceVersions(ctx, params.projectKey, params.envName, params.serviceName, revisionA, revisionB, params.isHelmChart, params.production, ctx.Logger)
 }
 
 // @Summary 检查环境服务版本是否可回滚
@@ -156,7 +156,7 @@ func OpenAPIDiffEnvServiceVersions(c *gin.Context) {
 // @Param revision query int true "要回滚到的目标版本号"
 // @Param production query bool false "是否为生产环境，默认为 false"
 // @Param isHelmChart query bool false "serviceName 是否为独立 Chart 的 Release 名称；不传时由服务端识别，同名时必须传入"
-// @Success 200 {object} service.CheckRollbackEnvServiceVersionResponse
+// @Success 200 {object} service.OpenAPIEnvServiceRollbackCheck
 // @Failure 400 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -177,7 +177,7 @@ func OpenAPICheckRollbackEnvServiceVersion(c *gin.Context) {
 	if !ok {
 		return
 	}
-	ctx.Resp, ctx.RespErr = commonservice.CheckRollbackEnvServiceVersion(params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = envservice.OpenAPICheckRollbackEnvServiceVersion(params.projectKey, params.envName, params.serviceName, revision, params.isHelmChart, params.production, ctx.Logger)
 }
 
 // OpenAPIRollbackEnvServiceVersionRequest carries the rollback action; the target service is located by path and query.
@@ -267,9 +267,8 @@ func parseOpenAPIEnvServiceVersionParams(c *gin.Context, ctx *internalhandler.Co
 	if !authorizeOpenAPIEnvServiceVersion(ctx, params.projectKey, params.envName, params.production, rollback, allowWorkflowExecute) {
 		return nil, false
 	}
-	// same as the internal API: rollback always needs the license, while viewing production
-	// versions needs it only for non system admins
-	if rollback || (params.production && !ctx.Resources.IsSystemAdmin) {
+	// rollback and production versions need the license, for system admins too
+	if rollback || params.production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 			ctx.RespErr = err
 			return nil, false
