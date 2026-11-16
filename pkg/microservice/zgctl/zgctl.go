@@ -319,26 +319,9 @@ func (z *zgctl) adjustSyncthingConfig(localDeviceID, remoteDeviceID, configDir, 
 		return fmt.Errorf("failed to overwrite local config: %s", err)
 	}
 
-	scriptTmpl, err := template.New("local-script").Funcs(template.FuncMap{"shellQuote": shellQuote}).Parse(syncthingRunTmpl)
+	scriptTmpl, err := template.New("remote-script").Funcs(template.FuncMap{"shellQuote": shellQuote}).Parse(syncthingRunTmpl)
 	if err != nil {
 		return fmt.Errorf("failed to parse script template: %s", err)
-	}
-
-	localScriptData := SyncthingScript{
-		SyncthingBin: filepath.Join(z.homeDir, "bin", "syncthing"),
-		ConfigDir:    configDir,
-		DataDir:      dataDir,
-	}
-
-	var localScriptBuffer bytes.Buffer
-	err = scriptTmpl.Execute(&localScriptBuffer, localScriptData)
-	if err != nil {
-		return fmt.Errorf("failed to execute local script template: %s", err)
-	}
-
-	err = ioutil.WriteFile(filepath.Join(configDir, "run.sh"), localScriptBuffer.Bytes(), 0755)
-	if err != nil {
-		return fmt.Errorf("failed to write local run.sh: %s", err)
 	}
 
 	remoteData := SyncthingConfig{
@@ -409,8 +392,8 @@ func (z *zgctl) startRemoteSyncthing(ctx context.Context, ns, podName, configDir
 }
 
 func (z *zgctl) startLocalSyncthing(ctx context.Context, configDir, dataDir string) error {
-	// shortcut: configuration files require trusted local writers; use rooted file handles if that boundary changes.
-	cmd := exec.Command("nohup", filepath.Join(configDir, "run.sh"))
+	// Only the configured binary is executable; request paths are Syncthing option values.
+	cmd := exec.Command("nohup", "--", z.syncthingBin, "serve", "--config="+configDir, "--data="+dataDir)
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
