@@ -1,18 +1,55 @@
-# UA 密钥轮换验证
+# 加密密钥轮换
 
-这是独立维护 Job，不属于 Chart，也不是 Helm Hook。只执行存量密文迁移和远端 Webhook Secret 更新，不切换运行中的 AES/Dex Secret。
+本文说明如何更换 Zadig 的 AES 加密密钥。
+
+UA 的 `rotate-encryption-key` 命令以 Kubernetes Job 的形式在维护窗口内单独运行，它会做两件事：把数据库中已有的密文改用新密钥重新加密，并更新代码源上 Webhook 的 Secret。集群中的密钥 Secret 和 Dex 配置不由这个命令修改，需要按下文步骤手动切换。
 
 ## 前提
 
-- 已先升级到兼容的业务镜像和 Chart，仍使用原 AES/Dex Secret。配套 Chart 必须包含 [helm-charts PR #477](https://github.com/koderover/helm-charts/pull/477)（提交 `324dc9eef2fe506cb6c6b5f18373b88c8ca4bb3b`）的密钥保留及校验逻辑；不能直接使用未包含该改动的旧 Chart。
+- 已先升级到兼容的业务镜像和 Chart，仍使用原 AES/Dex Secret。配套 Chart 必须为 Zadig v5.1.0 及以上版本，该版本起包含密钥保留及校验逻辑；不能使用 v5.1.0 之前的 Chart。
 - 关闭业务入口、工作流/定时触发/Webhook 消费，结束运行任务，停止 user、aslan、hub-server、cron 等密文读写服务；同时暂停会恢复副本数的 HPA/GitOps 等外部控制器。
 - 停写后完成 MongoDB、MySQL 用户库和 Dex 库、当前 AES Secret、Helm values、Dex Secret、Webhook 清单和 Agent YAML 的最终备份。
 - 本工具只支持 MySQL。代码源 OAuth Token 须在维护前确认有效；dry-run 不刷新 Token、不写数据库或 Redis。
 - 使用已发布且支持节点架构的 UA 镜像。客户节点只需正常拉取镜像，不需要 Docker；本地构建/推送工具不属于客户节点依赖。
 
+## 流程概览
+
+```text
+阶段一：正常升级到 v5.1.0+ 的镜像和 Chart（仍使用旧密钥）
+  │
+  ▼
+记录副本数，停 user / aslan / hub-server / cron ──► 最终备份（数据库、Secret、Helm values）
+  │
+  ▼
+生成新密钥，创建 zadig-aes-key-next
+  │
+  ▼
+dry-run Job ──► 报告 phase: validated、failed 为 0，处理 manual_webhooks 清单
+  │
+  ▼
+正式 Job：更新远端 Webhook ──► 写 MongoDB / MySQL ──► 清理 Redis MFA challenge
+  │            （失败可用同一组密钥重跑）  （失败须先恢复备份）
+  ▼
+创建 zadig-aes-key-previous（旧密钥），当前 Secret 切到新密钥 ──► 指纹校验
+  │
+  ▼
+第二次 Helm upgrade：Dex 新 Secret，四个服务保持 0，--no-hooks ──► 再次指纹校验
+  │
+  ▼
+第三次 Helm upgrade：四个服务恢复到原副本数 ──► 验收 ──► 恢复业务触发、入口和外部控制器
+  │
+  ▼
+删除 zadig-aes-key-next
+  │
+  ▼
+全部 Agent 升级完成后，尽快删除 zadig-aes-key-previous
+```
+
 ## 执行
 
-以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release、Chart 路径和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL。
+以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release、Chart 路径和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL，不需要其他组件；后文用到的 `kubectl kustomize` 是 kubectl 自带的子命令，无需单独安装 kustomize。
+
+下面这段确认当前集群，并设置后续命令共用的变量。
 
 ```bash
 kubectl config current-context
@@ -24,9 +61,14 @@ ZADIG_CHART='<阶段一已部署的同一份 Chart 目录或 tgz 的绝对路径
 helm history "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE"
 ```
 
-第二次及后续 upgrade 必须使用阶段一的同一份 Chart（包含 PR #477 改动），同时核对 `helm history` 中的版本；相同版本号不保证包内容一致。更换 Chart 可能改变依赖 `.Chart.AppVersion` 的镜像，`--reuse-values` 不能保证镜像不变。
+第二次及后续 upgrade 必须使用阶段一的同一份 Chart（v5.1.0 及以上），同时核对 `helm history` 中的版本；相同版本号不保证包内容一致。更换 Chart 可能改变依赖 `.Chart.AppVersion` 的镜像，`--reuse-values` 不能保证镜像不变。
 
 关闭业务入口和触发、结束运行任务后，先记录副本数，再停服务。以下目录包含密钥，按客户密钥管理要求保管；不要开启 shell 的 `set -x`。命令中的 Deployment 名称为 Chart 默认名称，自定义部署先核对名称。
+
+脚本作用：
+1. 创建权限为 700 的维护目录，把上面的变量写入 `session.sh`，终端断开后可以恢复。
+2. 导出四个 Deployment 的当前定义，从中读出原副本数，写入 `replicas.before-values.json`，最后恢复服务时使用。
+3. 把四个服务缩到 0，并等待 Pod 全部退出。
 
 ```bash
 umask 077
@@ -55,8 +97,6 @@ items = json.loads((folder / "deployments.before.json").read_text())["items"]
 replicas = {names[item["metadata"]["name"]]: {"replicas": str(item["spec"]["replicas"])} for item in items}
 assert set(replicas) == set(names.values()), "missing maintenance deployment"
 (folder / "replicas.before-values.json").write_text(json.dumps({"microservice": replicas}))
-replicas["cron"]["replicas"] = "0"
-(folder / "services-resume-values.json").write_text(json.dumps({"microservice": replicas}))
 PY
 kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" scale deployment/user deployment/aslan deployment/hub-server deployment/cron --replicas=0
 for service in user aslan hub-server cron; do
@@ -66,6 +106,8 @@ done
 ```
 
 确认整个命令块成功，核对相关 Pod 已退出、没有其他写入者后，完成前述数据库等最终备份，再保存当前 Secret 和完整 Helm values。备份失败时不得继续迁移。
+
+下面这段把当前 `zadig-aes-key` 和 release 的全部 values 导出到维护目录，后面构造旧密钥 Secret 和 Dex values 时会用到。
 
 ```bash
 (
@@ -123,6 +165,11 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get job zadig-key-rotat
 
 仅在正式 Job 成功、人工清单处理完成且仍处于维护状态时执行。以下命令从最终备份构造旧密钥 Secret，从临时 Secret 读取新密钥；先创建 `zadig-aes-key-previous`，成功后才修改当前 Secret。已有 previous Secret 时创建会失败，需先核实其来源，不能直接覆盖。
 
+脚本作用：
+1. 从 `aes.before.json` 读旧密钥，从 `zadig-aes-key-next` 读新密钥，校验新密钥长度为 16/24/32 字节且与旧密钥不同。
+2. 生成 `zadig-aes-key-previous` 的 Secret 定义（内容为旧密钥），以及把 `zadig-aes-key` 改为新密钥的 patch 文件。
+3. 先创建 previous Secret，成功后再 patch 当前 Secret。
+
 ```bash
 (
 set -eu
@@ -151,6 +198,8 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" patch secret zadig-aes-
 
 Secret 切换成功后，先校验当前 Secret 的 SHA-256 指纹与本次迁移使用的新密钥文件一致。将校验脚本保存在维护目录，供 Helm 前后复用；仅输出校验结果。整个命令块必须成功才可继续，不一致时保持服务为 0，中止后续步骤。
 
+脚本作用：在维护目录写入 `check-aes.py`，它比较集群中 `zadig-aes-key` 的值与本地 `aes-next` 文件的 SHA-256，一致时只输出 `AES fingerprint matches`，不打印密钥本身；然后导出当前 Secret 并执行一次校验。
+
 ```bash
 (
 set -eu
@@ -174,6 +223,8 @@ python3 "$ROTATION_DIR/check-aes.py" "$ROTATION_DIR"
 
 确认校验成功后，准备 Dex values：只替换第一个静态客户端的 Secret，保留所有客户端的 ID、回调地址及其他配置。新 Secret 保存在受限文件中，不输出到终端。
 
+脚本作用：从 `values.before.json` 取出 Dex 的 `staticClients` 列表，只把第一个客户端（Zadig）的 `secret` 换成随机生成的 64 位十六进制串，其余字段原样保留，写入 `dex-next-values.json`，供下一步 Helm upgrade 使用。
+
 ```bash
 python3 - "$ROTATION_DIR" <<'PY'
 import json
@@ -192,6 +243,8 @@ PY
 确认文件生成成功，再执行第二次 Helm upgrade。`--set-string global.encryption.key=` 清除 release 中历史 key 值，使配套 Chart 通过 lookup 读取已校验的当前 Secret。使用同一份 Chart 并复用现有 values。
 
 **Helm upgrade 会把手工 scale 为 0 的服务恢复到 Chart 指定的副本数。** 停写升级使用以下 Helm 3 post-renderer，将四个 Deployment 的副本数保持为 0；它通过已有的 `kubectl kustomize` 处理本次渲染结果，不连接集群。不通过 values 将 Aslan 副本数设为 0：多副本 Aslan 的 `aslan-pvc` 和 `/app/data` 挂载依赖该值，设为 0 会使 PVC 从模板中消失并被 Helm 删除。保留原 values 后，这些资源继续正常渲染。
+
+脚本作用：在维护目录下创建 `helm-maintenance/`，其中 `kustomization.yaml` 声明把 user、aslan、hub-server、cron 的副本数改为 0；`render.sh` 是 Helm 的 post-renderer，它从标准输入接收 Helm 渲染好的清单，保存为 `rendered.yaml`，再用 `kubectl kustomize` 输出改过副本数的清单交给 Helm 部署。
 
 ```bash
 (
@@ -244,24 +297,7 @@ python3 "$ROTATION_DIR/check-aes.py" "$ROTATION_DIR"
 )
 ```
 
-两次指纹校验及第二次 Helm upgrade 均成功后，用停写前记录生成的文件恢复 user、aslan、hub-server 的副本数，cron 继续保持为 0。文件只覆盖副本数，不回填旧 AES/Dex values。此次不再指定 post-renderer 或 `--no-hooks`，恢复正常 init 和 UA migrate hooks；使用 `--wait --timeout 10m` 等待服务就绪后执行 post-upgrade hooks。已停止的 Pod 会重新创建并加载新密钥，无需额外 rollout restart。每次 upgrade 成功后才执行后续步骤。
-
-```bash
-helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" \
-  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
-  --reuse-values -f "$ROTATION_DIR/services-resume-values.json" \
-  --wait --timeout 10m
-```
-
-```bash
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status deployment/user --timeout=10m
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status deployment/aslan --timeout=10m
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status deployment/hub-server --timeout=10m
-```
-
-确认 Dex 就绪，验收 Agent 重连、原 TOTP 登录、对象存储读写、受控 Webhook 触发、新旧 API Token 和 Dex 授权回调。**业务定时触发配置继续保持暂停**，不要因为服务就绪就恢复业务流量。
-
-验收通过后，用原始副本数文件恢复 cron，将 release 中此次维护的临时副本数改回维护前记录的值；原副本数为 0 的服务仍保持为 0。cron 通过 values 保持为字符串 `"0"`，因为模板的 `default 1` 会将数字 `0` 变成 `1`。确认恢复结果，再按维护前记录恢复业务定时触发、入口和外部控制器。
+两次指纹校验及第二次 Helm upgrade 均成功后，用停写前记录的副本数文件把四个服务恢复到维护前的副本数；原副本数为 0 的服务仍保持为 0。文件只覆盖副本数，不回填旧 AES/Dex values；副本数以字符串写入，因为模板的 `default 1` 会把数字 `0` 变成 `1`。此次不再指定 post-renderer 或 `--no-hooks`，恢复正常 init 和 UA migrate hooks；使用 `--wait --timeout 10m` 等待服务就绪后执行 post-upgrade hooks。已停止的 Pod 会重新创建并加载新密钥，无需额外 rollout restart。
 
 ```bash
 helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" \
@@ -271,11 +307,25 @@ helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" \
 ```
 
 ```bash
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status deployment/cron --timeout=10m
+for service in user aslan hub-server cron; do
+  kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status "deployment/$service" --timeout=10m
+done
 kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get deployment user aslan hub-server cron
 ```
 
-全部 Agent 完成升级并验证后，按方案删除过渡 Secret。
+确认 Dex 就绪，验收 Agent 重连、原 TOTP 登录、对象存储读写、受控 Webhook 触发、新旧 API Token 和 Dex 授权回调。验收期间**业务定时触发配置继续保持暂停**，验收通过后再按维护前记录恢复业务定时触发、入口和外部控制器。
+
+验收通过后删除临时 Secret `zadig-aes-key-next`。切换完成后它与 `zadig-aes-key` 内容相同，只是多一份新密钥的明文副本，系统不会读取它。维护目录中的 `aes-next` 等文件按客户密钥管理要求保管或销毁。
+
+```bash
+kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" delete secret zadig-aes-key-next
+```
+
+`zadig-aes-key-previous` 保存的是旧密钥。删除之前，hub-server 仍接受用旧密钥加密的 Agent Token，旧密钥泄露时这段时间仍有风险。全部 Agent 完成升级并验证重连后，应尽快删除。
+
+```bash
+kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" delete secret zadig-aes-key-previous
+```
 
 JWT、API Token、MFA 恢复码将失效，用户需要重新登录/签发；本 Job 不删除其哈希。历史 pipeline `storage_uri` 只计数、不重写。
 
