@@ -85,11 +85,6 @@ type ReleaseInstallParam struct {
 	SkipUpgradeCRDs bool
 }
 
-// SkipUpgradeCRDs converts an optional upgrade-CRD request option into a skip flag; nil means upgrading CRDs as before.
-func SkipUpgradeCRDs(upgradeCRD *bool) bool {
-	return upgradeCRD != nil && !*upgradeCRD
-}
-
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
 	chartPath, err := PreLoadHelmServiceChart(serviceObj, param.Production, &chartInstantiateDeploy{

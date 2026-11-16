@@ -1226,7 +1226,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 }
 
 // updateHelmChartProduct update products with services from helm chart repo
-func updateHelmChartProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) error {
+func updateHelmChartProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1369,7 +1369,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 
 	go func() {
 		errMsg := ""
-		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, filter, log)
+		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, filter, skipUpgradeCRDs, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -2121,6 +2121,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 			ProductName: productName,
 			EnvNames:    []string{envName},
 			ChartValues: changedCharts,
+			UpgradeCRD:  args.UpgradeCRD,
 		}
 		_, err = UpdateMultipleHelmChartEnv(requestID, userName, updateEnvArg, product.Production, log)
 		return err
@@ -2159,7 +2160,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 				rcList = append(rcList, rc)
 			}
 
-			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, deployStrategyMap, nil, kube.SkipUpgradeCRDs(args.UpgradeCRD), log)
+			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, deployStrategyMap, nil, boolptr.IsFalse(args.UpgradeCRD), log)
 		}
 	}
 }
@@ -2518,7 +2519,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
-		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, kube.SkipUpgradeCRDs(args.UpgradeCRD), log)
+		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, boolptr.IsFalse(args.UpgradeCRD), log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2580,7 +2581,7 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
-		err = updateHelmChartProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
+		err = updateHelmChartProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, boolptr.IsFalse(args.UpgradeCRD), log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())
@@ -3487,7 +3488,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 }
 
 func updateHelmChartProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, filter kube.DeploySvcFilter, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, filter kube.DeploySvcFilter, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -3529,7 +3530,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 		return err
 	}
 
-	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, false, log)
+	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, skipUpgradeCRDs, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err

@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
 type DeployJobController struct {
@@ -769,7 +770,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 		skipUpgradeCRDsMap := make(map[string]bool)
 		for _, serviceConfig := range j.jobSpec.ServiceVariableConfig {
 			serviceVariableConfigMap[serviceConfig.ServiceName] = serviceConfig.VariableConfigs
-			skipUpgradeCRDsMap[serviceConfig.ServiceName] = kube.SkipUpgradeCRDs(serviceConfig.UpgradeCRD)
+			skipUpgradeCRDsMap[serviceConfig.ServiceName] = boolptr.IsFalse(serviceConfig.UpgradeCRD)
 		}
 
 		for jobSubTaskID, svc := range j.jobSpec.Services {
