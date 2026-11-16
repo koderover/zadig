@@ -63,22 +63,22 @@ func runKeyRotation(cmd *cobra.Command, args []string) error {
 		_ = mongotool.Close(closeCtx)
 	}()
 	if err := mongotool.Ping(connectCtx); err != nil {
-		return fmt.Errorf("cannot connect to MongoDB")
+		return fmt.Errorf("cannot connect to MongoDB: %w", err)
 	}
 
 	db, err := repository.DB.DB()
 	if err != nil {
-		return fmt.Errorf("cannot get MySQL user connection")
+		return fmt.Errorf("cannot get MySQL user connection: %w", err)
 	}
 	defer db.Close()
 	cache := redis.NewClient(&redis.Options{Addr: net.JoinHostPort(config.RedisHost(), strconv.Itoa(config.RedisPort())), Username: config.RedisUserName(), Password: config.RedisPassword(), DB: userconfig.RedisUserTokenDB()})
 	defer cache.Close()
 	if err := cache.Ping(connectCtx).Err(); err != nil {
-		return fmt.Errorf("cannot connect to Redis user-token database")
+		return fmt.Errorf("cannot connect to Redis user-token database: %w", err)
 	}
 	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
 	if err != nil {
-		return fmt.Errorf("cannot read code source proxy configuration")
+		return fmt.Errorf("cannot read code source proxy configuration: %w", err)
 	}
 	proxy := ""
 	if len(proxies) > 0 && proxies[0].EnableRepoProxy {

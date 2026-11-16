@@ -65,7 +65,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	}
 	defer func() {
 		if err := json.NewEncoder(out).Encode(report); err != nil && retErr == nil {
-			retErr = fmt.Errorf("cannot write rotation report")
+			retErr = fmt.Errorf("cannot write rotation report: %w", err)
 		}
 	}()
 
@@ -73,7 +73,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	for _, kind := range []string{"s3storage", "k8s_cluster"} {
 		cursor, err := r.Mongo.Collection(kind).Find(ctx, bson.M{})
 		if err != nil {
-			return fmt.Errorf("cannot scan %s", kind)
+			return fmt.Errorf("cannot scan %s: %w", kind, err)
 		}
 		for cursor.Next(ctx) {
 			var record struct {
@@ -84,7 +84,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 			}
 			if err := cursor.Decode(&record); err != nil {
 				cursor.Close(ctx)
-				return fmt.Errorf("cannot decode %s record", kind)
+				return fmt.Errorf("cannot decode %s record: %w", kind, err)
 			}
 			cipher, field := record.EncryptedSk, "encryptedSk"
 			if kind == "k8s_cluster" {
@@ -108,7 +108,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 		err = cursor.Err()
 		cursor.Close(ctx)
 		if err != nil {
-			return fmt.Errorf("cannot finish %s scan", kind)
+			return fmt.Errorf("cannot finish %s scan: %w", kind, err)
 		}
 		if kind == "s3storage" && report.Records[kind].Total == 0 {
 			return fmt.Errorf("s3storage is empty; refusing rotation")
@@ -116,13 +116,13 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	}
 	rows, err := r.SQL.QueryContext(ctx, "SELECT uid, COALESCE(secret_cipher, '') FROM user_mfa")
 	if err != nil {
-		return fmt.Errorf("cannot scan user_mfa")
+		return fmt.Errorf("cannot scan user_mfa: %w", err)
 	}
 	for rows.Next() {
 		var uid, cipher string
 		if err := rows.Scan(&uid, &cipher); err != nil {
 			rows.Close()
-			return fmt.Errorf("cannot decode user_mfa record")
+			return fmt.Errorf("cannot decode user_mfa record: %w", err)
 		}
 		counts := report.Records["user_mfa"]
 		counts.Total++
@@ -142,7 +142,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		return fmt.Errorf("cannot finish user_mfa scan")
+		return fmt.Errorf("cannot finish user_mfa scan: %w", err)
 	}
 
 	var challenges []string
@@ -150,28 +150,27 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	for iterator.Next(ctx) {
 		challenges = append(challenges, iterator.Val())
 	}
-	if iterator.Err() != nil {
-		return fmt.Errorf("cannot scan MFA challenges")
+	if err := iterator.Err(); err != nil {
+		return fmt.Errorf("cannot scan MFA challenges: %w", err)
 	}
 	report.Records["mfa_challenges"].Total = len(challenges)
-	report.Records["mfa_challenges"].Validated = len(challenges)
 
 	var hosts []*codehost.CodeHost
 	cursor, err := r.Mongo.Collection(codehost.CodeHost{}.TableName()).Find(ctx, bson.M{"deleted_at": 0}, options.Find().SetSort(bson.D{{Key: "id", Value: 1}}))
 	if err != nil {
-		return fmt.Errorf("cannot scan code hosts")
+		return fmt.Errorf("cannot scan code hosts: %w", err)
 	}
 	err = cursor.All(ctx, &hosts)
 	if err != nil {
-		return fmt.Errorf("cannot decode code hosts")
+		return fmt.Errorf("cannot decode code hosts: %w", err)
 	}
 	var hooks []*common.WebHook
 	cursor, err = r.Mongo.Collection(common.WebHook{}.TableName()).Find(ctx, bson.M{})
 	if err != nil {
-		return fmt.Errorf("cannot scan webhooks")
+		return fmt.Errorf("cannot scan webhooks: %w", err)
 	}
 	if err := cursor.All(ctx, &hooks); err != nil {
-		return fmt.Errorf("cannot decode webhooks")
+		return fmt.Errorf("cannot decode webhooks: %w", err)
 	}
 	var actions []*hookAction
 	for _, hook := range hooks {
@@ -198,7 +197,7 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 	for _, collection := range []string{"pipeline_task_v2", "pipeline_queue"} {
 		n, err := r.Mongo.Collection(collection).CountDocuments(ctx, bson.M{"storage_uri": bson.M{"$exists": true, "$nin": bson.A{"", nil}}})
 		if err != nil {
-			return fmt.Errorf("cannot count historical storage URIs")
+			return fmt.Errorf("cannot count historical storage URIs: %w", err)
 		}
 		report.LegacyStorageURIs += n
 	}
@@ -235,16 +234,24 @@ func (r *Runner) Run(ctx context.Context, dry bool, out io.Writer) (retErr error
 				matched = result.MatchedCount
 			}
 		}
-		if err != nil || matched != 1 {
+		record := item.uid
+		if item.kind != "user_mfa" {
+			record = item.id.Hex()
+		}
+		if err != nil {
 			report.Records[item.kind].Failed++
-			return fmt.Errorf("%s update failed or source record changed; keep maintenance mode and restore the final backup before retrying", item.kind)
+			return fmt.Errorf("%s record %s update failed; keep maintenance mode and restore the final backup before retrying: %w", item.kind, record, err)
+		}
+		if matched != 1 {
+			report.Records[item.kind].Failed++
+			return fmt.Errorf("%s record %s changed since validation; keep maintenance mode and restore the final backup before retrying", item.kind, record)
 		}
 		report.Records[item.kind].Succeeded++
 	}
 	for _, key := range challenges {
 		if err := r.Redis.Del(ctx, key).Err(); err != nil {
 			report.Records["mfa_challenges"].Failed++
-			return fmt.Errorf("cannot delete MFA challenge; restore the final backup before retrying")
+			return fmt.Errorf("cannot delete MFA challenge %s; restore the final backup before retrying: %w", key, err)
 		}
 		report.Records["mfa_challenges"].Succeeded++
 	}
