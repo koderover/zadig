@@ -938,7 +938,7 @@ func pushDeliveryChartFromVersion(projectName, versionName string, service *comm
 
 		updatedValues, err := updateValuesImage(service)
 		if err != nil {
-			return fmt.Errorf("failed to update values image, serviceName: %s, err: %s", service.ServiceName, err)
+			return fmt.Errorf("failed to update values image, serviceName: %s, err: %w", service.ServiceName, err)
 		}
 		service.YamlContent = string(updatedValues)
 
