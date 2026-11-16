@@ -24,8 +24,8 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
-// ClusterSelector contains only fields needed to select a deployment target.
-type ClusterSelector struct {
+// ClusterSelectorResp contains only fields needed to select a deployment target.
+type ClusterSelectorResp struct {
 	ID         string                   `json:"id"`
 	Name       string                   `json:"name"`
 	Status     setting.K8SClusterStatus `json:"status"`
@@ -34,42 +34,42 @@ type ClusterSelector struct {
 	Local      bool                     `json:"local"`
 }
 
-func ListClusterSelectors(ctx *internalhandler.Context, ids []string, query KubeResourceQuery) ([]*ClusterSelector, error) {
+func ListClusterSelectors(ctx *internalhandler.Context, ids []string, args KubeResourceArgs) ([]*ClusterSelectorResp, error) {
 	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: ids})
 	if err != nil {
 		return nil, err
 	}
 	var relations []*commonmodels.ProjectClusterRelation
-	if query.ProjectName != "" || !CanReadAllKubeResources(ctx.Resources, KubeClusterCandidates) {
+	if args.ProjectName != "" || !CanReadAllKubeResources(ctx.Resources, KubeClusterCandidates) {
 		relations, err = commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{})
 		if err != nil {
 			return nil, err
 		}
 	}
-	return filterClusterSelectors(ctx, query, clusters, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
+	return filterClusterSelectors(ctx, args, clusters, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
 }
 
-func filterClusterSelectors(ctx *internalhandler.Context, query KubeResourceQuery, clusters []*commonmodels.K8SCluster,
+func filterClusterSelectors(ctx *internalhandler.Context, args KubeResourceArgs, clusters []*commonmodels.K8SCluster,
 	relations []*commonmodels.ProjectClusterRelation,
-	listCollaboration func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error)) ([]*ClusterSelector, error) {
-	result := make([]*ClusterSelector, 0)
-	global := CanReadAllKubeResources(ctx.Resources, KubeClusterCandidates)
+	listCollaboration func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error)) ([]*ClusterSelectorResp, error) {
+	resp := make([]*ClusterSelectorResp, 0)
+	hasGlobalPermission := CanReadAllKubeResources(ctx.Resources, KubeClusterCandidates)
 	var collaboration *user.CollModeAuthorizedWorkflowWithVerb
 	var collaborationErr error
-	var loaded bool
-	lookup := func(uid, project string) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
-		if !loaded {
+	var collaborationLoaded bool
+	listCollaborationWithCache := func(uid, project string) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
+		if !collaborationLoaded {
 			collaboration, collaborationErr = listCollaboration(uid, "")
-			loaded = true
+			collaborationLoaded = true
 		}
 		return collaboration, collaborationErr
 	}
 	for _, cluster := range clusters {
-		query.ClusterID = cluster.ID.Hex()
-		if global && query.ProjectName != "" {
+		args.ClusterID = cluster.ID.Hex()
+		if hasGlobalPermission && args.ProjectName != "" {
 			assigned := false
 			for _, relation := range relations {
-				if relation.ClusterID == query.ClusterID && (relation.ProjectName == query.ProjectName || relation.ProjectName == setting.AllProjects) {
+				if relation.ClusterID == args.ClusterID && (relation.ProjectName == args.ProjectName || relation.ProjectName == setting.AllProjects) {
 					assigned = true
 					break
 				}
@@ -78,12 +78,12 @@ func filterClusterSelectors(ctx *internalhandler.Context, query KubeResourceQuer
 				continue
 			}
 		}
-		if !global {
-			allowed, err := CanSelectKubeResources(ctx, query, KubeClusterCandidates, relations, lookup)
+		if !hasGlobalPermission {
+			permitted, err := CanSelectKubeResources(ctx, args, KubeClusterCandidates, relations, listCollaborationWithCache)
 			if err != nil {
 				return nil, err
 			}
-			if !allowed {
+			if !permitted {
 				continue
 			}
 		}
@@ -91,10 +91,14 @@ func filterClusterSelectors(ctx *internalhandler.Context, query KubeResourceQuer
 		if clusterType == "" {
 			clusterType = setting.AgentClusterType
 		}
-		result = append(result, &ClusterSelector{
-			ID: cluster.ID.Hex(), Name: cluster.Name, Status: cluster.Status,
-			Production: cluster.Production, Type: clusterType, Local: cluster.Local,
+		resp = append(resp, &ClusterSelectorResp{
+			ID:         cluster.ID.Hex(),
+			Name:       cluster.Name,
+			Status:     cluster.Status,
+			Production: cluster.Production,
+			Type:       clusterType,
+			Local:      cluster.Local,
 		})
 	}
-	return result, nil
+	return resp, nil
 }

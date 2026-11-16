@@ -17,11 +17,13 @@ limitations under the License.
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func TestKubeResourceHandlersRejectUnauthenticatedRequests(t *testing.T) {

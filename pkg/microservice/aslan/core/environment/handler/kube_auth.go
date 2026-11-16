@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -32,8 +33,8 @@ func newKubeResourceContext(c *gin.Context, permission clusterservice.KubeResour
 		ctx.UnAuthorized = true
 		return ctx
 	}
-	query := clusterservice.KubeResourceQuery{}
-	if err := c.ShouldBindQuery(&query); err != nil {
+	args := clusterservice.KubeResourceArgs{}
+	if err := c.ShouldBindQuery(&args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return ctx
 	}
@@ -45,17 +46,17 @@ func newKubeResourceContext(c *gin.Context, permission clusterservice.KubeResour
 		return ctx
 	}
 	if clusterID := c.Param("clusterID"); clusterID != "" {
-		query.ClusterID = clusterID
+		args.ClusterID = clusterID
 	}
-	if query.ClusterID == "" {
-		query.ClusterID = setting.LocalClusterID
+	if args.ClusterID == "" {
+		args.ClusterID = setting.LocalClusterID
 	}
-	relations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: query.ClusterID})
+	relations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: args.ClusterID})
 	if err != nil {
 		ctx.RespErr = err
 		return ctx
 	}
-	permitted, err := clusterservice.CanSelectKubeResources(ctx, query, permission, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
+	permitted, err := clusterservice.CanSelectKubeResources(ctx, args, permission, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
 	ctx.RespErr = err
 	ctx.UnAuthorized = !permitted
 	return ctx

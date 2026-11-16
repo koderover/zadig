@@ -44,20 +44,55 @@ func TestKubeClusterSelectorPermissionsAndFields(t *testing.T) {
 		project   string
 		want      int
 	}{
-		{name: "template creator without project membership", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Create: true}}}, want: 2},
-		{name: "template editor without cluster view", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Edit: true}}}, want: 2},
-		{name: "template project filter", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Edit: true}}}, project: "project", want: 1},
-		{name: "template viewer denied", resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{View: true}}}},
-		{name: "project workflow editor", resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {Workflow: &user.WorkflowActions{Edit: true}}}}, want: 1},
-		{name: "project environment creator", resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {Env: &user.EnvActions{Create: true}}}}, want: 1},
-		{name: "project production service importer", resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {ProductionService: &user.ProductionServiceActions{Create: true}}}}, want: 1},
-		{name: "project member denied", resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {}}}},
-		{name: "inaccessible project filter", resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {IsProjectAdmin: true}}}, project: "other"},
+		{
+			name:      "template creator without project membership",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Create: true}}},
+			want:      2,
+		},
+		{
+			name:      "template editor without cluster view",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Edit: true}}},
+			want:      2,
+		},
+		{
+			name:      "template project filter",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Edit: true}}},
+			project:   "project",
+			want:      1,
+		},
+		{
+			name:      "template viewer denied",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{View: true}}},
+		},
+		{
+			name:      "project workflow editor",
+			resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {Workflow: &user.WorkflowActions{Edit: true}}}},
+			want:      1,
+		},
+		{
+			name:      "project environment creator",
+			resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {Env: &user.EnvActions{Create: true}}}},
+			want:      1,
+		},
+		{
+			name:      "project production service importer",
+			resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {ProductionService: &user.ProductionServiceActions{Create: true}}}},
+			want:      1,
+		},
+		{
+			name:      "project member denied",
+			resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {}}},
+		},
+		{
+			name:      "inaccessible project filter",
+			resources: &user.AuthorizedResources{ProjectAuthInfo: map[string]*user.ProjectActions{"project": {IsProjectAdmin: true}}},
+			project:   "other",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := &internalhandler.Context{Resources: test.resources}
 			lookup := func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error) { return nil, nil }
-			result, err := filterClusterSelectors(ctx, KubeResourceQuery{ProjectName: test.project}, clusters, relations, lookup)
+			result, err := filterClusterSelectors(ctx, KubeResourceArgs{ProjectName: test.project}, clusters, relations, lookup)
 			if err != nil || len(result) != test.want {
 				t.Fatalf("got %d clusters, error %v; want %d", len(result), err, test.want)
 			}
@@ -108,12 +143,12 @@ func TestKubeClusterSelectorCollaboration(t *testing.T) {
 			"project": {"workflow": {Edit: true}},
 		}}, nil
 	}
-	result, err := filterClusterSelectors(ctx, KubeResourceQuery{}, clusters, relations, lookup)
+	result, err := filterClusterSelectors(ctx, KubeResourceArgs{}, clusters, relations, lookup)
 	if err != nil || len(result) != 2 || calls != 1 {
 		t.Fatalf("got %d clusters, %d lookups, error %v", len(result), calls, err)
 	}
 	failure := errors.New("authorization unavailable")
-	result, err = filterClusterSelectors(ctx, KubeResourceQuery{}, clusters, relations, func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
+	result, err = filterClusterSelectors(ctx, KubeResourceArgs{}, clusters, relations, func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
 		return nil, failure
 	})
 	if result != nil || !errors.Is(err, failure) {

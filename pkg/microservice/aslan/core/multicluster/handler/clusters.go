@@ -55,12 +55,12 @@ func ListClusters(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	if c.Query("scene") == "selector" {
-		query := service.KubeResourceQuery{}
-		if err := c.ShouldBindQuery(&query); err != nil {
+		args := service.KubeResourceArgs{}
+		if err := c.ShouldBindQuery(&args); err != nil {
 			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 			return
 		}
-		candidates, err := service.ListClusterSelectors(ctx, clusters, query)
+		candidates, err := service.ListClusterSelectors(ctx, clusters, args)
 		if err != nil {
 			ctx.RespErr = err
 			return

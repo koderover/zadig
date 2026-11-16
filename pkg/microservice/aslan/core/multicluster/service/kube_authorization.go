@@ -32,7 +32,7 @@ const (
 	KubeClusterCandidates
 )
 
-type KubeResourceQuery struct {
+type KubeResourceArgs struct {
 	ProjectName string `form:"projectName"`
 	ClusterID   string `form:"clusterId"`
 	Production  *bool  `form:"production"`
@@ -50,22 +50,23 @@ func CanReadAllKubeResources(resources *user.AuthorizedResources, permission Kub
 		return true
 	}
 	// Workflow templates are system-scoped and can select targets across projects.
-	return (permission == KubeWorkflowCandidates || permission == KubeClusterCandidates) && actions.Template != nil && (actions.Template.Create || actions.Template.Edit)
+	return (permission == KubeWorkflowCandidates || permission == KubeClusterCandidates) &&
+		actions.Template != nil && (actions.Template.Create || actions.Template.Edit)
 }
 
-func CanSelectKubeResources(ctx *internalhandler.Context, query KubeResourceQuery, permission KubeResourcePermission,
+func CanSelectKubeResources(ctx *internalhandler.Context, args KubeResourceArgs, permission KubeResourcePermission,
 	relations []*commonmodels.ProjectClusterRelation,
 	listCollaboration func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error)) (bool, error) {
 	var collaborationErr error
 	var collaboration *user.CollModeAuthorizedWorkflowWithVerb
 	var collaborationLoaded bool
-	for project, auth := range ctx.Resources.ProjectAuthInfo {
-		if auth == nil || (query.ProjectName != "" && query.ProjectName != project) {
+	for project, projectAuth := range ctx.Resources.ProjectAuthInfo {
+		if projectAuth == nil || (args.ProjectName != "" && args.ProjectName != project) {
 			continue
 		}
 		allowedCluster := false
 		for _, relation := range relations {
-			if relation.ClusterID == query.ClusterID && (relation.ProjectName == project || relation.ProjectName == setting.AllProjects) {
+			if relation.ClusterID == args.ClusterID && (relation.ProjectName == project || relation.ProjectName == setting.AllProjects) {
 				allowedCluster = true
 				break
 			}
@@ -74,23 +75,25 @@ func CanSelectKubeResources(ctx *internalhandler.Context, query KubeResourceQuer
 			continue
 		}
 		// A project cluster grant covers selector metadata, including unbound namespaces.
-		if auth.IsProjectAdmin {
+		if projectAuth.IsProjectAdmin {
 			return true, nil
 		}
 		if permission == KubeNamespaceCandidates || permission == KubeClusterCandidates {
-			if query.Production == nil || !*query.Production {
-				if (auth.Env != nil && auth.Env.Create) || (auth.Service != nil && auth.Service.Create) {
+			if args.Production == nil || !*args.Production {
+				if (projectAuth.Env != nil && projectAuth.Env.Create) ||
+					(projectAuth.Service != nil && projectAuth.Service.Create) {
 					return true, nil
 				}
 			}
-			if query.Production == nil || *query.Production {
-				if (auth.ProductionEnv != nil && auth.ProductionEnv.Create) || (auth.ProductionService != nil && auth.ProductionService.Create) {
+			if args.Production == nil || *args.Production {
+				if (projectAuth.ProductionEnv != nil && projectAuth.ProductionEnv.Create) ||
+					(projectAuth.ProductionService != nil && projectAuth.ProductionService.Create) {
 					return true, nil
 				}
 			}
 		}
 		if permission == KubeWorkflowCandidates || permission == KubeClusterCandidates {
-			if auth.Workflow != nil && (auth.Workflow.Create || auth.Workflow.Edit) {
+			if projectAuth.Workflow != nil && (projectAuth.Workflow.Create || projectAuth.Workflow.Edit) {
 				return true, nil
 			}
 			if !collaborationLoaded {
