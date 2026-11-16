@@ -2236,6 +2236,14 @@ func updateHelmAutoSyncStatuses(product *commonmodels.Product, renders []*templa
 	return nil
 }
 
+// helmRenderKey identifies a helm service or standalone chart release render in an environment.
+func helmRenderKey(render *templatemodels.ServiceRender) string {
+	if render.IsHelmChartDeploy {
+		return "release:" + render.ReleaseName
+	}
+	return "service:" + render.ServiceName
+}
+
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
 	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*1800)
 	err := syncLock.TryLock()
@@ -2261,11 +2269,11 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	}
 
 	chartRenders := make(map[string]*templatemodels.ServiceRender)
-	for serviceName, render := range product.GetChartRenderMap() {
-		chartRenders["service:"+serviceName] = render
+	for _, render := range product.GetChartRenderMap() {
+		chartRenders[helmRenderKey(render)] = render
 	}
-	for releaseName, render := range product.GetChartDeployRenderMap() {
-		chartRenders["release:"+releaseName] = render
+	for _, render := range product.GetChartDeployRenderMap() {
+		chartRenders[helmRenderKey(render)] = render
 	}
 	updatedRcMapLock := sync.Mutex{}
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
@@ -2332,10 +2340,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	// A service whose own values source changed follows its own CRD policy; a service updated
 	// only because default values changed follows the default values policy.
 	skipUpgradeCRDs := func(render *templatemodels.ServiceRender) bool {
-		key := "service:" + render.ServiceName
-		if render.IsHelmChartDeploy {
-			key = "release:" + render.ReleaseName
-		}
+		key := helmRenderKey(render)
 		if defaultValuesChanged && !sourceChangedKeys.Has(key) {
 			return defaultSkipUpgradeCRDs
 		}

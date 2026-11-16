@@ -923,6 +923,10 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				mongotool.AbortTransaction(session)
 				return err
 			}
+			if param == nil {
+				log.Warnf("skip deploying service %s in namespace %s: install param is empty", prodSvc.ServiceName, productResp.Namespace)
+				continue
+			}
 			param.SkipUpgradeCRDs = skipUpgradeCRDs != nil && skipUpgradeCRDs(chartInfo)
 			prodSvc.Render = chartInfo
 			prodSvc.UpdateTime = time.Now().Unix()
