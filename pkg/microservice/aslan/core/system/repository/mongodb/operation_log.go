@@ -143,9 +143,7 @@ var operationLogOpenAPIMarker = regexp.MustCompile(`(?i)(?:[(（]\s*openapi\s*[)
 
 // ListDistinctValues removes OpenAPI markers from user, method and function options.
 func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string) ([]string, error) {
-	values, err := c.Collection.Distinct(ctx, field, bson.M{
-		field: bson.M{"$type": "string", "$ne": ""},
-	})
+	values, err := c.Collection.Distinct(ctx, field, bson.M{})
 	if err != nil {
 		return nil, err
 	}
@@ -172,18 +170,22 @@ func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string)
 
 // ListDistinctStatuses excludes the zero placeholder used for an unfiltered query.
 func (c *OperationLogColl) ListDistinctStatuses(ctx context.Context) ([]int, error) {
-	values, err := c.Collection.Distinct(ctx, "status", bson.M{
-		"status": bson.M{"$type": bson.A{"int", "long"}, "$gt": 0},
-	})
+	values, err := c.Collection.Distinct(ctx, "status", bson.M{})
 	if err != nil {
 		return nil, err
 	}
 	result := make([]int, 0, len(values))
 	for _, value := range values {
-		switch status := value.(type) {
+		var status int64
+		switch value := value.(type) {
 		case int32:
-			result = append(result, int(status))
+			status = int64(value)
 		case int64:
+			status = value
+		default:
+			continue
+		}
+		if status > 0 {
 			result = append(result, int(status))
 		}
 	}
