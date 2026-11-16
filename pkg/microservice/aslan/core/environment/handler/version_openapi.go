@@ -188,7 +188,7 @@ type OpenAPIRollbackEnvServiceVersionRequest struct {
 }
 
 // @Summary 回滚环境服务版本
-// @Description 将环境中的服务回滚到指定的历史版本。Helm 服务和独立 Chart 等待 Release 升级完成后返回，升级失败时返回错误；不等待 Pod 就绪
+// @Description 将环境中的服务回滚到指定的历史版本。Helm 服务和独立 Chart 在后台异步升级，接口返回成功不代表升级成功，请查询服务状态确认结果
 // @Tags OpenAPI
 // @Accept json
 // @Produce json
@@ -230,25 +230,11 @@ func OpenAPIRollbackEnvServiceVersion(c *gin.Context) {
 	detailEn := fmt.Sprintf("Environment: %s, Service: %s, Version: %d", params.envName, params.serviceName, req.Revision)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", params.projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, params.envName)
 
-	rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, req.Revision, params.isHelmChart, params.production, req.OverrideResource, req.Detail, ctx.Logger)
-	if err != nil {
-		ctx.RespErr = err
-		return
+	// same as the console API: Helm releases are upgraded asynchronously after this returns
+	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, req.Revision, params.isHelmChart, params.production, req.OverrideResource, req.Detail, ctx.Logger)
+	if ctx.RespErr == nil {
+		ctx.Resp = gin.H{"message": "success"}
 	}
-	// Unlike the console, OpenAPI callers have no notification channel, so wait for the Helm upgrade result.
-	if rollbackStatus != nil && rollbackStatus.HelmDeployStatusChan != nil {
-		select {
-		case ok := <-rollbackStatus.HelmDeployStatusChan:
-			if !ok {
-				ctx.RespErr = e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release: %w", rollbackStatus.HelmDeployErr))
-				return
-			}
-		case <-c.Request.Context().Done():
-			ctx.RespErr = e.ErrRollbackEnvServiceVersion.AddDesc("request canceled before the helm release upgrade finished; the upgrade continues in the background")
-			return
-		}
-	}
-	ctx.Resp = gin.H{"message": "success"}
 }
 
 // parseOpenAPIEnvServiceVersionParams validates the common params, checks permission and license,

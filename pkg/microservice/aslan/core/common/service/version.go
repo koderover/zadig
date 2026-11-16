@@ -298,8 +298,6 @@ type RollbackEnvServiceVersionData struct {
 	ReplaceResources     []commonmodels.Resource
 	RelatedPodLabels     []map[string]string
 	HelmDeployStatusChan chan bool
-	// HelmDeployErr is set before false is sent on HelmDeployStatusChan, so it is safe to read after receiving.
-	HelmDeployErr error
 }
 
 type CheckRollbackEnvServiceVersionResponse struct {
@@ -784,17 +782,16 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
 				// buffered so the deploy goroutine never blocks when the caller does not wait for the result
 				rollbackStatus.HelmDeployStatusChan = make(chan bool, 1)
-				go func(status *RollbackEnvServiceVersionData) {
+				go func(done chan<- bool) {
 					err := kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
 					if err != nil {
 						title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 						notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)
-						status.HelmDeployErr = err
-						status.HelmDeployStatusChan <- false
+						done <- false
 						return
 					}
-					status.HelmDeployStatusChan <- true
-				}(rollbackStatus)
+					done <- true
+				}(rollbackStatus.HelmDeployStatusChan)
 			}
 
 			rollbackRecord := &commonmodels.EnvInfo{
