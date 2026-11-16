@@ -48,7 +48,7 @@ func checkReleasePlanJob(ctx context.Context, job *models.ReleaseJob) *ReleaseJo
 // Prechecks are read-only. Execution checks again under the namespace lock
 // because Apollo can change after this check has completed.
 func checkWorkflowApolloNamespaces(ctx context.Context, workflow *models.WorkflowV4) *ReleaseJobCheckResult {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	result := &ReleaseJobCheckResult{Errors: []string{}}
 	if workflow == nil {

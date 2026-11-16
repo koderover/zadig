@@ -201,14 +201,14 @@ func (c *ApolloJobCtl) createNamespace(client *apollo.Client, namespace *commonm
 
 func (c *ApolloJobCtl) updateNamespace(ctx context.Context, client *apollo.Client, namespace *commonmodels.ApolloNamespace, user string, releaseArgs *apollo.ReleaseArgs) error {
 	key := fmt.Sprintf("apollo_namespace:%q:%q:%q:%q:%q", strings.TrimRight(client.BaseURL, "/"), namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
-	lock := cache.NewRedisLockWithExpiry(key, 2*time.Minute)
+	lock := cache.NewRedisLockWithExpiry(key, 6*time.Minute)
 	if err := lock.LockContext(ctx); err != nil {
 		return fmt.Errorf("lock Apollo namespace failed: %w", err)
 	}
 	defer lock.Unlock()
 
 	// Bound the entire read/merge/write/release operation below the lock lease.
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	client = client.WithContext(ctx)
 	merged, err := apolloservice.MergeNamespace(ctx, client, namespace)
