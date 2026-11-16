@@ -1032,6 +1032,15 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				buildJob := &commonmodels.Job{
 					Name:    buildJobName,
 					JobType: config.JobZadigBuild,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
 					Spec: &commonmodels.ZadigBuildJobSpec{
 						DockerRegistryID:        workflowArg.dockerRegistryID,
 						ServiceAndBuildsOptions: serviceAndBuilds,
@@ -1069,7 +1078,16 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				deployJob := &commonmodels.Job{
 					Name:    deployJobName,
 					JobType: config.JobZadigVMDeploy,
-					Spec:    spec,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
+					Spec: spec,
 				}
 
 				deployStageName := "主机部署"
@@ -1104,7 +1122,16 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				deployJob := &commonmodels.Job{
 					Name:    deployJobName,
 					JobType: config.JobZadigDeploy,
-					Spec:    spec,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
+					Spec: spec,
 				}
 
 				deployStageName := "部署"

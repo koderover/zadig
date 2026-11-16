@@ -222,9 +222,11 @@ func TestValidateFrontendWorkflowDeltaJobExecutePolicy(t *testing.T) {
 	base := &commonmodels.WorkflowV4{
 		Stages: []*commonmodels.WorkflowStage{
 			{
+				ID:   "stage-id-1",
 				Name: "stage-1",
 				Jobs: []*commonmodels.Job{
 					{
+						ID:   "job-id-1",
 						Name: "job-1",
 						ExecutePolicy: &commonmodels.JobExecutePolicy{
 							Type:      config.JobExecutePolicyTypeExecute,
@@ -256,6 +258,7 @@ func TestValidateFrontendWorkflowDeltaJobExecutePolicy(t *testing.T) {
 				Operation: "replace",
 				Path:      "/stages/0/jobs/0",
 				Value: map[string]interface{}{
+					"id":              "job-id-1",
 					"name":            "job-1",
 					"type":            "",
 					"spec":            nil,
@@ -272,19 +275,19 @@ func TestValidateFrontendWorkflowDeltaJobExecutePolicy(t *testing.T) {
 		assert.Contains(t, err.Error(), "execute_policy must be consistent with workflow template")
 	})
 
-	t.Run("allows changes unrelated to execute policy", func(t *testing.T) {
+	t.Run("allows changes unrelated to job policies", func(t *testing.T) {
 		patches := []*commonmodels.JSONPatchOperation{
 			{
 				Operation: "replace",
-				Path:      "/stages/0/jobs/0/run_policy",
-				Value:     config.DefaultNotRun,
+				Path:      "/stages/0/jobs/0/spec",
+				Value:     map[string]interface{}{"script": "echo updated"},
 			},
 		}
 
 		validated, rendered, err := validateFrontendWorkflowDelta(base, patches)
 		require.NoError(t, err)
 		assert.Equal(t, patches, validated)
-		assert.Equal(t, config.DefaultNotRun, rendered.Stages[0].Jobs[0].RunPolicy)
+		assert.Equal(t, map[string]interface{}{"script": "echo updated"}, rendered.Stages[0].Jobs[0].Spec)
 		assert.Equal(t, base.Stages[0].Jobs[0].ExecutePolicy, rendered.Stages[0].Jobs[0].ExecutePolicy)
 	})
 }
