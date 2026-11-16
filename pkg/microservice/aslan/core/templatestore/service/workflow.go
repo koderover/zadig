@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 
@@ -346,6 +347,7 @@ func lintWorkflowTemplate(template *commonmodels.WorkflowV4Template, logger *zap
 
 func InitWorkflowTemplate() {
 	logger := log.SugaredLogger()
+	templates := commonrepo.NewWorkflowV4TemplateColl()
 	for _, template := range InitWorkflowTemplateInfos() {
 		template.CreateTime = time.Now().Unix()
 		template.UpdateTime = time.Now().Unix()
@@ -353,7 +355,16 @@ func InitWorkflowTemplate() {
 		template.UpdatedBy = "system"
 		template.Category = setting.CustomWorkflow
 		template.ConcurrencyLimit = 1
-		if err := commonrepo.NewWorkflowV4TemplateColl().UpsertByName(template); err != nil {
+		existing, err := templates.Find(&commonrepo.WorkflowTemplateQueryOption{Name: template.TemplateName})
+		if err != nil && err != mongo.ErrNoDocuments {
+			logger.Errorf("find build-in workflow template %q error: %v", template.TemplateName, err)
+			continue
+		}
+		if err := prepareBuiltInWorkflowTemplate(existing, template); err != nil {
+			logger.Errorf("prepare build-in workflow template %q error: %v", template.TemplateName, err)
+			continue
+		}
+		if err := templates.UpsertByName(template); err != nil {
 			logger.Errorf("update build-in workflow template error: %v", err)
 			continue
 		}
@@ -366,6 +377,38 @@ func InitWorkflowTemplate() {
 			logger.Errorf("delete deprecated workflow template error: %v", err)
 		}
 	}
+}
+
+func prepareBuiltInWorkflowTemplate(existing, template *commonmodels.WorkflowV4Template) error {
+	if existing != nil {
+		template.LatestVersion = existing.LatestVersion
+		template.LatestVersionID = existing.LatestVersionID
+		stageIDs := make(map[string]string)
+		jobIDs := make(map[string]string)
+		for _, stage := range existing.Stages {
+			if stage == nil {
+				continue
+			}
+			stageIDs[stage.Name] = stage.ID
+			for _, job := range stage.Jobs {
+				if job != nil {
+					jobIDs[job.Name] = job.ID
+				}
+			}
+		}
+		for _, stage := range template.Stages {
+			if stage == nil {
+				continue
+			}
+			stage.ID = stageIDs[stage.Name]
+			for _, job := range stage.Jobs {
+				if job != nil {
+					job.ID = jobIDs[job.Name]
+				}
+			}
+		}
+	}
+	return reconcileWorkflowTemplateIDs(existing, template)
 }
 
 func initWorkflowTemplateVersion(name string) error {
@@ -383,7 +426,7 @@ func initWorkflowTemplateVersion(name string) error {
 	if count > 0 {
 		return nil
 	}
-	if err := reconcileWorkflowTemplateIDs(nil, template); err != nil {
+	if err := reconcileWorkflowTemplateIDs(template, template); err != nil {
 		log.Errorf("failed to initialize stage and job IDs for built-in workflow template %q (%s): %v", name, template.ID.Hex(), err)
 		return err
 	}
