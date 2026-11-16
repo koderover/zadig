@@ -66,7 +66,6 @@ func runKeyRotation(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot connect to MongoDB")
 	}
 
-	initMysql()
 	db, err := repository.DB.DB()
 	if err != nil {
 		return fmt.Errorf("cannot get MySQL user connection")
