@@ -168,31 +168,6 @@ func (c *OperationLogColl) ListDistinctValues(ctx context.Context, field string)
 	return result, nil
 }
 
-// ListDistinctStatuses excludes the zero placeholder used for an unfiltered query.
-func (c *OperationLogColl) ListDistinctStatuses(ctx context.Context) ([]int, error) {
-	values, err := c.Collection.Distinct(ctx, "status", bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	result := make([]int, 0, len(values))
-	for _, value := range values {
-		var status int64
-		switch value := value.(type) {
-		case int32:
-			status = int64(value)
-		case int64:
-			status = value
-		default:
-			continue
-		}
-		if status > 0 {
-			result = append(result, int(status))
-		}
-	}
-	sort.Ints(result)
-	return result, nil
-}
-
 func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog, int, error) {
 	res := make([]*models2.OperationLog, 0)
 	query := bson.M{}

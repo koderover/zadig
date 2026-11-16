@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 
 	"go.uber.org/zap"
 
@@ -315,17 +316,34 @@ func ListOperationLogOptions(ctx context.Context, log *zap.SugaredLogger) (*Oper
 		log.Errorf("list operation log methods error: %v", err)
 		return nil, e.ErrFindOperationLog.AddErr(err)
 	}
-	statuses, err := coll.ListDistinctStatuses(ctx)
-	if err != nil {
-		log.Errorf("list operation log statuses error: %v", err)
-		return nil, e.ErrFindOperationLog.AddErr(err)
-	}
 	return &OperationLogOptions{
 		Usernames: usernames,
 		Projects:  projects,
 		Functions: functions,
 		Methods:   methods,
-		Statuses:  statuses,
+		Statuses: []int{
+			http.StatusOK,
+			http.StatusCreated,
+			http.StatusAccepted,
+			http.StatusNoContent,
+			http.StatusMultipleChoices,
+			http.StatusFound,
+			http.StatusSeeOther,
+			http.StatusBadRequest,
+			http.StatusUnauthorized,
+			http.StatusForbidden,
+			http.StatusNotFound,
+			http.StatusMethodNotAllowed,
+			http.StatusNotAcceptable,
+			http.StatusRequestTimeout,
+			http.StatusConflict,
+			http.StatusUnsupportedMediaType,
+			http.StatusUnprocessableEntity,
+			http.StatusTooEarly,
+			http.StatusTooManyRequests,
+			http.StatusInternalServerError,
+			http.StatusServiceUnavailable,
+		},
 		I18N: &OperationLogI18N{
 			MethodI18Map:   OperationLogI18NMethodMap,
 			FunctionI18Map: OperationLogI18NFunctionMap,
