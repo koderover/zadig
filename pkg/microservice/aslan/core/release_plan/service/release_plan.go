@@ -630,23 +630,26 @@ func releaseJobManagerKey(manager *types.Identity) string {
 	return manager.IdentityType + "\x00" + manager.UID + "\x00" + manager.GID
 }
 
-func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, error) {
-	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), planID)
+func GetReleasePlanJobDetail(ctx context.Context, planID, jobID string) (map[string]interface{}, error) {
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetReleasePlan")
 	}
 
-	for _, releasePlanJob := range releasePlan.Jobs {
-		if releasePlanJob.ID == jobID {
-			if err := updateReleasePlanJobWithLatestRenderedWorkflow(releasePlanJob); err != nil {
-				return nil, err
-			}
-
-			return releasePlanJob, nil
-		}
+	job, err := findReleasePlanJob(releasePlan, jobID)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, fmt.Errorf("failed to find release plan job with id: %s. Job does not exist", jobID)
+	if err := updateReleasePlanJobWithLatestRenderedWorkflow(job); err != nil {
+		return nil, err
+	}
+	value, err := toReleasePlanGenericValue(job)
+	if err != nil {
+		return nil, err
+	}
+	detail := value.(map[string]interface{})
+	detail["precheck"] = checkReleasePlanJob(ctx, job)
+	return detail, nil
 }
 
 func shouldSkipReleasePlanWorkflowEditorSave(originalPlan *models.ReleasePlan, sectionKey string, currentSnapshot interface{}) bool {

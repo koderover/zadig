@@ -342,7 +342,7 @@ func GetReleasePlanJobDetail(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetReleasePlanJobDetail(c.Param("id"), c.Param("jobID"))
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanJobDetail(c.Request.Context(), c.Param("id"), c.Param("jobID"))
 }
 
 func DeleteReleasePlan(c *gin.Context) {
