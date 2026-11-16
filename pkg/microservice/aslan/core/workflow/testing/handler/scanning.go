@@ -381,7 +381,7 @@ func DeleteScanningModule(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-代码扫描", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {

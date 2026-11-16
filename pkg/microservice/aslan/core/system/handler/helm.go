@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListHelmRepos(c *gin.Context) {
@@ -128,6 +129,7 @@ func CreateHelmRepo(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源配置-Chart仓库", args.RepoName, args.RepoName, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateHelmRepo(args, ctx.Logger)
 }
 
@@ -197,6 +199,7 @@ func UpdateHelmRepo(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-Chart仓库", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateHelmRepo(c.Param("id"), args, ctx.Logger)
 }
 
@@ -218,6 +221,7 @@ func DeleteHelmRepo(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-Chart仓库", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
 }
 

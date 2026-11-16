@@ -43,7 +43,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
@@ -87,7 +86,7 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 	log := log.SugaredLogger()
 	token := req.Header.Get(setting.Token)
 
-	clusterID, err := crypto.AesDecrypt(token)
+	clusterID, err := DecryptClusterToken(token)
 	if err != nil {
 		err = fmt.Errorf("token is illegal %s: %v", token, err)
 		return
@@ -520,6 +519,7 @@ func checkConnectionStatus(server *remotedialer.Server) {
 		cluster, found, err := GetClusterInfo(clusterID)
 		if err != nil {
 			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
+			continue
 		}
 
 		if !found {

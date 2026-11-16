@@ -28,6 +28,22 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// GetOperationLogOptions lists the filter values present in audit logs.
+func GetOperationLogOptions(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.View {
+		ctx.UnAuthorized = true
+		return
+	}
+	ctx.Resp, ctx.RespErr = service.ListOperationLogOptions(c.Request.Context(), ctx.Logger)
+}
+
 func GetOperationLogs(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -45,39 +61,43 @@ func GetOperationLogs(c *gin.Context) {
 		return
 	}
 
-	status, err := strconv.Atoi(c.Query("status"))
-	if err != nil {
-		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+	var query struct {
+		Username    string `form:"username"`
+		ProductName string `form:"projectName"`
+		Method      string `form:"method"`
+		Function    string `form:"function"`
+		Status      int    `form:"status" binding:"gte=0"`
+		PerPage     int    `form:"per_page,default=50" binding:"gte=0"`
+		Page        int    `form:"page,default=1" binding:"gte=0"`
+		StartTime   int64  `form:"start_time" binding:"gte=0"`
+		EndTime     int64  `form:"end_time" binding:"gte=0"`
+		Detail      string `form:"detail"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
-	perPage, err := strconv.Atoi(c.Query("per_page"))
-	if err != nil {
-		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+	if query.StartTime > 0 && query.EndTime > 0 && query.StartTime >= query.EndTime {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("start_time must be less than end_time")
 		return
 	}
-
-	page, err := strconv.Atoi(c.Query("page"))
-	if err != nil {
-		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
-		return
+	if query.PerPage == 0 {
+		query.PerPage = 50
 	}
-
+	if query.Page == 0 {
+		query.Page = 1
+	}
 	args := &service.OperationLogArgs{
-		Username:    c.Query("username"),
-		ProductName: c.Query("projectName"),
-		Function:    c.Query("function"),
-		Status:      status,
-		PerPage:     perPage,
-		Page:        page,
-	}
-
-	if args.PerPage == 0 {
-		args.PerPage = 50
-	}
-
-	if args.Page == 0 {
-		args.Page = 1
+		Username:    query.Username,
+		ProductName: query.ProductName,
+		Method:      query.Method,
+		Function:    query.Function,
+		Status:      query.Status,
+		PerPage:     query.PerPage,
+		Page:        query.Page,
+		StartTime:   query.StartTime,
+		EndTime:     query.EndTime,
+		Detail:      query.Detail,
 	}
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)

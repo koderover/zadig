@@ -494,8 +494,8 @@ func OpenAPIUpdateJobContainerImage(c *gin.Context) {
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Job:%s", args.EnvName, args.ServiceName, args.Name)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Job: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "OpenAPI-环境-服务镜像",
+		c, ctx.UserName+"(OpenAPI)", args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
 		detail,
 		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
@@ -560,8 +560,8 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Deployment: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "OpenAPI-环境-服务镜像",
+		c, ctx.UserName+"(OpenAPI)", args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
 		detail,
 		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
@@ -641,8 +641,8 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, StatefulSet: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "OpenAPI-环境-服务镜像",
+		c, ctx.UserName+"(OpenAPI)", args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
 		detail,
 		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
@@ -707,8 +707,8 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, CronJob: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "OpenAPI-环境-服务镜像",
+		c, ctx.UserName+"(OpenAPI)", args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
 		detail,
 		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)

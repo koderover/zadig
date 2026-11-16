@@ -203,6 +203,16 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 					Icon:     "iconfont iconvery-datain",
 					URL:      "insight",
 				},
+				{
+					Name:     "AI 效能报告",
+					EnName:   "AI Insights",
+					Key:      "aiInsights",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconai-trend",
+					URL:      "insight/ai",
+				},
 			},
 		},
 	}

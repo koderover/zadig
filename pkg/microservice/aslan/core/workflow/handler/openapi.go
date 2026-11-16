@@ -40,7 +40,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "工作流任务", args.WorkflowName, args.WorkflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "新建", "工作流任务", args.WorkflowName, args.WorkflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !authorizeWorkflowRun(ctx, args.ProjectName, args.WorkflowName) {
 		return
@@ -165,7 +165,7 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新", "工作流视图", viewName, viewName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, "更新", "工作流视图", viewName, viewName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -215,7 +215,7 @@ func OpenAPIDeleteWorkflowView(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "工作流视图", viewName, viewName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "删除", "工作流视图", viewName, viewName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -281,7 +281,7 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "工作流", workflowKey, workflowKey, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "删除", "工作流", workflowKey, workflowKey, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -318,6 +318,67 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowV4(workflowName, projectName, ctx.Logger)
 }
 
+// @Summary Replace the delta patches of a template bound workflow
+// @Description Replace all delta patches against the bound base version; preserve instance configuration, template identity and version.
+// @Description Patches are limited to params, stages, share_storages and concurrency_limit. Stage/job IDs and counts, job types and job run/execute/error policies must remain consistent with the base template.
+// @Tags OpenAPI
+// @Accept json
+// @Produce json
+// @Param name path string true "Workflow key"
+// @Param projectKey query string true "Project key the workflow belongs to"
+// @Param body body workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq true "Complete delta set; null or missing is rejected, [] clears all deltas"
+// @Success 200 {object} map[string]string "Returns message=success"
+// @Failure 400 {object} map[string]interface{}
+// @Failure 403 "Forbidden"
+// @Failure 500 {object} map[string]interface{}
+// @Router /openapi/workflows/custom/{name}/template-binding [put]
+func OpenAPIUpdateWorkflowTemplateBinding(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workflowName := c.Param("name")
+	projectKey := c.Query("projectKey")
+	if workflowName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		return
+	}
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
+		return
+	}
+
+	req := new(workflowservice.OpenAPIUpdateWorkflowTemplateBindingReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if req.DeltaPatches == nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("delta_patches is required")
+		return
+	}
+
+	w, err := workflowservice.FindWorkflowV4RawByProject(projectKey, workflowName, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !authorizeWorkflowTemplateBindingEditOn(ctx, w) {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// delta values may contain credentials, so the request body is not recorded
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"更新", "工作流模板绑定", w.Name, w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	ctx.RespErr = workflowservice.OpenAPIUpdateWorkflowTemplateBinding(w, ctx.UserName, req.DeltaPatches, ctx.Logger)
+}
+
 func OpenAPIGetWorkflowV4List(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -345,7 +406,7 @@ func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectKey"), "OpenAPI"+"重试", "工作流任务", name, name, fmt.Sprintf("%d", taskID), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", c.Query("projectKey"), "重试", "工作流任务", name, name, fmt.Sprintf("%d", taskID), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
 }
@@ -414,7 +475,7 @@ func OpenAPIManualExecWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI手动执行", "工作流任务", workflowName, workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "手动执行", "工作流任务", workflowName, workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = workflowservice.OpenAPIManualExecWorkflowTaskV4(workflowName, projectKey, taskID, args.StageName, ctx.UserID, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
 }
 
@@ -460,7 +521,7 @@ func OpenAPIUpdateWorkflowV4TaskRemark(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "OpenAPI"+"更新", "工作流任务", workflowName, workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", w.Project, "更新", "工作流任务", workflowName, workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

@@ -52,6 +52,7 @@ type Migration struct {
 	Migration500ServiceModuleErrors             []string           `bson:"migration_500_service_module_errors"`
 	Migration510LarkPreferredUsernameClaim      bool               `bson:"migration_510_lark_preferred_username_claim"`
 	Migration510DockerBuildProxy                bool               `bson:"migration_510_docker_build_proxy"`
+	Migration510WorkflowJobPolicies             bool               `bson:"migration_510_workflow_job_policies"`
 	Error                                       string             `bson:"error"`
 }
 

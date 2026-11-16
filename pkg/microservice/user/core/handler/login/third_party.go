@@ -87,12 +87,13 @@ func Login(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	state, browserToken, err := login.CreateThirdPartyLoginState()
+	state, browserToken, err := login.CreateThirdPartyLoginState(c.Query("redirect"))
 	if err != nil {
 		ctx.RespErr = err
 		return
 	}
-	authCodeURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	authCodeURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("redirect", c.Query("redirect")))
 	defaultLogin := ""
 	replaceURL := configbase.SystemAddress() + "/dex/auth"
 	if systemConfig.DefaultLogin != setting.DefaultLoginLocal {
@@ -105,6 +106,46 @@ func Login(c *gin.Context) {
 	cookie.Value = browserToken
 	http.SetCookie(c.Writer, cookie)
 	c.Redirect(http.StatusSeeOther, authCodeURL)
+}
+
+type completeLocalLoginArgs struct {
+	State string `json:"state"`
+}
+
+// CompleteLocalLogin restores the saved redirect after a local password or MFA login.
+func CompleteLocalLogin(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	authorization := strings.Fields(c.GetHeader(setting.AuthorizationHeader))
+	if len(authorization) != 2 || !strings.EqualFold(authorization[0], "Bearer") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	claims, valid, err := permission.ValidateWebSessionToken(authorization[1])
+	if err != nil || !valid || claims == nil || claims.UID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	args := new(completeLocalLoginArgs)
+	if err := c.ShouldBindJSON(args); err != nil || strings.TrimSpace(args.State) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "state is required"})
+		return
+	}
+
+	cookie := thirdPartyLoginCookie()
+	browserToken, err := c.Cookie(cookie.Name)
+	if err != nil || browserToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "login browser cookie is required"})
+		return
+	}
+	redirectPath, err := login.ConsumeThirdPartyLoginState(args.State, browserToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired login state"})
+		return
+	}
+	cookie.MaxAge = -1
+	http.SetCookie(c.Writer, cookie)
+	c.JSON(http.StatusOK, gin.H{"redirect": redirectPath})
 }
 
 // @Summary 查询第三方登录是否开启
@@ -177,7 +218,8 @@ func Callback(c *gin.Context) {
 		return
 	}
 	// Atomically validate and consume state before exchanging the authorization code.
-	if err := login.ConsumeThirdPartyLoginState(c.Query("state"), browserToken); err != nil {
+	redirectPath, err := login.ConsumeThirdPartyLoginState(c.Query("state"), browserToken)
+	if err != nil {
 		ctx.RespErr = err
 		return
 	}
@@ -212,7 +254,7 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, ctx.Logger)
+	redirectURL, err := login.HandleThirdPartyLoginSuccess(user, redirectPath, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return

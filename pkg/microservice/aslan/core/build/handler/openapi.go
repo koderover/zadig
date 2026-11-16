@@ -65,7 +65,7 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 			return
 		}
 
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, "创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 		// authorization checks
 		if !ctx.Resources.IsSystemAdmin {
@@ -109,7 +109,7 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 			return
 		}
 
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, "创建", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 		// authorization checks
 		if !ctx.Resources.IsSystemAdmin {
@@ -168,7 +168,7 @@ func OpenAPIUpdateBuildModuleFromTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, "更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -235,7 +235,7 @@ func OpenAPIUpdateBuildModule(c *gin.Context) {
 			return
 		}
 
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, "更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 		// authorization checks
 		if !ctx.Resources.IsSystemAdmin {
@@ -279,7 +279,7 @@ func OpenAPIUpdateBuildModule(c *gin.Context) {
 			return
 		}
 
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectKey, "(OpenAPI)更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, "更新", "项目管理-构建", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 		// authorization checks
 		if !ctx.Resources.IsSystemAdmin {
@@ -317,7 +317,7 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 
 	buildName := c.Query("name")
 	projectKey := c.Query("projectKey")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "项目管理-构建", buildName, buildName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, "删除", "项目管理-构建", buildName, buildName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

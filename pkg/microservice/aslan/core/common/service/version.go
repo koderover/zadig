@@ -479,9 +479,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	session := mongotool.Session()
 	defer session.EndSession(context.Background())
 
-	rollbackStatus := &RollbackEnvServiceVersionData{
-		HelmDeployStatusChan: make(chan bool),
-	}
+	rollbackStatus := &RollbackEnvServiceVersionData{}
 
 	if envSvcVersion.ProductFeature.IsHostProduct() {
 		project, err := template.NewProductColl().Find(projectName)
@@ -512,7 +510,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			VariableKVs:           envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs,
 			Containers:            envSvcVersion.Service.Containers,
 		}
-		_, _, resources, err := kube.GenerateRenderedYaml(option)
+		_, _, resources, _, err := kube.GenerateRenderedYaml(option)
 		if err != nil {
 			return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 		}
@@ -579,7 +577,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					Containers:            envSvcVersion.Service.Containers,
 				}
 				var resources []*kube.WorkloadResource
-				_, _, resources, err = kube.GenerateRenderedYaml(option)
+				_, _, resources, _, err = kube.GenerateRenderedYaml(option)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
 				}
@@ -644,7 +642,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 				preProdSvc.RenderedYaml = preResourceYaml
 
-				err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
+				err = kube.CheckYamlResourceOwnership(parsedYaml, env, envSvcVersion.Service.ServiceName)
 				if err != nil {
 					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 				}
@@ -782,12 +780,15 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
 			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
-				go func(done chan bool) {
-					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName, skipUpgradeCRDs)
+				// buffered so the deploy goroutine never blocks when the caller does not wait for the result
+				rollbackStatus.HelmDeployStatusChan = make(chan bool, 1)
+				go func(done chan<- bool) {
+					err := kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName, skipUpgradeCRDs)
 					if err != nil {
 						title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 						notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)
 						done <- false
+						return
 					}
 					done <- true
 				}(rollbackStatus.HelmDeployStatusChan)

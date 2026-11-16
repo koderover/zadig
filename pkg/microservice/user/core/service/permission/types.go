@@ -101,6 +101,9 @@ const (
 
 // system level authorization actions
 const (
+	// AI management
+	VerbGetAIManagement  = "get_ai_management"
+	VerbEditAIManagement = "edit_ai_management"
 	// project
 	VerbCreateProject = "create_project"
 	VerbDeleteProject = "delete_project"
@@ -117,10 +120,11 @@ const (
 	VerbDeliveryCenterGetVersions = "release_get"
 	VerbDeliveryCenterGetArtifact = "delivery_get"
 	// data center
-	VerbGetDataCenterOverview        = "data_over"
-	VerbGetDataCenterInsight         = "efficiency_over"
-	VerbGetDataCenterAIReviewInsight = "ai_review_insight"
-	VerbEditDataCenterInsightConfig  = "edit_dashboard_config"
+	VerbGetDataCenterOverview          = "data_over"
+	VerbGetDataCenterInsight           = "efficiency_over"
+	VerbGetDataCenterAIReviewInsight   = "ai_review_insight"
+	VerbGetDataCenterAIAssistantReport = "ai_assistant_report"
+	VerbEditDataCenterInsightConfig    = "edit_dashboard_config"
 	// release plan
 	VerbGetReleasePlan          = "get_release_plan"
 	VerbCreateReleasePlan       = "create_release_plan"
@@ -199,7 +203,13 @@ type ProjectActions struct {
 	SprintWorkItem    *SprintWorkItemActions    `json:"sprint_workitem"`
 }
 
+type AIManagementActions struct {
+	View bool
+	Edit bool
+}
+
 type SystemActions struct {
+	AIManagement         *AIManagementActions         `json:"ai_management"`
 	Project              *SystemProjectActions        `json:"project"`
 	Template             *TemplateActions             `json:"template"`
 	TestCenter           *TestCenterActions           `json:"test_center"`
@@ -347,10 +357,11 @@ type DeliveryCenterActions struct {
 }
 
 type DataCenterActions struct {
-	ViewOverView        bool
-	ViewInsight         bool
-	ViewAIReviewInsight bool
-	EditInsightConfig   bool
+	ViewOverView          bool
+	ViewInsight           bool
+	ViewAIReviewInsight   bool
+	ViewAIAssistantReport bool
+	EditInsightConfig     bool
 }
 
 type ReleasePlanActions struct {

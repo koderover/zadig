@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -414,6 +415,10 @@ func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace s
 		JobType: jobType,
 		JobName: jobTask.K8sJobName,
 	}, customLabels)
+	podLabels := maps.Clone(labels)
+	if targetCluster.AdvancedConfig != nil && kube.IsAliyunRRSA(targetCluster.Provider, targetCluster.AdvancedConfig.EnableIRSA) {
+		podLabels["pod-identity.alibabacloud.com/injection"] = "on"
+	}
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
@@ -454,7 +459,7 @@ EOF`,
 			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
+					Labels:      podLabels,
 					Annotations: customAnnotations,
 				},
 				Spec: corev1.PodSpec{
@@ -487,7 +492,7 @@ EOF`,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},
 							Env:             getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
-							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
+							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon, jobTaskSpec.Properties.DockerHost),
 							Resources:       getResourceRequirements(resReq, resReqSpec),
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &jobTaskSpec.Properties.EnablePrivileged,
@@ -497,7 +502,7 @@ EOF`,
 							TerminationMessagePath:   job.JobTerminationFile,
 						},
 					},
-					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon),
+					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon, jobTaskSpec.Properties.DockerHost),
 					Tolerations: commonutil.BuildTolerations(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
 					Affinity:    commonutil.AddNodeAffinity(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
 				},
@@ -742,7 +747,7 @@ func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyl
 		Value: path.Join(configMapMountDir, "job-config.xml"),
 	})
 
-	if !jobTaskSpec.Properties.UseHostDockerDaemon {
+	if !jobTaskSpec.Properties.UseHostDockerDaemon && jobTaskSpec.Properties.DockerHost != "" {
 		ret = append(ret, corev1.EnvVar{
 			Name:  setting.DockerHost,
 			Value: jobTaskSpec.Properties.DockerHost,
@@ -764,7 +769,7 @@ func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyl
 	return ret
 }
 
-func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []corev1.VolumeMount {
+func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool, dockerHost string) []corev1.VolumeMount {
 	resp := make([]corev1.VolumeMount, 0)
 
 	resp = append(resp, corev1.VolumeMount{
@@ -788,7 +793,7 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 			Name:      "docker-sock",
 			MountPath: setting.DefaultDockSock,
 		})
-	} else {
+	} else if dockerHost != "" {
 		resp = append(resp, corev1.VolumeMount{
 			Name:      types.DindTLSVolumeName,
 			MountPath: types.DindTLSClientMountPath,
@@ -798,7 +803,7 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 	return resp
 }
 
-func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
+func getVolumes(jobName string, userHostDockerDaemon bool, dockerHost string) []corev1.Volume {
 	resp := make([]corev1.Volume, 0)
 	resp = append(resp, corev1.Volume{
 		Name: "job-config",
@@ -839,7 +844,7 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 				},
 			},
 		})
-	} else {
+	} else if dockerHost != "" {
 		resp = append(resp, corev1.Volume{
 			Name: types.DindTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{

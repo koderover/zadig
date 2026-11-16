@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListIMApp(c *gin.Context) {
@@ -78,6 +79,7 @@ func CreateIMApp(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-IM集成", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateIMApp(&args, ctx.Logger)
 }
 
@@ -109,6 +111,7 @@ func UpdateIMApp(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-IM集成", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateIMApp(c.Param("id"), &args, ctx.Logger)
 }
 
@@ -128,6 +131,7 @@ func DeleteIMApp(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-IM集成", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteIMApp(c.Param("id"), ctx.Logger)
 }
 

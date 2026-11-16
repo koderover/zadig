@@ -86,3 +86,29 @@ func newClient(llmConfig llm.LLMConfig) (llm.ILLM, error) {
 	}
 	return client, nil
 }
+
+var (
+	readAIReleaseSpecialistConfig = func(ctx context.Context) (*models.AIReleaseSpecialistConfig, error) {
+		return commonrepo.NewSystemSettingColl().GetAIReleaseSpecialistConfig(ctx)
+	}
+	findAIReleaseSpecialistModel = func(ctx context.Context, id string) (*models.LLMIntegration, error) {
+		return commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
+	}
+	defaultAIReleaseSpecialistClient = GetDefaultLLMClient
+)
+
+// GetAIReleaseSpecialistLLMClient uses the selected model, or the default only when no model is configured.
+func GetAIReleaseSpecialistLLMClient(ctx context.Context) (llm.ILLM, error) {
+	config, err := readAIReleaseSpecialistConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read AI release specialist config: %w", err)
+	}
+	if config.LLMIntegrationID == "" {
+		return defaultAIReleaseSpecialistClient(ctx)
+	}
+	integration, err := findAIReleaseSpecialistModel(ctx, config.LLMIntegrationID)
+	if err != nil {
+		return nil, fmt.Errorf("find configured AI release specialist model %s: %w", config.LLMIntegrationID, err)
+	}
+	return NewLLMClient(integration)
+}

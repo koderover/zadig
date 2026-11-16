@@ -1,7 +1,9 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -12,13 +14,17 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
 func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
 	if err != nil {
-		logger.Errorf("Failed to find template of name: %s, err: %w", req.TemplateName, err)
+		logger.Errorf("Failed to find template of name: %s, err: %v", req.TemplateName, err)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return e.ErrNotFound.AddDesc(fmt.Sprintf("yaml template %q not found, template_name must match the template name exactly", req.TemplateName))
+		}
 		return fmt.Errorf("failed to find template of name: %s, err: %w", req.TemplateName, err)
 	}
 
@@ -147,19 +153,9 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		return e.ErrUpdateService.AddDesc(err.Error())
 	}
 
-	serviceKvs := make([]*commontypes.ServiceVariableKV, 0)
-	for _, kv := range service.ServiceVariableKVs {
-		serviceKvs = append(serviceKvs, kv)
-	}
-	for _, kv := range serviceKvs {
-		for _, newKv := range args.ServiceVariableKVs {
-			if kv.Key == newKv.Key {
-				kv.Value = newKv.Value
-				kv.Desc = newKv.Desc
-				kv.Type = newKv.Type
-				kv.Options = newKv.Options
-			}
-		}
+	serviceKvs, err := mergeOpenAPIServiceVariableKVs(service.ServiceVariableKVs, args.ServiceVariableKVs)
+	if err != nil {
+		return err
 	}
 	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs, true)
 	if err != nil {
@@ -186,19 +182,9 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 		logger.Errorf("failed to find service %s in db, project:%s, err: %v", serviceName, projectName, err)
 		return e.ErrUpdateService.AddDesc(err.Error())
 	}
-	serviceKvs := make([]*commontypes.ServiceVariableKV, 0)
-	for _, kv := range service.ServiceVariableKVs {
-		serviceKvs = append(serviceKvs, kv)
-	}
-	for _, newKv := range args.ServiceVariableKVs {
-		for _, kv := range serviceKvs {
-			if kv.Key == newKv.Key {
-				kv.Value = newKv.Value
-				kv.Desc = newKv.Desc
-				kv.Type = newKv.Type
-				kv.Options = newKv.Options
-			}
-		}
+	serviceKvs, err := mergeOpenAPIServiceVariableKVs(service.ServiceVariableKVs, args.ServiceVariableKVs)
+	if err != nil {
+		return err
 	}
 
 	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs, true)
@@ -228,6 +214,9 @@ func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLo
 	if err != nil {
 		msg := fmt.Errorf("failed to get service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
 		logger.Errorf(msg.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, e.ErrNotFound.AddDesc(fmt.Sprintf("service %q not found in project %q", serviceName, projectKey))
+		}
 		return nil, msg
 	}
 
@@ -414,4 +403,37 @@ func OpenAPILoadHelmServiceFromTemplate(ctx *internalhandler.Context, projectKey
 
 	_, err := CreateOrUpdateHelmService(projectKey, loadArgs, false, ctx.Logger)
 	return err
+}
+
+// mergeOpenAPIServiceVariableKVs updates existing keys in place and appends keys the service does not have yet,
+// so variables referenced by the service yaml but missing from the service can be added.
+func mergeOpenAPIServiceVariableKVs(current, updates []*commontypes.ServiceVariableKV) ([]*commontypes.ServiceVariableKV, error) {
+	merged := make([]*commontypes.ServiceVariableKV, 0, len(current)+len(updates))
+	index := make(map[string]*commontypes.ServiceVariableKV, len(current))
+	for _, kv := range current {
+		if kv == nil {
+			continue
+		}
+		merged = append(merged, kv)
+		index[kv.Key] = kv
+	}
+	for _, newKv := range updates {
+		if newKv == nil {
+			continue
+		}
+		if strings.TrimSpace(newKv.Key) == "" {
+			return nil, e.ErrInvalidParam.AddDesc("service variable key cannot be empty")
+		}
+		if kv, ok := index[newKv.Key]; ok {
+			*kv = *newKv
+			continue
+		}
+		added := *newKv
+		if added.Type == "" {
+			added.Type = commontypes.ServiceVariableKVTypeString
+		}
+		merged = append(merged, &added)
+		index[added.Key] = &added
+	}
+	return merged, nil
 }

@@ -568,6 +568,7 @@ const (
 type ClusterProvider int
 
 const (
+	ClusterProviderAlibabaACK    = 1
 	ClusterProviderAmazonEKS     = 4
 	ClusterProviderTKEServerless = 5
 )
@@ -842,7 +843,9 @@ const (
 	NavigationKeyResourceConfiguration NavigationItemKey = "resourceConfiguration"
 	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
+	NavigationKeyAIInsights            NavigationItemKey = "aiInsights"
 	NavigationKeyAIReviewInsight       NavigationItemKey = "aiReviewInsight"
+	NavigationKeyAIAssistantReport     NavigationItemKey = "aiAssistantReport"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 	NavigationKeyWorkflows             NavigationItemKey = "releaseWorkflow"
 )

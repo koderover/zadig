@@ -36,6 +36,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/language"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -1049,15 +1050,13 @@ func (j ScanningJobController) toAIReviewJobTask(
 	if reviewImage == "" {
 		return nil, fmt.Errorf("AI review image is not configured: %s is empty", setting.ENVZadigReviewImage)
 	}
-	systemConfig, err := commonrepo.NewSystemSettingColl().GetAIReviewConfig()
+	settings, err := commonrepo.NewSystemSettingColl().Get()
 	if err != nil {
 		return nil, fmt.Errorf("get system AI review config: %w", err)
 	}
+	systemConfig := settings.AIReviewConfig
 	if systemConfig == nil || systemConfig.LLMIntegrationID == "" {
 		return nil, fmt.Errorf("system AI review config is missing LLM integration")
-	}
-	if systemConfig.OutputLanguage == "" {
-		return nil, fmt.Errorf("system AI review output language is not configured")
 	}
 	if err := commonservice.ValidateReviewRules(systemConfig.Rules); err != nil {
 		return nil, fmt.Errorf("invalid system AI review rules: %w", err)
@@ -1182,11 +1181,12 @@ func (j ScanningJobController) toAIReviewJobTask(
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_REMOTE_NAME", Value: repo.RemoteName},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_TARGET_BRANCH", Value: targetBranch},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_PR", Value: strconv.Itoa(repo.PR)},
-		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_OUTPUT_LANGUAGE", Value: systemConfig.OutputLanguage},
+		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_OUTPUT_LANGUAGE", Value: language.Normalize(settings.Language).Tag()},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_QUALITY_GATE_ENABLED", Value: strconv.FormatBool(scanningInfo.CheckQualityGate)},
 		&commonmodels.KeyVal{Key: "ZADIG_AI_REVIEW_FAIL_ON", Value: aiReviewFailOnValue(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn)},
 	)
 	reportRelativePath := path.Join(repoDir, ".zadig-review", "zadig-review-report.json")
+	qualityGateEnabled := scanningInfo.CheckQualityGate
 	reviewScript := buildAIReviewScript()
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps,
 		&commonmodels.StepTask{
@@ -1210,6 +1210,9 @@ func (j ScanningJobController) toAIReviewJobTask(
 				RepoOwner:  repo.GetRepoNamespace(),
 				RepoName:   repo.RepoName,
 				PR:         repo.PR,
+				FailOn:     aiReviewFailOn(scanningInfo.CheckQualityGate, scanningInfo.ReviewFailOn),
+				// The run script turns exit code 1 into success when the gate is off; the card must know that.
+				QualityGateEnabled: &qualityGateEnabled,
 			},
 		},
 	)
@@ -1223,10 +1226,14 @@ func (j ScanningJobController) toAIReviewJobTask(
 }
 
 func aiReviewFailOnValue(checkQualityGate bool, failOn []string) string {
+	return strings.Join(aiReviewFailOn(checkQualityGate, failOn), ",")
+}
+
+func aiReviewFailOn(checkQualityGate bool, failOn []string) []string {
 	if !checkQualityGate {
-		return ""
+		return nil
 	}
-	return strings.Join(failOn, ",")
+	return append([]string(nil), failOn...)
 }
 
 func buildAIReviewScript() string {

@@ -56,6 +56,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -66,6 +67,8 @@ import (
 )
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z-]{1,100}$`)
+
+var aliyunRoleARNPattern = regexp.MustCompile(`^acs:ram::[0-9]+:role/[a-zA-Z0-9.-]{1,64}$`)
 
 type K8SCluster struct {
 	ID                     string                   `json:"id,omitempty"`
@@ -174,6 +177,12 @@ func (k *K8SCluster) Clean() error {
 
 	if !namePattern.MatchString(k.Name) {
 		return fmt.Errorf("The cluster name does not meet the rules")
+	}
+	if k.Provider == config.ClusterProviderAlibabaACK && k.AdvancedConfig != nil && k.AdvancedConfig.EnableIRSA {
+		k.AdvancedConfig.IRSARoleARM = strings.TrimSpace(k.AdvancedConfig.IRSARoleARM)
+		if !aliyunRoleARNPattern.MatchString(k.AdvancedConfig.IRSARoleARM) {
+			return fmt.Errorf("invalid Alibaba Cloud RAM role ARN, expected acs:ram::<account-id>:role/<role-name>")
+		}
 	}
 
 	return nil
@@ -916,6 +925,71 @@ func GetClusterByAgentToken(token string, logger *zap.SugaredLogger) (*commonmod
 	return s.GetClusterByAgentToken(token, logger)
 }
 
+func preserveHubAgentToken(agent *unstructured.Unstructured, clusterID string, clientset kubernetes.Interface) error {
+	current, err := clientset.AppsV1().Deployments(agent.GetNamespace()).Get(context.Background(), agent.GetName(), metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get existing hub-agent deployment: %w", err)
+	}
+
+	token := ""
+	for _, container := range current.Spec.Template.Spec.Containers {
+		if container.Name != "agent" {
+			continue
+		}
+		for _, env := range container.Env {
+			if env.Name == setting.HubAgentToken {
+				token = env.Value
+				break
+			}
+		}
+		break
+	}
+	// Random AES IVs change the ciphertext on every render; retain a token only while it authenticates this cluster.
+	id, err := crypto.AesDecrypt(token)
+	if err != nil || id != clusterID {
+		return nil
+	}
+
+	containers, exists, err := unstructured.NestedSlice(agent.Object, "spec", "template", "spec", "containers")
+	if err != nil {
+		return fmt.Errorf("failed to get containers from rendered hub-agent deployment: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("rendered hub-agent deployment is missing containers")
+	}
+	for _, item := range containers {
+		container, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("rendered hub-agent deployment contains an invalid container")
+		}
+		if container["name"] != "agent" {
+			continue
+		}
+		envs, ok := container["env"].([]interface{})
+		if !ok {
+			return fmt.Errorf("rendered hub-agent container env is missing or not a list")
+		}
+		for _, item := range envs {
+			env, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("rendered hub-agent container contains an invalid env entry")
+			}
+			if env["name"] == setting.HubAgentToken {
+				env["value"] = token
+				break
+			}
+		}
+		break
+	}
+	if err := unstructured.SetNestedSlice(agent.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+		return fmt.Errorf("failed to set containers on rendered hub-agent deployment: %w", err)
+	}
+	return nil
+}
+
 func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	s, err := kube.NewService("")
 	if err != nil {
@@ -951,10 +1025,15 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 			return errors.Errorf("cluster %s get serviceAccount err: %s", id, err)
 		}
 
-		if clusterInfo.AdvancedConfig != nil && clusterInfo.AdvancedConfig.EnableIRSA {
-			serviceAccount.Annotations["eks.amazonaws.com/role-arn"] = clusterInfo.AdvancedConfig.IRSARoleARM
-		} else {
-			delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		delete(serviceAccount.Annotations, "pod-identity.alibabacloud.com/role-name")
+		if clusterInfo.AdvancedConfig != nil {
+			for key, value := range kube.WorkflowServiceAccountAnnotations(clusterInfo.Provider, clusterInfo.AdvancedConfig.EnableIRSA, clusterInfo.AdvancedConfig.IRSARoleARM) {
+				if serviceAccount.Annotations == nil {
+					serviceAccount.Annotations = make(map[string]string)
+				}
+				serviceAccount.Annotations[key] = value
+			}
 		}
 		_, err = clientset.CoreV1().ServiceAccounts(config.Namespace()).Update(context.Background(), serviceAccount, metav1.UpdateOptions{})
 		if err != nil {
@@ -1019,6 +1098,11 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 				}
 			} else if u.GetKind() == "Service" && u.GetName() == types.DindStatefulSetName {
 				err = kube.EnsureDindServiceTLS(kubeClient, dindNamespace)
+			} else if u.GetKind() == "Deployment" && u.GetName() == "koderover-agent-node-agent" {
+				err = preserveHubAgentToken(u, id, clientset)
+				if err == nil {
+					err = updater.CreateOrPatchUnstructured(u, kubeClient)
+				}
 			} else {
 				err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			}

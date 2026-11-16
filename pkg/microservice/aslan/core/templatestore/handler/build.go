@@ -51,6 +51,14 @@ func GetBuildTemplate(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = templateservice.GetBuildTemplateByID(c.Param("id"))
 }
 
+// ListBuildTemplates 分页查询构建模板。
+// @Summary 查询构建模板列表
+// @Tags template
+// @Produce json
+// @Param page_num query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(100)
+// @Success 200 {object} templateservice.BuildTemplateListResp
+// @Router /api/aslan/template/build [get]
 func ListBuildTemplates(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -99,7 +107,7 @@ func AddBuildTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, args.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板库-构建", args.Name, args.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -131,7 +139,7 @@ func UpdateBuildTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-构建", args.Name, args.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-构建", args.Name, args.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -155,7 +163,7 @@ func RemoveBuildTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-构建", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-构建", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

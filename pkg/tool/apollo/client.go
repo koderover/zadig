@@ -17,6 +17,8 @@
 package apollo
 
 import (
+	"context"
+
 	"github.com/imroc/req/v3"
 	"github.com/pkg/errors"
 )
@@ -24,6 +26,16 @@ import (
 type Client struct {
 	*req.Client
 	BaseURL string
+}
+
+func (c *Client) WithContext(ctx context.Context) *Client {
+	return &Client{
+		Client: c.Client.Clone().OnBeforeRequest(func(_ *req.Client, request *req.Request) error {
+			request.SetContext(ctx)
+			return nil
+		}),
+		BaseURL: c.BaseURL,
+	}
 }
 
 func NewClient(url, token string) *Client {

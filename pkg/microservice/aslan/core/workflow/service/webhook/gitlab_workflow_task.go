@@ -509,7 +509,7 @@ func WaitEnvCreate(timeoutSeconds int, envName string, workflowArgs *commonmodel
 			return fmt.Errorf("WaitEnvCreate %s wait create envName:%s timeout in %d seconds", workflowArgs.ProductTmplName, envName, timeoutSeconds)
 		}
 
-		productResp, err := environmentservice.GetProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, log)
+		productResp, err := environmentservice.GetProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, nil, log)
 		if err != nil {
 			log.Errorf("WaitEnvCreate Product find err:%v ", err)
 			time.Sleep(time.Second)
@@ -551,7 +551,7 @@ func WaitEnvDelete(timeoutSeconds int, envName string, workflowArgs *commonmodel
 			EnvName:          envName,
 			EnvRecyclePolicy: workflowArgs.EnvRecyclePolicy,
 		}
-		productResp, err := environmentservice.GetProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, log)
+		productResp, err := environmentservice.GetProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, nil, log)
 		if err != nil {
 			log.Errorf("WaitEnvDelete GetProduct err:%v ", err)
 			prTaskInfo.EnvStatus = "Completed"

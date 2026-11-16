@@ -173,6 +173,16 @@ func ListWorkflowTaskV4ByFilter(c *gin.Context) {
 	ctx.RespErr = err
 }
 
+// GetWorkflowTaskV4 查询任务详情。
+// @Summary 查询工作流任务详情
+// @Tags workflow
+// @Produce json
+// @Param workflowName path string true "工作流标识"
+// @Param taskID path int true "任务编号"
+// @Success 200 {object} workflow.WorkflowTaskPreview
+// @Failure 400 {object} e.ErrorResponse "参数错误"
+// @Failure 403 {object} e.ErrorResponse "没有工作流查看权限"
+// @Router /api/aslan/workflow/v4/workflowtask/workflow/{workflowName}/task/{taskID} [get]
 func GetWorkflowTaskV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

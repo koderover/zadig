@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListConfigurationManagement(c *gin.Context) {
@@ -73,6 +74,7 @@ func CreateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-配置管理", args.SystemIdentity, args.SystemIdentity, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateConfigurationManagement(&args, ctx.Logger)
 }
 
@@ -117,6 +119,7 @@ func UpdateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-配置管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateConfigurationManagement(c.Param("id"), &args, ctx.Logger)
 }
 
@@ -136,6 +139,7 @@ func DeleteConfigurationManagement(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-配置管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteConfigurationManagement(c.Param("id"), ctx.Logger)
 }
 

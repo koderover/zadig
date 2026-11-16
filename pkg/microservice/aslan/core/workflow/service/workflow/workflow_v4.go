@@ -389,6 +389,15 @@ func FindWorkflowV4Raw(name string, logger *zap.SugaredLogger) (*commonmodels.Wo
 	return workflow, err
 }
 
+func FindWorkflowV4RawByProject(projectName, name string, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().FindByOptions(commonrepo.WorkFlowOptions{ProjectName: projectName, WorkflowName: name})
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s in project %s, the error is: %v", name, projectName, err)
+		return nil, e.ErrFindWorkflow.AddErr(err)
+	}
+	return workflow, nil
+}
+
 func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	// Cancel any queued or running tasks before deleting the workflow.
 	taskQueue, err := commonrepo.NewWorkflowQueueColl().List(&commonrepo.ListWorfklowQueueOption{
@@ -1023,6 +1032,15 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				buildJob := &commonmodels.Job{
 					Name:    buildJobName,
 					JobType: config.JobZadigBuild,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
 					Spec: &commonmodels.ZadigBuildJobSpec{
 						DockerRegistryID:        workflowArg.dockerRegistryID,
 						ServiceAndBuildsOptions: serviceAndBuilds,
@@ -1060,7 +1078,16 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				deployJob := &commonmodels.Job{
 					Name:    deployJobName,
 					JobType: config.JobZadigVMDeploy,
-					Spec:    spec,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
+					Spec: spec,
 				}
 
 				deployStageName := "主机部署"
@@ -1095,7 +1122,16 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				deployJob := &commonmodels.Job{
 					Name:    deployJobName,
 					JobType: config.JobZadigDeploy,
-					Spec:    spec,
+					ExecutePolicy: &commonmodels.JobExecutePolicy{
+						MatchRule: config.JobExecutePolicyMatchRuleAll,
+						Rules:     []*commonmodels.JobExecuteRule{},
+					},
+					ErrorPolicy: &commonmodels.JobErrorPolicy{
+						Policy:        config.JobErrorPolicyStop,
+						MaximumRetry:  3,
+						ApprovalUsers: []*commonmodels.User{},
+					},
+					Spec: spec,
 				}
 
 				deployStageName := "部署"

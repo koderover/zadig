@@ -36,6 +36,7 @@ const (
 	ENVMysqlUser                  = "MYSQL_USER"
 	ENVMysqlPassword              = "MYSQL_PASSWORD"
 	ENVMysqlHost                  = "MYSQL_HOST"
+	ENVMysqlAIDB                  = "MYSQL_AI_DB"
 	ENVMysqlUserDb                = "MYSQL_USER_DB"
 	ENVMysqlUseDM                 = "MYSQL_USE_DM"
 	ENVRedisHost                  = "REDIS_HOST"

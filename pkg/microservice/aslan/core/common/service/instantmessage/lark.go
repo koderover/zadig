@@ -35,6 +35,8 @@ const (
 	feishuTagAction               = "action"
 	feishuTagDiv                  = "div"
 	feishuTagButton               = "button"
+	feishuTagMarkdown             = "markdown"
+	feishuTagCollapsiblePanel     = "collapsible_panel"
 )
 
 const (
@@ -96,6 +98,32 @@ type ZhCn struct {
 	Fields  []*Field  `json:"fields,omitempty"`
 	Tag     string    `json:"tag"`
 	Actions []*Action `json:"actions,omitempty"`
+	// Content is used by markdown elements.
+	Content string `json:"content,omitempty"`
+	// The fields below are used by collapsible_panel elements (client 7.9+).
+	Expanded bool         `json:"expanded,omitempty"`
+	Header   *PanelHeader `json:"header,omitempty"`
+	Border   *PanelBorder `json:"border,omitempty"`
+	Elements []*ZhCn      `json:"elements,omitempty"`
+}
+
+type PanelHeader struct {
+	Title             TextElem   `json:"title"`
+	VerticalAlign     string     `json:"vertical_align,omitempty"`
+	Icon              *PanelIcon `json:"icon,omitempty"`
+	IconPosition      string     `json:"icon_position,omitempty"`
+	IconExpandedAngle int        `json:"icon_expanded_angle,omitempty"`
+}
+
+type PanelIcon struct {
+	Tag   string `json:"tag"`
+	Token string `json:"token"`
+	Size  string `json:"size,omitempty"`
+}
+
+type PanelBorder struct {
+	Color        string `json:"color,omitempty"`
+	CornerRadius string `json:"corner_radius,omitempty"`
 }
 
 type I18NElements struct {
@@ -188,6 +216,37 @@ func (lc *LarkCard) AddI18NElementsZhcnAction(content, url string) {
 		Tag:     feishuTagAction,
 	}
 	lc.I18NElements.ZhCn = append(lc.I18NElements.ZhCn, zhcnElem)
+}
+
+func (lc *LarkCard) addI18NElementZhcn(elem *ZhCn) {
+	if lc.I18NElements == nil {
+		lc.I18NElements = &I18NElements{ZhCn: make([]*ZhCn, 0)}
+	}
+	lc.I18NElements.ZhCn = append(lc.I18NElements.ZhCn, elem)
+}
+
+func (lc *LarkCard) AddI18NElementsZhcnMarkdown(content string) {
+	lc.addI18NElementZhcn(newLarkMarkdown(content))
+}
+
+// AddI18NElementsZhcnCollapsiblePanel adds a panel collapsed by default; clients below 7.9 show an upgrade placeholder in its place.
+func (lc *LarkCard) AddI18NElementsZhcnCollapsiblePanel(title string, elements ...*ZhCn) {
+	lc.addI18NElementZhcn(&ZhCn{
+		Tag: feishuTagCollapsiblePanel,
+		Header: &PanelHeader{
+			Title:             TextElem{Tag: feishuTagMarkdown, Content: title},
+			VerticalAlign:     "center",
+			Icon:              &PanelIcon{Tag: "standard_icon", Token: "down-small-ccm_outlined", Size: "16px 16px"},
+			IconPosition:      "right",
+			IconExpandedAngle: -180,
+		},
+		Border:   &PanelBorder{Color: "grey", CornerRadius: "5px"},
+		Elements: elements,
+	})
+}
+
+func newLarkMarkdown(content string) *ZhCn {
+	return &ZhCn{Tag: feishuTagMarkdown, Content: content}
 }
 
 func (w *Service) sendFeishuMessage(uri string, lcMsg *LarkCard) error {

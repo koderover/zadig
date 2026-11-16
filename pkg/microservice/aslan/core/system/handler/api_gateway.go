@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary List Api Gateways
@@ -90,6 +91,7 @@ func CreateApiGateway(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-网关组件", req.Alias, req.Alias, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateApiGateway(req, ctx.Logger)
 }
 
@@ -123,6 +125,7 @@ func UpdateApiGateway(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-网关组件", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateApiGateway(c.Param("id"), req, ctx.Logger)
 }
 
@@ -149,6 +152,7 @@ func DeleteApiGateway(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-网关组件", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteApiGateway(c.Param("id"), ctx.Logger)
 }
 

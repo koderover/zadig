@@ -250,6 +250,26 @@ func LintWorkflowV4(c *gin.Context) {
 	ctx.RespErr = workflow.LintWorkflowV4(args, ctx.Logger)
 }
 
+// CheckApisixCompatibility checks edited runtime configuration. The frontend
+// calls it after editing and before execution, blocking execution on failure.
+func CheckApisixCompatibility(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(workflow.ApisixCompatibilityCheckRequest)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Resp = workflow.CheckApisixJobCompatibility(args)
+}
+
 func ListWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary 列出云服务
@@ -119,6 +120,7 @@ func CreateCloudService(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-云服务", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = cloudservice.CreateCloudService(ctx, args)
 }
 
@@ -198,6 +200,7 @@ func UpdateCloudService(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-云服务", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = cloudservice.UpdateCloudService(ctx, id, args)
 }
 
@@ -230,6 +233,7 @@ func DeleteCloudService(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-云服务", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = cloudservice.DeleteCloudService(ctx, id)
 }
 

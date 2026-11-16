@@ -263,7 +263,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	} else {
 		prodinfo.ServiceDeployStrategy[args.ServiceName] = args.ServiceRev.DeployStrategy
 
-		err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
+		err = kube.CheckYamlResourceOwnership(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
 		if err != nil {
 			return e.ErrUpdateEnv.AddErr(err)
 		}

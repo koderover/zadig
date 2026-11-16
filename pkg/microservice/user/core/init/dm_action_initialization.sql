@@ -102,6 +102,7 @@ VALUES
     ('查看数据概览', 'data_over', 'DataCenter', 2),
     ('查看效能洞察', 'efficiency_over', 'DataCenter', 2),
     ('查看审查分析', 'ai_review_insight', 'DataCenter', 2),
+    ('查看 AI 助手报告', 'ai_assistant_report', 'DataCenter', 2),
     ('配置效能洞察', 'edit_dashboard_config', 'DataCenter', 2),
     ('查看', 'get_system_integration', 'SystemIntegration', 2),
     ('新建', 'create_system_integration', 'SystemIntegration', 2),
@@ -110,4 +111,6 @@ VALUES
     ('新建', 'create_label_setting', 'LabelManagement', 2),
     ('编辑', 'edit_label_setting', 'LabelManagement', 2),
     ('删除', 'delete_label_setting', 'LabelManagement', 2),
+    ('查看', 'get_ai_management', 'AIManagement', 2),
+    ('编辑', 'edit_ai_management', 'AIManagement', 2),
     ('查看', 'get_log_operation', 'LogOperation', 2);

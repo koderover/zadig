@@ -131,6 +131,7 @@ func CreateCluster(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源配置-集群管理", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.CreateCluster(args, ctx.Logger)
 }
 
@@ -171,6 +172,7 @@ func UpdateCluster(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateCluster(ctx, c.Param("id"), args)
 }
 
@@ -214,6 +216,7 @@ func AddOrUpdateClusterStrategy(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "配置", "资源配置-集群管理", fmt.Sprintf("cluster:%s strategy:%s", c.Param("id"), args.StrategyName), fmt.Sprintf("cluster:%s strategy:%s", c.Param("id"), args.StrategyName), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.AddOrUpdateClusterStrategy(ctx, c.Param("id"), args)
 }
 
@@ -244,6 +247,7 @@ func DeleteClusterStrategy(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-集群管理", fmt.Sprintf("cluster:%s strategy:%s", c.Param("id"), c.Query("strategyID")), fmt.Sprintf("cluster:%s strategy:%s", c.Param("id"), c.Query("strategyID")), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.DeleteClusterStrategy(ctx, c.Param("id"), c.Query("strategyID"))
 }
 
@@ -281,6 +285,7 @@ func UpdateClusterCache(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-集群管理", fmt.Sprintf("cluster:%s cache", c.Param("id")), fmt.Sprintf("cluster:%s cache", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateClusterCache(ctx, c.Param("id"), args)
 }
 
@@ -318,6 +323,7 @@ func UpdateClusterStorage(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-集群管理", fmt.Sprintf("cluster:%s shared storage", c.Param("id")), fmt.Sprintf("cluster:%s shared storage", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateClusterStorage(ctx, c.Param("id"), args)
 }
 
@@ -355,6 +361,7 @@ func UpdateClusterDind(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-集群管理", fmt.Sprintf("cluster:%s dind", c.Param("id")), fmt.Sprintf("cluster:%s dind", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = service.UpdateClusterDind(ctx, c.Param("id"), args)
 }
 
@@ -397,6 +404,7 @@ func DeleteCluster(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
@@ -431,6 +439,7 @@ func DisconnectCluster(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "断开连接", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DisconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
@@ -452,6 +461,7 @@ func ReconnectCluster(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "重新连接", "资源配置-集群管理", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 

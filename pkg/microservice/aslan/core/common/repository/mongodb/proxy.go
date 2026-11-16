@@ -75,17 +75,21 @@ func (c *ProxyColl) Find(id string) (*models.Proxy, error) {
 }
 
 func (c *ProxyColl) List(args *ProxyArgs) ([]*models.Proxy, error) {
+	return c.ListWithContext(context.TODO(), args)
+}
+
+func (c *ProxyColl) ListWithContext(ctx context.Context, args *ProxyArgs) ([]*models.Proxy, error) {
 	query := bson.M{}
 	if args.Type != "" {
 		query["type"] = args.Type
 	}
 
 	res := make([]*models.Proxy, 0)
-	cursor, err := c.Collection.Find(context.TODO(), query, options.Find().SetSort(bson.D{{"create_time", -1}}))
+	cursor, err := c.Collection.Find(ctx, query, options.Find().SetSort(bson.D{{"create_time", -1}}))
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.All(context.TODO(), &res)
+	err = cursor.All(ctx, &res)
 	if err != nil {
 		return nil, err
 	}

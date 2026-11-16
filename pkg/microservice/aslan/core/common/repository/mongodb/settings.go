@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type SystemSettingColl struct {
@@ -56,6 +57,9 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	resp := &models.SystemSetting{}
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if resp.WorkflowTaskListRefreshInterval <= 0 {
+		resp.WorkflowTaskListRefreshInterval = models.DefaultWorkflowTaskListRefreshInterval
+	}
 	return resp, err
 }
 
@@ -69,6 +73,9 @@ func (c *SystemSettingColl) GetByID() (*models.SystemSetting, error) {
 	resp := &models.SystemSetting{}
 
 	err = c.FindOne(context.TODO(), query).Decode(resp)
+	if resp.WorkflowTaskListRefreshInterval <= 0 {
+		resp.WorkflowTaskListRefreshInterval = models.DefaultWorkflowTaskListRefreshInterval
+	}
 	return resp, err
 }
 
@@ -119,9 +126,10 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 	// if we didn't find anything
 	if err != nil {
 		return c.CreateOrUpdate(setting.LocalClusterID, &models.SystemSetting{
-			WorkflowConcurrency: 2,
-			BuildConcurrency:    5,
-			DefaultLogin:        setting.DefaultLoginLocal,
+			WorkflowTaskListRefreshInterval: models.DefaultWorkflowTaskListRefreshInterval,
+			WorkflowConcurrency:             2,
+			BuildConcurrency:                5,
+			DefaultLogin:                    setting.DefaultLoginLocal,
 			Theme: &models.Theme{
 				ThemeType: aslanConfig.DEFAULT_THEME,
 				CustomTheme: &models.CustomTheme{
@@ -305,7 +313,6 @@ func (c *SystemSettingColl) GetAIReviewConfig() (*models.AIReviewConfig, error) 
 				LLMIntegrationID: "",
 				IncludePaths:     []string{},
 				ExcludePaths:     []string{},
-				OutputLanguage:   "",
 				Rules:            []*models.ReviewRule{},
 			}, nil
 		}
@@ -317,7 +324,6 @@ func (c *SystemSettingColl) GetAIReviewConfig() (*models.AIReviewConfig, error) 
 			LLMIntegrationID: "",
 			IncludePaths:     []string{},
 			ExcludePaths:     []string{},
-			OutputLanguage:   "",
 			Rules:            []*models.ReviewRule{},
 		}, nil
 	}
@@ -332,5 +338,78 @@ func (c *SystemSettingColl) UpdateAIReviewConfig(reviewConfig *models.AIReviewCo
 	change := bson.M{"$set": bson.M{"ai_review_config": reviewConfig}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) UpdateWorkflowTaskListRefreshInterval(interval int64) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+	change := bson.M{"$set": bson.M{"workflow_task_list_refresh_interval": interval}}
+	result, err := c.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
+func (c *SystemSettingColl) GetAIAssistantConfig(ctx context.Context) (*types.AIAssistantConfig, error) {
+	settings, err := c.getAIAssistantSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return settings.AIAssistantConfig, nil
+}
+
+func (c *SystemSettingColl) getAIAssistantSettings(ctx context.Context) (*models.SystemSetting, error) {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+	var settings models.SystemSetting
+	if err := c.FindOne(ctx, bson.M{"_id": id}).Decode(&settings); err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+	if settings.AIAssistantConfig == nil {
+		settings.AIAssistantConfig = &types.AIAssistantConfig{HistoryRetentionDays: 90}
+	}
+	if settings.AIAssistantConfig.HistoryRetentionDays == 0 {
+		settings.AIAssistantConfig.HistoryRetentionDays = 90
+	}
+	return &settings, nil
+}
+
+func (c *SystemSettingColl) UpdateAIAssistantConfig(ctx context.Context, config *types.AIAssistantConfig) error {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"ai_assistant_config": config}}, options.Update().SetUpsert(true))
+	return err
+}
+
+func (c *SystemSettingColl) GetAIReleaseSpecialistConfig(ctx context.Context) (*models.AIReleaseSpecialistConfig, error) {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return nil, err
+	}
+	var settings models.SystemSetting
+	if err := c.FindOne(ctx, bson.M{"_id": id}).Decode(&settings); err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+	if settings.AIReleaseSpecialistConfig == nil {
+		return &models.AIReleaseSpecialistConfig{}, nil
+	}
+	return settings.AIReleaseSpecialistConfig, nil
+}
+
+func (c *SystemSettingColl) UpdateAIReleaseSpecialistConfig(ctx context.Context, config *models.AIReleaseSpecialistConfig) error {
+	id, err := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"ai_release_specialist_config": config}}, options.Update().SetUpsert(true))
 	return err
 }

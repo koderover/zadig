@@ -1,0 +1,45 @@
+# Project initialization
+
+## Applicable scenarios
+
+The user wants to create a K8s YAML or Helm project and add services using existing YAML, Helm Charts or service templates. The deployment configuration must already be available; the services do not need to exist in Zadig.
+
+## Required information
+
+Project display name, project key, project type, and each new service's name and the source of its YAML, Helm Chart or service template. Collect code host, repository, branch, file grouping and template parameters as needed. Creating an environment also requires its name, cluster and other necessary parameters.
+
+## Steps
+
+1. Query existing code hosts, configurations and templates accessible to the current user. Resolve names to internal identifiers without asking the user to provide IDs.
+2. Default to a private project with the current user as administrator. Confirm the project name, key and K8s YAML or Helm type.
+3. Use existing YAML, Charts or service templates. Do not clone or write repositories, or generate service configurations or build scripts from source code.
+4. Include at most twenty services per batch. Identify each source and file grouping. Do not automatically turn every YAML file into a separate service or overwrite resources with the same name.
+5. Create builds only from existing build templates; explicitly skip builds if no suitable template exists. Include default workflow creation in project initialization, reusing `AutoCreateWorkflow` regardless of whether builds exist. Do not execute workflows. Set `create_workflow=false` only if the user explicitly declines workflow creation.
+6. Before generating the confirmation plan, offer three choices: skip environment creation, create an environment without deploying services, or create an environment and deploy selected services. For environment creation, collect its name, cluster, Kubernetes namespace and image registry, and submit `environment`. Use `environment.services=[]` for an empty environment; otherwise include only the selected services. Set `skip_environment=true` only when the user explicitly declines environment creation. Declining deployment does not mean skipping environment creation. Never automatically select all services. Do not ask again after the choice has been saved. For the system default image registry, query `registries` without a name keyword and select `is_default=true`; do not search for a registry named "default". Omit the new project's `project_key` before it exists. Report lookup failures instead of repeatedly retrying unrelated keywords.
+7. Use the project initialization tool to prepare a plan. Environment creation may deploy resources and must be included in the confirmation scope. The program executes the plan after confirmation through the card.
+
+## Clarification
+
+For Git configurations, use only file or directory paths explicitly supplied by the user, including paths already saved in the original task draft. If the repository is known but the path is missing, save the known parameters and ask for the path. Do not search the repository, browse directories, guess common paths, reinterpret template names as paths, or call `configuration_paths` to explore. Query only the supplied path without expanding to parent directories or other paths. Do not request Git paths for template-library or Chart-repository sources.
+
+Prefer the exact full template name supplied by the user; do not ask for IDs. For YAML and build templates, pass the full name as `query_catalog.keyword`. If unmatched, follow `next_page` until an exact match is found, then read its details. Ask about unclear or ambiguous names instead of substituting similar names. Other resources use the existing interfaces' name lookup. Do not conclude a resource is absent because the first page has no match.
+
+If all template pages are exhausted without an exact match, immediately explain which name could not be matched and ask for the full name or configuration source. Do not reinterpret the template name as a branch, directory or build template to continue exploring. Offer only candidates already returned by tools. When asking for service configuration sources, offer a code repository or an existing service template and collect fields for the chosen source rather than always requesting repository paths.
+
+Ask about missing fields returned by the tool, prefer existing candidates and do not repeatedly ask for saved parameters. Restore the saved draft before merging changes to an existing task.
+
+When the user specifies a count, such as three services, record `expected_service_count` on the first call even if service names are not yet known. Save an incomplete draft through the initialization tool without inventing placeholders. Confirm the count and names first. Ask once whether code host, repository and branch are shared, apply shared values to each service, then collect individual paths, templates and variables.
+
+Continue the task using its original `skill_execution_id`. The backend restores and merges the draft; submit only changed parameters and the relevant service names instead of repeating the entire list. Omitting services or sending an empty list does not delete existing entries. Use `remove_services` only for explicit removal. Renaming requires explicitly removing the old name and adding the new one. Explicitly update `expected_service_count` when the count changes; omissions must not shrink the scope. Pass `false` explicitly to disable a boolean option, and `null` to clear optional configuration.
+
+Group missing template parameters by service using the tool's returned fields. Do not ask again for supplied values. After a template change, recheck variables for that service without affecting others. Unchanged variables inherit template values. Submit only overrides explicitly requested by the user; credential variables support overrides too. Do not copy template defaults back as overrides or submit redaction placeholders. Do not echo credential values in replies or confirmation descriptions. YAML-type parameters must still be preconfigured in the original template.
+
+When collecting additional information, query only resources needed by newly supplied or changed fields and their dependencies. Do not repeat catalog queries for unchanged templates, code sources or resolved parameters. Submit the changes directly to the business tool; the backend reuses draft validation results and collects missing fields. The program rechecks permissions and template changes before execution.
+
+## Output requirements
+
+Use the system language selected for this generation to show the project, services, sources and planned actions. Explain why optional steps such as builds are skipped. Clearly distinguish missing information, pending confirmation and individual execution results. Do not request or display plaintext secrets.
+
+## Completion criteria
+
+Report completion only when all required steps in the confirmed scope have finished and optional steps have been skipped according to the rules. Missing fields, pending confirmation, failures and unknown results do not count as completion.

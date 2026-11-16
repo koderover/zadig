@@ -17,38 +17,34 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary Get System AI review config
-// @Description Get System AI review config
+// @Description 需要 AI 能力查看或编辑权限。获取 AI 代码审查配置；输出语言统一使用系统语言，不提供独立语言配置。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
 // @Success 200 		{object} 	commonmodels.AIReviewConfig
 // @Router /api/aslan/system/ai/review [get]
 func GetSystemAIReviewConfig(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
+	ctx, allowed := newAIManagementContext(c, false)
+	if !allowed {
 		return
 	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	ctx.Resp, ctx.RespErr = service.GetSystemAIReviewConfig(ctx)
 }
 
 // @Summary Update System AI review config
-// @Description Update System AI review config
+// @Description 需要 AI 能力编辑权限。更新 AI 代码审查配置；输出语言统一使用系统语言，旧 output_language 参数不再生效。
 // @Tags 	system
 // @Accept 	json
 // @Produce json
@@ -56,14 +52,11 @@ func GetSystemAIReviewConfig(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/system/ai/review [put]
 func UpdateSystemAIReviewConfig(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
+	ctx, allowed := newAIManagementContext(c, true)
+	if !allowed {
 		return
 	}
+	defer internalhandler.JSONResponse(c, ctx)
 
 	args := new(commonmodels.AIReviewConfig)
 	if err := c.BindJSON(args); err != nil {
@@ -71,5 +64,6 @@ func UpdateSystemAIReviewConfig(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "AI能力-代码审查", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateSystemAIReviewConfig(ctx, args)
 }

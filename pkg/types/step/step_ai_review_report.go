@@ -19,17 +19,51 @@ package step
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 type StepAIReviewReportSpec struct {
-	ReportPath      string          `bson:"report_path" json:"report_path" yaml:"report_path"`
-	CodehostID      int             `bson:"codehost_id" json:"codehost_id" yaml:"codehost_id"`
-	RepoOwner       string          `bson:"repo_owner" json:"repo_owner" yaml:"repo_owner"`
-	RepoName        string          `bson:"repo_name" json:"repo_name" yaml:"repo_name"`
-	PR              int             `bson:"pr" json:"pr" yaml:"pr"`
-	Report          *AIReviewReport `bson:"report,omitempty" json:"report,omitempty" yaml:"report,omitempty"`
-	CollectionError string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
+	ReportPath string `bson:"report_path" json:"report_path" yaml:"report_path"`
+	CodehostID int    `bson:"codehost_id" json:"codehost_id" yaml:"codehost_id"`
+	RepoOwner  string `bson:"repo_owner" json:"repo_owner" yaml:"repo_owner"`
+	RepoName   string `bson:"repo_name" json:"repo_name" yaml:"repo_name"`
+	PR         int    `bson:"pr" json:"pr" yaml:"pr"`
+	// FailOn lists the severities that block the review when the quality gate is enabled.
+	FailOn []string `bson:"fail_on,omitempty" json:"fail_on,omitempty" yaml:"fail_on,omitempty"`
+	// QualityGateEnabled is nil for tasks created before it was recorded.
+	QualityGateEnabled *bool           `bson:"quality_gate_enabled,omitempty" json:"quality_gate_enabled,omitempty" yaml:"quality_gate_enabled,omitempty"`
+	Report             *AIReviewReport `bson:"report,omitempty" json:"report,omitempty" yaml:"report,omitempty"`
+	CollectionError    string          `bson:"collection_error,omitempty" json:"collection_error,omitempty" yaml:"collection_error,omitempty"`
+	// Publication records what was posted to the pull/merge request, for notifications.
+	Publication *AIReviewPublication `bson:"publication,omitempty" json:"publication,omitempty" yaml:"publication,omitempty"`
 }
+
+type AIReviewPublication struct {
+	PRRef           string                  `bson:"pr_ref" json:"pr_ref" yaml:"pr_ref"`
+	PRTitle         string                  `bson:"pr_title" json:"pr_title" yaml:"pr_title"`
+	PRURL           string                  `bson:"pr_url" json:"pr_url" yaml:"pr_url"`
+	SourceBranch    string                  `bson:"source_branch" json:"source_branch" yaml:"source_branch"`
+	TargetBranch    string                  `bson:"target_branch" json:"target_branch" yaml:"target_branch"`
+	InlinePublished int                     `bson:"inline_published" json:"inline_published" yaml:"inline_published"`
+	InlineComments  []AIReviewInlineComment `bson:"inline_comments,omitempty" json:"inline_comments,omitempty" yaml:"inline_comments,omitempty"`
+}
+
+type AIReviewInlineComment struct {
+	Severity string `bson:"severity" json:"severity" yaml:"severity"`
+	Title    string `bson:"title" json:"title" yaml:"title"`
+	URL      string `bson:"url" json:"url" yaml:"url"`
+}
+
+type AIReviewVerdict string
+
+const (
+	AIReviewVerdictPassed             AIReviewVerdict = "passed"
+	AIReviewVerdictPassedWithFindings AIReviewVerdict = "passed_with_findings"
+	AIReviewVerdictBlocked            AIReviewVerdict = "blocked"
+	AIReviewVerdictIncomplete         AIReviewVerdict = "incomplete"
+	// AIReviewVerdictAbnormal means the review exited with an unexpected code, so no pass conclusion can be drawn.
+	AIReviewVerdictAbnormal AIReviewVerdict = "abnormal"
+)
 
 // AIReviewReport mirrors the JSON report emitted by zadig-review-agent.
 type AIReviewReport struct {
@@ -62,6 +96,30 @@ func (r *AIReviewReport) UnmarshalJSON(data []byte) error {
 	}
 	r.Incomplete, r.ExitCode = *decoded.Incomplete, *decoded.ExitCode
 	return nil
+}
+
+// Verdict is the single source of the review outcome shared by PR comments and IM notifications.
+func (r *AIReviewReport) Verdict() AIReviewVerdict {
+	switch {
+	case r.Incomplete || r.ExitCode == 2:
+		return AIReviewVerdictIncomplete
+	case r.ExitCode == 1:
+		return AIReviewVerdictBlocked
+	case r.ExitCode != 0:
+		return AIReviewVerdictAbnormal
+	case len(r.Findings) > 0:
+		return AIReviewVerdictPassedWithFindings
+	}
+	return AIReviewVerdictPassed
+}
+
+// SeverityCounts counts findings by normalized (lower-case) severity.
+func (r *AIReviewReport) SeverityCounts() map[string]int {
+	counts := make(map[string]int)
+	for _, finding := range r.Findings {
+		counts[strings.ToLower(strings.TrimSpace(finding.Severity))]++
+	}
+	return counts
 }
 
 func (r *AIReviewReport) Validate() error {

@@ -129,7 +129,7 @@ var (
 	findWorkflowTaskForAIReleaseSpecialist = func(workflowName string, taskID int64) (*commonmodels.WorkflowTask, error) {
 		return commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	}
-	getAIReleaseSpecialistLLMClient    = llmservice.GetDefaultLLMClient
+	getAIReleaseSpecialistLLMClient    = llmservice.GetAIReleaseSpecialistLLMClient
 	getAIReleaseSpecialistConfirmUsers = func(users []*commonmodels.User, taskCreatorUserID string) []*commonmodels.User {
 		flatUsers, _ := commonutil.GeneFlatUsersWithCaller(users, taskCreatorUserID)
 		return flatUsers
@@ -223,7 +223,7 @@ func (c *AIReleaseSpecialistJobCtl) Run(ctx context.Context) {
 	client, err := getAIReleaseSpecialistLLMClient(jobCtx)
 	if err != nil {
 		c.job.Status = config.StatusFailed
-		c.job.Error = fmt.Sprintf("get default llm client failed: %v", err)
+		c.job.Error = fmt.Sprintf("get AI release specialist llm client failed: %v", err)
 		c.ack()
 		return
 	}
@@ -2853,7 +2853,7 @@ func CompileAIReleaseSpecialistRulePlan(ctx context.Context, sourceRule string, 
 
 		client, err := getAIReleaseSpecialistLLMClient(compileCtx)
 		if err != nil {
-			return nil, fmt.Errorf("get default llm client: %w", err)
+			return nil, fmt.Errorf("get AI release specialist llm client: %w", err)
 		}
 		prompt := buildAIReleaseSpecialistRulePlanPrompt(sourceRule, catalog)
 		var answer string

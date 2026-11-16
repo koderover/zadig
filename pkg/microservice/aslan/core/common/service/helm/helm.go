@@ -271,6 +271,9 @@ func UpdateAllServicesInEnv(productName, envName string, services [][]*models.Pr
 		}
 	}
 	// append chart services to the last group
+	if len(newServices) == 0 && len(productChartSvcMap) > 0 {
+		newServices = append(newServices, []*commonmodels.ProductService{})
+	}
 	for _, service := range productChartSvcMap {
 		service.UpdateTime = time.Now().Unix()
 		newServices[len(newServices)-1] = append(newServices[len(newServices)-1], service)

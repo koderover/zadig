@@ -17,7 +17,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -153,6 +155,10 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		}
 
 		ctx := e.Ctx
+		check := checkWorkflowApolloNamespaces(context.Background(), workflowController.WorkflowV4)
+		if !check.Passed {
+			return errors.New(strings.Join(check.Errors, "\n"))
+		}
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
 			Account: ctx.Account,

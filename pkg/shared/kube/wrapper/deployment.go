@@ -46,7 +46,14 @@ func (w *deployment) Unwrap() *appsv1.Deployment {
 }
 
 func (w *deployment) Ready() bool {
-	return w.Status.Replicas == w.Status.AvailableReplicas && w.Status.UnavailableReplicas == 0
+	// UpdatedReplicas counts pods matching the latest template; old available pods do not imply a completed rollout.
+	return w.Spec.Replicas != nil &&
+		w.Status.ObservedGeneration >= w.Generation &&
+		w.Status.UpdatedReplicas == *w.Spec.Replicas &&
+		w.Status.Replicas == *w.Spec.Replicas &&
+		w.Status.ReadyReplicas == *w.Spec.Replicas &&
+		w.Status.AvailableReplicas == *w.Spec.Replicas &&
+		w.Status.UnavailableReplicas == 0
 }
 
 func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {

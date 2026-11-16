@@ -158,6 +158,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
 	}
 
+	workflowTaskList := router.Group("workflowTaskList")
+	{
+		workflowTaskList.GET("", GetWorkflowTaskListSettings)
+		workflowTaskList.PUT("", UpdateWorkflowTaskListSettings)
+	}
+
 	// default login default login home page settings
 	login := router.Group("login")
 	{
@@ -237,6 +243,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	operation := router.Group("operation")
 	{
 		operation.GET("", GetOperationLogs)
+		operation.GET("/options", GetOperationLogOptions)
 		operation.POST("", AddSystemOperationLog)
 		operation.PUT("/:id", UpdateOperationLog)
 	}
@@ -527,8 +534,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	ai := router.Group("ai")
 	{
+		ai.GET("/release-specialist", GetAIReleaseSpecialistConfig)
+		ai.PUT("/release-specialist", UpdateAIReleaseSpecialistConfig)
 		ai.GET("/review", GetSystemAIReviewConfig)
 		ai.PUT("/review", UpdateSystemAIReviewConfig)
+		ai.GET("/assistant", GetAIAssistantConfig)
+		ai.PUT("/assistant", UpdateAIAssistantConfig)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -73,7 +73,8 @@ func CheckZadigEnterpriseLicense() error {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
 	if !ValidateZadigEnterpriseLicense(licenseStatus) {
-		return e.ErrLicenseInvalid.AddDesc("")
+		// 每次返回独立错误，避免并发校验修改共享错误对象。
+		return e.NewHTTPError(e.ErrLicenseInvalid.Code(), e.ErrLicenseInvalid.Message())
 	}
 	return nil
 }

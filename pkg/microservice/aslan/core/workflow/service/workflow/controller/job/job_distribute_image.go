@@ -80,6 +80,9 @@ func (j DistributeImageJobController) GetSpec() interface{} {
 }
 
 func (j DistributeImageJobController) Validate(isExecution bool) error {
+	if j.jobSpec.ImageConcurrencyLimit < 0 {
+		return fmt.Errorf("image distribution concurrency limit must not be negative")
+	}
 	if j.jobSpec.Source != config.SourceFromJob {
 		return nil
 	}
@@ -130,6 +133,7 @@ func (j DistributeImageJobController) Update(useUserInput bool, ticket *commonmo
 	j.jobSpec.EnableTargetImageTagRule = latestSpec.EnableTargetImageTagRule
 	j.jobSpec.TargetImageTagRule = latestSpec.TargetImageTagRule
 	j.jobSpec.Architecture = latestSpec.Architecture
+	j.jobSpec.ImageConcurrencyLimit = latestSpec.ImageConcurrencyLimit
 
 	return nil
 }
@@ -241,10 +245,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 	}
 
 	stepSpec := &step.StepImageDistributeSpec{
-		Type:           j.jobSpec.DistributeMethod,
-		SourceRegistry: getRegistry(sourceReg),
-		TargetRegistry: getRegistry(targetReg),
-		Architecture:   j.jobSpec.Architecture,
+		Type:                  j.jobSpec.DistributeMethod,
+		SourceRegistry:        getRegistry(sourceReg),
+		TargetRegistry:        getRegistry(targetReg),
+		Architecture:          j.jobSpec.Architecture,
+		ImageConcurrencyLimit: j.jobSpec.ImageConcurrencyLimit,
 	}
 	for _, target := range j.jobSpec.Targets {
 		// for other job refer current latest image.
