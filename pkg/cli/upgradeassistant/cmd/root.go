@@ -41,7 +41,9 @@ var rootCmd = &cobra.Command{
 
 // Execute executes the root command.
 func Execute() error {
-	return rootCmd.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func init() {
