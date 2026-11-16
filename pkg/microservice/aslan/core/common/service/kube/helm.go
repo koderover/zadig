@@ -85,6 +85,17 @@ type ReleaseInstallParam struct {
 	SkipUpgradeCRDs bool
 }
 
+// SkipUpgradeCRDsFunc decides per service whether to skip upgrading CRDs; nil keeps upgrading CRDs.
+type SkipUpgradeCRDsFunc func(render *templatemodels.ServiceRender) bool
+
+// SkipUpgradeCRDsForAll applies the same CRD upgrade decision to every service.
+func SkipUpgradeCRDsForAll(skip bool) SkipUpgradeCRDsFunc {
+	if !skip {
+		return nil
+	}
+	return func(*templatemodels.ServiceRender) bool { return true }
+}
+
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
 	chartPath, err := PreLoadHelmServiceChart(serviceObj, param.Production, &chartInstantiateDeploy{
@@ -799,7 +810,7 @@ func DownloadInstantiateChart(projectName, chartRepo, chartName, chartVersion, r
 	return nil
 }
 
-func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter DeploySvcFilter, user string, skipUpgradeCRDs bool, log *zap.SugaredLogger) error {
+func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter DeploySvcFilter, user string, skipUpgradeCRDs SkipUpgradeCRDsFunc, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
 
 	session := mongotool.Session()
@@ -912,7 +923,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				mongotool.AbortTransaction(session)
 				return err
 			}
-			param.SkipUpgradeCRDs = skipUpgradeCRDs
+			param.SkipUpgradeCRDs = skipUpgradeCRDs != nil && skipUpgradeCRDs(chartInfo)
 			prodSvc.Render = chartInfo
 			prodSvc.UpdateTime = time.Now().Unix()
 			installParamList = append(installParamList, param)

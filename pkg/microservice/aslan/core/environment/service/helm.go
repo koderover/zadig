@@ -311,6 +311,7 @@ func buildHelmValuesSource(valuesData *commonservice.ValuesDataArgs) (*template.
 
 	sourceData.Source = setting.SourceFromGitRepo
 	sourceData.AutoSync = valuesData.AutoSync
+	sourceData.UpgradeCRD = valuesData.UpgradeCRD
 	sourceData.SourceDetail = &models.CreateFromRepo{
 		GitRepoConfig: &template.GitRepoConfig{
 			CodehostID: repoConfig.CodehostID,
@@ -771,7 +772,12 @@ func UpdateHelmValuesSource(productName, envName, serviceOrReleaseName, userName
 		return fmt.Errorf("failed to find service %s in env %s", serviceOrReleaseName, envName)
 	}
 
-	prepareHelmValuesSourceForSave(prodSvc.GetServiceRender().OverrideYaml, sourceData)
+	currentSource := prodSvc.GetServiceRender().OverrideYaml
+	if sourceData.UpgradeCRD == nil && currentSource != nil {
+		// keep the configured CRD policy when the request omits it
+		sourceData.UpgradeCRD = currentSource.UpgradeCRD
+	}
+	prepareHelmValuesSourceForSave(currentSource, sourceData)
 	return commonrepo.NewProductColl().UpdateServiceValuesSource(
 		productName,
 		envName,

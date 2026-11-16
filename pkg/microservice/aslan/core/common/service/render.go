@@ -49,6 +49,8 @@ type ValuesDataArgs struct {
 	AutoSyncYaml  string         `json:"autoSyncYaml"`
 	GitRepoConfig *RepoConfig    `json:"gitRepoConfig"`
 	Commit        *models.Commit `json:"-"`
+	// UpgradeCRD controls whether CRDs are upgraded when values are synced from source, nil means true
+	UpgradeCRD *bool `json:"upgradeCRD,omitempty"`
 }
 
 type HelmSvcRenderArg struct {
@@ -118,6 +120,7 @@ func (args *HelmSvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 		ret.Source = args.ValuesData.YamlSource
 		ret.AutoSync = args.ValuesData.AutoSync
 		ret.AutoSyncYaml = args.ValuesData.AutoSyncYaml
+		ret.UpgradeCRD = args.ValuesData.UpgradeCRD
 
 		if args.ValuesData.GitRepoConfig != nil {
 			repoData := &models.CreateFromRepo{
@@ -153,7 +156,12 @@ func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.Service
 	chart.ChartVersion = version
 	// chart.ValuesYaml = valuesYaml
 	chart.OverrideValues = args.ToOverrideValueString()
-	chart.OverrideYaml = args.toCustomValuesYaml()
+	newOverrideYaml := args.toCustomValuesYaml()
+	if newOverrideYaml.UpgradeCRD == nil && chart.OverrideYaml != nil {
+		// keep the configured CRD policy when the request omits it
+		newOverrideYaml.UpgradeCRD = chart.OverrideYaml.UpgradeCRD
+	}
+	chart.OverrideYaml = newOverrideYaml
 }
 
 // LoadFromRenderChartModel load from render chart model

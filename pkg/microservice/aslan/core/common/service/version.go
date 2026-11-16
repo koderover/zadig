@@ -444,7 +444,7 @@ func CheckRollbackEnvServiceVersion(projectName, envName, serviceName string, re
 	}, nil
 }
 
-func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
+func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction, overrideResource, skipUpgradeCRDs bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
 	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
 		if mongodb.IsErrNoDocuments(err) {
@@ -783,7 +783,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 			if envSvcVersion.DeployStrategy != setting.ServiceDeployStrategyDraft {
 				go func(done chan bool) {
-					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName, false)
+					err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName, skipUpgradeCRDs)
 					if err != nil {
 						title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 						notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)

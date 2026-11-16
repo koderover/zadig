@@ -1739,7 +1739,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						OverrideResource: inputSpec.OverrideResource,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.OverrideResource, inputSpec.Detail, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.OverrideResource, false, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
@@ -1860,7 +1860,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						},
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, false, inputSpec.Detail, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, false, jobTaskSpec.SkipUpgradeCRDs, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
