@@ -120,7 +120,7 @@ func CreateProxy(c *gin.Context) {
 
 	detail := fmt.Sprintf("server:%s:%d", args.Address, args.Port)
 	detailEn := fmt.Sprintf("Server: %s:%d", args.Address, args.Port)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-代理配置", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -160,7 +160,7 @@ func UpdateProxy(c *gin.Context) {
 
 	detail := fmt.Sprintf("id:%s", args.ID)
 	detailEn := fmt.Sprintf("ID: %s", args.ID)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-代理配置", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -191,7 +191,7 @@ func DeleteProxy(c *gin.Context) {
 
 	detail := fmt.Sprintf("id:%s", c.Param("id"))
 	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "代理", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-代理配置", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

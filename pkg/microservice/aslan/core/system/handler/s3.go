@@ -116,7 +116,7 @@ func CreateS3Storage(c *gin.Context) {
 
 	detail := fmt.Sprintf("地址:%s", c.GetString("s3StorageEndpoint"))
 	detailEn := fmt.Sprintf("Endpoint: %s", c.GetString("s3StorageEndpoint"))
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-对象存储", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源配置-对象存储", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -243,7 +243,7 @@ func UpdateS3Storage(c *gin.Context) {
 
 	detail := fmt.Sprintf("地址:%s", c.GetString("s3StorageEndpoint"))
 	detailEn := fmt.Sprintf("Endpoint: %s", c.GetString("s3StorageEndpoint"))
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-对象存储", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-对象存储", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -297,7 +297,7 @@ func DeleteS3Storage(c *gin.Context) {
 
 	detail := fmt.Sprintf("s3Storage ID:%s", c.Param("id"))
 	detailEn := fmt.Sprintf("S3Storage ID: %s", c.Param("id"))
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-对象存储", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-对象存储", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

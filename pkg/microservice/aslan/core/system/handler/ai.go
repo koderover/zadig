@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary Get System AI review config
@@ -63,5 +64,6 @@ func UpdateSystemAIReviewConfig(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "AI能力-代码审查", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateSystemAIReviewConfig(ctx, args)
 }

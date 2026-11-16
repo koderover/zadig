@@ -82,7 +82,7 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,%s:%s", req.EnvName, req.ServiceName, req.WorkloadType, req.WorkloadName)
 	detailEn := fmt.Sprintf("Environment name: %s, service name: %s,%s,%s", req.EnvName, req.ServiceName, req.WorkloadType, req.WorkloadName)
 	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName+"(openAPI)",
+		c, ctx.UserName+"(OpenAPI)",
 		req.ProjectKey, setting.OperationSceneEnv,
 		"伸缩",
 		"环境-服务",
@@ -407,7 +407,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "更新", "测试环境", req.EnvName, req.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "测试环境", req.EnvName, req.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -476,7 +476,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ","))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "测试环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "删除", "测试环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -526,7 +526,7 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ","))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "生产环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "删除", "生产环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -594,7 +594,7 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境", req.EnvName, req.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "生产环境", req.EnvName, req.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, req.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -651,7 +651,7 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "环境配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -704,7 +704,7 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "生产环境配置", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -767,7 +767,7 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "(OpenAPI)"+"新建", "环境配置", detail, detail, string(logData), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProductName, setting.OperationSceneEnv, "新建", "环境配置", detail, detail, string(logData), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -895,7 +895,7 @@ func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "测试环境配置", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "删除", "测试环境配置", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -940,7 +940,7 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "生产环境配置", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "删除", "生产环境配置", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1000,7 +1000,7 @@ func OpenAPICreateK8sEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectName, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "测试环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, setting.OperationSceneEnv, "创建", "测试环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1034,7 +1034,7 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "生产环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "删除", "生产环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1086,7 +1086,7 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectName, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "生产环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectName, setting.OperationSceneEnv, "创建", "生产环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1131,7 +1131,7 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "测试环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "删除", "测试环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1244,7 +1244,7 @@ func OpenAPIUpdateEnvBasicInfo(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "更新", "测试环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	ctx.RespErr = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, false, ctx.Logger)
 }
@@ -1275,7 +1275,7 @@ func OpenAPIUpdateYamlServices(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "测试环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "环境管理-更新服务", "测试环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1349,7 +1349,7 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境管理-更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "更新", "测试环境管理-更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
@@ -1396,7 +1396,7 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "生产环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "环境管理-更新服务", "生产环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1456,7 +1456,7 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境管理-更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "更新", "生产环境管理-更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1516,7 +1516,7 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "更新", "生产环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1656,7 +1656,7 @@ func OpenAPIRestartService(c *gin.Context) {
 
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s", envName, serviceName)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s", envName, serviceName)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"重启", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "重启", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1700,7 +1700,7 @@ func OpenAPIProductionRestartService(c *gin.Context) {
 
 	detail := fmt.Sprintf("环境名称:%s,服务名称:%s", envName, serviceName)
 	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s", envName, serviceName)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"重启", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "重启", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1844,7 +1844,7 @@ func openAPIRestartServicePod(c *gin.Context, production bool) {
 
 	detail := fmt.Sprintf("环境名称:%s,pod名称:%s", envName, podName)
 	detailEn := fmt.Sprintf("Environment Name: %s, Pod Name: %s", envName, podName)
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectName, setting.OperationSceneEnv, "重启", "环境-服务实例", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectName, setting.OperationSceneEnv, "重启", "环境-服务实例", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
@@ -1935,7 +1935,7 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "OpenAPI-开启自测模式", "环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "开启自测模式", "环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1978,8 +1978,8 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"OpenAPI-关闭自测模式", "环境", envName, envName,
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv,
+		"关闭自测模式", "环境", envName, envName,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
@@ -2243,7 +2243,7 @@ func OpenAPICreateHelmEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectKey, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "测试环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", args.ProjectKey, setting.OperationSceneEnv, "创建", "测试环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -2383,7 +2383,7 @@ func OpenAPIAddHelmServicesToEnv(c *gin.Context) {
 	}
 
 	detail := request.EnvName
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, detail)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", projectKey, setting.OperationSceneEnv, "更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, detail)
 
 	// authorization checks
 	permitted := false

@@ -243,6 +243,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	operation := router.Group("operation")
 	{
 		operation.GET("", GetOperationLogs)
+		operation.GET("/options", GetOperationLogOptions)
 		operation.POST("", AddSystemOperationLog)
 		operation.PUT("/:id", UpdateOperationLog)
 	}

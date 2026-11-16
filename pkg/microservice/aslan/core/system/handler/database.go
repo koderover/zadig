@@ -25,6 +25,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListDBInstance(c *gin.Context) {
@@ -134,6 +135,7 @@ func CreateDBInstance(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源配置-数据库", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = commonservice.CreateDBInstance(args, ctx.Logger)
 }
 
@@ -200,6 +202,7 @@ func UpdateDBInstance(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-数据库", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = commonservice.UpdateDBInstance(id, args, ctx.Logger)
 }
 
@@ -227,6 +230,7 @@ func DeleteDBInstance(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-数据库", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = commonservice.DeleteDBInstance(id)
 }
 

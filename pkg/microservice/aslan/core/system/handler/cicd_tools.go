@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CreateCICDTools(c *gin.Context) {
@@ -60,6 +61,7 @@ func CreateCICDTools(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid url")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统集成-CI/CD工具", args.Name, args.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CreateCICDTools(args, ctx.Logger)
 	return
 }
@@ -109,6 +111,7 @@ func UpdateCICDTools(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统集成-CI/CD工具", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateCICDTools(c.Param("id"), args, ctx.Logger)
 }
 
@@ -127,5 +130,6 @@ func DeleteCICDTools(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统集成-CI/CD工具", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteCICDTools(c.Param("id"), ctx.Logger)
 }

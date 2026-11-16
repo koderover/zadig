@@ -82,7 +82,7 @@ func CreateBasicImage(c *gin.Context) {
 
 	detail := fmt.Sprintf("label:%s", args.Label)
 	detailEn := fmt.Sprintf("Label: %s", args.Label)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "自定义镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -123,7 +123,7 @@ func UpdateBasicImage(c *gin.Context) {
 
 	detail := fmt.Sprintf("id:%s", args.ID)
 	detailEn := fmt.Sprintf("ID: %s", args.ID)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "自定义镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -154,7 +154,7 @@ func DeleteBasicImage(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("id:%s", c.Param("id"))
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "自定义镜像", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

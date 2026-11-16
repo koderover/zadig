@@ -17,12 +17,14 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CleanImageCache(c *gin.Context) {
@@ -42,6 +44,7 @@ func CleanImageCache(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "清理", "系统配置-缓存清理", "镜像缓存", "Image cache", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CleanImageCache(ctx.Logger)
 }
 
@@ -67,6 +70,8 @@ func SetCron(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+	data, _ := json.Marshal(arg)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-缓存清理", "定时清理配置", "Scheduled cache cleanup settings", string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.SetCron(arg.Cron, arg.CronEnabled, ctx.Logger)
 }
 
@@ -99,5 +104,6 @@ func CleanSharedStorage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "清理", "系统配置-缓存清理", "共享存储", "Shared storage", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.CleanSharedStorage()
 }
