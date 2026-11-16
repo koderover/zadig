@@ -60,12 +60,10 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	k8schartutil "k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -495,21 +493,31 @@ func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string
 
 // getChart returns a chart matching the provided chart name and options.
 func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.ChartPathOptions) (*chart.Chart, string, error) {
-	chartPath, err := chartPathOptions.LocateChart(chartName, hClient.HelmClient.Settings)
-	if err != nil {
-		return nil, "", err
-	}
-
-	helmChart, err := loader.Load(chartPath)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if helmChart.Metadata.Deprecated {
+	var helmChart *chart.Chart
+	var chartPath string
+	err := withChartReadLock(chartName, func() error {
+		var err error
+		chartPath, err = chartPathOptions.LocateChart(chartName, hClient.HelmClient.Settings)
+		if err != nil {
+			return err
+		}
+		helmChart, err = loader.Load(chartPath)
+		return err
+	})
+	if err == nil && helmChart.Metadata.Deprecated {
 		hClient.HelmClient.DebugLog("WARNING: This chart (%q) is deprecated", helmChart.Metadata.Name)
 	}
-
 	return helmChart, chartPath, err
+}
+
+func (hClient *HelmClient) TemplateChart(spec *hc.ChartSpec, options *hc.HelmTemplateOptions) ([]byte, error) {
+	var manifest []byte
+	err := withChartReadLock(spec.ChartName, func() error {
+		var err error
+		manifest, err = hClient.HelmClient.TemplateChart(spec, options)
+		return err
+	})
+	return manifest, err
 }
 
 func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
@@ -617,7 +625,12 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 // still process aliases and imported values on the original chart during upgrade.
 // ponytail: callers use default value options; add reuse/reset handling if enabled.
 func (hClient *HelmClient) loadChartForCRDUpgrade(chartPath, releaseName string, values map[string]interface{}) (*chart.Chart, error) {
-	helmChart, err := loader.Load(chartPath)
+	var helmChart *chart.Chart
+	err := withChartReadLock(chartPath, func() error {
+		var err error
+		helmChart, err = loader.Load(chartPath)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -744,8 +757,21 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 // if unTar is true, no need to mkdir for destDir
 // if unTar is no, your need to mkdir for destDir yourself
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	if unTar {
+		return hClient.WithDownloadedChart(repoEntry, chartRef, chartVersion, destDir, nil)
+	}
+	return hClient.downloadChart(context.Background(), repoEntry, chartRef, chartVersion, destDir, false)
+}
+
+func (hClient *HelmClient) downloadChart(ctx context.Context, repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// download chart from ocr registry
 	if registry.IsOCI(repoEntry.URL) {
@@ -755,7 +781,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 			return fmt.Errorf("chart name is not valid")
 		}
 		chartRef = fmt.Sprintf("%s/%s", repoEntry.URL, chartNameStr[len(chartNameStr)-1])
-		return hClient.downloadOCIChart(repoEntry, chartRef, chartVersion, destDir, unTar)
+		return hClient.downloadOCIChart(ctx, repoEntry, chartRef, chartVersion, destDir, unTar)
 	}
 
 	_, err := hClient.UpdateChartRepo(repoEntry)
@@ -771,11 +797,11 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	pull.DestDir = destDir
 	pull.UntarDir = destDir
 	pull.Untar = unTar
-	_, err = hClient.runPull(pull, chartRef)
+	_, err = hClient.runPull(ctx, pull, chartRef)
 	return err
 }
 
-func (hClient *HelmClient) downloadOCIChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+func (hClient *HelmClient) downloadOCIChart(ctx context.Context, repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	pullConfig := &action.Configuration{}
 	var err error
 	pullConfig.RegistryClient, err = registry.NewClient(
@@ -799,12 +825,15 @@ func (hClient *HelmClient) downloadOCIChart(repoEntry *repo.Entry, chartRef stri
 	pull.DestDir = destDir
 	pull.UntarDir = destDir
 	pull.Untar = unTar
-	_, err = hClient.runPull(pull, chartRef)
+	_, err = hClient.runPull(ctx, pull, chartRef)
 	return err
 }
 
 // rewrite Pull.Run in helm.sh/helm/v3/pkg/action to support proxy
-func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, error) {
+func (hClient *HelmClient) runPull(ctx context.Context, p *action.Pull, chartRef string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	var out strings.Builder
 
 	c := downloader.ChartDownloader{
@@ -844,7 +873,11 @@ func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, err
 		if err != nil {
 			return out.String(), errors.Wrap(err, "failed to untar")
 		}
-		defer os.RemoveAll(dest)
+		defer func() {
+			if err := os.RemoveAll(dest); err != nil {
+				log.Warnf("Failed to clean chart download directory %s: %v", dest, err)
+			}
+		}()
 	}
 
 	if p.RepoURL != "" {
@@ -855,7 +888,14 @@ func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, err
 		chartRef = chartURL
 	}
 
+	if err := ctx.Err(); err != nil {
+		return out.String(), err
+	}
+	// shortcut: Helm DownloadTo cannot interrupt an in-flight pull; use a context-aware downloader if needed.
 	saved, v, err := c.DownloadTo(chartRef, p.Version, dest)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return out.String(), ctxErr
+	}
 	if err != nil {
 		return out.String(), err
 	}
@@ -874,25 +914,7 @@ func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, err
 		if !filepath.IsAbs(ud) {
 			ud = filepath.Join(p.DestDir, ud)
 		}
-		// Let udCheck to check conflict file/dir without replacing ud when untarDir is the current directory(.).
-		udCheck := ud
-		if udCheck == "." {
-			_, udCheck = filepath.Split(chartRef)
-		} else {
-			_, chartName := filepath.Split(chartRef)
-			udCheck = filepath.Join(udCheck, chartName)
-		}
-
-		if _, err := os.Stat(udCheck); err != nil {
-			if err := os.MkdirAll(udCheck, 0755); err != nil {
-				return out.String(), errors.Wrap(err, "failed to untar (mkdir)")
-			}
-
-		} else {
-			return out.String(), errors.Errorf("failed to untar: a file or directory with the name %s already exists", udCheck)
-		}
-
-		return out.String(), k8schartutil.ExpandFile(ud, saved)
+		return out.String(), expandDownloadedChart(ctx, saved, ud)
 	}
 	return out.String(), nil
 }
@@ -1092,32 +1114,14 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string, pr
 }
 
 func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string, isProduction bool) (string, error) {
-	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
-	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
-
-	lock := cache.NewRedisLock(fmt.Sprintf("download-chart-%s", localPath))
-	lock.Lock()
-	defer lock.Unlock()
-
-	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
-	mutex.Lock()
-	defer mutex.Unlock()
-	// remove local file to untar
-	_ = os.RemoveAll(localPath)
-
-	err := hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
-	if err != nil {
-		return "", fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
-	}
-	mutex.Unlock()
-
-	fsTree := os.DirFS(localPath)
-	valuesYAML, err := util.ReadValuesYAML(fsTree, chartName, log.SugaredLogger())
-	if err != nil {
-		return "", err
-	}
-
-	return string(valuesYAML), nil
+	dest := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
+	var values []byte
+	err := hClient.WithDownloadedChart(repoEntry, chartRepo+"/"+chartName, chartVersion, dest, func(ctx context.Context, chartPath string) error {
+		var err error
+		values, err = util.ReadValuesYAML(os.DirFS(dest), chartName, log.SugaredLogger())
+		return err
+	})
+	return string(values), err
 }
 
 // NOTE: When using this method, pay attention to whether restConfig is present in the original client.
