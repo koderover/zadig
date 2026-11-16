@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -414,6 +415,10 @@ func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace s
 		JobType: jobType,
 		JobName: jobTask.K8sJobName,
 	}, customLabels)
+	podLabels := maps.Clone(labels)
+	if targetCluster.AdvancedConfig != nil && kube.IsAliyunRRSA(targetCluster.Provider, targetCluster.AdvancedConfig.EnableIRSA) {
+		podLabels["pod-identity.alibabacloud.com/injection"] = "on"
+	}
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
@@ -454,7 +459,7 @@ EOF`,
 			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
+					Labels:      podLabels,
 					Annotations: customAnnotations,
 				},
 				Spec: corev1.PodSpec{

@@ -568,6 +568,7 @@ const (
 type ClusterProvider int
 
 const (
+	ClusterProviderAlibabaACK    = 1
 	ClusterProviderAmazonEKS     = 4
 	ClusterProviderTKEServerless = 5
 )

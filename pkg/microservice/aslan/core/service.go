@@ -260,10 +260,8 @@ func initResourcesForExternalClusters() {
 			},
 		}
 
-		if cluster.AdvancedConfig.EnableIRSA {
-			serviceAccount.Annotations = map[string]string{
-				"eks.amazonaws.com/role-arn": cluster.AdvancedConfig.IRSARoleARM,
-			}
+		if cluster.AdvancedConfig != nil {
+			serviceAccount.Annotations = kube.WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM)
 		}
 
 		if err := client.Create(context.Background(), serviceAccount); err != nil {

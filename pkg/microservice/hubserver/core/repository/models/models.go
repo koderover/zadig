@@ -42,6 +42,7 @@ type K8SCluster struct {
 	CreatedBy          string                  `json:"createdBy"                 bson:"createdBy"`
 	Disconnected       bool                    `json:"-"                         bson:"disconnected"`
 	Token              string                  `json:"token"                     bson:"-"`
+	Provider           int8                    `json:"provider"                  bson:"provider"`
 	Local              bool                    `json:"local"                     bson:"local"`
 	LastConnectionTime int64                   `json:"last_connection_time"      bson:"last_connection_time"`
 	AdvancedConfig     *AdvancedConfig         `json:"advanced_config"           bson:"advanced_config"`
