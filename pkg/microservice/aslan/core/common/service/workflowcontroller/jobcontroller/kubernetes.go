@@ -297,6 +297,9 @@ sleep 1
 	if err != nil {
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
 	}
+	if !targetCluster.CanScheduleWorkflow(workflowCtx.ProjectName) {
+		return nil, fmt.Errorf("project %s is not allowed to run workflows on cluster %s", workflowCtx.ProjectName, clusterID)
+	}
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -400,6 +403,9 @@ func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace s
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)
+	}
+	if !targetCluster.CanScheduleWorkflow(workflowCtx.ProjectName) {
+		return nil, fmt.Errorf("project %s is not allowed to run workflows on cluster %s", workflowCtx.ProjectName, clusterID)
 	}
 
 	jobExecutorBootingScript = fmt.Sprintf("mkdir %sdebug;", ZadigContextDir)

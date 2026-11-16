@@ -68,6 +68,14 @@ func (c *K8SClusterColl) Delete(id string) error {
 	return err
 }
 
+func (c *K8SClusterColl) RemoveWorkflowProject(projectName string) error {
+	_, err := c.UpdateMany(context.TODO(),
+		bson.M{"advanced_config.workflow_project_names": projectName},
+		bson.M{"$pull": bson.M{"advanced_config.workflow_project_names": projectName}},
+	)
+	return err
+}
+
 func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
 	if id != "" {
 		cluster.ID, _ = primitive.ObjectIDFromHex(id)
