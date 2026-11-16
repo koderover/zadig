@@ -23,12 +23,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"slices"
 	"strings"
-	"time"
 
+	"github.com/epiclabs-io/diff3"
 	"gopkg.in/yaml.v3"
 )
 
@@ -40,28 +38,23 @@ func MergeConfig(ctx context.Context, format, original, planned, current string)
 	case planned == original || planned == current:
 		merged = current
 	case current != original:
-		dir, err := os.MkdirTemp("", "apollo-merge-")
-		if err != nil {
-			return "", fmt.Errorf("create merge directory: %w", err)
-		}
-		defer os.RemoveAll(dir)
-		files := []string{filepath.Join(dir, "planned"), filepath.Join(dir, "original"), filepath.Join(dir, "current")}
-		for i, content := range []string{planned, original, current} {
-			if err := os.WriteFile(files[i], []byte(content), 0600); err != nil {
-				return "", fmt.Errorf("write merge input: %w", err)
-			}
-		}
-		mergeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		output, err := exec.CommandContext(mergeCtx, "git", "merge-file", "--stdout", "--diff3", "--", files[0], files[1], files[2]).Output()
-		if err != nil {
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) && exitErr.ExitCode() > 0 && exitErr.ExitCode() < 128 {
+		// Keep line terminators, including CRLF and missing final newlines.
+		blocks := diff3.Diff3MergeWithOptions(
+			slices.Collect(strings.Lines(planned)),
+			slices.Collect(strings.Lines(original)),
+			slices.Collect(strings.Lines(current)),
+			diff3.MergeOptions{Algorithm: diff3.DiffAlgorithmMyers, ExcludeFalseConflicts: true},
+		)
+		var output strings.Builder
+		for _, block := range blocks {
+			if block.Conflict != nil {
 				return "", errors.New("configuration merge conflict; refresh the original configuration and edit again")
 			}
-			return "", fmt.Errorf("git configuration merge failed: %w", err)
+			for _, line := range block.Ok {
+				output.WriteString(line)
+			}
 		}
-		merged = string(output)
+		merged = output.String()
 	}
 	if err := validateConfig(format, merged); err != nil {
 		return "", fmt.Errorf("merged configuration is invalid; refresh the original configuration and edit again: %w", err)
