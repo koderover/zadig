@@ -260,7 +260,9 @@ func initResourcesForExternalClusters() {
 			},
 		}
 
-		serviceAccount.Annotations = kube.WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM)
+		if cluster.AdvancedConfig != nil {
+			serviceAccount.Annotations = kube.WorkflowServiceAccountAnnotations(cluster.Provider, cluster.AdvancedConfig.EnableIRSA, cluster.AdvancedConfig.IRSARoleARM)
+		}
 
 		if err := client.Create(context.Background(), serviceAccount); err != nil {
 			if apierrors.IsAlreadyExists(err) {
