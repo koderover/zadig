@@ -29,6 +29,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
 type openAPIEnvServiceVersionParams struct {
@@ -185,6 +186,8 @@ type OpenAPIRollbackEnvServiceVersionRequest struct {
 	Revision         int64  `json:"revision"`
 	OverrideResource bool   `json:"override_resource"`
 	Detail           string `json:"detail"`
+	// UpgradeCRD controls whether CRDs in the helm chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgrade_crd,omitempty"`
 }
 
 // @Summary 回滚环境服务版本
@@ -231,7 +234,7 @@ func OpenAPIRollbackEnvServiceVersion(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(OpenAPI)", params.projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, params.envName)
 
 	// same as the console API: Helm releases are upgraded asynchronously after this returns
-	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, req.Revision, params.isHelmChart, params.production, req.OverrideResource, false, req.Detail, ctx.Logger)
+	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, params.projectKey, params.envName, params.serviceName, req.Revision, params.isHelmChart, params.production, req.OverrideResource, boolptr.IsFalse(req.UpgradeCRD), req.Detail, ctx.Logger)
 	if ctx.RespErr == nil {
 		ctx.Resp = gin.H{"message": "success"}
 	}
