@@ -266,6 +266,7 @@ var OperationLogI18NFunctionMap = map[string]string{
 	"系统语言":           "System Language",
 	"系统集成-默认账号系统":    "System Integration - Default Account System",
 	"代码审查":           "Code Review",
+	"AI能力-代码审查":      "AI Capabilities - Code Review",
 	"公告管理":           "Announcement Management",
 	"系统配置-邮件配置":      "System Configuration - Email Configuration",
 	"系统配置-代理配置":      "System Configuration - Proxy Configuration",

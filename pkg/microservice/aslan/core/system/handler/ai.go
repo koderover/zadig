@@ -72,6 +72,6 @@ func UpdateSystemAIReviewConfig(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代码审查", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "AI能力-代码审查", "", "", "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateSystemAIReviewConfig(ctx, args)
 }
