@@ -167,7 +167,7 @@ func (c *Client) getAIReviewPRMetadata(ctx context.Context, cli *aiReviewComment
 		if err != nil {
 			return 0, AIReviewPRMetadata{}, err
 		}
-		metadata := AIReviewPRMetadata{Title: mr.Title, URL: mr.WebURL}
+		metadata := AIReviewPRMetadata{Title: mr.Title, URL: mr.WebURL, SourceBranch: mr.SourceBranch, TargetBranch: mr.TargetBranch}
 		if mr.Author != nil {
 			metadata.Author = mr.Author.Username
 		}
@@ -177,7 +177,7 @@ func (c *Client) getAIReviewPRMetadata(ctx context.Context, cli *aiReviewComment
 	if err != nil {
 		return 0, AIReviewPRMetadata{}, err
 	}
-	return 0, AIReviewPRMetadata{Title: pull.GetTitle(), Author: pull.GetUser().GetLogin(), URL: pull.GetHTMLURL()}, nil
+	return 0, AIReviewPRMetadata{Title: pull.GetTitle(), Author: pull.GetUser().GetLogin(), URL: pull.GetHTMLURL(), SourceBranch: pull.GetHead().GetRef(), TargetBranch: pull.GetBase().GetRef()}, nil
 }
 
 func (c *Client) createAIReviewInlineComments(ctx context.Context, cli *aiReviewCommentClient, projectID, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport) (aiReviewInlinePublishResult, error) {
@@ -195,7 +195,7 @@ func (c *Client) createGitHubAIReviewInlineComments(ctx context.Context, cli *gi
 	if err != nil {
 		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitHub pull request: %w", err)
 	}
-	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: pullRequest.GetTitle(), Author: pullRequest.GetUser().GetLogin(), URL: pullRequest.GetHTMLURL()}
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: pullRequest.GetTitle(), Author: pullRequest.GetUser().GetLogin(), URL: pullRequest.GetHTMLURL(), Source: pullRequest.GetHead().GetRef(), Target: pullRequest.GetBase().GetRef()}
 	existing, err := reviewfeedback.CurrentGitHubInlineThreads(ctx, cli, repoOwner, repoName, prID)
 	if err != nil {
 		return result, fmt.Errorf("read current GitHub AI review threads: %w", err)
@@ -298,7 +298,7 @@ func (c *Client) createGitLabAIReviewInlineComments(ctx context.Context, cli *gi
 	if err != nil {
 		return aiReviewInlinePublishResult{}, fmt.Errorf("get GitLab merge request changes: %w", err)
 	}
-	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: mergeRequest.Title, URL: mergeRequest.WebURL, ProjectID: mergeRequest.ProjectID}
+	result := aiReviewInlinePublishResult{Fallback: make([]stepspec.AIReviewFinding, 0), Title: mergeRequest.Title, URL: mergeRequest.WebURL, Source: mergeRequest.SourceBranch, Target: mergeRequest.TargetBranch, ProjectID: mergeRequest.ProjectID}
 	if mergeRequest.Author != nil {
 		result.Author = mergeRequest.Author.Username
 	}
