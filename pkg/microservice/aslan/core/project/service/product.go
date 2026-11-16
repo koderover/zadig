@@ -745,6 +745,11 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		log.Errorf("DeleteProductTemplate Delete productName %s ProjectClusterRelation err: %s", productName, err)
 	}
 
+	if err = commonrepo.NewK8SClusterColl().RemoveWorkflowProject(productName); err != nil {
+		log.Errorf("DeleteProductTemplate Remove workflow permission for productName %s err: %s", productName, err)
+		return err
+	}
+
 	err = templaterepo.NewProductColl().Delete(productName)
 	if err != nil {
 		log.Errorf("ProductTmpl.Delete error: %s", err)

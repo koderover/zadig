@@ -311,9 +311,9 @@ rules:
 `
 
 	AdvancedConfig := &clusterservice.AdvancedConfig{
-		ClusterAccessYaml: clusterAccessYaml,
-		ProjectNames:      req.ProjectNames,
-		ScheduleWorkflow:  true,
+		ClusterAccessYaml:    clusterAccessYaml,
+		ProjectNames:         req.ProjectNames,
+		WorkflowProjectNames: req.ProjectNames,
 		ScheduleStrategy: []*clusterservice.ScheduleStrategy{
 			{
 				NodeLabels:   []string{},
