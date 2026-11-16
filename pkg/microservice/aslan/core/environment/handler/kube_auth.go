@@ -18,45 +18,29 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-type kubeResourcePermission int
-
-const (
-	kubeClusterInventory kubeResourcePermission = iota
-	kubeNamespaceCandidates
-	kubeWorkflowCandidates
-)
-
-type kubeResourceQuery struct {
-	ProjectName string `form:"projectName"`
-	ClusterID   string `form:"clusterId"`
-	Production  *bool  `form:"production"`
-}
-
-func newKubeResourceContext(c *gin.Context, permission kubeResourcePermission) *internalhandler.Context {
+func newKubeResourceContext(c *gin.Context, permission clusterservice.KubeResourcePermission) *internalhandler.Context {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
 		ctx.RespErr = err
 		ctx.UnAuthorized = true
 		return ctx
 	}
-	query := kubeResourceQuery{}
+	query := clusterservice.KubeResourceQuery{}
 	if err := c.ShouldBindQuery(&query); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return ctx
 	}
-	if canReadAllKubeResources(ctx.Resources, permission) {
+	if clusterservice.CanReadAllKubeResources(ctx.Resources, permission) {
 		return ctx
 	}
-	if permission == kubeClusterInventory {
+	if permission == clusterservice.KubeClusterInventory {
 		ctx.UnAuthorized = true
 		return ctx
 	}
@@ -71,78 +55,8 @@ func newKubeResourceContext(c *gin.Context, permission kubeResourcePermission) *
 		ctx.RespErr = err
 		return ctx
 	}
-	permitted, err := canSelectKubeResources(ctx, query, permission, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
+	permitted, err := clusterservice.CanSelectKubeResources(ctx, query, permission, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
 	ctx.RespErr = err
 	ctx.UnAuthorized = !permitted
 	return ctx
-}
-
-func canReadAllKubeResources(resources *user.AuthorizedResources, permission kubeResourcePermission) bool {
-	if resources.IsSystemAdmin {
-		return true
-	}
-	actions := resources.SystemActions
-	if actions == nil {
-		return false
-	}
-	if actions.ClusterManagement != nil && actions.ClusterManagement.View {
-		return true
-	}
-	// Workflow templates are system-scoped and can select targets across projects.
-	return permission == kubeWorkflowCandidates && actions.Template != nil && (actions.Template.Create || actions.Template.Edit)
-}
-
-func canSelectKubeResources(ctx *internalhandler.Context, query kubeResourceQuery, permission kubeResourcePermission,
-	relations []*commonmodels.ProjectClusterRelation,
-	listCollaboration func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error)) (bool, error) {
-	var collaborationErr error
-	for project, auth := range ctx.Resources.ProjectAuthInfo {
-		if auth == nil || (query.ProjectName != "" && query.ProjectName != project) {
-			continue
-		}
-		allowedCluster := false
-		for _, relation := range relations {
-			if relation.ClusterID == query.ClusterID && (relation.ProjectName == project || relation.ProjectName == setting.AllProjects) {
-				allowedCluster = true
-				break
-			}
-		}
-		if !allowedCluster {
-			continue
-		}
-		// A project cluster grant covers selector metadata, including unbound namespaces.
-		if auth.IsProjectAdmin {
-			return true, nil
-		}
-		switch permission {
-		case kubeNamespaceCandidates:
-			if query.Production == nil || !*query.Production {
-				if (auth.Env != nil && auth.Env.Create) || (auth.Service != nil && auth.Service.Create) {
-					return true, nil
-				}
-			}
-			if query.Production == nil || *query.Production {
-				if (auth.ProductionEnv != nil && auth.ProductionEnv.Create) || (auth.ProductionService != nil && auth.ProductionService.Create) {
-					return true, nil
-				}
-			}
-		case kubeWorkflowCandidates:
-			if auth.Workflow != nil && (auth.Workflow.Create || auth.Workflow.Edit) {
-				return true, nil
-			}
-			collaboration, err := listCollaboration(ctx.UserID, project)
-			if err != nil {
-				collaborationErr = err
-				continue
-			}
-			if collaboration != nil {
-				for _, workflow := range collaboration.ProjectWorkflowActionsMap[project] {
-					if workflow != nil && workflow.Edit {
-						return true, nil
-					}
-				}
-			}
-		}
-	}
-	return false, collaborationErr
 }

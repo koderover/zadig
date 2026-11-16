@@ -54,6 +54,24 @@ func ListClusters(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
+	if c.Query("scene") == "selector" {
+		query := service.KubeResourceQuery{}
+		if err := c.ShouldBindQuery(&query); err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+			return
+		}
+		candidates, err := service.ListClusterSelectors(ctx, clusters, query)
+		if err != nil {
+			ctx.RespErr = err
+			return
+		}
+		if len(candidates) == 0 && !service.CanReadAllKubeResources(ctx.Resources, service.KubeClusterCandidates) {
+			ctx.UnAuthorized = true
+			return
+		}
+		ctx.Resp = candidates
+		return
+	}
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "" {

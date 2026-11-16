@@ -26,6 +26,7 @@ import (
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -85,7 +86,7 @@ func ListKubeEvents(c *gin.Context) {
 }
 
 func ListAvailableNamespaces(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeNamespaceCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeNamespaceCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -208,7 +209,7 @@ func ListPodEvents(c *gin.Context) {
 }
 
 func ListNodes(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeClusterInventory)
+	ctx := newKubeResourceContext(c, clusterservice.KubeClusterInventory)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -286,7 +287,7 @@ func DownloadFileFromPod(c *gin.Context) {
 }
 
 func ListNamespace(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -296,7 +297,7 @@ func ListNamespace(c *gin.Context) {
 }
 
 func ListDeploymentNames(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeClusterInventory)
+	ctx := newKubeResourceContext(c, clusterservice.KubeClusterInventory)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -306,7 +307,7 @@ func ListDeploymentNames(c *gin.Context) {
 }
 
 func ListWorkloadsInfo(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -457,7 +458,7 @@ func GetPodsDetailInfo(c *gin.Context) {
 }
 
 func ListCustomWorkload(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -467,7 +468,7 @@ func ListCustomWorkload(c *gin.Context) {
 }
 
 func ListCanaryDeploymentServiceInfo(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -477,7 +478,7 @@ func ListCanaryDeploymentServiceInfo(c *gin.Context) {
 }
 
 func ListAllK8sResourcesInNamespace(c *gin.Context) {
-	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
