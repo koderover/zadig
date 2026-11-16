@@ -29,6 +29,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -103,6 +104,9 @@ func (d *dockerhosts) GetBestHost(clusterID ClusterID, key string) string {
 
 	// round-robin
 	members := d.store[clusterID].GetMembers()
+	if len(members) == 0 {
+		return ""
+	}
 	index := d.GetBestHostIndex(clusterID)
 	index = (index + 1) % len(members)
 	member := members[index]
@@ -165,12 +169,16 @@ func (d *dockerhosts) getDockerHostsSvc(clusterID ClusterID) []consistent.Member
 		Name:      "dind",
 		Namespace: ns,
 	}, dindSts)
+	if apierrors.IsNotFound(err) {
+		d.logger.Infof("Dind statefulset not found in namespace %q of cluster %q, skipping dind injection", ns, clusterID)
+		return nil
+	}
 	if err != nil {
 		d.logger.Warnf("Failed to get dind statefuleset in namespace %q of cluster %q: %s", ns, clusterID, err)
 		return d.getDefaultDockerHosts()
 	}
 
-	members := []consistent.Member{}
+	var members []consistent.Member
 	for i := 0; i < int(*dindSts.Spec.Replicas); i++ {
 		members = append(members, d.genDindAddr(i))
 	}
