@@ -990,7 +990,7 @@ metadata:
   {{- if .IRSAAnnotations }}
   annotations:
     {{- range $key, $value := .IRSAAnnotations }}
-    {{$key}}: {{$value}}
+    {{$key}}: {{$value | printf "%q"}}
     {{- end }}
   {{- end }}
 
@@ -1267,7 +1267,7 @@ metadata:
   {{- if .IRSAAnnotations }}
   annotations:
     {{- range $key, $value := .IRSAAnnotations }}
-    {{$key}}: {{$value}}
+    {{$key}}: {{$value | printf "%q"}}
     {{- end }}
   {{- end }}
 
