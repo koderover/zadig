@@ -18,8 +18,8 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -47,6 +47,7 @@ func checkReleasePlanJob(ctx context.Context, job *models.ReleaseJob) *ReleaseJo
 
 // Prechecks are read-only. Execution checks again under the namespace lock
 // because Apollo can change after this check has completed.
+// The deadline cancels I/O; local merge results are checked for expiry afterward.
 func checkWorkflowApolloNamespaces(ctx context.Context, workflow *models.WorkflowV4) *ReleaseJobCheckResult {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -90,8 +91,8 @@ func checkWorkflowApolloNamespaces(ctx context.Context, workflow *models.Workflo
 				message := ""
 				if clientErr != nil {
 					message = fmt.Sprintf("读取 Apollo 配置失败：%v", clientErr)
-				} else if _, err := apolloservice.MergeNamespace(ctx, client, namespace); err != nil {
-					if strings.Contains(err.Error(), "configuration merge conflict") {
+				} else if _, err := apolloservice.MergeNamespace(client, namespace); err != nil {
+					if errors.Is(err, apollo.ErrMergeConflict) {
 						message = "Apollo 配置已更新，自动合并发生冲突，请重新编辑并保存。"
 					} else {
 						message = fmt.Sprintf("配置检查失败：%v", err)

@@ -17,7 +17,6 @@
 package apollo
 
 import (
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -30,9 +29,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ErrMergeConflict indicates overlapping configuration changes.
+var ErrMergeConflict = errors.New("configuration merge conflict")
+
 // MergeConfig preserves the original text while applying the planned changes to
 // the current Apollo value. Conflict markers are never returned for publishing.
-func MergeConfig(ctx context.Context, format, original, planned, current string) (string, error) {
+func MergeConfig(format, original, planned, current string) (string, error) {
 	merged := planned
 	switch {
 	case planned == original || planned == current:
@@ -48,7 +50,7 @@ func MergeConfig(ctx context.Context, format, original, planned, current string)
 		var output strings.Builder
 		for _, block := range blocks {
 			if block.Conflict != nil {
-				return "", errors.New("configuration merge conflict; refresh the original configuration and edit again")
+				return "", fmt.Errorf("%w; refresh the original configuration and edit again", ErrMergeConflict)
 			}
 			for _, line := range block.Ok {
 				output.WriteString(line)

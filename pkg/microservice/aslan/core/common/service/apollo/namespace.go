@@ -17,7 +17,6 @@
 package apollo
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -27,7 +26,8 @@ import (
 
 // MergeNamespace reads the current configuration and prepares validated
 // updates without writing to Apollo or changing the saved plan.
-func MergeNamespace(ctx context.Context, client *apollotool.Client, namespace *models.ApolloNamespace) (*models.ApolloNamespace, error) {
+// The caller binds request cancellation and deadlines to client.
+func MergeNamespace(client *apollotool.Client, namespace *models.ApolloNamespace) (*models.ApolloNamespace, error) {
 	if namespace == nil {
 		return nil, errors.New("Apollo namespace is nil")
 	}
@@ -84,7 +84,7 @@ func MergeNamespace(ctx context.Context, client *apollotool.Client, namespace *m
 		if hadOriginal && !exists {
 			return nil, fmt.Errorf("config key %s was deleted in Apollo; refresh the original configuration and edit again", key)
 		}
-		merged, err := apollotool.MergeConfig(ctx, format, base, kv.Val, value)
+		merged, err := apollotool.MergeConfig(format, base, kv.Val, value)
 		if err != nil {
 			return nil, fmt.Errorf("merge config key %s failed: %w", key, err)
 		}

@@ -207,12 +207,16 @@ func (c *ApolloJobCtl) updateNamespace(ctx context.Context, client *apollo.Clien
 	}
 	defer lock.Unlock()
 
-	// Bound the entire read/merge/write/release operation below the lock lease.
+	// Bound Apollo I/O below the lock lease. Local merging cannot be interrupted;
+	// reject its result if the context expires before writing.
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	client = client.WithContext(ctx)
-	merged, err := apolloservice.MergeNamespace(ctx, client, namespace)
+	merged, err := apolloservice.MergeNamespace(client, namespace)
 	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	return updateAndReleaseNamespace(client, merged, user, releaseArgs)
