@@ -85,7 +85,7 @@ func ListKubeEvents(c *gin.Context) {
 }
 
 func ListAvailableNamespaces(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeNamespaceCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -208,7 +208,7 @@ func ListPodEvents(c *gin.Context) {
 }
 
 func ListNodes(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeClusterInventory)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -286,7 +286,7 @@ func DownloadFileFromPod(c *gin.Context) {
 }
 
 func ListNamespace(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -296,7 +296,7 @@ func ListNamespace(c *gin.Context) {
 }
 
 func ListDeploymentNames(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeClusterInventory)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -306,7 +306,7 @@ func ListDeploymentNames(c *gin.Context) {
 }
 
 func ListWorkloadsInfo(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -457,7 +457,7 @@ func GetPodsDetailInfo(c *gin.Context) {
 }
 
 func ListCustomWorkload(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -467,7 +467,7 @@ func ListCustomWorkload(c *gin.Context) {
 }
 
 func ListCanaryDeploymentServiceInfo(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return
@@ -477,7 +477,7 @@ func ListCanaryDeploymentServiceInfo(c *gin.Context) {
 }
 
 func ListAllK8sResourcesInNamespace(c *gin.Context) {
-	ctx := newKubeResourceContext(c)
+	ctx := newKubeResourceContext(c, kubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return

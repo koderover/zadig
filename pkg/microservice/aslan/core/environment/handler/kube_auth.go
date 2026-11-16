@@ -22,70 +22,127 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/types"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func newKubeResourceContext(c *gin.Context) *internalhandler.Context {
+type kubeResourcePermission int
+
+const (
+	kubeClusterInventory kubeResourcePermission = iota
+	kubeNamespaceCandidates
+	kubeWorkflowCandidates
+)
+
+type kubeResourceQuery struct {
+	ProjectName string `form:"projectName"`
+	ClusterID   string `form:"clusterId"`
+	Production  *bool  `form:"production"`
+}
+
+func newKubeResourceContext(c *gin.Context, permission kubeResourcePermission) *internalhandler.Context {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
 		ctx.RespErr = err
 		ctx.UnAuthorized = true
 		return ctx
 	}
-	if ctx.Resources.IsSystemAdmin || (ctx.Resources.SystemActions != nil &&
-		ctx.Resources.SystemActions.ClusterManagement != nil && ctx.Resources.SystemActions.ClusterManagement.View) {
+	query := kubeResourceQuery{}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return ctx
 	}
-
-	namespace := c.Param("namespace")
-	// Cluster-wide inventory and unbound namespaces require cluster-level permission.
-	if namespace == "" {
+	if canReadAllKubeResources(ctx.Resources, permission) {
+		return ctx
+	}
+	if permission == kubeClusterInventory {
 		ctx.UnAuthorized = true
 		return ctx
 	}
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Namespace: namespace})
+	if clusterID := c.Param("clusterID"); clusterID != "" {
+		query.ClusterID = clusterID
+	}
+	if query.ClusterID == "" {
+		query.ClusterID = setting.LocalClusterID
+	}
+	relations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: query.ClusterID})
 	if err != nil {
 		ctx.RespErr = err
 		return ctx
 	}
-	ctx.UnAuthorized = !canViewKubeNamespace(ctx, c.Param("clusterID"), namespace, envs, internalhandler.GetCollaborationModePermission)
+	permitted, err := canSelectKubeResources(ctx, query, permission, relations, internalhandler.ListAuthorizedWorkflowWithVerb)
+	ctx.RespErr = err
+	ctx.UnAuthorized = !permitted
 	return ctx
 }
 
-func canViewKubeNamespace(ctx *internalhandler.Context, clusterID, namespace string, envs []*commonmodels.Product,
-	checkCollaboration func(string, string, string, string, string) (bool, error)) bool {
-	if clusterID == "" {
-		clusterID = setting.LocalClusterID
+func canReadAllKubeResources(resources *user.AuthorizedResources, permission kubeResourcePermission) bool {
+	if resources.IsSystemAdmin {
+		return true
 	}
-	for _, env := range envs {
-		envClusterID := env.ClusterID
-		if envClusterID == "" {
-			envClusterID = setting.LocalClusterID
-		}
-		if envClusterID != clusterID || env.Namespace != namespace {
+	actions := resources.SystemActions
+	if actions == nil {
+		return false
+	}
+	if actions.ClusterManagement != nil && actions.ClusterManagement.View {
+		return true
+	}
+	// Workflow templates are system-scoped and can select targets across projects.
+	return permission == kubeWorkflowCandidates && actions.Template != nil && (actions.Template.Create || actions.Template.Edit)
+}
+
+func canSelectKubeResources(ctx *internalhandler.Context, query kubeResourceQuery, permission kubeResourcePermission,
+	relations []*commonmodels.ProjectClusterRelation,
+	listCollaboration func(string, string) (*user.CollModeAuthorizedWorkflowWithVerb, error)) (bool, error) {
+	var collaborationErr error
+	for project, auth := range ctx.Resources.ProjectAuthInfo {
+		if auth == nil || (query.ProjectName != "" && query.ProjectName != project) {
 			continue
 		}
-		projectAuth := ctx.Resources.ProjectAuthInfo[env.ProductName]
-		if projectAuth == nil {
-			continue
-		}
-		if projectAuth.IsProjectAdmin {
-			return true
-		}
-		action := types.EnvActionView
-		if env.Production {
-			action = types.ProductionEnvActionView
-			if projectAuth.ProductionEnv != nil && projectAuth.ProductionEnv.View {
-				return true
+		allowedCluster := false
+		for _, relation := range relations {
+			if relation.ClusterID == query.ClusterID && (relation.ProjectName == project || relation.ProjectName == setting.AllProjects) {
+				allowedCluster = true
+				break
 			}
-		} else if projectAuth.Env != nil && projectAuth.Env.View {
-			return true
 		}
-		permitted, err := checkCollaboration(ctx.UserID, env.ProductName, types.ResourceTypeEnvironment, env.EnvName, action)
-		if err == nil && permitted {
-			return true
+		if !allowedCluster {
+			continue
+		}
+		// A project cluster grant covers selector metadata, including unbound namespaces.
+		if auth.IsProjectAdmin {
+			return true, nil
+		}
+		switch permission {
+		case kubeNamespaceCandidates:
+			if query.Production == nil || !*query.Production {
+				if (auth.Env != nil && auth.Env.Create) || (auth.Service != nil && auth.Service.Create) {
+					return true, nil
+				}
+			}
+			if query.Production == nil || *query.Production {
+				if (auth.ProductionEnv != nil && auth.ProductionEnv.Create) || (auth.ProductionService != nil && auth.ProductionService.Create) {
+					return true, nil
+				}
+			}
+		case kubeWorkflowCandidates:
+			if auth.Workflow != nil && (auth.Workflow.Create || auth.Workflow.Edit) {
+				return true, nil
+			}
+			collaboration, err := listCollaboration(ctx.UserID, project)
+			if err != nil {
+				collaborationErr = err
+				continue
+			}
+			if collaboration != nil {
+				for _, workflow := range collaboration.ProjectWorkflowActionsMap[project] {
+					if workflow != nil && workflow.Edit {
+						return true, nil
+					}
+				}
+			}
 		}
 	}
-	return false
+	return false, collaborationErr
 }
