@@ -29,7 +29,6 @@ const (
 	KubeClusterInventory KubeResourcePermission = iota
 	KubeNamespaceCandidates
 	KubeWorkflowCandidates
-	KubeClusterCandidates
 )
 
 type KubeResourceArgs struct {
@@ -46,11 +45,13 @@ func CanReadAllKubeResources(resources *user.AuthorizedResources, permission Kub
 	if actions == nil {
 		return false
 	}
-	if actions.ClusterManagement != nil && actions.ClusterManagement.View {
+	// Cluster visibility alone does not grant access to business resource selectors.
+	if permission == KubeClusterInventory &&
+		actions.ClusterManagement != nil && actions.ClusterManagement.View {
 		return true
 	}
 	// Workflow templates are system-scoped and can select targets across projects.
-	return (permission == KubeWorkflowCandidates || permission == KubeClusterCandidates) &&
+	return permission == KubeWorkflowCandidates &&
 		actions.Template != nil && (actions.Template.Create || actions.Template.Edit)
 }
 
@@ -78,7 +79,7 @@ func CanSelectKubeResources(ctx *internalhandler.Context, args KubeResourceArgs,
 		if projectAuth.IsProjectAdmin {
 			return true, nil
 		}
-		if permission == KubeNamespaceCandidates || permission == KubeClusterCandidates {
+		if permission == KubeNamespaceCandidates {
 			if args.Production == nil || !*args.Production {
 				if (projectAuth.Env != nil && projectAuth.Env.Create) ||
 					(projectAuth.Service != nil && projectAuth.Service.Create) {
@@ -92,7 +93,7 @@ func CanSelectKubeResources(ctx *internalhandler.Context, args KubeResourceArgs,
 				}
 			}
 		}
-		if permission == KubeWorkflowCandidates || permission == KubeClusterCandidates {
+		if permission == KubeWorkflowCandidates {
 			if projectAuth.Workflow != nil && (projectAuth.Workflow.Create || projectAuth.Workflow.Edit) {
 				return true, nil
 			}

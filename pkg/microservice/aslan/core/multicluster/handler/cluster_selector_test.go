@@ -29,7 +29,7 @@ func TestKubeClusterListRequiresAuthentication(t *testing.T) {
 	log.Init(&log.Config{Level: "error"})
 	router := gin.New()
 	(&Router{}).Inject(router.Group("/cluster"))
-	for _, query := range []string{"", "?scene=selector", "?scene=selector&projectName=other"} {
+	for _, query := range []string{"", "?projectName=other"} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/cluster/clusters"+query, nil))
 		if response.Code != http.StatusForbidden {
