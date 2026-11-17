@@ -32,3 +32,18 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 COPY --from=build /reaper .
 COPY --from=build /jobexecutor .
+
+ARG BUILD_VERSION=unknown
+ARG BUILD_COMMIT=unknown
+ARG BUILD_BRANCH=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.revision="${BUILD_COMMIT}" \
+      org.opencontainers.image.ref.name="${BUILD_BRANCH}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
+ENV BUILD_VERSION=${BUILD_VERSION} \
+    BUILD_COMMIT=${BUILD_COMMIT} \
+    BUILD_BRANCH=${BUILD_BRANCH} \
+    BUILD_DATE=${BUILD_DATE}
