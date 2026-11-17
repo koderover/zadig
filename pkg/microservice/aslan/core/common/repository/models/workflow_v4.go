@@ -651,6 +651,8 @@ type DeployServiceVariableConfig struct {
 
 	// VariableConfigs used to determine if a variable is visible to the workflow user.
 	VariableConfigs []*DeployVariableConfig `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
+	// UpgradeCRD controls whether CRDs in the helm chart are upgraded, nil means true
+	UpgradeCRD *bool `bson:"upgrade_crd,omitempty"              yaml:"upgrade_crd,omitempty"               json:"upgrade_crd,omitempty"`
 }
 
 type DeployServiceVariableConfigList []*DeployServiceVariableConfig

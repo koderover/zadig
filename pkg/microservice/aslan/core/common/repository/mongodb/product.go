@@ -534,6 +534,7 @@ func (c *ProductColl) UpdateServiceValuesSource(productName, envName string, pro
 		valuesPath + ".source_detail":  sourceData.SourceDetail,
 		valuesPath + ".auto_sync":      sourceData.AutoSync,
 		valuesPath + ".auto_sync_yaml": sourceData.AutoSyncYaml,
+		valuesPath + ".upgrade_crd":    sourceData.UpgradeCRD,
 	}}
 	arrayFilters := options.ArrayFilters{Filters: []interface{}{serviceFilter}}
 	updateOptions := options.UpdateOptions{ArrayFilters: &arrayFilters}

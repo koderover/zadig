@@ -59,6 +59,8 @@ type OpenAPIHelmValuesSource struct {
 	Branch       string `json:"branch,omitempty"`
 	ValuePath    string `json:"value_path,omitempty"`
 	AutoSync     *bool  `json:"auto_sync,omitempty"`
+	// UpgradeCRD controls whether CRDs are upgraded when values are synced from source, nil means true
+	UpgradeCRD *bool `json:"upgrade_crd,omitempty"`
 }
 
 type OpenAPIUpdateHelmValuesSourceReq struct {
@@ -68,6 +70,8 @@ type OpenAPIUpdateHelmValuesSourceReq struct {
 	Branch       string `json:"branch"`
 	ValuePath    string `json:"value_path"`
 	AutoSync     bool   `json:"auto_sync"`
+	// UpgradeCRD controls whether CRDs are upgraded when values are synced from source; nil keeps the current setting
+	UpgradeCRD *bool `json:"upgrade_crd,omitempty"`
 }
 
 func (r *OpenAPIUpdateHelmValuesSourceReq) Validate() error {
@@ -96,6 +100,8 @@ type OpenAPIUpdateHelmValuesReq struct {
 	SyncValuesFromSource  bool                     `json:"sync_values_from_source,omitempty"`
 	UpdateServiceRevision bool                     `json:"update_service_revision,omitempty"`
 	ValueMergeStrategy    string                   `json:"value_merge_strategy,omitempty"`
+	// UpgradeCRD controls whether CRDs in the chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgrade_crd,omitempty"`
 }
 
 func (r *OpenAPIUpdateHelmValuesReq) Validate() error {
@@ -193,6 +199,7 @@ func GetHelmValuesSourceOpenAPI(projectKey, envName, serviceName string, product
 		Branch:       sourceDetail.GitRepoConfig.Branch,
 		ValuePath:    sourceDetail.LoadPath,
 		AutoSync:     &autoSync,
+		UpgradeCRD:   yamlData.UpgradeCRD,
 	}, nil
 }
 
@@ -217,6 +224,7 @@ func UpdateHelmValuesSourceOpenAPI(projectKey, envName, serviceName, userName st
 	return UpdateHelmValuesSource(projectKey, envName, serviceName, userName, production, false, &UpdateHelmValuesSourceArgs{ValuesData: &commonservice.ValuesDataArgs{
 		YamlSource: setting.SourceFromGitRepo,
 		AutoSync:   req.AutoSync && codehost.Type != setting.SourceFromOther,
+		UpgradeCRD: req.UpgradeCRD,
 		GitRepoConfig: &commonservice.RepoConfig{
 			CodehostID:  codehost.ID,
 			Owner:       req.Namespace,
@@ -287,6 +295,7 @@ func UpdateHelmServiceValuesOpenAPI(projectKey, envName, serviceName, userName, 
 		DeployType:        setting.HelmDeployType,
 		ChartValues:       []*commonservice.HelmSvcRenderArg{renderArg},
 		UpdateServiceTmpl: req.UpdateServiceRevision,
+		UpgradeCRD:        req.UpgradeCRD,
 	}, logger)
 }
 
@@ -366,7 +375,7 @@ func openAPIValuesDataFromCustomYAML(yamlData *templatemodels.CustomYaml) (*comm
 	if yamlData == nil {
 		return nil, nil
 	}
-	valuesData := &commonservice.ValuesDataArgs{YamlSource: yamlData.Source, SourceID: yamlData.SourceID, AutoSync: yamlData.AutoSync, AutoSyncYaml: yamlData.AutoSyncYaml}
+	valuesData := &commonservice.ValuesDataArgs{YamlSource: yamlData.Source, SourceID: yamlData.SourceID, AutoSync: yamlData.AutoSync, AutoSyncYaml: yamlData.AutoSyncYaml, UpgradeCRD: yamlData.UpgradeCRD}
 	if yamlData.Source != setting.SourceFromGitRepo {
 		return valuesData, nil
 	}

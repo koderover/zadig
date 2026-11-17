@@ -134,6 +134,8 @@ type CustomYaml struct {
 	AutoSyncYaml      string                          `bson:"auto_sync_yaml"                    json:"auto_sync_yaml"`
 	SourceDetail      interface{}                     `bson:"source_detail"                     json:"source_detail"`
 	SourceID          string                          `bson:"source_id"                         json:"source_id"`
+	// UpgradeCRD controls whether CRDs are upgraded when values are synced from source, nil means true
+	UpgradeCRD *bool `bson:"upgrade_crd,omitempty"               json:"upgrade_crd,omitempty"`
 }
 
 // ServiceRender used for helm product service ...

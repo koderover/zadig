@@ -322,6 +322,7 @@ type JobTaskHelmDeploySpec struct {
 	ReplaceResources             []Resource                `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	OriginRevision               int64                     `bson:"origin_revision"                  json:"origin_revision"                     yaml:"origin_revision"`
 	ValueMergeStrategy           config.ValueMergeStrategy `bson:"value_merge_strategy"             json:"value_merge_strategy"                yaml:"value_merge_strategy"`
+	SkipUpgradeCRDs              bool                      `bson:"skip_upgrade_crds"                json:"skip_upgrade_crds"                   yaml:"skip_upgrade_crds"`
 }
 
 func (j *JobTaskHelmDeploySpec) GetDeployImages() []string {

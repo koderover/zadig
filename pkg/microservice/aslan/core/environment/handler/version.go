@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
 // @Summary List Environment Service Versions
@@ -289,6 +290,8 @@ func DiffEnvServiceVersions(c *gin.Context) {
 
 type RollbackEnvServiceVersionRequest struct {
 	Detail string `json:"detail"`
+	// UpgradeCRD controls whether CRDs in the helm chart are upgraded, nil means true
+	UpgradeCRD *bool `json:"upgradeCRD,omitempty"`
 }
 
 // @Summary Check Environment Service Version Before Rollback
@@ -479,5 +482,5 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 	detailEn := fmt.Sprintf("Environment: %s, Service: %s, Version: %d", envName, serviceName, revision)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
-	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, overrideResource, req.Detail, ctx.Logger)
+	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, overrideResource, boolptr.IsFalse(req.UpgradeCRD), req.Detail, ctx.Logger)
 }
