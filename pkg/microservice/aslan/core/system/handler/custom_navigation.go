@@ -73,10 +73,7 @@ func isProfessionalLicenseRequiredKey(key config.NavigationItemKey) bool {
 func isEnterpriseLicenseRequiredKey(key config.NavigationItemKey) bool {
 	switch key {
 	case config.NavigationKeyReleasePlan,
-		config.NavigationKeyBizCatalog,
-		config.NavigationKeyAIReviewInsight,
-		config.NavigationKeyAIAssistantReport,
-		config.NavigationKeyAIInsights:
+		config.NavigationKeyBizCatalog:
 		return true
 	default:
 		return false
@@ -85,7 +82,7 @@ func isEnterpriseLicenseRequiredKey(key config.NavigationItemKey) bool {
 
 func isLicenseFeatureRequiredKey(key config.NavigationItemKey) bool {
 	switch key {
-	case config.NavigationKeyAIReviewInsight:
+	case config.NavigationKeyAIInsights:
 		return true
 	default:
 		return false
@@ -108,6 +105,11 @@ func filterNavigationItemsForAdmin(ctx *internalhandler.Context, items []*common
 				switch item.Key {
 				case config.NavigationKeyCustomerDelivery:
 					if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
+						continue
+					}
+					newItems = append(newItems, item)
+				case config.NavigationKeyAIInsights:
+					if err := util.CheckZadigLicenseFeatureAI(); err != nil {
 						continue
 					}
 					newItems = append(newItems, item)
@@ -160,7 +162,7 @@ func filterNavigationItemsForNonAdmin(ctx *internalhandler.Context, items []*com
 					}
 					if isLicenseFeatureRequiredKey(item.Key) {
 						switch item.Key {
-						case config.NavigationKeyAIReviewInsight:
+						case config.NavigationKeyAIInsights:
 							if err := util.CheckZadigLicenseFeatureAI(); err != nil {
 								item.Disabled = true
 							}
@@ -202,15 +204,10 @@ func hasNavigationPermission(ctx *internalhandler.Context, key config.Navigation
 		return ctx.Resources.SystemActions.DataCenter.ViewOverView
 	case config.NavigationKeyDataInsight:
 		return ctx.Resources.SystemActions.DataCenter.ViewInsight
-	case config.NavigationKeyAIReviewInsight:
-		return ctx.Resources.SystemActions.DataCenter.ViewAIReviewInsight
 	case config.NavigationKeyAIInsights:
 		return ctx != nil && ctx.Resources != nil && ctx.Resources.SystemActions != nil &&
 			ctx.Resources.SystemActions.DataCenter != nil &&
 			(ctx.Resources.SystemActions.DataCenter.ViewAIReviewInsight || ctx.Resources.SystemActions.DataCenter.ViewAIAssistantReport)
-	case config.NavigationKeyAIAssistantReport:
-		return ctx != nil && ctx.Resources != nil && ctx.Resources.SystemActions != nil &&
-			ctx.Resources.SystemActions.DataCenter != nil && ctx.Resources.SystemActions.DataCenter.ViewAIAssistantReport
 	default:
 		return true
 	}
