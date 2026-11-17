@@ -1,8 +1,8 @@
 # 加密密钥轮换
 
-本文说明如何更换 Zadig 的 AES 加密密钥。
+本文说明如何更换 Zadig 的 AES 加密密钥和 Dex 客户端密钥。适用于仍在使用公开默认密钥的环境，或怀疑密钥已经泄露的环境。
 
-UA 的 `rotate-encryption-key` 命令以 Kubernetes Job 的形式在维护窗口内单独运行，它会做两件事：把数据库中已有的密文改用新密钥重新加密，并更新代码源上 Webhook 的 Secret。集群中的密钥 Secret 不由这个命令修改，需要按下文步骤用 kubectl 手动切换；整个轮换过程不需要执行 Helm upgrade。
+UA 的 `rotate-encryption-key` 命令以 Kubernetes Job 的形式在维护窗口内单独运行，它会做两件事：把数据库中已有的密文改用新密钥重新加密，并更新代码源上 Webhook 的 Secret。集群中的密钥 Secret 不由这个命令修改，需要按下文步骤用 kubectl 手动切换，这部分不需要执行 Helm upgrade。AES 密钥切换并验收后，再用一次普通 Helm upgrade 更换 Dex 客户端密钥。
 
 ## 前提
 
@@ -39,12 +39,15 @@ kubectl 恢复四个服务的原副本数，重启其他引用该 Secret 的服�
 删除 zadig-aes-key-next
   │
   ▼
+普通 Helm upgrade 更换 Dex 客户端密钥 ──► 确认 Helm 输出无默认密钥警告
+  │
+  ▼
 全部 Agent 升级完成后，尽快删除 zadig-aes-key-previous
 ```
 
 ## 执行
 
-以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release 和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL，不需要其他组件；Helm 只用于查看 release 和备份 values。
+以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release 和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL，不需要其他组件；Helm 用于查看 release、备份 values，以及最后更换 Dex 客户端密钥。
 
 下面这段确认当前集群，并设置后续命令共用的变量。
 
@@ -279,6 +282,47 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" delete secret zadig-aes
 ```
 
 JWT、API Token、MFA 恢复码将失效，用户需要重新登录/签发；本 Job 不删除其哈希。历史 pipeline `storage_uri` 只计数、不重写。
+
+## 更换 Dex 客户端密钥
+
+Dex 客户端密钥与 AES 密钥无关，不需要停服务，在上述步骤验收通过后用一次普通 Helm upgrade 更换即可。Dex 和 user 服务会自动重启，用户需要重新登录。
+
+脚本作用：
+1. 导出 release 当前的 values，只把 Dex 第一个静态客户端（Zadig）的 `secret` 换成随机生成的 64 位十六进制串，其余字段原样保留，写入 `dex-next-values.json`。
+2. 使用当前已部署的同一版本 Chart 执行升级，并等待服务就绪。
+3. 检查 Helm 输出，不应再出现公开默认密钥的警告。
+
+```bash
+ZADIG_CHART='<当前已部署的 Chart，例如 koderover-chart/zadig>'
+ZADIG_CHART_VERSION='<helm history 中当前的 Chart 版本>'
+(
+set -eu
+helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.current.json"
+python3 - "$ROTATION_DIR" <<'PY'
+import json
+import secrets
+import sys
+from pathlib import Path
+
+folder = Path(sys.argv[1])
+clients = json.loads((folder / "values.current.json").read_text())["dex"]["config"]["staticClients"]
+assert clients and clients[0]["id"], "missing Zadig Dex client"
+clients[0]["secret"] = secrets.token_hex(32)
+(folder / "dex-next-values.json").write_text(json.dumps({"dex": {"config": {"staticClients": clients}}}))
+PY
+helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" --version "$ZADIG_CHART_VERSION" \
+  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
+  -f "$ROTATION_DIR/values.current.json" -f "$ROTATION_DIR/dex-next-values.json" \
+  --wait --timeout 10m > "$ROTATION_DIR/helm-dex.out"
+if grep -q "publicly known default" "$ROTATION_DIR/helm-dex.out"; then
+  grep "publicly known default" "$ROTATION_DIR/helm-dex.out"
+  exit 1
+fi
+echo "Dex client secret updated, no default secret warning"
+)
+```
+
+完成后验收 Dex 授权回调和登录。`values.current.json` 与 `dex-next-values.json` 包含明文密钥，与维护目录一起按客户密钥管理要求保管或销毁。
 
 ## 限制与开发验证
 
