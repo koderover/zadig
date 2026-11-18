@@ -233,11 +233,30 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
 
+	// Identify deletions before merging variables or preparing services for deployment.
+	allServices, err := repository.ListMaxRevisionsServices(productName, exitedProd.Production, false)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to list services with max revision of project %s, err: %v", productName, err))
+	}
+	prodRevs, err := GetProductRevision(exitedProd, allServices, log)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get product revision, err: %v", err))
+	}
+	deletedServices := sets.NewString()
+	for _, svcRev := range prodRevs.ServiceRevisions {
+		if svcRev.Updatable && svcRev.Deleted && updateRevisionSvcSet.Has(svcRev.ServiceName) {
+			deletedServices.Insert(svcRev.ServiceName)
+		}
+	}
+
 	updatedSvcMap := make(map[string]*templatemodels.ServiceRender)
 
 	// @fixme improve update revision and filter logic
 	// merge render variable and global variable
 	for _, svcRender := range updatedSvcs {
+		if deletedServices.Has(svcRender.ServiceName) {
+			continue
+		}
 		updatedSvcMap[svcRender.ServiceName] = svcRender
 		curSvcRender := exitedProd.GetSvcRender(svcRender.ServiceName)
 
@@ -313,6 +332,9 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	svcGroupMap := make(map[string]int)
 	for i, svg := range exitedProd.Services {
 		for _, svc := range svg {
+			if deletedServices.Has(svc.ServiceName) {
+				continue
+			}
 			svcGroupMap[svc.ServiceName] = i
 		}
 	}
@@ -320,6 +342,9 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	for _, svcGroup := range updateProd.Services {
 		validSvcGroup := make([]*commonmodels.ProductService, 0)
 		for _, svc := range svcGroup {
+			if deletedServices.Has(svc.ServiceName) {
+				continue
+			}
 			if curSvc, ok := productSvcs[svc.ServiceName]; ok {
 				// services to be updated
 				validSvcGroup = append(validSvcGroup, curSvc)
@@ -355,15 +380,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		// do nothing
 	}
 
-	// list services with max revision of project
-	allServices, err := repository.ListMaxRevisionsServices(productName, exitedProd.Production, false)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to list services with max revision of project %s, err: %v", productName, err))
-	}
-	prodRevs, err := GetProductRevision(exitedProd, allServices, log)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get product revision, err: %v", err))
-	}
 	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
 	latestServiceMap := make(map[string]*commonmodels.Service)
 	for _, svc := range allServices {
