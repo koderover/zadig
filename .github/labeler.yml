@@ -1,10 +1,19 @@
 # Add 'service' label to any change to microservice files within the source dir
 service/aslan:
 - pkg/microservice/aslan/**/*
-- pkg/microservice/picket/**/*
-- pkg/microservice/user/**/*
-- pkg/microservice/policy/**/*
+
+service/config:
 - pkg/microservice/systemconfig/**/*
+
+service/user:
+- pkg/microservice/user/**/*
+
+service/halman:
+- pkg/microservice/halman/**/*
+
+service/init:
+- cmd/init/**/*
+- pkg/cli/initconfig/**/*
 
 service/cron:
 - pkg/microservice/cron/**/*
@@ -16,17 +25,21 @@ service/reaper:
 - pkg/microservice/reaper/**/*
 - pkg/microservice/jobexecutor/**/*
 
-service/warpdrive:
-- pkg/microservice/warpdrive/**/*
-
 service/hubserver:
 - pkg/microservice/hubserver/**/*
 
 service/hubagent:
 - pkg/microservice/hubagent/**/*
 
+service/picket:
+- pkg/microservice/picket/**/*
+
+service/podexec:
+- pkg/microservice/podexec/**/*
+
 service/upgradeassistant:
-- pkg/microservice/upgradeassistant/**/*
+- cmd/ua/**/*
+- pkg/cli/upgradeassistant/**/*
 
 common:
   - pkg/config/**/*
