@@ -139,7 +139,7 @@ func buildAIReviewSummary(input *aiReviewCardInput) *aiReviewSummary {
 	summary.Counts = report.SeverityCounts()
 	summary.FindingsCount = len(report.Findings)
 	summary.ChangedFiles = report.Stats.ChangedFiles
-	verdict := aiReviewCardVerdict(spec)
+	verdict := spec.Verdict()
 	summary.Verdict = string(verdict)
 	switch verdict {
 	case stepspec.AIReviewVerdictIncomplete:
@@ -153,7 +153,7 @@ func buildAIReviewSummary(input *aiReviewCardInput) *aiReviewSummary {
 		summary.FailureReason = failureReason
 	case stepspec.AIReviewVerdictBlocked:
 		summary.Title = failedTitle
-		summary.Conclusion = fmt.Sprintf("审查失败：%s。", aiReviewBlockedReason(summary.Counts, spec.FailOn))
+		summary.Conclusion = fmt.Sprintf("审查失败：%s。", aiReviewBlockedReason(spec))
 	case stepspec.AIReviewVerdictPassedWithFindings:
 		summary.Color = feishuHeaderTemplateOrange
 		summary.Title = aiReviewCardTitle(fmt.Sprintf("⚠️ AI 审查通过，发现 %d 个问题", summary.FindingsCount), spec.RepoName)
@@ -364,19 +364,6 @@ func markdownLink(text, url string) string {
 	return fmt.Sprintf("[%s](%s)", text, url)
 }
 
-// aiReviewCardVerdict adjusts the report verdict to the task outcome: with the quality gate off,
-// the run script turns exit code 1 into success, so blocking findings only mean "passed with findings".
-func aiReviewCardVerdict(spec *stepspec.StepAIReviewReportSpec) stepspec.AIReviewVerdict {
-	verdict := spec.Report.Verdict()
-	if verdict == stepspec.AIReviewVerdictBlocked && spec.QualityGateEnabled != nil && !*spec.QualityGateEnabled {
-		if len(spec.Report.Findings) > 0 {
-			return stepspec.AIReviewVerdictPassedWithFindings
-		}
-		return stepspec.AIReviewVerdictPassed
-	}
-	return verdict
-}
-
 func aiReviewCardTitle(prefix, repoName string) string {
 	if repoName == "" {
 		return prefix
@@ -385,21 +372,11 @@ func aiReviewCardTitle(prefix, repoName string) string {
 }
 
 // aiReviewBlockedReason names the found severities that tripped the quality gate, e.g. "存在严重、高危问题".
-func aiReviewBlockedReason(counts map[string]int, failOn []string) string {
-	blocking := make(map[string]bool, len(failOn))
-	for _, severity := range failOn {
-		blocking[strings.ToLower(strings.TrimSpace(severity))] = true
-	}
-	if len(blocking) == 0 {
-		// Tasks created before fail_on was recorded: fall back to the default gate.
-		blocking["critical"], blocking["high"] = true, true
-	}
+func aiReviewBlockedReason(spec *stepspec.StepAIReviewReportSpec) string {
 	names := map[string]string{"critical": "严重", "high": "高危", "medium": "中危", "low": "低危"}
-	found := make([]string, 0, len(aiReviewSeverities))
-	for _, severity := range aiReviewSeverities {
-		if blocking[severity.key] && counts[severity.key] > 0 {
-			found = append(found, names[severity.key])
-		}
+	found := make([]string, 0, len(stepspec.AIReviewSeverities))
+	for _, severity := range spec.BlockingSeverities() {
+		found = append(found, names[severity])
 	}
 	if len(found) == 0 {
 		return "存在阻断问题"

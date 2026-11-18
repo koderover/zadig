@@ -56,6 +56,7 @@ var (
 		"taskTypeWorkflow": "工作流",
 		"taskTypeScanning": "代码扫描",
 		"taskTypeTesting":  "测试",
+		"taskTypeAIReview": "AI 审查",
 
 		"taskStatusSuccess":           "执行成功",
 		"taskStatusFailed":            "执行失败",
@@ -140,6 +141,7 @@ var (
 		"taskTypeWorkflow": "workflow",
 		"taskTypeScanning": "scanning",
 		"taskTypeTesting":  "testing",
+		"taskTypeAIReview": "AI review",
 
 		"taskStatusSuccess":           "Passed",
 		"taskStatusFailed":            "Failed",
@@ -1364,6 +1366,10 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		} else {
 			log.Errorf("failed to get scanner type for scanning %s: %v", workflowNotification.ScanningID, err)
 		}
+		// AI review titles name the reviewed repository instead of the scanning task, e.g. "AI 审查 zadig 开始执行".
+		if reportSpec, _ := findAIReviewReportSpec(task); reportSpec != nil {
+			workflowNotification.TitleSubject = strings.TrimSpace(getText("taskTypeAIReview", language) + " " + reportSpec.RepoName)
+		}
 	}
 
 	webhookNotify := &webhooknotify.WorkflowNotify{
@@ -1384,8 +1390,8 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 		TaskType:            task.Type,
 	}
-	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
-	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{if .TitleSubject}}{{.TitleSubject}}{{else}}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}}{{end}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
+	mailTplTitle := "{{getIcon .Task.Status }} {{if .TitleSubject}}{{.TitleSubject}}{{else}}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}}{{end}} {{ taskStatus .Task.Status }}"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextExecutor\"}}**：{{.Task.TaskCreator}}  \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextProjectName\"}}**：{{.ProjectDisplayName}}  \n",
@@ -1571,6 +1577,8 @@ type workflowTaskNotification struct {
 	ScannerType           types.ScannerType         `json:"scanner_type"`
 	StatusTextKeyOverride string                    `json:"status_text_key_override"`
 	PendingStageName      string                    `json:"pending_stage_name"`
+	// TitleSubject replaces "<task type> <name> #<id>" in the title when set.
+	TitleSubject string `json:"title_subject"`
 }
 
 func isFeishuNotificationType(notifyType setting.NotifyWebHookType) bool {

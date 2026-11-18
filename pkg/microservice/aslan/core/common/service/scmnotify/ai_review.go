@@ -68,10 +68,11 @@ type AIReviewPRMetadata struct {
 	InlineComments  []stepspec.AIReviewInlineComment
 }
 
-func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, report *stepspec.AIReviewReport, logger *zap.SugaredLogger) (AIReviewPRMetadata, error) {
-	if report == nil || prID <= 0 {
+func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repoOwner, repoName string, prID int, spec *stepspec.StepAIReviewReportSpec, logger *zap.SugaredLogger) (AIReviewPRMetadata, error) {
+	if spec == nil || spec.Report == nil || prID <= 0 {
 		return AIReviewPRMetadata{}, nil
 	}
+	report := spec.Report
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	deadline, _ := ctx.Deadline()
@@ -103,7 +104,7 @@ func (s *Service) PublishAIReviewReport(projectName string, codehostID int, repo
 			logger.Warnf("failed to publish inline AI review comments as %s: %v", cli.identity, inlineErr)
 		}
 	}
-	comment := formatAIReviewSummaryComment(report, inlineResult)
+	comment := formatAIReviewSpecSummaryComment(spec, inlineResult)
 	summary, summaryErr := s.Client.createAIReviewComment(ctx, cli, projectID, repoOwner, repoName, prID, comment, report.Metadata.Language)
 	comments := inlineResult.Comments
 	if summaryErr == nil {
@@ -187,18 +188,28 @@ func formatAIReviewSummaryDetails(report *stepspec.AIReviewReport, inlineResult 
 }
 
 func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult aiReviewInlinePublishResult) string {
+	return formatAIReviewSpecSummaryComment(&stepspec.StepAIReviewReportSpec{Report: report}, inlineResult)
+}
+
+// formatAIReviewSpecSummaryComment renders the PR summary comment; the status follows the quality gate
+// recorded in the step spec, so it matches the IM notification.
+func formatAIReviewSpecSummaryComment(spec *stepspec.StepAIReviewReportSpec, inlineResult aiReviewInlinePublishResult) string {
+	report := spec.Report
 	lang := language.Normalize(report.Metadata.Language)
 	status := lang.Text("🟢 **审查通过**", "🟢 **Review passed**")
 	message := lang.Text("代码质量良好，未发现明确问题。逻辑清晰，符合规范。🎉", "No clear issues were found. The code looks good. 🎉")
 	if len(report.Findings) > 0 {
 		message = fmt.Sprintf(lang.Text("**⚠️ 发现 %d 个问题，建议修复后再合并。**", "**⚠️ Found %d issues. Address them before merging.**"), len(report.Findings))
 	}
-	switch {
-	case report.Incomplete || report.ExitCode == 2:
+	switch spec.Verdict() {
+	case stepspec.AIReviewVerdictIncomplete:
 		status = lang.Text("🟡 **审查未完整完成**", "🟡 **Review incomplete**")
 		message = lang.Text("**⚠️ 审查未完整完成，请查看错误和警告。**", "**⚠️ The review is incomplete. Check the errors and warnings.**")
-	case report.ExitCode == 1:
-		status = lang.Text("🔴 **发现阻断问题**", "🔴 **Blocking issues found**")
+	case stepspec.AIReviewVerdictBlocked:
+		status = fmt.Sprintf(lang.Text("🔴 **审查失败：%s**", "🔴 **Review failed: %s**"), aiReviewBlockedReason(spec, lang))
+	case stepspec.AIReviewVerdictAbnormal:
+		status = lang.Text("🔴 **审查异常退出**", "🔴 **Review exited abnormally**")
+		message = fmt.Sprintf(lang.Text("**⚠️ 审查进程异常退出（退出码 %d），无法给出审查结论。**", "**⚠️ The review process exited with code %d, so no conclusion can be drawn.**"), report.ExitCode)
 	}
 	duration := lang.Text("未知", "Unknown")
 	if report.DurationMS > 60000 {
@@ -230,6 +241,19 @@ func formatAIReviewSummaryComment(report *stepspec.AIReviewReport, inlineResult 
 	}
 	builder.WriteString(lang.Text("\n---\n\n*AI 自动生成，仅供参考，请以人工审查为准。*\n\n欢迎直接给本条评论添加 👍 (准确) 或 👎 (误报)\n\n", "\n---\n\n*AI-generated. Use human review to make the final decision.*\n\nReact to this comment with 👍 (accurate) or 👎 (false positive).\n\n") + aiReviewCommentMarker)
 	return builder.String()
+}
+
+// aiReviewBlockedReason names the found severities that tripped the quality gate.
+func aiReviewBlockedReason(spec *stepspec.StepAIReviewReportSpec, lang language.Language) string {
+	names := map[string][2]string{"critical": {"严重", "critical"}, "high": {"高危", "high"}, "medium": {"中危", "medium"}, "low": {"低危", "low"}}
+	var zh, en []string
+	for _, severity := range spec.BlockingSeverities() {
+		zh, en = append(zh, names[severity][0]), append(en, names[severity][1])
+	}
+	if len(zh) == 0 {
+		return lang.Text("存在阻断问题", "blocking issues found")
+	}
+	return lang.Text("存在"+strings.Join(zh, "、")+"问题", strings.Join(en, ", ")+" issues found")
 }
 
 func filterAIReviewFindings(findings []stepspec.AIReviewFinding, threads []models.AIReviewInlineThread) ([]stepspec.AIReviewFinding, int) {

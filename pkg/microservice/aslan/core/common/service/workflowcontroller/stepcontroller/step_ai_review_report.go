@@ -101,7 +101,7 @@ func (s *aiReviewReportCtl) AfterRun(ctx context.Context) error {
 		s.reportSpec.RepoOwner,
 		s.reportSpec.RepoName,
 		s.reportSpec.PR,
-		report,
+		s.reportSpec,
 		s.log,
 	)
 	if err != nil {
