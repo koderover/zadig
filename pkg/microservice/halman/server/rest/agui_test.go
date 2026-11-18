@@ -28,7 +28,7 @@ func aguiTestEngine(t *testing.T) (*gin.Engine, sqlmock.Sqlmock) {
 		Auth: fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
 			return &authv3.CheckResponse{Status: &rpcstatus.Status{}, HttpResponse: &authv3.CheckResponse_OkResponse{OkResponse: &authv3.OkHttpResponse{}}}, nil
 		}},
-		CheckEnterpriseLicense: func() error { return nil },
+		CheckAILicense: func() error { return nil },
 		LoadRuntime: func(context.Context) (*types.AIAssistantRuntime, error) {
 			return &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{Enabled: true, HistoryRetentionDays: 90}, ModelError: "模型已删除"}, nil
 		},

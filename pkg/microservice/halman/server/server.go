@@ -68,10 +68,10 @@ func Serve(ctx context.Context) error {
 	users := userclient.New()
 	users.SetRedirectPolicy(resty.NoRedirectPolicy())
 	platform := &service.PlatformClient{
-		Users:                  users,
-		Auth:                   authv3.NewAuthorizationClient(conn),
-		CheckEnterpriseLicense: commonutil.CheckZadigEnterpriseLicense,
-		LoadRuntime:            commonrepo.NewSystemSettingColl().GetAIAssistantRuntime,
+		Users:          users,
+		Auth:           authv3.NewAuthorizationClient(conn),
+		CheckAILicense: commonutil.CheckZadigLicenseFeatureAI,
+		LoadRuntime:    commonrepo.NewSystemSettingColl().GetAIAssistantRuntime,
 		HTTP: &http.Client{
 			Timeout:       10 * time.Second,
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },

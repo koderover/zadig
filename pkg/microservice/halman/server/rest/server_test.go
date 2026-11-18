@@ -72,7 +72,7 @@ func TestHTTPDoesNotAcceptBodyUserIDAsIdentity(t *testing.T) {
 	s, mock := mockStore(t)
 	platform := &service.PlatformClient{
 
-		CheckEnterpriseLicense: func() error { return nil },
+		CheckAILicense: func() error { return nil },
 		Auth: fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
 			return &authv3.CheckResponse{
 				Status:       &rpcstatus.Status{},
@@ -112,7 +112,7 @@ func TestHTTPRejectsAnonymousBeforeDatabaseAccess(t *testing.T) {
 	}
 }
 
-func TestAllAIRoutesRequireEnterpriseLicenseAfterUserAuthentication(t *testing.T) {
+func TestAllAIRoutesRequireAILicenseAfterUserAuthentication(t *testing.T) {
 	for _, input := range []struct {
 		name string
 		err  error
@@ -132,7 +132,7 @@ func TestAllAIRoutesRequireEnterpriseLicenseAfterUserAuthentication(t *testing.T
 					}
 					return &authv3.CheckResponse{Status: &rpcstatus.Status{}, HttpResponse: &authv3.CheckResponse_OkResponse{OkResponse: &authv3.OkHttpResponse{}}}, nil
 				}},
-				CheckEnterpriseLicense: func() error {
+				CheckAILicense: func() error {
 					licenseCalls++
 					if authCalls != licenseCalls {
 						t.Fatal("必须先请求 user 鉴权，许可证未通过时不能读取配置或处理业务")
@@ -166,7 +166,7 @@ func TestAllAIRoutesRequireEnterpriseLicenseAfterUserAuthentication(t *testing.T
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 			if w.Code != http.StatusOK || authCalls != count || licenseCalls != count {
-				t.Fatal("健康检查不应受用户登录或企业版许可证影响")
+				t.Fatal("健康检查不应受用户登录或AI 许可证影响")
 			}
 		})
 	}
@@ -217,7 +217,7 @@ func TestMissingLicenseCheckerFailsClosed(t *testing.T) {
 func TestDisabledAssistantBlocksNewWorkButKeepsHistoryAndCancellation(t *testing.T) {
 	store, mock := mockStore(t)
 	p := &service.PlatformClient{
-		CheckEnterpriseLicense: func() error { return nil },
+		CheckAILicense: func() error { return nil },
 		Auth: fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
 			return &authv3.CheckResponse{Status: &rpcstatus.Status{}, HttpResponse: &authv3.CheckResponse_OkResponse{OkResponse: &authv3.OkHttpResponse{}}}, nil
 		}},

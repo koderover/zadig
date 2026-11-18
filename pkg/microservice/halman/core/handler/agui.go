@@ -68,7 +68,7 @@ func aguiRequest(input aguitypes.RunAgentInput) (models.RunRequest, error) {
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 403 {object} e.ErrorResponse "当前用户没有相应资源权限"
 // @Failure 404 {object} e.ErrorResponse "会话或关联的业务执行不可用"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/conversations/{id}/runs [post]
 func (a *API) agui(c *gin.Context) {
 	var input aguitypes.RunAgentInput
@@ -108,7 +108,7 @@ func (a *API) agui(c *gin.Context) {
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "建立流前登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "运行不存在、不属于本人、已删除或已到期"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/events [get]
 func (a *API) events(c *gin.Context) {
 	id := c.Param("id")

@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -101,15 +102,15 @@ func CheckZadigLicenseFeatureAI() error {
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !ValidateZadigEnterpriseLicense(licenseStatus) {
-		return e.ErrLicenseInvalid.AddDesc("")
+	if !validateZadigLicenseFeatureAI(licenseStatus) {
+		return e.NewHTTPError(e.ErrLicenseInvalid.Code(), e.ErrLicenseInvalid.Message())
 	}
-	for _, feature := range licenseStatus.Features {
-		if feature == plutusenterprise.ZadigLicenseFeatureAI {
-			return nil
-		}
-	}
-	return e.ErrLicenseInvalid.AddDesc("")
+	return nil
+}
+
+func validateZadigLicenseFeatureAI(licenseStatus *plutusenterprise.ZadigXLicenseStatus) bool {
+	return licenseStatus.Status == plutusenterprise.ZadigXLicenseStatusNormal &&
+		slices.Contains(licenseStatus.Features, plutusenterprise.ZadigLicenseFeatureAI)
 }
 
 func CheckZadigLicenseFeatureSae() error {

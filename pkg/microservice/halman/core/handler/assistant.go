@@ -32,16 +32,16 @@ func (a *API) authenticate(c *gin.Context) {
 	}
 
 	c.Set("halman.user", user)
-	if a.Agent.Platform.CheckEnterpriseLicense == nil {
-		respondError(c, e.NewWithDesc(e.ErrInternalError, "企业版许可证校验未配置"))
+	if a.Agent.Platform.CheckAILicense == nil {
+		respondError(c, e.NewWithDesc(e.ErrInternalError, "AI 许可证校验未配置"))
 		return
 	}
-	if err := a.Agent.Platform.CheckEnterpriseLicense(); err != nil {
+	if err := a.Agent.Platform.CheckAILicense(); err != nil {
 		var licenseError *e.HTTPError
 		if errors.As(err, &licenseError) && licenseError.Code() == e.ErrLicenseInvalid.Code() {
 			respondError(c, e.ErrLicenseInvalid)
 		} else {
-			respondError(c, e.NewWithDesc(e.ErrInternalError, "企业版许可证校验失败，请稍后重试"))
+			respondError(c, e.NewWithDesc(e.ErrInternalError, "AI 许可证校验失败，请稍后重试"))
 		}
 		return
 	}
@@ -136,7 +136,7 @@ func page(c *gin.Context, defaultLimit int) (int, bool) {
 // @Param Authorization header string true "Bearer 用户登录令牌"
 // @Success 201 {object} models.Conversation "新建的会话"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Router /api/halman/conversations [post]
 func (a *API) createConversation(c *gin.Context) {
@@ -161,7 +161,7 @@ func (a *API) createConversation(c *gin.Context) {
 // @Success 200 {object} object{items=[]models.Conversation,next_cursor=string} "会话列表；next_cursor 为空表示没有下一页"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/conversations [get]
 func (a *API) listConversations(c *gin.Context) {
 	limit, ok := page(c, 30)
@@ -190,7 +190,7 @@ func (a *API) listConversations(c *gin.Context) {
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "会话不存在、不属于本人或已删除"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/conversations/{id} [delete]
 func (a *API) deleteConversation(c *gin.Context) {
 	if err := a.Agent.Store.DeleteConversation(c.Request.Context(), requestUser(c), c.Param("id")); err != nil {
@@ -216,7 +216,7 @@ func (a *API) deleteConversation(c *gin.Context) {
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "会话不存在、不属于本人或已删除"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/conversations/{id}/messages [get]
 func (a *API) messages(c *gin.Context) {
 	limit, ok := page(c, 50)
@@ -254,7 +254,7 @@ func (a *API) messages(c *gin.Context) {
 // @Success 200 {object} models.Run "运行快照"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "运行不存在、不属于本人、已删除或已到期"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Router /api/halman/runs/{id} [get]
 func (a *API) getRun(c *gin.Context) {
@@ -278,7 +278,7 @@ func (a *API) getRun(c *gin.Context) {
 // @Success 204 "取消请求已处理，无响应体"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "运行不存在、不属于本人、已删除或已到期"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Router /api/halman/runs/{id}/cancel [post]
 func (a *API) cancelRun(c *gin.Context) {
@@ -311,7 +311,7 @@ func (a *API) cancelRun(c *gin.Context) {
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 403 {object} e.ErrorResponse "当前用户没有相应资源权限"
 // @Failure 404 {object} e.ErrorResponse "运行或根执行不可用"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/confirmation [post]
 func (a *API) confirm(c *gin.Context) {
 	var req ConfirmationRequest
@@ -367,7 +367,7 @@ func (a *API) confirm(c *gin.Context) {
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "回答不可用或不属于本人"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/feedback [post]
 func (a *API) feedback(c *gin.Context) {
 	var req FeedbackRequest
@@ -409,7 +409,7 @@ func (a *API) feedback(c *gin.Context) {
 // @Success 200 {object} object{items=[]models.Recommendation,next_batch=integer} "推荐问题及下一批次"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/recommendations [get]
 func (a *API) recommendations(c *gin.Context) {
 	batch := 0
@@ -472,7 +472,7 @@ func (a *API) recommendations(c *gin.Context) {
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 403 {object} e.ErrorResponse "当前用户没有相应资源权限"
 // @Failure 404 {object} e.ErrorResponse "原问题、回答或根执行已不可用"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/regenerate [post]
 func (a *API) regenerate(c *gin.Context) {
 	var req RequestIDRequest

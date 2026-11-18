@@ -59,7 +59,7 @@ go run ./cmd/halman
 
 aslan 保留以下前端配置接口：
 
-- 对外 `GET/PUT /api/aslan/system/ai/assistant`：读取和修改 AI 开关、模型选择及保留天数均要求有效企业版，且当前登录用户为系统管理员。
+- 对外 `GET/PUT /api/aslan/system/ai/assistant`：读取和修改 AI 开关、模型选择及保留天数均要求有效的 AI 许可证和相应的 AI 能力权限。
 
 halman 通过现有 MongoDB repository 直接加载助手开关、保留策略及所选模型，不经 aslan HTTP 接口。关闭 AI 或未选择模型时不查询模型凭据；模型失效时仍返回保留策略并记录模型错误，历史查询不依赖模型可用。代理配置按现有选择规则从 MongoDB 读取，不依赖 aslan 进程内缓存。配置查询有十秒超时，失败不记录或返回数据库、模型和代理凭据。
 
@@ -73,15 +73,15 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 }
 ```
 
-`enabled` 是唯一的 AI 功能开关，默认关闭，由系统管理员开启。关闭 AI 后，新建会话、提交问题、重新回答、生成重试清单、推荐问题及确认执行返回 HTTP 400/code 7214；本人历史、运行快照、反馈、报告、SSE、取消、拒绝计划、删除和只读核实仍可用，并继续要求企业版、归属和相应权限。每次模型请求及每项写操作前复查最新配置；关闭开关阻止后续调用和未提交写入，不承诺撤回已发出的模型或业务请求。
+`enabled` 是唯一的 AI 功能开关，默认关闭，由系统管理员开启。关闭 AI 后，新建会话、提交问题、重新回答、生成重试清单、推荐问题及确认执行返回 HTTP 400/code 7214；本人历史、运行快照、反馈、报告、SSE、取消、拒绝计划、删除和只读核实仍可用，并继续要求 AI 许可证、归属和相应权限。每次模型请求及每项写操作前复查最新配置；关闭开关阻止后续调用和未提交写入，不承诺撤回已发出的模型或业务请求。
 
 业务写入仍须用户在确认卡片批准具体计划，通过会话归属、版本、有效期及当前资源权限检查；每项提交前复查 `enabled` 和资源权限。生成清单本身不会写入平台资源。
 
-`/api/halman` 全部接口统一要求有效企业版许可证，包括普通聊天、本人历史、取消、删除及 SSE 建连。请求依次经过 user 登录校验、企业版校验、助手运行配置读取和业务处理。社区版、专业版、过期或其他非正常许可证返回 HTTP 400/code 7050；许可证查询失败返回 HTTP 500/code 500，不放行。`/healthz`、`/readyz` 保持独立，不要求登录或企业版。
+`/api/halman` 全部接口统一要求有效的 AI 许可证，包括普通聊天、本人历史、取消、删除及 SSE 建连。请求依次经过 user 登录校验、AI 许可证校验、助手运行配置读取和业务处理。缺少 AI 授权、过期或其他非正常许可证返回 HTTP 400/code 7050；许可证查询失败返回 HTTP 500/code 500，不放行。`/healthz`、`/readyz` 保持独立，不要求登录或 AI 许可证。
 
 内部调用直接使用既有服务发现：aslan 为 `config.AslanServiceAddress()`（默认 `aslan:25000`），user HTTP 客户端默认 `user:80`。适配器使用 aslan 原生 `/api/...`、`/openapi/...` 路径，不使用外部 `/api/aslan/...` 前缀。每次内部业务请求前都通过 user gRPC 检查原始用户 Token、撤销和 MFA；aslan 的资源操作仅携带实际用户身份。user 的权限查询仅允许 `auth-info`、`collaboration-action`、`collaboration-permission` 三个 GET 接口，使用既有 user 客户端的内部认证头，不对模型开放，不用于资源写入。保留超时、取消、响应大小限制、禁止重定向和写操作不自动重试。对外 `/api/halman` 仍由 Gloo 路由到 halman，内部调用不依赖该入口。
 
-登录校验通过 `HALMAN_USER_AUTH_ADDRESS` 指向的 user gRPC `envoy.service.auth.v3.Authorization/Check` 实现，复用 Token 签名、有效期、撤销及 MFA 检查；只有 user 明确允许后才从 JWT 取得用户标识。不是只在本地解码 JWT，也不需要为每个普通聊天请求再调用 HTTP `auth-info`。`NewContextWithAuthorization()` 依赖调用链已完成登录校验，负责获取资源权限，不能替代这一步 user 鉴权。资源操作和管理员权限仍按需调用现有 HTTP 授权及业务接口。企业版检查在启动时直接装配现有 `commonutil.CheckZadigEnterpriseLicense()`，由该函数复用 plutusenterprise 客户端及现有企业版判定，halman 不拼接许可证请求或重复判断状态。沿用既有服务地址和 HTTP 客户端超时（60 秒），不新增许可证接口、配置项或缓存。
+登录校验通过 `HALMAN_USER_AUTH_ADDRESS` 指向的 user gRPC `envoy.service.auth.v3.Authorization/Check` 实现，复用 Token 签名、有效期、撤销及 MFA 检查；只有 user 明确允许后才从 JWT 取得用户标识。不是只在本地解码 JWT，也不需要为每个普通聊天请求再调用 HTTP `auth-info`。`NewContextWithAuthorization()` 依赖调用链已完成登录校验，负责获取资源权限，不能替代这一步 user 鉴权。资源操作和管理员权限仍按需调用现有 HTTP 授权及业务接口。AI 许可证校验在启动时直接装配现有 `commonutil.CheckZadigLicenseFeatureAI()`，由该函数复用 plutusenterprise 客户端及 AI 授权判定，halman 不拼接许可证请求或重复判断状态。沿用既有服务地址和 HTTP 客户端超时（60 秒），不新增许可证接口、配置项或缓存。
 
 每次模型调用在原有 user 鉴权明确通过后，从同一 JWT 仅提取 `uid`、`name`、`preferred_username`，以独立的系统消息注入当前登录用户上下文，用于回答“我是谁”等身份问题。身份字段作为资料处理，不作为指令或角色、资源权限依据；缺少名称或账号时不猜测，仍兼容仅含 UID 的旧 Token。信息以本次已验证 Token 的 Claims 为准，资料更新后随新的 Token 生效；补问和重新回答也经过同一注入流程。不传入完整 Token、邮箱、手机号、角色声明或其他 Claims，不增加 user 请求、数据库查询、接口或字段，也不将该系统消息保存为历史消息；模型正常回答中引用的身份信息仍按普通聊天内容保存。
 
@@ -90,15 +90,15 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 | 入口 | 当前权限要求 |
 | --- | --- |
-| 普通聊天、推荐、新建会话 | 有效企业版下的有效用户登录态，且 `enabled=true` |
+| 普通聊天、推荐、新建会话 | 有效的 AI 许可证及有效用户登录态，且 `enabled=true` |
 | 会话历史、运行快照、取消、反馈和删除 | 当前用户拥有该会话或运行；历史快照不重新要求业务资源权限 |
 | 诊断、上下文复用、重新回答、核实 | 当前资源权限及实际归属；项目详情只允许系统管理员或已有项目权限的用户访问，不能仅用登录态判断，也不通过协作记录补授项目访问权限 |
 | 确认写操作及重试清单 | 会话归属、当前计划及各动作对应权限，且 `enabled=true`；执行必须经过用户明确确认 |
-| 查询助手配置 | 有效企业版，当前用户为系统管理员，不返回模型凭据 |
-| 修改助手配置 | 有效企业版，当前用户为系统管理员 |
-| 查看完整 AI 助手报告 | 有效企业版，当前用户为系统管理员或具有 `ai_assistant_report` 权限 |
+| 查询助手配置 | 有效的 AI 许可证，具备 AI 能力查看或编辑权限，不返回模型凭据 |
+| 修改助手配置 | 有效的 AI 许可证，具备 AI 能力编辑权限 |
+| 查看完整 AI 助手报告 | 有效的 AI 许可证，当前用户为系统管理员或具有 `ai_assistant_report` 权限 |
 
-业务权限不足返回 403，不把确认时的权限预检失败当作服务器错误。角色管理目前无法在有效企业版内单独禁用某个登录用户的普通 AI 聊天，这与业务资源权限是两个控制范围。
+业务权限不足返回 403，不把确认时的权限预检失败当作服务器错误。角色管理目前无法在 AI 许可证有效时单独禁用某个登录用户的普通 AI 聊天，这与业务资源权限是两个控制范围。
 
 模型删除后，历史查看继续使用保留策略，发起新运行时报模型不可用。历史清理直接读取数据库配置，不受许可证到期或 AI 开关关闭影响；配置数据库不可用时暂停并按小时补偿。当前适配 OpenAI 兼容协议，支持流式响应和现有代理配置；不回退到环境变量中的模型或凭据。Anthropic、Azure 尚未适配；实际模型需支持工具调用，其能力及生成质量仍需联调验证。
 
@@ -137,7 +137,7 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 | 业务错误码 | 含义 |
 | --- | --- |
-| `7050` | 企业版许可证不可用 |
+| `7050` | AI 许可证不可用 |
 | `7210` / `7211` | 读取 / 保存助手配置失败 |
 | `7212` | 统计数据库、表、连接等待或查询不可用 |
 | `7213` | 助手请求处理失败 |
@@ -163,11 +163,11 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 推荐接口接受 `page_type`、`project_key`、`env_name`、`service_name`、`production`、`workflow_name`、`task_id`、`job_name` 和 `batch`，响应含 `next_batch`。
 
-统计统一由 aslan 的 `stat` 模块实现，Swagger tag 为 `stat`；助手配置的 Swagger tag 为 `system`。aslan 校验当前登录用户为系统管理员或具有查看 AI 助手报告权限，并检查有效企业版，直接读取 `zadig_ai.ai_usage_daily` 并计算指标，不调用 halman HTTP，也不加载 AI 开关、模型或聊天上下文。halman 继续负责日聚合写入、表初始化和过期清理，不提供报告查询接口。
+统计统一由 aslan 的 `stat` 模块实现，Swagger tag 为 `stat`；助手配置的 Swagger tag 为 `system`。aslan 校验当前登录用户为系统管理员或具有查看 AI 助手报告权限，并检查有效的 AI 许可证，直接读取 `zadig_ai.ai_usage_daily` 并计算指标，不调用 halman HTTP，也不加载 AI 开关、模型或聊天上下文。halman 继续负责日聚合写入、表初始化和过期清理，不提供报告查询接口。
 
-报告权限在 user 的 `DataCenter`（数据视图）中注册为“查看 AI 助手报告”，动作 `ai_assistant_report`，授权结果及 user SDK 字段为 `SystemActions.DataCenter.ViewAIAssistantReport`。系统管理员直接允许，其他用户需显式授予该权限；项目管理员、效能洞察或 AI 审查分析权限不能代替。四个报告接口共用同一权限及企业版校验。user 启动时通过已有 MySQL/达梦初始化 SQL 幂等注册动作，无需新增迁移；部署后需重启 user，再由管理员为角色分配权限。
+报告权限在 user 的 `DataCenter`（数据视图）中注册为“查看 AI 助手报告”，动作 `ai_assistant_report`，授权结果及 user SDK 字段为 `SystemActions.DataCenter.ViewAIAssistantReport`。系统管理员直接允许，其他用户需显式授予该权限；项目管理员、效能洞察或 AI 审查分析权限不能代替。四个报告接口共用同一权限及 AI 许可证校验。user 启动时通过已有 MySQL/达梦初始化 SQL 幂等注册动作，无需新增迁移；部署后需重启 user，再由管理员为角色分配权限。
 
-`GET /api/aslan/system/navigation` 的默认“数据视图”统一提供 `AI 效能报告` / `AI Insights`，`key` 为 `aiInsights`，`url` 为 `insight/ai`，图标为 `iconfont iconai-trend`。非管理员具有 AI 审查分析或 AI 助手报告任一权限即可看到入口；入口要求有效企业版，具体报告接口继续分别校验各自权限。AI 总开关不控制已有报告入口。已保存的自定义导航保持原样，需要时通过原导航设置添加该系统页面；不自动覆盖或补回管理员移除的入口。本次不实现前端页面或路由。
+`GET /api/aslan/system/navigation` 的默认“数据视图”统一提供 `AI 效能报告` / `AI Insights`，`key` 为 `aiInsights`，`url` 为 `insight/ai`，图标为 `iconfont iconai-trend`。非管理员具有 AI 审查分析或 AI 助手报告任一权限即可看到入口；入口要求有效的 AI 许可证，具体报告接口继续分别校验各自权限。AI 总开关不控制已有报告入口。已保存的自定义导航保持原样，需要时通过原导航设置添加该系统页面；不自动覆盖或补回管理员移除的入口。本次不实现前端页面或路由。
 
 Skill 分类表现按发布辅助、故障排查、实施辅助、巡检诊断的顺序固定返回四项，维度为 `category`；工作流和服务报错分析归入故障排查，项目和服务初始化归入实施辅助，环境巡检和效能诊断归入巡检诊断，发布辅助当前无对应 Skill。无数据分类返回零计数与空比例；普通聊天及未分类 Skill 不计入。分类通过 `ai_usage_daily.skill_id=ai_skill.id` 关联，分类内用户跨 Skill 去重，比例按分类总量计算；不按启停过滤历史贡献。日聚合仍按 Skill 保存，其他报告及概览估算口径不变。
 
