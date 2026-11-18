@@ -1,12 +1,12 @@
 # 加密密钥轮换
 
-本文说明如何更换 Zadig 的 AES 加密密钥。
+本文说明如何更换 Zadig 的 AES 加密密钥和 Dex 客户端密钥。适用于仍在使用公开默认密钥的环境，或怀疑密钥已经泄露的环境。
 
-UA 的 `rotate-encryption-key` 命令以 Kubernetes Job 的形式在维护窗口内单独运行，它会做两件事：把数据库中已有的密文改用新密钥重新加密，并更新代码源上 Webhook 的 Secret。集群中的密钥 Secret 和 Dex 配置不由这个命令修改，需要按下文步骤手动切换。
+UA 的 `rotate-encryption-key` 命令以 Kubernetes Job 的形式在维护窗口内单独运行，它会做两件事：把数据库中已有的密文改用新密钥重新加密，并更新代码源上 Webhook 的 Secret。集群中的密钥 Secret 不由这个命令修改，需要按下文步骤用 kubectl 手动切换，这部分不需要执行 Helm upgrade。AES 密钥切换并验收后，再用一次普通 Helm upgrade 更换 Dex 客户端密钥。
 
 ## 前提
 
-- 已先升级到兼容的业务镜像和 Chart，仍使用原 AES/Dex Secret。配套 Chart 必须为 Zadig v5.1.0 及以上版本，该版本起包含密钥保留及校验逻辑；不能使用 v5.1.0 之前的 Chart。
+- 已先升级到兼容的业务镜像和 Chart，仍使用原 AES/Dex Secret。配套 Chart 必须为 Zadig v5.1.0 及以上版本，该版本起升级时始终沿用集群 Secret 中的密钥、忽略 values 中的 `global.encryption.key`；不能使用 v5.1.0 之前的 Chart，否则后续升级可能用 values 中的旧密钥覆盖 Secret。
 - 关闭业务入口、工作流/定时触发/Webhook 消费，结束运行任务，停止 user、aslan、hub-server、cron 等密文读写服务；同时暂停会恢复副本数的 HPA/GitOps 等外部控制器。
 - 停写后完成 MongoDB、MySQL 用户库和 Dex 库、当前 AES Secret、Helm values、Dex Secret、Webhook 清单和 Agent YAML 的最终备份。
 - 本工具只支持 MySQL。代码源 OAuth Token 须在维护前确认有效；dry-run 不刷新 Token、不写数据库或 Redis。
@@ -33,13 +33,13 @@ dry-run Job ──► 报告 phase: validated、failed 为 0，处理 manual_web
 创建 zadig-aes-key-previous（旧密钥），当前 Secret 切到新密钥 ──► 指纹校验
   │
   ▼
-第二次 Helm upgrade：Dex 新 Secret，四个服务保持 0，--no-hooks ──► 再次指纹校验
-  │
-  ▼
-第三次 Helm upgrade：四个服务恢复到原副本数 ──► 验收 ──► 恢复业务触发、入口和外部控制器
+kubectl 恢复四个服务的原副本数，重启其他引用该 Secret 的服务 ──► 验收 ──► 恢复业务触发、入口和外部控制器
   │
   ▼
 删除 zadig-aes-key-next
+  │
+  ▼
+普通 Helm upgrade 更换 Dex 客户端密钥 ──► 确认 Helm 输出无默认密钥警告
   │
   ▼
 全部 Agent 升级完成后，尽快删除 zadig-aes-key-previous
@@ -47,7 +47,7 @@ dry-run Job ──► 报告 phase: validated、failed 为 0，处理 manual_web
 
 ## 执行
 
-以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release、Chart 路径和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL，不需要其他组件；后文用到的 `kubectl kustomize` 是 kubectl 自带的子命令，无需单独安装 kustomize。
+以下命令使用当前 kubectl context。先确认目标集群和安装命名空间；命名空间、release 和镜像地址需要替换。以下命令需安装 kubectl、Helm、Python 3 和 OpenSSL，不需要其他组件；Helm 用于查看 release、备份 values，以及最后更换 Dex 客户端密钥。
 
 下面这段确认当前集群，并设置后续命令共用的变量。
 
@@ -57,17 +57,16 @@ helm list -A
 ZADIG_CONTEXT=$(kubectl config current-context)
 ZADIG_NAMESPACE='<安装命名空间>'
 ZADIG_RELEASE='<现有 Helm release>'
-ZADIG_CHART='<阶段一已部署的同一份 Chart 目录或 tgz 的绝对路径>'
 helm history "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE"
 ```
 
-第二次及后续 upgrade 必须使用阶段一的同一份 Chart（v5.1.0 及以上），同时核对 `helm history` 中的版本；相同版本号不保证包内容一致。更换 Chart 可能改变依赖 `.Chart.AppVersion` 的镜像，`--reuse-values` 不能保证镜像不变。
+核对 `helm history` 中当前部署的 Chart 为 v5.1.0 及以上。
 
 关闭业务入口和触发、结束运行任务后，先记录副本数，再停服务。以下目录包含密钥，按客户密钥管理要求保管；不要开启 shell 的 `set -x`。命令中的 Deployment 名称为 Chart 默认名称，自定义部署先核对名称。
 
 脚本作用：
 1. 创建权限为 700 的维护目录，把上面的变量写入 `session.sh`，终端断开后可以恢复。
-2. 导出四个 Deployment 的当前定义，从中读出原副本数，写入 `replicas.before-values.json`，最后恢复服务时使用。
+2. 导出四个 Deployment 的当前定义，从中读出原副本数，写入 `replicas.before.json`，最后恢复服务时使用。
 3. 把四个服务缩到 0，并等待 Pod 全部退出。
 
 ```bash
@@ -76,12 +75,12 @@ ROTATION_DIR=$(mktemp -d "$PWD/zadig-key-rotation.XXXXXX")
 printf '维护目录（请记录绝对路径）: %s\n' "$ROTATION_DIR"
 (
 set -eu
-python3 - "$ROTATION_DIR" "$ZADIG_CONTEXT" "$ZADIG_NAMESPACE" "$ZADIG_RELEASE" "$ZADIG_CHART" <<'PY'
+python3 - "$ROTATION_DIR" "$ZADIG_CONTEXT" "$ZADIG_NAMESPACE" "$ZADIG_RELEASE" <<'PY'
 import shlex
 import sys
 from pathlib import Path
 
-names = ("ROTATION_DIR", "ZADIG_CONTEXT", "ZADIG_NAMESPACE", "ZADIG_RELEASE", "ZADIG_CHART")
+names = ("ROTATION_DIR", "ZADIG_CONTEXT", "ZADIG_NAMESPACE", "ZADIG_RELEASE")
 Path(sys.argv[1], "session.sh").write_text("umask 077\n" + "".join(
     f"{name}={shlex.quote(value)}\n" for name, value in zip(names, sys.argv[1:])))
 PY
@@ -92,11 +91,11 @@ import sys
 from pathlib import Path
 
 folder = Path(sys.argv[1])
-names = {"user": "user", "aslan": "aslan", "hub-server": "hubServer", "cron": "cron"}
+names = {"user", "aslan", "hub-server", "cron"}
 items = json.loads((folder / "deployments.before.json").read_text())["items"]
-replicas = {names[item["metadata"]["name"]]: {"replicas": str(item["spec"]["replicas"])} for item in items}
-assert set(replicas) == set(names.values()), "missing maintenance deployment"
-(folder / "replicas.before-values.json").write_text(json.dumps({"microservice": replicas}))
+replicas = {item["metadata"]["name"]: item["spec"]["replicas"] for item in items}
+assert set(replicas) == names, "missing maintenance deployment"
+(folder / "replicas.before.json").write_text(json.dumps(replicas))
 PY
 kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" scale deployment/user deployment/aslan deployment/hub-server deployment/cron --replicas=0
 for service in user aslan hub-server cron; do
@@ -107,7 +106,7 @@ done
 
 确认整个命令块成功，核对相关 Pod 已退出、没有其他写入者后，完成前述数据库等最终备份，再保存当前 Secret 和完整 Helm values。备份失败时不得继续迁移。
 
-下面这段把当前 `zadig-aes-key` 和 release 的全部 values 导出到维护目录，后面构造旧密钥 Secret 和 Dex values 时会用到。
+下面这段把当前 `zadig-aes-key` 和 release 的全部 values 导出到维护目录，前者用于构造旧密钥 Secret，后者作为备份。
 
 ```bash
 (
@@ -196,7 +195,7 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" patch secret zadig-aes-
 )
 ```
 
-Secret 切换成功后，先校验当前 Secret 的 SHA-256 指纹与本次迁移使用的新密钥文件一致。将校验脚本保存在维护目录，供 Helm 前后复用；仅输出校验结果。整个命令块必须成功才可继续，不一致时保持服务为 0，中止后续步骤。
+Secret 切换成功后，先校验当前 Secret 的 SHA-256 指纹与本次迁移使用的新密钥文件一致。校验脚本保存在维护目录，仅输出校验结果。整个命令块必须成功才可继续，不一致时保持服务为 0，中止后续步骤。
 
 脚本作用：在维护目录写入 `check-aes.py`，它比较集群中 `zadig-aes-key` 的值与本地 `aes-next` 文件的 SHA-256，一致时只输出 `AES fingerprint matches`，不打印密钥本身；然后导出当前 Secret 并执行一次校验。
 
@@ -221,99 +220,54 @@ python3 "$ROTATION_DIR/check-aes.py" "$ROTATION_DIR"
 )
 ```
 
-确认校验成功后，准备 Dex values：只替换第一个静态客户端的 Secret，保留所有客户端的 ID、回调地址及其他配置。新 Secret 保存在受限文件中，不输出到终端。
-
-脚本作用：从 `values.before.json` 取出 Dex 的 `staticClients` 列表，只把第一个客户端（Zadig）的 `secret` 换成随机生成的 64 位十六进制串，其余字段原样保留，写入 `dex-next-values.json`，供下一步 Helm upgrade 使用。
+确认校验成功后，用停写前记录的副本数把四个服务恢复到维护前的状态；原副本数为 0 的服务仍保持为 0。新建的 Pod 会加载新密钥。
 
 ```bash
-python3 - "$ROTATION_DIR" <<'PY'
+(
+set -eu
+python3 - "$ROTATION_DIR" <<'PY' | while read -r service count; do
 import json
-import secrets
 import sys
 from pathlib import Path
 
-folder = Path(sys.argv[1])
-clients = json.loads((folder / "values.before.json").read_text())["dex"]["config"]["staticClients"]
-assert clients and clients[0]["id"], "missing Zadig Dex client"
-clients[0]["secret"] = secrets.token_hex(32)
-(folder / "dex-next-values.json").write_text(json.dumps({"dex": {"config": {"staticClients": clients}}}))
+for name, count in json.loads((Path(sys.argv[1]) / "replicas.before.json").read_text()).items():
+    print(name, count)
 PY
-```
-
-确认文件生成成功，再执行第二次 Helm upgrade。`--set-string global.encryption.key=` 清除 release 中历史 key 值，使配套 Chart 通过 lookup 读取已校验的当前 Secret。使用同一份 Chart 并复用现有 values。
-
-**Helm upgrade 会把手工 scale 为 0 的服务恢复到 Chart 指定的副本数。** 停写升级使用以下 Helm 3 post-renderer，将四个 Deployment 的副本数保持为 0；它通过已有的 `kubectl kustomize` 处理本次渲染结果，不连接集群。不通过 values 将 Aslan 副本数设为 0：多副本 Aslan 的 `aslan-pvc` 和 `/app/data` 挂载依赖该值，设为 0 会使 PVC 从模板中消失并被 Helm 删除。保留原 values 后，这些资源继续正常渲染。
-
-脚本作用：在维护目录下创建 `helm-maintenance/`，其中 `kustomization.yaml` 声明把 user、aslan、hub-server、cron 的副本数改为 0；`render.sh` 是 Helm 的 post-renderer，它从标准输入接收 Helm 渲染好的清单，保存为 `rendered.yaml`，再用 `kubectl kustomize` 输出改过副本数的清单交给 Helm 部署。
-
-```bash
-(
-set -eu
-mkdir "$ROTATION_DIR/helm-maintenance"
-cat > "$ROTATION_DIR/helm-maintenance/kustomization.yaml" <<'YAML'
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - rendered.yaml
-replicas:
-  - name: user
-    count: 0
-  - name: aslan
-    count: 0
-  - name: hub-server
-    count: 0
-  - name: cron
-    count: 0
-YAML
-cat > "$ROTATION_DIR/helm-maintenance/render.sh" <<'SH'
-#!/bin/sh
-set -eu
-cd "$(dirname "$0")"
-cat > rendered.yaml
-kubectl kustomize .
-SH
-chmod 700 "$ROTATION_DIR/helm-maintenance/render.sh"
-)
-```
-
-本次停写升级必须加 `--no-hooks`：Chart 的 init hook 会通过 HTTP 调用 Aslan，Aslan 为 0 时会失败；同样跳过每次升级都会执行的 UA migrate hook。阶段一已完成正常升级和 hooks，独立轮换 Job 不受 `--no-hooks` 影响。不要在这里使用 `--atomic`，以免失败时自动回滚并启动服务。
-
-```bash
-helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" \
-  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
-  --reuse-values -f "$ROTATION_DIR/dex-next-values.json" \
-  --set-string global.encryption.key= \
-  --post-renderer "$ROTATION_DIR/helm-maintenance/render.sh" \
-  --no-hooks
-```
-
-Helm 成功后再次复核指纹。校验失败时保持维护状态，不执行任何恢复服务的命令。
-
-```bash
-(
-set -eu
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get secret zadig-aes-key -o json > "$ROTATION_DIR/aes.current.json"
-python3 "$ROTATION_DIR/check-aes.py" "$ROTATION_DIR"
-)
-```
-
-两次指纹校验及第二次 Helm upgrade 均成功后，用停写前记录的副本数文件把四个服务恢复到维护前的副本数；原副本数为 0 的服务仍保持为 0。文件只覆盖副本数，不回填旧 AES/Dex values；副本数以字符串写入，因为模板的 `default 1` 会把数字 `0` 变成 `1`。此次不再指定 post-renderer 或 `--no-hooks`，恢复正常 init 和 UA migrate hooks；使用 `--wait --timeout 10m` 等待服务就绪后执行 post-upgrade hooks。已停止的 Pod 会重新创建并加载新密钥，无需额外 rollout restart。
-
-```bash
-helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" \
-  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
-  --reuse-values -f "$ROTATION_DIR/replicas.before-values.json" \
-  --wait --timeout 10m
-```
-
-```bash
+  kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" scale "deployment/$service" --replicas="$count"
+done
 for service in user aslan hub-server cron; do
   kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status "deployment/$service" --timeout=10m
 done
 kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get deployment user aslan hub-server cron
+)
 ```
 
-确认 Dex 就绪，验收 Agent 重连、原 TOTP 登录、对象存储读写、受控 Webhook 触发、新旧 API Token 和 Dex 授权回调。验收期间**业务定时触发配置继续保持暂停**，验收通过后再按维护前记录恢复业务定时触发、入口和外部控制器。
+其他 Deployment 若也通过环境变量引用 `zadig-aes-key`（例如 halman），运行中的 Pod 仍持有旧密钥，需要重启。下面这段列出这些 Deployment（不含上述四个服务）并逐个重启。
+
+```bash
+(
+set -eu
+kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get deployment -o json > "$ROTATION_DIR/deployments.all.json"
+python3 - "$ROTATION_DIR" <<'PY' > "$ROTATION_DIR/restart.txt"
+import json
+import sys
+from pathlib import Path
+
+skip = {"user", "aslan", "hub-server", "cron"}
+for item in json.loads((Path(sys.argv[1]) / "deployments.all.json").read_text())["items"]:
+    if item["metadata"]["name"] not in skip and '"zadig-aes-key"' in json.dumps(item["spec"]["template"]):
+        print(item["metadata"]["name"])
+PY
+while read -r service; do
+  kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout restart "deployment/$service"
+  kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" rollout status "deployment/$service" --timeout=10m
+done < "$ROTATION_DIR/restart.txt"
+)
+```
+
+后续正常升级 Zadig 时，Chart 会沿用集群 Secret 中的新密钥；之前导出或保存的 values 中即使仍有旧 `global.encryption.key` 也会被忽略，Helm 会输出警告，不需要再手动删除。
+
+验收 Agent 重连、原 TOTP 登录、对象存储读写、受控 Webhook 触发、新旧 API Token 和 Dex 授权回调。验收期间**业务定时触发配置继续保持暂停**，验收通过后再按维护前记录恢复业务定时触发、入口和外部控制器。
 
 验收通过后删除临时 Secret `zadig-aes-key-next`。切换完成后它与 `zadig-aes-key` 内容相同，只是多一份新密钥的明文副本，系统不会读取它。维护目录中的 `aes-next` 等文件按客户密钥管理要求保管或销毁。
 
@@ -328,6 +282,47 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" delete secret zadig-aes
 ```
 
 JWT、API Token、MFA 恢复码将失效，用户需要重新登录/签发；本 Job 不删除其哈希。历史 pipeline `storage_uri` 只计数、不重写。
+
+## 更换 Dex 客户端密钥
+
+Dex 客户端密钥与 AES 密钥无关，不需要停服务，在上述步骤验收通过后用一次普通 Helm upgrade 更换即可。Dex 和 user 服务会自动重启，用户需要重新登录。
+
+脚本作用：
+1. 导出 release 当前的 values，只把 Dex 第一个静态客户端（Zadig）的 `secret` 换成随机生成的 64 位十六进制串，其余字段原样保留，写入 `dex-next-values.json`。
+2. 使用当前已部署的同一版本 Chart 执行升级，并等待服务就绪。
+3. 检查 Helm 输出，不应再出现公开默认密钥的警告。
+
+```bash
+ZADIG_CHART='<当前已部署的 Chart，例如 koderover-chart/zadig>'
+ZADIG_CHART_VERSION='<helm history 中当前的 Chart 版本>'
+(
+set -eu
+helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.current.json"
+python3 - "$ROTATION_DIR" <<'PY'
+import json
+import secrets
+import sys
+from pathlib import Path
+
+folder = Path(sys.argv[1])
+clients = json.loads((folder / "values.current.json").read_text())["dex"]["config"]["staticClients"]
+assert clients and clients[0]["id"], "missing Zadig Dex client"
+clients[0]["secret"] = secrets.token_hex(32)
+(folder / "dex-next-values.json").write_text(json.dumps({"dex": {"config": {"staticClients": clients}}}))
+PY
+helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" --version "$ZADIG_CHART_VERSION" \
+  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
+  -f "$ROTATION_DIR/values.current.json" -f "$ROTATION_DIR/dex-next-values.json" \
+  --wait --timeout 10m > "$ROTATION_DIR/helm-dex.out"
+if grep -q "publicly known default" "$ROTATION_DIR/helm-dex.out"; then
+  grep "publicly known default" "$ROTATION_DIR/helm-dex.out"
+  exit 1
+fi
+echo "Dex client secret updated, no default secret warning"
+)
+```
+
+完成后验收 Dex 授权回调和登录。`values.current.json` 与 `dex-next-values.json` 包含明文密钥，与维护目录一起按客户密钥管理要求保管或销毁。
 
 ## 限制与开发验证
 
