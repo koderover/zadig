@@ -19,6 +19,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -408,6 +409,34 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 }
 
 func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs, keyVals commonmodels.RuntimeKeyValList, repos []*types.Repository) (*commonmodels.WorkflowV4, error) {
+	if hook := args.HookPayload; hook != nil && hook.IsPr {
+		pr, err := strconv.Atoi(hook.MergeRequestID)
+		if err != nil || pr <= 0 {
+			return nil, fmt.Errorf("invalid test webhook merge request ID %q", hook.MergeRequestID)
+		}
+		namespace := args.RepoNamespace
+		if namespace == "" {
+			namespace = args.RepoOwner
+		}
+		branch := hook.TargetBranch
+		if branch == "" {
+			branch = hook.Branch
+		}
+		for _, repo := range repos {
+			if repo == nil || repo.CodehostID != args.CodehostID || repo.GetRepoNamespace() != namespace || repo.RepoName != args.RepoName {
+				continue
+			}
+			repo.Branch = branch
+			repo.TargetBranch = branch
+			repo.PR = pr
+			repo.PRs = []int{pr}
+			repo.MergeBranches = nil
+			repo.Tag = ""
+			repo.EnableCommit = false
+			repo.CommitID = ""
+		}
+	}
+
 	concurrencyLimit := 1
 	if testInfo.PreTest != nil {
 		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
