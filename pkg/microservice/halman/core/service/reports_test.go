@@ -176,8 +176,8 @@ func TestServiceLogQueryFromEnvironmentPageCompletesWithoutInspection(t *testing
 		switch r.URL.Path {
 		case "/api/v1/authorization/auth-info":
 			w.Write([]byte(`{"project_auth_info":{"p":{"env":{"view":true}}}}`))
-		case "/openapi/environments/dev/service/api/pods":
-			w.Write([]byte(`{"service_name":"api","pods":[{"pod_name":"api-1","containers":[{"name":"api"}]}]}`))
+		case "/api/environment/environments/dev/services/api":
+			w.Write([]byte(`{"service_name":"api","scales":[{"pods":[{"name":"api-1","containers":[{"name":"api"}]}]}]}`))
 		case "/api/logs/pods/api-1":
 			if r.URL.Query().Get("previous") == "true" {
 				w.WriteHeader(http.StatusBadGateway)
@@ -187,7 +187,12 @@ func TestServiceLogQueryFromEnvironmentPageCompletesWithoutInspection(t *testing
 			w.Write([]byte(`{"text":"service is ready","truncated":true}`))
 		case "/api/environment/kube/pods/api-1/events":
 			w.Write([]byte(`[]`))
-		case "/api/environment/environments/dev/services/api", "/api/environment/environments/dev/services/api/resources", "/api/environment/environments/dev/version/api":
+		case "/api/environment/environments/dev/services/api/resources":
+			w.Write([]byte(`{}`))
+		case "/api/environment/environments/dev/version/api":
+			if r.URL.Query().Get("isHelmChart") != "false" {
+				t.Fatalf("K8s YAML 服务发布历史查询参数错误: %s", r.URL)
+			}
 			w.Write([]byte(`{}`))
 		default:
 			t.Fatalf("意外调用: %s", r.URL)
@@ -202,6 +207,52 @@ func TestServiceLogQueryFromEnvironmentPageCompletesWithoutInspection(t *testing
 	}
 }
 
+func TestHelmServiceDiagnosisUsesReleaseEvidence(t *testing.T) {
+	for _, test := range []struct {
+		name, historyName, chartQuery string
+	}{
+		{name: "Zadig Helm service", historyName: "api", chartQuery: "false"},
+		{name: "Helm Chart release", historyName: "api-release", chartQuery: "true"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Fatalf("unexpected call: %s %s", r.Method, r.URL)
+				}
+				switch r.URL.Path {
+				case "/api/v1/authorization/auth-info":
+					w.Write([]byte(`{"project_auth_info":{"p":{"env":{"view":true}}}}`))
+				case "/api/environment/environments/dev/services/api":
+					w.Write([]byte(`{"service_name":"api","release_name":"api-release","is_helm_chart":` + test.chartQuery + `,"scales":[{"name":"api-deployment","pods":[{"name":"api-deployment-1","containers":[{"name":"api"}]}]}]}`))
+				case "/api/environment/environments/dev/version/" + test.historyName:
+					if r.URL.Query().Get("isHelmChart") != test.chartQuery {
+						t.Fatalf("unexpected history query: %s", r.URL)
+					}
+					w.Write([]byte(`[{"revision":2}]`))
+				case "/api/environment/kube/pods/api-deployment-1/events":
+					w.Write([]byte(`[{"reason":"BackOff","message":"Back-off pulling image"}]`))
+				case "/api/logs/pods/api-deployment-1":
+					w.WriteHeader(http.StatusBadRequest)
+				default:
+					t.Fatalf("unexpected call: %s", r.URL)
+				}
+			})
+			s := &AgentService{Platform: platform}
+			e := reportExecution("service_diagnosis")
+			value, err := s.collectServiceEvidence(context.Background(), e, models.ServiceTarget{ProjectKey: "p", EnvName: "dev", ServiceName: "api"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			evidence := string(common.JSON(value))
+			for _, want := range []string{`"name":"api-deployment"`, `"revision":2`, "Back-off pulling image"} {
+				if !strings.Contains(evidence, want) {
+					t.Errorf("expected %q in evidence: %s", want, evidence)
+				}
+			}
+		})
+	}
+}
+
 func TestInspectionServiceEvidenceKeepsParentSkillAndDoesNotCompleteInspection(t *testing.T) {
 	store, mock := mockStore(t)
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
@@ -212,8 +263,8 @@ func TestInspectionServiceEvidenceKeepsParentSkillAndDoesNotCompleteInspection(t
 		if r.Method != http.MethodGet {
 			t.Fatal("补充服务证据只能只读")
 		}
-		if strings.HasSuffix(r.URL.Path, "/pods") {
-			w.Write([]byte(`{"service_name":"api","pods":[]}`))
+		if strings.HasSuffix(r.URL.Path, "/services/api") {
+			w.Write([]byte(`{"service_name":"api"}`))
 			return
 		}
 		w.Write([]byte(`{}`))

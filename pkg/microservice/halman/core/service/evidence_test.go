@@ -57,8 +57,6 @@ func TestServiceLogsReuseExistingRoutesAndBoundEvidence(t *testing.T) {
 				t.Fatal("证据读取只允许携带实际用户身份")
 			}
 			switch r.URL.Path {
-			case "/openapi/environments/production/dev/service/api/pods":
-				w.Write([]byte(`{"service_name":"api","pods":[{"pod_name":"api-1","containers":[{"name":"api"},{"name":"sidecar"},{"name":"third"},{"name":"fourth"}]}]}`))
 			case "/api/environment/kube/pods/api-1/events":
 				events++
 				if r.URL.Query().Get("production") != "true" || r.URL.Query().Get("envName") != "dev" {
@@ -91,8 +89,11 @@ func TestServiceLogsReuseExistingRoutesAndBoundEvidence(t *testing.T) {
 				t.Fatalf("不应再调用 assistant 专用日志接口: %s", r.URL)
 			}
 		})
+		pods := &servicePods{ServiceName: "api", Pods: []servicePod{{
+			Name: "api-1", Containers: []servicePodContainer{{Name: "api"}, {Name: "sidecar"}, {Name: "third"}, {Name: "fourth"}},
+		}}}
 		value := (&AgentService{Platform: p}).serviceLogs(context.Background(), &execution{Authorization: "Bearer user"},
-			models.ServiceTarget{ProjectKey: "demo", EnvName: "dev", ServiceName: "api", Production: true}).(map[string]any)
+			models.ServiceTarget{ProjectKey: "demo", EnvName: "dev", ServiceName: "api", Production: true}, pods).(map[string]any)
 		if events != 1 || logs != 6 || previous != 3 {
 			t.Fatalf("日志次数错误或重复读取同一 Pod 事件: logs=%d previous=%d events=%d", logs, previous, events)
 		}

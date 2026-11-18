@@ -89,13 +89,15 @@ func (p *PlatformClient) workflowLogExcerpt(ctx context.Context, auth string, ar
 }
 
 type servicePod struct {
-	Name            string `json:"pod_name"`
-	Ready           bool   `json:"pod_ready"`
-	ContainersReady bool   `json:"containers_ready"`
-	Created         int64  `json:"create_time"`
-	Containers      []struct {
-		Name string `json:"name"`
-	} `json:"containers"`
+	Name            string                `json:"pod_name"`
+	Ready           bool                  `json:"pod_ready"`
+	ContainersReady bool                  `json:"containers_ready"`
+	Created         int64                 `json:"create_time"`
+	Containers      []servicePodContainer `json:"containers"`
+}
+
+type servicePodContainer struct {
+	Name string `json:"name"`
 }
 
 type servicePods struct {
@@ -143,7 +145,6 @@ func serviceQuery(t models.ServiceTarget) url.Values {
 	return url.Values{
 		"projectName": {t.ProjectKey},
 		"production":  {strconv.FormatBool(t.Production)},
-		"isHelmChart": {"false"},
 	}
 }
 
@@ -174,11 +175,7 @@ func (p *PlatformClient) servicePods(ctx context.Context, auth string, t models.
 	return &result, nil
 }
 
-func (s *AgentService) serviceLogs(ctx context.Context, e *execution, t models.ServiceTarget) any {
-	pods, err := s.Platform.servicePods(ctx, e.Authorization, t)
-	if err != nil {
-		return map[string]string{"error": err.Error()}
-	}
+func (s *AgentService) serviceLogs(ctx context.Context, e *execution, t models.ServiceTarget, pods *servicePods) any {
 	logs, events := map[string]any{}, map[string]any{}
 	budget := 64 << 10
 	save := func(target map[string]any, key string, value any) {

@@ -81,8 +81,8 @@ func TestServiceRepairDiagnosisKeepsWaitingForConfirmationPlan(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Fatal("诊断修复目标也不得直接写入")
 		}
-		if strings.HasSuffix(r.URL.Path, "/pods") {
-			w.Write([]byte(`{"service_name":"api","pods":[]}`))
+		if strings.HasSuffix(r.URL.Path, "/services/api") {
+			w.Write([]byte(`{"service_name":"api"}`))
 			return
 		}
 		w.Write([]byte(`{}`))

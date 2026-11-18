@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	kuberesource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 )
 
 type jobEvidence struct {
@@ -388,18 +390,47 @@ func (s *AgentService) collectServiceEvidence(ctx context.Context, e *execution,
 	if err != nil {
 		return nil, err
 	}
-
-	resources, resourceErr := s.Platform.business(ctx, e.Authorization, http.MethodGet, base+"/resources", query, nil)
-	var workload any
-	if resourceErr == nil {
-		workload, resourceErr = safeDiagnosticJSON(resources)
+	type workloadPods struct {
+		Pods []*kuberesource.Pod `json:"pods"`
+	}
+	var detail struct {
+		ServiceName string         `json:"service_name"`
+		ReleaseName string         `json:"release_name"`
+		IsHelmChart *bool          `json:"is_helm_chart"`
+		Scales      []workloadPods `json:"scales"`
+		CronJobs    []workloadPods `json:"cron_jobs"`
+	}
+	if err := json.Unmarshal(raw, &detail); err != nil {
+		return nil, err
+	}
+	if detail.ServiceName != target.ServiceName {
+		return nil, fmt.Errorf("服务详情归属与目标不匹配")
 	}
 
+	var workload any
+	var resourceErr error
+	if detail.IsHelmChart == nil {
+		var resources json.RawMessage
+		resources, resourceErr = s.Platform.business(ctx, e.Authorization, http.MethodGet, base+"/resources", query, nil)
+		if resourceErr == nil {
+			workload, resourceErr = safeDiagnosticJSON(resources)
+		}
+	}
+
+	historyName := target.ServiceName
+	isHelmChart := detail.IsHelmChart != nil && *detail.IsHelmChart
+	if isHelmChart {
+		if err := checkNames(detail.ReleaseName); err != nil {
+			return nil, err
+		}
+		historyName = detail.ReleaseName
+	}
+	query.Set("isHelmChart", strconv.FormatBool(isHelmChart))
 	versions, versionErr := s.Platform.business(
 		ctx,
 		e.Authorization,
 		http.MethodGet,
-		"/api/environment/environments/"+target.EnvName+"/version/"+target.ServiceName,
+		"/api/environment/environments/"+target.EnvName+"/version/"+historyName,
 		query,
 		nil,
 	)
@@ -408,12 +439,35 @@ func (s *AgentService) collectServiceEvidence(ctx context.Context, e *execution,
 		history, versionErr = safeDiagnosticJSON(versions)
 	}
 
+	pods := servicePods{ServiceName: detail.ServiceName, Pods: []servicePod{}}
+	seen := make(map[string]struct{})
+	for _, workload := range append(detail.Scales, detail.CronJobs...) {
+		for _, pod := range workload.Pods {
+			if pod == nil || pod.Name == "" {
+				continue
+			}
+			if _, exists := seen[pod.Name]; exists {
+				continue
+			}
+			if len(pods.Pods) == 50 {
+				pods.Truncated = true
+				break
+			}
+			seen[pod.Name] = struct{}{}
+			item := servicePod{Name: pod.Name, Ready: pod.PodReady, ContainersReady: pod.ContainersReady, Created: pod.CreateTime}
+			for _, container := range pod.Containers {
+				item.Containers = append(item.Containers, servicePodContainer{Name: container.Name})
+			}
+			pods.Pods = append(pods.Pods, item)
+		}
+	}
+
 	result := map[string]any{
 		"service":          service,
 		"resources":        workload,
 		"release_history":  history,
 		"target":           target,
-		"runtime_evidence": s.serviceLogs(ctx, e, target),
+		"runtime_evidence": s.serviceLogs(ctx, e, target, &pods),
 	}
 	if resourceErr != nil {
 		result["resources_error"] = resourceErr.Error()

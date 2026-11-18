@@ -100,13 +100,36 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 	return nil
 }
 
-func GetService(envName, productName, serviceName string, production bool, workLoadType string, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
+func GetService(envName, productName, serviceName string, production bool, workLoadType string, resolveHelmRelease bool, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
+	if resolveHelmRelease && env.Source == setting.SourceFromHelm && workLoadType == "" {
+		return getHelmServiceByName(env, serviceName, log)
+	}
 	return getService(env, serviceName, workLoadType, log)
+}
+
+func getHelmServiceByName(env *commonmodels.Product, serviceName string, log *zap.SugaredLogger) (*commonservice.SvcResp, error) {
+	var matched *commonmodels.ProductService
+	for _, svc := range env.GetSvcList() {
+		if svc.ServiceName != serviceName && (svc.FromZadig() || svc.ReleaseName != serviceName) {
+			continue
+		}
+		if matched != nil {
+			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("%s matches multiple Helm services in env %s", serviceName, env.EnvName))
+		}
+		matched = svc
+	}
+	result, err := getHelmServiceRuntimeResources(env, serviceName, log)
+	if err != nil {
+		return nil, err
+	}
+	result.ReleaseName = matched.ReleaseName
+	result.IsHelmChart = util.GetBoolPointer(!matched.FromZadig())
+	return result, nil
 }
 
 func getService(env *commonmodels.Product, serviceName, workLoadType string, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
