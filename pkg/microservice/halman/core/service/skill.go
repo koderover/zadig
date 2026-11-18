@@ -38,12 +38,12 @@ func (s *AgentService) tools() []tool.Tool {
 			function.WithName("read_saved_operation"),
 			function.WithDescription("查看已关联执行的参数草稿、缺失字段和清单；未关联时读取同一聊天最近的操作快照，可继续的执行自动恢复草稿。can_continue=false 时仅供查看，不恢复已取消或已完成的执行。重新回答时只读原操作快照。重新校验当前权限，不执行或重放业务写操作。"),
 		),
-		function.NewFunctionTool(s.workflowLog, outputSchema, function.WithName("workflow_log_window"), function.WithDescription("在已确认的工作流任务中向前分页读取指定步骤日志，不读全量任务日志。")),
+		function.NewFunctionTool(s.workflowLog, outputSchema, function.WithName("workflow_log_window"), function.WithDescription("仅对 workflow_diagnosis 已返回 log_supported=true 且确需更多日志的步骤向前分页读取。job_name 使用任务详情中的完整 name。仅当 next_offset 小于 total_lines 且游标前进时才有更早内容；unsupported=true、零行或已读完时停止。")),
 		function.NewFunctionTool(
 			s.diagnoseWorkflow,
 			outputSchema,
 			function.WithName("workflow_diagnosis"),
-			function.WithDescription("工作流报错分析：校验当前用户权限，读取任务当次状态、失败步骤、原任务详情中的有限信息及分页日志，只读并给出证据。缺失配置不能用当前配置或推断的脚本替代。缺参先保存草稿并返回补问字段。"),
+			function.WithDescription("工作流报错分析：校验当前用户权限，读取任务当次状态、失败步骤、原任务详情中的有限信息；仅为支持日志的步骤读取有限日志。Grafana 等任务不产生日志，应分析 error、检查条件和告警结果，不把无日志当作故障证据。只读并给出证据，缺失配置不能用当前配置或推断的脚本替代。缺参先保存草稿并返回补问字段。"),
 		),
 		function.NewFunctionTool(
 			s.diagnoseService,

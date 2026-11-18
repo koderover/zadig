@@ -43,7 +43,7 @@ import (
 // @Param format query string false "传 excerpt 使用片段模式，不传保持完整日志响应" Enums(excerpt)
 // @Param offset query int false "片段模式从日志末尾跳过的行数，后续使用 next_offset" default(0) minimum(0) maximum(5000)
 // @Param limit query int false "片段模式的窗口行数" default(200) minimum(1) maximum(500)
-// @Success 200 {object} logservice.LogExcerpt "format=excerpt 时返回日志片段；未传时仍返回原有 JSON 字符串"
+// @Success 200 {object} logservice.LogExcerpt "format=excerpt 时返回日志片段，任务类型不支持时标记 unsupported；未传时仍返回原有 JSON 字符串"
 // @Failure 400 "参数无效、任务归属不匹配或日志无法读取"
 // @Failure 403 "片段模式缺少当前用户的工作流查看权限"
 // @Failure 404 "工作流、任务或步骤不存在"

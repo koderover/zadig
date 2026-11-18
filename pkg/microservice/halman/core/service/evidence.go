@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
@@ -46,25 +47,7 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 		return nil, fmt.Errorf("需要明确工作流任务编号")
 	}
 
-	// 原日志片段接口校验查看权限及任务、步骤归属，不再预读完整任务。
-	raw, err := s.Platform.business(
-		ctx,
-		e.Authorization,
-		http.MethodGet,
-		fmt.Sprintf(
-			"/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s",
-			args.Target.WorkflowName,
-			args.Target.TaskID,
-			url.PathEscape(args.Target.JobName),
-		),
-		url.Values{
-			"projectName": {args.Target.ProjectKey},
-			"format":      {"excerpt"},
-			"offset":      {strconv.Itoa(args.Offset)},
-			"limit":       {strconv.Itoa(args.Limit)},
-		},
-		nil,
-	)
+	value, err := s.Platform.workflowLogExcerpt(ctx, e.Authorization, args)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +64,27 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 		return nil, err
 	}
 
-	e.EvidenceRead.Store(true)
+	excerpt, _ := value.(map[string]any)
+	text, _ := excerpt["text"].(string)
+	if strings.TrimSpace(text) != "" {
+		e.EvidenceRead.Store(true)
+	}
+	return value, nil
+}
+
+func (p *PlatformClient) workflowLogExcerpt(ctx context.Context, auth string, args models.WorkflowLogWindow) (any, error) {
+	// The excerpt endpoint checks workflow permission and task/job ownership.
+	target := args.Target
+	path := fmt.Sprintf("/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s", target.WorkflowName, target.TaskID, url.PathEscape(target.JobName))
+	raw, err := p.business(ctx, auth, http.MethodGet, path, url.Values{
+		"projectName": {target.ProjectKey},
+		"format":      {"excerpt"},
+		"offset":      {strconv.Itoa(args.Offset)},
+		"limit":       {strconv.Itoa(args.Limit)},
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
 	return safeJSON(raw)
 }
 
