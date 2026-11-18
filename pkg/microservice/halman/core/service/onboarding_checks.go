@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
@@ -40,7 +43,7 @@ func missingOnboardingOptions(args models.OnboardingInput, newProject bool) []st
 func missingOnboardingEnvironment(args models.OnboardingInput, newProject bool) []string {
 	if args.Environment == nil {
 		if newProject && !args.SkipEnvironment {
-			return []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群、Kubernetes namespace 和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"}
+			return []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"}
 		}
 		return nil
 	}
@@ -48,14 +51,29 @@ func missingOnboardingEnvironment(args models.OnboardingInput, newProject bool) 
 	for _, field := range []struct{ value, label string }{
 		{args.Environment.Name, "环境名称"},
 		{args.Environment.ClusterID, "环境的集群"},
-		{args.Environment.Namespace, "环境的 Kubernetes namespace"},
 		{args.Environment.RegistryID, "环境的镜像仓库"},
 	} {
 		if field.value == "" {
 			missing = append(missing, field.label)
 		}
 	}
+	if args.Environment.Namespace == "" && (!newProject ||
+		(args.ProjectKey != "" && args.Environment.Name != "" && suggestedOnboardingNamespace(args) == "")) {
+		missing = append(missing, "环境的 Kubernetes namespace")
+	}
 	return missing
+}
+
+func suggestedOnboardingNamespace(args models.OnboardingInput) string {
+	if args.Environment == nil || args.Environment.Namespace != "" || args.Environment.Name == "" || args.ProjectKey == "" {
+		return ""
+	}
+	product := commonmodels.Product{ProductName: args.ProjectKey, EnvName: args.Environment.Name}
+	namespace := product.GetDefaultNamespace()
+	if len(validation.IsDNS1123Label(namespace)) != 0 {
+		return ""
+	}
+	return namespace
 }
 
 // 只用于草稿准备；确认和提交仍读取最新资源。input 必须包含该检查的全部依赖。

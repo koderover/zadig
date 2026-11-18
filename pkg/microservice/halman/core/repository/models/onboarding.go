@@ -43,7 +43,7 @@ type BuildInput struct {
 type EnvironmentInput struct {
 	Name       string            `json:"name,omitempty"`
 	ClusterID  string            `json:"cluster_id,omitempty"`
-	Namespace  string            `json:"namespace,omitempty"`
+	Namespace  string            `json:"namespace,omitempty" jsonschema:"description=项目初始化时省略即使用系统建议的 namespace，仅在用户指定其他名称或默认名称不合法时填写"`
 	RegistryID string            `json:"registry_id,omitempty"`
 	Services   []string          `json:"services,omitempty" jsonschema:"description=要部署的服务名；只创建环境不部署服务时传空列表，不自动选择全部服务"`
 	Variables  map[string]string `json:"variables,omitempty"`

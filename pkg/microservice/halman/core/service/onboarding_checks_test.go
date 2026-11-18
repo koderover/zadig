@@ -47,8 +47,8 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 	s := &AgentService{Store: store, Platform: platform}
 	patches := []string{
 		`{"project_name":"demo","project_key":"demo","project_type":"k8s","services":[{"name":"service1","source":"yaml_template","template_id":"general"},{"name":"service2","source":"yaml_template","template_id":"general"}],"builds":[{"name":"build1","template_id":"general","service_name":"service1","service_module":"service1","repositories":[{"codehost_id":1,"owner":"team","repo":"repo","branch":"main"}]}],"environment":{"name":"dev","cluster_id":"local"}}`,
-		`{"environment":{"namespace":"demo-dev"}}`,
-		`{"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
+		`{"environment":{"name":"staging"}}`,
+		`{"environment":{"namespace":"custom-ns"},"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
 		`{"builds":[{"name":"build1","service_module":"worker"}]}`,
 		`{"builds":[{"name":"build1","template_id":"other"}]}`,
 		`{"services":[{"name":"service1","template_id":"other","template_fingerprint":"model-provided"}]}`,
@@ -88,8 +88,14 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 				t.Fatalf("第 %d 轮不应重读无关资源: %s=%d，期望 %d", i, path, reads[path], count)
 			}
 		}
-		if i == 0 && !reflect.DeepEqual(saved.plan.MissingFields, []string{"环境的 Kubernetes namespace", "环境的镜像仓库"}) {
-			t.Fatalf("缺项应一次汇总: %v", saved.plan.MissingFields)
+		if i < 2 {
+			want := []string{"demo-env-dev", "demo-env-staging"}[i]
+			if value.(map[string]any)["suggested_namespace"] != want || saved.plan.Draft.Environment.Namespace != "" ||
+				!reflect.DeepEqual(saved.plan.MissingFields, []string{"环境的镜像仓库"}) {
+				t.Fatalf("建议应随当前环境名称生成，不能存为草稿参数或要求补填: %v", value)
+			}
+		} else if _, suggested := value.(map[string]any)["suggested_namespace"]; suggested || saved.plan.Draft.Environment.Namespace != "custom-ns" {
+			t.Fatalf("用户明确指定的 namespace 应优先并保存在草稿中: %v", value)
 		}
 	}
 	service := saved.plan.Draft.Services[0]

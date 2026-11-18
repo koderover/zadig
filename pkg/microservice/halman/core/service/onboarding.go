@@ -519,7 +519,11 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	}
 	missing = append(missing, missingOnboardingEnvironment(args, newProject)...)
 	if args.Environment != nil {
-		env := args.Environment
+		// Keep the suggested value out of the draft so a rename can recompute it.
+		env := *args.Environment
+		if newProject && env.Namespace == "" {
+			env.Namespace = suggestedOnboardingNamespace(args)
+		}
 		if env.Name != "" && env.Namespace != "" {
 			if err := checkNames(env.Name, env.Namespace); err != nil {
 				return nil, err

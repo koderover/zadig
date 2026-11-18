@@ -263,12 +263,12 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					t.Fatalf("服务补齐后必须询问环境选择并保留默认工作流: %v %v", value, err)
 				}
 				expectOnboardingDraftSave(mock)
-				value, err = callable.Call(ctx, []byte(`{"environment":{"name":"dev","cluster_id":"local","namespace":"demo-dev","services":["api","web","worker"]}}`))
+				value, err = callable.Call(ctx, []byte(`{"environment":{"name":"dev","cluster_id":"local","services":["api","web","worker"]}}`))
 				if err != nil {
 					t.Fatal(err)
 				}
 				missing = value.(map[string]any)["missing_fields"].([]string)
-				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || e.OnboardingDraft.Environment.Namespace != "demo-dev" {
+				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || value.(map[string]any)["suggested_namespace"] != "demo-env-dev" {
 					t.Fatalf("仅补问缺失的镜像仓库，保留已填环境信息: %v", value)
 				}
 				mock.ExpectBegin()
@@ -295,6 +295,10 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					itemCount = 6
 					if plan.Items[4].Action != "create_environment" || plan.Draft.Environment == nil || len(plan.Draft.Environment.Services) != 0 || !strings.Contains(strings.Join(plan.Notes, " "), "仅创建环境，不部署服务") {
 						t.Fatalf("空环境应纳入清单并明确不部署服务: %+v", plan)
+					}
+					var env models.EnvironmentInput
+					if err := json.Unmarshal(plan.Items[4].Params, &env); err != nil || env.Namespace != "demo-env-dev" {
+						t.Fatalf("确认清单应使用系统建议的 namespace: %+v, %v", env, err)
 					}
 				}
 				if len(plan.Items) != itemCount || plan.Items[itemCount-1].Action != "create_workflow" || len(plan.Items[itemCount-1].DependsOn) != itemCount-1 || plan.Draft == nil || plan.Draft.SkipEnvironment == emptyEnvironment || plan.Draft.ExpectedServiceCount != 3 || len(plan.Draft.Services) != 3 || plan.Draft.Services[1].Variables["PORT"] != "8080" || reads != 3 {
