@@ -73,8 +73,13 @@ func (s *AgentService) prepareServices(ctx context.Context, args models.Onboardi
 
 func (s *AgentService) prepareOnboarding(ctx context.Context, args models.OnboardingInput, newProject bool) (any, error) {
 	ctx = withReadPhase(ctx)
-	if e, ok := ctx.Value(executionKey{}).(*execution); ok && e.RegenerateFrom != nil {
-		return nil, fmt.Errorf("重新回答不能生成或改变操作清单")
+	if e, ok := ctx.Value(executionKey{}).(*execution); ok {
+		if e.RegenerateFrom != nil {
+			return nil, fmt.Errorf("重新回答不能生成或改变操作清单")
+		}
+		if e.PendingOnboarding {
+			return nil, errors.New(onboardingContinuation)
+		}
 	}
 
 	skill := "service_onboarding"

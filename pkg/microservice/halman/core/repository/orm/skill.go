@@ -60,7 +60,8 @@ func (s *Store) BindSkillExecution(ctx context.Context, user string, r *models.R
 			}
 		}
 
-		if rootSkill != "" {
+		// A resumed onboarding keeps its saved state until a new draft or plan is written.
+		if rootSkill != "" && (rootID == r.ID || !models.IsOnboardingSkill(skill)) {
 			if err := s.updateSkillUsage(ctx, tx, user, rootID, "running", 0); err != nil {
 				return err
 			}

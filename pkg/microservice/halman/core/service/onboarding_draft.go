@@ -4,11 +4,42 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"trpc.group/trpc-go/trpc-agent-go/model"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
+
+const onboardingContinuation = "本会话已有待补充或待确认的初始化清单。只以最新一条用户消息判断本轮意图。类似‘replicas 设为 1’的参数修改属于续接：先调用 read_saved_operation 恢复清单，再调用原初始化工具，只提交改动字段。恢复前不查询目录或重新准备清单。若用户明确开始无关的新任务，且需要查询目录或准备初始化，先调用 read_saved_operation 并传 start_new=true。目标不明确时请用户澄清。"
+
+func (s *AgentService) applyOnboardingContinuation(ctx context.Context, e *execution, req *model.Request) error {
+	if e.RegenerateFrom != nil || e.Run.ID == "" {
+		return nil
+	}
+	if !e.CheckedOnboarding && e.RootID == "" {
+		r, err := s.Store.LatestSavedSkillRun(ctx, e.User, e.Run.ConversationID, e.Cutoff, e.Run.CreatedAt)
+		if err != nil && !errors.Is(err, common.ErrNotFound) {
+			return err
+		}
+		if r != nil && models.IsOnboardingSkill(r.SkillID) && r.SkillStatus != nil &&
+			(*r.SkillStatus == "awaiting_input" || *r.SkillStatus == "pending_confirmation") {
+			e.PendingOnboarding = true
+		}
+		e.CheckedOnboarding = true
+	}
+	if e.PendingOnboarding {
+		delete(req.Tools, "query_catalog")
+		delete(req.Tools, "project_onboarding")
+		delete(req.Tools, "service_onboarding")
+		req.Messages = append([]model.Message{model.NewSystemMessage(onboardingContinuation)}, req.Messages...)
+	} else if models.IsOnboardingSkill(e.ContinuingSkill) {
+		req.Messages = append([]model.Message{model.NewSystemMessage("本轮是初始化续接。只提交用户本轮修改的字段，草稿里的服务、模板、代码源、分支、集群和镜像仓库沿用原值。仅在本轮明确修改其依赖或缺项时查询目录。")}, req.Messages...)
+	}
+	return nil
+}
 
 func (s *AgentService) restoreOnboardingDraft(ctx context.Context, e *execution) error {
 	if e.OnboardingDraft != nil || e.RootID == "" || e.RootID == e.Run.ID {

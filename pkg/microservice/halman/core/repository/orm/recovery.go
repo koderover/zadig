@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
 type abandonedRun struct {
@@ -83,11 +85,11 @@ func (s *Store) recoverRun(ctx context.Context, item abandonedRun) error {
 		}
 	}
 
-	var status string
+	var status, skill string
 	var plan, questionSource sql.NullString
-	if err := tx.Raw("SELECT status,plan_status,question_source_run_id FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", item.id, item.user).
+	if err := tx.Raw("SELECT status,plan_status,question_source_run_id,skill_id FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", item.id, item.user).
 		Row().
-		Scan(&status, &plan, &questionSource); err != nil {
+		Scan(&status, &plan, &questionSource, &skill); err != nil {
 		return err
 	}
 
@@ -105,7 +107,7 @@ func (s *Store) recoverRun(ctx context.Context, item abandonedRun) error {
 
 	if rootExists {
 		goal := next
-		if questionSource.Valid {
+		if questionSource.Valid || (!uncertain && item.id != item.root.String && models.IsOnboardingSkill(skill)) {
 			goal = ""
 		}
 

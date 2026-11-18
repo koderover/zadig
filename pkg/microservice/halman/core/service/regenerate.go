@@ -170,10 +170,22 @@ func (s *AgentService) authorizeRegeneration(ctx context.Context, user, authoriz
 	return s.Platform.authorizeScopes(ctx, authorization, scopes)
 }
 
-func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any, error) {
+type savedOperationInput struct {
+	StartNew bool `json:"start_new,omitempty" jsonschema:"description=仅当用户明确开始与待补充或待确认清单无关的新任务时设为 true"`
+}
+
+func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperationInput) (any, error) {
 	e, ok := ctx.Value(executionKey{}).(*execution)
 	if !ok {
 		return nil, fmt.Errorf("运行上下文缺失")
+	}
+	if args.StartNew {
+		if e.RegenerateFrom != nil || (e.RootID != "" && e.RootID != e.Run.ID) {
+			return nil, common.ErrRequestConflict
+		}
+		e.CheckedOnboarding = true
+		e.PendingOnboarding = false
+		return map[string]string{"status": "new_task"}, nil
 	}
 
 	var r *models.Run
@@ -212,7 +224,7 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 				return nil, err
 			}
 			e.SkillInput = saved.Input
-			if r.SkillID == "project_onboarding" || r.SkillID == "service_onboarding" {
+			if models.IsOnboardingSkill(r.SkillID) {
 				e.OnboardingDraft = saved.Draft
 				e.OnboardingChecks = saved.DraftChecks
 			}
@@ -267,6 +279,7 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 	if err != nil {
 		return nil, err
 	}
+	e.PendingOnboarding = false
 
 	return value, nil
 }

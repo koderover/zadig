@@ -150,8 +150,8 @@ func TestRecoveryExcludesLiveRunAndDoesNotReplay(t *testing.T) {
 			mock.ExpectBegin()
 			mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).
 				AddRow("c"))
-			mock.ExpectQuery("SELECT status,plan_status,question_source_run_id FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status", "plan", "question_source"}).
-				AddRow(state, nil, nil))
+			mock.ExpectQuery("SELECT status,plan_status,question_source_run_id,skill_id FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status", "plan", "question_source", "skill"}).
+				AddRow(state, nil, nil, ""))
 			next := map[string]string{"running": "interrupted", "executing": "unknown", "cancelling": "cancelled"}[state]
 			mock.ExpectExec("UPDATE ai_run SET status=.*plan_status=CASE").WithArgs(next, state == "executing", sqlmock.AnyArg(), sqlmock.AnyArg(), "orphan").
 				WillReturnResult(sqlmock.NewResult(0, 1))
@@ -178,8 +178,8 @@ func TestRecoveryOfRegeneratedAnswerPreservesWaitingSkill(t *testing.T) {
 	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).
 		AddRow("c"))
 	mock.ExpectQuery("SELECT id FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("root"))
-	mock.ExpectQuery("SELECT status,plan_status,question_source_run_id FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status", "plan", "question_source"}).
-		AddRow("running", nil, "original"))
+	mock.ExpectQuery("SELECT status,plan_status,question_source_run_id,skill_id FROM ai_run .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"status", "plan", "question_source", "skill"}).
+		AddRow("running", nil, "original", "project_onboarding"))
 	mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WillReturnRows(sqlmock.NewRows([]string{"skill", "goal", "contribution"}).
 		AddRow("project_onboarding", "pending_confirmation", nil))
 	mock.ExpectExec("UPDATE ai_run SET skill_status=.*usage_contribution").WithArgs("pending_confirmation", sqlmock.AnyArg(), "root").

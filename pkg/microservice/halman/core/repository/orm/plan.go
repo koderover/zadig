@@ -323,7 +323,11 @@ func (s *Store) SaveDraft(ctx context.Context, user string, r *models.Run, rootI
 			}
 		}
 		// 保存新参数快照后，旧卡片不能再确认执行。
-		if err := tx.Exec("UPDATE ai_run SET active_plan_run_id=NULL WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
+		updateRoot := "UPDATE ai_run SET active_plan_run_id=NULL"
+		if rootID != r.ID && plan.Draft != nil && len(plan.MissingFields) > 0 {
+			updateRoot += ",skill_status='awaiting_input'"
+		}
+		if err := tx.Exec(updateRoot+" WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
 			return err
 		}
 		var planStatus any

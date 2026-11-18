@@ -36,7 +36,7 @@ func (s *AgentService) tools() []tool.Tool {
 			s.readSavedOperation,
 			outputSchema,
 			function.WithName("read_saved_operation"),
-			function.WithDescription("查看已关联执行的参数草稿、缺失字段和清单；未关联时读取同一聊天最近的操作快照，可继续的执行自动恢复草稿。can_continue=false 时仅供查看，不恢复已取消或已完成的执行。重新回答时只读原操作快照。重新校验当前权限，不执行或重放业务写操作。"),
+			function.WithDescription("查看已关联执行的参数草稿、缺失字段和清单；未关联时读取同一聊天最近的操作快照，可继续的执行自动恢复草稿。若当前有待补充或待确认的初始化清单，仅在用户明确开始无关新任务时传 start_new=true，原清单保持原状态。can_continue=false 时仅供查看。重新回答时只读原操作快照。重新校验当前权限，不执行或重放业务写操作。"),
 		),
 		function.NewFunctionTool(s.workflowLog, outputSchema, function.WithName("workflow_log_window"), function.WithDescription("仅对 workflow_diagnosis 已返回 log_supported=true 且确需更多日志的步骤向前分页读取。job_name 使用任务详情中的完整 name。仅当 next_offset 小于 total_lines 且游标前进时才有更早内容；unsupported=true、零行或已读完时停止。")),
 		function.NewFunctionTool(
@@ -110,6 +110,9 @@ func (s *AgentService) skillExecution(ctx context.Context, skill string) (*execu
 	e.SkillID = skill
 	e.Run.SkillID = skill
 	e.Run.SkillExecutionID = &e.RootID
+	if e.RootID == e.Run.ID {
+		e.PendingOnboarding = false
+	}
 	return e, nil
 }
 

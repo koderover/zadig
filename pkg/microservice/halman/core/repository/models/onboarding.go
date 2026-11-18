@@ -5,6 +5,10 @@ import (
 	"maps"
 )
 
+func IsOnboardingSkill(id string) bool {
+	return id == "project_onboarding" || id == "service_onboarding"
+}
+
 type GitConfig struct {
 	CodehostID int    `json:"codehost_id,omitempty" jsonschema:"description=从代码源目录查询得到的标识"`
 	Owner      string `json:"owner,omitempty" jsonschema:"description=仓库组织或拥有者"`
