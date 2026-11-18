@@ -212,7 +212,7 @@ func (a *API) deleteConversation(c *gin.Context) {
 // @Param cursor query string false "上一页返回的 next_cursor"
 // @Param limit query int false "每页原始消息事件数量" default(50) minimum(1) maximum(100)
 // @Param include_versions query bool false "是否包含回答旧版本" default(false)
-// @Success 200 {object} object{items=[]models.HistoryEvent,next_cursor=string} "按消息时间和行 ID 倒序排列的历史事件"
+// @Success 200 {object} object{items=[]models.HistoryEvent,next_cursor=string,runs=map[string]models.HistoryRun} "历史事件及本页可见运行的权威计划快照"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "会话不存在、不属于本人或已删除"
@@ -234,13 +234,27 @@ func (a *API) messages(c *gin.Context) {
 		}
 	}
 
-	items, next, err := a.Agent.Store.Messages(c.Request.Context(), requestUser(c), c.Param("id"), c.Query("cursor"), limit, cutoff(c), includeVersions)
+	historyCutoff := cutoff(c)
+	items, next, err := a.Agent.Store.Messages(c.Request.Context(), requestUser(c), c.Param("id"), c.Query("cursor"), limit, historyCutoff, includeVersions)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": next})
+	ids := make([]string, 0, len(items))
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
+		if item.RunID != "" && !seen[item.RunID] {
+			ids = append(ids, item.RunID)
+			seen[item.RunID] = true
+		}
+	}
+	runs, err := a.Agent.Store.HistoryRuns(c.Request.Context(), requestUser(c), c.Param("id"), historyCutoff, ids)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "next_cursor": next, "runs": runs})
 }
 
 // getRun godoc
