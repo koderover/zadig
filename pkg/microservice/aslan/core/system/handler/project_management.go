@@ -93,6 +93,7 @@ func ListProjectManagementForProject(c *gin.Context) {
 			}
 
 			spec.JiraToken = ""
+			spec.JiraPersonalAccessToken = ""
 			spec.JiraUser = ""
 			spec.JiraAuthType = ""
 			pm.Spec = spec

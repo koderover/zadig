@@ -18,6 +18,7 @@ package handler
 
 import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
@@ -41,6 +42,20 @@ func canEditSystemIntegration(ctx *internalhandler.Context) bool {
 func maskSecret(value *string) {
 	if value != nil && *value != "" {
 		*value = setting.MaskValue
+	}
+}
+
+func maskExternalSystemSecrets(systems ...*service.ExternalSystemDetail) {
+	for _, system := range systems {
+		if system == nil {
+			continue
+		}
+		maskSecret(&system.APIToken)
+		for _, header := range system.Headers {
+			if header != nil && header.Value != nil && header.Value != "" {
+				header.Value = setting.MaskValue
+			}
+		}
 	}
 }
 
