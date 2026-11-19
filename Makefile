@@ -10,6 +10,14 @@ DEV_IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/test
 DEV_IMAGE_REPOSITORY := $(DEV_IMAGE_REPOSITORY)
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
+# Override these values in CI, especially when building a detached checkout.
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+GIT_COMMIT := $(GIT_COMMIT)
+GIT_BRANCH ?= $(shell git symbolic-ref --quiet --short HEAD 2>/dev/null || echo unknown)
+GIT_BRANCH := $(GIT_BRANCH)
+BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+BUILD_DATE := $(BUILD_DATE)
+IMAGE_BUILD_ARGS = --build-arg BUILD_VERSION="$(VERSION)" --build-arg BUILD_COMMIT="$(GIT_COMMIT)" --build-arg BUILD_BRANCH="$(GIT_BRANCH)" --build-arg BUILD_DATE="$(BUILD_DATE)"
 MICROSERVICE_TARGETS = aslan cron executor halman hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
 BUILD_BASE_TARGETS = focal bionic
 DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
@@ -25,17 +33,17 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image:
-	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile .
+	@docker buildx build $(IMAGE_BUILD_ARGS) -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile .
 
 %.push: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.push:
-	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile --push .
+	@docker buildx build $(IMAGE_BUILD_ARGS) -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*.Dockerfile --push .
 
 # for zadig developers ONLY:
 # the command below is used to generate amd64 file for daily developing purpose
 %.dev: MAKE_IMAGE_TAG ?= ${DEV_IMAGE_REPOSITORY}/$*:${VERSION}
 %.dev:
-	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
+	@docker buildx build $(IMAGE_BUILD_ARGS) -t ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
 
 %.buildbase: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*-with-kubectl
 %.buildbase:
