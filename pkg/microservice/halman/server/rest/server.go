@@ -12,7 +12,7 @@ import (
 // @title Zadig halman service REST APIs
 // @version 1.0
 // @description Zadig AI 助手接口，使用当前用户登录态；查看历史快照与执行资源操作分别校验权限。
-// @description 所有 /api/halman 接口均要求有效企业版许可证；先通过 user 的 gRPC 登录鉴权，再校验许可证，失败时拒绝处理。
+// @description 所有 /api/halman 接口均要求有效的 AI 许可证；先通过 user 的 gRPC 登录鉴权，再校验许可证，失败时拒绝处理。
 // @description 运行事件统一使用 AG-UI，通过 text/event-stream 传输；操作清单必须通过指定版本的确认接口授权。
 // @contact.email contact@koderover.com
 // @license.name Apache 2.0

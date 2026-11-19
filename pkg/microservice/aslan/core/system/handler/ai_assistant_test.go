@@ -17,10 +17,10 @@ import (
 
 func TestAssistantConfigRequiresAIManagementPermission(t *testing.T) {
 	originalContext := newAIAssistantContext
-	originalLicense := checkAIAssistantEnterpriseLicense
+	originalLicense := checkAIAssistantLicense
 	t.Cleanup(func() {
 		newAIAssistantContext = originalContext
-		checkAIAssistantEnterpriseLicense = originalLicense
+		checkAIAssistantLicense = originalLicense
 	})
 	for _, input := range []struct {
 		name      string
@@ -45,7 +45,7 @@ func TestAssistantConfigRequiresAIManagementPermission(t *testing.T) {
 				return &internalhandler.Context{UserID: input.uid, Resources: input.resources}, input.err
 			}
 			licenseCalls := 0
-			checkAIAssistantEnterpriseLicense = func() error {
+			checkAIAssistantLicense = func() error {
 				licenseCalls++
 				return errors.New("许可证服务不可用")
 			}
@@ -86,9 +86,9 @@ func TestAssistantConfigRejectsAnonymousBeforeDatabaseAccess(t *testing.T) {
 	}
 }
 
-func TestAssistantConfigEnterpriseGuard(t *testing.T) {
-	original := checkAIAssistantEnterpriseLicense
-	t.Cleanup(func() { checkAIAssistantEnterpriseLicense = original })
+func TestAssistantConfigAILicenseGuard(t *testing.T) {
+	original := checkAIAssistantLicense
+	t.Cleanup(func() { checkAIAssistantLicense = original })
 	for _, input := range []struct {
 		name string
 		err  error
@@ -99,17 +99,17 @@ func TestAssistantConfigEnterpriseGuard(t *testing.T) {
 		{"许可证查询失败", errors.New("unavailable"), http.StatusInternalServerError},
 	} {
 		t.Run(input.name, func(t *testing.T) {
-			checkAIAssistantEnterpriseLicense = func() error { return input.err }
+			checkAIAssistantLicense = func() error { return input.err }
 			r := gin.New()
 			r.GET("/config", func(c *gin.Context) {
-				if requireAIAssistantEnterprise(c) {
+				if requireAIAssistantLicense(c) {
 					c.Status(http.StatusNoContent)
 				}
 			})
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/config", nil))
 			if w.Code != input.want {
-				t.Fatalf("企业版校验结果不符: %d", w.Code)
+				t.Fatalf("AI 许可证校验结果不符: %d", w.Code)
 			}
 			if input.err != nil {
 				var body e.ErrorResponse
@@ -129,12 +129,12 @@ func TestAssistantConfigEnterpriseGuard(t *testing.T) {
 }
 
 func TestAssistantConfigInvalidInputUsesStandardErrorCode(t *testing.T) {
-	originalContext, originalLicense := newAIAssistantContext, checkAIAssistantEnterpriseLicense
-	t.Cleanup(func() { newAIAssistantContext, checkAIAssistantEnterpriseLicense = originalContext, originalLicense })
+	originalContext, originalLicense := newAIAssistantContext, checkAIAssistantLicense
+	t.Cleanup(func() { newAIAssistantContext, checkAIAssistantLicense = originalContext, originalLicense })
 	newAIAssistantContext = func(*gin.Context) (*internalhandler.Context, error) {
 		return &internalhandler.Context{UserID: "admin", Resources: &user.AuthorizedResources{IsSystemAdmin: true}}, nil
 	}
-	checkAIAssistantEnterpriseLicense = func() error { return nil }
+	checkAIAssistantLicense = func() error { return nil }
 	r := gin.New()
 	r.PUT("/config", UpdateAIAssistantConfig)
 	for _, input := range []string{"{", `{"enabled":false,"history_retention_days":1}`} {

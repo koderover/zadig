@@ -44,7 +44,7 @@ func (a *API) requireSkillManagementPermission(c *gin.Context) {
 
 // listSkills godoc
 // @Summary 查询 Skill
-// @Description 仅有效企业版且具有 AI 能力查看或编辑权限的用户可查，AI 总开关关闭时仍可使用。按系统语言返回内置 Skill 的名称、说明、正文和 category_name；category 保留原始分类值，追加规则保留管理员原文。数据库和运行时仍使用中文定义，未知定义保留原文。不包含默认提问，按原始分类、ID 排序。
+// @Description 要求有效的 AI 许可证，且仅具有 AI 能力查看或编辑权限的用户可查，AI 总开关关闭时仍可使用。按系统语言返回内置 Skill 的名称、说明、正文和 category_name；category 保留原始分类值，追加规则保留管理员原文。数据库和运行时仍使用中文定义，未知定义保留原文。不包含默认提问，按原始分类、ID 排序。
 // @Tags AI助手
 // @Produce json
 // @Param Authorization header string true "Bearer 用户登录令牌"
@@ -69,7 +69,7 @@ func (a *API) listSkills(c *gin.Context) {
 
 // updateSkill godoc
 // @Summary 更新 Skill 配置
-// @Description 仅有效企业版且具有 AI 能力编辑权限的用户可写，AI 总开关关闭时仍可使用。只能提交 enabled、custom_rules，两项均必填；追加规则最多 8000 字节 UTF-8 文本。恢复默认提交 enabled=true、custom_rules=""。规则影响后续生成，旧清单仍可确认；停用仅禁止新任务，既有任务可继续。不开放修改 Skill 正文、新增或删除 Skill。
+// @Description 要求有效的 AI 许可证，且仅具有 AI 能力编辑权限的用户可写，AI 总开关关闭时仍可使用。只能提交 enabled、custom_rules，两项均必填；追加规则最多 8000 字节 UTF-8 文本。恢复默认提交 enabled=true、custom_rules=""。规则影响后续生成，旧清单仍可确认；停用仅禁止新任务，既有任务可继续。不开放修改 Skill 正文、新增或删除 Skill。
 // @Description 保存后按当前系统语言返回展示定义和 category_name；category、追加规则及数据库中的原始定义不翻译。
 // @Tags AI助手
 // @Accept json

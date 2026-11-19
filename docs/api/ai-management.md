@@ -7,7 +7,7 @@
 | `get_ai_management` | `system_actions.ai_management.View` | 读取上述配置 |
 | `edit_ai_management` | `system_actions.ai_management.Edit` | 读取及编辑上述配置，新增、删除模型及验证模型连接 |
 
-系统管理员直接允许；其他用户默认无权限，全局只读角色不自动获得权限。编辑权限隐含读取能力，前端显示入口时应判断 `View || Edit`，保存及模型管理操作判断 `Edit`。权限不足返回标准 403 错误。Zadig AI 配置仍受企业版许可证限制。
+系统管理员直接允许；其他用户默认无权限，全局只读角色不自动获得权限。编辑权限隐含读取能力，前端显示入口时应判断 `View || Edit`，保存及模型管理操作判断 `Edit`。权限不足返回标准 403 错误。AI 助手配置还要求有效的 AI 许可证。
 
 ## 发布专员配置
 

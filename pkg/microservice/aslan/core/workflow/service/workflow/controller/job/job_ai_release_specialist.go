@@ -57,8 +57,8 @@ func (j AIReleaseSpecialistJobController) GetSpec() interface{} {
 }
 
 func (j AIReleaseSpecialistJobController) Validate(isExecution bool) error {
-	if err := util.CheckZadigEnterpriseLicense(); err != nil {
-		return e.ErrLicenseInvalid.AddDesc("")
+	if err := util.CheckZadigLicenseFeatureAI(); err != nil {
+		return e.NewHTTPError(e.ErrLicenseInvalid.Code(), e.ErrLicenseInvalid.Message())
 	}
 	if j.jobSpec.RequireManualConfirm && len(j.jobSpec.ConfirmUsers) == 0 {
 		return fmt.Errorf("confirm users cannot be empty when manual confirm is enabled")

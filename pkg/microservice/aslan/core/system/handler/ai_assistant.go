@@ -13,16 +13,16 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-var checkAIAssistantEnterpriseLicense = commonutil.CheckZadigEnterpriseLicense
+var checkAIAssistantLicense = commonutil.CheckZadigLicenseFeatureAI
 var newAIAssistantContext = internalhandler.NewContextWithAuthorization
 
-func requireAIAssistantEnterprise(c *gin.Context) bool {
-	if err := checkAIAssistantEnterpriseLicense(); err != nil {
+func requireAIAssistantLicense(c *gin.Context) bool {
+	if err := checkAIAssistantLicense(); err != nil {
 		var licenseError *e.HTTPError
 		if errors.As(err, &licenseError) && licenseError.Code() == e.ErrLicenseInvalid.Code() {
 			c.AbortWithStatusJSON(e.ErrorMessage(e.ErrLicenseInvalid))
 		} else {
-			c.AbortWithStatusJSON(e.ErrorMessage(e.NewWithDesc(e.ErrInternalError, "企业版许可证校验失败，请稍后重试")))
+			c.AbortWithStatusJSON(e.ErrorMessage(e.NewWithDesc(e.ErrInternalError, "AI 许可证校验失败，请稍后重试")))
 		}
 		return false
 	}
@@ -31,7 +31,7 @@ func requireAIAssistantEnterprise(c *gin.Context) bool {
 
 // GetAIAssistantConfig godoc
 // @Summary 获取 AI 助手配置
-// @Description 仅有效企业版且具备 AI 能力查看或编辑权限的用户可读取 AI 功能开关、模型集成标识及聊天保留天数；不返回模型凭据。网关访问路径为 /api/aslan/system/ai/assistant。
+// @Description 要求有效的 AI 许可证，且仅具备 AI 能力查看或编辑权限的用户可读取 AI 功能开关、模型集成标识及聊天保留天数；不返回模型凭据。网关访问路径为 /api/aslan/system/ai/assistant。
 // @Description 标准错误响应：配置读取/更新失败 code=7210/7211，参数错误 code=400，许可证无效 code=7050；业务错误使用 HTTP 400。
 // @Tags system
 // @Produce json
@@ -39,7 +39,7 @@ func requireAIAssistantEnterprise(c *gin.Context) bool {
 // @Success 200 {object} types.AIAssistantConfig "助手配置"
 // @Failure 403 {object} e.ErrorResponse "缺少 AI 能力权限或登录态无效"
 // @Failure 400 {object} e.ErrorResponse "许可证无效 code=7050 或配置读取失败 code=7210"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/system/ai/assistant [get]
 func GetAIAssistantConfig(c *gin.Context) {
 	ctx, err := newAIAssistantContext(c)
@@ -47,7 +47,7 @@ func GetAIAssistantConfig(c *gin.Context) {
 		c.AbortWithStatusJSON(e.ErrorMessage(e.ErrForbidden))
 		return
 	}
-	if !requireAIAssistantEnterprise(c) {
+	if !requireAIAssistantLicense(c) {
 		return
 	}
 
@@ -57,7 +57,7 @@ func GetAIAssistantConfig(c *gin.Context) {
 
 // UpdateAIAssistantConfig godoc
 // @Summary 更新 AI 助手配置
-// @Description 仅有效企业版且具备 AI 能力编辑权限的用户可写。enabled 控制 AI 功能，默认关闭；业务写入仍须用户确认并校验实际资源权限。关闭 AI 保留历史查询和取消能力。模型须选择已有集成，聊天保留天数为 30～365 天。网关访问路径为 /api/aslan/system/ai/assistant。
+// @Description 要求有效的 AI 许可证，且仅具备 AI 能力编辑权限的用户可写。enabled 控制 AI 功能，默认关闭；业务写入仍须用户确认并校验实际资源权限。关闭 AI 保留历史查询和取消能力。模型须选择已有集成，聊天保留天数为 30～365 天。网关访问路径为 /api/aslan/system/ai/assistant。
 // @Description 标准错误响应：配置读取/更新失败 code=7210/7211，参数错误 code=400，许可证无效 code=7050；业务错误使用 HTTP 400。
 // @Tags system
 // @Accept json
@@ -67,7 +67,7 @@ func GetAIAssistantConfig(c *gin.Context) {
 // @Success 200 {object} types.AIAssistantConfig "保存后的配置"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050 或配置保存失败 code=7211"
 // @Failure 403 {object} e.ErrorResponse "缺少 AI 能力权限或登录态无效"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/system/ai/assistant [put]
 func UpdateAIAssistantConfig(c *gin.Context) {
 	ctx, err := newAIAssistantContext(c)
@@ -75,7 +75,7 @@ func UpdateAIAssistantConfig(c *gin.Context) {
 		c.AbortWithStatusJSON(e.ErrorMessage(e.ErrForbidden))
 		return
 	}
-	if !requireAIAssistantEnterprise(c) {
+	if !requireAIAssistantLicense(c) {
 		return
 	}
 

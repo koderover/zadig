@@ -844,8 +844,6 @@ const (
 	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
 	NavigationKeyAIInsights            NavigationItemKey = "aiInsights"
-	NavigationKeyAIReviewInsight       NavigationItemKey = "aiReviewInsight"
-	NavigationKeyAIAssistantReport     NavigationItemKey = "aiAssistantReport"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 	NavigationKeyWorkflows             NavigationItemKey = "releaseWorkflow"
 )

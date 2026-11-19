@@ -21,7 +21,7 @@ func TestDefaultNavigationIncludesAIReportsInDataView(t *testing.T) {
 			continue
 		}
 		for _, item := range folder.Children {
-			if item.Key == config.NavigationKeyAIReviewInsight || item.Key == config.NavigationKeyAIAssistantReport {
+			if item.Key == "aiReviewInsight" || item.Key == "aiAssistantReport" {
 				t.Fatalf("默认导航不应包含旧 AI 报告入口: %s", item.Key)
 			}
 			if expected, ok := reports[item.Key]; ok {

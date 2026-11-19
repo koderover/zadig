@@ -16,11 +16,11 @@ import (
 )
 
 type PlatformClient struct {
-	Users                  *userclient.Client
-	Auth                   authv3.AuthorizationClient
-	HTTP                   *http.Client
-	CheckEnterpriseLicense func() error
-	LoadRuntime            func(context.Context) (*types.AIAssistantRuntime, error)
+	Users          *userclient.Client
+	Auth           authv3.AuthorizationClient
+	HTTP           *http.Client
+	CheckAILicense func() error
+	LoadRuntime    func(context.Context) (*types.AIAssistantRuntime, error)
 }
 
 // 仅提取身份展示所需字段，不向模型传递完整 Token 或其他 Claims。

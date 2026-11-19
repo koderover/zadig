@@ -22,7 +22,7 @@ import (
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 403 {object} e.ErrorResponse "当前用户没有相应资源权限"
 // @Failure 404 {object} e.ErrorResponse "原计划或根执行不可用"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/retry [post]
 func (a *API) retry(c *gin.Context) {
 	var req RequestIDRequest
@@ -54,7 +54,7 @@ func (a *API) retry(c *gin.Context) {
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
 // @Failure 404 {object} e.ErrorResponse "运行、根执行或必要的权限范围不可用"
-// @Failure 500 {object} e.ErrorResponse "企业版许可证查询失败"
+// @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Failure 403 {object} e.ErrorResponse "当前用户没有相应资源权限"
 // @Router /api/halman/runs/{id}/reconcile [post]
 func (a *API) reconcile(c *gin.Context) {
