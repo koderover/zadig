@@ -870,6 +870,8 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 	errList := new(multierror.Error)
 	for groupIndex, groupServices := range productResp.Services {
 		installParamList := make([]*ReleaseInstallParam, 0)
+		// only services handled by this operation are written back
+		handledServices := make([]*commonmodels.ProductService, 0)
 		for _, prodSvc := range groupServices {
 			chartInfo := findRenderChartFromList(prodSvc, productResp.ServiceRenders)
 			if chartInfo == nil {
@@ -878,6 +880,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			if filter != nil && !filter(prodSvc) {
 				continue
 			}
+			handledServices = append(handledServices, prodSvc)
 			if !commonutil.ChartDeployed(chartInfo, productResp.ServiceDeployStrategy) {
 				// no need to deploy
 
@@ -922,7 +925,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
 
-		err := helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production, user)
+		err := helmservice.MergeServicesInEnv(productName, envName, groupIndex, handledServices, productResp.Production, user)
 		if err != nil {
 			log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productName, envName, err)
 			mongotool.AbortTransaction(session)

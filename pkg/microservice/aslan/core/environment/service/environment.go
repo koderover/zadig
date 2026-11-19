@@ -3498,7 +3498,9 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 	}
 
 	// uninstall services
+	deletedSvcNames := make([]string, 0, len(deletedSvcRevision))
 	for serviceName, serviceRevision := range deletedSvcRevision {
+		deletedSvcNames = append(deletedSvcNames, serviceName)
 		if !commonutil.ServiceIsDeployed(serviceName, productResp.ServiceDeployStrategy) {
 			continue
 		}
@@ -3509,6 +3511,12 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 			log.Errorf("UninstallRelease err:%v", err)
 			return e.ErrUpdateEnv.AddErr(err)
 		}
+	}
+
+	// the deploy result only writes back handled services, so remove deleted services
+	// and chart releases taken over by Zadig services explicitly
+	if err = helmservice.RemoveServicesFromEnv(productName, envName, productResp.Production, deletedSvcNames, addedReleaseNameSet.List(), username); err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
 	}
 
 	renderSet, err := diffRenderSet(username, productName, envName, productResp, overrideCharts, log)
