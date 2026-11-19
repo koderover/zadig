@@ -517,10 +517,9 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 			}
 			continuingOnboarding := e.RootID != "" && e.RootID != e.Run.ID && models.IsOnboardingSkill(e.ContinuingSkill)
 			if e.RegenerateFrom == nil && (e.PendingOnboarding || continuingOnboarding) {
-				req.ReasoningEffort = model.StringPtr("low")
 				req.MaxTokens = model.IntPtr(16384)
 				slog.Info("AI 初始化续接模型参数", "run_id", e.Run.ID, "model", cfg.Model,
-					"reasoning_effort", *req.ReasoningEffort, "max_output_tokens", *req.MaxTokens)
+					"max_output_tokens", *req.MaxTokens)
 			}
 			applyCatalogClarification(e, req)
 			applyToolFailureLimit(e, req)

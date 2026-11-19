@@ -26,7 +26,6 @@ import (
 func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	enabled, modelCalls := true, 0
 	inspectionStarted := false
-	wantReasoningEffort := ""
 	wantMaxTokens := 8192
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
@@ -43,14 +42,14 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			}
 			var payload struct {
 				Messages        []model.Message
-				ReasoningEffort string `json:"reasoning_effort"`
-				MaxTokens       int    `json:"max_completion_tokens"`
+				ReasoningEffort json.RawMessage `json:"reasoning_effort"`
+				MaxTokens       int             `json:"max_completion_tokens"`
 			}
 			if err := json.Unmarshal(body, &payload); err != nil {
 				t.Fatal(err)
 			}
-			if payload.ReasoningEffort != wantReasoningEffort {
-				t.Errorf("模型请求的 reasoning_effort = %q，期望 %q", payload.ReasoningEffort, wantReasoningEffort)
+			if payload.ReasoningEffort != nil {
+				t.Errorf("使用模型默认推理等级时，请求应省略 reasoning_effort，实际为 %s", payload.ReasoningEffort)
 			}
 			if payload.MaxTokens != wantMaxTokens {
 				t.Errorf("模型请求的输出上限 = %d，期望 %d", payload.MaxTokens, wantMaxTokens)
@@ -216,7 +215,6 @@ data: [DONE]
 	}
 
 	inspectionStarted = false
-	wantReasoningEffort = "low"
 	wantMaxTokens = 16384
 	exec.SkillID, exec.ContinuingSkill, exec.RootID = "", "", ""
 	exec.PendingOnboarding = true
@@ -242,7 +240,7 @@ data: [DONE]
 		}
 	}
 	if modelCalls != 4 {
-		t.Fatal("识别待续接草稿和继续已恢复草稿均应发送低推理等级请求")
+		t.Fatal("识别待续接草稿和继续已恢复草稿应各发送一次模型请求")
 	}
 
 	enabled = false
