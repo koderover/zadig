@@ -53,7 +53,7 @@ func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.
 }
 
 func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, production bool, logger *zap.SugaredLogger) error {
-	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
+	serviceName, templateID := req.ServiceName, req.TemplateID
 	// check if serviceName has upper case
 	if strings.ToLower(serviceName) != serviceName {
 		return fmt.Errorf("service name should be lowercase")
@@ -65,31 +65,52 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		return err
 	}
 
-	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
-	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	service, err := newServiceFromYamlTemplate(template, req)
 	if err != nil {
 		return err
-	}
-
-	service := &commonmodels.Service{
-		ServiceName:        serviceName,
-		Type:               setting.K8SDeployType,
-		ProductName:        projectName,
-		Source:             setting.ServiceSourceTemplate,
-		Yaml:               renderedYaml,
-		RenderedYaml:       fullRenderedYaml,
-		Visibility:         setting.PrivateVisibility,
-		TemplateID:         templateID,
-		AutoSync:           autoSync,
-		VariableYaml:       req.VariableYaml,
-		ServiceVariableKVs: req.ServiceVariableKVs,
-		CreateFrom:         geneCreateFromDetail(templateID, req.VariableYaml),
 	}
 	_, err = CreateServiceTemplate(username, service, force, production, logger)
 	if err != nil {
 		logger.Errorf("Failed to create service template from template ID: %s, the error is: %s", templateID, err)
 	}
 	return err
+}
+
+func newServiceFromYamlTemplate(template *commonmodels.YamlTemplate, req *LoadServiceFromYamlTemplateReq) (*commonmodels.Service, error) {
+	projectName, serviceName, templateID := req.ProjectName, req.ServiceName, req.TemplateID
+	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	variableKVs := append([]*commontypes.ServiceVariableKV{}, req.ServiceVariableKVs...)
+	provided := make(map[string]bool, len(variableKVs))
+	for _, variable := range variableKVs {
+		if variable != nil {
+			provided[variable.Key] = true
+		}
+	}
+	for _, variable := range template.ServiceVariableKVs {
+		if variable != nil && !provided[variable.Key] {
+			variableKVs = append(variableKVs, variable)
+			provided[variable.Key] = true
+		}
+	}
+
+	return &commonmodels.Service{
+		ServiceName:        serviceName,
+		Type:               setting.K8SDeployType,
+		ProductName:        projectName,
+		Source:             setting.ServiceSourceTemplate,
+		Yaml:               renderSystemVars(template.Content, projectName, serviceName),
+		RenderedYaml:       fullRenderedYaml,
+		Visibility:         setting.PrivateVisibility,
+		TemplateID:         templateID,
+		AutoSync:           req.AutoSync,
+		VariableYaml:       req.VariableYaml,
+		ServiceVariableKVs: variableKVs,
+		CreateFrom:         geneCreateFromDetail(templateID, req.VariableYaml),
+	}, nil
 }
 
 func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, production bool, logger *zap.SugaredLogger) error {

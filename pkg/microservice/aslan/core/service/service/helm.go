@@ -745,7 +745,24 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, err
 	}
 
-	return createOrUpdateHelmServiceFromChartTemplate(templateArgs, templateChartInfo, projectName, args, force, logger)
+	resolvedArgs := *templateArgs
+	resolvedArgs.Variables = inheritChartTemplateVariables(templateArgs.Variables, templateChartInfo.TemplateData.ChartVariables)
+	return createOrUpdateHelmServiceFromChartTemplate(&resolvedArgs, templateChartInfo, projectName, args, force, logger)
+}
+
+func inheritChartTemplateVariables(overrides []*Variable, defaults []*models.ChartVariable) []*Variable {
+	variables := append([]*Variable{}, overrides...)
+	provided := make(map[string]bool, len(variables))
+	for _, variable := range variables {
+		provided[variable.Key] = true
+	}
+	for _, variable := range defaults {
+		if variable != nil && !provided[variable.Key] {
+			variables = append(variables, &Variable{Key: variable.Key, Value: variable.Value, Description: variable.Description})
+			provided[variable.Key] = true
+		}
+	}
+	return variables
 }
 
 func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTemplate, templateChartInfo *ChartTemplateData, projectName string, args *HelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {

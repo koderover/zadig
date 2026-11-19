@@ -21,6 +21,7 @@ out
 *.out
 *.exe
 *_test.go
+!pkg/microservice/aslan/core/service/service/template_variables_test.go
 !pkg/microservice/aslan/core/stat/service/ai/ai_analysis_test.go
 
 node_modules
