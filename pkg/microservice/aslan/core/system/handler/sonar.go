@@ -203,6 +203,9 @@ func GetSonarIntegration(c *gin.Context) {
 		return
 	}
 	resp.Token = encryptedSonarToken
+	if !canEditSystemIntegration(ctx) {
+		maskSecret(&resp.Token)
+	}
 	ctx.Resp = resp
 }
 

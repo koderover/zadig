@@ -51,7 +51,7 @@ func ListObservabilityDetail(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListObservability(c.Query("type"), true)
+	ctx.Resp, ctx.RespErr = service.ListObservability(c.Query("type"), canEditSystemIntegration(ctx))
 }
 
 func CreateObservability(c *gin.Context) {

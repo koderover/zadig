@@ -126,7 +126,11 @@ func GetExternalSystemDetail(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
+	detail, err := service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
+	if err == nil && !canEditSystemIntegration(ctx) {
+		maskSecret(&detail.APIToken)
+	}
+	ctx.Resp, ctx.RespErr = detail, err
 }
 
 func UpdateExternalSystem(c *gin.Context) {

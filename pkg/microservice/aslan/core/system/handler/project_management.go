@@ -50,7 +50,18 @@ func ListProjectManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListProjectManagement(ctx.Logger)
+	pms, err := service.ListProjectManagement(ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	if !canEditSystemIntegration(ctx) {
+		if err := maskProjectManagementSecrets(pms); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+	ctx.Resp = pms
 }
 
 // @Summary List Project Management For Project

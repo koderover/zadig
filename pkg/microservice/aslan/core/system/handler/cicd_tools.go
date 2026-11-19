@@ -86,7 +86,11 @@ func ListCICDTools(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.ListCICDTools(encryptedKey, c.Query("type"), ctx.Logger)
+	tools, err := service.ListCICDTools(encryptedKey, c.Query("type"), ctx.Logger)
+	if !canEditSystemIntegration(ctx) {
+		maskCICDToolSecrets(tools)
+	}
+	ctx.Resp, ctx.RespErr = tools, err
 }
 
 func UpdateCICDTools(c *gin.Context) {

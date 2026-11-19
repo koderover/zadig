@@ -71,7 +71,11 @@ func ListConnectors(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.RespErr = service.ListConnectors(encryptedKey, ctx.Logger)
+	connectors, err := service.ListConnectors(encryptedKey, ctx.Logger)
+	if err == nil && !canEditConnector(ctx) {
+		maskConnectorSecrets(connectors...)
+	}
+	ctx.Resp, ctx.RespErr = connectors, err
 }
 
 func ListConnectorsInternal(c *gin.Context) {
@@ -116,7 +120,11 @@ func GetConnector(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetConnector(c.Param("id"), ctx.Logger)
+	connector, err := service.GetConnector(c.Param("id"), ctx.Logger)
+	if err == nil && !canEditConnector(ctx) {
+		maskConnectorSecrets(connector)
+	}
+	ctx.Resp, ctx.RespErr = connector, err
 }
 
 func UpdateConnector(c *gin.Context) {

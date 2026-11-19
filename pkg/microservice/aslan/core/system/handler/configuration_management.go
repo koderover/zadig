@@ -94,7 +94,12 @@ func GetConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetConfigurationManagement(c.Param("id"), c.Query("encryptedKey"), ctx.Logger)
+	encryptedKey := c.Query("encryptedKey")
+	if !canEditSystemIntegration(ctx) {
+		// empty encryptedKey makes the service return masked secrets
+		encryptedKey = ""
+	}
+	ctx.Resp, ctx.RespErr = service.GetConfigurationManagement(c.Param("id"), encryptedKey, ctx.Logger)
 }
 
 func UpdateConfigurationManagement(c *gin.Context) {
