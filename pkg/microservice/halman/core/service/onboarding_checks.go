@@ -24,11 +24,12 @@ func missingOnboardingOptions(args models.OnboardingInput, newProject bool) []st
 			label = fmt.Sprintf("第 %d 个构建", i+1)
 			missing = append(missing, label+" 的名称")
 		}
-		if build.ServiceName == "" {
-			missing = append(missing, "构建 "+label+" 关联的服务名称")
-		}
-		if build.ServiceModule == "" && (newProject || hasNewService(args.Services, build.ServiceName)) {
-			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
+		for _, target := range build.ComponentTargets() {
+			if target.ServiceName == "" {
+				missing = append(missing, "构建 "+label+" 关联的服务名称")
+			} else if target.ServiceModule == "" && (newProject || hasNewService(args.Services, target.ServiceName)) {
+				missing = append(missing, "构建 "+label+" 关联的服务 "+target.ServiceName+" 的组件名称")
+			}
 		}
 		if len(build.Repositories) == 0 {
 			missing = append(missing, "构建 "+label+" 的源码仓库及分支")

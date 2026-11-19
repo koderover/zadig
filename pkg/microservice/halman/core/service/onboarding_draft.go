@@ -184,6 +184,10 @@ func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool
 			delete(item, "variables")
 			delete(item, "template_fingerprint")
 		}
+		if _, provided := change["targets"]; !service && provided {
+			delete(item, "service_name")
+			delete(item, "service_module")
+		}
 		mergeDraftObject(item, change)
 	}
 	return before, nil

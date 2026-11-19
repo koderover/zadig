@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -188,19 +189,20 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		if containsName(existing, args.Name) {
 			return nil, fmt.Errorf("同名构建已存在，不覆盖")
 		}
-		modules, err := s.Platform.buildServiceModules(ctx, e.Authorization, item.ProjectKey, item.ProjectType, args.ServiceName)
-		if err != nil {
-			return nil, err
-		}
-		found := false
-		for _, name := range modules {
-			if name == args.ServiceModule {
-				found = true
+		targets := args.ComponentTargets()
+		modulesByService := make(map[string][]string)
+		for _, target := range targets {
+			modules, checked := modulesByService[target.ServiceName]
+			if !checked {
+				modules, err = s.Platform.buildServiceModules(ctx, e.Authorization, item.ProjectKey, item.ProjectType, target.ServiceName)
+				if err != nil {
+					return nil, err
+				}
+				modulesByService[target.ServiceName] = modules
 			}
-		}
-
-		if !found {
-			return nil, fmt.Errorf("所选构建组件不在服务配置中，请调整清单")
+			if !slices.Contains(modules, target.ServiceModule) {
+				return nil, fmt.Errorf("所选构建组件 %s/%s 不在服务配置中，请调整清单", target.ServiceName, target.ServiceModule)
+			}
 		}
 
 		rawTemplate, err := s.readTemplate(ctx, e, item.ProjectKey, "build_template", args.TemplateID, &args.TemplateFingerprint)
@@ -235,6 +237,18 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 				},
 			)
 		}
+		targetRepos := make([]map[string]any, 0, len(targets))
+		for _, target := range targets {
+			targetRepos = append(targetRepos, map[string]any{
+				"service": map[string]string{
+					"product_name":   item.ProjectKey,
+					"service_name":   target.ServiceName,
+					"service_module": target.ServiceModule,
+				},
+				"repos": repos,
+				"envs":  envs,
+			})
+		}
 		path = "/api/build/build"
 		body = map[string]any{
 			"name":         args.Name,
@@ -242,15 +256,7 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 			"pre_build":    map[string]any{"envs": []any{}},
 			"template_id":  args.TemplateID,
 			"product_name": item.ProjectKey,
-			"target_repos": []any{map[string]any{
-				"service": map[string]string{
-					"product_name":   item.ProjectKey,
-					"service_name":   args.ServiceName,
-					"service_module": args.ServiceModule,
-				},
-				"repos": repos,
-				"envs":  envs,
-			}},
+			"target_repos": targetRepos,
 		}
 	case "create_environment":
 		var args models.EnvironmentInput

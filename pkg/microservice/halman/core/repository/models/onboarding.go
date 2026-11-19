@@ -36,12 +36,25 @@ type ServiceInput struct {
 type BuildInput struct {
 	Name                string            `json:"name"`
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
-	ServiceName         string            `json:"service_name,omitempty"`
-	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
-	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与服务配置来源分开"`
+	ServiceName         string            `json:"service_name,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
+	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
+	Targets             []BuildTarget     `json:"targets,omitempty" jsonschema:"description=同一个构建绑定的服务组件列表。修改时提交该构建的完整目标列表，省略时保留草稿"`
+	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=各目标共用的构建源码，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
 	CredentialVariables []string          `json:"credential_variables,omitempty" jsonschema:"description=由后端根据模板生成，调用时省略"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
+}
+
+type BuildTarget struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
+}
+
+func (b BuildInput) ComponentTargets() []BuildTarget {
+	if len(b.Targets) > 0 {
+		return b.Targets
+	}
+	return []BuildTarget{{ServiceName: b.ServiceName, ServiceModule: b.ServiceModule}}
 }
 
 type EnvironmentInput struct {

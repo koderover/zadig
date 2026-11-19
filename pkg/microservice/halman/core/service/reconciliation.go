@@ -302,17 +302,21 @@ func matchesOperation(item models.OperationItem, raw json.RawMessage, created ti
 			return false, false, nil
 		}
 		targets, _ := value["target_repos"].([]any)
+		wantTargets := a.ComponentTargets()
+		if len(a.Targets) > 0 && len(targets) != len(wantTargets) {
+			return false, false, nil
+		}
+		remaining := make(map[models.BuildTarget]bool, len(wantTargets))
+		for _, target := range wantTargets {
+			remaining[target] = true
+		}
 		for _, entry := range targets {
 			target, _ := entry.(map[string]any)
 			service, _ := target["service"].(map[string]any)
-			if !containsFields(
-				service,
-				map[string]any{
-					"product_name":   item.ProjectKey,
-					"service_name":   a.ServiceName,
-					"service_module": a.ServiceModule,
-				},
-			) {
+			serviceName, _ := service["service_name"].(string)
+			serviceModule, _ := service["service_module"].(string)
+			key := models.BuildTarget{ServiceName: serviceName, ServiceModule: serviceModule}
+			if service["product_name"] != item.ProjectKey || !remaining[key] {
 				continue
 			}
 
@@ -345,9 +349,10 @@ func matchesOperation(item models.OperationItem, raw json.RawMessage, created ti
 			}
 
 			if matched {
-				return true, false, nil
+				delete(remaining, key)
 			}
 		}
+		return len(remaining) == 0, false, nil
 	case "create_environment":
 		var a models.EnvironmentInput
 		if json.Unmarshal(item.Params, &a) != nil {

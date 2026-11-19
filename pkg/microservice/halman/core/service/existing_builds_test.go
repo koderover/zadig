@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -159,5 +160,95 @@ func TestExistingBuildTargetValidation(t *testing.T) {
 				t.Fatalf("应补问并保留草稿: %v %v", value, err)
 			}
 		})
+	}
+}
+
+func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
+	store, mock := mockStore(t)
+	var posted map[string]any
+	posts := 0
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/authorization/auth-info":
+			w.Write([]byte(`{"is_system_admin":true}`))
+		case "/api/template/yaml/base", "/api/template/build/general-id":
+			w.Write([]byte(`{}`))
+		case "/api/code/codehost":
+			w.Write([]byte(`[{"id":1,"type":"github"}]`))
+		case "/api/service/services/api", "/api/service/services/worker":
+			w.Write([]byte(`{"service_module":[{"name":"app"}]}`))
+		case "/api/build/build":
+			if r.Method == http.MethodGet {
+				w.Write([]byte(`[]`))
+				return
+			}
+			if err := json.NewDecoder(r.Body).Decode(&posted); err != nil {
+				t.Error(err)
+			}
+			posts++
+			w.Write([]byte(`{}`))
+		default:
+			t.Errorf("意外请求: %s %s", r.Method, r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	s := &AgentService{Store: store, Platform: platform}
+	e := reportExecution("project_onboarding")
+	e.RootID = e.Run.ID
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM ai_conversation").WithArgs("conversation", "user").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
+	mock.ExpectQuery("SELECT active_plan_run_id,skill_status FROM ai_run").WithArgs("run", sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"active", "status"}).AddRow(nil, "running"))
+	mock.ExpectQuery("SELECT plan_version,status FROM ai_run").WithArgs("run").WillReturnRows(sqlmock.NewRows([]string{"version", "status"}).AddRow(0, "running"))
+	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_version=.*plan_status='pending_confirmation'").WithArgs(sqlmock.AnyArg(), 1, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=.*skill_status='pending_confirmation'").WithArgs("run", "run").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"base"},{"name":"worker","source":"yaml_template","template_id":"base"}],"builds":[{"name":"backend-build","template_id":"general-id","targets":[{"service_name":"api","service_module":"app"},{"service_name":"worker","service_module":"app"}],"repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
+	value, err := s.prepareProject(ctx, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := value.(map[string]any)["plan"].(models.OperationPlan)
+	if posts != 0 || len(plan.Items) != 4 {
+		t.Fatalf("确认前只应生成项目、两个服务和一个构建: %+v", plan.Items)
+	}
+	item := plan.Items[3]
+	if item.Action != "create_build" || !slices.Equal(item.DependsOn, []string{"service-api", "service-worker"}) {
+		t.Fatalf("共享构建必须依赖所有待创建服务: %+v", item)
+	}
+	expectClaim(mock, e, plan, "executing", true)
+	if _, err := s.submitOperation(ctx, e, item); err != nil {
+		t.Fatal(err)
+	}
+	targets, _ := posted["target_repos"].([]any)
+	if posts != 1 || len(targets) != 2 {
+		t.Fatalf("应以一次请求创建绑定两个组件的构建: %+v", posted)
+	}
+	if matched, _, err := matchesOperation(item, common.JSON(posted), e.Run.CreatedAt); err != nil || !matched {
+		t.Fatalf("应能核实包含完整目标的构建: %t, %v", matched, err)
+	}
+	posted["target_repos"] = targets[:1]
+	if matched, _, err := matchesOperation(item, common.JSON(posted), e.Run.CreatedAt); err != nil || matched {
+		t.Fatalf("缺少部分组件时不能将构建核实为成功: %t, %v", matched, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuildDraftSwitchesFromSingleComponentToTargets(t *testing.T) {
+	base := onboardingInput(t, `{"builds":[{"name":"backend","service_name":"api","service_module":"app","template_id":"base"}]}`)
+	patch := onboardingInput(t, `{"builds":[{"name":"backend","targets":[{"service_name":"api","service_module":"app"},{"service_name":"worker","service_module":"app"}]}]}`)
+	draft, err := mergeOnboardingDraft(&base, patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if build := draft.Builds[0]; build.ServiceName != "" || build.ServiceModule != "" || len(build.Targets) != 2 || build.TemplateID != "base" {
+		t.Fatalf("扩展绑定时应保留模板并替换旧单组件字段: %+v", build)
+	}
+	patch = onboardingInput(t, `{"builds":[{"name":"backend","variables":{"MODE":"test"}}]}`)
+	draft, err = mergeOnboardingDraft(&draft, patch)
+	if err != nil || len(draft.Builds[0].Targets) != 2 || draft.Builds[0].Variables["MODE"] != "test" {
+		t.Fatalf("只改构建变量时应保留组件绑定: %+v, %v", draft.Builds, err)
 	}
 }
