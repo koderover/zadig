@@ -46,6 +46,12 @@ func (s *AgentService) catalog(ctx context.Context, args models.CatalogRequest) 
 	if !ok {
 		return nil, fmt.Errorf("运行上下文缺失")
 	}
+	if e.PendingOnboarding {
+		return map[string]string{"status": "restore_required", "message": onboardingContinuation}, nil
+	}
+	if models.IsOnboardingSkill(e.ContinuingSkill) && e.OnboardingDraft == nil {
+		return map[string]string{"status": "restore_required", "message": "先调用原初始化工具提交本轮修改，或使用 read_saved_operation 恢复已有草稿。"}, nil
+	}
 
 	raw, err := s.Platform.catalog(ctx, e.Authorization, args)
 	recordCatalogResult(e, args, raw, err)

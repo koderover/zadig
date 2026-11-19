@@ -4,11 +4,43 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
+
+	"trpc.group/trpc-go/trpc-agent-go/model"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
+
+const onboardingContinuation = "本会话已有待补充或待确认的初始化清单。只以最新一条用户消息判断本轮意图。类似‘replicas 设为 1’的参数修改属于续接：先调用 read_saved_operation 恢复清单，再调用原初始化工具，只提交改动字段。恢复前不查询目录或重新准备清单。若用户明确开始无关的新任务，且需要查询目录或准备初始化，先调用 read_saved_operation 并传 start_new=true。目标不明确时请用户澄清。"
+
+func (s *AgentService) applyOnboardingContinuation(ctx context.Context, e *execution, req *model.Request) error {
+	if e.RegenerateFrom != nil || e.Run.ID == "" {
+		return nil
+	}
+	if !e.CheckedOnboarding && e.RootID == "" {
+		r, err := s.Store.LatestSavedSkillRun(ctx, e.User, e.Run.ConversationID, e.Cutoff, e.Run.CreatedAt)
+		if err != nil && !errors.Is(err, common.ErrNotFound) {
+			return err
+		}
+		if r != nil && models.IsOnboardingSkill(r.SkillID) && r.SkillStatus != nil &&
+			(*r.SkillStatus == "awaiting_input" || *r.SkillStatus == "pending_confirmation") {
+			e.PendingOnboarding = true
+		}
+		e.CheckedOnboarding = true
+	}
+	if e.PendingOnboarding {
+		delete(req.Tools, "query_catalog")
+		delete(req.Tools, "project_onboarding")
+		delete(req.Tools, "service_onboarding")
+		req.Messages = append([]model.Message{model.NewSystemMessage(onboardingContinuation)}, req.Messages...)
+	} else if models.IsOnboardingSkill(e.ContinuingSkill) {
+		req.Messages = append([]model.Message{model.NewSystemMessage("本轮是初始化续接。只提交用户本轮修改的字段。补充构建源码时按草稿中的原构建名更新，保留构建数量和覆盖范围，尤其不要把共享构建拆成多条。仅查询本轮变更或缺失的参数及其依赖。")}, req.Messages...)
+	}
+	return nil
+}
 
 func (s *AgentService) restoreOnboardingDraft(ctx context.Context, e *execution) error {
 	if e.OnboardingDraft != nil || e.RootID == "" || e.RootID == e.Run.ID {
@@ -48,26 +80,16 @@ func mergeOnboardingDraft(base *models.OnboardingInput, patch models.OnboardingI
 	if err := json.Unmarshal(current["services"], &services); len(current["services"]) > 0 && err != nil {
 		return patch, err
 	}
-	for _, name := range patch.RemoveServices {
-		found := -1
-		for i, item := range services {
-			if draftString(item, "name") == name && name != "" {
-				found = i
-				break
-			}
-		}
-		if found < 0 {
-			return patch, fmt.Errorf("要移除的服务 %s 不在当前草稿中", name)
-		}
-		services = append(services[:found], services[found+1:]...)
+	services, err := removeDraftInputs(services, patch.RemoveServices, "服务")
+	if err != nil {
+		return patch, err
 	}
 	if raw, provided := fields["services"]; provided {
 		var changes []map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &changes); err != nil {
 			return patch, err
 		}
-		var err error
-		services, err = mergeNamedInputs(services, changes, true)
+		services, err = mergeNamedInputs(services, changes, true, true)
 		if err != nil {
 			return patch, err
 		}
@@ -75,22 +97,33 @@ func mergeOnboardingDraft(base *models.OnboardingInput, patch models.OnboardingI
 	current["services"] = common.JSON(services)
 	delete(fields, "services")
 	delete(fields, "remove_services")
-	if raw, provided := fields["builds"]; provided {
-		var before, changes []map[string]json.RawMessage
-		if err := json.Unmarshal(current["builds"], &before); len(current["builds"]) > 0 && err != nil {
+	if raw, provided := fields["builds"]; provided || len(patch.RemoveBuilds) > 0 {
+		var builds []map[string]json.RawMessage
+		if err := json.Unmarshal(current["builds"], &builds); len(current["builds"]) > 0 && err != nil {
 			return patch, err
 		}
-		if err := json.Unmarshal(raw, &changes); err != nil {
+		builds, err = removeDraftInputs(builds, patch.RemoveBuilds, "构建")
+		if err != nil {
 			return patch, err
 		}
-		if len(changes) > 0 {
-			merged, err := mergeNamedInputs(before, changes, false)
-			if err != nil {
+		if provided {
+			var changes []map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &changes); err != nil {
 				return patch, err
 			}
-			fields["builds"] = common.JSON(merged)
+			if len(changes) == 0 {
+				builds = changes
+			} else {
+				builds, err = mergeNamedInputs(builds, changes, false, len(builds) == 0 || patch.AddBuilds)
+				if err != nil {
+					return patch, err
+				}
+			}
 		}
+		fields["builds"] = common.JSON(builds)
 	}
+	delete(fields, "add_builds")
+	delete(fields, "remove_builds")
 	mergeDraftObject(current, fields)
 	var result models.OnboardingInput
 	if err := json.Unmarshal(common.JSON(current), &result); err != nil {
@@ -110,7 +143,20 @@ func mergeOnboardingDraft(base *models.OnboardingInput, patch models.OnboardingI
 	return result, nil
 }
 
-func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool) ([]map[string]json.RawMessage, error) {
+func removeDraftInputs(items []map[string]json.RawMessage, names []string, kind string) ([]map[string]json.RawMessage, error) {
+	for _, name := range names {
+		index := slices.IndexFunc(items, func(item map[string]json.RawMessage) bool {
+			return name != "" && draftString(item, "name") == name
+		})
+		if index < 0 {
+			return nil, fmt.Errorf("要移除的%s %s 不在当前草稿中", kind, name)
+		}
+		items = slices.Delete(items, index, index+1)
+	}
+	return items, nil
+}
+
+func mergeNamedInputs(before, changes []map[string]json.RawMessage, service, allowNew bool) ([]map[string]json.RawMessage, error) {
 	seen := map[string]bool{}
 	used := map[int]bool{}
 	for _, change := range changes {
@@ -138,6 +184,9 @@ func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool
 			}
 		}
 		if index < 0 {
+			if !allowNew {
+				return nil, fmt.Errorf("构建 %q 不在当前草稿中。补参时使用原构建名称；仅在用户明确要求新增构建时传 add_builds=true", name)
+			}
 			before = append(before, change)
 			used[len(before)-1] = true
 			continue
@@ -152,6 +201,10 @@ func mergeNamedInputs(before, changes []map[string]json.RawMessage, service bool
 		if _, provided := change["template_id"]; provided && draftString(change, "template_id") != draftString(item, "template_id") {
 			delete(item, "variables")
 			delete(item, "template_fingerprint")
+		}
+		if _, provided := change["targets"]; !service && provided {
+			delete(item, "service_name")
+			delete(item, "service_module")
 		}
 		mergeDraftObject(item, change)
 	}

@@ -19,7 +19,7 @@ func TestOnboardingDraftSupersedesOldConfirmationAtomically(t *testing.T) {
 		mock.ExpectQuery("SELECT active_plan_run_id,skill_status FROM ai_run").WithArgs("root", "user", sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"active", "state"}).AddRow("old-plan", "running"))
 		mock.ExpectQuery("SELECT status FROM ai_run").WithArgs("current", "user", "conversation").WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("running"))
 		mock.ExpectExec("UPDATE ai_run SET plan_status='superseded'").WithArgs("old-plan").WillReturnResult(sqlmock.NewResult(0, 1))
-		mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=NULL").WithArgs("root", "user").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=NULL,skill_status='awaiting_input'").WithArgs("root", "user").WillReturnResult(sqlmock.NewResult(0, 1))
 		save := mock.ExpectExec("UPDATE ai_run SET plan=.*plan_status=").WithArgs(sqlmock.AnyArg(), "awaiting_input", "current", "user")
 		want := errors.New("草稿保存失败")
 		if fail {

@@ -38,14 +38,18 @@ func (s *AgentService) saveDraft(ctx context.Context, e *execution, args models.
 	e.OnboardingDraft = &args
 
 	e.Outcome = "awaiting_input"
-	return map[string]any{
+	result := map[string]any{
 		"status":                 "awaiting_input",
 		"missing_fields":         missing,
 		"draft":                  *plan.Redacted().Draft,
 		"skill_execution_id":     e.RootID,
 		"expected_service_count": args.ExpectedServiceCount,
 		"service_count":          len(args.Services),
-	}, nil
+	}
+	if namespace := suggestedOnboardingNamespace(args); e.SkillID == "project_onboarding" && namespace != "" {
+		result["suggested_namespace"] = namespace
+	}
+	return result, nil
 }
 
 func validateDraftSecrets(args models.OnboardingInput) error {

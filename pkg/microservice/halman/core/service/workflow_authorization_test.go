@@ -37,24 +37,38 @@ func TestWorkflowAuthorizationUsesExistingPermissionsAndRechecksEveryTime(t *tes
 }
 
 func TestWorkflowLogDoesNotPrefetchTaskDetails(t *testing.T) {
-	store, mock := mockStore(t)
-	e := reportExecution("workflow_diagnosis")
-	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/logs/log/v4/workflow/wf/tasks/128/jobs/job-0-0-0-构建" || !strings.HasSuffix(r.URL.EscapedPath(), url.PathEscape("job-0-0-0-构建")) || r.URL.Query().Get("format") != "excerpt" || r.URL.Query().Get("projectName") != "p" {
-			t.Fatalf("日志片段接口已校验权限和归属，不应预读任务详情: %s", r.URL)
-		}
-		w.Write([]byte(`{"text":"build failed"}`))
-	})
-	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT resource_scopes FROM ai_run").WithArgs("run", "user").WillReturnRows(sqlmock.NewRows([]string{"scopes"}).AddRow("[]"))
-	mock.ExpectExec("UPDATE ai_run SET context=.*resource_scopes=").WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "run", "user").WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
-	s := &AgentService{Store: store, Platform: platform}
-	_, err := s.workflowLog(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowLogWindow{
-		Target: models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128, JobName: "job-0-0-0-构建"}, Limit: 200,
-	})
-	if err != nil || !e.EvidenceRead.Load() {
-		t.Fatalf("应保留日志证据和权限范围: %v", err)
+	for _, tc := range []struct {
+		name, response string
+		evidence       bool
+	}{
+		{"log present", `{"text":"build failed","offset":25,"next_offset":26,"total_lines":26}`, true},
+		{"log empty", `{"text":"","total_lines":0}`, false},
+		{"logs unsupported", `{"text":"","total_lines":0,"unsupported":true}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, mock := mockStore(t)
+			e := reportExecution("workflow_diagnosis")
+			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+				query := r.URL.Query()
+				if r.URL.Path != "/api/logs/log/v4/workflow/wf/tasks/128/jobs/job-0-0-0-构建" ||
+					!strings.HasSuffix(r.URL.EscapedPath(), url.PathEscape("job-0-0-0-构建")) ||
+					query.Get("format") != "excerpt" || query.Get("projectName") != "p" || query.Get("offset") != "25" || query.Get("limit") != "80" {
+					t.Fatalf("日志片段接口已校验权限和归属，不应预读任务详情: %s", r.URL)
+				}
+				w.Write([]byte(tc.response))
+			})
+			mock.ExpectBegin()
+			mock.ExpectQuery("SELECT resource_scopes FROM ai_run").WithArgs("run", "user").WillReturnRows(sqlmock.NewRows([]string{"scopes"}).AddRow("[]"))
+			mock.ExpectExec("UPDATE ai_run SET context=.*resource_scopes=").WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "run", "user").WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectCommit()
+			s := &AgentService{Store: store, Platform: platform}
+			_, err := s.workflowLog(context.WithValue(context.Background(), executionKey{}, e), models.WorkflowLogWindow{
+				Target: models.WorkflowTarget{ProjectKey: "p", WorkflowName: "wf", TaskID: 128, JobName: "job-0-0-0-构建"}, Offset: 25, Limit: 80,
+			})
+			if err != nil || e.EvidenceRead.Load() != tc.evidence {
+				t.Fatalf("只有非空日志内容才能作为证据: %v", err)
+			}
+		})
 	}
 }
 

@@ -170,10 +170,23 @@ func (s *AgentService) authorizeRegeneration(ctx context.Context, user, authoriz
 	return s.Platform.authorizeScopes(ctx, authorization, scopes)
 }
 
-func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any, error) {
+type savedOperationInput struct {
+	StartNew      bool `json:"start_new,omitempty" jsonschema:"description=仅当用户明确开始与待补充或待确认清单无关的新任务时设为 true"`
+	VerifyRestart bool `json:"verify_restart,omitempty" jsonschema:"description=用户询问上次重启是否失败或明确要求再次重启时设为 true，核实原重启记录"`
+}
+
+func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperationInput) (any, error) {
 	e, ok := ctx.Value(executionKey{}).(*execution)
 	if !ok {
 		return nil, fmt.Errorf("运行上下文缺失")
+	}
+	if args.StartNew {
+		if e.RegenerateFrom != nil || (e.RootID != "" && e.RootID != e.Run.ID) {
+			return nil, common.ErrRequestConflict
+		}
+		e.CheckedOnboarding = true
+		e.PendingOnboarding = false
+		return map[string]string{"status": "new_task"}, nil
 	}
 
 	var r *models.Run
@@ -196,12 +209,24 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 		return nil, err
 	}
 
-	continuable := r.SkillStatus != nil && (*r.SkillStatus == "awaiting_input" || *r.SkillStatus == "pending_confirmation")
-	if e.RegenerateFrom == nil {
-		var saved models.OperationPlan
-		if json.Unmarshal(r.Plan, &saved) != nil {
+	var publicPlan models.OperationPlan
+	if err := json.Unmarshal(r.Plan, &publicPlan); err != nil {
+		return nil, common.ErrRequestConflict
+	}
+	restart := len(publicPlan.Items) == 1 && publicPlan.Items[0].Action == "restart_service"
+	if args.VerifyRestart && e.RegenerateFrom == nil && restart && r.Status == "unknown" {
+		r, err = s.Reconcile(ctx, e.User, e.Authorization, r.ID, r.PlanVersion, e.Cutoff)
+		if err != nil {
+			return nil, err
+		}
+		publicPlan = models.OperationPlan{}
+		if err := json.Unmarshal(r.Plan, &publicPlan); err != nil {
 			return nil, common.ErrRequestConflict
 		}
+	}
+
+	continuable := r.SkillStatus != nil && (*r.SkillStatus == "awaiting_input" || *r.SkillStatus == "pending_confirmation")
+	if e.RegenerateFrom == nil {
 		if continuable {
 			if e.SkillID != "" && (e.SkillID != r.SkillID || e.RootID != *r.SkillExecutionID) {
 				return nil, common.ErrRequestConflict
@@ -211,10 +236,10 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 			if _, err := s.skillExecution(ctx, r.SkillID); err != nil {
 				return nil, err
 			}
-			e.SkillInput = saved.Input
-			if r.SkillID == "project_onboarding" || r.SkillID == "service_onboarding" {
-				e.OnboardingDraft = saved.Draft
-				e.OnboardingChecks = saved.DraftChecks
+			e.SkillInput = publicPlan.Input
+			if models.IsOnboardingSkill(r.SkillID) {
+				e.OnboardingDraft = publicPlan.Draft
+				e.OnboardingChecks = publicPlan.DraftChecks
 			}
 		}
 
@@ -251,10 +276,6 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 		e.EvidenceRead.Store(true)
 	}
 
-	var publicPlan models.OperationPlan
-	if err := json.Unmarshal(r.Plan, &publicPlan); err != nil {
-		return nil, common.ErrRequestConflict
-	}
 	value, err := safeJSON(common.JSON(map[string]any{
 		"run_id":       r.ID,
 		"status":       r.Status,
@@ -267,6 +288,7 @@ func (s *AgentService) readSavedOperation(ctx context.Context, _ struct{}) (any,
 	if err != nil {
 		return nil, err
 	}
+	e.PendingOnboarding = false
 
 	return value, nil
 }

@@ -153,7 +153,7 @@ func GetService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetService(envName, projectKey, serviceName, production, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetService(envName, projectKey, serviceName, production, workLoadType, true, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
@@ -692,7 +692,7 @@ func OpenAPIGetService(c *gin.Context) {
 		}
 	}
 
-	origResp, err := service.GetService(envName, projectKey, serviceName, false, workLoadType, ctx.Logger)
+	origResp, err := service.GetService(envName, projectKey, serviceName, false, workLoadType, false, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
@@ -760,7 +760,7 @@ func OpenAPIGetProductionService(c *gin.Context) {
 		return
 	}
 
-	origResp, err := service.GetService(envName, projectKey, serviceName, true, workLoadType, ctx.Logger)
+	origResp, err := service.GetService(envName, projectKey, serviceName, true, workLoadType, false, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return

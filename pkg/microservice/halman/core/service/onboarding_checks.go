@@ -5,7 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"k8s.io/apimachinery/pkg/util/validation"
+
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
@@ -21,11 +26,14 @@ func missingOnboardingOptions(args models.OnboardingInput, newProject bool) []st
 			label = fmt.Sprintf("第 %d 个构建", i+1)
 			missing = append(missing, label+" 的名称")
 		}
-		if build.ServiceName == "" {
-			missing = append(missing, "构建 "+label+" 关联的服务名称")
-		}
-		if build.ServiceModule == "" && (newProject || hasNewService(args.Services, build.ServiceName)) {
-			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
+		if !newProject {
+			for _, target := range build.ComponentTargets() {
+				if target.ServiceName == "" {
+					missing = append(missing, "构建 "+label+" 关联的服务名称")
+				} else if target.ServiceModule == "" && hasNewService(args.Services, target.ServiceName) {
+					missing = append(missing, "构建 "+label+" 关联的服务 "+target.ServiceName+" 的组件名称")
+				}
+			}
 		}
 		if len(build.Repositories) == 0 {
 			missing = append(missing, "构建 "+label+" 的源码仓库及分支")
@@ -40,7 +48,7 @@ func missingOnboardingOptions(args models.OnboardingInput, newProject bool) []st
 func missingOnboardingEnvironment(args models.OnboardingInput, newProject bool) []string {
 	if args.Environment == nil {
 		if newProject && !args.SkipEnvironment {
-			return []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群、Kubernetes namespace 和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"}
+			return []string{"请选择：不创建环境、只创建环境不部署服务、或创建环境并部署指定服务。创建环境需提供环境名称、集群和镜像仓库；只创建环境时 services 传空列表，不创建环境时明确跳过"}
 		}
 		return nil
 	}
@@ -48,14 +56,29 @@ func missingOnboardingEnvironment(args models.OnboardingInput, newProject bool) 
 	for _, field := range []struct{ value, label string }{
 		{args.Environment.Name, "环境名称"},
 		{args.Environment.ClusterID, "环境的集群"},
-		{args.Environment.Namespace, "环境的 Kubernetes namespace"},
 		{args.Environment.RegistryID, "环境的镜像仓库"},
 	} {
 		if field.value == "" {
 			missing = append(missing, field.label)
 		}
 	}
+	if args.Environment.Namespace == "" && (!newProject ||
+		(args.ProjectKey != "" && args.Environment.Name != "" && suggestedOnboardingNamespace(args) == "")) {
+		missing = append(missing, "环境的 Kubernetes namespace")
+	}
 	return missing
+}
+
+func suggestedOnboardingNamespace(args models.OnboardingInput) string {
+	if args.Environment == nil || args.Environment.Namespace != "" || args.Environment.Name == "" || args.ProjectKey == "" {
+		return ""
+	}
+	product := commonmodels.Product{ProductName: args.ProjectKey, EnvName: args.Environment.Name}
+	namespace := product.GetDefaultNamespace()
+	if len(validation.IsDNS1123Label(namespace)) != 0 {
+		return ""
+	}
+	return namespace
 }
 
 // 只用于草稿准备；确认和提交仍读取最新资源。input 必须包含该检查的全部依赖。
@@ -76,6 +99,7 @@ func onboardingCheck[T any](e *execution, key string, input any, load func() (T,
 }
 
 type templateCheck struct {
+	ID          string   `json:"-"`
 	Fingerprint string   `json:"fingerprint"`
 	Missing     []string `json:"missing,omitempty"`
 	Credentials []string `json:"credentials,omitempty"`
@@ -98,6 +122,7 @@ func (s *AgentService) markDraftCredentials(ctx context.Context, e *execution, a
 		if err != nil {
 			return err
 		}
+		item.TemplateID = check.ID
 		item.CredentialVariables = check.Credentials
 	}
 	for i := range args.Builds {
@@ -116,13 +141,21 @@ func (s *AgentService) markDraftCredentials(ctx context.Context, e *execution, a
 		if err != nil {
 			return err
 		}
+		item.TemplateID = check.ID
 		item.CredentialVariables = check.Credentials
 	}
 	return nil
 }
 
 func (s *AgentService) checkOnboardingTemplate(ctx context.Context, e *execution, key, project, source, id string, variables map[string]string) (templateCheck, error) {
-	return onboardingCheck(e, key, []any{project, source, id, variables}, func() (templateCheck, error) {
+	if (source == "yaml_template" || source == "build_template") && !primitive.IsValidObjectID(id) {
+		resolved, err := s.onboardingTemplateID(ctx, e, project, source, id)
+		if err != nil {
+			return templateCheck{}, err
+		}
+		id = resolved
+	}
+	check, err := onboardingCheck(e, key, []any{project, source, id, variables}, func() (templateCheck, error) {
 		raw, err := s.readTemplate(ctx, e, project, source, id, nil)
 		if err != nil {
 			return templateCheck{}, err
@@ -143,4 +176,39 @@ func (s *AgentService) checkOnboardingTemplate(ctx context.Context, e *execution
 		}
 		return result, nil
 	})
+	check.ID = id
+	return check, err
+}
+
+func (s *AgentService) onboardingTemplateID(ctx context.Context, e *execution, project, source, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New(e.text("请选择模板或提供完整模板名称", "Select a template or provide its full name."))
+	}
+
+	request := models.CatalogRequest{Kind: source + "s", ProjectKey: project, Keyword: name, Page: 1}
+	for request.Page != 0 {
+		raw, err := s.Platform.catalog(ctx, e.Authorization, request)
+		if err != nil {
+			return "", err
+		}
+		var page struct {
+			Items []struct {
+				ID string `json:"id"`
+			} `json:"items"`
+			NextPage int `json:"next_page"`
+		}
+		if err := json.Unmarshal(raw, &page); err != nil {
+			return "", err
+		}
+		if len(page.Items) > 0 {
+			// YAML 和构建模板名称在各自的集合中有唯一索引。
+			if len(page.Items) != 1 || !primitive.IsValidObjectID(page.Items[0].ID) {
+				return "", errors.New(e.text("模板目录返回的匹配项无效，请重新选择模板", "The template catalog returned an invalid match. Select the template again."))
+			}
+			return page.Items[0].ID, nil
+		}
+		request.Page = page.NextPage
+	}
+	return "", fmt.Errorf(e.text("目录中没有匹配 %q 的模板，请核对完整名称", "No template matches %q in the catalog. Check the full name."), name)
 }

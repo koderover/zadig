@@ -38,6 +38,10 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 			w.Write([]byte(`[{"id":1,"type":"gitlab"}]`))
 		case r.URL.Path == "/api/project/products/demo/services":
 			w.Write([]byte(`{"services":[]}`))
+		case r.URL.Path == "/api/template/yaml":
+			w.Write([]byte(`{"yaml_template":[{"id":"000000000000000000000009","name":"general-old"},{"id":"000000000000000000000001","name":"general"}],"total":2}`))
+		case r.URL.Path == "/api/template/build":
+			w.Write([]byte(`{"build_templates":[{"id":"000000000000000000000001","name":"general"}],"total":1}`))
 		case strings.HasPrefix(r.URL.Path, "/api/template/"):
 			w.Write(common.JSON(map[string]any{"version": digest, "variables": []map[string]any{{"key": "PORT", "type": "string", "value": "80"}}}))
 		default:
@@ -47,19 +51,19 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 	s := &AgentService{Store: store, Platform: platform}
 	patches := []string{
 		`{"project_name":"demo","project_key":"demo","project_type":"k8s","services":[{"name":"service1","source":"yaml_template","template_id":"general"},{"name":"service2","source":"yaml_template","template_id":"general"}],"builds":[{"name":"build1","template_id":"general","service_name":"service1","service_module":"service1","repositories":[{"codehost_id":1,"owner":"team","repo":"repo","branch":"main"}]}],"environment":{"name":"dev","cluster_id":"local"}}`,
-		`{"environment":{"namespace":"demo-dev"}}`,
-		`{"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
+		`{"environment":{"name":"staging"}}`,
+		`{"environment":{"namespace":"custom-ns"},"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
 		`{"builds":[{"name":"build1","service_module":"worker"}]}`,
-		`{"builds":[{"name":"build1","template_id":"other"}]}`,
-		`{"services":[{"name":"service1","template_id":"other","template_fingerprint":"model-provided"}]}`,
+		`{"builds":[{"name":"build1","template_id":"000000000000000000000002"}]}`,
+		`{"services":[{"name":"service1","template_id":"000000000000000000000002","template_fingerprint":"model-provided"}]}`,
 	}
 	wantReads := []map[string]int{
-		{"/api/template/yaml/general": 1, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 1, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/template/build/other": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/yaml/other": 1, "/api/template/build/general": 1, "/api/template/build/other": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 1, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 1, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/template/build/000000000000000000000002": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/yaml/000000000000000000000002": 1, "/api/template/build/000000000000000000000001": 1, "/api/template/build/000000000000000000000002": 1, "/api/code/codehost": 1},
 	}
 	var saved capturedDraft
 	for i, patch := range patches {
@@ -80,6 +84,11 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 		if len(saved.plan.DraftChecks) == 0 {
 			t.Fatal("校验结果必须随草稿持久化")
 		}
+		if reads["/api/template/yaml"] != 1 || reads["/api/template/build"] != 1 ||
+			saved.plan.Draft.Services[1].TemplateID != "000000000000000000000001" ||
+			(i < 4 && saved.plan.Draft.Builds[0].TemplateID != "000000000000000000000001") {
+			t.Fatal("显示名称须精确解析为模板 ID，后续轮次直接沿用已保存的 ID")
+		}
 		if strings.Contains(string(common.JSON(value)), "draft_checks") {
 			t.Fatal("内部校验记录不能作为补参返回值")
 		}
@@ -88,8 +97,14 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 				t.Fatalf("第 %d 轮不应重读无关资源: %s=%d，期望 %d", i, path, reads[path], count)
 			}
 		}
-		if i == 0 && !reflect.DeepEqual(saved.plan.MissingFields, []string{"环境的 Kubernetes namespace", "环境的镜像仓库"}) {
-			t.Fatalf("缺项应一次汇总: %v", saved.plan.MissingFields)
+		if i < 2 {
+			want := []string{"demo-env-dev", "demo-env-staging"}[i]
+			if value.(map[string]any)["suggested_namespace"] != want || saved.plan.Draft.Environment.Namespace != "" ||
+				!reflect.DeepEqual(saved.plan.MissingFields, []string{"环境的镜像仓库"}) {
+				t.Fatalf("建议应随当前环境名称生成，不能存为草稿参数或要求补填: %v", value)
+			}
+		} else if _, suggested := value.(map[string]any)["suggested_namespace"]; suggested || saved.plan.Draft.Environment.Namespace != "custom-ns" {
+			t.Fatalf("用户明确指定的 namespace 应优先并保存在草稿中: %v", value)
 		}
 	}
 	service := saved.plan.Draft.Services[0]
@@ -103,7 +118,7 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 	if err := s.verifyPlan(context.Background(), e, models.OperationPlan{Items: []models.OperationItem{item}}); err == nil || !strings.Contains(err.Error(), "模板已变化") {
 		t.Fatalf("确认前必须绕过草稿缓存、拒绝模板变化: %v", err)
 	}
-	if _, err := s.submitOperation(context.Background(), e, item); err == nil || !strings.Contains(err.Error(), "模板已变化") {
+	if _, err := s.submitOperation(context.Background(), e, &item); err == nil || !strings.Contains(err.Error(), "模板已变化") {
 		t.Fatalf("提交前必须绕过草稿缓存、拒绝模板变化: %v", err)
 	}
 }
@@ -121,12 +136,12 @@ func TestOnboardingTemplateCheckDoesNotCacheFailuresOrTrustClientFingerprint(t *
 	s := &AgentService{Platform: platform}
 	e := reportExecution("project_onboarding")
 	for i := 0; i < 2; i++ {
-		_, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "general", nil)
+		_, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "000000000000000000000001", nil)
 		if (err != nil) != (i == 0) {
 			t.Fatalf("失败结果不得缓存: %v", err)
 		}
 	}
-	check, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "general", map[string]string{"cred": "override"})
+	check, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "000000000000000000000001", map[string]string{"cred": "override"})
 	if err != nil || !reflect.DeepEqual(check.Credentials, []string{"cred"}) {
 		t.Fatalf("修改凭据变量应重新校验并保留凭据标记: %+v %v", check, err)
 	}

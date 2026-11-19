@@ -1390,6 +1390,8 @@ func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVarai
 // SvcResp struct 产品-服务详情页面Response
 type SvcResp struct {
 	ServiceName string                       `json:"service_name"`
+	ReleaseName string                       `json:"release_name,omitempty"`
+	IsHelmChart *bool                        `json:"is_helm_chart,omitempty"`
 	Scales      []*internalresource.Workload `json:"scales"`
 	Ingress     []*internalresource.Ingress  `json:"ingress"`
 	Services    []*internalresource.Service  `json:"service_endpoints"`

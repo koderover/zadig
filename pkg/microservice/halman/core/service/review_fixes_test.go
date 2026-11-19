@@ -44,7 +44,7 @@ func TestHelmTemplateContentChangeInvalidatesConfirmationAndSubmission(t *testin
 	if err := s.verifyPlan(context.Background(), e, plan); err == nil {
 		t.Fatal("内容变化而变量不变，也必须阻止确认")
 	}
-	if _, err := s.submitOperation(context.Background(), e, plan.Items[0]); err == nil {
+	if _, err := s.submitOperation(context.Background(), e, &plan.Items[0]); err == nil {
 		t.Fatal("确认后的模板变化也必须在提交前拒绝")
 	}
 	digest = ""
@@ -81,8 +81,8 @@ func TestServiceRepairDiagnosisKeepsWaitingForConfirmationPlan(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Fatal("诊断修复目标也不得直接写入")
 		}
-		if strings.HasSuffix(r.URL.Path, "/pods") {
-			w.Write([]byte(`{"service_name":"api","pods":[]}`))
+		if strings.HasSuffix(r.URL.Path, "/services/api") {
+			w.Write([]byte(`{"service_name":"api"}`))
 			return
 		}
 		w.Write([]byte(`{}`))

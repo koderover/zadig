@@ -5,20 +5,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	kuberesource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 )
 
 type jobEvidence struct {
-	Name     string          `json:"name"`
-	Type     string          `json:"type"`
-	Status   string          `json:"status"`
-	Error    string          `json:"error"`
-	Spec     json.RawMessage `json:"spec,omitempty"`
-	SpecNote string          `json:"spec_note,omitempty"`
+	Name         string          `json:"name"`
+	DisplayName  string          `json:"display_name,omitempty"`
+	OriginName   string          `json:"origin_name,omitempty"`
+	Type         string          `json:"type"`
+	LogSupported bool            `json:"log_supported"`
+	Status       string          `json:"status"`
+	Error        string          `json:"error"`
+	Spec         json.RawMessage `json:"spec,omitempty"`
+	SpecNote     string          `json:"spec_note,omitempty"`
+}
+
+func (j jobEvidence) matches(name string) bool {
+	if name != "" {
+		return j.Name == name
+	}
+	return j.Status == "failed" || j.Status == "timeout"
 }
 
 type stageEvidence struct {
@@ -29,13 +41,42 @@ type stageEvidence struct {
 }
 
 type workflowEvidence struct {
-	ProjectKey   string          `json:"project_key"`
-	WorkflowName string          `json:"workflow_key"`
-	TaskID       int64           `json:"task_id"`
-	CreateTime   int64           `json:"create_time,omitempty"`
-	Status       string          `json:"status"`
-	Error        string          `json:"error"`
-	Stages       []stageEvidence `json:"stages"`
+	ProjectKey      string          `json:"project_key"`
+	WorkflowName    string          `json:"workflow_key"`
+	TaskID          int64           `json:"task_id"`
+	CreateTime      int64           `json:"create_time,omitempty"`
+	Status          string          `json:"status"`
+	Error           string          `json:"error"`
+	Stages          []stageEvidence `json:"stages"`
+	SelectedJobName string          `json:"selected_job_name,omitempty"`
+}
+
+// Prefer the canonical name, then job aliases, then the stage name.
+func (e *workflowEvidence) resolveJobName(name string) (string, error) {
+	var matches, stageMatches []string
+	for _, stage := range e.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name == name {
+				return job.Name, nil
+			}
+			if job.DisplayName == name || job.OriginName == name {
+				matches = append(matches, job.Name)
+			}
+			if stage.Name == name {
+				stageMatches = append(stageMatches, job.Name)
+			}
+		}
+	}
+	if len(matches) == 0 {
+		matches = stageMatches
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("步骤名称匹配多个任务，请明确指定步骤 name: %s", strings.Join(matches, ", "))
+	}
+	return "", fmt.Errorf("指定步骤不存在，请使用任务详情中的步骤 name")
 }
 
 func (p *PlatformClient) workflowTask(ctx context.Context, authorization string, target models.WorkflowTarget) (*workflowEvidence, error) {
@@ -61,6 +102,12 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 	if evidence.ProjectKey != target.ProjectKey || evidence.WorkflowName != target.WorkflowName || evidence.TaskID != target.TaskID {
 		return nil, fmt.Errorf("任务与所选项目或工作流不匹配")
 	}
+	if target.JobName != "" {
+		evidence.SelectedJobName, err = evidence.resolveJobName(target.JobName)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	evidence.Error = redactText(evidence.Error)
 	selected := 0
@@ -68,9 +115,9 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 		evidence.Stages[i].Error = redactText(evidence.Stages[i].Error)
 		for j := range evidence.Stages[i].Jobs {
 			job := &evidence.Stages[i].Jobs[j]
+			job.LogSupported = config.JobHasExecutionLogs(config.JobType(job.Type))
 			job.Error = redactText(job.Error)
-			if (target.JobName != "" && job.Name != target.JobName) ||
-				(target.JobName == "" && job.Status != "failed" && job.Status != "timeout") {
+			if !job.matches(evidence.SelectedJobName) {
 				job.Spec = nil
 				continue
 			}
@@ -80,7 +127,7 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 				continue
 			}
 			selected++
-			job.Spec, job.SpecNote = workflowJobSpec(job.Spec)
+			job.Spec, job.SpecNote = workflowJobSpec(job.Spec, job.Type)
 		}
 	}
 
@@ -88,7 +135,7 @@ func (p *PlatformClient) workflowTask(ctx context.Context, authorization string,
 }
 
 // 只提取原任务详情已返回的字段，不传递凭据、变量值或当前环境补充属性。
-func workflowJobSpec(raw json.RawMessage) (json.RawMessage, string) {
+func workflowJobSpec(raw json.RawMessage, jobType string) (json.RawMessage, string) {
 	var spec struct {
 		Repos []struct {
 			Owner     string `json:"repo_owner,omitempty"`
@@ -114,31 +161,42 @@ func workflowJobSpec(raw json.RawMessage) (json.RawMessage, string) {
 			ChartName    string `json:"chart_name,omitempty"`
 			ChartVersion string `json:"chart_version,omitempty"`
 		} `json:"deploy_helm_charts,omitempty"`
+		CheckTime *int64 `json:"check_time,omitempty"`
+		CheckMode string `json:"check_mode,omitempty"`
+		Alerts    []struct {
+			ID     string `json:"id,omitempty"`
+			Name   string `json:"name,omitempty"`
+			Status string `json:"status,omitempty"`
+		} `json:"alerts,omitempty"`
 	}
 	if len(raw) == 0 || json.Unmarshal(raw, &spec) != nil {
-		return nil, "原任务详情未返回可用的步骤配置，仅结合状态和日志分析"
+		return nil, "原任务详情未返回可用的步骤配置，仅结合已返回的状态、错误及可用证据分析"
+	}
+	if jobType != string(config.JobGrafana) {
+		spec.CheckTime, spec.CheckMode, spec.Alerts = nil, "", nil
 	}
 	note := ""
-	if len(spec.Repos) > 20 || len(spec.Images) > 20 || len(spec.Charts) > 20 {
-		note = "仓库、镜像和 Chart 列表分别最多返回二十项，已截断"
+	if len(spec.Repos) > 20 || len(spec.Images) > 20 || len(spec.Charts) > 20 || len(spec.Alerts) > 20 {
+		note = "仓库、镜像、Chart 和告警列表分别最多返回二十项，已截断"
 	}
 	spec.Repos = spec.Repos[:min(len(spec.Repos), 20)]
 	spec.Images = spec.Images[:min(len(spec.Images), 20)]
 	spec.Charts = spec.Charts[:min(len(spec.Charts), 20)]
+	spec.Alerts = spec.Alerts[:min(len(spec.Alerts), 20)]
 	filtered := common.JSON(spec)
 	if string(filtered) == "{}" {
-		return nil, "原任务详情未返回可用的步骤配置，仅结合状态和日志分析"
+		return nil, "原任务详情未返回可用的步骤配置，仅结合已返回的状态、错误及可用证据分析"
 	}
 	if len(filtered) > 8<<10 {
-		return nil, "步骤信息超过八 KiB，仅结合状态和日志分析"
+		return nil, "步骤信息超过八 KiB，仅结合已返回的状态、错误及可用证据分析"
 	}
 	value, err := safeJSON(filtered)
 	if err != nil {
-		return nil, "步骤信息不可用，仅结合状态和日志分析"
+		return nil, "步骤信息不可用，仅结合已返回的状态、错误及可用证据分析"
 	}
 	filtered = common.JSON(value)
 	if len(filtered) > 8<<10 {
-		return nil, "步骤信息超过八 KiB，仅结合状态和日志分析"
+		return nil, "步骤信息超过八 KiB，仅结合已返回的状态、错误及可用证据分析"
 	}
 	return filtered, note
 }
@@ -173,6 +231,7 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 	if err != nil {
 		return nil, err
 	}
+	target.JobName = evidence.SelectedJobName
 
 	if err := s.recordScope(
 		ctx,
@@ -193,30 +252,18 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 	}
 
 	logs := make(map[string]any)
+logSearch:
 	for _, stage := range evidence.Stages {
 		for _, job := range stage.Jobs {
-			if (target.JobName != "" && job.Name != target.JobName) ||
-				(target.JobName == "" && job.Status != "failed" && job.Status != "timeout") {
-				continue
-			}
-
 			if len(logs) >= 3 {
-				break
+				break logSearch
 			}
-
-			if err := checkWorkflowJobName(job.Name); err != nil {
+			if !job.LogSupported || !job.matches(target.JobName) || checkWorkflowJobName(job.Name) != nil {
 				continue
 			}
-
-			query := url.Values{"projectName": {target.ProjectKey}, "format": {"excerpt"}, "offset": {"0"}, "limit": {"200"}}
-			path := fmt.Sprintf("/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s", target.WorkflowName, target.TaskID, url.PathEscape(job.Name))
-			raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, path, query, nil)
-			if err != nil {
-				logs[job.Name] = map[string]string{"unavailable": err.Error()}
-				continue
-			}
-
-			value, err := safeJSON(raw)
+			logTarget := target
+			logTarget.JobName = job.Name
+			value, err := s.Platform.workflowLogExcerpt(ctx, e.Authorization, models.WorkflowLogWindow{Target: logTarget, Limit: 200})
 			if err != nil {
 				logs[job.Name] = map[string]string{"unavailable": err.Error()}
 			} else {
@@ -230,7 +277,8 @@ func (s *AgentService) diagnoseWorkflow(ctx context.Context, target models.Workf
 		"task":               evidence,
 		"logs":               logs,
 		"read_only":          true,
-		"configuration_note": "步骤 spec 仅含原任务详情已返回的仓库、分支、提交、服务、镜像或 Chart 信息，缺失或截断时须说明；不能推断工具版本、变量值、脚本或 YAML，也不能把当前环境属性当作历史状态。",
+		"configuration_note": "步骤 spec 仅含原任务详情已返回的仓库、分支、提交、服务、镜像、Chart 或 Grafana 检查条件及告警结果，缺失或截断时须说明；不能推断工具版本、变量值、脚本或 YAML，也不能把当前环境属性当作历史状态。",
+		"log_note":           "先看步骤 log_supported：不支持日志的任务不查询日志，也不要求补充日志；支持日志时仅分析实际返回的内容，total_lines=0 时停止分页，空日志或日志不可用均不能证明任务未启动或日志配置错误。",
 		"source":             fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d", target.ProjectKey, target.WorkflowName, target.TaskID),
 	}, nil
 }
@@ -342,18 +390,47 @@ func (s *AgentService) collectServiceEvidence(ctx context.Context, e *execution,
 	if err != nil {
 		return nil, err
 	}
-
-	resources, resourceErr := s.Platform.business(ctx, e.Authorization, http.MethodGet, base+"/resources", query, nil)
-	var workload any
-	if resourceErr == nil {
-		workload, resourceErr = safeDiagnosticJSON(resources)
+	type workloadPods struct {
+		Pods []*kuberesource.Pod `json:"pods"`
+	}
+	var detail struct {
+		ServiceName string         `json:"service_name"`
+		ReleaseName string         `json:"release_name"`
+		IsHelmChart *bool          `json:"is_helm_chart"`
+		Scales      []workloadPods `json:"scales"`
+		CronJobs    []workloadPods `json:"cron_jobs"`
+	}
+	if err := json.Unmarshal(raw, &detail); err != nil {
+		return nil, err
+	}
+	if detail.ServiceName != target.ServiceName {
+		return nil, fmt.Errorf("服务详情归属与目标不匹配")
 	}
 
+	var workload any
+	var resourceErr error
+	if detail.IsHelmChart == nil {
+		var resources json.RawMessage
+		resources, resourceErr = s.Platform.business(ctx, e.Authorization, http.MethodGet, base+"/resources", query, nil)
+		if resourceErr == nil {
+			workload, resourceErr = safeDiagnosticJSON(resources)
+		}
+	}
+
+	historyName := target.ServiceName
+	isHelmChart := detail.IsHelmChart != nil && *detail.IsHelmChart
+	if isHelmChart {
+		if err := checkNames(detail.ReleaseName); err != nil {
+			return nil, err
+		}
+		historyName = detail.ReleaseName
+	}
+	query.Set("isHelmChart", strconv.FormatBool(isHelmChart))
 	versions, versionErr := s.Platform.business(
 		ctx,
 		e.Authorization,
 		http.MethodGet,
-		"/api/environment/environments/"+target.EnvName+"/version/"+target.ServiceName,
+		"/api/environment/environments/"+target.EnvName+"/version/"+historyName,
 		query,
 		nil,
 	)
@@ -362,12 +439,35 @@ func (s *AgentService) collectServiceEvidence(ctx context.Context, e *execution,
 		history, versionErr = safeDiagnosticJSON(versions)
 	}
 
+	pods := servicePods{ServiceName: detail.ServiceName, Pods: []servicePod{}}
+	seen := make(map[string]struct{})
+	for _, workload := range append(detail.Scales, detail.CronJobs...) {
+		for _, pod := range workload.Pods {
+			if pod == nil || pod.Name == "" {
+				continue
+			}
+			if _, exists := seen[pod.Name]; exists {
+				continue
+			}
+			if len(pods.Pods) == 50 {
+				pods.Truncated = true
+				break
+			}
+			seen[pod.Name] = struct{}{}
+			item := servicePod{Name: pod.Name, Ready: pod.PodReady, ContainersReady: pod.ContainersReady, Created: pod.CreateTime}
+			for _, container := range pod.Containers {
+				item.Containers = append(item.Containers, servicePodContainer{Name: container.Name})
+			}
+			pods.Pods = append(pods.Pods, item)
+		}
+	}
+
 	result := map[string]any{
 		"service":          service,
 		"resources":        workload,
 		"release_history":  history,
 		"target":           target,
-		"runtime_evidence": s.serviceLogs(ctx, e, target),
+		"runtime_evidence": s.serviceLogs(ctx, e, target, &pods),
 	}
 	if resourceErr != nil {
 		result["resources_error"] = resourceErr.Error()

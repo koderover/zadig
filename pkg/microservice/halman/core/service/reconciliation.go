@@ -104,7 +104,14 @@ func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, 
 		return s.verifyDefaultWorkflows(ctx, e, item)
 	}
 	if item.Action == "restart_service" || item.Action == "rollback_environment" {
-		ready, err := s.repairReady(ctx, e, item)
+		var failedBy time.Time
+		if item.Action == "restart_service" && e.Run.FinishedAt != nil && e.Run.FinishedAt.Sub(e.Run.CreatedAt) >= operationTimeout {
+			failedBy = *e.Run.FinishedAt
+		}
+		ready, err := s.repairReady(ctx, e, item, failedBy)
+		if rollout, ok := err.(restartRolloutError); ok {
+			return "failed", rollout.Error(), nil
+		}
 		if err != nil {
 			return status, message, err
 		}
@@ -295,17 +302,21 @@ func matchesOperation(item models.OperationItem, raw json.RawMessage, created ti
 			return false, false, nil
 		}
 		targets, _ := value["target_repos"].([]any)
+		wantTargets := a.ComponentTargets()
+		if len(a.Targets) > 0 && len(targets) != len(wantTargets) {
+			return false, false, nil
+		}
+		remaining := make(map[models.BuildTarget]bool, len(wantTargets))
+		for _, target := range wantTargets {
+			remaining[target] = true
+		}
 		for _, entry := range targets {
 			target, _ := entry.(map[string]any)
 			service, _ := target["service"].(map[string]any)
-			if !containsFields(
-				service,
-				map[string]any{
-					"product_name":   item.ProjectKey,
-					"service_name":   a.ServiceName,
-					"service_module": a.ServiceModule,
-				},
-			) {
+			serviceName, _ := service["service_name"].(string)
+			serviceModule, _ := service["service_module"].(string)
+			key := models.BuildTarget{ServiceName: serviceName, ServiceModule: serviceModule}
+			if service["product_name"] != item.ProjectKey || !remaining[key] {
 				continue
 			}
 
@@ -338,9 +349,10 @@ func matchesOperation(item models.OperationItem, raw json.RawMessage, created ti
 			}
 
 			if matched {
-				return true, false, nil
+				delete(remaining, key)
 			}
 		}
+		return len(remaining) == 0, false, nil
 	case "create_environment":
 		var a models.EnvironmentInput
 		if json.Unmarshal(item.Params, &a) != nil {

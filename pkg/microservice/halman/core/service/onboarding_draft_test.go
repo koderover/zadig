@@ -68,6 +68,25 @@ func TestOnboardingPartialChangesKeepThreeServicesAndExplicitZeroValues(t *testi
 	}
 }
 
+func TestOnboardingDraftExplicitBuildChanges(t *testing.T) {
+	base := onboardingInput(t, `{"builds":[{"name":"shared-build","template_id":"general"},{"name":"api-build","template_id":"general"}]}`)
+	draft, err := mergeOnboardingDraft(&base, onboardingInput(t, `{"remove_builds":["shared-build"]}`))
+	if err != nil || !reflect.DeepEqual(draft.Builds, base.Builds[1:]) || draft.ProvidedFields()["remove_builds"] != nil {
+		t.Fatalf("按名称移除应保留其他构建，且移除指令不能保存到草稿: %+v %v", draft, err)
+	}
+	if _, err := mergeOnboardingDraft(&base, onboardingInput(t, `{"remove_builds":["typo"]}`)); err == nil {
+		t.Fatal("应拒绝移除不存在的构建")
+	}
+	draft, err = mergeOnboardingDraft(&draft, onboardingInput(t, `{"add_builds":true,"builds":[{"name":"worker-build","template_id":"general"}]}`))
+	if err != nil || len(draft.Builds) != 2 || draft.Builds[1].Name != "worker-build" || draft.ProvidedFields()["add_builds"] != nil {
+		t.Fatalf("应允许显式新增，且新增指令不能保存到草稿: %+v %v", draft, err)
+	}
+	draft, err = mergeOnboardingDraft(&draft, onboardingInput(t, `{"builds":[]}`))
+	if err != nil || len(draft.Builds) != 0 {
+		t.Fatalf("空构建列表应继续支持清空: %+v %v", draft, err)
+	}
+}
+
 func expectOnboardingDraftSave(mock sqlmock.Sqlmock) {
 	expectSkillInputSave(mock, reportExecution(""), "awaiting_input")
 }
@@ -171,7 +190,7 @@ func TestOnboardingCountMismatchAsksBeforeReadingConfiguration(t *testing.T) {
 	e.Cutoff = time.Now().Add(-time.Hour)
 	s := &AgentService{Store: store}
 	expectOnboardingDraftSave(mock)
-	value, err := s.prepareProject(context.WithValue(context.Background(), executionKey{}, e), onboardingInput(t, `{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"t"},{"name":"web","source":"yaml_template","template_id":"t"}]}`))
+	value, err := s.prepareProject(context.WithValue(context.Background(), executionKey{}, e), onboardingInput(t, `{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 	if err != nil || e.Outcome != "awaiting_input" || !strings.Contains(string(common.JSON(value)), "当前清单为 2 个") || e.OnboardingDraft.ExpectedServiceCount != 3 {
 		t.Fatalf("少服务时必须保存草稿补问，不查询或创建资源: %v %v", value, err)
 	}
@@ -229,7 +248,8 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 				}
 				callable := fn.(tool.CallableTool)
 				schema := fn.Declaration().InputSchema
-				if schema.Properties["expected_service_count"] == nil || schema.Properties["remove_services"] == nil {
+				if schema.Properties["expected_service_count"] == nil || schema.Properties["remove_services"] == nil ||
+					schema.Properties["remove_builds"] == nil || schema.Properties["add_builds"] == nil {
 					t.Fatal("工具必须暴露总数与明确移除字段")
 				}
 				for _, required := range schema.Required {
@@ -238,7 +258,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					}
 				}
 				expectOnboardingDraftSave(mock)
-				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"t"},{"name":"web","source":"yaml_template","template_id":"t"},{"name":"worker","source":"yaml_template","template_id":"t"}]}`))
+				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 				if err != nil || e.Outcome != "awaiting_input" {
 					t.Fatalf("模板缺参应进入草稿而非报错: %v %v", value, err)
 				}
@@ -263,12 +283,12 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					t.Fatalf("服务补齐后必须询问环境选择并保留默认工作流: %v %v", value, err)
 				}
 				expectOnboardingDraftSave(mock)
-				value, err = callable.Call(ctx, []byte(`{"environment":{"name":"dev","cluster_id":"local","namespace":"demo-dev","services":["api","web","worker"]}}`))
+				value, err = callable.Call(ctx, []byte(`{"environment":{"name":"dev","cluster_id":"local","services":["api","web","worker"]}}`))
 				if err != nil {
 					t.Fatal(err)
 				}
 				missing = value.(map[string]any)["missing_fields"].([]string)
-				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || e.OnboardingDraft.Environment.Namespace != "demo-dev" {
+				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || value.(map[string]any)["suggested_namespace"] != "demo-env-dev" {
 					t.Fatalf("仅补问缺失的镜像仓库，保留已填环境信息: %v", value)
 				}
 				mock.ExpectBegin()
@@ -295,6 +315,10 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					itemCount = 6
 					if plan.Items[4].Action != "create_environment" || plan.Draft.Environment == nil || len(plan.Draft.Environment.Services) != 0 || !strings.Contains(strings.Join(plan.Notes, " "), "仅创建环境，不部署服务") {
 						t.Fatalf("空环境应纳入清单并明确不部署服务: %+v", plan)
+					}
+					var env models.EnvironmentInput
+					if err := json.Unmarshal(plan.Items[4].Params, &env); err != nil || env.Namespace != "demo-env-dev" {
+						t.Fatalf("确认清单应使用系统建议的 namespace: %+v, %v", env, err)
 					}
 				}
 				if len(plan.Items) != itemCount || plan.Items[itemCount-1].Action != "create_workflow" || len(plan.Items[itemCount-1].DependsOn) != itemCount-1 || plan.Draft == nil || plan.Draft.SkipEnvironment == emptyEnvironment || plan.Draft.ExpectedServiceCount != 3 || len(plan.Draft.Services) != 3 || plan.Draft.Services[1].Variables["PORT"] != "8080" || reads != 3 {

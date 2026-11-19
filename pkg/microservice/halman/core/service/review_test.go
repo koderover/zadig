@@ -15,6 +15,7 @@ import (
 	"trpc.group/trpc-go/trpc-agent-go/model"
 	"trpc.group/trpc-go/trpc-agent-go/session"
 	"trpc.group/trpc-go/trpc-agent-go/session/inmemory"
+	"trpc.group/trpc-go/trpc-agent-go/tool"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
@@ -315,7 +316,8 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	now := time.Now().UTC()
 	cutoff := now.Add(-time.Hour)
 	plan := models.OperationPlan{
-		Draft:         &models.OnboardingInput{ProjectKey: "demo", ProjectName: "示例", ProjectType: "k8s"},
+		Draft: &models.OnboardingInput{ProjectKey: "demo", ProjectName: "示例", ProjectType: "k8s", SkipEnvironment: true,
+			Services: []models.ServiceInput{{Name: "api", Source: "yaml_template", TemplateID: "000000000000000000000001", Variables: map[string]string{"replicas": "2"}}}},
 		MissingFields: []string{"services"},
 	}
 	rows := func() *sqlmock.Rows {
@@ -364,13 +366,23 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 				true,
 			)
 	}
-	if discover {
+	expectLatestOperation := func() {
 		mock.ExpectQuery("SELECT r.id FROM ai_run r JOIN ai_conversation.*r.question_source_run_id IS NULL.*r.plan IS NOT NULL.*ORDER BY r.created_at DESC,r.id DESC LIMIT 1").
 			WithArgs("u", "u", "c", cutoff, now).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("root"))
 		mock.ExpectQuery("SELECT r.id,.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(rows())
 	}
-	mock.ExpectQuery("SELECT r.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_id", "created_at", "skill_id", "skill_execution_id", "skill_status"}).AddRow("root", "c", now, "project_onboarding", "root", status))
+	expectRoot := func() {
+		mock.ExpectQuery("SELECT r.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_id", "created_at", "skill_id", "skill_execution_id", "skill_status"}).AddRow("root", "c", now, "project_onboarding", "root", status))
+	}
+	if discover {
+		expectLatestOperation()
+		if status == "pending_confirmation" {
+			expectRoot()
+			expectLatestOperation()
+		}
+	}
+	expectRoot()
 	if !discover {
 		mock.ExpectQuery("SELECT .*FROM ai_run WHERE user_id=.*question_source_run_id IS NULL.*plan_status IN").WillReturnRows(rows())
 	}
@@ -397,9 +409,6 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 					AddRow("project_onboarding", "c", "u", now, "awaiting_input", "root", "awaiting_input"))
 			mock.ExpectExec("UPDATE ai_run SET skill_id=.*skill_execution_id").WithArgs("project_onboarding", "root", "current").
 				WillReturnResult(sqlmock.NewResult(0, 1))
-			mock.ExpectQuery("SELECT skill_id,skill_status,usage_contribution").WillReturnRows(sqlmock.NewRows([]string{"skill", "status", "contribution"}).
-				AddRow("project_onboarding", "awaiting_input", nil))
-			mock.ExpectExec("UPDATE ai_run SET skill_status=.*usage_contribution").WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 		}
 		mock.ExpectQuery("SELECT id,context,resource_scopes").WillReturnRows(metadata())
@@ -413,6 +422,10 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	reads := 0
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		reads++
+		if authorized && status == "pending_confirmation" && r.Method == http.MethodGet && r.URL.Path == "/api/template/yaml/000000000000000000000001" {
+			w.Write([]byte(`{"service_variable_kvs":[{"key":"replicas","type":"string","value":"2"}]}`))
+			return
+		}
 		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/authorization/auth-info" || r.Header.Get("Authorization") != "user-token" {
 			t.Errorf("恢复草稿只读重验当前用户的创建权限: %s %s", r.Method, r.URL)
 		}
@@ -435,14 +448,32 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	if discover {
 		e.RootID = ""
 	}
-	value, err := s.readSavedOperation(context.WithValue(context.Background(), executionKey{}, e), struct{}{})
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	if discover && status == "pending_confirmation" {
+		e.Message = "replicas 设为 1"
+		req := &model.Request{Tools: make(map[string]tool.Tool)}
+		for _, name := range []string{"query_catalog", "project_onboarding", "read_saved_operation"} {
+			req.Tools[name] = nativeSkillTool(t, s, name)
+		}
+		if err := s.applyOnboardingContinuation(ctx, e, req); err != nil || !e.PendingOnboarding || e.RootID != "" ||
+			len(req.Tools) != 1 || req.Tools["read_saved_operation"] == nil || !strings.Contains(req.Messages[0].Content, e.Message) {
+			t.Fatalf("应先恢复原清单，不自动绑定或重查目录: %v %v", req, err)
+		}
+		if value, err := s.catalog(ctx, models.CatalogRequest{Kind: "clusters"}); err != nil || value.(map[string]string)["status"] != "restore_required" || reads != 0 {
+			t.Fatalf("恢复前必须拦截目录查询: %v %v", value, err)
+		}
+		if _, err := s.prepareProject(ctx, models.OnboardingInput{ProjectName: "示例"}); err == nil {
+			t.Fatal("恢复前不能重建初始化任务")
+		}
+	}
+	value, err := s.readSavedOperation(ctx, savedOperationInput{})
 	if !authorized {
 		if err == nil || value != nil || e.RootID != "" || e.OnboardingDraft != nil {
 			t.Fatalf("失权后不能返回或恢复草稿: %+v %v", value, err)
 		}
 		return
 	}
-	if err != nil || !strings.Contains(string(common.JSON(value)), "示例") || (e.Outcome == "awaiting_input") != continuable || e.EvidenceRead.Load() ||
+	if err != nil || !strings.Contains(string(common.JSON(value)), "示例") || (e.Outcome == "awaiting_input") != continuable || e.EvidenceRead.Load() || e.PendingOnboarding ||
 		reads != 1 {
 		t.Fatalf("恢复草稿不能计为目标完成: %+v %v %+v", value, err, e)
 	}
@@ -451,6 +482,70 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	}
 	if !strings.Contains(string(common.JSON(value)), fmt.Sprintf(`"can_continue":%t`, continuable)) {
 		t.Fatalf("快照应明确是否可继续: %+v", value)
+	}
+	if discover && status == "pending_confirmation" {
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT id FROM ai_conversation").WithArgs("c", "u").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("c"))
+		mock.ExpectQuery("SELECT active_plan_run_id,skill_status FROM ai_run").WithArgs("root", cutoff).WillReturnRows(sqlmock.NewRows([]string{"active", "status"}).AddRow("root", "pending_confirmation"))
+		mock.ExpectQuery("SELECT plan_version,status FROM ai_run").WithArgs("current").WillReturnRows(sqlmock.NewRows([]string{"version", "status"}).AddRow(0, "running"))
+		mock.ExpectExec("UPDATE ai_run SET plan_status='superseded'").WithArgs("root").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("UPDATE ai_run SET plan=.*plan_version=.*plan_status='pending_confirmation'").WithArgs(sqlmock.AnyArg(), 1, sqlmock.AnyArg(), "current").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=.*skill_status='pending_confirmation'").WithArgs("current", "root").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+		value, err := nativeSkillTool(t, s, "project_onboarding").Call(ctx, []byte(`{"services":[{"name":"api","variables":{"replicas":"1"}}]}`))
+		if err != nil || e.Outcome != "pending_confirmation" || reads != 3 {
+			t.Fatalf("只应复查已有模板及权限并保存新清单: %v %v", value, err)
+		}
+		updated := value.(map[string]any)["plan"].(models.OperationPlan).Draft
+		if e.RootID != "root" || updated.ProjectKey != "demo" || updated.Services[0].TemplateID != plan.Draft.Services[0].TemplateID || updated.Services[0].Variables["replicas"] != "1" {
+			t.Fatalf("只改 replicas 应沿用根执行、项目及服务模板: %+v", updated)
+		}
+	}
+}
+
+func TestPendingOnboardingAllowsExplicitNewTaskWithoutChangingSavedPlan(t *testing.T) {
+	e := &execution{PendingOnboarding: true, CheckedOnboarding: true}
+	s := &AgentService{}
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	value, err := s.readSavedOperation(ctx, savedOperationInput{StartNew: true})
+	if err != nil || value.(map[string]string)["status"] != "new_task" || e.PendingOnboarding || e.RootID != "" || e.OnboardingDraft != nil {
+		t.Fatalf("新任务不应绑定或修改旧清单: %v %v", value, err)
+	}
+}
+
+func TestNewSkillReopensCatalogWithoutChangingOldOnboarding(t *testing.T) {
+	store, mock := mockStore(t)
+	e := reportExecution("")
+	e.PendingOnboarding = true
+	e.CheckedOnboarding = true
+	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/cluster/clusters" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL)
+		}
+		w.Write([]byte(`[{"name":"demo-cluster"}]`))
+	})
+	s := &AgentService{Store: store, Platform: platform}
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT user_id FROM ai_conversation .*FOR UPDATE").WithArgs(e.Run.ConversationID).WillReturnRows(sqlmock.NewRows([]string{"user"}).AddRow(e.User))
+	mock.ExpectQuery("SELECT skill_id,conversation_id,user_id,created_at,status,skill_execution_id,skill_status").WithArgs(e.Run.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"skill", "conversation", "user", "created", "status", "parent", "goal"}).AddRow("", e.Run.ConversationID, e.User, e.Run.CreatedAt, "running", nil, nil))
+	mock.ExpectExec("UPDATE ai_run SET skill_id=.*skill_execution_id").WithArgs("workflow_diagnosis", e.Run.ID, e.Run.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE ai_run SET skill_status='running'").WithArgs(e.Run.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	if _, err := s.skillExecution(ctx, "workflow_diagnosis"); err != nil {
+		t.Fatal(err)
+	}
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT resource_scopes FROM ai_run .*FOR UPDATE").WithArgs(e.Run.ID, e.User).WillReturnRows(sqlmock.NewRows([]string{"scopes"}).AddRow("[]"))
+	mock.ExpectExec("UPDATE ai_run SET resource_scopes").WithArgs(`[{"catalog":"clusters"}]`, e.Run.ID, e.User).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	value, err := s.catalog(ctx, models.CatalogRequest{Kind: "clusters"})
+	if err != nil || !strings.Contains(string(common.JSON(value)), "demo-cluster") || e.PendingOnboarding || e.RootID != e.Run.ID {
+		t.Fatalf("新诊断绑定后应可查询目录并保持自己的任务关联: %v %v", value, err)
+	}
+	if _, err := s.readSavedOperation(ctx, savedOperationInput{StartNew: true}); err != nil {
+		t.Fatalf("重复选择新任务应安全且保留本轮关联: %v", err)
 	}
 }
 

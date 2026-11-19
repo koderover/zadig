@@ -73,8 +73,13 @@ func (s *AgentService) prepareServices(ctx context.Context, args models.Onboardi
 
 func (s *AgentService) prepareOnboarding(ctx context.Context, args models.OnboardingInput, newProject bool) (any, error) {
 	ctx = withReadPhase(ctx)
-	if e, ok := ctx.Value(executionKey{}).(*execution); ok && e.RegenerateFrom != nil {
-		return nil, fmt.Errorf("重新回答不能生成或改变操作清单")
+	if e, ok := ctx.Value(executionKey{}).(*execution); ok {
+		if e.RegenerateFrom != nil {
+			return nil, fmt.Errorf("重新回答不能生成或改变操作清单")
+		}
+		if e.PendingOnboarding {
+			return nil, errors.New(onboardingContinuation)
+		}
 	}
 
 	skill := "service_onboarding"
@@ -177,13 +182,15 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				names[item.Name] = true
 			}
 			for _, build := range args.Builds {
-				if build.ServiceName == "" {
-					continue
-				}
-				buildTargets[build.ServiceName] = true
-				if !names[build.ServiceName] && existingServices[build.ServiceName] {
-					args.Services = append(args.Services, models.ServiceInput{Name: build.ServiceName})
-					names[build.ServiceName] = true
+				for _, target := range build.ComponentTargets() {
+					if target.ServiceName == "" {
+						continue
+					}
+					buildTargets[target.ServiceName] = true
+					if !names[target.ServiceName] && existingServices[target.ServiceName] {
+						args.Services = append(args.Services, models.ServiceInput{Name: target.ServiceName})
+						names[target.ServiceName] = true
+					}
 				}
 			}
 		}
@@ -373,6 +380,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			if err != nil {
 				return nil, err
 			}
+			item.TemplateID = check.ID
 			item.TemplateFingerprint = check.Fingerprint
 			item.CredentialVariables = check.Credentials
 			for _, key := range check.Missing {
@@ -423,41 +431,25 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if label == "" {
 			label = fmt.Sprintf("第 %d 个构建", i+1)
 		}
+		plannedBuild := *build
+		if newProject && build.Targets == nil && build.ServiceName == "" && build.ServiceModule == "" {
+			for _, item := range args.Services {
+				plannedBuild.Targets = append(plannedBuild.Targets, models.BuildTarget{ServiceName: item.Name})
+			}
+		}
+		dependencies, targetMissing, err := s.resolveBuildTargets(ctx, e, args, &plannedBuild, existingServices, label, newProject)
+		if err != nil {
+			return nil, err
+		}
+		if newProject && len(dependencies) == 0 && len(targetMissing) == 0 {
+			continue
+		}
 		if build.Name == "" {
 			missing = append(missing, label+" 的名称")
 		}
-		if build.ServiceName == "" {
-			missing = append(missing, "构建 "+label+" 关联的服务名称")
-		}
-
-		existing := existingServices[build.ServiceName] && !hasNewService(args.Services, build.ServiceName)
-		if build.ServiceName != "" && !hasNewService(args.Services, build.ServiceName) && !existing {
-			missing = append(missing, "构建 "+label+" 关联的服务 "+build.ServiceName+" 不存在；请选择已有服务，或明确提供新服务配置")
-			continue
-		}
-		if existing && build.Name != "" && build.ServiceName != "" {
-			modules, err := onboardingCheck(e, "modules/"+build.Name, []string{args.ProjectKey, args.ProjectType, build.ServiceName}, func() ([]string, error) {
-				return s.Platform.buildServiceModules(ctx, e.Authorization, args.ProjectKey, args.ProjectType, build.ServiceName)
-			})
-			if err != nil {
-				return nil, err
-			}
-			if build.ServiceModule == "" && len(modules) == 1 {
-				build.ServiceModule = modules[0]
-			}
-			if build.ServiceModule == "" {
-				if len(modules) == 0 {
-					missing = append(missing, "服务 "+build.ServiceName+" 没有可用构建组件，请先检查已有服务配置")
-				} else {
-					missing = append(missing, "构建 "+label+" 请选择已有服务组件："+strings.Join(modules, "、"))
-				}
-			} else if !slices.Contains(modules, build.ServiceModule) {
-				return nil, fmt.Errorf("构建 %s 选择的组件不属于服务 %s", build.Name, build.ServiceName)
-			}
-		} else if build.ServiceModule == "" {
-			missing = append(missing, "构建 "+label+" 关联的服务组件名称")
-		}
-		if build.Name == "" || build.ServiceName == "" || build.ServiceModule == "" {
+		build.ServiceModule = plannedBuild.ServiceModule
+		missing = append(missing, targetMissing...)
+		if build.Name == "" || len(targetMissing) > 0 {
 			for _, repo := range build.Repositories {
 				missing = append(missing, missingGit(repo, "构建 "+label, false)...)
 			}
@@ -473,8 +465,9 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if err != nil {
 			return nil, err
 		}
-		build.TemplateFingerprint = check.Fingerprint
-		build.CredentialVariables = check.Credentials
+		build.TemplateID, plannedBuild.TemplateID = check.ID, check.ID
+		build.TemplateFingerprint, build.CredentialVariables = check.Fingerprint, check.Credentials
+		plannedBuild.TemplateFingerprint, plannedBuild.CredentialVariables = check.Fingerprint, check.Credentials
 		for _, key := range check.Missing {
 			missing = append(missing, "构建 "+label+" 的模板必填变量 "+key)
 		}
@@ -501,7 +494,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			continue
 		}
 
-		if err := checkNames(build.Name, build.ServiceName, build.ServiceModule); err != nil {
+		if err := checkNames(build.Name); err != nil {
 			return nil, err
 		}
 		plan.Items = append(
@@ -511,15 +504,22 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 				Action:      "create_build",
 				ProjectKey:  args.ProjectKey,
 				ProjectType: args.ProjectType,
-				Params:      common.JSON(build),
-				DependsOn:   buildDependencies(args.Services, build.ServiceName),
+				Params:      common.JSON(plannedBuild),
+				DependsOn:   dependencies,
 				Status:      "pending",
 			},
 		)
+		if newProject && slices.ContainsFunc(plannedBuild.ComponentTargets(), func(target models.BuildTarget) bool { return target.ServiceModule == "" }) {
+			plan.Notes = append(plan.Notes, fmt.Sprintf(e.text("构建 %s 将覆盖确认范围内的每个可用组件；如不需要某些组件，请在确认前提出。", "Build %s will cover every available component in scope. Tell us before confirming if any should be excluded."), build.Name))
+		}
 	}
 	missing = append(missing, missingOnboardingEnvironment(args, newProject)...)
 	if args.Environment != nil {
-		env := args.Environment
+		// Keep the suggested value out of the draft so a rename can recompute it.
+		env := *args.Environment
+		if newProject && env.Namespace == "" {
+			env.Namespace = suggestedOnboardingNamespace(args)
+		}
 		if env.Name != "" && env.Namespace != "" {
 			if err := checkNames(env.Name, env.Namespace); err != nil {
 				return nil, err
@@ -739,11 +739,86 @@ func hasNewService(services []models.ServiceInput, name string) bool {
 	}
 	return false
 }
-func buildDependencies(services []models.ServiceInput, name string) []string {
-	if hasNewService(services, name) {
-		return []string{"service-" + name}
+func (s *AgentService) resolveBuildTargets(ctx context.Context, e *execution, args models.OnboardingInput, build *models.BuildInput, existingServices map[string]bool, label string, newProject bool) ([]string, []string, error) {
+	if newProject && build.Targets != nil && len(build.Targets) == 0 {
+		return nil, nil, fmt.Errorf("构建 %s 的目标列表为空；沿用默认范围时省略该字段", label)
 	}
-	return nil
+	if len(build.Targets) > 0 && (build.ServiceName != "" || build.ServiceModule != "") {
+		return nil, nil, fmt.Errorf("构建 %s 的组件列表不能与单组件字段同时填写", label)
+	}
+
+	targets := build.ComponentTargets()
+	for _, excluded := range build.ExcludeTargets {
+		if !newProject || !slices.ContainsFunc(targets, func(target models.BuildTarget) bool { return target.ServiceName == excluded.ServiceName }) {
+			return nil, nil, fmt.Errorf("构建 %s 排除的服务 %q 不在本次构建范围内", label, excluded.ServiceName)
+		}
+		if excluded.ServiceModule != "" {
+			if err := checkNames(excluded.ServiceModule); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+	var dependencies, missing []string
+	seen := make(map[models.BuildTarget]bool, len(targets))
+	for i := range targets {
+		target := &targets[i]
+		name := target.ServiceName
+		if name == "" {
+			missing = append(missing, "构建 "+label+" 关联的服务名称")
+			continue
+		}
+		newService := hasNewService(args.Services, name)
+		if !newService && !existingServices[name] {
+			if newProject {
+				missing = append(missing, "构建 "+label+" 关联的服务 "+name+" 不在本次项目的服务清单中，请更正服务名")
+			} else {
+				missing = append(missing, "构建 "+label+" 关联的服务 "+name+" 不存在；请选择已有服务，或明确提供新服务配置")
+			}
+			continue
+		}
+		if !newService && build.Name != "" {
+			modules, err := onboardingCheck(e, "modules/"+name, []string{args.ProjectKey, args.ProjectType, name}, func() ([]string, error) {
+				return s.Platform.buildServiceModules(ctx, e.Authorization, args.ProjectKey, args.ProjectType, name)
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			if target.ServiceModule == "" && len(modules) == 1 {
+				target.ServiceModule = modules[0]
+			}
+			if target.ServiceModule == "" {
+				if len(modules) == 0 {
+					missing = append(missing, "服务 "+name+" 没有可用构建组件，请先检查已有服务配置")
+				} else {
+					missing = append(missing, "构建 "+label+" 请选择已有服务组件（"+name+"）："+strings.Join(modules, "、"))
+				}
+				continue
+			}
+			if !slices.Contains(modules, target.ServiceModule) {
+				return nil, nil, fmt.Errorf("构建 %s 选择的组件不属于服务 %s", label, name)
+			}
+		}
+		if target.ServiceModule == "" && !newProject {
+			missing = append(missing, "构建 "+label+" 关联的服务 "+name+" 的组件名称")
+			continue
+		}
+		if target.ServiceModule != "" {
+			if err := checkNames(target.ServiceModule); err != nil {
+				return nil, nil, err
+			}
+		}
+		if seen[*target] {
+			return nil, nil, fmt.Errorf("构建 %s 的服务组件 %s/%s 重复", label, name, target.ServiceModule)
+		}
+		seen[*target] = true
+		if id := "service-" + name; newService && !slices.Contains(build.ExcludeTargets, models.BuildTarget{ServiceName: name}) && !slices.Contains(dependencies, id) {
+			dependencies = append(dependencies, id)
+		}
+	}
+	if len(build.Targets) == 0 {
+		build.ServiceModule = targets[0].ServiceModule
+	}
+	return dependencies, missing, nil
 }
 
 func (p *PlatformClient) buildServiceModules(ctx context.Context, auth, project, projectType, name string) ([]string, error) {

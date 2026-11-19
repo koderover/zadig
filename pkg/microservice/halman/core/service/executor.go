@@ -7,13 +7,23 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/tool/language"
 )
+
+const operationTimeout = 10 * time.Minute
+
+type restartRolloutError string
+
+func (e restartRolloutError) Error() string { return string(e) }
 
 func (s *AgentService) Confirm(ctx context.Context, user, authorization, id string, version int, cutoff time.Time) (*models.Run, error) {
 	if version < 1 {
@@ -90,7 +100,7 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 	}
 
 	e.Run = r
-	runCtx, cancel := context.WithTimeout(s.Context, 10*time.Minute)
+	runCtx, cancel := context.WithTimeout(s.Context, operationTimeout)
 	runCtx = context.WithValue(runCtx, executionKey{}, e)
 	s.mu.Lock()
 	s.active[id] = &activeRun{cancel: cancel, subscribers: make(map[chan StreamEvent]struct{})}
@@ -192,7 +202,7 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 			var raw json.RawMessage
 			submitted := false
 			if err == nil {
-				raw, err = s.submitOperation(ctx, e, item)
+				raw, err = s.submitOperation(ctx, e, &item)
 				submitted = err == nil
 			}
 
@@ -204,10 +214,13 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 				err = s.awaitOperation(ctx, e, item)
 			}
 
-			if err == nil {
+			switch err := err.(type) {
+			case nil:
 				item.Status = "succeeded"
 				item.Result = common.JSON(map[string]string{"message": e.text("已完成；详细资源请在 Zadig 页面查看", "Completed; view resource details in Zadig")})
-			} else {
+			case restartRolloutError:
+				item.Status, item.Error = "failed", err.Error()
+			default:
 				item.Status = operationFailureStatus(err, submitted)
 				item.Error = planError(err, e.Language)
 			}
@@ -344,7 +357,7 @@ func (s *AgentService) release(id string) {
 	}
 }
 
-func (s *AgentService) repairReady(ctx context.Context, e *execution, item models.OperationItem) (bool, error) {
+func (s *AgentService) repairReady(ctx context.Context, e *execution, item models.OperationItem, failedBy time.Time) (bool, error) {
 	var args models.RepairInput
 	if err := json.Unmarshal(item.Params, &args); err != nil {
 		return false, err
@@ -359,25 +372,39 @@ func (s *AgentService) repairReady(ctx context.Context, e *execution, item model
 		return false, nil
 	}
 
+	unready := false
 	for _, pod := range pods.Pods {
-		if !pod.Ready || !pod.ContainersReady {
-			return false, nil
+		if pod.Ready && pod.ContainersReady {
+			continue
 		}
+		unready = true
+		if item.Action == "restart_service" && !failedBy.IsZero() {
+			if restarted, err := s.podRestartedDuring(ctx, e, args.Target, pod, failedBy); err != nil {
+				return false, err
+			} else if restarted {
+				return false, restartPodFailure(e, pod)
+			}
+		}
+	}
+	if unready {
+		return false, nil
 	}
 
 	if item.Action == "restart_service" {
-		old := map[string]bool{}
-		for _, name := range args.PodNames {
-			old[name] = true
-		}
-
 		for _, pod := range pods.Pods {
-			if old[pod.Name] {
-				return false, nil
+			if slices.Contains(args.PodNames, pod.Name) {
+				restarted, err := s.podRestartedDuring(ctx, e, args.Target, pod, time.Now())
+				if !restarted || err != nil {
+					return false, err
+				}
 			}
 		}
 
-		return len(pods.Pods) >= len(args.PodNames), nil
+		desired := pods.DesiredReplicas
+		if desired <= 0 {
+			desired = len(args.PodNames)
+		}
+		return len(pods.Pods) >= desired, nil
 	}
 
 	versions, err := s.Platform.versions(ctx, e.Authorization, args)
@@ -398,21 +425,68 @@ func (s *AgentService) repairReady(ctx context.Context, e *execution, item model
 func (s *AgentService) awaitRepair(ctx context.Context, e *execution, item models.OperationItem) error {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
-	for {
-		ready, err := s.repairReady(ctx, e, item)
+	for ctx.Err() == nil {
+		ready, err := s.repairReady(ctx, e, item, time.Time{})
 		if err == nil && ready {
 			return nil
 		}
 
 		var platform *PlatformError
-		if errors.As(err, &platform) && (platform.Status == 401 || platform.Status == 403) {
+		if ctx.Err() == nil && errors.As(err, &platform) && (platform.Status == 401 || platform.Status == 403) {
 			return err
 		}
 
 		select {
 		case <-ctx.Done():
-			return &PlatformError{Uncertain: true}
 		case <-ticker.C:
 		}
 	}
+	if item.Action == "restart_service" && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		checkCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		ready, err := s.repairReady(checkCtx, e, item, time.Now())
+		if _, failed := err.(restartRolloutError); ready || failed {
+			return err
+		}
+	}
+	return &PlatformError{Uncertain: true}
+}
+
+func restartPodFailure(e *execution, pod servicePod) error {
+	message := fmt.Sprintf(e.text("重启后新 Pod %s 未能就绪（状态 %s）", "Replacement Pod %s did not become ready (phase %s)"), pod.Name, pod.Runtime.Status)
+	cause := pod.Runtime.ContainersMessage
+	for _, container := range pod.Runtime.Containers {
+		if !container.Ready && container.Reason != "" {
+			message += fmt.Sprintf(e.text("。容器 %s（镜像 %s）报告 %s", ". Container %s (image %s) reported %s"), container.Name, container.Image, container.Reason)
+			cause = container.Message
+			break
+		}
+	}
+	if cause = strings.TrimSpace(cause); cause != "" && len(cause) <= 512 {
+		message += " — " + cause
+	}
+	return restartRolloutError(redactText(message))
+}
+
+func (s *AgentService) podRestartedDuring(ctx context.Context, e *execution, target models.ServiceTarget, pod servicePod, end time.Time) (bool, error) {
+	start := e.Run.CreatedAt
+	if pod.Created < start.Unix() || pod.Created > end.Unix() || checkNames(pod.Name) != nil {
+		return false, nil
+	}
+	query := serviceQuery(target)
+	query.Set("envName", target.EnvName)
+	query.Set("type", "pod")
+	query.Set("name", pod.Name)
+	raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/environment/kube/yaml", query, nil)
+	if err != nil {
+		return false, err
+	}
+	var source string
+	var metadata metav1.PartialObjectMetadata
+	if json.Unmarshal(raw, &source) != nil || yaml.Unmarshal([]byte(source), &metadata) != nil ||
+		metadata.Name != pod.Name || metadata.CreationTimestamp.Unix() != pod.Created {
+		return false, nil
+	}
+	restarted, err := time.Parse(time.RFC3339Nano, metadata.Annotations["kubectl.kubernetes.io/restartedAt"])
+	return err == nil && !restarted.Before(start) && restarted.Unix() <= pod.Created, nil
 }

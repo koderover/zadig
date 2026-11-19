@@ -62,7 +62,7 @@ func TestCredentialOverrideDraftRestoresRawValueButPublicViewsMaskIt(t *testing.
 	e := reportExecution("project_onboarding")
 	e.RootID = e.Run.ID
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/template/build/general" {
+		if r.URL.Path != "/api/template/build/000000000000000000000001" {
 			t.Fatalf("意外查询: %s", r.URL)
 		}
 		w.Write([]byte(`{"pre_build":{"envs":[{"key":"k1","is_credential":true,"type":"string","value":"template-secret"},{"key":"PORT","type":"string","value":"80"}]}}`))
@@ -70,7 +70,7 @@ func TestCredentialOverrideDraftRestoresRawValueButPublicViewsMaskIt(t *testing.
 	s := &AgentService{Store: store, Platform: platform}
 	var captured capturedDraft
 	expectSkillInputSave(mock, e, "awaiting_input", &captured)
-	value, err := nativeSkillTool(t, s, "project_onboarding").Call(context.WithValue(context.Background(), executionKey{}, e), []byte(`{"builds":[{"name":"build","template_id":"general","credential_variables":[],"variables":{"k1":"user-secret","PORT":"8080"}}]}`))
+	value, err := nativeSkillTool(t, s, "project_onboarding").Call(context.WithValue(context.Background(), executionKey{}, e), []byte(`{"builds":[{"name":"build","template_id":"000000000000000000000001","credential_variables":[],"variables":{"k1":"user-secret","PORT":"8080"}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestBuildSubmissionUsesTemplateMetadataForOverrides(t *testing.T) {
 			w.Write([]byte(`{}`))
 		case "/api/service/services/api":
 			w.Write([]byte(`{"service_module":[{"name":"api"}]}`))
-		case "/api/template/build/general":
+		case "/api/template/build/000000000000000000000001":
 			w.Write(template)
 		case "/api/code/codehost":
 			w.Write([]byte(`[{"id":1,"type":"gitlab"}]`))
@@ -129,10 +129,10 @@ func TestBuildSubmissionUsesTemplateMetadataForOverrides(t *testing.T) {
 	s := &AgentService{Store: store, Platform: platform}
 	e := reportExecution("project_onboarding")
 	e.RootID = e.Run.ID
-	args := models.BuildInput{Name: "build", TemplateID: "general", TemplateFingerprint: fingerprint(template), ServiceName: "api", ServiceModule: "api", Repositories: []models.GitConfig{{CodehostID: 1, Owner: "team", Repo: "repo", Branch: "main"}}, Variables: map[string]string{"k1": "new-secret", "enabled": "false"}}
+	args := models.BuildInput{Name: "build", TemplateID: "000000000000000000000001", TemplateFingerprint: fingerprint(template), ServiceName: "api", ServiceModule: "api", Repositories: []models.GitConfig{{CodehostID: 1, Owner: "team", Repo: "repo", Branch: "main"}}, Variables: map[string]string{"k1": "new-secret", "enabled": "false"}}
 	item := models.OperationItem{ID: "build", Action: "create_build", ProjectKey: "demo", Params: common.JSON(args), Status: "pending"}
 	expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
-	if _, err := s.submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+	if _, err := s.submitOperation(context.Background(), e, &item); err != nil || posts != 1 {
 		t.Fatalf("构建应正常提交一次: %d %v", posts, err)
 	}
 }

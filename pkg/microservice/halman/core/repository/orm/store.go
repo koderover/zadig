@@ -537,7 +537,7 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 			user,
 			*r.SkillExecutionID,
 			func() string {
-				if r.QuestionSourceRunID != nil {
+				if r.QuestionSourceRunID != nil || (r.ID != *r.SkillExecutionID && models.IsOnboardingSkill(r.SkillID)) {
 					return ""
 				}
 

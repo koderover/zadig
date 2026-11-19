@@ -5,6 +5,10 @@ import (
 	"maps"
 )
 
+func IsOnboardingSkill(id string) bool {
+	return id == "project_onboarding" || id == "service_onboarding"
+}
+
 type GitConfig struct {
 	CodehostID int    `json:"codehost_id,omitempty" jsonschema:"description=从代码源目录查询得到的标识"`
 	Owner      string `json:"owner,omitempty" jsonschema:"description=仓库组织或拥有者"`
@@ -32,18 +36,32 @@ type ServiceInput struct {
 type BuildInput struct {
 	Name                string            `json:"name"`
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
-	ServiceName         string            `json:"service_name,omitempty"`
-	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
-	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=构建源码来源，与服务配置来源分开"`
+	ServiceName         string            `json:"service_name,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
+	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
+	Targets             []BuildTarget     `json:"targets,omitempty" jsonschema:"description=项目初始化默认覆盖本次所有服务组件；限制范围时填写目标。修改时提交完整列表，省略时保留草稿"`
+	ExcludeTargets      []BuildTarget     `json:"exclude_targets,omitempty" jsonschema:"description=仅项目初始化使用，列出用户明确不需要构建的组件，省略组件名则排除整个服务"`
+	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=各目标共用的构建源码，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
 	CredentialVariables []string          `json:"credential_variables,omitempty" jsonschema:"description=由后端根据模板生成，调用时省略"`
 	TemplateFingerprint string            `json:"template_fingerprint,omitempty"`
 }
 
+type BuildTarget struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module,omitempty" jsonschema:"description=指定服务组件。项目初始化省略时覆盖该服务的全部组件；已有服务只有一个组件时可省略"`
+}
+
+func (b BuildInput) ComponentTargets() []BuildTarget {
+	if len(b.Targets) > 0 {
+		return b.Targets
+	}
+	return []BuildTarget{{ServiceName: b.ServiceName, ServiceModule: b.ServiceModule}}
+}
+
 type EnvironmentInput struct {
 	Name       string            `json:"name,omitempty"`
 	ClusterID  string            `json:"cluster_id,omitempty"`
-	Namespace  string            `json:"namespace,omitempty"`
+	Namespace  string            `json:"namespace,omitempty" jsonschema:"description=项目初始化时省略即使用系统建议的 namespace，仅在用户指定其他名称或默认名称不合法时填写"`
 	RegistryID string            `json:"registry_id,omitempty"`
 	Services   []string          `json:"services,omitempty" jsonschema:"description=要部署的服务名；只创建环境不部署服务时传空列表，不自动选择全部服务"`
 	Variables  map[string]string `json:"variables,omitempty"`
@@ -60,7 +78,9 @@ type OnboardingInput struct {
 	Admins               []string          `json:"admins,omitempty" jsonschema:"description=管理员用户标识，默认当前用户"`
 	Public               bool              `json:"public,omitempty" jsonschema:"description=默认私有，只有用户明确要求时才设为公开"`
 	Services             []ServiceInput    `json:"services,omitempty"`
-	Builds               []BuildInput      `json:"builds,omitempty"`
+	Builds               []BuildInput      `json:"builds,omitempty" jsonschema:"description=续接时按草稿中的构建名称补参，保留已有构建和覆盖范围；空列表清空所有构建"`
+	AddBuilds            bool              `json:"add_builds,omitempty" jsonschema:"description=已有构建草稿时，仅在用户明确要求新增构建记录时设为 true，并在 builds 填写新增项"`
+	RemoveBuilds         []string          `json:"remove_builds,omitempty" jsonschema:"description=仅在用户明确要求时，按名称移除当前草稿中的构建"`
 	Environment          *EnvironmentInput `json:"environment,omitempty"`
 	SkipEnvironment      bool              `json:"skip_environment,omitempty" jsonschema:"description=仅在用户明确选择不创建环境时设为 true；只创建环境不部署服务时填写 environment 并将 services 设为空列表；未提供 environment 时必须先询问"`
 	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=项目初始化默认创建工作流但不执行，仅用户明确拒绝时设为 false；服务初始化不支持，须省略或设为 false"`

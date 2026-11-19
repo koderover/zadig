@@ -60,7 +60,7 @@ func TestServiceConflictsSaveWholeDraftButDoNotHideReadFailures(t *testing.T) {
 			if len(missing) != 2 || !strings.Contains(missing[0], "service1 已存在") || !strings.Contains(missing[1], "service2 已存在") {
 				t.Fatalf("应只补问全部重名服务，不能强制补充构建: %v", missing)
 			}
-			_, err = s.submitOperation(ctx, e, models.OperationItem{Action: "create_service", ProjectKey: "p", Params: common.JSON(e.OnboardingDraft.Services[0])})
+			_, err = s.submitOperation(ctx, e, &models.OperationItem{Action: "create_service", ProjectKey: "p", Params: common.JSON(e.OnboardingDraft.Services[0])})
 			var conflict *serviceNameConflict
 			if !errors.As(err, &conflict) || listReads != 2 {
 				t.Fatalf("提交前仍须重读并拒绝重名服务，不能覆盖: %v", err)

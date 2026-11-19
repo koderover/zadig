@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	envservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -79,15 +80,21 @@ func getWorkflowLogExcerpt(c *gin.Context) {
 		return
 	}
 	found := false
+	logSupported := false
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name == c.Param("jobName") {
 				found = true
+				logSupported = config.JobHasExecutionLogs(config.JobType(job.JobType))
 			}
 		}
 	}
 	if !found {
 		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if !logSupported {
+		c.JSON(http.StatusOK, logservice.LogExcerpt{Offset: offset, NextOffset: offset, Unsupported: true})
 		return
 	}
 	result, err := logservice.GetWorkflowLogExcerpt(c.Request.Context(), strings.ToLower(w.Name), c.Param("jobName"), taskID, offset, limit, ctx.Logger)

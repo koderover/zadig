@@ -22,14 +22,14 @@ func Recommendations(page models.PageContext, batch int, skills []models.Skill, 
 		},
 		{
 			SkillID: "project_onboarding",
-			Title:   lang.Text("初始化项目", "Initialize a project"),
-			Prompt:  lang.Text("请帮我创建 K8s YAML 或 Helm 项目，并使用已有 YAML、Helm Chart 或服务模板在项目中创建服务，先补齐参数并生成清单。", "Help me create a K8s YAML or Helm project and add services using existing YAML, Helm Charts or service templates. Collect missing parameters and prepare a plan first."),
+			Title:   lang.Text("项目初始化", "Initialize a project"),
+			Prompt:  lang.Text("请帮我创建 K8s YAML 或 Helm 项目，使用已有 YAML、Helm Chart 或服务模板在项目中创建服务、并使用构建模板新建构建、然后新建 dev 环境以及对应的构建部署工作流", "Help me create a K8s YAML or Helm project, add services using existing YAML, Helm Charts or service templates, create builds using build templates, then create a dev environment and the corresponding build and deployment workflows."),
 			Context: page,
 		},
 		{
 			SkillID: "service_onboarding",
 			Title:   lang.Text("批量初始化服务", "Initialize multiple services"),
-			Prompt:  lang.Text("请帮我在现有项目中使用已有 YAML、Helm Chart 或服务模板批量创建服务，构建仅使用已有构建模板，先补齐参数并生成清单。", "Help me add multiple services to an existing project using existing YAML, Helm Charts or service templates. Use only existing build templates for builds. Collect missing parameters and prepare a plan first."),
+			Prompt:  lang.Text("请帮我在现有项目中使用已有服务配置或服务模板批量创建服务，然后使用构建模板新建构建", "Help me create multiple services in an existing project using existing service configurations or service templates, then create builds using build templates."),
 			Context: page,
 		},
 		{
@@ -39,7 +39,7 @@ func Recommendations(page models.PageContext, batch int, skills []models.Skill, 
 			Context: page},
 		{SkillID: "efficiency_diagnosis",
 			Title:   lang.Text("诊断项目质量和效率", "Analyze project quality and efficiency"),
-			Prompt:  lang.Text("请分析我指定项目近三十天的质量和效率，并给出优化建议，项目不明确时先补问。", "Analyze quality and efficiency over the last thirty days for the projects I specify and suggest improvements. Ask which projects to analyze if unclear."),
+			Prompt:  lang.Text("分析指定项目近三十天的质量和效率，并给出优化建议", "Analyze the specified project's quality and efficiency over the last thirty days and suggest improvements."),
 			Context: page},
 	}
 

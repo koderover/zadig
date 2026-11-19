@@ -12,11 +12,12 @@ import (
 )
 
 type LogExcerpt struct {
-	Text       string `json:"text"`
-	Offset     int    `json:"offset"`
-	NextOffset int    `json:"next_offset"` // 工作流向前分页游标；容器日志不支持分页，固定为 0。
-	TotalLines int    `json:"total_lines"` // 容器日志的完整总行数未知，返回 -1。
-	Truncated  bool   `json:"truncated"`
+	Text        string `json:"text"`
+	Offset      int    `json:"offset"`
+	NextOffset  int    `json:"next_offset"` // 工作流向前分页游标；容器日志不支持分页，固定为 0。
+	TotalLines  int    `json:"total_lines"` // 容器日志的完整总行数未知，返回 -1。
+	Truncated   bool   `json:"truncated"`
+	Unsupported bool   `json:"unsupported,omitempty"` // 任务类型不支持工作流执行日志。
 }
 
 func ReadLogExcerpt(ctx context.Context, reader io.Reader, offset, limit int) (*LogExcerpt, error) {

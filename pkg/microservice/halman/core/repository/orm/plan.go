@@ -14,9 +14,8 @@ import (
 )
 
 // 领取动作与取消串行；事务提交后才发 HTTP，崩溃后绝不自动重放 submitting。
-func (s *Store) ClaimOperation(ctx context.Context, user string, r *models.Run, rootID, id string) error {
+func (s *Store) ClaimOperation(ctx context.Context, user string, r *models.Run, rootID string, item models.OperationItem) error {
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var found string
 		if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
 			return common.ErrNotFound
 		}
@@ -46,28 +45,18 @@ func (s *Store) ClaimOperation(ctx context.Context, user string, r *models.Run, 
 			return err
 		}
 
-		found = ""
 		for i := range plan.Items {
-			if plan.Items[i].ID == id {
-				if plan.Items[i].Status != "pending" {
-					return common.ErrRequestConflict
-				}
-
-				plan.Items[i].Status = "submitting"
-				found = id
-				break
+			current := &plan.Items[i]
+			if current.ID == "" || current.ID != item.ID {
+				continue
 			}
+			if current.Status != "pending" {
+				return common.ErrRequestConflict
+			}
+			current.Status, current.Params = "submitting", item.Params
+			return tx.Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), r.ID).Error
 		}
-
-		if found == "" {
-			return common.ErrRequestConflict
-		}
-
-		if err := tx.Exec("UPDATE ai_run SET plan=? WHERE id=?", string(common.JSON(plan)), r.ID).Error; err != nil {
-			return err
-		}
-
-		return nil
+		return common.ErrRequestConflict
 	})
 }
 
@@ -323,7 +312,11 @@ func (s *Store) SaveDraft(ctx context.Context, user string, r *models.Run, rootI
 			}
 		}
 		// 保存新参数快照后，旧卡片不能再确认执行。
-		if err := tx.Exec("UPDATE ai_run SET active_plan_run_id=NULL WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
+		updateRoot := "UPDATE ai_run SET active_plan_run_id=NULL"
+		if rootID != r.ID && plan.Draft != nil && len(plan.MissingFields) > 0 {
+			updateRoot += ",skill_status='awaiting_input'"
+		}
+		if err := tx.Exec(updateRoot+" WHERE id=? AND user_id=?", rootID, user).Error; err != nil {
 			return err
 		}
 		var planStatus any

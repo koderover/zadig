@@ -8,9 +8,12 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	kuberesource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 )
 
 var workflowJobName = regexp.MustCompile(`^[a-zA-Z0-9\p{Han}][a-zA-Z0-9\p{Han}_.-]{0,127}$`)
@@ -46,25 +49,7 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 		return nil, fmt.Errorf("需要明确工作流任务编号")
 	}
 
-	// 原日志片段接口校验查看权限及任务、步骤归属，不再预读完整任务。
-	raw, err := s.Platform.business(
-		ctx,
-		e.Authorization,
-		http.MethodGet,
-		fmt.Sprintf(
-			"/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s",
-			args.Target.WorkflowName,
-			args.Target.TaskID,
-			url.PathEscape(args.Target.JobName),
-		),
-		url.Values{
-			"projectName": {args.Target.ProjectKey},
-			"format":      {"excerpt"},
-			"offset":      {strconv.Itoa(args.Offset)},
-			"limit":       {strconv.Itoa(args.Limit)},
-		},
-		nil,
-	)
+	value, err := s.Platform.workflowLogExcerpt(ctx, e.Authorization, args)
 	if err != nil {
 		return nil, err
 	}
@@ -81,24 +66,48 @@ func (s *AgentService) workflowLog(ctx context.Context, args models.WorkflowLogW
 		return nil, err
 	}
 
-	e.EvidenceRead.Store(true)
+	excerpt, _ := value.(map[string]any)
+	text, _ := excerpt["text"].(string)
+	if strings.TrimSpace(text) != "" {
+		e.EvidenceRead.Store(true)
+	}
+	return value, nil
+}
+
+func (p *PlatformClient) workflowLogExcerpt(ctx context.Context, auth string, args models.WorkflowLogWindow) (any, error) {
+	// The excerpt endpoint checks workflow permission and task/job ownership.
+	target := args.Target
+	path := fmt.Sprintf("/api/logs/log/v4/workflow/%s/tasks/%d/jobs/%s", target.WorkflowName, target.TaskID, url.PathEscape(target.JobName))
+	raw, err := p.business(ctx, auth, http.MethodGet, path, url.Values{
+		"projectName": {target.ProjectKey},
+		"format":      {"excerpt"},
+		"offset":      {strconv.Itoa(args.Offset)},
+		"limit":       {strconv.Itoa(args.Limit)},
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
 	return safeJSON(raw)
 }
 
 type servicePod struct {
-	Name            string `json:"pod_name"`
-	Ready           bool   `json:"pod_ready"`
-	ContainersReady bool   `json:"containers_ready"`
-	Created         int64  `json:"create_time"`
-	Containers      []struct {
-		Name string `json:"name"`
-	} `json:"containers"`
+	Name            string                `json:"pod_name"`
+	Ready           bool                  `json:"pod_ready"`
+	ContainersReady bool                  `json:"containers_ready"`
+	Created         int64                 `json:"create_time"`
+	Containers      []servicePodContainer `json:"containers"`
+	Runtime         *kuberesource.Pod     `json:"-"`
+}
+
+type servicePodContainer struct {
+	Name string `json:"name"`
 }
 
 type servicePods struct {
-	ServiceName string       `json:"service_name"`
-	Truncated   bool         `json:"truncated"`
-	Pods        []servicePod `json:"pods"`
+	ServiceName     string       `json:"service_name"`
+	Truncated       bool         `json:"truncated"`
+	Pods            []servicePod `json:"pods"`
+	DesiredReplicas int          `json:"-"`
 }
 
 type environmentVersion struct {
@@ -140,7 +149,6 @@ func serviceQuery(t models.ServiceTarget) url.Values {
 	return url.Values{
 		"projectName": {t.ProjectKey},
 		"production":  {strconv.FormatBool(t.Production)},
-		"isHelmChart": {"false"},
 	}
 }
 
@@ -148,34 +156,46 @@ func (p *PlatformClient) servicePods(ctx context.Context, auth string, t models.
 	if err := checkNames(t.ProjectKey, t.EnvName, t.ServiceName); err != nil {
 		return nil, err
 	}
-	path := "/openapi/environments/"
-	if t.Production {
-		path += "production/"
-	}
-	path += t.EnvName + "/service/" + t.ServiceName + "/pods"
-	raw, err := p.business(ctx, auth, http.MethodGet, path, url.Values{"projectKey": {t.ProjectKey}}, nil)
+	path := "/api/environment/environments/" + t.EnvName + "/services/" + t.ServiceName
+	raw, err := p.business(ctx, auth, http.MethodGet, path, serviceQuery(t), nil)
 	if err != nil {
 		return nil, err
 	}
-	var result servicePods
-	if err := json.Unmarshal(raw, &result); err != nil {
+	var detail struct {
+		ServiceName string                  `json:"service_name"`
+		Scales      []kuberesource.Workload `json:"scales"`
+		CronJobs    []kuberesource.Workload `json:"cron_jobs"`
+	}
+	if err := json.Unmarshal(raw, &detail); err != nil {
 		return nil, err
 	}
-	if result.ServiceName != t.ServiceName {
+	if detail.ServiceName != t.ServiceName {
 		return nil, fmt.Errorf("服务实例归属与目标不匹配")
 	}
-	result.Truncated = len(result.Pods) > 50
-	if result.Truncated {
-		result.Pods = result.Pods[:50]
+	result := &servicePods{ServiceName: detail.ServiceName}
+	seen := make(map[string]bool)
+	for _, workload := range append(detail.Scales, detail.CronJobs...) {
+		if result.DesiredReplicas >= 0 && (workload.Type == setting.Deployment || workload.Type == setting.StatefulSet) {
+			result.DesiredReplicas += int(workload.Replicas)
+		} else {
+			result.DesiredReplicas = -1
+		}
+		for _, pod := range workload.Pods {
+			if pod == nil || pod.Name == "" || seen[pod.Name] {
+				continue
+			}
+			if len(result.Pods) == 50 {
+				result.Truncated = true
+				return result, nil
+			}
+			seen[pod.Name] = true
+			result.Pods = append(result.Pods, servicePod{Name: pod.Name, Ready: pod.PodReady, ContainersReady: pod.ContainersReady, Created: pod.CreateTime, Runtime: pod})
+		}
 	}
-	return &result, nil
+	return result, nil
 }
 
-func (s *AgentService) serviceLogs(ctx context.Context, e *execution, t models.ServiceTarget) any {
-	pods, err := s.Platform.servicePods(ctx, e.Authorization, t)
-	if err != nil {
-		return map[string]string{"error": err.Error()}
-	}
+func (s *AgentService) serviceLogs(ctx context.Context, e *execution, t models.ServiceTarget, pods *servicePods) any {
 	logs, events := map[string]any{}, map[string]any{}
 	budget := 64 << 10
 	save := func(target map[string]any, key string, value any) {

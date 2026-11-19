@@ -54,7 +54,7 @@ func TestWorkflowJobSpecWhitelistAndLimits(t *testing.T) {
 		{"Helm", `{"env":"prod","production":true,"deploy_helm_charts":[{"release_name":"api","chart_name":"app","chart_version":"1.2.3","values_yaml":"hidden-values","override_kvs":"hidden-overrides"}]}`, []string{"prod", "1.2.3"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			spec, note := workflowJobSpec(json.RawMessage(tc.input))
+			spec, note := workflowJobSpec(json.RawMessage(tc.input), "")
 			if note != "" {
 				t.Fatal(note)
 			}
@@ -71,7 +71,7 @@ func TestWorkflowJobSpecWhitelistAndLimits(t *testing.T) {
 		})
 	}
 	for _, raw := range []json.RawMessage{nil, json.RawMessage(`null`), json.RawMessage(`{}`), json.RawMessage(`{"unknown":"hidden-value"}`), json.RawMessage(`[]`), common.JSON(map[string]string{"image": strings.Repeat("x", 9<<10)})} {
-		if spec, note := workflowJobSpec(raw); len(spec) != 0 || note == "" {
+		if spec, note := workflowJobSpec(raw, ""); len(spec) != 0 || note == "" {
 			t.Fatalf("缺失、不支持或超大配置应明确说明，不能编造默认值: %s %s", spec, note)
 		}
 	}
@@ -79,12 +79,12 @@ func TestWorkflowJobSpecWhitelistAndLimits(t *testing.T) {
 	for i := range repos {
 		repos[i] = map[string]string{"repo_name": fmt.Sprintf("repo-%d", i)}
 	}
-	spec, note := workflowJobSpec(common.JSON(map[string]any{"repos": repos}))
+	spec, note := workflowJobSpec(common.JSON(map[string]any{"repos": repos}), "")
 	var result struct{ Repos []any }
 	if json.Unmarshal(spec, &result) != nil || len(result.Repos) != 20 || note == "" {
 		t.Fatalf("列表截断应明确说明: %s %s", spec, note)
 	}
-	spec, _ = workflowJobSpec(json.RawMessage(`{"image":"https://u:hidden-password@example.com/api:v1"}`))
+	spec, _ = workflowJobSpec(json.RawMessage(`{"image":"https://u:hidden-password@example.com/api:v1"}`), "")
 	if strings.Contains(string(spec), "hidden-password") {
 		t.Fatalf("白名单字段仍应脱敏: %s", spec)
 	}

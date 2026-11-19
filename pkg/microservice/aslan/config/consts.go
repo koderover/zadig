@@ -268,6 +268,18 @@ const (
 	JobApisix               JobType = "apisix"
 )
 
+// JobHasExecutionLogs reports whether the job type can archive logs for the workflow log endpoint.
+func JobHasExecutionLogs(jobType JobType) bool {
+	switch jobType {
+	case JobBuild, JobZadigBuild, JobZadigVMDeploy, JobFreestyle,
+		JobZadigTesting, JobZadigScanning, JobZadigDistributeImage,
+		JobZadigDeploy, JobZadigHelmDeploy, JobPlugin:
+		return true
+	default:
+		return false
+	}
+}
+
 const (
 	AIDefaultTimeoutMinutes int64 = 60
 

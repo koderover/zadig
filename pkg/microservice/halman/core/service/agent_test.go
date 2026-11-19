@@ -26,6 +26,7 @@ import (
 func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	enabled, modelCalls := true, 0
 	inspectionStarted := false
+	wantMaxTokens := 8192
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
@@ -39,9 +40,19 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			if strings.Contains(string(body), "model-secret") || strings.Contains(string(body), "signature") || strings.Contains(string(body), "hidden-") {
 				t.Error("凭据不能进入模型上下文")
 			}
-			var payload struct{ Messages []model.Message }
+			var payload struct {
+				Messages        []model.Message
+				ReasoningEffort json.RawMessage `json:"reasoning_effort"`
+				MaxTokens       int             `json:"max_completion_tokens"`
+			}
 			if err := json.Unmarshal(body, &payload); err != nil {
 				t.Fatal(err)
+			}
+			if payload.ReasoningEffort != nil {
+				t.Errorf("使用模型默认推理等级时，请求应省略 reasoning_effort，实际为 %s", payload.ReasoningEffort)
+			}
+			if payload.MaxTokens != wantMaxTokens {
+				t.Errorf("模型请求的输出上限 = %d，期望 %d", payload.MaxTokens, wantMaxTokens)
 			}
 			identityFound := false
 			for _, message := range payload.Messages {
@@ -56,6 +67,9 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			}
 			if !identityFound {
 				t.Error("模型请求缺少当前用户上下文")
+			}
+			if !strings.Contains(string(body), "多项摘要、补问或逐项结果使用 Markdown 无序列表") {
+				t.Error("模型请求缺少多项回复的 Markdown 列表规则")
 			}
 			if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
 				t.Error("模型应收到数据库规则快照，且停用 Skill 的工具声明必须移除")
@@ -198,6 +212,35 @@ data: [DONE]
 	}
 	if modelCalls != 2 {
 		t.Fatal("应分别验证新任务与已有巡检的模型工具列表")
+	}
+
+	inspectionStarted = false
+	wantMaxTokens = 16384
+	exec.SkillID, exec.ContinuingSkill, exec.RootID = "", "", ""
+	exec.PendingOnboarding = true
+	pending, err := r.Run(ctx, "user-1", "pending-onboarding-conversation", model.NewUserMessage("继续"), agent.WithRequestID("run-pending-onboarding"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for e := range pending {
+		if e.Error != nil {
+			t.Fatalf("识别待续接草稿失败: %+v", e.Error)
+		}
+	}
+
+	exec.PendingOnboarding = false
+	exec.SkillID, exec.ContinuingSkill, exec.RootID = "project_onboarding", "project_onboarding", "saved-project-run"
+	resumed, err := r.Run(ctx, "user-1", "onboarding-conversation", model.NewUserMessage("继续"), agent.WithRequestID("run-onboarding"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for e := range resumed {
+		if e.Error != nil {
+			t.Fatalf("续接初始化草稿失败: %+v", e.Error)
+		}
+	}
+	if modelCalls != 4 {
+		t.Fatal("识别待续接草稿和继续已恢复草稿应各发送一次模型请求")
 	}
 
 	enabled = false
