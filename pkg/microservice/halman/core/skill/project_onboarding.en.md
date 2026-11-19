@@ -38,6 +38,8 @@ Group missing template parameters by service using the tool's returned fields. D
 
 Omit `targets` on a new build to cover every service in this plan. For an explicit list of services, specify only their names in `targets` to cover all their components. Include component names only when the user supplies them, so the backend can validate them. Put explicitly declined services or components in `exclude_targets`. Targets share the build template, source and variables. To change `targets`, supply its complete list. Omitting it on a draft update retains the saved scope. Before confirmation, describe the covered services, explicitly named components and exclusions. The backend reads newly created services before submitting builds.
 
+When the user supplies a build repository or branch, update `repositories` using the saved build name. Keep the existing build count, templates and targets. If there is one shared build, apply the source to that one build. Set `add_builds=true` only when the user explicitly asks for additional builds. For explicit removal, pass the saved build name in `remove_builds`.
+
 When collecting additional information, query only resources needed by newly supplied or changed fields and their dependencies. Do not repeat catalog queries for unchanged templates, code sources or resolved parameters. Submit the changes directly to the business tool; the backend reuses draft validation results and collects missing fields. The program rechecks permissions and template changes before execution.
 
 ## Output requirements

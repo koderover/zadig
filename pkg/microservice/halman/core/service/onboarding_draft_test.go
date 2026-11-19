@@ -68,6 +68,25 @@ func TestOnboardingPartialChangesKeepThreeServicesAndExplicitZeroValues(t *testi
 	}
 }
 
+func TestOnboardingDraftExplicitBuildChanges(t *testing.T) {
+	base := onboardingInput(t, `{"builds":[{"name":"shared-build","template_id":"general"},{"name":"api-build","template_id":"general"}]}`)
+	draft, err := mergeOnboardingDraft(&base, onboardingInput(t, `{"remove_builds":["shared-build"]}`))
+	if err != nil || !reflect.DeepEqual(draft.Builds, base.Builds[1:]) || draft.ProvidedFields()["remove_builds"] != nil {
+		t.Fatalf("按名称移除应保留其他构建，且移除指令不能保存到草稿: %+v %v", draft, err)
+	}
+	if _, err := mergeOnboardingDraft(&base, onboardingInput(t, `{"remove_builds":["typo"]}`)); err == nil {
+		t.Fatal("应拒绝移除不存在的构建")
+	}
+	draft, err = mergeOnboardingDraft(&draft, onboardingInput(t, `{"add_builds":true,"builds":[{"name":"worker-build","template_id":"general"}]}`))
+	if err != nil || len(draft.Builds) != 2 || draft.Builds[1].Name != "worker-build" || draft.ProvidedFields()["add_builds"] != nil {
+		t.Fatalf("应允许显式新增，且新增指令不能保存到草稿: %+v %v", draft, err)
+	}
+	draft, err = mergeOnboardingDraft(&draft, onboardingInput(t, `{"builds":[]}`))
+	if err != nil || len(draft.Builds) != 0 {
+		t.Fatalf("空构建列表应继续支持清空: %+v %v", draft, err)
+	}
+}
+
 func expectOnboardingDraftSave(mock sqlmock.Sqlmock) {
 	expectSkillInputSave(mock, reportExecution(""), "awaiting_input")
 }
@@ -229,7 +248,8 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 				}
 				callable := fn.(tool.CallableTool)
 				schema := fn.Declaration().InputSchema
-				if schema.Properties["expected_service_count"] == nil || schema.Properties["remove_services"] == nil {
+				if schema.Properties["expected_service_count"] == nil || schema.Properties["remove_services"] == nil ||
+					schema.Properties["remove_builds"] == nil || schema.Properties["add_builds"] == nil {
 					t.Fatal("工具必须暴露总数与明确移除字段")
 				}
 				for _, required := range schema.Required {

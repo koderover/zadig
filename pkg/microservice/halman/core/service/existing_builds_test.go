@@ -207,12 +207,17 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_version=.*plan_status='pending_confirmation'").WithArgs(sqlmock.AnyArg(), 1, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=.*skill_status='pending_confirmation'").WithArgs("run", "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000004"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000004"}],"builds":[{"name":"backend-build","template_id":"000000000000000000000003","repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
+	draft := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000004"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000004"}],"builds":[{"name":"backend-build","template_id":"000000000000000000000003"}]}`)
+	e.OnboardingDraft = &draft
 	badService := models.BuildInput{Targets: []models.BuildTarget{{ServiceName: "api-typo"}}}
-	if _, missing, err := s.resolveBuildTargets(ctx, e, args, &badService, nil, "backend-build", true); err != nil || len(missing) != 1 || !strings.Contains(missing[0], "api-typo") {
+	if _, missing, err := s.resolveBuildTargets(ctx, e, draft, &badService, nil, "backend-build", true); err != nil || len(missing) != 1 || !strings.Contains(missing[0], "api-typo") {
 		t.Fatalf("准备阶段应识别未列入清单的服务名: %v, %v", missing, err)
 	}
-	value, err := s.prepareProject(ctx, args)
+	prepare := nativeSkillTool(t, s, "project_onboarding")
+	if _, err := prepare.Call(ctx, []byte(`{"builds":[{"name":"api-build"},{"name":"worker-build"}]}`)); err == nil || !strings.Contains(err.Error(), "api-build") {
+		t.Fatalf("续接时不能用新构建名隐式拆分共享构建: %v", err)
+	}
+	value, err := prepare.Call(ctx, []byte(`{"builds":[{"name":"backend-build","repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,6 +233,9 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	if err := json.Unmarshal(item.Params, &build); err != nil {
 		t.Fatal(err)
 	}
+	if build.Name != "backend-build" || build.TemplateID != "000000000000000000000003" || len(build.Repositories) != 1 || build.Repositories[0].Branch != "main" {
+		t.Fatalf("补充源码应沿用原构建名称和模板: %+v", build)
+	}
 	if !slices.Equal(build.Targets, []models.BuildTarget{{ServiceName: "api"}, {ServiceName: "worker"}}) || len(plan.Draft.Builds[0].Targets) != 0 {
 		t.Fatalf("默认范围应进入确认清单，草稿仍保留自动覆盖: %+v", build)
 	}
@@ -242,7 +250,7 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 		}
 	}
 	build.ExcludeTargets = []models.BuildTarget{{ServiceName: "api", ServiceModule: "sidecar"}, {ServiceName: "worker"}}
-	deps, missing, err := s.resolveBuildTargets(ctx, e, args, &build, nil, build.Name, true)
+	deps, missing, err := s.resolveBuildTargets(ctx, e, *plan.Draft, &build, nil, build.Name, true)
 	if err != nil || len(missing) != 0 || !slices.Equal(deps, []string{"service-api"}) {
 		t.Fatalf("排除的服务不能阻塞构建: %v, %v, %v", deps, missing, err)
 	}

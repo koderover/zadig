@@ -78,7 +78,9 @@ type OnboardingInput struct {
 	Admins               []string          `json:"admins,omitempty" jsonschema:"description=管理员用户标识，默认当前用户"`
 	Public               bool              `json:"public,omitempty" jsonschema:"description=默认私有，只有用户明确要求时才设为公开"`
 	Services             []ServiceInput    `json:"services,omitempty"`
-	Builds               []BuildInput      `json:"builds,omitempty"`
+	Builds               []BuildInput      `json:"builds,omitempty" jsonschema:"description=续接时按草稿中的构建名称补参，保留已有构建和覆盖范围；空列表清空所有构建"`
+	AddBuilds            bool              `json:"add_builds,omitempty" jsonschema:"description=已有构建草稿时，仅在用户明确要求新增构建记录时设为 true，并在 builds 填写新增项"`
+	RemoveBuilds         []string          `json:"remove_builds,omitempty" jsonschema:"description=仅在用户明确要求时，按名称移除当前草稿中的构建"`
 	Environment          *EnvironmentInput `json:"environment,omitempty"`
 	SkipEnvironment      bool              `json:"skip_environment,omitempty" jsonschema:"description=仅在用户明确选择不创建环境时设为 true；只创建环境不部署服务时填写 environment 并将 services 设为空列表；未提供 environment 时必须先询问"`
 	CreateWorkflow       bool              `json:"create_workflow,omitempty" jsonschema:"description=项目初始化默认创建工作流但不执行，仅用户明确拒绝时设为 false；服务初始化不支持，须省略或设为 false"`
