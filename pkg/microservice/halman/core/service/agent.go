@@ -500,6 +500,9 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 			}
 
 			if e.RootID != "" && e.RootID != e.Run.ID && e.RegenerateFrom == nil {
+				if models.IsOnboardingSkill(e.ContinuingSkill) {
+					req.ReasoningEffort = model.StringPtr("low")
+				}
 				instruction := fmt.Sprintf("本轮继续原 Skill %s，根执行 skill_execution_id=%s，使用对应业务工具，不切换 Skill。业务工具自动恢复参数草稿；只提交用户本轮补充或修改的字段。不要根据新页面或模糊历史覆盖原参数；需要查看草稿时可调用 read_saved_operation。收到 missing_fields 后只补问缺失项，不报告完成。", e.ContinuingSkill, e.RootID)
 				req.Messages = append(
 					[]model.Message{model.NewSystemMessage(instruction)},

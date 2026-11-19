@@ -26,6 +26,7 @@ import (
 func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	enabled, modelCalls := true, 0
 	inspectionStarted := false
+	wantReasoningEffort := ""
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
@@ -39,9 +40,15 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			if strings.Contains(string(body), "model-secret") || strings.Contains(string(body), "signature") || strings.Contains(string(body), "hidden-") {
 				t.Error("凭据不能进入模型上下文")
 			}
-			var payload struct{ Messages []model.Message }
+			var payload struct {
+				Messages        []model.Message
+				ReasoningEffort string `json:"reasoning_effort"`
+			}
 			if err := json.Unmarshal(body, &payload); err != nil {
 				t.Fatal(err)
+			}
+			if payload.ReasoningEffort != wantReasoningEffort {
+				t.Errorf("模型请求的 reasoning_effort = %q，期望 %q", payload.ReasoningEffort, wantReasoningEffort)
 			}
 			identityFound := false
 			for _, message := range payload.Messages {
@@ -198,6 +205,22 @@ data: [DONE]
 	}
 	if modelCalls != 2 {
 		t.Fatal("应分别验证新任务与已有巡检的模型工具列表")
+	}
+
+	inspectionStarted = false
+	wantReasoningEffort = "low"
+	exec.SkillID, exec.ContinuingSkill, exec.RootID = "project_onboarding", "project_onboarding", "saved-project-run"
+	resumed, err := r.Run(ctx, "user-1", "onboarding-conversation", model.NewUserMessage("继续"), agent.WithRequestID("run-onboarding"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for e := range resumed {
+		if e.Error != nil {
+			t.Fatalf("续接初始化草稿失败: %+v", e.Error)
+		}
+	}
+	if modelCalls != 3 {
+		t.Fatal("续接初始化应发送一次轻量推理请求")
 	}
 
 	enabled = false
