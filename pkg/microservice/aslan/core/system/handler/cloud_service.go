@@ -59,7 +59,11 @@ func ListCloudService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = cloudservice.ListCloudService(ctx, encryptedKey)
+	clouds, err := cloudservice.ListCloudService(ctx, encryptedKey)
+	if !canEditSystemIntegration(ctx) {
+		maskCloudServiceSecrets(clouds...)
+	}
+	ctx.Resp, ctx.RespErr = clouds, err
 }
 
 // @Summary 列出云服务详情
@@ -152,7 +156,11 @@ func GetCloudService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = cloudservice.FindCloudService(ctx, id)
+	cloud, err := cloudservice.FindCloudService(ctx, id)
+	if err == nil && !canEditSystemIntegration(ctx) {
+		maskCloudServiceSecrets(cloud)
+	}
+	ctx.Resp, ctx.RespErr = cloud, err
 }
 
 // @Summary 更新云服务

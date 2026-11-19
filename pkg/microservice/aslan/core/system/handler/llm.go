@@ -129,7 +129,11 @@ func GetLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id)
+	integration, err := service.GetLLMIntegration(context.TODO(), id)
+	if err == nil && !hasAIManagementPermission(ctx, true) {
+		maskLLMIntegrationTokens(integration)
+	}
+	ctx.Resp, ctx.RespErr = integration, err
 }
 
 // @Summary List llm integrations
@@ -147,7 +151,11 @@ func ListLLMIntegration(c *gin.Context) {
 	}
 	defer internalhandler.JSONResponse(c, ctx)
 
-	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
+	integrations, err := service.ListLLMIntegration(context.TODO())
+	if err == nil && !hasAIManagementPermission(ctx, true) {
+		maskLLMIntegrationTokens(integrations...)
+	}
+	ctx.Resp, ctx.RespErr = integrations, err
 }
 
 // @Summary List llm integration briefs
