@@ -297,7 +297,7 @@ func ListNamespace(c *gin.Context) {
 }
 
 func ListDeploymentNames(c *gin.Context) {
-	ctx := newKubeResourceContext(c, clusterservice.KubeClusterInventory)
+	ctx := newKubeResourceContext(c, clusterservice.KubeWorkflowCandidates)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if ctx.UnAuthorized || ctx.RespErr != nil {
 		return

@@ -43,7 +43,7 @@ func requireAIAssistantLicense(c *gin.Context) bool {
 // @Router /api/system/ai/assistant [get]
 func GetAIAssistantConfig(c *gin.Context) {
 	ctx, err := newAIAssistantContext(c)
-	if err != nil || !hasAIManagementPermission(ctx, false) {
+	if err != nil {
 		c.AbortWithStatusJSON(e.ErrorMessage(e.ErrForbidden))
 		return
 	}

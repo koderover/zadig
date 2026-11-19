@@ -248,11 +248,9 @@ func TestKubeGlobalPermissions(t *testing.T) {
 			workflow:   true,
 		},
 		{
-			name:       "cluster viewer",
-			resources:  &user.AuthorizedResources{SystemActions: &user.SystemActions{ClusterManagement: &user.ClusterManagementActions{View: true}}},
-			inventory:  true,
-			namespaces: true,
-			workflow:   true,
+			name:      "cluster viewer",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{ClusterManagement: &user.ClusterManagementActions{View: true}}},
+			inventory: true,
 		},
 		{
 			name:      "template creator",
@@ -262,6 +260,12 @@ func TestKubeGlobalPermissions(t *testing.T) {
 		{
 			name:      "template editor",
 			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{Template: &user.TemplateActions{Edit: true}}},
+			workflow:  true,
+		},
+		{
+			name:      "cluster viewer with template edit",
+			resources: &user.AuthorizedResources{SystemActions: &user.SystemActions{ClusterManagement: &user.ClusterManagementActions{View: true}, Template: &user.TemplateActions{Edit: true}}},
+			inventory: true,
 			workflow:  true,
 		},
 		{
