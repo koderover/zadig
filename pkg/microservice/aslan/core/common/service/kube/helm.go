@@ -925,7 +925,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
 
-		err := helmservice.MergeServicesInEnv(productName, envName, groupIndex, handledServices, productResp.Production, user)
+		err := helmservice.MergeServicesInEnv(productName, envName, groupIndex, groupServices, handledServices, productResp.Production, user)
 		if err != nil {
 			log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productName, envName, err)
 			mongotool.AbortTransaction(session)

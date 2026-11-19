@@ -428,16 +428,17 @@ func updateEnvServices(productName, envName string, production bool, updateBy st
 	return mongo.CommitTransaction(session)
 }
 
-// MergeServicesInEnv writes back only the services handled by the current
-// operation, so a stale snapshot cannot drop services added concurrently.
-// Results are applied in write-back order under the env lock, so the last
-// finished deployment wins, which matches the release in the cluster.
-func MergeServicesInEnv(productName, envName string, index int, services []*commonmodels.ProductService, production bool, updateBy string) error {
-	if len(services) == 0 {
+// MergeServicesInEnv writes group index of an operation into the latest env
+// record. Services in group are placed into group index in orchestration order,
+// but only the handled ones replace the stored record. Services not in group
+// stay where they are, so a stale snapshot cannot drop services added
+// concurrently.
+func MergeServicesInEnv(productName, envName string, index int, group, handled []*commonmodels.ProductService, production bool, updateBy string) error {
+	if len(group) == 0 && len(handled) == 0 {
 		return nil
 	}
 	return updateEnvServices(productName, envName, production, updateBy, func(env *commonmodels.Product, orchestration [][]string) {
-		env.Services = mergeServicesIntoGroups(env.Services, index, services, orchestration, time.Now().Unix())
+		env.Services = mergeServicesIntoGroups(env.Services, index, group, handled, orchestration, time.Now().Unix())
 	})
 }
 
@@ -461,29 +462,52 @@ func RemoveServicesFromEnv(productName, envName string, production bool, service
 	})
 }
 
-// mergeServicesIntoGroups replaces matched services in place and appends new
-// ones to group index. A record of another service that owns the same release
-// is dropped in the same write, since a release belongs to one service.
-func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int, services []*commonmodels.ProductService, orchestration [][]string, now int64) [][]*commonmodels.ProductService {
-	added := false
-	for _, svc := range services {
-		svc.UpdateTime = now
-		groups = dropReleaseOwners(groups, svc)
-		gi, si := findEnvService(groups, svc)
-		if gi >= 0 {
-			groups[gi][si] = svc
+// mergeServicesIntoGroups moves the services of group into group index and
+// sorts it by orchestration. Handled services replace the stored record or are
+// added; the others keep the stored record and are skipped if no longer stored.
+// A record of another service that owns the same release is dropped in the
+// same write, since a release belongs to one service.
+func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int, group, handled []*commonmodels.ProductService, orchestration [][]string, now int64) [][]*commonmodels.ProductService {
+	for len(groups) <= index {
+		groups = append(groups, []*commonmodels.ProductService{})
+	}
+	handledSet := make(map[*commonmodels.ProductService]bool, len(handled))
+	for _, svc := range handled {
+		handledSet[svc] = true
+	}
+	for _, svc := range handled {
+		if !containsService(group, svc) {
+			group = append(group, svc)
+		}
+	}
+
+	for _, svc := range group {
+		record := svc
+		if handledSet[svc] {
+			svc.UpdateTime = now
+			groups = dropReleaseOwners(groups, svc)
+		}
+		if gi, si := findEnvService(groups, svc); gi >= 0 {
+			if !handledSet[svc] {
+				record = groups[gi][si]
+			}
+			groups[gi] = append(groups[gi][:si], groups[gi][si+1:]...)
+		} else if !handledSet[svc] {
 			continue
 		}
-		for len(groups) <= index {
-			groups = append(groups, []*commonmodels.ProductService{})
-		}
-		groups[index] = append(groups[index], svc)
-		added = true
+		groups[index] = append(groups[index], record)
 	}
-	if added {
-		sortServiceGroup(groups[index], orchestration)
-	}
+	sortServiceGroup(groups[index], orchestration)
 	return groups
+}
+
+func containsService(group []*commonmodels.ProductService, target *commonmodels.ProductService) bool {
+	for _, svc := range group {
+		if svc == target {
+			return true
+		}
+	}
+	return false
 }
 
 func isSameEnvService(a, b *commonmodels.ProductService) bool {
