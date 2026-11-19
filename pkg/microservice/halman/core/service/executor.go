@@ -202,7 +202,7 @@ func (s *AgentService) executePlan(ctx context.Context, cancel context.CancelFun
 			var raw json.RawMessage
 			submitted := false
 			if err == nil {
-				raw, err = s.submitOperation(ctx, e, item)
+				raw, err = s.submitOperation(ctx, e, &item)
 				submitted = err == nil
 			}
 

@@ -329,7 +329,7 @@ func TestNonAPIGitSourcesAreRejected(t *testing.T) {
 	}
 }
 
-func expectClaim(mock sqlmock.Sqlmock, e *execution, plan models.OperationPlan, status string, commit bool) {
+func expectClaim(mock sqlmock.Sqlmock, e *execution, plan models.OperationPlan, status string, commit bool) *sqlmock.ExpectedExec {
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id FROM ai_conversation .* FOR UPDATE").WithArgs(e.Run.ConversationID, e.User).WillReturnRows(sqlmock.NewRows([]string{"id"}).
 		AddRow(e.Run.ConversationID))
@@ -338,11 +338,12 @@ func expectClaim(mock sqlmock.Sqlmock, e *execution, plan models.OperationPlan, 
 	mock.ExpectQuery("SELECT plan,status .* FOR UPDATE").WithArgs(e.Run.ID).WillReturnRows(sqlmock.NewRows([]string{"plan", "status"}).
 		AddRow([]byte(common.JSON(plan)), status))
 	if commit {
-		mock.ExpectExec("UPDATE ai_run SET plan").WillReturnResult(sqlmock.NewResult(0, 1))
+		update := mock.ExpectExec("UPDATE ai_run SET plan").WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
-	} else {
-		mock.ExpectRollback()
+		return update
 	}
+	mock.ExpectRollback()
+	return nil
 }
 
 func TestEnvironmentDeploymentPreservesServiceVariablesAndContainers(t *testing.T) {
@@ -376,7 +377,7 @@ func TestEnvironmentDeploymentPreservesServiceVariablesAndContainers(t *testing.
 	e := reportExecution("project_onboarding")
 	item := models.OperationItem{ID: "environment", Action: "create_environment", ProjectKey: "demo", ProjectType: "k8s", Status: "pending", Params: common.JSON(models.EnvironmentInput{Name: "dev", ClusterID: "local", Namespace: "demo-dev", RegistryID: "registry", Services: []string{"api"}})}
 	expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
-	if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+	if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, &item); err != nil || posts != 1 {
 		t.Fatalf("应提交一次包含部署变量的环境请求: %v posts=%d", err, posts)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -414,7 +415,7 @@ func TestEmptyEnvironmentDoesNotDeployServices(t *testing.T) {
 			e := reportExecution("project_onboarding")
 			item := models.OperationItem{ID: "environment", Action: "create_environment", ProjectKey: "demo", ProjectType: projectType, Status: "pending", Params: common.JSON(models.EnvironmentInput{Name: "dev", ClusterID: "local", Namespace: "demo-dev", RegistryID: "registry"})}
 			expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
-			if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+			if _, err := (&AgentService{Store: store, Platform: platform}).submitOperation(context.Background(), e, &item); err != nil || posts != 1 {
 				t.Fatalf("应仅提交一次空环境创建: %v posts=%d", err, posts)
 			}
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -450,18 +451,18 @@ func TestCancelledPlanCannotSubmitAndClaimedWriteCannotReplay(t *testing.T) {
 	}
 	plan := models.OperationPlan{Items: []models.OperationItem{item}}
 	expectClaim(mock, e, plan, "cancelling", false)
-	if _, err := a.submitOperation(context.Background(), e, item); !errors.Is(err, context.Canceled) || posts != 0 {
+	if _, err := a.submitOperation(context.Background(), e, &item); !errors.Is(err, context.Canceled) || posts != 0 {
 		t.Fatalf("取消后不能提交: %v, posts=%d", err, posts)
 	}
 
 	expectClaim(mock, e, plan, "executing", true)
-	if _, err := a.submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+	if _, err := a.submitOperation(context.Background(), e, &item); err != nil || posts != 1 {
 		t.Fatalf("首次提交失败: %v", err)
 	}
 
 	plan.Items[0].Status = "submitting"
 	expectClaim(mock, e, plan, "executing", false)
-	if _, err := a.submitOperation(context.Background(), e, item); !errors.Is(err, common.ErrRequestConflict) || posts != 1 {
+	if _, err := a.submitOperation(context.Background(), e, &item); !errors.Is(err, common.ErrRequestConflict) || posts != 1 {
 		t.Fatalf("提交中的动作不能重复写: %v, posts=%d", err, posts)
 	}
 }

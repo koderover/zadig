@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
 
@@ -73,7 +75,7 @@ func gitBody(g models.GitConfig) map[string]any {
 }
 
 // 操作地址和请求结构由程序决定，模型不能提供任意 HTTP 或原始服务配置。
-func (s *AgentService) submitOperation(ctx context.Context, e *execution, item models.OperationItem) (json.RawMessage, error) {
+func (s *AgentService) submitOperation(ctx context.Context, e *execution, item *models.OperationItem) (json.RawMessage, error) {
 	// 提交前必须重读，不能继承预览或确认阶段的读取快照。
 	ctx = context.WithValue(ctx, readPhaseKey{}, (*readPhase)(nil))
 	query := url.Values{"projectName": {item.ProjectKey}}
@@ -189,20 +191,9 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		if containsName(existing, args.Name) {
 			return nil, fmt.Errorf("同名构建已存在，不覆盖")
 		}
-		targets := args.ComponentTargets()
-		modulesByService := make(map[string][]string)
-		for _, target := range targets {
-			modules, checked := modulesByService[target.ServiceName]
-			if !checked {
-				modules, err = s.Platform.buildServiceModules(ctx, e.Authorization, item.ProjectKey, item.ProjectType, target.ServiceName)
-				if err != nil {
-					return nil, err
-				}
-				modulesByService[target.ServiceName] = modules
-			}
-			if !slices.Contains(modules, target.ServiceModule) {
-				return nil, fmt.Errorf("所选构建组件 %s/%s 不在服务配置中，请调整清单", target.ServiceName, target.ServiceModule)
-			}
+		targets, err := s.buildOperationTargets(ctx, e, item, args)
+		if err != nil {
+			return nil, err
 		}
 
 		rawTemplate, err := s.readTemplate(ctx, e, item.ProjectKey, "build_template", args.TemplateID, &args.TemplateFingerprint)
@@ -257,6 +248,11 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 			"template_id":  args.TemplateID,
 			"product_name": item.ProjectKey,
 			"target_repos": targetRepos,
+		}
+		if len(args.ExcludeTargets) > 0 || !slices.Equal(targets, args.ComponentTargets()) {
+			args.Targets, args.ExcludeTargets = targets, nil
+			args.ServiceName, args.ServiceModule = "", ""
+			item.Params = common.JSON(args)
 		}
 	case "create_environment":
 		var args models.EnvironmentInput
@@ -361,9 +357,53 @@ func (s *AgentService) submitOperation(ctx context.Context, e *execution, item m
 		return nil, fmt.Errorf("操作不受支持")
 	}
 
-	if err := s.Store.ClaimOperation(ctx, e.User, e.Run, e.RootID, item.ID); err != nil {
+	if err := s.Store.ClaimOperation(ctx, e.User, e.Run, e.RootID, *item); err != nil {
 		return nil, err
 	}
 
 	return s.Platform.business(ctx, e.Authorization, http.MethodPost, path, query, body)
+}
+
+func (s *AgentService) buildOperationTargets(ctx context.Context, e *execution, item *models.OperationItem, args models.BuildInput) ([]models.BuildTarget, error) {
+	targets := args.ComponentTargets()
+	skip := make(map[models.BuildTarget]bool, len(args.ExcludeTargets))
+	for _, target := range args.ExcludeTargets {
+		skip[target] = true
+	}
+	modulesByService := make(map[string][]string)
+	for _, target := range slices.Concat(targets, args.ExcludeTargets) {
+		name := target.ServiceName
+		if skip[models.BuildTarget{ServiceName: name}] {
+			continue
+		}
+		if _, checked := modulesByService[name]; !checked {
+			modules, err := s.Platform.buildServiceModules(ctx, e.Authorization, item.ProjectKey, item.ProjectType, name)
+			if err != nil {
+				var platform *PlatformError
+				if errors.As(err, &platform) && platform.Status == http.StatusNotFound {
+					return nil, &PlatformError{Message: fmt.Sprintf(e.text("构建所选服务 %s 不存在，请更正服务名", "Build target service %s does not exist. Check its name."), name)}
+				}
+				return nil, err
+			}
+			modulesByService[name] = modules
+		}
+		if target.ServiceModule != "" && !slices.Contains(modulesByService[name], target.ServiceModule) {
+			return nil, &PlatformError{Message: fmt.Sprintf(e.text("服务 %s 中没有组件 %s，请更正组件名", "Service %s has no component named %s. Check the component name."), name, target.ServiceModule)}
+		}
+	}
+
+	var result []models.BuildTarget
+	for _, target := range targets {
+		for _, module := range modulesByService[target.ServiceName] {
+			component := models.BuildTarget{ServiceName: target.ServiceName, ServiceModule: module}
+			if module != "" && (target.ServiceModule == "" || target.ServiceModule == module) && !skip[component] {
+				result = append(result, component)
+				skip[component] = true
+			}
+		}
+	}
+	if len(result) == 0 {
+		return nil, &PlatformError{Message: e.text("所选服务没有可用的构建组件", "The selected services have no available build components.")}
+	}
+	return result, nil
 }

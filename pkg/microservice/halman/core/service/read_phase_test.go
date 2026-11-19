@@ -51,7 +51,7 @@ func TestBatchConfirmationReadsEachTemplateOnceAndSubmissionStillRefreshes(t *te
 		t.Fatal(err)
 	}
 	digest = "changed"
-	if _, err := s.submitOperation(ctx, e, plan.Items[0]); err == nil || reads["/api/template/charts/base"] != 4 {
+	if _, err := s.submitOperation(ctx, e, &plan.Items[0]); err == nil || reads["/api/template/charts/base"] != 4 {
 		t.Fatalf("提交前必须重读最新模板并拒绝变更: %+v %v", reads, err)
 	}
 }

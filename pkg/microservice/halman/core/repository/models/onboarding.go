@@ -38,7 +38,8 @@ type BuildInput struct {
 	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
 	ServiceName         string            `json:"service_name,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
 	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
-	Targets             []BuildTarget     `json:"targets,omitempty" jsonschema:"description=同一个构建绑定的服务组件列表。修改时提交该构建的完整目标列表，省略时保留草稿"`
+	Targets             []BuildTarget     `json:"targets,omitempty" jsonschema:"description=项目初始化默认覆盖本次所有服务组件；限制范围时填写目标。修改时提交完整列表，省略时保留草稿"`
+	ExcludeTargets      []BuildTarget     `json:"exclude_targets,omitempty" jsonschema:"description=仅项目初始化使用，列出用户明确不需要构建的组件，省略组件名则排除整个服务"`
 	Repositories        []GitConfig       `json:"repositories,omitempty" jsonschema:"description=各目标共用的构建源码，与服务配置来源分开"`
 	Variables           map[string]string `json:"variables,omitempty"`
 	CredentialVariables []string          `json:"credential_variables,omitempty" jsonschema:"description=由后端根据模板生成，调用时省略"`
@@ -47,7 +48,7 @@ type BuildInput struct {
 
 type BuildTarget struct {
 	ServiceName   string `json:"service_name"`
-	ServiceModule string `json:"service_module,omitempty" jsonschema:"description=服务中的构建组件或容器名称；已有服务只有一个组件时可省略"`
+	ServiceModule string `json:"service_module,omitempty" jsonschema:"description=指定服务组件。项目初始化省略时覆盖该服务的全部组件；已有服务只有一个组件时可省略"`
 }
 
 func (b BuildInput) ComponentTargets() []BuildTarget {

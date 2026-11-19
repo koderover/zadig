@@ -97,7 +97,7 @@ func TestExistingServiceBuildsDoNotRequireServiceConfiguration(t *testing.T) {
 						t.Fatalf("只允许绑定已有组件创建构建: %+v", item)
 					}
 					expectClaim(mock, e, plan, "executing", true)
-					if _, err := s.submitOperation(context.Background(), e, item); err != nil {
+					if _, err := s.submitOperation(context.Background(), e, &item); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -167,6 +167,7 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	store, mock := mockStore(t)
 	var posted map[string]any
 	posts := 0
+	workerReads := 0
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/authorization/auth-info":
@@ -175,7 +176,10 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 			w.Write([]byte(`{}`))
 		case "/api/code/codehost":
 			w.Write([]byte(`[{"id":1,"type":"github"}]`))
-		case "/api/service/services/api", "/api/service/services/worker":
+		case "/api/service/services/api":
+			w.Write([]byte(`{"service_module":[{"name":"app"},{"name":"sidecar"}]}`))
+		case "/api/service/services/worker":
+			workerReads++
 			w.Write([]byte(`{"service_module":[{"name":"app"}]}`))
 		case "/api/build/build":
 			if r.Method == http.MethodGet {
@@ -203,7 +207,11 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_version=.*plan_status='pending_confirmation'").WithArgs(sqlmock.AnyArg(), 1, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=.*skill_status='pending_confirmation'").WithArgs("run", "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"base"},{"name":"worker","source":"yaml_template","template_id":"base"}],"builds":[{"name":"backend-build","template_id":"general-id","targets":[{"service_name":"api","service_module":"app"},{"service_name":"worker","service_module":"app"}],"repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
+	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"base"},{"name":"worker","source":"yaml_template","template_id":"base"}],"builds":[{"name":"backend-build","template_id":"general-id","repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
+	badService := models.BuildInput{Targets: []models.BuildTarget{{ServiceName: "api-typo"}}}
+	if _, missing, err := s.resolveBuildTargets(ctx, e, args, &badService, nil, "backend-build", true); err != nil || len(missing) != 1 || !strings.Contains(missing[0], "api-typo") {
+		t.Fatalf("准备阶段应识别未列入清单的服务名: %v, %v", missing, err)
+	}
 	value, err := s.prepareProject(ctx, args)
 	if err != nil {
 		t.Fatal(err)
@@ -216,13 +224,44 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	if item.Action != "create_build" || !slices.Equal(item.DependsOn, []string{"service-api", "service-worker"}) {
 		t.Fatalf("共享构建必须依赖所有待创建服务: %+v", item)
 	}
-	expectClaim(mock, e, plan, "executing", true)
-	if _, err := s.submitOperation(ctx, e, item); err != nil {
+	var build models.BuildInput
+	if err := json.Unmarshal(item.Params, &build); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(build.Targets, []models.BuildTarget{{ServiceName: "api"}, {ServiceName: "worker"}}) || len(plan.Draft.Builds[0].Targets) != 0 {
+		t.Fatalf("默认范围应进入确认清单，草稿仍保留自动覆盖: %+v", build)
+	}
+	for _, invalid := range []models.BuildInput{
+		{Name: build.Name, TemplateID: build.TemplateID, Targets: []models.BuildTarget{{ServiceName: "api", ServiceModule: "typo"}}},
+		{Name: build.Name, TemplateID: build.TemplateID, Targets: build.Targets, ExcludeTargets: []models.BuildTarget{{ServiceName: "api", ServiceModule: "typo"}}},
+	} {
+		bad := item
+		bad.Params = common.JSON(invalid)
+		if _, err := s.submitOperation(ctx, e, &bad); err == nil || !strings.Contains(planError(err, e.Language), "typo") || posts != 0 {
+			t.Fatalf("组件名错误时应指出错误且不提交构建: %v", err)
+		}
+	}
+	build.ExcludeTargets = []models.BuildTarget{{ServiceName: "api", ServiceModule: "sidecar"}, {ServiceName: "worker"}}
+	deps, missing, err := s.resolveBuildTargets(ctx, e, args, &build, nil, build.Name, true)
+	if err != nil || len(missing) != 0 || !slices.Equal(deps, []string{"service-api"}) {
+		t.Fatalf("排除的服务不能阻塞构建: %v, %v, %v", deps, missing, err)
+	}
+	before := workerReads
+	excluded, err := s.buildOperationTargets(ctx, e, &item, build)
+	if err != nil || workerReads != before || !slices.Equal(excluded, []models.BuildTarget{{ServiceName: "api", ServiceModule: "app"}}) {
+		t.Fatalf("应尊重组件排除，并跳过读取整个排除服务: %+v, %v", excluded, err)
+	}
+	var claimed capturedDraft
+	expectClaim(mock, e, plan, "executing", true).WithArgs(&claimed, e.Run.ID)
+	if _, err := s.submitOperation(ctx, e, &item); err != nil {
 		t.Fatal(err)
 	}
 	targets, _ := posted["target_repos"].([]any)
-	if posts != 1 || len(targets) != 2 {
-		t.Fatalf("应以一次请求创建绑定两个组件的构建: %+v", posted)
+	if posts != 1 || len(targets) != 3 {
+		t.Fatalf("应以一次请求创建绑定全部实际组件的构建: %+v", posted)
+	}
+	if saved := claimed.plan.Items[3]; saved.Status != "submitting" || string(saved.Params) != string(item.Params) {
+		t.Fatalf("提交前必须保存实际目标用于结果核实: %+v", saved)
 	}
 	if matched, _, err := matchesOperation(item, common.JSON(posted), e.Run.CreatedAt); err != nil || !matched {
 		t.Fatalf("应能核实包含完整目标的构建: %t, %v", matched, err)

@@ -108,7 +108,7 @@ func TestClaimOperationPropagatesTransactionFailure(t *testing.T) {
 				}
 			}
 
-			if err := s.ClaimOperation(ctx, "user", r, "root", "item"); !errors.Is(err, dbErr) {
+			if err := s.ClaimOperation(ctx, "user", r, "root", models.OperationItem{ID: "item"}); !errors.Is(err, dbErr) {
 				t.Fatalf("事务失败时不能视为领取成功: %v", err)
 			}
 		})

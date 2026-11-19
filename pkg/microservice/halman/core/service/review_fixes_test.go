@@ -44,7 +44,7 @@ func TestHelmTemplateContentChangeInvalidatesConfirmationAndSubmission(t *testin
 	if err := s.verifyPlan(context.Background(), e, plan); err == nil {
 		t.Fatal("内容变化而变量不变，也必须阻止确认")
 	}
-	if _, err := s.submitOperation(context.Background(), e, plan.Items[0]); err == nil {
+	if _, err := s.submitOperation(context.Background(), e, &plan.Items[0]); err == nil {
 		t.Fatal("确认后的模板变化也必须在提交前拒绝")
 	}
 	digest = ""

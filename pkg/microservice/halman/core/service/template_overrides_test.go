@@ -132,7 +132,7 @@ func TestBuildSubmissionUsesTemplateMetadataForOverrides(t *testing.T) {
 	args := models.BuildInput{Name: "build", TemplateID: "general", TemplateFingerprint: fingerprint(template), ServiceName: "api", ServiceModule: "api", Repositories: []models.GitConfig{{CodehostID: 1, Owner: "team", Repo: "repo", Branch: "main"}}, Variables: map[string]string{"k1": "new-secret", "enabled": "false"}}
 	item := models.OperationItem{ID: "build", Action: "create_build", ProjectKey: "demo", Params: common.JSON(args), Status: "pending"}
 	expectClaim(mock, e, models.OperationPlan{Items: []models.OperationItem{item}}, "executing", true)
-	if _, err := s.submitOperation(context.Background(), e, item); err != nil || posts != 1 {
+	if _, err := s.submitOperation(context.Background(), e, &item); err != nil || posts != 1 {
 		t.Fatalf("构建应正常提交一次: %d %v", posts, err)
 	}
 }

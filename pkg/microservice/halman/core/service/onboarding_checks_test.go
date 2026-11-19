@@ -109,7 +109,7 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 	if err := s.verifyPlan(context.Background(), e, models.OperationPlan{Items: []models.OperationItem{item}}); err == nil || !strings.Contains(err.Error(), "模板已变化") {
 		t.Fatalf("确认前必须绕过草稿缓存、拒绝模板变化: %v", err)
 	}
-	if _, err := s.submitOperation(context.Background(), e, item); err == nil || !strings.Contains(err.Error(), "模板已变化") {
+	if _, err := s.submitOperation(context.Background(), e, &item); err == nil || !strings.Contains(err.Error(), "模板已变化") {
 		t.Fatalf("提交前必须绕过草稿缓存、拒绝模板变化: %v", err)
 	}
 }
