@@ -91,6 +91,12 @@ func AnalyzeTerminalSession(sessionID string) (*commonmodels.TerminalAuditAIResu
 	if session.Status == commonmodels.TerminalSessionStatusRunning {
 		return nil, e.NewWithDesc(e.ErrInvalidParam, "terminal session is still running")
 	}
+	if _, err := llmservice.GetAIAuditLLMClient(context.Background()); err != nil {
+		if errors.Is(err, llmservice.ErrAIAuditModelNotConfigured) {
+			return nil, e.NewWithDesc(e.ErrInvalidParam, "请先在系统设置 - AI 能力 - 审计分析中选择模型")
+		}
+		return nil, e.NewWithDesc(e.ErrInvalidParam, fmt.Sprintf("审计分析模型不可用: %v", err))
+	}
 	now := time.Now()
 	repo := commonrepo.NewTerminalAuditAIResultColl()
 	result, err := repo.TryStart(sessionID, uuid.NewString(), now.Unix(), now.Add(terminalAuditAIPreparationLease).Unix())

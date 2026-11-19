@@ -2,6 +2,7 @@ package llmservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -120,17 +121,19 @@ var (
 	findAIAuditModel = func(ctx context.Context, id string) (*models.LLMIntegration, error) {
 		return commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
 	}
-	defaultAIAuditClient = GetDefaultLLMClient
 )
 
-// GetAIAuditLLMClient uses the selected model, or the default only when no model is configured.
+// ErrAIAuditModelNotConfigured means no model is selected for AI audit analysis.
+var ErrAIAuditModelNotConfigured = errors.New("AI audit analysis model is not configured")
+
+// GetAIAuditLLMClient only uses the model selected for AI audit analysis.
 func GetAIAuditLLMClient(ctx context.Context) (llm.ILLM, error) {
 	config, err := readAIAuditConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read AI audit config: %w", err)
 	}
 	if config.LLMIntegrationID == "" {
-		return defaultAIAuditClient(ctx)
+		return nil, ErrAIAuditModelNotConfigured
 	}
 	integration, err := findAIAuditModel(ctx, config.LLMIntegrationID)
 	if err != nil {

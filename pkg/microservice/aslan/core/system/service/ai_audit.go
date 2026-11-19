@@ -33,10 +33,11 @@ func UpdateAIAuditConfig(ctx context.Context, args *commonmodels.AIAuditConfig) 
 	if args == nil {
 		return e.NewWithDesc(e.ErrInvalidParam, "审计分析配置不能为空")
 	}
-	if args.LLMIntegrationID != "" {
-		if _, err := findAIAuditModel(ctx, args.LLMIntegrationID); err != nil {
-			return e.NewWithDesc(e.ErrInvalidParam, "所选模型集成不存在或无法读取")
-		}
+	if args.LLMIntegrationID == "" {
+		return e.NewWithDesc(e.ErrInvalidParam, "请选择审计分析模型")
+	}
+	if _, err := findAIAuditModel(ctx, args.LLMIntegrationID); err != nil {
+		return e.NewWithDesc(e.ErrInvalidParam, "所选模型集成不存在或无法读取")
 	}
 	if err := writeAIAuditConfig(ctx, args); err != nil {
 		return e.NewWithDesc(e.ErrInternalError, fmt.Sprintf("保存审计分析配置失败: %v", err))

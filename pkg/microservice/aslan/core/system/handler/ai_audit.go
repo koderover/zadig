@@ -10,7 +10,7 @@ import (
 )
 
 // @Summary 获取审计分析模型配置
-// @Description 需要 AI 能力查看或编辑权限；llm_integration_id 为空表示使用默认模型。模型选项使用 GET /api/aslan/system/llm/integrations，仅返回 ID 和名称。
+// @Description 需要 AI 能力查看或编辑权限；llm_integration_id 为空表示未配置模型。模型选项使用 GET /api/aslan/system/llm/integrations，仅返回 ID 和名称。
 // @Tags system
 // @Produce json
 // @Success 200 {object} commonmodels.AIAuditConfig
@@ -25,7 +25,7 @@ func GetAIAuditConfig(c *gin.Context) {
 }
 
 // @Summary 保存审计分析模型配置
-// @Description 需要 AI 能力编辑权限；选择已有模型，空 ID 恢复使用默认模型。已选模型失效时运行报错，不自动切换默认模型。
+// @Description 需要 AI 能力编辑权限；必须选择已有模型。未配置或已选模型失效时审计分析报错。
 // @Tags system
 // @Accept json
 // @Produce json
