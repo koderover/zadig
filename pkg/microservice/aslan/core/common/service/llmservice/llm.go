@@ -112,3 +112,29 @@ func GetAIReleaseSpecialistLLMClient(ctx context.Context) (llm.ILLM, error) {
 	}
 	return NewLLMClient(integration)
 }
+
+var (
+	readAIAuditConfig = func(ctx context.Context) (*models.AIAuditConfig, error) {
+		return commonrepo.NewSystemSettingColl().GetAIAuditConfig(ctx)
+	}
+	findAIAuditModel = func(ctx context.Context, id string) (*models.LLMIntegration, error) {
+		return commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
+	}
+	defaultAIAuditClient = GetDefaultLLMClient
+)
+
+// GetAIAuditLLMClient uses the selected model, or the default only when no model is configured.
+func GetAIAuditLLMClient(ctx context.Context) (llm.ILLM, error) {
+	config, err := readAIAuditConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read AI audit config: %w", err)
+	}
+	if config.LLMIntegrationID == "" {
+		return defaultAIAuditClient(ctx)
+	}
+	integration, err := findAIAuditModel(ctx, config.LLMIntegrationID)
+	if err != nil {
+		return nil, fmt.Errorf("find configured AI audit model %s: %w", config.LLMIntegrationID, err)
+	}
+	return NewLLMClient(integration)
+}

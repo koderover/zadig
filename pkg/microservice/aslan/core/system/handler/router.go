@@ -536,6 +536,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		ai.GET("/release-specialist", GetAIReleaseSpecialistConfig)
 		ai.PUT("/release-specialist", UpdateAIReleaseSpecialistConfig)
+		ai.GET("/audit", GetAIAuditConfig)
+		ai.PUT("/audit", UpdateAIAuditConfig)
 		ai.GET("/review", GetSystemAIReviewConfig)
 		ai.PUT("/review", UpdateSystemAIReviewConfig)
 		ai.GET("/assistant", GetAIAssistantConfig)

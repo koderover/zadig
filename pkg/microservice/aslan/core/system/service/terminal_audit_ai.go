@@ -169,7 +169,7 @@ func analyzeTerminalAuditChunks(ctx context.Context, session *commonmodels.Termi
 	}
 	result.LeaseExpiresAt = leaseExpiresAt
 	sessionMetadataJSON, _ := json.Marshal(evidence.Session)
-	client, err := llmservice.GetDefaultLLMClient(ctx)
+	client, err := llmservice.GetAIAuditLLMClient(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,10 @@ type AIReleaseSpecialistConfig struct {
 	LLMIntegrationID string `json:"llm_integration_id" bson:"llm_integration_id"`
 }
 
+type AIAuditConfig struct {
+	LLMIntegrationID string `json:"llm_integration_id" bson:"llm_integration_id"`
+}
+
 const DefaultWorkflowTaskListRefreshInterval int64 = 3
 
 type SystemSetting struct {
@@ -45,6 +49,7 @@ type SystemSetting struct {
 	AIReviewConfig                        *AIReviewConfig            `bson:"ai_review_config" json:"ai_review_config"`
 	AIAssistantConfig         *types.AIAssistantConfig   `bson:"ai_assistant_config,omitempty" json:"ai_assistant_config,omitempty"`
 	AIReleaseSpecialistConfig *AIReleaseSpecialistConfig `bson:"ai_release_specialist_config,omitempty" json:"ai_release_specialist_config,omitempty"`
+	AIAuditConfig             *AIAuditConfig             `bson:"ai_audit_config,omitempty" json:"ai_audit_config,omitempty"`
 	UpdateTime                            int64                      `bson:"update_time" json:"update_time"`
 }
 
