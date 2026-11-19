@@ -113,6 +113,42 @@ func (r *AIReviewReport) Verdict() AIReviewVerdict {
 	return AIReviewVerdictPassed
 }
 
+// AIReviewSeverities lists the finding severities from most to least severe.
+var AIReviewSeverities = []string{"critical", "high", "medium", "low"}
+
+// Verdict adjusts the report verdict to the task outcome: with the quality gate off, the run script
+// turns exit code 1 into success, so blocking findings only mean "passed with findings".
+func (s *StepAIReviewReportSpec) Verdict() AIReviewVerdict {
+	verdict := s.Report.Verdict()
+	if verdict == AIReviewVerdictBlocked && s.QualityGateEnabled != nil && !*s.QualityGateEnabled {
+		if len(s.Report.Findings) > 0 {
+			return AIReviewVerdictPassedWithFindings
+		}
+		return AIReviewVerdictPassed
+	}
+	return verdict
+}
+
+// BlockingSeverities returns the found severities, most severe first, that tripped the quality gate.
+func (s *StepAIReviewReportSpec) BlockingSeverities() []string {
+	blocking := make(map[string]bool, len(s.FailOn))
+	for _, severity := range s.FailOn {
+		blocking[strings.ToLower(strings.TrimSpace(severity))] = true
+	}
+	if len(blocking) == 0 {
+		// Tasks created before fail_on was recorded: fall back to the default gate.
+		blocking["critical"], blocking["high"] = true, true
+	}
+	counts := s.Report.SeverityCounts()
+	found := make([]string, 0, len(AIReviewSeverities))
+	for _, severity := range AIReviewSeverities {
+		if blocking[severity] && counts[severity] > 0 {
+			found = append(found, severity)
+		}
+	}
+	return found
+}
+
 // SeverityCounts counts findings by normalized (lower-case) severity.
 func (r *AIReviewReport) SeverityCounts() map[string]int {
 	counts := make(map[string]int)
