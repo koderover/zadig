@@ -3513,9 +3513,9 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		}
 	}
 
-	// the deploy result only writes back handled services, so remove deleted services
-	// and chart releases taken over by Zadig services explicitly
-	if err = helmservice.RemoveServicesFromEnv(productName, envName, productResp.Production, deletedSvcNames, addedReleaseNameSet.List(), username); err != nil {
+	// the deploy result only writes back handled services, so remove the
+	// uninstalled services explicitly
+	if err = helmservice.RemoveServicesFromEnv(productName, envName, productResp.Production, deletedSvcNames, username); err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 

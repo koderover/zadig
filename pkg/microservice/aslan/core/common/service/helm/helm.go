@@ -430,27 +430,28 @@ func updateEnvServices(productName, envName string, production bool, updateBy st
 
 // MergeServicesInEnv writes back only the services handled by the current
 // operation, so a stale snapshot cannot drop services added concurrently.
+// Results are applied in write-back order under the env lock, so the last
+// finished deployment wins, which matches the release in the cluster.
 func MergeServicesInEnv(productName, envName string, index int, services []*commonmodels.ProductService, production bool, updateBy string) error {
 	if len(services) == 0 {
 		return nil
 	}
 	return updateEnvServices(productName, envName, production, updateBy, func(env *commonmodels.Product, orchestration [][]string) {
-		env.Services = mergeServicesIntoGroups(env.Services, index, services, orchestration, time.Now().Unix(), productName, envName)
+		env.Services = mergeServicesIntoGroups(env.Services, index, services, orchestration, time.Now().Unix())
 	})
 }
 
-// RemoveServicesFromEnv removes the given Zadig services by service name and
-// chart services by release name.
-func RemoveServicesFromEnv(productName, envName string, production bool, serviceNames, releaseNames []string, updateBy string) error {
-	if len(serviceNames) == 0 && len(releaseNames) == 0 {
+// RemoveServicesFromEnv removes the given Zadig services from the environment.
+func RemoveServicesFromEnv(productName, envName string, production bool, serviceNames []string, updateBy string) error {
+	if len(serviceNames) == 0 {
 		return nil
 	}
-	svcSet, releaseSet := sets.NewString(serviceNames...), sets.NewString(releaseNames...)
+	svcSet := sets.NewString(serviceNames...)
 	return updateEnvServices(productName, envName, production, updateBy, func(env *commonmodels.Product, _ [][]string) {
 		for gi, group := range env.Services {
 			kept := make([]*commonmodels.ProductService, 0, len(group))
 			for _, svc := range group {
-				if (svc.FromZadig() && svcSet.Has(svc.ServiceName)) || (!svc.FromZadig() && releaseSet.Has(svc.ReleaseName)) {
+				if svc.FromZadig() && svcSet.Has(svc.ServiceName) {
 					continue
 				}
 				kept = append(kept, svc)
@@ -461,30 +462,54 @@ func RemoveServicesFromEnv(productName, envName string, production bool, service
 }
 
 // mergeServicesIntoGroups replaces matched services in place and appends new
-// ones to group index. A service updated after this operation started is kept.
-func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int, services []*commonmodels.ProductService, orchestration [][]string, now int64, productName, envName string) [][]*commonmodels.ProductService {
+// ones to group index. A record of another service that owns the same release
+// is dropped in the same write, since a release belongs to one service.
+func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int, services []*commonmodels.ProductService, orchestration [][]string, now int64) [][]*commonmodels.ProductService {
 	added := false
 	for _, svc := range services {
-		gi, si := findEnvService(groups, svc)
-		if gi < 0 {
-			for len(groups) <= index {
-				groups = append(groups, []*commonmodels.ProductService{})
-			}
-			svc.UpdateTime = now
-			groups[index] = append(groups[index], svc)
-			added = true
-			continue
-		}
-		// svc.UpdateTime is when this operation started to handle it
-		if groups[gi][si].UpdateTime > svc.UpdateTime {
-			log.Warnf("service %s(release %s) in environment %s/%s was updated by another operation, ignore the stale result", svc.ServiceName, svc.ReleaseName, productName, envName)
-			continue
-		}
 		svc.UpdateTime = now
-		groups[gi][si] = svc
+		groups = dropReleaseOwners(groups, svc)
+		gi, si := findEnvService(groups, svc)
+		if gi >= 0 {
+			groups[gi][si] = svc
+			continue
+		}
+		for len(groups) <= index {
+			groups = append(groups, []*commonmodels.ProductService{})
+		}
+		groups[index] = append(groups[index], svc)
+		added = true
 	}
 	if added {
 		sortServiceGroup(groups[index], orchestration)
+	}
+	return groups
+}
+
+func isSameEnvService(a, b *commonmodels.ProductService) bool {
+	if a.FromZadig() != b.FromZadig() {
+		return false
+	}
+	if a.FromZadig() {
+		return a.ServiceName == b.ServiceName
+	}
+	return a.ReleaseName == b.ReleaseName
+}
+
+// dropReleaseOwners removes other services that own the release of target.
+func dropReleaseOwners(groups [][]*commonmodels.ProductService, target *commonmodels.ProductService) [][]*commonmodels.ProductService {
+	if target.ReleaseName == "" {
+		return groups
+	}
+	for gi, group := range groups {
+		kept := make([]*commonmodels.ProductService, 0, len(group))
+		for _, svc := range group {
+			if svc.ReleaseName == target.ReleaseName && !isSameEnvService(svc, target) {
+				continue
+			}
+			kept = append(kept, svc)
+		}
+		groups[gi] = kept
 	}
 	return groups
 }
@@ -493,10 +518,7 @@ func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int,
 func findEnvService(groups [][]*commonmodels.ProductService, target *commonmodels.ProductService) (int, int) {
 	for gi, group := range groups {
 		for si, svc := range group {
-			if svc.FromZadig() != target.FromZadig() {
-				continue
-			}
-			if (svc.FromZadig() && svc.ServiceName == target.ServiceName) || (!svc.FromZadig() && svc.ReleaseName == target.ReleaseName) {
+			if isSameEnvService(svc, target) {
 				return gi, si
 			}
 		}
