@@ -301,6 +301,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 		}
 	}
+	globalVariables = commontypes.RemoveGlobalVariableRelatedService(globalVariables, deletedServices.List()...)
 	exitedProd.GlobalVariables = globalVariables
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
