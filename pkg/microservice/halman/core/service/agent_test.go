@@ -64,6 +64,9 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			if !identityFound {
 				t.Error("模型请求缺少当前用户上下文")
 			}
+			if !strings.Contains(string(body), "多项摘要、补问或逐项结果使用 Markdown 无序列表") {
+				t.Error("模型请求缺少多项回复的 Markdown 列表规则")
+			}
 			if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
 				t.Error("模型应收到数据库规则快照，且停用 Skill 的工具声明必须移除")
 			}
