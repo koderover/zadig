@@ -116,10 +116,10 @@ func (c *CustomStageCtl) setVMDeployPkgFiles() {
 		jobPkgFiles[job.OriginName] = append(jobPkgFiles[job.OriginName], pkgFile)
 	}
 
+	// always overwrite: a retried stage must refresh the value with the
+	// packages of job tasks that only ran in the retry.
 	for _, jobName := range jobNames {
 		key := fmt.Sprintf("{{.job.%s.PKG_FILES}}", jobName)
-		if _, ok := c.workflowCtx.GlobalContextGet(key); !ok {
-			c.workflowCtx.GlobalContextSet(key, strings.Join(jobPkgFiles[jobName], ","))
-		}
+		c.workflowCtx.GlobalContextSet(key, strings.Join(jobPkgFiles[jobName], ","))
 	}
 }
