@@ -29,7 +29,7 @@ func TestExistingServiceBuildsDoNotRequireServiceConfiguration(t *testing.T) {
 						w.Write([]byte(`{"services":[["service1","service2","service3"]]}`))
 					case "/api/v1/authorization/auth-info":
 						w.Write([]byte(`{"project_auth_info":{"p":{"build":{"create":true}}}}`))
-					case "/api/template/build/general-id":
+					case "/api/template/build/000000000000000000000003":
 						w.Write([]byte(`{"name":"general"}`))
 					case "/api/code/codehost":
 						w.Write([]byte(`[{"id":1,"type":"github"}]`))
@@ -42,7 +42,7 @@ func TestExistingServiceBuildsDoNotRequireServiceConfiguration(t *testing.T) {
 						if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 							t.Fatal(err)
 						}
-						if body["template_id"] != "general-id" || body["product_name"] != "p" {
+						if body["template_id"] != "000000000000000000000003" || body["product_name"] != "p" {
 							t.Fatalf("构建参数错误: %v", body)
 						}
 						writes++
@@ -69,7 +69,7 @@ func TestExistingServiceBuildsDoNotRequireServiceConfiguration(t *testing.T) {
 					if references {
 						args.Services = append(args.Services, models.ServiceInput{Name: name})
 					}
-					args.Builds = append(args.Builds, models.BuildInput{Name: name + "-build", TemplateID: "general-id", ServiceName: name, Repositories: []models.GitConfig{{CodehostID: 1, Owner: "team", Repo: "repo", Branch: "main"}}})
+					args.Builds = append(args.Builds, models.BuildInput{Name: name + "-build", TemplateID: "000000000000000000000003", ServiceName: name, Repositories: []models.GitConfig{{CodehostID: 1, Owner: "team", Repo: "repo", Branch: "main"}}})
 				}
 				mock.ExpectBegin()
 				mock.ExpectQuery("SELECT resource_scopes FROM ai_run").WithArgs("run", "user").WillReturnRows(sqlmock.NewRows([]string{"scopes"}).AddRow("[]"))
@@ -147,7 +147,7 @@ func TestExistingBuildTargetValidation(t *testing.T) {
 			if !tc.fail {
 				expectOnboardingDraftSave(mock)
 			}
-			templateID := "general-id"
+			templateID := "000000000000000000000003"
 			if tc.name == "无模板" {
 				templateID = ""
 			}
@@ -172,7 +172,7 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/authorization/auth-info":
 			w.Write([]byte(`{"is_system_admin":true}`))
-		case "/api/template/yaml/base", "/api/template/build/general-id":
+		case "/api/template/yaml/000000000000000000000004", "/api/template/build/000000000000000000000003":
 			w.Write([]byte(`{}`))
 		case "/api/code/codehost":
 			w.Write([]byte(`[{"id":1,"type":"github"}]`))
@@ -207,7 +207,7 @@ func TestProjectOnboardingSubmitsOneTemplateBuildForAllTargets(t *testing.T) {
 	mock.ExpectExec("UPDATE ai_run SET plan=.*plan_version=.*plan_status='pending_confirmation'").WithArgs(sqlmock.AnyArg(), 1, sqlmock.AnyArg(), "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE ai_run SET active_plan_run_id=.*skill_status='pending_confirmation'").WithArgs("run", "run").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"base"},{"name":"worker","source":"yaml_template","template_id":"base"}],"builds":[{"name":"backend-build","template_id":"general-id","repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
+	args := onboardingInput(t, `{"project_key":"demo","project_name":"示例","project_type":"k8s","skip_environment":true,"create_workflow":false,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000004"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000004"}],"builds":[{"name":"backend-build","template_id":"000000000000000000000003","repositories":[{"codehost_id":1,"owner":"team","repo":"backend","branch":"main"}]}]}`)
 	badService := models.BuildInput{Targets: []models.BuildTarget{{ServiceName: "api-typo"}}}
 	if _, missing, err := s.resolveBuildTargets(ctx, e, args, &badService, nil, "backend-build", true); err != nil || len(missing) != 1 || !strings.Contains(missing[0], "api-typo") {
 		t.Fatalf("准备阶段应识别未列入清单的服务名: %v, %v", missing, err)

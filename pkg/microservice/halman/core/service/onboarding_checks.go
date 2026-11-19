@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -97,6 +99,7 @@ func onboardingCheck[T any](e *execution, key string, input any, load func() (T,
 }
 
 type templateCheck struct {
+	ID          string   `json:"-"`
 	Fingerprint string   `json:"fingerprint"`
 	Missing     []string `json:"missing,omitempty"`
 	Credentials []string `json:"credentials,omitempty"`
@@ -119,6 +122,7 @@ func (s *AgentService) markDraftCredentials(ctx context.Context, e *execution, a
 		if err != nil {
 			return err
 		}
+		item.TemplateID = check.ID
 		item.CredentialVariables = check.Credentials
 	}
 	for i := range args.Builds {
@@ -137,13 +141,21 @@ func (s *AgentService) markDraftCredentials(ctx context.Context, e *execution, a
 		if err != nil {
 			return err
 		}
+		item.TemplateID = check.ID
 		item.CredentialVariables = check.Credentials
 	}
 	return nil
 }
 
 func (s *AgentService) checkOnboardingTemplate(ctx context.Context, e *execution, key, project, source, id string, variables map[string]string) (templateCheck, error) {
-	return onboardingCheck(e, key, []any{project, source, id, variables}, func() (templateCheck, error) {
+	if (source == "yaml_template" || source == "build_template") && !primitive.IsValidObjectID(id) {
+		resolved, err := s.onboardingTemplateID(ctx, e, project, source, id)
+		if err != nil {
+			return templateCheck{}, err
+		}
+		id = resolved
+	}
+	check, err := onboardingCheck(e, key, []any{project, source, id, variables}, func() (templateCheck, error) {
 		raw, err := s.readTemplate(ctx, e, project, source, id, nil)
 		if err != nil {
 			return templateCheck{}, err
@@ -164,4 +176,39 @@ func (s *AgentService) checkOnboardingTemplate(ctx context.Context, e *execution
 		}
 		return result, nil
 	})
+	check.ID = id
+	return check, err
+}
+
+func (s *AgentService) onboardingTemplateID(ctx context.Context, e *execution, project, source, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New(e.text("请选择模板或提供完整模板名称", "Select a template or provide its full name."))
+	}
+
+	request := models.CatalogRequest{Kind: source + "s", ProjectKey: project, Keyword: name, Page: 1}
+	for request.Page != 0 {
+		raw, err := s.Platform.catalog(ctx, e.Authorization, request)
+		if err != nil {
+			return "", err
+		}
+		var page struct {
+			Items []struct {
+				ID string `json:"id"`
+			} `json:"items"`
+			NextPage int `json:"next_page"`
+		}
+		if err := json.Unmarshal(raw, &page); err != nil {
+			return "", err
+		}
+		if len(page.Items) > 0 {
+			// YAML 和构建模板名称在各自的集合中有唯一索引。
+			if len(page.Items) != 1 || !primitive.IsValidObjectID(page.Items[0].ID) {
+				return "", errors.New(e.text("模板目录返回的匹配项无效，请重新选择模板", "The template catalog returned an invalid match. Select the template again."))
+			}
+			return page.Items[0].ID, nil
+		}
+		request.Page = page.NextPage
+	}
+	return "", fmt.Errorf(e.text("目录中没有匹配 %q 的模板，请核对完整名称", "No template matches %q in the catalog. Check the full name."), name)
 }

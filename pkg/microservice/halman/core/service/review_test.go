@@ -317,7 +317,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	cutoff := now.Add(-time.Hour)
 	plan := models.OperationPlan{
 		Draft: &models.OnboardingInput{ProjectKey: "demo", ProjectName: "示例", ProjectType: "k8s", SkipEnvironment: true,
-			Services: []models.ServiceInput{{Name: "api", Source: "yaml_template", TemplateID: "general", Variables: map[string]string{"replicas": "2"}}}},
+			Services: []models.ServiceInput{{Name: "api", Source: "yaml_template", TemplateID: "000000000000000000000001", Variables: map[string]string{"replicas": "2"}}}},
 		MissingFields: []string{"services"},
 	}
 	rows := func() *sqlmock.Rows {
@@ -422,7 +422,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	reads := 0
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		reads++
-		if authorized && status == "pending_confirmation" && r.Method == http.MethodGet && r.URL.Path == "/api/template/yaml/general" {
+		if authorized && status == "pending_confirmation" && r.Method == http.MethodGet && r.URL.Path == "/api/template/yaml/000000000000000000000001" {
 			w.Write([]byte(`{"service_variable_kvs":[{"key":"replicas","type":"string","value":"2"}]}`))
 			return
 		}
@@ -497,7 +497,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 			t.Fatalf("只应复查已有模板及权限并保存新清单: %v %v", value, err)
 		}
 		updated := value.(map[string]any)["plan"].(models.OperationPlan).Draft
-		if e.RootID != "root" || updated.ProjectKey != "demo" || updated.Services[0].TemplateID != "general" || updated.Services[0].Variables["replicas"] != "1" {
+		if e.RootID != "root" || updated.ProjectKey != "demo" || updated.Services[0].TemplateID != plan.Draft.Services[0].TemplateID || updated.Services[0].Variables["replicas"] != "1" {
 			t.Fatalf("只改 replicas 应沿用根执行、项目及服务模板: %+v", updated)
 		}
 	}

@@ -38,6 +38,10 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 			w.Write([]byte(`[{"id":1,"type":"gitlab"}]`))
 		case r.URL.Path == "/api/project/products/demo/services":
 			w.Write([]byte(`{"services":[]}`))
+		case r.URL.Path == "/api/template/yaml":
+			w.Write([]byte(`{"yaml_template":[{"id":"000000000000000000000009","name":"general-old"},{"id":"000000000000000000000001","name":"general"}],"total":2}`))
+		case r.URL.Path == "/api/template/build":
+			w.Write([]byte(`{"build_templates":[{"id":"000000000000000000000001","name":"general"}],"total":1}`))
 		case strings.HasPrefix(r.URL.Path, "/api/template/"):
 			w.Write(common.JSON(map[string]any{"version": digest, "variables": []map[string]any{{"key": "PORT", "type": "string", "value": "80"}}}))
 		default:
@@ -50,16 +54,16 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 		`{"environment":{"name":"staging"}}`,
 		`{"environment":{"namespace":"custom-ns"},"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
 		`{"builds":[{"name":"build1","service_module":"worker"}]}`,
-		`{"builds":[{"name":"build1","template_id":"other"}]}`,
-		`{"services":[{"name":"service1","template_id":"other","template_fingerprint":"model-provided"}]}`,
+		`{"builds":[{"name":"build1","template_id":"000000000000000000000002"}]}`,
+		`{"services":[{"name":"service1","template_id":"000000000000000000000002","template_fingerprint":"model-provided"}]}`,
 	}
 	wantReads := []map[string]int{
-		{"/api/template/yaml/general": 1, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 1, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/build/general": 1, "/api/template/build/other": 1, "/api/code/codehost": 1},
-		{"/api/template/yaml/general": 2, "/api/template/yaml/other": 1, "/api/template/build/general": 1, "/api/template/build/other": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 1, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 1, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/build/000000000000000000000001": 1, "/api/template/build/000000000000000000000002": 1, "/api/code/codehost": 1},
+		{"/api/template/yaml/000000000000000000000001": 2, "/api/template/yaml/000000000000000000000002": 1, "/api/template/build/000000000000000000000001": 1, "/api/template/build/000000000000000000000002": 1, "/api/code/codehost": 1},
 	}
 	var saved capturedDraft
 	for i, patch := range patches {
@@ -79,6 +83,11 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 		}
 		if len(saved.plan.DraftChecks) == 0 {
 			t.Fatal("校验结果必须随草稿持久化")
+		}
+		if reads["/api/template/yaml"] != 1 || reads["/api/template/build"] != 1 ||
+			saved.plan.Draft.Services[1].TemplateID != "000000000000000000000001" ||
+			(i < 4 && saved.plan.Draft.Builds[0].TemplateID != "000000000000000000000001") {
+			t.Fatal("显示名称须精确解析为模板 ID，后续轮次直接沿用已保存的 ID")
 		}
 		if strings.Contains(string(common.JSON(value)), "draft_checks") {
 			t.Fatal("内部校验记录不能作为补参返回值")
@@ -127,12 +136,12 @@ func TestOnboardingTemplateCheckDoesNotCacheFailuresOrTrustClientFingerprint(t *
 	s := &AgentService{Platform: platform}
 	e := reportExecution("project_onboarding")
 	for i := 0; i < 2; i++ {
-		_, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "general", nil)
+		_, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "000000000000000000000001", nil)
 		if (err != nil) != (i == 0) {
 			t.Fatalf("失败结果不得缓存: %v", err)
 		}
 	}
-	check, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "general", map[string]string{"cred": "override"})
+	check, err := s.checkOnboardingTemplate(context.Background(), e, "template", "demo", "yaml_template", "000000000000000000000001", map[string]string{"cred": "override"})
 	if err != nil || !reflect.DeepEqual(check.Credentials, []string{"cred"}) {
 		t.Fatalf("修改凭据变量应重新校验并保留凭据标记: %+v %v", check, err)
 	}

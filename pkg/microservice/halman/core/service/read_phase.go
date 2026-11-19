@@ -26,7 +26,7 @@ func phaseReads(ctx context.Context, method, path string) *readPhase {
 		return nil
 	}
 	parts := strings.Split(path, "/")
-	template := len(parts) == 5 && parts[1] == "api" && parts[2] == "template" &&
+	template := (len(parts) == 4 || len(parts) == 5) && parts[1] == "api" && parts[2] == "template" &&
 		(parts[3] == "yaml" || parts[3] == "charts" || parts[3] == "build")
 	services := len(parts) == 6 && parts[1] == "api" && parts[2] == "project" && parts[3] == "products" && parts[5] == "services"
 	if path != "/api/code/codehost" && !template && !services {

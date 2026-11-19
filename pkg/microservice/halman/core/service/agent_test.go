@@ -27,6 +27,7 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	enabled, modelCalls := true, 0
 	inspectionStarted := false
 	wantReasoningEffort := ""
+	wantMaxTokens := 8192
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
 	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
@@ -43,12 +44,16 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			var payload struct {
 				Messages        []model.Message
 				ReasoningEffort string `json:"reasoning_effort"`
+				MaxTokens       int    `json:"max_completion_tokens"`
 			}
 			if err := json.Unmarshal(body, &payload); err != nil {
 				t.Fatal(err)
 			}
 			if payload.ReasoningEffort != wantReasoningEffort {
 				t.Errorf("模型请求的 reasoning_effort = %q，期望 %q", payload.ReasoningEffort, wantReasoningEffort)
+			}
+			if payload.MaxTokens != wantMaxTokens {
+				t.Errorf("模型请求的输出上限 = %d，期望 %d", payload.MaxTokens, wantMaxTokens)
 			}
 			identityFound := false
 			for _, message := range payload.Messages {
@@ -212,6 +217,20 @@ data: [DONE]
 
 	inspectionStarted = false
 	wantReasoningEffort = "low"
+	wantMaxTokens = 16384
+	exec.SkillID, exec.ContinuingSkill, exec.RootID = "", "", ""
+	exec.PendingOnboarding = true
+	pending, err := r.Run(ctx, "user-1", "pending-onboarding-conversation", model.NewUserMessage("继续"), agent.WithRequestID("run-pending-onboarding"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for e := range pending {
+		if e.Error != nil {
+			t.Fatalf("识别待续接草稿失败: %+v", e.Error)
+		}
+	}
+
+	exec.PendingOnboarding = false
 	exec.SkillID, exec.ContinuingSkill, exec.RootID = "project_onboarding", "project_onboarding", "saved-project-run"
 	resumed, err := r.Run(ctx, "user-1", "onboarding-conversation", model.NewUserMessage("继续"), agent.WithRequestID("run-onboarding"))
 	if err != nil {
@@ -222,8 +241,8 @@ data: [DONE]
 			t.Fatalf("续接初始化草稿失败: %+v", e.Error)
 		}
 	}
-	if modelCalls != 3 {
-		t.Fatal("续接初始化应发送一次轻量推理请求")
+	if modelCalls != 4 {
+		t.Fatal("识别待续接草稿和继续已恢复草稿均应发送低推理等级请求")
 	}
 
 	enabled = false

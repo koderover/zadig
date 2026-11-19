@@ -171,7 +171,7 @@ func TestOnboardingCountMismatchAsksBeforeReadingConfiguration(t *testing.T) {
 	e.Cutoff = time.Now().Add(-time.Hour)
 	s := &AgentService{Store: store}
 	expectOnboardingDraftSave(mock)
-	value, err := s.prepareProject(context.WithValue(context.Background(), executionKey{}, e), onboardingInput(t, `{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"t"},{"name":"web","source":"yaml_template","template_id":"t"}]}`))
+	value, err := s.prepareProject(context.WithValue(context.Background(), executionKey{}, e), onboardingInput(t, `{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 	if err != nil || e.Outcome != "awaiting_input" || !strings.Contains(string(common.JSON(value)), "当前清单为 2 个") || e.OnboardingDraft.ExpectedServiceCount != 3 {
 		t.Fatalf("少服务时必须保存草稿补问，不查询或创建资源: %v %v", value, err)
 	}
@@ -238,7 +238,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					}
 				}
 				expectOnboardingDraftSave(mock)
-				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"t"},{"name":"web","source":"yaml_template","template_id":"t"},{"name":"worker","source":"yaml_template","template_id":"t"}]}`))
+				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 				if err != nil || e.Outcome != "awaiting_input" {
 					t.Fatalf("模板缺参应进入草稿而非报错: %v %v", value, err)
 				}

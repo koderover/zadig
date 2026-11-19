@@ -380,6 +380,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			if err != nil {
 				return nil, err
 			}
+			item.TemplateID = check.ID
 			item.TemplateFingerprint = check.Fingerprint
 			item.CredentialVariables = check.Credentials
 			for _, key := range check.Missing {
@@ -464,6 +465,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 		if err != nil {
 			return nil, err
 		}
+		build.TemplateID, plannedBuild.TemplateID = check.ID, check.ID
 		build.TemplateFingerprint, build.CredentialVariables = check.Fingerprint, check.Credentials
 		plannedBuild.TemplateFingerprint, plannedBuild.CredentialVariables = check.Fingerprint, check.Credentials
 		for _, key := range check.Missing {
