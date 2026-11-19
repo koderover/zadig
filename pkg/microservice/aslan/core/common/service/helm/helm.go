@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -375,6 +377,202 @@ func UpdateServicesGroupInEnv(productName, envName string, index int, group []*m
 	}
 
 	return mongo.CommitTransaction(session)
+}
+
+// updateEnvServices reads the latest environment under the env lock, lets
+// mutate change its services and writes them back.
+func updateEnvServices(productName, envName string, production bool, updateBy string, mutate func(env *commonmodels.Product, orchestration [][]string)) error {
+	session := mongo.Session()
+	defer session.EndSession(context.TODO())
+
+	err := mongo.StartTransaction(session)
+	if err != nil {
+		return err
+	}
+
+	productColl := commonrepo.NewProductCollWithSession(session)
+
+	envLock := cache.NewRedisLock(fmt.Sprintf("%s:%s:%s", UpdateHelmEnvLockKey, productName, envName))
+	envLock.Lock()
+	defer envLock.Unlock()
+
+	templateProduct, err := template.NewProductCollWithSess(session).Find(productName)
+	if err != nil {
+		mongo.AbortTransaction(session)
+		return errors.Wrapf(err, "failed to find template product %s", productName)
+	}
+	orchestration := templateProduct.Services
+	if production {
+		orchestration = templateProduct.ProductionServices
+	}
+
+	env, err := productColl.Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		mongo.AbortTransaction(session)
+		return errors.Wrapf(err, "failed to find environment %s/%s", productName, envName)
+	}
+
+	mutate(env, orchestration)
+
+	if err = productColl.UpdateAllServices(productName, envName, env.Services, updateBy); err != nil {
+		err = fmt.Errorf("failed to update %s/%s product services, err %s", productName, envName, err)
+		mongo.AbortTransaction(session)
+		log.Error(err)
+		return err
+	}
+
+	return mongo.CommitTransaction(session)
+}
+
+// MergeServicesInEnv writes group index of an operation into the latest env
+// record. Services in group are placed into group index in orchestration order,
+// but only the handled ones replace the stored record. Services not in group
+// stay where they are, so a stale snapshot cannot drop services added
+// concurrently.
+func MergeServicesInEnv(productName, envName string, index int, group, handled []*commonmodels.ProductService, production bool, updateBy string) error {
+	if len(group) == 0 && len(handled) == 0 {
+		return nil
+	}
+	return updateEnvServices(productName, envName, production, updateBy, func(env *commonmodels.Product, orchestration [][]string) {
+		env.Services = mergeServicesIntoGroups(env.Services, index, group, handled, orchestration, time.Now().Unix())
+	})
+}
+
+// RemoveServicesFromEnv removes the given Zadig services from the environment.
+func RemoveServicesFromEnv(productName, envName string, production bool, serviceNames []string, updateBy string) error {
+	if len(serviceNames) == 0 {
+		return nil
+	}
+	svcSet := sets.NewString(serviceNames...)
+	return updateEnvServices(productName, envName, production, updateBy, func(env *commonmodels.Product, _ [][]string) {
+		for gi, group := range env.Services {
+			kept := make([]*commonmodels.ProductService, 0, len(group))
+			for _, svc := range group {
+				if svc.FromZadig() && svcSet.Has(svc.ServiceName) {
+					continue
+				}
+				kept = append(kept, svc)
+			}
+			env.Services[gi] = kept
+		}
+	})
+}
+
+// mergeServicesIntoGroups moves the services of group into group index and
+// sorts it by orchestration. Handled services replace the stored record or are
+// added; the others keep the stored record and are skipped if no longer stored.
+// A record of another service that owns the same release is dropped in the
+// same write, since a release belongs to one service.
+func mergeServicesIntoGroups(groups [][]*commonmodels.ProductService, index int, group, handled []*commonmodels.ProductService, orchestration [][]string, now int64) [][]*commonmodels.ProductService {
+	for len(groups) <= index {
+		groups = append(groups, []*commonmodels.ProductService{})
+	}
+	handledSet := make(map[*commonmodels.ProductService]bool, len(handled))
+	for _, svc := range handled {
+		handledSet[svc] = true
+	}
+	for _, svc := range handled {
+		if !containsService(group, svc) {
+			group = append(group, svc)
+		}
+	}
+
+	for _, svc := range group {
+		record := svc
+		if handledSet[svc] {
+			svc.UpdateTime = now
+			groups = dropReleaseOwners(groups, svc)
+		}
+		if gi, si := findEnvService(groups, svc); gi >= 0 {
+			if !handledSet[svc] {
+				record = groups[gi][si]
+			}
+			groups[gi] = append(groups[gi][:si], groups[gi][si+1:]...)
+		} else if !handledSet[svc] {
+			continue
+		}
+		groups[index] = append(groups[index], record)
+	}
+	sortServiceGroup(groups[index], orchestration)
+	return groups
+}
+
+func containsService(group []*commonmodels.ProductService, target *commonmodels.ProductService) bool {
+	for _, svc := range group {
+		if svc == target {
+			return true
+		}
+	}
+	return false
+}
+
+func isSameEnvService(a, b *commonmodels.ProductService) bool {
+	if a.FromZadig() != b.FromZadig() {
+		return false
+	}
+	if a.FromZadig() {
+		return a.ServiceName == b.ServiceName
+	}
+	return a.ReleaseName == b.ReleaseName
+}
+
+// dropReleaseOwners removes other services that own the release of target.
+func dropReleaseOwners(groups [][]*commonmodels.ProductService, target *commonmodels.ProductService) [][]*commonmodels.ProductService {
+	if target.ReleaseName == "" {
+		return groups
+	}
+	for gi, group := range groups {
+		kept := make([]*commonmodels.ProductService, 0, len(group))
+		for _, svc := range group {
+			if svc.ReleaseName == target.ReleaseName && !isSameEnvService(svc, target) {
+				continue
+			}
+			kept = append(kept, svc)
+		}
+		groups[gi] = kept
+	}
+	return groups
+}
+
+// findEnvService matches Zadig services by name and chart services by release.
+func findEnvService(groups [][]*commonmodels.ProductService, target *commonmodels.ProductService) (int, int) {
+	for gi, group := range groups {
+		for si, svc := range group {
+			if isSameEnvService(svc, target) {
+				return gi, si
+			}
+		}
+	}
+	return -1, -1
+}
+
+// sortServiceGroup orders a group by the project orchestration: listed services
+// first, then unlisted Zadig services, then chart services.
+func sortServiceGroup(group []*commonmodels.ProductService, orchestration [][]string) {
+	order := make(map[string]int)
+	for _, svcGroup := range orchestration {
+		for _, svc := range svcGroup {
+			if _, ok := order[svc]; !ok {
+				order[svc] = len(order)
+			}
+		}
+	}
+	rank := func(svc *commonmodels.ProductService) int {
+		if !svc.FromZadig() {
+			return len(order) + 1
+		}
+		if i, ok := order[svc.ServiceName]; ok {
+			return i
+		}
+		return len(order)
+	}
+	sort.SliceStable(group, func(i, j int) bool {
+		return rank(group[i]) < rank(group[j])
+	})
 }
 
 type HelmDeployService struct {
