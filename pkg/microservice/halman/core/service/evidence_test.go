@@ -6,23 +6,23 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	kuberesource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 )
 
-func TestServicePodsReuseOpenAPIAndRejectWrongOwnership(t *testing.T) {
+func TestServicePodsUseInternalAPIAndRejectWrongOwnership(t *testing.T) {
 	for _, production := range []bool{false, true} {
 		p := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-			path := "/openapi/environments/"
-			if production {
-				path += "production/"
-			}
-			if r.URL.Path != path+"dev/service/api/pods" || r.URL.Query().Get("projectKey") != "demo" ||
+			if r.URL.Path != "/api/environment/environments/dev/services/api" || r.URL.Query().Get("projectName") != "demo" ||
+				r.URL.Query().Get("production") != fmt.Sprint(production) ||
 				r.Header.Get("Authorization") != "Bearer user" {
-				t.Fatalf("没有复用已有 Pod 列表或用户身份: %s", r.URL)
+				t.Fatalf("没有复用内部服务详情或用户身份: %s", r.URL)
 			}
-			w.Write([]byte(`{"service_name":"other","pods":[]}`))
+			w.Write([]byte(`{"service_name":"other","scales":[]}`))
 		})
 		_, err := p.servicePods(context.Background(), "Bearer user", models.ServiceTarget{
 			ProjectKey: "demo", EnvName: "dev", ServiceName: "api", Production: production,
@@ -35,17 +35,63 @@ func TestServicePodsReuseOpenAPIAndRejectWrongOwnership(t *testing.T) {
 
 func TestTruncatedPodListCannotProveRepairComplete(t *testing.T) {
 	p := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
-		var pods []servicePod
+		var pods []*kuberesource.Pod
 		for i := 0; i < 51; i++ {
-			pods = append(pods, servicePod{Name: fmt.Sprintf("api-%d", i), Ready: true, ContainersReady: true})
+			pods = append(pods, &kuberesource.Pod{Name: fmt.Sprintf("api-%d", i), PodReady: true, ContainersReady: true})
 		}
-		w.Write(common.JSON(servicePods{ServiceName: "api", Pods: pods}))
+		w.Write(common.JSON(map[string]any{"service_name": "api", "scales": []kuberesource.Workload{{Pods: pods}}}))
 	})
 	args := models.RepairInput{Target: models.ServiceTarget{ProjectKey: "demo", EnvName: "dev", ServiceName: "api"}, PodNames: []string{"old"}}
 	ready, err := (&AgentService{Platform: p}).repairReady(context.Background(), &execution{Authorization: "Bearer user"},
-		models.OperationItem{Action: "restart_service", Params: common.JSON(args)})
+		models.OperationItem{Action: "restart_service", Params: common.JSON(args)}, time.Time{})
 	if err != nil || ready {
 		t.Fatalf("不能用截断后的可见 Pod 子集证明全部就绪: ready=%v err=%v", ready, err)
+	}
+}
+
+func TestRestartDeadlineReportsPodFailureAndAllowsRetry(t *testing.T) {
+	finished := time.Now().Add(-time.Minute).UTC().Truncate(time.Second)
+	started := finished.Add(-operationTimeout)
+	args := models.RepairInput{Target: models.ServiceTarget{ProjectKey: "demo", EnvName: "dev", ServiceName: "api", Production: true}, PodNames: []string{"old", "surge"}}
+	item := models.OperationItem{Action: "restart_service", Status: "unknown", Params: common.JSON(args)}
+	e := &execution{Run: &models.Run{CreatedAt: started, FinishedAt: &finished}, Authorization: "Bearer user"}
+	created := started.Add(2 * time.Second)
+	marker := started.Format(time.RFC3339)
+	pod := &kuberesource.Pod{Name: "new", CreateTime: created.Unix(), Status: "Pending", Containers: []kuberesource.Container{{
+		Name: "api", Image: "registry.example/api:missing", Reason: "ImagePullBackOff", Message: "manifest unknown, token=hidden-value",
+	}}}
+	workload := kuberesource.Workload{Type: setting.Deployment, Replicas: 1, Pods: []*kuberesource.Pod{{Name: "old"}, pod}}
+	s := &AgentService{Platform: testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/environment/environments/dev/services/api":
+			w.Write(common.JSON(map[string]any{"service_name": "api", "scales": []kuberesource.Workload{workload}}))
+		case "/api/environment/kube/yaml":
+			fmt.Fprintf(w, "metadata:\n  name: %s\n  creationTimestamp: %q\n  annotations:\n    kubectl.kubernetes.io/restartedAt: %q\n", pod.Name, created.Format(time.RFC3339), marker)
+		default:
+			t.Fatalf("unexpected route: %s", r.URL)
+		}
+	})}
+	deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	failure, ok := s.awaitRepair(deadline, e, item).(restartRolloutError)
+	if !ok || !strings.Contains(string(failure), "ImagePullBackOff") || !strings.Contains(string(failure), "registry.example/api:missing") || strings.Contains(string(failure), "hidden-value") {
+		t.Fatalf("expected a verified and redacted restart failure, got %q", failure)
+	}
+	status, message, err := s.verifyOperationResult(context.Background(), e, item)
+	if err != nil || status != "failed" || message != string(failure) {
+		t.Fatalf("expected the prior restart to be eligible for retry: %s, %s, %v", status, message, err)
+	}
+
+	marker = ""
+	status, _, err = s.verifyOperationResult(context.Background(), e, item)
+	if err != nil || status != "unknown" {
+		t.Fatalf("an unready pod without evidence of restart must not open a retry: %s, %v", status, err)
+	}
+
+	pod.PodReady, pod.ContainersReady = true, true
+	workload.Pods = []*kuberesource.Pod{pod}
+	if ready, err := s.repairReady(context.Background(), e, item, time.Time{}); err != nil || !ready {
+		t.Fatalf("one desired ready pod is enough after replacing two old pods from a stalled rollout: ready=%v, %v", ready, err)
 	}
 }
 

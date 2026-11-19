@@ -199,7 +199,7 @@ func readBusinessResponse(resp *http.Response, write bool, path string) (json.Ra
 	}
 
 	if !json.Valid(data) {
-		if !write && strings.HasPrefix(path, "/api/code/workspace/getcontents/") {
+		if !write && (path == "/api/environment/kube/yaml" || strings.HasPrefix(path, "/api/code/workspace/getcontents/")) {
 			return common.JSON(string(data)), nil
 		}
 

@@ -104,7 +104,14 @@ func (s *AgentService) verifyOperationResult(ctx context.Context, e *execution, 
 		return s.verifyDefaultWorkflows(ctx, e, item)
 	}
 	if item.Action == "restart_service" || item.Action == "rollback_environment" {
-		ready, err := s.repairReady(ctx, e, item)
+		var failedBy time.Time
+		if item.Action == "restart_service" && e.Run.FinishedAt != nil && e.Run.FinishedAt.Sub(e.Run.CreatedAt) >= operationTimeout {
+			failedBy = *e.Run.FinishedAt
+		}
+		ready, err := s.repairReady(ctx, e, item, failedBy)
+		if rollout, ok := err.(restartRolloutError); ok {
+			return "failed", rollout.Error(), nil
+		}
 		if err != nil {
 			return status, message, err
 		}

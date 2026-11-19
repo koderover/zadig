@@ -49,8 +49,13 @@ func (s *Store) SaveReconciliation(ctx context.Context, user string, source *mod
 		}
 
 		message := ""
+		finishedAt := time.Now().UTC()
 		if status == "unknown" {
 			message = "尚有已提交动作需要核实，不能直接重试"
+			if current.FinishedAt != nil {
+				// 后续核实沿用原执行的证据时间范围。
+				finishedAt = *current.FinishedAt
+			}
 		}
 
 		if err := tx.Exec(
@@ -59,8 +64,7 @@ func (s *Store) SaveReconciliation(ctx context.Context, user string, source *mod
 			status,
 			status,
 			message,
-			time.Now().
-				UTC(),
+			finishedAt,
 			source.ID,
 		).
 			Error; err != nil {
