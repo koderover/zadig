@@ -24,6 +24,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
@@ -75,6 +76,50 @@ func (c *CustomStageCtl) AfterRun() {
 		key := fmt.Sprintf("{{.job.%s.IMAGES}}", jobName)
 		if _, ok := c.workflowCtx.GlobalContextGet(key); !ok {
 			c.workflowCtx.GlobalContextSet(key, strings.Join(images, ","))
+		}
+	}
+
+	c.setVMDeployPkgFiles()
+}
+
+// setVMDeployPkgFiles sets the PKG_FILES variable of vm deploy jobs. When the
+// artifacts come from an upstream build job, the package names are only known
+// at runtime, so the variable cannot be rendered at task creation.
+func (c *CustomStageCtl) setVMDeployPkgFiles() {
+	jobNames := make([]string, 0)
+	jobPkgFiles := map[string][]string{}
+	for _, job := range c.stage.Jobs {
+		if job == nil || job.JobType != string(config.JobZadigVMDeploy) {
+			continue
+		}
+
+		spec := &commonmodels.JobTaskFreestyleSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			c.logger.Errorf("failed to decode vm deploy job %s spec: %v", job.Name, err)
+			continue
+		}
+
+		pkgFile := ""
+		for _, env := range spec.Properties.Envs {
+			if env != nil && env.Key == "PKG_FILE" {
+				pkgFile = env.GetValue()
+				break
+			}
+		}
+		if pkgFile == "" || strings.HasPrefix(pkgFile, "{{.") {
+			continue
+		}
+
+		if _, ok := jobPkgFiles[job.OriginName]; !ok {
+			jobNames = append(jobNames, job.OriginName)
+		}
+		jobPkgFiles[job.OriginName] = append(jobPkgFiles[job.OriginName], pkgFile)
+	}
+
+	for _, jobName := range jobNames {
+		key := fmt.Sprintf("{{.job.%s.PKG_FILES}}", jobName)
+		if _, ok := c.workflowCtx.GlobalContextGet(key); !ok {
+			c.workflowCtx.GlobalContextSet(key, strings.Join(jobPkgFiles[jobName], ","))
 		}
 	}
 }

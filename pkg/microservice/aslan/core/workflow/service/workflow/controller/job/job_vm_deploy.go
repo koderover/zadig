@@ -574,9 +574,16 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 			pkgs = append(pkgs, svc.FileName)
 		}
 
+		// packages from an upstream build job are only known at runtime,
+		// leave PKG_FILES empty here so it is set after the stage runs.
+		pkgFiles := strings.Join(pkgs, ",")
+		if j.jobSpec.Source == config.SourceFromJob {
+			pkgFiles = ""
+		}
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "PKG_FILES"}, "."),
-			Value:        strings.Join(pkgs, ","),
+			Value:        pkgFiles,
 			Type:         "string",
 			IsCredential: false,
 		})
