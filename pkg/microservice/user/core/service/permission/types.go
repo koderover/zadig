@@ -178,7 +178,8 @@ const (
 	VerbEditLabelSetting   = "edit_label_setting"
 	VerbDeleteLabelSetting = "delete_label_setting"
 	// log operation
-	VerbGetLogOperation = "get_log_operation"
+	VerbGetLogOperation       = "get_log_operation"
+	VerbTerminateLogOperation = "terminate_log_operation"
 )
 
 type AuthorizedResources struct {
@@ -438,5 +439,6 @@ type LabelManagementActions struct {
 }
 
 type LogOperationActions struct {
-	View bool
+	View      bool
+	Terminate bool
 }

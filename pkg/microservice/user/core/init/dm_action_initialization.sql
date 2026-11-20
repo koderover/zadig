@@ -113,4 +113,5 @@ VALUES
     ('删除', 'delete_label_setting', 'LabelManagement', 2),
     ('查看', 'get_ai_management', 'AIManagement', 2),
     ('编辑', 'edit_ai_management', 'AIManagement', 2),
-    ('查看', 'get_log_operation', 'LogOperation', 2);
+    ('查看', 'get_log_operation', 'LogOperation', 2),
+    ('终止', 'terminate_log_operation', 'LogOperation', 2);

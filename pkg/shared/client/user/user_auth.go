@@ -254,7 +254,8 @@ type LabelManagementActions struct {
 }
 
 type LogOperationActions struct {
-	View bool
+	View      bool
+	Terminate bool
 }
 
 type SprintTemplateActions struct {

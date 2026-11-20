@@ -911,7 +911,8 @@ func generateDefaultSystemActions() *SystemActions {
 			Delete: false,
 		},
 		LogOperation: &LogOperationActions{
-			View: false,
+			View:      false,
+			Terminate: false,
 		},
 	}
 }
@@ -1161,5 +1162,7 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.LabelManagement.Delete = true
 	case VerbGetLogOperation:
 		systemActions.LogOperation.View = true
+	case VerbTerminateLogOperation:
+		systemActions.LogOperation.Terminate = true
 	}
 }

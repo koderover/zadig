@@ -80,9 +80,15 @@ func ListTerminalCommands(c *gin.Context) {
 }
 
 func TerminateTerminalSession(c *gin.Context) {
-	ctx, authorized := newTerminalAuditContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	if !authorized {
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.LogOperation.Terminate {
+		ctx.UnAuthorized = true
 		return
 	}
 	ctx.RespErr = terminalaudit.TerminateSession(c.Param("sessionID"))
