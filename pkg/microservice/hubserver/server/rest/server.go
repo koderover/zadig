@@ -148,7 +148,7 @@ func NewEngine(ctx context.Context, handler *remotedialer.Server) *engine {
 func handleRequestProxy(ctx context.Context, r *http.Request, w http.ResponseWriter, targetIP string) {
 	switch {
 	case isWebSocketRequest(r):
-		handleWebSocketProxy(ctx, w, r, targetIP)
+		handleWebSocketProxy(ctx, w, r, targetIP+":26000")
 	case isSSERequest(r):
 		handleSSEProxy(ctx, w, r, targetIP)
 	case shouldHandleAsStream(r):
@@ -232,7 +232,8 @@ func shouldHandleAsStream(r *http.Request) bool {
 }
 
 // handleWebSocketProxy 处理WebSocket连接的代理转发
-func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetIP string) {
+func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetAddr string) {
+	const closeWriteTimeout = 5 * time.Second
 	log := log.SugaredLogger()
 
 	// 升级客户端连接到 WebSocket
@@ -255,7 +256,7 @@ func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Re
 	// 目标 WebSocket URL
 	targetURL := url.URL{
 		Scheme:   "ws",
-		Host:     targetIP + ":26000",
+		Host:     targetAddr,
 		Path:     r.URL.Path,
 		RawQuery: r.URL.RawQuery,
 	}
@@ -290,14 +291,18 @@ func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Re
 			clientConn.WriteMessage(websocket.TextMessage,
 				[]byte(fmt.Sprintf("Backend connection error: %v", err)))
 		}
-		clientConn.WriteMessage(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Backend connection failed"))
+		clientConn.WriteControl(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Backend connection failed"),
+			time.Now().Add(closeWriteTimeout))
 		return
 	}
 	defer targetConn.Close()
 
-	errChan := make(chan error, 2)
+	// Each of the three workers can report an error after the handler stops receiving.
+	errChan := make(chan error, 3)
 	done := make(chan struct{})
+	defer close(done)
+	pingWriteTimeout := config.HubServerWebSocketPingWriteTimeout()
 
 	// 启动心跳机制
 	go func() {
@@ -307,11 +312,11 @@ func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Re
 		for {
 			select {
 			case <-ticker.C:
-				if err := clientConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				if err := clientConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingWriteTimeout)); err != nil {
 					errChan <- err
 					return
 				}
-				if err := targetConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				if err := targetConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingWriteTimeout)); err != nil {
 					errChan <- err
 					return
 				}
@@ -357,7 +362,6 @@ func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Re
 
 	select {
 	case err := <-errChan:
-		close(done) // 停止心跳
 		// 记录错误并发送关闭消息
 		if err != nil {
 			log.Errorf("[handleWebSocketProxy] WebSocket error: %v", err)
@@ -365,7 +369,7 @@ func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Re
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				closeMsg = websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())
 			}
-			clientConn.WriteMessage(websocket.CloseMessage, closeMsg)
+			clientConn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(closeWriteTimeout))
 		}
 		return
 	case <-ctx.Done():
