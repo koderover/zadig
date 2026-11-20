@@ -18,6 +18,8 @@ package workflownotify
 
 import (
 	"fmt"
+	"html"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -38,6 +40,7 @@ type BuildJobContentsArgs struct {
 	Task            *models.WorkflowTask
 	Stages          []*models.StageTask
 	WebHookType     setting.NotifyWebHookType
+	BaseURI         string
 	RenderTemplate  RenderJobTemplate
 	GetTestResult   TestResultGetter
 	GetSonarMetrics SonarMetricsGetter
@@ -264,6 +267,11 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 				}
 				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**: %s  \n", testResult)
 				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}: %s \n", testResult)
+				if reportURL := testingHTMLReportURL(args.BaseURI, args.Task, job); reportURL != "" {
+					workflowNotifyJob.HTMLReportURL = reportURL
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[{{getText \"notificationTextViewTestReport\"}}](%s)  \n", reportURL)
+					mailJobTplcontent += fmt.Sprintf("<a href=\"%s\">{{getText \"notificationTextViewTestReport\"}}</a> \n", html.EscapeString(reportURL))
+				}
 
 			case string(config.JobZadigScanning):
 				if args.GetSonarMetrics == nil {
@@ -297,4 +305,22 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 	}
 
 	return jobContents, workflowNotifyStages, nil
+}
+
+func testingHTMLReportURL(baseURI string, task *models.WorkflowTask, job *models.JobTask) string {
+	switch job.Status {
+	case config.StatusPassed, config.StatusFailed, config.StatusUnstable, config.StatusManualApproval:
+	default:
+		return ""
+	}
+	jobSpec := &models.JobTaskFreestyleSpec{}
+	if err := models.IToi(job.Spec, jobSpec); err != nil {
+		return ""
+	}
+	for _, stepTask := range jobSpec.Steps {
+		if stepTask != nil && stepTask.Name == config.TestJobHTMLReportStepName {
+			return fmt.Sprintf("%s/api/aslan/testing/report/html/workflowv4/%s/%s/%s/%d/", strings.TrimRight(baseURI, "/"), url.PathEscape(task.ProjectName), url.PathEscape(task.WorkflowName), url.PathEscape(job.Name), task.TaskID)
+		}
+	}
+	return ""
 }
