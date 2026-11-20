@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -73,6 +74,9 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 	}
 
 	if err := s.verifyPlan(ctx, e, pendingPlan(plan)); err != nil {
+		if err == common.ErrInvalidCluster {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%w: %s", common.ErrRequestConflict, err.Error())
 	}
 
@@ -148,6 +152,14 @@ func (s *AgentService) verifyPlan(ctx context.Context, e *execution, plan models
 				return err
 			}
 			id, expected, source = args.TemplateID, args.TemplateFingerprint, "build_template"
+		case "create_environment":
+			var args models.EnvironmentInput
+			if err := json.Unmarshal(item.Params, &args); err != nil {
+				return err
+			}
+			if !primitive.IsValidObjectID(args.ClusterID) {
+				return common.ErrInvalidCluster
+			}
 		}
 
 		if id != "" {

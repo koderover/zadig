@@ -19,6 +19,7 @@ var (
 	ErrNotFound         = errors.New("会话或运行不存在")
 	ErrBusy             = errors.New("用户有正在处理的运行，请等待或取消后重试")
 	ErrRequestConflict  = errors.New("请求标识已用于其他参数")
+	ErrInvalidCluster   = errors.New("清单中的集群 ID 无效，请重新选择集群并生成清单")
 	ErrModelUnavailable = errors.New("AI 助手模型不可用")
 	ErrCapacity         = errors.New("当前请求较多，暂时无法开始处理，请稍后重试")
 	ErrAIDisabled       = errors.New("管理员已关闭 AI 助手")

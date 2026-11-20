@@ -22,6 +22,28 @@ func (c *capturedDraft) Match(value driver.Value) bool {
 	return ok && json.Unmarshal([]byte(text), &c.plan) == nil
 }
 
+func TestResolveOnboardingClusterRequiresUniqueExactMatch(t *testing.T) {
+	for _, tc := range []struct{ name, response, wantError string }{
+		{"similar", `[{"id":"000000000000000000000006","name":"local-backup"}]`, "未找到"},
+		{"ambiguous", `[{"id":"000000000000000000000006","name":"local"},{"id":"000000000000000000000007","name":"local"}]`, "多个集群"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := reportExecution("service_onboarding")
+			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.URL.Path != "/api/cluster/clusters" ||
+					r.URL.Query().Get("projectName") != "p" || r.Header.Get("Authorization") != e.Authorization {
+					t.Fatalf("必须在当前用户和目标项目范围内读取目录: %s %s", r.Method, r.URL)
+				}
+				w.Write([]byte(tc.response))
+			})
+			id, err := (&AgentService{Platform: platform}).resolveOnboardingCluster(context.Background(), e, "p", "local")
+			if id != "" || err == nil || !strings.Contains(err.Error(), tc.wantError) {
+				t.Fatalf("不能猜测集群 ID: id=%q err=%v", id, err)
+			}
+		})
+	}
+}
+
 func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *testing.T) {
 	store, mock := mockStore(t)
 	reads := map[string]int{}
@@ -50,7 +72,7 @@ func TestOnboardingSupplementReusesPersistedChecksAndInvalidatesDependencies(t *
 	})
 	s := &AgentService{Store: store, Platform: platform}
 	patches := []string{
-		`{"project_name":"demo","project_key":"demo","project_type":"k8s","services":[{"name":"service1","source":"yaml_template","template_id":"general"},{"name":"service2","source":"yaml_template","template_id":"general"}],"builds":[{"name":"build1","template_id":"general","service_name":"service1","service_module":"service1","repositories":[{"codehost_id":1,"owner":"team","repo":"repo","branch":"main"}]}],"environment":{"name":"dev","cluster_id":"local"}}`,
+		`{"project_name":"demo","project_key":"demo","project_type":"k8s","services":[{"name":"service1","source":"yaml_template","template_id":"general"},{"name":"service2","source":"yaml_template","template_id":"general"}],"builds":[{"name":"build1","template_id":"general","service_name":"service1","service_module":"service1","repositories":[{"codehost_id":1,"owner":"team","repo":"repo","branch":"main"}]}],"environment":{"name":"dev","cluster_id":"0123456789abcdef12345678"}}`,
 		`{"environment":{"name":"staging"}}`,
 		`{"environment":{"namespace":"custom-ns"},"services":[{"name":"service1","variables":{"PORT":"8080"}}]}`,
 		`{"builds":[{"name":"build1","service_module":"worker"}]}`,

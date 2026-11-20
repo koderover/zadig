@@ -97,6 +97,8 @@ func respondError(c *gin.Context, err error) {
 		template, description = e.ErrAIAssistantBusy, lang.Text(common.ErrBusy.Error(), "You have an active run; wait or cancel it before trying again")
 	case errors.Is(err, common.ErrRequestConflict):
 		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrRequestConflict.Error(), "The request or plan state has changed")
+	case errors.Is(err, common.ErrInvalidCluster):
+		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrInvalidCluster.Error(), "The plan contains an invalid cluster ID. Select the cluster again and regenerate the plan.")
 	case errors.Is(err, common.ErrCapacity):
 		template, description = e.ErrAIAssistantCapacity, lang.Text(common.ErrCapacity.Error(), "The assistant is busy; please try again shortly")
 	case errors.Is(err, common.ErrModelUnavailable):

@@ -139,6 +139,9 @@ func (s *AgentService) Retry(ctx context.Context, user, authorization, id, reque
 	}
 
 	if err := s.verifyPlan(ctx, e, pending); err != nil {
+		if err == common.ErrInvalidCluster {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%w: %s", common.ErrRequestConflict, err)
 	}
 

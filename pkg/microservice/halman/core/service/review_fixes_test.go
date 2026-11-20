@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,6 +11,23 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 )
+
+func TestVerifyPlanRejectsInvalidEnvironmentCluster(t *testing.T) {
+	s := &AgentService{}
+	for _, clusterID := range []string{"", "local-20261117093925", "0123456789abcdef12345678"} {
+		plan := models.OperationPlan{Items: []models.OperationItem{{
+			Action: "create_environment", Params: common.JSON(models.EnvironmentInput{ClusterID: clusterID}),
+		}}}
+		err := s.verifyPlan(context.Background(), reportExecution("project_onboarding"), plan)
+		if clusterID == "0123456789abcdef12345678" {
+			if err != nil {
+				t.Fatalf("合法集群 ID 应通过确认校验: %v", err)
+			}
+		} else if !errors.Is(err, common.ErrInvalidCluster) {
+			t.Fatalf("非法集群 ID %q 应在确认前被拒绝: %v", clusterID, err)
+		}
+	}
+}
 
 func TestHelmTemplateContentChangeInvalidatesConfirmationAndSubmission(t *testing.T) {
 	digest := "original-content"

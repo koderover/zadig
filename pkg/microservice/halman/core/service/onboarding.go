@@ -513,6 +513,17 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			plan.Notes = append(plan.Notes, fmt.Sprintf(e.text("构建 %s 将覆盖确认范围内的每个可用组件；如不需要某些组件，请在确认前提出。", "Build %s will cover every available component in scope. Tell us before confirming if any should be excluded."), build.Name))
 		}
 	}
+	if env := args.Environment; env != nil && env.ClusterID != "" {
+		project := args.ProjectKey
+		if newProject {
+			project = ""
+		}
+		clusterID, err := s.resolveOnboardingCluster(ctx, e, project, env.ClusterID)
+		if err != nil {
+			return nil, err
+		}
+		env.ClusterID = clusterID
+	}
 	missing = append(missing, missingOnboardingEnvironment(args, newProject)...)
 	if args.Environment != nil {
 		// Keep the suggested value out of the draft so a rename can recompute it.
