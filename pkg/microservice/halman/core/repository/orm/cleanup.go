@@ -191,6 +191,7 @@ func (s *Store) expireDetachedUnknown(ctx context.Context, cutoff time.Time) (in
 }
 
 // 每次只删除一个表的至多 500 行，不能调用框架的整会话级联删除。
+// 用户删除会话后，仍按原保留规则保护待核实的操作记录。
 func (s *Store) cleanupDeletedConversation(ctx context.Context) (int64, error) {
 	var conversation, user string
 	err := s.DB.WithContext(ctx).Raw("SELECT c.id,c.user_id"+

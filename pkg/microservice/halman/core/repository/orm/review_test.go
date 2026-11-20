@@ -67,36 +67,31 @@ func TestHistoryKeepsVisibleReasoningWithLatestAnswer(t *testing.T) {
 	}
 }
 
-func TestDeleteProtectsOnlyConversationWithUnknownResult(t *testing.T) {
+func TestDeleteHidesConversationAndRetainsUnknownResult(t *testing.T) {
 	s, mock := mockStore(t)
 	ctx := context.Background()
-	const blockersQuery = "SELECT COUNT.*status IN .*status='unknown' OR plan_status='unknown'.*FROM ai_run WHERE conversation_id="
 	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("blocked", "u").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("blocked"))
-	mock.ExpectQuery(blockersQuery).WithArgs("blocked").
-		WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).AddRow(0, 1))
-	mock.ExpectRollback()
-	if err := s.DeleteConversation(ctx, "u", "blocked"); !errors.Is(err, common.ErrResultUnknown) {
-		t.Fatalf("未核实写结果应返回专用错误: %v", err)
-	}
-
-	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("other", "u").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("other"))
-	mock.ExpectQuery(blockersQuery).WithArgs("other").
-		WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).AddRow(0, 0))
-	mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "u", "other").
+	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("c", "u").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("c"))
+	mock.ExpectQuery("SELECT COUNT.* FROM ai_run WHERE conversation_id=\\? AND status IN \\('running','cancelling','executing'\\)$").
+		WithArgs("c").WillReturnRows(sqlmock.NewRows([]string{"active"}).AddRow(0))
+	mock.ExpectExec("INSERT INTO ai_usage_daily .*r.status<>'unknown'.*r.plan_status<>'unknown'").WithArgs(sqlmock.AnyArg(), "u", "c").
 		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec("UPDATE ai_run r JOIN ai_conversation").WithArgs(sqlmock.AnyArg(), "u", "other").
+	mock.ExpectExec("UPDATE ai_run r JOIN ai_conversation .*r.status<>'unknown'.*r.plan_status<>'unknown'").WithArgs(sqlmock.AnyArg(), "u", "c").
 		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec("UPDATE ai_run SET plan_status='cancelled'").WithArgs("other").
+	mock.ExpectExec("UPDATE ai_run SET plan_status='cancelled'.*status<>'unknown'").WithArgs("c").
 		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec("UPDATE ai_conversation SET deleted_at").WithArgs(sqlmock.AnyArg(), "other").
+	mock.ExpectExec("UPDATE ai_conversation SET deleted_at").WithArgs(sqlmock.AnyArg(), "c").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	if err := s.DeleteConversation(ctx, "u", "other"); err != nil {
-		t.Fatalf("同一用户的其他会话仍应可删除: %v", err)
+	if err := s.DeleteConversation(ctx, "u", "c"); err != nil {
+		t.Fatalf("没有活动运行的会话应允许删除: %v", err)
+	}
+
+	mock.ExpectQuery("SELECT c.id,c.user_id .*c.deleted_at IS NOT NULL.*NOT EXISTS .*'unknown'.*plan_status='unknown'").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user"}))
+	if n, err := s.cleanupDeletedConversation(ctx); err != nil || n != 0 {
+		t.Fatalf("删除后仍应保留待核实会话的数据: %d %v", n, err)
 	}
 }
 
@@ -231,14 +226,6 @@ func TestCleanupStopsOnCancellationAndDoesNotTouchAudit(t *testing.T) {
 				t.Fatalf("框架正文必须限制应用及批大小: %s", job.query)
 			}
 		}
-	}
-}
-
-func TestDeletedCleanupProtectsUnresolvedBeforeDeletingMessages(t *testing.T) {
-	s, mock := mockStore(t)
-	mock.ExpectQuery("SELECT c.id,c.user_id .*NOT EXISTS .*'unknown'.*plan_status='unknown'").WillReturnRows(sqlmock.NewRows([]string{"id", "user"}))
-	if n, err := s.cleanupDeletedConversation(context.Background()); err != nil || n != 0 {
-		t.Fatalf("不能先删未知结果的消息: %d %v", n, err)
 	}
 }
 

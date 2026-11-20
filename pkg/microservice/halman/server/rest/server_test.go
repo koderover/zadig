@@ -257,17 +257,13 @@ func TestDisabledAssistantBlocksNewWorkButKeepsHistoryAndCancellation(t *testing
 			t.Fatalf("关闭后仍应检查本人运行，不能被功能开关拦截: %s %d", input.path, w.Code)
 		}
 	}
-	for _, outcome := range []struct{ active, unknown, code int }{
-		{0, 0, 0},
-		{1, 0, e.ErrAIAssistantBusy.Code()},
-		{0, 1, e.ErrAIAssistantResultUnknown.Code()},
-	} {
+	for _, active := range []int{0, 1} {
 		mock.ExpectBegin()
 		mock.ExpectQuery("SELECT id FROM ai_conversation WHERE id=.*AND user_id=.*FOR UPDATE").WithArgs("conversation", "user").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
 		mock.ExpectQuery("SELECT COUNT.*FROM ai_run.*WHERE conversation_id=").WithArgs("conversation").
-			WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).AddRow(outcome.active, outcome.unknown))
+			WillReturnRows(sqlmock.NewRows([]string{"active"}).AddRow(active))
 		want := http.StatusNoContent
-		if outcome.code != 0 {
+		if active > 0 {
 			mock.ExpectRollback()
 			want = http.StatusBadRequest
 		} else {
@@ -282,10 +278,10 @@ func TestDisabledAssistantBlocksNewWorkButKeepsHistoryAndCancellation(t *testing
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != want {
-			t.Fatalf("无 body 删除指定会话返回意外状态: outcome=%+v status=%d body=%s", outcome, w.Code, w.Body)
+			t.Fatalf("无 body 删除指定会话返回意外状态: active=%d status=%d body=%s", active, w.Code, w.Body)
 		}
-		if outcome.code != 0 {
-			assertAssistantErrorCode(t, w, outcome.code)
+		if active > 0 {
+			assertAssistantErrorCode(t, w, e.ErrAIAssistantBusy.Code())
 		}
 	}
 	for _, path := range []string{"/api/halman/agui", "/api/ai/conversations", "/internal/stat/ai_assistant/overview", "/api/halman/runs/r/confirm", "/api/halman/conversations/clear"} {

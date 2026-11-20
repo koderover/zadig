@@ -137,8 +137,8 @@ func TestDeleteRunningConversationRollsBack(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id FROM ai_conversation .* FOR UPDATE").WithArgs("conversation-1", "user-1").WillReturnRows(sqlmock.NewRows([]string{"id"}).
 		AddRow("conversation-1"))
-	mock.ExpectQuery("SELECT COUNT.* FROM ai_run").WithArgs("conversation-1").WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).
-		AddRow(1, 0))
+	mock.ExpectQuery("SELECT COUNT.* FROM ai_run").WithArgs("conversation-1").WillReturnRows(sqlmock.NewRows([]string{"active"}).
+		AddRow(1))
 	mock.ExpectRollback()
 	if err := s.DeleteConversation(context.Background(), "user-1", "conversation-1"); !errors.Is(err, common.ErrBusy) {
 		t.Fatalf("执行中会话不应被删除: %v", err)

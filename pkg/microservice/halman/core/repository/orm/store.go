@@ -459,29 +459,23 @@ func (s *Store) DeleteConversation(ctx context.Context, user, id string) error {
 			return err
 		}
 
-		var active, unknown int
+		var active int
 		if err := tx.Raw(
-			"SELECT COUNT(CASE WHEN status IN ('running','cancelling','executing') THEN 1 END),"+
-				" COUNT(CASE WHEN status='unknown' OR plan_status='unknown' THEN 1 END)"+
-				" FROM ai_run WHERE conversation_id=?",
+			"SELECT COUNT(*) FROM ai_run WHERE conversation_id=? AND status IN ('running','cancelling','executing')",
 			id,
-		).Row().Scan(&active, &unknown); err != nil {
+		).Row().Scan(&active); err != nil {
 			return err
 		}
 
 		if active > 0 {
 			return common.ErrBusy
 		}
-		if unknown > 0 {
-			return common.ErrResultUnknown
-		}
-
 		if err := cancelWaitingSkills(ctx, tx, user, id); err != nil {
 			return err
 		}
 
 		if err := tx.Exec(
-			"UPDATE ai_run SET plan_status='cancelled' WHERE conversation_id=? AND plan_status IN ('pending_confirmation','ready')",
+			"UPDATE ai_run SET plan_status='cancelled' WHERE conversation_id=? AND status<>'unknown' AND plan_status IN ('pending_confirmation','ready')",
 			id,
 		).
 			Error; err != nil {

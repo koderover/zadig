@@ -95,14 +95,6 @@ func respondError(c *gin.Context, err error) {
 		template, description = e.ErrNotFound, lang.Text(common.ErrNotFound.Error(), "The conversation or run does not exist")
 	case errors.Is(err, common.ErrBusy):
 		template, description = e.ErrAIAssistantBusy, lang.Text(common.ErrBusy.Error(), "You have an active run; wait or cancel it before trying again")
-	case errors.Is(err, common.ErrResultUnknown):
-		status, body := e.ErrorMessage(e.NewHTTPError(
-			e.ErrAIAssistantResultUnknown.Code(),
-			lang.Text("无法删除会话，请先核实操作结果", "Cannot delete this conversation. Verify the operation outcome first."),
-			lang.Text(common.ErrResultUnknown.Error(), "This conversation has an unverified operation outcome. Verify it before deleting the conversation."),
-		))
-		c.AbortWithStatusJSON(status, body)
-		return
 	case errors.Is(err, common.ErrPlanExpired):
 		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrPlanExpired.Error(), "The plan expired and was automatically cancelled. Generate a new plan.")
 	case errors.Is(err, common.ErrPlanChanged):
@@ -196,7 +188,7 @@ func (a *API) listConversations(c *gin.Context) {
 
 // deleteConversation godoc
 // @Summary 删除本人 AI 助手会话
-// @Description 立即隐藏会话并使等待确认的计划失效，后台分批清理数据；有活动运行或待核实写结果时拒绝删除，不删除 Zadig 业务资源。
+// @Description 有活动运行时拒绝删除。否则立即隐藏会话并使等待确认的计划失效。后台按保留规则保护待核实操作记录并分批清理历史数据。Zadig 业务资源不受影响。
 // @Description 错误使用标准响应；业务错误通过 HTTP 400 返回，code=7050 或 7213～7221，具体原因见 message/description。
 // @Tags AI助手
 // @Produce json
