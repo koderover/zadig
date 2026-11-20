@@ -635,7 +635,7 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 		return s.subscription(record, subscribe)
 	}
 
-	runCtx, cancel := context.WithTimeout(s.Context, 5*time.Minute)
+	runCtx, cancel := context.WithTimeout(s.Context, 10*time.Minute)
 	e := &execution{
 		Message:         req.Message,
 		Language:        language.Normalize(cfg.Language),
