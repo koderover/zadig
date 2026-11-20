@@ -133,6 +133,7 @@ var (
 		"notificationTextRepositoryInfo":     "代码信息",
 		"notificationTextImageInfo":          "镜像信息",
 		"notificationTextTestResult":         "测试结果",
+		"notificationTextHTMLReport":         "HTML 报告",
 		"notificationTextSonarMetrics":       "扫描结果",
 	}
 
@@ -216,6 +217,7 @@ var (
 		"notificationTextRepositoryInfo":     "Repository Information",
 		"notificationTextImageInfo":          "Image Information",
 		"notificationTextTestResult":         "Test Result",
+		"notificationTextHTMLReport":         "HTML Report",
 		"notificationTextSonarMetrics":       "Scanning Result",
 	}
 )
@@ -1406,6 +1408,7 @@ func (w *Service) getNotificationContentWithOptions(notify *models.NotifyCtl, ta
 		Task:        task,
 		Stages:      task.Stages,
 		WebHookType: notify.WebHookType,
+		BaseURI:     workflowNotification.BaseURI,
 		RenderTemplate: func(tpl string, job *models.JobTask) (string, error) {
 			return getJobTaskTplExec(tpl, &jobTaskNotification{Job: job, WebHookType: notify.WebHookType}, language)
 		},

@@ -124,14 +124,15 @@ type WorkflowNotifyStage struct {
 }
 
 type WorkflowNotifyJobTask struct {
-	Name        string        `json:"name"`
-	DisplayName string        `json:"display_name"`
-	JobType     string        `json:"type"`
-	Status      config.Status `json:"status"`
-	StartTime   int64         `json:"start_time"`
-	EndTime     int64         `json:"end_time"`
-	Error       string        `json:"error"`
-	Spec        interface{}   `json:"spec"`
+	Name          string        `json:"name"`
+	DisplayName   string        `json:"display_name"`
+	JobType       string        `json:"type"`
+	Status        config.Status `json:"status"`
+	StartTime     int64         `json:"start_time"`
+	EndTime       int64         `json:"end_time"`
+	Error         string        `json:"error"`
+	Spec          interface{}   `json:"spec"`
+	HTMLReportURL string        `json:"html_report_url,omitempty"`
 }
 
 type WorkflowNotifyJobTaskBuildSpec struct {
