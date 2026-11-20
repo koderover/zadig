@@ -327,8 +327,8 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		if et.Pusher != nil {
 			webhookUser := &commonmodels.WebHookUser{
 				Domain:    req.Header.Get("X-Forwarded-Host"),
-				UserName:  *et.Pusher.Name,
-				Email:     *et.Pusher.Email,
+				UserName:  et.Pusher.GetName(),
+				Email:     et.Pusher.GetEmail(),
 				Source:    setting.SourceFromGithub,
 				CreatedAt: time.Now().Unix(),
 			}
