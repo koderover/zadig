@@ -179,18 +179,49 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 }
 
 func jobManagerAuth(planName, planManageID string, job *models.ReleaseJob, userName string, userID string, authResources *user.AuthorizedResources) error {
-	if job.ManagerID != "" {
-		if job.ManagerID != userID && planManageID != userID && !authResources.IsSystemAdmin {
-			return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
-		}
-	} else {
-		if planManageID == "" {
-			return errors.Errorf("plan manager is not set")
-		}
-
-		if planManageID != userID && !authResources.IsSystemAdmin {
-			return errors.Errorf("user %s is not the manager of the plan %s", userName, planName)
-		}
+	if (authResources != nil && authResources.IsSystemAdmin) || planManageID == userID {
+		return nil
 	}
-	return nil
+
+	if len(job.Managers) > 0 {
+		managerGroupIDs := make(map[string]struct{})
+		for _, manager := range job.Managers {
+			if manager == nil {
+				continue
+			}
+			switch manager.IdentityType {
+			case "user":
+				if manager.UID == userID {
+					return nil
+				}
+			case "group":
+				managerGroupIDs[manager.GID] = struct{}{}
+			}
+		}
+		if len(managerGroupIDs) > 0 {
+			groups, err := user.New().GetUserGroupsByUid(userID)
+			if err != nil {
+				return errors.Wrap(err, "get user groups")
+			}
+			if groups != nil {
+				for _, group := range groups.GroupList {
+					if _, ok := managerGroupIDs[group.ID]; ok {
+						return nil
+					}
+				}
+			}
+		}
+		return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
+	}
+
+	if job.ManagerID != "" {
+		if job.ManagerID == userID {
+			return nil
+		}
+		return errors.Errorf("user %s is not the manager of the job %s", userName, job.Name)
+	}
+	if planManageID == "" {
+		return errors.Errorf("plan manager is not set")
+	}
+	return errors.Errorf("user %s is not the manager of the plan %s", userName, planName)
 }
