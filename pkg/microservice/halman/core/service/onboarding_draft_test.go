@@ -222,6 +222,19 @@ func TestOnboardingMissingFieldsAskForSpecificServiceInformation(t *testing.T) {
 	}
 }
 
+func TestProjectOnboardingRequiresBuildChoiceBeforeConfirmation(t *testing.T) {
+	store, mock := mockStore(t)
+	expectOnboardingDraftSave(mock)
+	e := reportExecution("project_onboarding")
+	e.RootID = e.Run.ID
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	args := onboardingInput(t, `{"project_key":"demo","project_name":"Demo","project_type":"k8s","skip_environment":true,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"}]}`)
+	value, err := (&AgentService{Store: store}).prepareProject(ctx, args)
+	if err != nil || e.Outcome != "awaiting_input" || !strings.Contains(string(common.JSON(value)), "选择构建模板，或明确跳过构建") {
+		t.Fatalf("遗漏构建意图不能生成确认清单: %v %v", value, err)
+	}
+}
+
 func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *testing.T) {
 	for _, emptyEnvironment := range []bool{false, true} {
 		t.Run(fmt.Sprintf("empty_environment=%t", emptyEnvironment), func(t *testing.T) {
@@ -271,7 +284,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					}
 				}
 				expectOnboardingDraftSave(mock)
-				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
+				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"builds":[],"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 				if err != nil || e.Outcome != "awaiting_input" {
 					t.Fatalf("模板缺参应进入草稿而非报错: %v %v", value, err)
 				}

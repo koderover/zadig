@@ -133,6 +133,22 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 	} else if !projectKeyPattern.MatchString(args.ProjectKey) {
 		return nil, fmt.Errorf("项目标识只能包含小写字母、数字和短横线，最长三十二位")
 	}
+	if newProject {
+		if args.Builds == nil {
+			missing = append(missing, e.text("选择构建模板，或明确跳过构建", "Choose a build template or explicitly skip builds."))
+		}
+		for i := range args.Builds {
+			if args.ProjectKey != "" && args.Builds[i].Name == "" {
+				args.Builds[i].Name = args.ProjectKey + "-build"
+				if i > 0 {
+					args.Builds[i].Name += fmt.Sprintf("-%d", i+1)
+				}
+			}
+			if args.Builds[i].TemplateID == "" {
+				missing = append(missing, fmt.Sprintf(e.text("第 %d 个构建的模板", "The template for build %d"), i+1))
+			}
+		}
+	}
 
 	existingServices := map[string]bool{}
 	buildTargets := map[string]bool{}
@@ -442,6 +458,7 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 			return nil, err
 		}
 		if newProject && len(dependencies) == 0 && len(targetMissing) == 0 {
+			missing = append(missing, fmt.Sprintf(e.text("构建 %q 没有可用目标，请选择构建目标或明确移除此构建", "Build %q has no eligible targets. Select a target or explicitly remove this build."), label))
 			continue
 		}
 		if build.Name == "" {

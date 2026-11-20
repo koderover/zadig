@@ -316,7 +316,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	now := time.Now().UTC()
 	cutoff := now.Add(-time.Hour)
 	plan := models.OperationPlan{
-		Draft: &models.OnboardingInput{ProjectKey: "demo", ProjectName: "示例", ProjectType: "k8s", SkipEnvironment: true,
+		Draft: &models.OnboardingInput{ProjectKey: "demo", ProjectName: "示例", ProjectType: "k8s", SkipEnvironment: true, Builds: []models.BuildInput{},
 			Services: []models.ServiceInput{{Name: "api", Source: "yaml_template", TemplateID: "000000000000000000000001", Variables: map[string]string{"replicas": "2"}}}},
 		MissingFields: []string{"services"},
 	}
