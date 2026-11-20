@@ -320,7 +320,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 			Services: []models.ServiceInput{{Name: "api", Source: "yaml_template", TemplateID: "000000000000000000000001", Variables: map[string]string{"replicas": "2"}}}},
 		MissingFields: []string{"services"},
 	}
-	rows := func() *sqlmock.Rows {
+	rows := func(id string, skillStatus any) *sqlmock.Rows {
 		return sqlmock.NewRows([]string{
 			"id",
 			"request",
@@ -344,7 +344,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 			"available",
 		}).
 			AddRow(
-				"root",
+				id,
 				"req",
 				"c",
 				"awaiting_input",
@@ -356,7 +356,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 				0,
 				"project_onboarding",
 				"root",
-				"awaiting_input",
+				skillStatus,
 				[]byte(common.JSON(plan)),
 				0,
 				"awaiting_input",
@@ -370,7 +370,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 		mock.ExpectQuery("SELECT r.id FROM ai_run r JOIN ai_conversation.*r.question_source_run_id IS NULL.*r.plan IS NOT NULL.*ORDER BY r.created_at DESC,r.id DESC LIMIT 1").
 			WithArgs("u", "u", "c", cutoff, now).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("root"))
-		mock.ExpectQuery("SELECT r.id,.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(rows())
+		mock.ExpectQuery("SELECT r.id,.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(rows("root", "awaiting_input"))
 	}
 	expectRoot := func() {
 		mock.ExpectQuery("SELECT r.*FROM ai_run r JOIN ai_conversation").WithArgs("root", "u", "u", cutoff).WillReturnRows(sqlmock.NewRows([]string{"id", "conversation_id", "created_at", "skill_id", "skill_execution_id", "skill_status"}).AddRow("root", "c", now, "project_onboarding", "root", status))
@@ -384,7 +384,7 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 	}
 	expectRoot()
 	if !discover {
-		mock.ExpectQuery("SELECT .*FROM ai_run WHERE user_id=.*question_source_run_id IS NULL.*plan_status IN").WillReturnRows(rows())
+		mock.ExpectQuery("SELECT .*FROM ai_run WHERE user_id=.*question_source_run_id IS NULL.*plan_status IN").WillReturnRows(rows("previous", nil))
 	}
 	metadata := func() *sqlmock.Rows {
 		return sqlmock.NewRows([]string{"id", "context", "scopes"}).AddRow("root", "{}", "[]")
