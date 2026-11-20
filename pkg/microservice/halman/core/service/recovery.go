@@ -43,6 +43,13 @@ func (s *AgentService) maintainRuns(ctx context.Context) {
 			slog.Warn("AI 异常运行恢复未完成，下次继续", "error_type", "run_recovery_failed")
 		}
 
+		expireCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		err := s.Store.ExpirePendingPlans(expireCtx)
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			slog.Warn("AI 待确认清单过期处理未完成，下次继续", "error_type", "plan_expiry_failed")
+		}
+
 		select {
 		case <-ctx.Done():
 			return

@@ -41,6 +41,22 @@ func AIReviewGitPollInterval() time.Duration {
 	return interval
 }
 
+func AIAssistantStatsTimeout() time.Duration {
+	timeout, err := time.ParseDuration(strings.TrimSpace(viper.GetString(setting.ENVAslanAIAssistantStatsTimeout)))
+	if err != nil || timeout <= 0 {
+		return 10 * time.Second
+	}
+	return timeout
+}
+
+func AIAssistantStatsDBMaxConnections() int {
+	connections, err := strconv.Atoi(strings.TrimSpace(viper.GetString(setting.ENVAslanAIAssistantStatsDBMaxConnections)))
+	if err != nil || connections < 1 {
+		return 5
+	}
+	return connections
+}
+
 // 服务默认等待启动时间，默认5分钟
 func ServiceStartTimeout() int {
 	serviceStartTimeout := viper.GetString(setting.ENVServiceStartTimeout)

@@ -62,7 +62,7 @@ func (s *Store) SavedSkillRun(ctx context.Context, user, conversation, rootID st
 		return nil, common.ErrRequestConflict
 	}
 
-	return scanRun(s.DB.WithContext(ctx).Raw(
+	r, err := scanRun(s.DB.WithContext(ctx).Raw(
 		"SELECT "+runColumns+" FROM ai_run WHERE user_id=? AND conversation_id=? AND skill_execution_id=? AND question_source_run_id IS NULL AND created_at>=? AND plan IS NOT NULL AND (plan_status IS NULL OR plan_status IN ('awaiting_input','pending_confirmation')) ORDER BY created_at DESC,id DESC LIMIT 1",
 		user,
 		conversation,
@@ -70,4 +70,10 @@ func (s *Store) SavedSkillRun(ctx context.Context, user, conversation, rootID st
 		cutoff,
 	).
 		Row())
+	if err != nil {
+		return nil, err
+	}
+	// 续接状态保存在根执行，草稿可能来自后续轮次。
+	r.SkillStatus = root.SkillStatus
+	return r, nil
 }

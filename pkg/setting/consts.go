@@ -65,6 +65,9 @@ const (
 	ZadigAgentVersion            = "ZADIG_AGENT_VERSION"
 	ZadigAgentRepoURL            = "ZADIG_AGENT_REPO_URL"
 
+	ENVAslanAIAssistantStatsTimeout          = "ASLAN_AI_ASSISTANT_STATS_TIMEOUT"
+	ENVAslanAIAssistantStatsDBMaxConnections = "ASLAN_AI_ASSISTANT_STATS_DB_MAX_CONNECTIONS"
+
 	ENVBuildBaseImage = "BUILD_BASE_IMAGE"
 
 	ENVS3StorageAK       = "S3STORAGE_AK"

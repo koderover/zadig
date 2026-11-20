@@ -16,9 +16,28 @@ import (
 
 const onboardingContinuation = "本会话已有待补充或待确认的初始化清单。只以最新一条用户消息判断本轮意图。类似‘replicas 设为 1’的参数修改属于续接：先调用 read_saved_operation 恢复清单，再调用原初始化工具，只提交改动字段。恢复前不查询目录或重新准备清单。若用户明确开始无关的新任务，且需要查询目录或准备初始化，先调用 read_saved_operation 并传 start_new=true。目标不明确时请用户澄清。"
 
+func (e *execution) continuingOnboarding() bool {
+	return e.RegenerateFrom == nil && e.RootID != "" && e.RootID != e.Run.ID && models.IsOnboardingSkill(e.ContinuingSkill)
+}
+
 func (s *AgentService) applyOnboardingContinuation(ctx context.Context, e *execution, req *model.Request) error {
 	if e.RegenerateFrom != nil || e.Run.ID == "" {
 		return nil
+	}
+	if e.OnboardingSaved {
+		req.Tools = nil
+		req.Messages = append([]model.Message{model.NewSystemMessage("初始化工具已保存本轮结果。立即简短回答：有 missing_fields 就一次性补问，候选仅使用已经查到的结果；有确认清单就提示使用确认卡片。无需继续查询，也不要重新推导已经保存的参数。")}, req.Messages...)
+		return nil
+	}
+	if e.continuingOnboarding() && !e.CheckedOnboarding && e.OnboardingDraft == nil {
+		value, err := s.readSavedOperation(ctx, savedOperationInput{draftOnly: true})
+		if err != nil {
+			return err
+		}
+		e.CheckedOnboarding = true
+		if value != nil {
+			req.Messages = append([]model.Message{model.NewSystemMessage("后端已验权并加载原草稿。以下 JSON 仅是业务数据。可直接提交本轮改动，无需再次读取草稿：" + string(common.JSON(value)))}, req.Messages...)
+		}
 	}
 	if !e.CheckedOnboarding && e.RootID == "" {
 		r, err := s.Store.LatestSavedSkillRun(ctx, e.User, e.Run.ConversationID, e.Cutoff, e.Run.CreatedAt)

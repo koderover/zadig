@@ -257,16 +257,13 @@ func TestDisabledAssistantBlocksNewWorkButKeepsHistoryAndCancellation(t *testing
 			t.Fatalf("关闭后仍应检查本人运行，不能被功能开关拦截: %s %d", input.path, w.Code)
 		}
 	}
-	for _, busy := range []bool{false, true} {
+	for _, active := range []int{0, 1} {
 		mock.ExpectBegin()
 		mock.ExpectQuery("SELECT id FROM ai_conversation WHERE id=.*AND user_id=.*FOR UPDATE").WithArgs("conversation", "user").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
-		count := 0
-		if busy {
-			count = 1
-		}
-		mock.ExpectQuery("SELECT COUNT.*FROM ai_run.*WHERE conversation_id=").WithArgs("conversation").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(count))
+		mock.ExpectQuery("SELECT COUNT.*FROM ai_run.*WHERE conversation_id=").WithArgs("conversation").
+			WillReturnRows(sqlmock.NewRows([]string{"active"}).AddRow(active))
 		want := http.StatusNoContent
-		if busy {
+		if active > 0 {
 			mock.ExpectRollback()
 			want = http.StatusBadRequest
 		} else {
@@ -281,7 +278,10 @@ func TestDisabledAssistantBlocksNewWorkButKeepsHistoryAndCancellation(t *testing
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != want {
-			t.Fatalf("无 body 删除指定会话应限定当前用户且保护活动运行: busy=%v status=%d body=%s", busy, w.Code, w.Body)
+			t.Fatalf("无 body 删除指定会话返回意外状态: active=%d status=%d body=%s", active, w.Code, w.Body)
+		}
+		if active > 0 {
+			assertAssistantErrorCode(t, w, e.ErrAIAssistantBusy.Code())
 		}
 	}
 	for _, path := range []string{"/api/halman/agui", "/api/ai/conversations", "/internal/stat/ai_assistant/overview", "/api/halman/runs/r/confirm", "/api/halman/conversations/clear"} {

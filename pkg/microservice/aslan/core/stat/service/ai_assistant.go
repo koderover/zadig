@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
+	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	statorm "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
@@ -78,9 +79,6 @@ func queryAIAssistantStats(ctx context.Context, kind, fromDate, toDate string) (
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrAIAssistantStatsRange, err.Error())
 	}
-	// 等待连接和查询共用预算，页面并行加载四类报告时由数据库连接池控制并发。
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 	store, err := getAIAssistantStatsStore()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrAIAssistantStatsUnavailable, err)
@@ -113,7 +111,7 @@ func previousStatsRange(period models.AIAssistantStatsPeriod) (string, string) {
 
 func statsUserClient(ctx context.Context) *user.Client {
 	client := newAIAssistantStatsUserClient()
-	client.SetTimeout(3 * time.Second)
+	client.SetTimeout(aslanconfig.AIAssistantStatsTimeout())
 	client.OnBeforeRequest(func(_ *resty.Client, request *resty.Request) error {
 		request.SetContext(ctx)
 		return nil
@@ -139,7 +137,7 @@ func assistantOverviewData(report *aiAssistantStatsData) models.AIAssistantStats
 }
 
 func GetAIAssistantStatsOverview(ctx context.Context, from, to string) (*models.AIAssistantStatsOverviewResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, aslanconfig.AIAssistantStatsTimeout())
 	defer cancel()
 	report, err := queryAIAssistantStats(ctx, "overview", from, to)
 	if err != nil {
@@ -165,6 +163,8 @@ func GetAIAssistantStatsOverview(ctx context.Context, from, to string) (*models.
 }
 
 func GetAIAssistantStatsTrends(ctx context.Context, from, to string) (*models.AIAssistantStatsTrendsResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, aslanconfig.AIAssistantStatsTimeout())
+	defer cancel()
 	report, err := queryAIAssistantStats(ctx, "trends", from, to)
 	if err != nil {
 		return nil, err
@@ -177,6 +177,8 @@ func GetAIAssistantStatsTrends(ctx context.Context, from, to string) (*models.AI
 }
 
 func GetAIAssistantStatsSkills(ctx context.Context, from, to string) (*models.AIAssistantStatsSkillsResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, aslanconfig.AIAssistantStatsTimeout())
+	defer cancel()
 	report, err := queryAIAssistantStats(ctx, "skills", from, to)
 	if err != nil {
 		return nil, err
@@ -200,7 +202,7 @@ func GetAIAssistantStatsSkills(ctx context.Context, from, to string) (*models.AI
 }
 
 func GetAIAssistantStatsRankings(ctx context.Context, from, to string) (*models.AIAssistantStatsRankingsResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, aslanconfig.AIAssistantStatsTimeout())
 	defer cancel()
 	report, err := queryAIAssistantStats(ctx, "rankings", from, to)
 	if err != nil {

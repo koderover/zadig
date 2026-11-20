@@ -4,21 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"io"
 	"net/http"
 	"strings"
-
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	statorm "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var reportColumns = []string{"key", "runs", "completed", "terminal", "in", "out", "elapsed", "completed_elapsed", "positive", "negative", "users"}
@@ -38,7 +38,7 @@ func mockAIAssistantStatsStore(t *testing.T) (*statorm.AIAssistantStatsStore, sq
 	newAIAssistantStatsUserClient = func() *user.Client {
 		client := &user.Client{Client: httpclient.New(httpclient.SetHostURL("http://user/api/v1"))}
 		client.SetTransport(statsUserTransport(func(r *http.Request) (*http.Response, error) {
-			if deadline, ok := r.Context().Deadline(); !ok || time.Until(deadline) > 3*time.Second {
+			if deadline, ok := r.Context().Deadline(); !ok || time.Until(deadline) > aslanconfig.AIAssistantStatsTimeout() {
 				t.Error("user 查询必须共用请求超时预算")
 			}
 			body := `{"total_user":10}`
@@ -289,6 +289,7 @@ func TestAIAssistantStatsDatabaseFailureAndRecovery(t *testing.T) {
 }
 
 func TestAIAssistantStatsFourReportsCanLoadConcurrently(t *testing.T) {
+	t.Setenv(setting.ENVAslanAIAssistantStatsDBMaxConnections, "3")
 	store, mock := mockAIAssistantStatsStore(t)
 	mock.MatchExpectationsInOrder(false)
 	for i := 0; i < 7; i++ {
@@ -325,7 +326,7 @@ func TestAIAssistantStatsFourReportsCanLoadConcurrently(t *testing.T) {
 
 func TestAIAssistantStatsConnectionWaitUsesQueryDeadline(t *testing.T) {
 	store, _ := mockAIAssistantStatsStore(t)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < store.SQLDB.Stats().MaxOpenConnections; i++ {
 		conn, err := store.SQLDB.Conn(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -339,11 +340,20 @@ func TestAIAssistantStatsConnectionWaitUsesQueryDeadline(t *testing.T) {
 	}
 }
 
-func TestAIAssistantStatsQueryHasThreeSecondDeadline(t *testing.T) {
-	_, mock := mockAIAssistantStatsStore(t)
-	mock.ExpectQuery("SELECT .*FROM ai_usage_daily").WillDelayFor(4 * time.Second).WillReturnRows(sqlmock.NewRows(reportColumns))
-	if _, err := GetAIAssistantStatsTrends(context.Background(), "", ""); !errors.Is(err, ErrAIAssistantStatsUnavailable) {
-		t.Fatal("查询必须受三秒预算限制")
+func TestAIAssistantStatsQueryUsesConfiguredTimeout(t *testing.T) {
+	t.Setenv(setting.ENVAslanAIAssistantStatsTimeout, "")
+	if got := aslanconfig.AIAssistantStatsTimeout(); got != 10*time.Second {
+		t.Fatalf("默认超时应为 10 秒，实际为 %s", got)
+	}
+	t.Setenv(setting.ENVAslanAIAssistantStatsTimeout, "100ms")
+	for kind, query := range aiAssistantReportQueries {
+		t.Run(kind, func(t *testing.T) {
+			_, mock := mockAIAssistantStatsStore(t)
+			mock.ExpectQuery("SELECT .*FROM ai_usage_daily").WillDelayFor(time.Second).WillReturnRows(sqlmock.NewRows(reportColumns))
+			if _, err := query(context.Background(), "", ""); !errors.Is(err, ErrAIAssistantStatsUnavailable) {
+				t.Fatalf("查询必须受环境变量配置的预算限制，实际错误为 %v", err)
+			}
+		})
 	}
 }
 

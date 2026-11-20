@@ -9,7 +9,10 @@ import (
 
 // 只更新等待中的根执行，终态贡献此前为零；报告继续保留不含聊天正文的日聚合。
 func cancelWaitingSkills(ctx context.Context, tx *gorm.DB, user, conversation string) error {
-	where := "r.user_id=? AND c.deleted_at IS NULL AND r.skill_execution_id=r.id AND r.skill_status IN ('awaiting_input','pending_confirmation') AND r.conversation_id=?"
+	where := "r.user_id=? AND c.deleted_at IS NULL AND r.skill_execution_id=r.id" +
+		" AND r.skill_status IN ('awaiting_input','pending_confirmation')" +
+		" AND r.status<>'unknown' AND (r.plan_status IS NULL OR r.plan_status<>'unknown')" +
+		" AND r.conversation_id=?"
 	args := []any{user, conversation}
 
 	day := time.Now().In(time.Local).Format("2006-01-02")

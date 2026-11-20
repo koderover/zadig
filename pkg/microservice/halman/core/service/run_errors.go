@@ -12,6 +12,8 @@ import (
 	"trpc.group/trpc-go/trpc-agent-go/tool"
 )
 
+const modelTimeoutError = "model_timeout"
+
 var callLimitMessage = regexp.MustCompile(`^max (tool iterations|LLM calls) \([0-9]+\) exceeded$`)
 
 func publicRunError(original *model.ResponseError, e *execution) *model.ResponseError {
@@ -33,6 +35,10 @@ func publicRunError(original *model.ResponseError, e *execution) *model.Response
 	}
 	slog.Warn("AI 运行返回错误", "run_id", e.Run.ID, "error_type", redactText(original.Type), "error_detail", detail)
 	lang := e.Language
+	if original.Type == modelTimeoutError ||
+		((original.Type == model.ErrorTypeStreamError || original.Type == model.ErrorTypeAPIError) && strings.Contains(original.Message, context.DeadlineExceeded.Error())) {
+		return &model.ResponseError{Type: modelTimeoutError, Message: lang.Text("模型响应超时，请继续当前对话重试", "The model response timed out. Retry in this conversation.")}
+	}
 	if original.Type == "tool_iteration_limit" || original.Type == "llm_call_limit" ||
 		((original.Type == model.ErrorTypeFlowError || original.Type == agent.ErrorTypeStopAgentError) && (callLimitMessage.MatchString(original.Message) || original.Message == "tool calls are disabled during call limit finalization")) {
 		kind := "tool_iteration_limit"

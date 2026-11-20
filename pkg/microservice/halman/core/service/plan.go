@@ -36,6 +36,7 @@ func (s *AgentService) saveDraft(ctx context.Context, e *execution, args models.
 		return nil, err
 	}
 	e.OnboardingDraft = &args
+	e.OnboardingSaved = true
 
 	e.Outcome = "awaiting_input"
 	result := map[string]any{
@@ -103,6 +104,7 @@ func (s *AgentService) savePlan(ctx context.Context, e *execution, plan models.O
 	e.OnboardingChecks = nil
 	if plan.Draft != nil {
 		e.OnboardingDraft = plan.Draft
+		e.OnboardingSaved = true
 	}
 	card := map[string]any{
 		"status":             "pending_confirmation",

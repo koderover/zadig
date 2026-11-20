@@ -34,8 +34,8 @@ type ServiceInput struct {
 }
 
 type BuildInput struct {
-	Name                string            `json:"name"`
-	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板 ID，未选择时跳过构建"`
+	Name                string            `json:"name,omitempty" jsonschema:"description=新构建的名称。项目初始化时省略由后端按项目标识生成；续接时沿用草稿中的名称"`
+	TemplateID          string            `json:"template_id,omitempty" jsonschema:"description=已有构建模板的 ID"`
 	ServiceName         string            `json:"service_name,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
 	ServiceModule       string            `json:"service_module,omitempty" jsonschema:"description=兼容单组件草稿，使用 targets 时省略"`
 	Targets             []BuildTarget     `json:"targets,omitempty" jsonschema:"description=项目初始化默认覆盖本次所有服务组件；限制范围时填写目标。修改时提交完整列表，省略时保留草稿"`
@@ -60,7 +60,7 @@ func (b BuildInput) ComponentTargets() []BuildTarget {
 
 type EnvironmentInput struct {
 	Name       string            `json:"name,omitempty"`
-	ClusterID  string            `json:"cluster_id,omitempty"`
+	ClusterID  string            `json:"cluster_id,omitempty" jsonschema:"description=使用集群目录返回的 id 字段，显示名称用于查询目录"`
 	Namespace  string            `json:"namespace,omitempty" jsonschema:"description=项目初始化时省略即使用系统建议的 namespace，仅在用户指定其他名称或默认名称不合法时填写"`
 	RegistryID string            `json:"registry_id,omitempty"`
 	Services   []string          `json:"services,omitempty" jsonschema:"description=要部署的服务名；只创建环境不部署服务时传空列表，不自动选择全部服务"`
@@ -78,7 +78,7 @@ type OnboardingInput struct {
 	Admins               []string          `json:"admins,omitempty" jsonschema:"description=管理员用户标识，默认当前用户"`
 	Public               bool              `json:"public,omitempty" jsonschema:"description=默认私有，只有用户明确要求时才设为公开"`
 	Services             []ServiceInput    `json:"services,omitempty"`
-	Builds               []BuildInput      `json:"builds,omitempty" jsonschema:"description=续接时按草稿中的构建名称补参，保留已有构建和覆盖范围；空列表清空所有构建"`
+	Builds               []BuildInput      `json:"builds,omitempty" jsonschema:"description=要求构建时必须填写，缺参数也先录入构建模板。只有明确跳过构建时传空列表；续接时省略则保留草稿"`
 	AddBuilds            bool              `json:"add_builds,omitempty" jsonschema:"description=已有构建草稿时，仅在用户明确要求新增构建记录时设为 true，并在 builds 填写新增项"`
 	RemoveBuilds         []string          `json:"remove_builds,omitempty" jsonschema:"description=仅在用户明确要求时，按名称移除当前草稿中的构建"`
 	Environment          *EnvironmentInput `json:"environment,omitempty"`
@@ -90,10 +90,15 @@ type OnboardingInput struct {
 // 草稿必须保存 false，工具 schema 仍允许省略开关以使用默认值。
 func (a OnboardingInput) MarshalJSON() ([]byte, error) {
 	type plain OnboardingInput
+	var builds *[]BuildInput
+	if a.Builds != nil {
+		builds = &a.Builds
+	}
 	return json.Marshal(struct {
 		plain
-		CreateWorkflow bool `json:"create_workflow"`
-	}{plain: plain(a), CreateWorkflow: a.CreateWorkflow})
+		Builds         *[]BuildInput `json:"builds,omitempty"`
+		CreateWorkflow bool          `json:"create_workflow"`
+	}{plain: plain(a), Builds: builds, CreateWorkflow: a.CreateWorkflow})
 }
 
 // 保留实际提供的字段，区分局部修改中的省略、false、空字符串及 null。

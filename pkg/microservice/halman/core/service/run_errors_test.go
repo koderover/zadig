@@ -129,6 +129,8 @@ func TestRunErrorClassificationAndRedactedOriginalLog(t *testing.T) {
 		{model.ErrorTypeFlowError, "max tool iterations (6) exceeded", "tool_iteration_limit", "本轮处理已达上限，草稿已保存，可以继续补充信息"},
 		{agent.ErrorTypeStopAgentError, "max LLM calls (8) exceeded", "llm_call_limit", "本轮处理已达上限，草稿已保存，可以继续补充信息"},
 		{model.ErrorTypeAPIError, "provider unavailable; token=hidden-token", "model_service_error", "模型服务调用失败，请稍后重试"},
+		{model.ErrorTypeStreamError, "context deadline exceeded (Client.Timeout or context cancellation while reading body)", modelTimeoutError, "模型响应超时，请继续当前对话重试"},
+		{modelTimeoutError, "模型响应超时，请继续当前对话重试", modelTimeoutError, "模型响应超时，请继续当前对话重试"},
 		{model.ErrorTypeFlowError, "callback failed; password=hidden-password", "execution_error", "任务处理失败，请查看运行状态后重试"},
 	} {
 		h := &session.AppendEventContext{Context: context.WithValue(context.Background(), executionKey{}, e), Event: event.NewResponseEvent("inv", "assistant", &model.Response{Error: &model.ResponseError{Type: test.kind, Message: test.message}})}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -67,6 +69,43 @@ func missingOnboardingEnvironment(args models.OnboardingInput, newProject bool) 
 		missing = append(missing, "环境的 Kubernetes namespace")
 	}
 	return missing
+}
+
+func (s *AgentService) resolveOnboardingCluster(ctx context.Context, e *execution, project, value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if id, err := primitive.ObjectIDFromHex(value); err == nil {
+		return id.Hex(), nil
+	}
+
+	query := url.Values{"scene": {"selector"}, "production": {"false"}}
+	if project != "" {
+		query.Set("projectName", project)
+	}
+	raw, err := s.Platform.business(ctx, e.Authorization, http.MethodGet, "/api/cluster/clusters", query, nil)
+	if err != nil {
+		return "", err
+	}
+	var candidates []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &candidates); err != nil {
+		return "", err
+	}
+	var resolved string
+	for _, cluster := range candidates {
+		if cluster.Name != value || !primitive.IsValidObjectID(cluster.ID) {
+			continue
+		}
+		if resolved != "" && resolved != cluster.ID {
+			return "", errors.New(e.text("有多个集群使用该名称，请在集群目录中确认目标", "Multiple clusters have this name. Confirm the target in the cluster catalog."))
+		}
+		resolved = cluster.ID
+	}
+	if resolved == "" {
+		return "", errors.New(e.text("未找到可用的目标集群，请核对完整集群名称", "No available cluster matched. Check the full cluster name."))
+	}
+	return resolved, nil
 }
 
 func suggestedOnboardingNamespace(args models.OnboardingInput) string {

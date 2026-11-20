@@ -137,7 +137,7 @@ func TestDeleteRunningConversationRollsBack(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id FROM ai_conversation .* FOR UPDATE").WithArgs("conversation-1", "user-1").WillReturnRows(sqlmock.NewRows([]string{"id"}).
 		AddRow("conversation-1"))
-	mock.ExpectQuery("SELECT COUNT.* FROM ai_run").WithArgs("conversation-1").WillReturnRows(sqlmock.NewRows([]string{"count"}).
+	mock.ExpectQuery("SELECT COUNT.* FROM ai_run").WithArgs("conversation-1").WillReturnRows(sqlmock.NewRows([]string{"active"}).
 		AddRow(1))
 	mock.ExpectRollback()
 	if err := s.DeleteConversation(context.Background(), "user-1", "conversation-1"); !errors.Is(err, common.ErrBusy) {
@@ -293,23 +293,58 @@ func TestFirstSkillSuccessCountsOneCompletedTask(t *testing.T) {
 	}
 }
 
-func TestConfirmationRejectsExpiredAndChangedPlanWithoutWriting(t *testing.T) {
-	for _, changed := range []bool{false, true} {
-		t.Run(map[bool]string{false: "过期", true: "清单被替换"}[changed], func(t *testing.T) {
+func TestConfirmationPlanExpiry(t *testing.T) {
+	for _, tc := range []struct {
+		name                             string
+		sweep, future, cancelled, edited bool
+		active                           string
+		want                             error
+	}{
+		{name: "确认时过期", active: "run", want: common.ErrPlanExpired},
+		{name: "清单被替换", active: "new-plan", want: common.ErrPlanChanged},
+		{name: "后台取消过期清单", sweep: true, active: "run"},
+		{name: "后台跳过仍有效的清单", sweep: true, future: true, active: "run"},
+		{name: "重复确认已取消的清单", cancelled: true, active: "run", want: common.ErrPlanExpired},
+		{name: "预检后清单内容变化", future: true, edited: true, active: "run", want: common.ErrPlanChanged},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			s, mock := mockStore(t)
 			now := time.Now().UTC()
 			plan := string(common.JSON(models.OperationPlan{Items: []models.OperationItem{{ID: "workflow", Action: "create_workflow", Status: "pending"}}}))
 			expires := now.Add(-time.Minute)
-			rows := func() *sqlmock.Rows {
-				return sqlmock.NewRows(strings.Split(runColumns, ", ")).AddRow(
+			if tc.future {
+				expires = now.Add(time.Minute)
+			}
+			status, reason := "pending_confirmation", ""
+			if tc.cancelled {
+				status, reason = "cancelled", common.ErrPlanExpired.Error()
+			}
+			snapshot := plan
+			if tc.edited {
+				snapshot = "{}"
+			}
+			root := "root"
+			run := &models.Run{ID: "run", ConversationID: "conversation", SkillExecutionID: &root, PlanVersion: 1, Plan: json.RawMessage(snapshot)}
+			if tc.sweep {
+				mock.ExpectQuery("SELECT r.id,r.user_id,r.plan_version,.*root.active_plan_run_id=r.id.*r.plan_expires_at<=").
+					WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "plan_version", "conversation_id", "skill_execution_id"}).
+						AddRow("run", "user", 1, "conversation", "root"))
+			}
+			mock.ExpectBegin()
+			mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("conversation", "user").
+				WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("conversation"))
+			mock.ExpectQuery("SELECT active_plan_run_id,skill_status .*FOR UPDATE").WithArgs("root", "user", sqlmock.AnyArg()).
+				WillReturnRows(sqlmock.NewRows([]string{"active", "skill_status"}).AddRow(tc.active, status))
+			mock.ExpectQuery("SELECT id, request_id,.*FOR UPDATE").WithArgs("run", "user").WillReturnRows(
+				sqlmock.NewRows(strings.Split(runColumns, ", ")).AddRow(
 					"run",
 					"request",
 					"conversation",
-					"pending_confirmation",
+					status,
 					"{}",
 					now,
 					nil,
-					"",
+					reason,
 					0,
 					0,
 					"project_onboarding",
@@ -317,28 +352,27 @@ func TestConfirmationRejectsExpiredAndChangedPlanWithoutWriting(t *testing.T) {
 					nil,
 					plan,
 					1,
-					"pending_confirmation",
+					status,
 					expires,
 					1,
 					nil,
 					true,
-				)
+				))
+			if tc.active != "run" || tc.future || tc.cancelled {
+				mock.ExpectRollback()
+			} else {
+				expectSkillCancellation(mock, "pending_confirmation")
+				mock.ExpectExec("UPDATE ai_run SET status='cancelled',plan_status='cancelled',finished_at=.*,error=").
+					WithArgs(sqlmock.AnyArg(), common.ErrPlanExpired.Error(), "run").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
 			}
-			mock.ExpectQuery("SELECT r.id,.*JOIN ai_conversation").WillReturnRows(rows())
-			mock.ExpectBegin()
-			mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).
-				AddRow("conversation"))
-			active := "run"
-			if changed {
-				active = "new-plan"
-			}
-
-			mock.ExpectQuery("SELECT active_plan_run_id .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"active"}).
-				AddRow(active))
-			mock.ExpectQuery("SELECT id, request_id,.*FOR UPDATE").WillReturnRows(rows())
-			mock.ExpectRollback()
-			if _, _, start, err := s.ConfirmPlan(context.Background(), "user", "run", 1, now.Add(-time.Hour)); err == nil || start {
-				t.Fatalf("不能提交已经失效的清单: %v %v", start, err)
+			if tc.sweep {
+				if err := s.ExpirePendingPlans(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+			} else if _, start, err := s.ConfirmPlan(context.Background(), "user", run, now.Add(-time.Hour)); !errors.Is(err, tc.want) || start {
+				t.Fatalf("不能提交已经失效的清单: %v %v, want %v", start, err, tc.want)
 			}
 		})
 	}

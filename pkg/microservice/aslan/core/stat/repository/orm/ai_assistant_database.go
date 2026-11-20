@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/koderover/zadig/v2/pkg/config"
+	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 )
 
 type AIAssistantStatsStore struct {
@@ -25,7 +26,7 @@ var assistantStatsDatabase struct {
 }
 
 func NewAIAssistantStatsStore(db *sql.DB) (*AIAssistantStatsStore, error) {
-	db.SetMaxOpenConns(3)
+	db.SetMaxOpenConns(aslanconfig.AIAssistantStatsDBMaxConnections())
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	orm, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: db, SkipInitializeWithVersion: true}), &gorm.Config{
@@ -52,7 +53,8 @@ func GetAIAssistantStatsStore() (*AIAssistantStatsStore, error) {
 	cfg.User, cfg.Passwd, cfg.Addr = config.MysqlUser(), config.MysqlPassword(), config.MysqlHost()
 	cfg.Net, cfg.DBName = "tcp", config.MysqlAIDB()
 	cfg.ParseTime, cfg.Loc = true, time.UTC
-	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 3*time.Second, 3*time.Second, 3*time.Second
+	timeout := aslanconfig.AIAssistantStatsTimeout()
+	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = timeout, timeout, timeout
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("AI 助手统计 MySQL 配置无效")

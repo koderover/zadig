@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -36,16 +37,23 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 	}
 
 	if r.PlanVersion != version {
-		return nil, common.ErrRequestConflict
+		return nil, common.ErrPlanChanged
 	}
 
 	if planAccepted(r) {
 		return r, nil
 	}
 
+	if r.Status == "cancelled" && r.Error == common.ErrPlanExpired.Error() {
+		return nil, common.ErrPlanExpired
+	}
+	if r.PlanExpiresAt != nil && !r.PlanExpiresAt.After(time.Now()) {
+		return nil, s.Store.ExpirePlan(ctx, user, r, cutoff)
+	}
+
 	var plan models.OperationPlan
 	if json.Unmarshal(r.Plan, &plan) != nil || len(plan.Items) == 0 {
-		return nil, common.ErrRequestConflict
+		return nil, common.ErrPlanUnavailable
 	}
 
 	e := &execution{
@@ -73,6 +81,9 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 	}
 
 	if err := s.verifyPlan(ctx, e, pendingPlan(plan)); err != nil {
+		if err == common.ErrInvalidCluster {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%w: %s", common.ErrRequestConflict, err.Error())
 	}
 
@@ -94,7 +105,7 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 		return nil, common.ErrBusy
 	}
 
-	r, plan, start, err := s.Store.ConfirmPlan(ctx, user, id, version, cutoff)
+	r, start, err := s.Store.ConfirmPlan(ctx, user, r, cutoff)
 	if err != nil || !start {
 		return r, err
 	}
@@ -148,6 +159,14 @@ func (s *AgentService) verifyPlan(ctx context.Context, e *execution, plan models
 				return err
 			}
 			id, expected, source = args.TemplateID, args.TemplateFingerprint, "build_template"
+		case "create_environment":
+			var args models.EnvironmentInput
+			if err := json.Unmarshal(item.Params, &args); err != nil {
+				return err
+			}
+			if !primitive.IsValidObjectID(args.ClusterID) {
+				return common.ErrInvalidCluster
+			}
 		}
 
 		if id != "" {

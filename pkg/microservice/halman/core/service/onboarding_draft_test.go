@@ -14,6 +14,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"trpc.group/trpc-go/trpc-agent-go/model"
 	"trpc.group/trpc-go/trpc-agent-go/tool"
 )
 
@@ -221,14 +222,39 @@ func TestOnboardingMissingFieldsAskForSpecificServiceInformation(t *testing.T) {
 	}
 }
 
+func TestProjectOnboardingRequiresBuildChoiceBeforeConfirmation(t *testing.T) {
+	store, mock := mockStore(t)
+	expectOnboardingDraftSave(mock)
+	e := reportExecution("project_onboarding")
+	e.RootID = e.Run.ID
+	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	args := onboardingInput(t, `{"project_key":"demo","project_name":"Demo","project_type":"k8s","skip_environment":true,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"}]}`)
+	value, err := (&AgentService{Store: store}).prepareProject(ctx, args)
+	if err != nil || e.Outcome != "awaiting_input" || !strings.Contains(string(common.JSON(value)), "选择构建模板，或明确跳过构建") {
+		t.Fatalf("遗漏构建意图不能生成确认清单: %v %v", value, err)
+	}
+}
+
 func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *testing.T) {
 	for _, emptyEnvironment := range []bool{false, true} {
 		t.Run(fmt.Sprintf("empty_environment=%t", emptyEnvironment), func(t *testing.T) {
 			store, mock := mockStore(t)
 			reads := 0
+			const clusterName, clusterID = "local-20261117093925", "0123456789abcdef12345678"
 			platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/v1/authorization/auth-info" {
 					w.Write([]byte(`{"is_system_admin":true}`))
+					return
+				}
+				if r.URL.Path == "/api/cluster/clusters" {
+					q := r.URL.Query()
+					if r.Method != http.MethodGet || q.Get("scene") != "selector" || q.Get("production") != "false" || q.Has("projectName") {
+						t.Fatalf("新项目必须读取当前用户的集群候选: %s %s", r.Method, r.URL)
+					}
+					w.Write(common.JSON([]map[string]string{
+						{"name": clusterName + "-backup", "id": "000000000000000000000006"},
+						{"name": clusterName, "id": clusterID},
+					}))
 					return
 				}
 				if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/api/template/yaml/") {
@@ -258,9 +284,14 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					}
 				}
 				expectOnboardingDraftSave(mock)
-				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
+				value, err := callable.Call(ctx, []byte(`{"project_name":"示例","project_key":"demo","project_type":"k8s","expected_service_count":3,"builds":[],"services":[{"name":"api","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"web","source":"yaml_template","template_id":"000000000000000000000005"},{"name":"worker","source":"yaml_template","template_id":"000000000000000000000005"}]}`))
 				if err != nil || e.Outcome != "awaiting_input" {
 					t.Fatalf("模板缺参应进入草稿而非报错: %v %v", value, err)
+				}
+				request := &model.Request{Tools: map[string]tool.Tool{"query_catalog": nativeSkillTool(t, s, "query_catalog")}}
+				if err := s.applyOnboardingContinuation(ctx, e, request); err != nil || len(request.Tools) != 0 ||
+					len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "一次性补问") {
+					t.Fatalf("保存草稿后模型应直接补问，不能继续查询目录: %+v %v", request, err)
 				}
 				text := string(common.JSON(value))
 				for _, name := range []string{"api", "web", "worker"} {
@@ -283,12 +314,12 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					t.Fatalf("服务补齐后必须询问环境选择并保留默认工作流: %v %v", value, err)
 				}
 				expectOnboardingDraftSave(mock)
-				value, err = callable.Call(ctx, []byte(`{"environment":{"name":"dev","cluster_id":"local","services":["api","web","worker"]}}`))
+				value, err = callable.Call(ctx, common.JSON(map[string]any{"environment": models.EnvironmentInput{Name: "dev", ClusterID: clusterName, Services: []string{"api", "web", "worker"}}}))
 				if err != nil {
 					t.Fatal(err)
 				}
 				missing = value.(map[string]any)["missing_fields"].([]string)
-				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || value.(map[string]any)["suggested_namespace"] != "demo-env-dev" {
+				if !reflect.DeepEqual(missing, []string{"环境的镜像仓库"}) || value.(map[string]any)["suggested_namespace"] != "demo-env-dev" || e.OnboardingDraft.Environment.ClusterID != clusterID {
 					t.Fatalf("仅补问缺失的镜像仓库，保留已填环境信息: %v", value)
 				}
 				mock.ExpectBegin()
@@ -303,7 +334,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					input = `{"environment":{"registry_id":"registry","services":[]}}`
 				}
 				value, err = callable.Call(ctx, []byte(input))
-				if err != nil || e.Outcome != "pending_confirmation" {
+				if err != nil || e.Outcome != "pending_confirmation" || !e.OnboardingSaved {
 					t.Fatalf("补齐后必须生成确认清单: %v %v", value, err)
 				}
 				plan := value.(map[string]any)["plan"].(models.OperationPlan)
@@ -317,8 +348,8 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 						t.Fatalf("空环境应纳入清单并明确不部署服务: %+v", plan)
 					}
 					var env models.EnvironmentInput
-					if err := json.Unmarshal(plan.Items[4].Params, &env); err != nil || env.Namespace != "demo-env-dev" {
-						t.Fatalf("确认清单应使用系统建议的 namespace: %+v, %v", env, err)
+					if err := json.Unmarshal(plan.Items[4].Params, &env); err != nil || env.Namespace != "demo-env-dev" || env.ClusterID != clusterID {
+						t.Fatalf("确认清单应使用系统建议的 namespace 和目录返回的集群 ID: %+v, %v", env, err)
 					}
 				}
 				if len(plan.Items) != itemCount || plan.Items[itemCount-1].Action != "create_workflow" || len(plan.Items[itemCount-1].DependsOn) != itemCount-1 || plan.Draft == nil || plan.Draft.SkipEnvironment == emptyEnvironment || plan.Draft.ExpectedServiceCount != 3 || len(plan.Draft.Services) != 3 || plan.Draft.Services[1].Variables["PORT"] != "8080" || reads != 3 {

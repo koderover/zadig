@@ -602,12 +602,12 @@ AI 使用自己的连接池，不调整 user 服务的连接池，也不对共�
 | 每个 halman 实例 MySQL 连接总上限 | 50，环境变量 `HALMAN_DB_MAX_CONNECTIONS` |
 | 每个 halman 实例 MySQL 空闲连接总上限 | 默认 10，每池最多 5，且不超过各自上限 |
 | 满载时短等待上限 | 默认 2 秒，环境变量 `HALMAN_ADMISSION_WAIT_TIMEOUT` |
-| 每个 aslan 实例报表 SQL 并发及连接上限 | 3，独立只读连接池；空闲上限为 1 |
+| 每个 aslan 实例报表 SQL 并发及连接上限 | 默认 5，环境变量 `ASLAN_AI_ASSISTANT_STATS_DB_MAX_CONNECTIONS`，空闲上限为 1 |
 | 清理工作者 | 1 |
 
 halman 的 Session 和业务 DAO 使用独立受限连接池，合计不得超过 `HALMAN_DB_MAX_CONNECTIONS`，默认 50。业务池取总预算的六成向下取整，框架池取剩余部分，默认分别为 30 和 20；各池空闲连接上限为 5，且不超过各自连接上限。日聚合写入、历史清理及框架存储复用这两个连接池，不另建池。配置读取复用现有 MongoDB 初始化和驱动连接池，不计入 MySQL 预算。
 
-报表读取位于 aslan，使用第 10 节定义的独立只读连接池，每个 aslan 实例最多三个连接，不包含在 halman 的 50 个连接中。第一期 halman 固定单副本，AI 功能新增的 MySQL 连接上限为 `HALMAN_DB_MAX_CONNECTIONS + 3 × aslan 副本数`；例如两个 aslan 副本时，默认新增上限为 56。该值不包含 user、dex 等已有连接池，应与现有服务连接预算一起评估共享实例容量。
+报表读取位于 aslan，使用第 10 节定义的独立只读连接池。第一期 halman 固定单副本，AI 功能新增的 MySQL 连接上限为 `HALMAN_DB_MAX_CONNECTIONS + ASLAN_AI_ASSISTANT_STATS_DB_MAX_CONNECTIONS × aslan 副本数`。例如两个 aslan 副本时，默认新增上限为 60。该值不包含 user、dex 等已有连接池，应与现有服务连接预算一起评估共享实例容量。
 
 第一期使用 `Recreate`，不产生滚动升级的重叠副本。
 
@@ -679,7 +679,7 @@ halman 在清理周期的结构化日志中输出当前进程的清理尝试、�
 
 对外统计接口统一放在 aslan `stat/v2`：四个独立 GET 接口 `/overview`、`/trends`、`/skills`、`/rankings`（公共前缀 `/api/aslan/stat/v2/ai_assistant`），Swagger tag 为 `stat`。aslan 在入口校验当前登录用户为系统管理员或具有查看 AI 助手报告权限，并检查有效企业版许可证，通过 `stat/service`、`stat/repository/orm` 直接查询 `zadig_ai.ai_usage_daily` 并计算指标。AI 关闭、模型未配置或 halman 停机时仍可查询已有日聚合。删除 halman 的报告查询实现和内部 HTTP 接口；halman 仍是日聚合写入、建表和过期清理的唯一维护方。
 
-aslan 复用 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`，首次统计查询时创建独立 GORM 连接池，每个 aslan 实例最多三个连接、空闲一个，连接最长存活五分钟；只执行 SELECT，不探测连通性、不建库、不建表、不运行迁移。移除报告互斥锁，由连接池控制最多三个并行 SQL 查询，其余查询在池内等待；等待连接和执行查询共用三秒预算，超时返回 HTTP 400/code 7212；数据库配置缺失、不可达或聚合表尚未初始化时只使统计接口返回 HTTP 400/code 7212，不阻止 aslan 启动及其他接口。部署需为 aslan 注入上述现有 MySQL 配置，并与 halman 使用相同 `TZ`（示例为 `Asia/Shanghai`），按 aslan 副本数累计连接预算。小连接池不隔离共享 MySQL 的 CPU、磁盘压力，仍需保持日期范围限制和查询限流。
+aslan 复用 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`，首次统计查询时创建独立 GORM 连接池。每个副本的连接上限由 `ASLAN_AI_ASSISTANT_STATS_DB_MAX_CONNECTIONS` 配置（默认 5），最多保留一个空闲连接，连接最长存活五分钟。统计只执行 SELECT，不探测连通性、不建库、不建表、不运行迁移。超出连接上限的查询在池内等待。连接池等待、SQL 和 user 查询共用 `ASLAN_AI_ASSISTANT_STATS_TIMEOUT` 预算（默认 `10s`），MySQL 驱动连接、读和写超时使用相同配置。空值或无效值回退到默认值。超时、数据库配置缺失、不可达或聚合表尚未初始化时，统计接口返回 HTTP 400 和错误码 7212，aslan 启动及其他接口仍可用。部署需为 aslan 注入上述现有 MySQL 配置，与 halman 使用相同 `TZ`（例如 `Asia/Shanghai`），并按 aslan 副本数累加连接预算。连接池上限只约束连接数量，仍需通过日期范围和查询限流控制共享 MySQL 的 CPU 和磁盘压力。
 
 业务报告移除 `maintenance`、`business_database_pool`；halman 的清理进度、积压和连接池状态继续写入清理周期的结构化日志，不通过产品报告查询。
 
@@ -689,7 +689,7 @@ aslan 复用 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD`，首次统计查询
 
 所有报告指标增加 `total_tokens` 和 `model_usage[]`，后者包含 `model_id`、`model`、`input_tokens`、`output_tokens`、`total_tokens`，按模型集成 ID 和调用时的模型名排序，无数据返回 `[]`。`ai_usage_daily` 主键扩展为 `(date, user_id, skill_id, model_id, model_name)`；调用次数、耗时及 Token 从该次 `ai_run` 的模型快照写入对应模型行，任务终态、完成耗时和反馈继续写入空模型维度。修正任务贡献时仅更新空模型行，汇总时跨模型求和并对用户去重，不能按模型重复计算任务数。模型信息随日聚合保留三百六十五天，不依赖已到期的运行记录或当前模型配置，不增加表。
 
-概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。SQL、连接等待与 user 查询共用三秒请求预算。分类和排行的模型明细仅查询报告实际返回的分组。
+概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。分类和排行的模型明细仅查询报告实际返回的分组。
 
 
 Skill 分类在 SQL 中通过 `ai_usage_daily.skill_id=ai_skill.id` 关联分类汇总，不再硬编码 Skill ID 映射：`workflow_diagnosis`、`service_diagnosis` 归入故障排查，`project_onboarding`、`service_onboarding` 归入实施辅助；`environment_inspection`、`efficiency_diagnosis` 归入巡检诊断；发布辅助当前无对应 Skill，返回零值。普通聊天和未分类 Skill 不计入分类报告。分类内活跃用户跨 Skill 去重，完成率和反馈采纳率按分类总量重新计算，不相加用户数或平均各 Skill 比例。仍按 Skill 写入日聚合，分类取自新增的 `ai_skill` 表；概览节省人力继续按单个 Skill 计算，其他报告口径不变。
