@@ -24,14 +24,14 @@ import (
 	apollotool "github.com/koderover/zadig/v2/pkg/tool/apollo"
 )
 
-// MergeNamespace reads the current configuration and prepares validated
+// MergeNamespace reads the latest released configuration and prepares validated
 // updates without writing to Apollo or changing the saved plan.
 // The caller binds request cancellation and deadlines to client.
 func MergeNamespace(client *apollotool.Client, namespace *models.ApolloNamespace) (*models.ApolloNamespace, error) {
 	if namespace == nil {
 		return nil, errors.New("Apollo namespace is nil")
 	}
-	current, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+	current, err := client.GetReleasedNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("get current namespace failed: %w", err)
 	}

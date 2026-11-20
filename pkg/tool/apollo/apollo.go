@@ -18,8 +18,12 @@ package apollo
 
 import (
 	"fmt"
+	"maps"
 	"path"
+	"slices"
 	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (
@@ -185,6 +189,50 @@ func (c *Client) GetNamespace(appID, env, cluster, namespace string) (result *Na
 		"namespaceName": namespace,
 	}).SetSuccessResult(&result).Get(c.BaseURL + "/openapi/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}")
 	return
+}
+
+func (c *Client) GetReleasedNamespace(appID, env, cluster, namespace string) (*Namespace, error) {
+	// The latest release omits Format. Read namespace metadata for the config
+	// type returned to the frontend, format-specific merging and validation,
+	// and normalizing file config keys to "content". Replace draft Items below
+	// with the released configuration.
+	result, err := c.GetNamespace(appID, env, cluster, namespace)
+	if err != nil {
+		log.Errorf("get Apollo namespace metadata failed (app=%s, env=%s, cluster=%s, namespace=%s): %v", appID, env, cluster, namespace, err)
+		return nil, err
+	}
+	if result == nil {
+		log.Errorf("Apollo namespace not found (app=%s, env=%s, cluster=%s, namespace=%s)", appID, env, cluster, namespace)
+		return nil, fmt.Errorf("namespace %s not found", namespace)
+	}
+	var release *struct {
+		Configurations map[string]string `json:"configurations"`
+	}
+	resp, err := c.R().SetPathParams(map[string]string{
+		"env":           env,
+		"appId":         appID,
+		"clusterName":   cluster,
+		"namespaceName": namespace,
+	}).Get(c.BaseURL + "/openapi/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases/latest")
+	if err != nil {
+		log.Errorf("get latest Apollo release failed (app=%s, env=%s, cluster=%s, namespace=%s): %v", appID, env, cluster, namespace, err)
+		return nil, fmt.Errorf("get latest release failed: %w", err)
+	}
+	if len(resp.Bytes()) > 0 {
+		if err := resp.UnmarshalJson(&release); err != nil {
+			log.Errorf("decode latest Apollo release failed (app=%s, env=%s, cluster=%s, namespace=%s): %v", appID, env, cluster, namespace, err)
+			return nil, fmt.Errorf("get latest release failed: %w", err)
+		}
+	}
+	if release == nil || release.Configurations == nil {
+		log.Errorf("no published Apollo configuration found (app=%s, env=%s, cluster=%s, namespace=%s)", appID, env, cluster, namespace)
+		return nil, fmt.Errorf("no published configuration found for namespace %s (app=%s, env=%s, cluster=%s)", namespace, appID, env, cluster)
+	}
+	result.Items = make([]*Items, 0, len(release.Configurations))
+	for _, key := range slices.Sorted(maps.Keys(release.Configurations)) {
+		result.Items = append(result.Items, &Items{Key: key, Value: release.Configurations[key]})
+	}
+	return result, nil
 }
 
 func (c *Client) UpdateKeyVal(appID, env, cluster, namespace, key, val, updateUser string) error {
