@@ -78,13 +78,6 @@ func ListConnectors(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = connectors, err
 }
 
-func ListConnectorsInternal(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.RespErr = service.ListConnectorsInternal(ctx.Logger)
-}
-
 func DeleteConnector(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
