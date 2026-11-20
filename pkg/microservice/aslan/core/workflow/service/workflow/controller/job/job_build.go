@@ -18,11 +18,13 @@ package job
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -786,6 +788,7 @@ func (j BuildJobController) SetRepoCommitInfo() error {
 
 func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
+	buildSvc := commonservice.NewBuildService()
 
 	if getAggregatedVariables {
 		var serviceAndModuleName, branchList, gitURLs []string
@@ -836,12 +839,15 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		})
 
 		outputKeys := sets.NewString()
-		buildSvc := commonservice.NewBuildService()
 		for _, build := range j.jobSpec.ServiceAndBuildsOptions {
 			jobKey := strings.Join([]string{j.name, build.ServiceName, build.ServiceModule}, ".")
 			buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
 			if err != nil {
-				return nil, err
+				if !errors.Is(err, mongo.ErrNoDocuments) {
+					return nil, err
+				}
+				log.Warnf("job %s: skip output variables of %s/%s, build %s not found", j.name, build.ServiceName, build.ServiceModule, build.BuildName)
+				continue
 			}
 			for _, output := range ensureBuiltInBuildOutputs(buildInfo.Outputs) {
 				if getServiceSpecificVariables {
@@ -952,8 +958,6 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		}
 	}
 
-	buildSvc := commonservice.NewBuildService()
-
 	if getServiceSpecificVariables {
 		target := j.jobSpec.ServiceAndBuildsOptions
 		if useUserInputValue {
@@ -963,7 +967,11 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		for _, service := range target {
 			build, err := buildSvc.GetBuild(service.BuildName, service.ServiceName, service.ServiceModule)
 			if err != nil {
-				return nil, err
+				if useUserInputValue || !errors.Is(err, mongo.ErrNoDocuments) {
+					return nil, err
+				}
+				log.Warnf("job %s: skip variables of %s/%s, build %s not found", j.name, service.ServiceName, service.ServiceModule, service.BuildName)
+				continue
 			}
 
 			kvs := applyKeyVals(build.PreBuild.Envs.ToRuntimeList(), service.KeyVals, true)
