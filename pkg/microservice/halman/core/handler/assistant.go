@@ -96,7 +96,13 @@ func respondError(c *gin.Context, err error) {
 	case errors.Is(err, common.ErrBusy):
 		template, description = e.ErrAIAssistantBusy, lang.Text(common.ErrBusy.Error(), "You have an active run; wait or cancel it before trying again")
 	case errors.Is(err, common.ErrResultUnknown):
-		template, description = e.ErrAIAssistantResultUnknown, lang.Text(common.ErrResultUnknown.Error(), "This conversation has an unverified operation outcome. Verify it before deleting the conversation.")
+		status, body := e.ErrorMessage(e.NewHTTPError(
+			e.ErrAIAssistantResultUnknown.Code(),
+			lang.Text("无法删除会话，请先核实操作结果", "Cannot delete this conversation. Verify the operation outcome first."),
+			lang.Text(common.ErrResultUnknown.Error(), "This conversation has an unverified operation outcome. Verify it before deleting the conversation."),
+		))
+		c.AbortWithStatusJSON(status, body)
+		return
 	case errors.Is(err, common.ErrPlanExpired):
 		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrPlanExpired.Error(), "The plan expired and was automatically cancelled. Generate a new plan.")
 	case errors.Is(err, common.ErrPlanChanged):
