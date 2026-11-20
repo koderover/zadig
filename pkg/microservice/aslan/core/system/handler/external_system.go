@@ -83,8 +83,14 @@ type listExternalResp struct {
 }
 
 func ListExternalSystem(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// Query Verification
 	args := &listQuery{}
@@ -99,6 +105,9 @@ func ListExternalSystem(c *gin.Context) {
 		return
 	}
 	systemList, length, err := service.ListExternalSystem(encryptedKey, args.PageNum, args.PageSize, ctx.Logger)
+	if err == nil && !canEditSystemIntegration(ctx) {
+		maskExternalSystemSecrets(systemList...)
+	}
 	if err == nil {
 		ctx.Resp = &listExternalResp{
 			SystemList: systemList,
@@ -128,7 +137,7 @@ func GetExternalSystemDetail(c *gin.Context) {
 
 	detail, err := service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
 	if err == nil && !canEditSystemIntegration(ctx) {
-		maskSecret(&detail.APIToken)
+		maskExternalSystemSecrets(detail)
 	}
 	ctx.Resp, ctx.RespErr = detail, err
 }
