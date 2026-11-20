@@ -502,7 +502,7 @@ func ListApolloConfig(id, appID, env, cluster, namespace string, log *zap.Sugare
 		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
 	}
 	cli := apollo.NewClient(info.ServerAddress, info.Token)
-	namespaceInfo, err := cli.GetNamespace(appID, env, cluster, namespace)
+	namespaceInfo, err := cli.GetReleasedNamespace(appID, env, cluster, namespace)
 	if err != nil {
 		log.Errorf("failed to get namespace from apollo, error: %s", err)
 		return nil, fmt.Errorf("failed to get namespace info from apollo, error: %s", err)
