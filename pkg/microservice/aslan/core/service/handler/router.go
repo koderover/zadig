@@ -138,6 +138,9 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	helm := router.Group("helm")
 	{
 		helm.POST("/load", LoadHelmServiceOpenAPI)
+		helm.GET("/:name", GetHelmServiceOpenAPI)
+		helm.PUT("/:name", UpdateHelmServiceOpenAPI)
+		helm.DELETE("/:name", DeleteHelmServiceOpenAPI)
 	}
 
 	yaml := router.Group("yaml")
