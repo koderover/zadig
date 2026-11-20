@@ -133,8 +133,7 @@ var (
 		"notificationTextRepositoryInfo":     "代码信息",
 		"notificationTextImageInfo":          "镜像信息",
 		"notificationTextTestResult":         "测试结果",
-		"notificationTextHTMLReport":         "HTML 报告",
-		"notificationTextHTMLTestReport":     "HTML 测试报告",
+		"notificationTextViewTestReport":     "查看测试报告",
 		"notificationTextSonarMetrics":       "扫描结果",
 	}
 
@@ -218,8 +217,7 @@ var (
 		"notificationTextRepositoryInfo":     "Repository Information",
 		"notificationTextImageInfo":          "Image Information",
 		"notificationTextTestResult":         "Test Result",
-		"notificationTextHTMLReport":         "HTML Report",
-		"notificationTextHTMLTestReport":     "HTML Test Report",
+		"notificationTextViewTestReport":     "View Test Report",
 		"notificationTextSonarMetrics":       "Scanning Result",
 	}
 )
