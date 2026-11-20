@@ -261,13 +261,15 @@ func (c *BuildService) GetBuild(buildName, serviceName, serviceModule string) (*
 		// TODO: add project name
 		buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildName})
 		if err != nil {
-			c.BuildMap.Store(buildName, nil)
-			return nil, fmt.Errorf("find build: %s error: %v", buildName, err)
+			// cache the wrapped error so later lookups keep the original cause
+			err = fmt.Errorf("find build: %s error: %w", buildName, err)
+			c.BuildMap.Store(buildName, err)
+			return nil, err
 		}
 		c.BuildMap.Store(buildName, buildInfo)
 	} else {
-		if buildMapValue == nil {
-			return nil, fmt.Errorf("failed to find build: %s", buildName)
+		if cachedErr, ok := buildMapValue.(error); ok {
+			return nil, cachedErr
 		}
 		buildInfo = buildMapValue.(*commonmodels.Build)
 	}
