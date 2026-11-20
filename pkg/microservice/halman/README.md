@@ -236,6 +236,7 @@ aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，�
 
 - `cancel` 仅停止 `running/executing` 运行，或放弃同一 Skill 当前最新的 `awaiting_input` 补问；`pending_confirmation` 必须通过 `confirmation` 的 `decision=reject` 拒绝，直接取消返回 HTTP 400/code 7216。已经 `cancelling` 或进入终态的重复取消不改写持久化状态。
 - 拒绝只处理当前待确认清单，须在同一事务中核对 `active_plan_run_id`、`plan_version`、`plan_status` 及根业务状态 `pending_confirmation`；被替换的旧清单、错误版本及已经开始执行的清单返回 HTTP 400/code 7216。当前清单即使已过期也允许拒绝关闭，但不能确认执行。同一当前版本已经拒绝后再次拒绝幂等返回 204，不重复修改统计；计划指针变化后，旧请求不再视为重复拒绝。
+- 当前待确认清单到期后，由 Halman 的每分钟维护任务自动取消。若先收到确认请求，接口立即取消并返回 HTTP 400/code 7216，详情提示清单已过期并要求重新生成。取消原因通过运行详情和历史记录中的 `error` 字段返回。
 - 取消和拒绝按会话、Skill 根执行、目标运行的顺序加行锁，与确认、生成新清单和删除串行化。状态与 Skill 聚合贡献在同一事务中更新；事务失败整体回滚。`cancel` 只在事务提交成功后停止后台上下文，拒绝不调用后台取消函数。
 - 放弃补问时校验根业务状态及同一 Skill 最新的非重新回答运行，旧补问不能覆盖新进展；该 Skill 尚未执行的旧待确认清单同步失效，防止放弃后再次确认。其他 Skill 的进展不参与这项最新运行判断。仅增加必要的标量查询，沿用已有会话及 Skill 索引，不读取计划或上下文 JSON，不新增数据库表。
 

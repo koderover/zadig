@@ -37,16 +37,23 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 	}
 
 	if r.PlanVersion != version {
-		return nil, common.ErrRequestConflict
+		return nil, common.ErrPlanChanged
 	}
 
 	if planAccepted(r) {
 		return r, nil
 	}
 
+	if r.Status == "cancelled" && r.Error == common.ErrPlanExpired.Error() {
+		return nil, common.ErrPlanExpired
+	}
+	if r.PlanExpiresAt != nil && !r.PlanExpiresAt.After(time.Now()) {
+		return nil, s.Store.ExpirePlan(ctx, user, r, cutoff)
+	}
+
 	var plan models.OperationPlan
 	if json.Unmarshal(r.Plan, &plan) != nil || len(plan.Items) == 0 {
-		return nil, common.ErrRequestConflict
+		return nil, common.ErrPlanUnavailable
 	}
 
 	e := &execution{
@@ -98,7 +105,7 @@ func (s *AgentService) Confirm(ctx context.Context, user, authorization, id stri
 		return nil, common.ErrBusy
 	}
 
-	r, plan, start, err := s.Store.ConfirmPlan(ctx, user, id, version, cutoff)
+	r, start, err := s.Store.ConfirmPlan(ctx, user, r, cutoff)
 	if err != nil || !start {
 		return r, err
 	}

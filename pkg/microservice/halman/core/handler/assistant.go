@@ -95,6 +95,12 @@ func respondError(c *gin.Context, err error) {
 		template, description = e.ErrNotFound, lang.Text(common.ErrNotFound.Error(), "The conversation or run does not exist")
 	case errors.Is(err, common.ErrBusy):
 		template, description = e.ErrAIAssistantBusy, lang.Text(common.ErrBusy.Error(), "You have an active run; wait or cancel it before trying again")
+	case errors.Is(err, common.ErrPlanExpired):
+		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrPlanExpired.Error(), "The plan expired and was automatically cancelled. Generate a new plan.")
+	case errors.Is(err, common.ErrPlanChanged):
+		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrPlanChanged.Error(), "The plan has changed. Open the latest plan before confirming.")
+	case errors.Is(err, common.ErrPlanUnavailable):
+		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrPlanUnavailable.Error(), "The plan was cancelled or is not ready.")
 	case errors.Is(err, common.ErrRequestConflict):
 		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrRequestConflict.Error(), "The request or plan state has changed")
 	case errors.Is(err, common.ErrInvalidCluster):
@@ -313,7 +319,7 @@ func (a *API) cancelRun(c *gin.Context) {
 
 // confirm godoc
 // @Summary 确认或拒绝 AI 助手操作清单
-// @Description decision 为空或 confirm 时确认，reject 时拒绝；两者均检查本人归属、根执行的当前计划指针及 version，已替换的旧卡片返回 HTTP 400/code 7216。确认还检查三十分钟有效期及当前资源权限，之后异步执行；拒绝还要求根业务仍在等待确认，仅关闭当前 pending_confirmation 清单，不中断正在运行或执行的任务，允许关闭已过期但尚未被替换的清单。同版本重复确认不重放写入；同版本重复拒绝不重复更新统计。执行要求 enabled 开启，关闭 AI 后仍可拒绝计划。
+// @Description decision 为空或 confirm 时确认，reject 时拒绝；两者均检查本人归属、根执行的当前计划指针及 version，已替换的旧卡片返回 HTTP 400/code 7216。当前待确认清单三十分钟后自动取消并记录原因，确认过期清单返回 HTTP 400/code 7216。有效清单通过权限检查后异步执行；拒绝只关闭当前 pending_confirmation 清单，不中断正在运行或执行的任务。同版本重复确认不重放写入；同版本重复拒绝不重复更新统计。执行要求 enabled 开启，关闭 AI 后仍可拒绝计划。
 // @Description 错误使用标准响应；业务错误通过 HTTP 400 返回，code=7050 或 7213～7221，具体原因见 message/description。
 // @Tags AI助手
 // @Accept json

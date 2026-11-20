@@ -1,9 +1,11 @@
 package orm
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -138,87 +140,138 @@ func (s *Store) FinishPlan(ctx context.Context, user string, r *models.Run, root
 	return tx.Commit().Error
 }
 
-func (s *Store) ConfirmPlan(ctx context.Context, user, id string, version int, cutoff time.Time) (*models.Run, models.OperationPlan, bool, error) {
-	r, err := s.GetRun(ctx, user, id, cutoff)
-	if err != nil {
-		return nil, models.OperationPlan{}, false, err
-	}
+// ConfirmPlan uses the snapshot that passed the caller's preflight checks.
+func (s *Store) ConfirmPlan(ctx context.Context, user string, run *models.Run, cutoff time.Time) (*models.Run, bool, error) {
+	return s.confirmPlan(ctx, user, run, cutoff, false)
+}
 
-	var plan models.OperationPlan
-	if json.Unmarshal(r.Plan, &plan) != nil {
-		return nil, plan, false, fmt.Errorf("确认清单无效")
-	}
+func (s *Store) ExpirePlan(ctx context.Context, user string, run *models.Run, cutoff time.Time) error {
+	_, _, err := s.confirmPlan(ctx, user, run, cutoff, true)
+	return err
+}
 
+func (s *Store) confirmPlan(ctx context.Context, user string, run *models.Run, cutoff time.Time, expireOnly bool) (*models.Run, bool, error) {
+	if run.SkillExecutionID == nil {
+		return nil, false, common.ErrPlanUnavailable
+	}
 	tx := s.DB.WithContext(ctx).Begin()
-	err = tx.Error
-	if err != nil {
-		return nil, plan, false, err
+	if tx.Error != nil {
+		return nil, false, tx.Error
 	}
 
 	defer tx.Rollback()
-	if err := lockActiveConversation(tx, user, r.ConversationID); err != nil {
-		return nil, plan, false, common.ErrNotFound
+	if err := lockActiveConversation(tx, user, run.ConversationID); err != nil {
+		return nil, false, common.ErrNotFound
 	}
 
-	if r.SkillExecutionID == nil {
-		return nil, plan, false, fmt.Errorf("%w: 清单缺少业务执行关联", common.ErrRequestConflict)
-	}
-
-	var active sql.NullString
-	if err := tx.WithContext(ctx).Raw("SELECT active_plan_run_id FROM ai_run WHERE id=? AND created_at>=? FOR UPDATE", *r.SkillExecutionID, cutoff).
+	var active, skillStatus sql.NullString
+	if err := tx.Raw("SELECT active_plan_run_id,skill_status FROM ai_run WHERE id=? AND user_id=? AND created_at>=? FOR UPDATE", *run.SkillExecutionID, user, cutoff).
 		Row().
-		Scan(&active); err != nil {
-		return nil, plan, false, common.ErrNotFound
+		Scan(&active, &skillStatus); err != nil {
+		return nil, false, common.ErrNotFound
 	}
 
-	current, err := scanRun(tx.WithContext(ctx).Raw("SELECT "+runColumns+" FROM ai_run WHERE id=? FOR UPDATE", id).
+	current, err := scanRun(tx.Raw("SELECT "+runColumns+" FROM ai_run WHERE id=? AND user_id=? FOR UPDATE", run.ID, user).
 		Row())
 	if err != nil {
-		return nil, plan, false, err
+		return nil, false, err
 	}
 
-	if current.PlanVersion != version || !active.Valid || active.String != id {
-		return nil, plan, false, fmt.Errorf("%w: 清单已变化，请重新预览并确认", common.ErrRequestConflict)
+	if current.PlanVersion != run.PlanVersion || !active.Valid || active.String != run.ID {
+		return nil, false, common.ErrPlanChanged
 	}
 
-	if current.PlanStatus != nil &&
+	if !expireOnly && current.PlanStatus != nil &&
 		(*current.PlanStatus == "executing" || *current.PlanStatus == "succeeded" || *current.PlanStatus == "failed" ||
 			*current.PlanStatus == "unknown") {
-		return current, plan, false, nil
+		return current, false, nil
 	}
 
+	if current.Status == "cancelled" && current.Error == common.ErrPlanExpired.Error() {
+		return nil, false, common.ErrPlanExpired
+	}
 	if current.Status != "pending_confirmation" || current.PlanStatus == nil || *current.PlanStatus != "pending_confirmation" ||
-		current.PlanExpiresAt == nil ||
-		!current.PlanExpiresAt.After(time.Now()) {
-		return nil, plan, false, fmt.Errorf("%w: 清单已取消、过期或尚未准备完成", common.ErrRequestConflict)
+		current.PlanExpiresAt == nil {
+		return nil, false, common.ErrPlanUnavailable
+	}
+	now := time.Now().UTC()
+	if !current.PlanExpiresAt.After(now) {
+		if skillStatus.String != "pending_confirmation" {
+			return nil, false, common.ErrPlanUnavailable
+		}
+		if err := s.updateSkillUsage(ctx, tx, user, *run.SkillExecutionID, "cancelled", 0); err != nil {
+			return nil, false, err
+		}
+		if err := tx.Exec("UPDATE ai_run SET status='cancelled',plan_status='cancelled',finished_at=?,error=? WHERE id=?",
+			now, common.ErrPlanExpired.Error(), run.ID).Error; err != nil {
+			return nil, false, err
+		}
+		if err := tx.Commit().Error; err != nil {
+			return nil, false, err
+		}
+		return nil, false, common.ErrPlanExpired
+	}
+	if expireOnly {
+		return nil, false, common.ErrPlanUnavailable
+	}
+	if !bytes.Equal(current.Plan, run.Plan) {
+		return nil, false, common.ErrPlanChanged
 	}
 
 	var busy int
-	if err := tx.WithContext(ctx).Raw("SELECT COUNT(*) FROM ai_run WHERE user_id=? AND status IN ('running','cancelling','executing')", user).
+	if err := tx.Raw("SELECT COUNT(*) FROM ai_run WHERE user_id=? AND status IN ('running','cancelling','executing')", user).
 		Row().
 		Scan(&busy); err != nil {
-		return nil, plan, false, err
+		return nil, false, err
 	}
 
 	if busy > 0 {
-		return nil, plan, false, common.ErrBusy
+		return nil, false, common.ErrBusy
 	}
 
-	if string(current.Plan) != string(r.Plan) {
-		return nil, plan, false, fmt.Errorf("%w: 清单内容已变化", common.ErrRequestConflict)
-	}
-
-	if err := tx.WithContext(ctx).Exec("UPDATE ai_run SET status='executing',plan_status='executing',finished_at=NULL WHERE id=?", id).
+	if err := tx.Exec("UPDATE ai_run SET status='executing',plan_status='executing',finished_at=NULL WHERE id=?", run.ID).
 		Error; err != nil {
-		return nil, plan, false, err
+		return nil, false, err
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return nil, plan, false, err
+		return nil, false, err
 	}
 
 	current.Status = "executing"
-	return current, plan, true, nil
+	return current, true, nil
+}
+
+func (s *Store) ExpirePendingPlans(ctx context.Context) error {
+	var plans []struct {
+		ID, UserID, ConversationID, SkillExecutionID string
+		PlanVersion                                  int
+	}
+	if err := s.DB.WithContext(ctx).Raw(
+		"SELECT r.id,r.user_id,r.plan_version,r.conversation_id,r.skill_execution_id FROM ai_run r"+
+			" JOIN ai_run root ON root.id=r.skill_execution_id AND root.active_plan_run_id=r.id"+
+			" JOIN ai_conversation c ON c.id=r.conversation_id AND c.user_id=r.user_id AND c.deleted_at IS NULL"+
+			" WHERE r.status='pending_confirmation' AND r.plan_status='pending_confirmation'"+
+			" AND root.skill_status='pending_confirmation' AND r.plan_expires_at<=?"+
+			" ORDER BY r.created_at,r.id LIMIT 100",
+		time.Now().UTC(),
+	).Scan(&plans).Error; err != nil {
+		return err
+	}
+
+	var sweepErr error
+	for _, plan := range plans {
+		if ctx.Err() != nil {
+			return errors.Join(sweepErr, ctx.Err())
+		}
+		run := &models.Run{ID: plan.ID, ConversationID: plan.ConversationID, SkillExecutionID: &plan.SkillExecutionID, PlanVersion: plan.PlanVersion}
+		err := s.ExpirePlan(ctx, plan.UserID, run, time.Unix(0, 0).UTC())
+		if err != nil && !errors.Is(err, common.ErrPlanExpired) && !errors.Is(err, common.ErrNotFound) &&
+			!errors.Is(err, common.ErrPlanChanged) && !errors.Is(err, common.ErrPlanUnavailable) {
+			sweepErr = errors.Join(sweepErr, err)
+		}
+	}
+	return sweepErr
 }
 
 func (s *Store) SavePlan(ctx context.Context, user string, r *models.Run, rootID string, cutoff time.Time, raw []byte) (int, time.Time, error) {

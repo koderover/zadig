@@ -98,6 +98,9 @@ func TestAssistantErrorsUseExistingBusinessErrorContract(t *testing.T) {
 		{"开关", common.ErrAIDisabled, 400, 7214},
 		{"用户忙碌", common.ErrBusy, 400, 7215},
 		{"冲突", common.ErrRequestConflict, 400, 7216},
+		{"清单过期", common.ErrPlanExpired, 400, 7216},
+		{"清单变化", common.ErrPlanChanged, 400, 7216},
+		{"清单不可用", common.ErrPlanUnavailable, 400, 7216},
 		{"清单集群非法", common.ErrInvalidCluster, 400, 7216},
 		{"容量", common.ErrCapacity, 400, 7217},
 		{"模型", common.ErrModelUnavailable, 400, 7218},
@@ -120,6 +123,9 @@ func TestAssistantErrorsUseExistingBusinessErrorContract(t *testing.T) {
 			}
 			if input.err == common.ErrInvalidCluster && !strings.Contains(recorder.Body.String(), "重新选择集群") {
 				t.Fatalf("确认旧清单时应提示重新选择集群: %s", recorder.Body)
+			}
+			if input.err == common.ErrPlanExpired && body.Description != common.ErrPlanExpired.Error() {
+				t.Fatalf("过期确认应返回取消原因: %s", recorder.Body)
 			}
 		})
 	}
