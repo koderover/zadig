@@ -50,6 +50,7 @@ type execution struct {
 	InspectedServices  map[string]bool
 	OnboardingDraft    *models.OnboardingInput
 	OnboardingChecks   map[string]models.DraftCheck
+	OnboardingSaved    bool
 	CheckedOnboarding  bool
 	PendingOnboarding  bool
 	SkillInput         json.RawMessage

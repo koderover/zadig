@@ -24,6 +24,11 @@ func (s *AgentService) applyOnboardingContinuation(ctx context.Context, e *execu
 	if e.RegenerateFrom != nil || e.Run.ID == "" {
 		return nil
 	}
+	if e.OnboardingSaved {
+		req.Tools = nil
+		req.Messages = append([]model.Message{model.NewSystemMessage("初始化工具已保存本轮结果。立即简短回答：有 missing_fields 就一次性补问，候选仅使用已经查到的结果；有确认清单就提示使用确认卡片。无需继续查询，也不要重新推导已经保存的参数。")}, req.Messages...)
+		return nil
+	}
 	if e.continuingOnboarding() && !e.CheckedOnboarding && e.OnboardingDraft == nil {
 		value, err := s.readSavedOperation(ctx, savedOperationInput{draftOnly: true})
 		if err != nil {

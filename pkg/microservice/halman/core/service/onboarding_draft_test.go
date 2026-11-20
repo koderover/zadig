@@ -14,6 +14,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
+	"trpc.group/trpc-go/trpc-agent-go/model"
 	"trpc.group/trpc-go/trpc-agent-go/tool"
 )
 
@@ -274,6 +275,11 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 				if err != nil || e.Outcome != "awaiting_input" {
 					t.Fatalf("模板缺参应进入草稿而非报错: %v %v", value, err)
 				}
+				request := &model.Request{Tools: map[string]tool.Tool{"query_catalog": nativeSkillTool(t, s, "query_catalog")}}
+				if err := s.applyOnboardingContinuation(ctx, e, request); err != nil || len(request.Tools) != 0 ||
+					len(request.Messages) == 0 || !strings.Contains(request.Messages[0].Content, "一次性补问") {
+					t.Fatalf("保存草稿后模型应直接补问，不能继续查询目录: %+v %v", request, err)
+				}
 				text := string(common.JSON(value))
 				for _, name := range []string{"api", "web", "worker"} {
 					if !strings.Contains(text, "服务 "+name+" 的模板必填变量 PORT") {
@@ -315,7 +321,7 @@ func TestThreeServiceTemplateMissingFieldsUseDraftAndMergeThroughNativeTool(t *t
 					input = `{"environment":{"registry_id":"registry","services":[]}}`
 				}
 				value, err = callable.Call(ctx, []byte(input))
-				if err != nil || e.Outcome != "pending_confirmation" {
+				if err != nil || e.Outcome != "pending_confirmation" || !e.OnboardingSaved {
 					t.Fatalf("补齐后必须生成确认清单: %v %v", value, err)
 				}
 				plan := value.(map[string]any)["plan"].(models.OperationPlan)
