@@ -17,9 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"sort"
 
 	"go.uber.org/zap"
+
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type OpenAPIListChartTemplatesResponse struct {
@@ -80,4 +85,55 @@ func buildOpenAPIListChartTemplatesResponse(chartTemplates *ChartTemplateListRes
 	}
 
 	return resp
+}
+
+type OpenAPIListWorkflowTemplatesResponse struct {
+	WorkflowTemplates []*OpenAPIWorkflowTemplateBrief `json:"workflow_templates"`
+}
+
+type OpenAPIWorkflowTemplateBrief struct {
+	ID            string                   `json:"id"`
+	TemplateName  string                   `json:"template_name"`
+	Description   string                   `json:"description"`
+	Category      setting.WorkflowCategory `json:"category"`
+	BuildIn       bool                     `json:"build_in"`
+	LatestVersion int                      `json:"latest_version"`
+	UpdateBy      string                   `json:"update_by"`
+	UpdateTime    int64                    `json:"update_time"`
+}
+
+func OpenAPIListWorkflowTemplates(category string, excludeBuildIn bool, logger *zap.SugaredLogger) (*OpenAPIListWorkflowTemplatesResponse, error) {
+	templates, err := ListWorkflowTemplate(category, excludeBuildIn, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	templateIDs := make([]string, 0, len(templates.WorkflowTemplates))
+	for _, template := range templates.WorkflowTemplates {
+		templateIDs = append(templateIDs, template.ID.Hex())
+	}
+	versions, err := commonrepo.NewWorkflowV4TemplateVersionColl().GetLatestVersions(templateIDs)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get latest versions of workflow templates: %v", err)
+		logger.Error(errMsg)
+		return nil, e.ErrListWorkflowTemplate.AddDesc(errMsg)
+	}
+
+	resp := &OpenAPIListWorkflowTemplatesResponse{
+		WorkflowTemplates: make([]*OpenAPIWorkflowTemplateBrief, 0, len(templates.WorkflowTemplates)),
+	}
+	for _, template := range templates.WorkflowTemplates {
+		resp.WorkflowTemplates = append(resp.WorkflowTemplates, &OpenAPIWorkflowTemplateBrief{
+			ID:            template.ID.Hex(),
+			TemplateName:  template.TemplateName,
+			Description:   template.Description,
+			Category:      template.Category,
+			BuildIn:       template.BuildIn,
+			LatestVersion: versions[template.ID.Hex()],
+			UpdateBy:      template.UpdateBy,
+			UpdateTime:    template.UpdateTime,
+		})
+	}
+
+	return resp, nil
 }

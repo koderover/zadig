@@ -22,15 +22,6 @@ import (
 
 type Router struct{}
 
-type OpenAPIRouter struct{}
-
-func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
-	charts := router.Group("charts")
-	{
-		charts.GET("", OpenAPIListChartTemplates)
-	}
-}
-
 func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// chart templates
@@ -114,5 +105,43 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		releasePlan.GET("/:id", GetReleasePlanTemplateByID)
 		releasePlan.PUT("/:id", UpdateReleasePlanTemplate)
 		releasePlan.DELETE("/:id", DeleteReleasePlanTemplateByID)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	dockerfiles := router.Group("dockerfiles")
+	{
+		dockerfiles.GET("", OpenAPIListDockerfileTemplates)
+		dockerfiles.GET("/:id", OpenAPIGetDockerfileTemplate)
+		dockerfiles.POST("", OpenAPICreateDockerfileTemplate)
+		dockerfiles.PUT("/:id", OpenAPIUpdateDockerfileTemplate)
+		dockerfiles.DELETE("/:id", OpenAPIDeleteDockerfileTemplate)
+	}
+
+	charts := router.Group("charts")
+	{
+		charts.GET("", OpenAPIListChartTemplates)
+	}
+
+	yaml := router.Group("yaml")
+	{
+		yaml.GET("", OpenAPIListYamlTemplates)
+		yaml.GET("/:id", OpenAPIGetYamlTemplate)
+	}
+
+	workflows := router.Group("workflows")
+	{
+		workflows.GET("", OpenAPIListWorkflowTemplates)
+	}
+
+	builds := router.Group("builds")
+	{
+		builds.GET("", OpenAPIListBuildTemplates)
+		builds.GET("/:id", OpenAPIGetBuildTemplate)
+		builds.POST("", OpenAPICreateBuildTemplate)
+		builds.PUT("/:id", OpenAPIUpdateBuildTemplate)
+		builds.DELETE("/:id", OpenAPIDeleteBuildTemplate)
 	}
 }

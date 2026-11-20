@@ -117,9 +117,12 @@ func UpdateBasicImage(id string, args *commonmodels.BasicImage, log *zap.Sugared
 		Value: args.Value,
 	}
 	resp, _ := commonrepo.NewBasicImageColl().List(opt)
-	if len(resp) != 0 {
-		log.Errorf("update BasicImage failed, value:%s has existed", args.Value)
-		return e.ErrUpdateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
+	// Exclude the current image so retaining its existing value remains valid.
+	for _, image := range resp {
+		if image.ID.Hex() != id {
+			log.Errorf("update BasicImage failed, value:%s has existed", args.Value)
+			return e.ErrUpdateBasicImage.AddDesc(fmt.Sprintf("value:%s has existed", args.Value))
+		}
 	}
 
 	err := commonrepo.NewBasicImageColl().Update(id, args)
