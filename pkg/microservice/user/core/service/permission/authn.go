@@ -32,15 +32,14 @@ import (
 )
 
 const (
-	larkWebhookURLRegExp       = `^\/api\/aslan\/system\/lark\/\w+\/webhook$`
-	dingTalkWebhookURLRegExp   = `^\/api\/aslan\/system\/dingtalk\/\w+\/webhook$`
-	workwxWebhookURLRegExp     = `^\/api\/aslan\/system\/workwx\/\w+\/webhook$`
-	envWorkloadUrlRegExp       = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/workloads\/k8services$`
-	envShareEnableURLRegExp    = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/enable\/ready$`
-	envShareDisableURLRegExp   = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/disable\/ready$`
-	serviceDeployableURLRegExp = `^\/api\/aslan\/service\/services\/[\w-]+\/environments\/deployable$`
-	generalWebhookURLRegExp    = `^\/api\/aslan\/workflow\/v4\/generalhook\/[\w-]+\/[^/]+\/webhook$`
-	codeHostAuthURLRegExp      = `^\/api\/v1\/codehosts\/\w+\/auth$`
+	larkWebhookURLRegExp     = `^\/api\/aslan\/system\/lark\/\w+\/webhook$`
+	dingTalkWebhookURLRegExp = `^\/api\/aslan\/system\/dingtalk\/\w+\/webhook$`
+	workwxWebhookURLRegExp   = `^\/api\/aslan\/system\/workwx\/\w+\/webhook$`
+	envWorkloadUrlRegExp     = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/workloads\/k8services$`
+	envShareEnableURLRegExp  = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/enable\/ready$`
+	envShareDisableURLRegExp = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/disable\/ready$`
+	generalWebhookURLRegExp  = `^\/api\/aslan\/workflow\/v4\/generalhook\/[\w-]+\/[^/]+\/webhook$`
+	codeHostAuthURLRegExp    = `^\/api\/v1\/codehosts\/\w+\/auth$`
 	// workflowTestTaskReportURLRegExp = `^\/api\/aslan\/testing\/report\/workflowv4\/[\w-]+\/id\/\w+\/job\/[^/]+$`
 	// testingTaskReportURLRegExp      = `^\/api\/aslan\/testing\/testtask\/[\w-]+\/\w+\/[^/]+$`
 )
@@ -245,11 +244,6 @@ func IsPublicURL(reqPath, method string) bool {
 	}
 
 	match, _ = regexp.MatchString(envShareDisableURLRegExp, realPath)
-	if match && method == http.MethodGet {
-		return true
-	}
-
-	match, _ = regexp.MatchString(serviceDeployableURLRegExp, realPath)
 	if match && method == http.MethodGet {
 		return true
 	}

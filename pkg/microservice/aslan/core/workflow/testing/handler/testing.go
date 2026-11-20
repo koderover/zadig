@@ -277,23 +277,16 @@ func DeleteTestModule(c *gin.Context) {
 }
 
 func GetWorkflowV4HTMLTestReport(c *gin.Context) {
-	filepath := c.Param("path")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
 		c.JSON(500, gin.H{"err": fmt.Sprintf("invalid taskID %s", c.Param("taskID"))})
 		return
 	}
-	htmlReportDir, err := service.GetWorkflowV4HTMLTestReport(c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
+	htmlReportDir, err := service.GetWorkflowV4HTMLTestReport(c.Param("projectName"), c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
 		c.JSON(500, gin.H{"err": fmt.Sprintf("get workflow html test report failed, err: %v", err)})
 		return
 	}
 
-	filepath, err = findDefaultHtmlReportFilePath(htmlReportDir, filepath)
-	if err != nil {
-		c.JSON(500, gin.H{"err": err.Error()})
-		return
-	}
-
-	c.FileFromFS(filepath, gin.Dir(htmlReportDir, false))
+	serveHTMLTestReport(c, htmlReportDir)
 }

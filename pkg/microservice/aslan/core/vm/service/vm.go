@@ -378,6 +378,10 @@ func ListVMLabels(projectKey string, logger *zap.SugaredLogger) ([]string, error
 }
 
 func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*RegisterAgentResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -431,6 +435,10 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 }
 
 func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAgentResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -450,6 +458,10 @@ func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAg
 }
 
 func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatResponse, error) {
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
@@ -637,7 +649,11 @@ type ReportAgentJobResp struct {
 }
 
 func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgentJobResp, error) {
-	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
+	if strings.TrimSpace(args.Token) == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
+	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: args.Token,
 	})
 	if err != nil {
@@ -650,6 +666,9 @@ func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgen
 	if err != nil {
 		logger.Errorf("failed to find job %s, error: %s", args.JobID, err)
 		return nil, fmt.Errorf("failed to find job %s, error: %s", args.JobID, err)
+	}
+	if job.VMID != vm.ID.Hex() {
+		return nil, fmt.Errorf("job %s does not belong to this agent", args.JobID)
 	}
 
 	// if job is cancelled or timeout, stop agent job

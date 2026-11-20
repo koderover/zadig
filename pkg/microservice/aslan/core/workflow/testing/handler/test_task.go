@@ -22,9 +22,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -306,10 +311,8 @@ func GetTestTaskJUnitReportInfo(c *gin.Context) {
 }
 
 func GetTestTaskHtmlReportInfo(c *gin.Context) {
-	_ = c.Param("projectName")
 	testName := c.Param("testingName")
 	taskIDStr := c.Param("taskID")
-	filepath := c.Param("path")
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
@@ -317,39 +320,87 @@ func GetTestTaskHtmlReportInfo(c *gin.Context) {
 		return
 	}
 
-	htmlReportDir, err := service.GetTestTaskHTMLTestReport(testName, taskID, ginzap.WithContext(c).Sugar())
+	htmlReportDir, err := service.GetTestTaskHTMLTestReport(c.Param("projectName"), testName, taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
 		c.JSON(500, gin.H{"err": fmt.Sprintf("failed to get testing task html report, err :%s", err)})
 		return
 	}
 
-	filepath, err = findDefaultHtmlReportFilePath(htmlReportDir, filepath)
+	serveHTMLTestReport(c, htmlReportDir)
+}
+
+func serveHTMLTestReport(c *gin.Context, htmlReportDir string) {
+	// Scripts may run for interactive reports, but never with the main site's origin.
+	c.Header("Content-Security-Policy", "sandbox allow-scripts")
+	// Sandboxed reports have an opaque origin and need CORS to load report data.
+	c.Header("Access-Control-Allow-Origin", "*")
+	root, err := os.OpenRoot(htmlReportDir)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	defer root.Close()
+	filePath, err := findDefaultHtmlReportFilePath(root, c.Param("path"))
 	if err != nil {
 		c.JSON(500, gin.H{"err": err.Error()})
 		return
 	}
-
-	c.FileFromFS(filepath, gin.Dir(htmlReportDir, false))
+	// Normalize the URL path relative to the report root; an empty path becomes ".".
+	relativePath := filepath.Clean(strings.TrimPrefix(filePath, "/"))
+	// Reject missing paths and paths that escape the report root through symlinks.
+	info, err := root.Stat(relativePath)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if info.IsDir() {
+		if !strings.HasSuffix(filePath, "/") {
+			redirectURL := url.URL{Path: path.Base(filePath) + "/", RawQuery: c.Request.URL.RawQuery}
+			c.Header("Location", redirectURL.String())
+			c.AbortWithStatus(http.StatusMovedPermanently)
+			return
+		}
+		// Match the file server's optional directory index without listing files.
+		relativePath = filepath.Join(relativePath, "index.html")
+	}
+	file, err := root.Open(relativePath)
+	if err != nil {
+		if info.IsDir() {
+			c.Status(http.StatusOK)
+			return
+		}
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil || !fileInfo.Mode().IsRegular() {
+		if info.IsDir() {
+			c.Status(http.StatusOK)
+			return
+		}
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	http.ServeContent(c.Writer, c.Request, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
-func findDefaultHtmlReportFilePath(htmlReportDir string, htmlFilepath string) (string, error) {
-	// user specified path, just return
+func findDefaultHtmlReportFilePath(root *os.Root, htmlFilepath string) (string, error) {
+	// Only select a default HTML file for the report root.
 	if htmlFilepath != "/" {
 		return htmlFilepath, nil
 	}
-
-	// user not specified, find default html file path for user
-	files, err := os.ReadDir(htmlReportDir)
+	files, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
-		return "", fmt.Errorf("failed to read dir %s, err :%s", htmlReportDir, err)
+		return "", fmt.Errorf("failed to read dir %s, err :%s", root.Name(), err)
 	}
 
 	fileName := ""
-	foundIndex := false
 	for _, file := range files {
-		if !file.IsDir() {
+		info, err := root.Stat(file.Name())
+		if err == nil && info.Mode().IsRegular() {
 			if file.Name() == "index.html" {
-				foundIndex = true
+				fileName = file.Name()
 				break
 			}
 			if fileName == "" && filepath.Ext(file.Name()) == ".html" {
@@ -358,16 +409,11 @@ func findDefaultHtmlReportFilePath(htmlReportDir string, htmlFilepath string) (s
 		}
 	}
 
-	if foundIndex {
-		// return / avoid always 301 redirect
-		return "/", nil
-	}
-
 	if fileName != "" {
 		htmlFilepath = "/" + fileName
 		return htmlFilepath, nil
 	} else {
-		return "", fmt.Errorf("no html file found in %s", htmlReportDir)
+		return "", fmt.Errorf("no html file found in %s", root.Name())
 	}
 }
 
