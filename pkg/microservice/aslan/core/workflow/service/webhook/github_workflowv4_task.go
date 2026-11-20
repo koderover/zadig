@@ -63,7 +63,7 @@ func (gpem *githubPushEventMatcheForWorkflowV4) Match(hookRepo *commonmodels.Mai
 		return false, nil
 	}
 	hookRepo.Branch = branch
-	hookRepo.Committer = *ev.Pusher.Name
+	hookRepo.Committer = ev.Pusher.GetName()
 	var changedFiles []string
 	for _, commit := range ev.Commits {
 		changedFiles = append(changedFiles, commit.Added...)
