@@ -20,7 +20,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/distribution/reference"
+
+	"github.com/koderover/zadig/v2/pkg/config"
+	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -30,6 +37,7 @@ type CLIContextResponse struct {
 	LicenseStatus string   `json:"license_status,omitempty"`
 	Features      []string `json:"features,omitempty"`
 	ServerVersion string   `json:"server_version,omitempty"`
+	AslanImageTag string   `json:"aslan_image_tag,omitempty"`
 	RequestID     string   `json:"request_id"`
 }
 
@@ -66,5 +74,35 @@ func GetCLIContext(user types.UserBriefInfo, requestID string, isSystemAdmin boo
 	response.LicenseStatus = licenseStatus.Status
 	response.Features = append([]string{}, licenseStatus.Features...)
 	response.ServerVersion = licenseStatus.CurrentVersion
+	response.AslanImageTag, err = aslanImageTag()
+	if err != nil {
+		log.Warnf("get CLI context aslan image tag: %v", err)
+	}
 	return response, nil
+}
+
+// Use the serving Pod's image, since a Deployment may already target a newer release.
+func aslanImageTag() (string, error) {
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(setting.LocalClusterID, config.Namespace())
+	if err != nil {
+		return "", err
+	}
+	pod, err := informer.Core().V1().Pods().Lister().Pods(config.Namespace()).Get(aslanconfig.PodName())
+	if err != nil {
+		return "", err
+	}
+	for _, container := range pod.Spec.Containers {
+		if container.Name != "aslan" {
+			continue
+		}
+		image, err := reference.ParseNormalizedNamed(container.Image)
+		if err != nil {
+			return "", err
+		}
+		if tagged, ok := image.(reference.Tagged); ok {
+			return tagged.Tag(), nil
+		}
+		return "", fmt.Errorf("aslan image %q has no version tag", container.Image)
+	}
+	return "", fmt.Errorf("aslan container not found in pod %s", pod.Name)
 }
