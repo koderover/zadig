@@ -269,8 +269,8 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}: %s \n", testResult)
 				if reportURL := testingHTMLReportURL(args.BaseURI, args.Task, job); reportURL != "" {
 					workflowNotifyJob.HTMLReportURL = reportURL
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[{{getText \"notificationTextHTMLReport\"}}](%s)  \n", reportURL)
-					mailJobTplcontent += fmt.Sprintf("<a href=\"%s\">{{getText \"notificationTextHTMLReport\"}}</a> \n", html.EscapeString(reportURL))
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextHTMLTestReport\"}}**: [{{getText \"notificationTextHTMLReport\"}}](%s)  \n", reportURL)
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextHTMLTestReport\"}}: <a href=\"%s\">{{getText \"notificationTextHTMLReport\"}}</a> \n", html.EscapeString(reportURL))
 				}
 
 			case string(config.JobZadigScanning):
