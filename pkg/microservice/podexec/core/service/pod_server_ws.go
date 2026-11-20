@@ -36,6 +36,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -184,7 +185,51 @@ func resolvePodServiceName(kubeCli kubernetes.Interface, productInfo *commonmode
 			}
 		}
 	}
+	if productInfo.Source == setting.SourceFromHelm {
+		return resolveHelmServiceName(kubeCli, productInfo, pod.Namespace, kind, name)
+	}
 	return ""
+}
+
+// resolveHelmServiceName maps a helm-managed workload to its service via the release name annotation.
+func resolveHelmServiceName(kubeCli kubernetes.Interface, productInfo *commonmodels.Product, namespace, kind, name string) string {
+	var annotations map[string]string
+	ctx := context.Background()
+	switch kind {
+	case setting.Deployment:
+		if obj, err := kubeCli.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		}
+	case setting.StatefulSet:
+		if obj, err := kubeCli.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		}
+	case setting.DaemonSet:
+		if obj, err := kubeCli.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		}
+	case setting.Job:
+		if obj, err := kubeCli.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		}
+	case setting.CronJob:
+		// batch/v1beta1 is the only CronJob API on clusters older than 1.21.
+		if obj, err := kubeCli.BatchV1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		} else if obj, err := kubeCli.BatchV1beta1().CronJobs(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			annotations = obj.Annotations
+		}
+	}
+	releaseName := annotations[setting.HelmReleaseNameAnnotation]
+	if releaseName == "" {
+		return ""
+	}
+	releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
+	if err != nil {
+		log.Warnf("failed to get release name map for %s/%s: %v", productInfo.ProductName, productInfo.EnvName, err)
+		return ""
+	}
+	return releaseNameMap[releaseName]
 }
 
 func podWorkloadReference(kubeCli kubernetes.Interface, pod *corev1.Pod) (string, string) {
@@ -201,16 +246,25 @@ func podWorkloadReference(kubeCli kubernetes.Interface, pod *corev1.Pod) (string
 	if owner == nil {
 		return "", ""
 	}
-	if owner.Kind != "ReplicaSet" {
+	var parentOwners []metav1.OwnerReference
+	switch owner.Kind {
+	case "ReplicaSet":
+		replicaset, err := kubeCli.AppsV1().ReplicaSets(pod.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
+		if err != nil {
+			return owner.Kind, owner.Name
+		}
+		parentOwners = replicaset.OwnerReferences
+	case setting.Job:
+		job, err := kubeCli.BatchV1().Jobs(pod.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
+		if err != nil {
+			return owner.Kind, owner.Name
+		}
+		parentOwners = job.OwnerReferences
+	default:
 		return owner.Kind, owner.Name
 	}
-
-	replicaset, err := kubeCli.AppsV1().ReplicaSets(pod.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
-	if err != nil {
-		return owner.Kind, owner.Name
-	}
-	for i := range replicaset.OwnerReferences {
-		if ownerRef := &replicaset.OwnerReferences[i]; ownerRef.Controller != nil && *ownerRef.Controller {
+	for i := range parentOwners {
+		if ownerRef := &parentOwners[i]; ownerRef.Controller != nil && *ownerRef.Controller {
 			return ownerRef.Kind, ownerRef.Name
 		}
 	}
