@@ -171,7 +171,14 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 Skill 分类表现按发布辅助、故障排查、实施辅助、巡检诊断的顺序固定返回四项，维度为 `category`；工作流和服务报错分析归入故障排查，项目和服务初始化归入实施辅助，环境巡检和效能诊断归入巡检诊断，发布辅助当前无对应 Skill。无数据分类返回零计数与空比例；普通聊天及未分类 Skill 不计入。分类通过 `ai_usage_daily.skill_id=ai_skill.id` 关联，分类内用户跨 Skill 去重，比例按分类总量计算；不按启停过滤历史贡献。日聚合仍按 Skill 保存，其他报告及概览估算口径不变。
 
-aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，并与 halman 使用相同 `TZ`，示例为 `Asia/Shanghai`。统计首次查询时初始化 GORM 连接池，每个 aslan 实例最多三个连接、空闲一个、连接最长存活五分钟，不建库或建表，不执行迁移；统计库不可用不阻止 aslan 启动。由连接池控制最多三个并行 SQL 查询，其余在池内等待；连接等待和查询共用三秒预算，超时返回 HTTP 400/code 7212，数据库配置缺失、连接失败或聚合表尚不存在时返回 HTTP 400/code 7212，恢复后可重试。按 aslan 副本数累加连接预算，小池不能隔离共享 MySQL 的 CPU 或磁盘压力。
+aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，并与 halman 使用相同 `TZ`（例如 `Asia/Shanghai`）。统计首次查询时初始化只读 GORM 连接池，最多保留一个空闲连接，连接最长存活五分钟，不建库或建表，不执行迁移。连接池上限按 aslan 副本累加，超出上限的查询在池内等待。超时、数据库配置缺失、连接失败或聚合表尚不存在时，统计接口返回 HTTP 400 和错误码 7212，aslan 可以正常启动，统计恢复后可重试。连接池上限只约束连接数量，共享 MySQL 的 CPU 和磁盘压力仍会影响查询。
+
+| aslan 环境变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `ASLAN_AI_ASSISTANT_STATS_TIMEOUT` | `10s` | 统计请求总预算（含连接池等待、SQL 和 user 查询），也用于 MySQL 驱动的连接、读和写超时。接受带单位的正时长。 |
+| `ASLAN_AI_ASSISTANT_STATS_DB_MAX_CONNECTIONS` | `5` | 每个 aslan 副本的统计 MySQL 连接上限。接受正整数。 |
+
+环境变量为空或值无效时使用默认值。
 
 推荐只排列固定问题并返回候选上下文，不查询资源或替代执行时鉴权。报告使用 `from`、`to` 日期，默认最近三十天、最多保留三百六十五天，只读日聚合；无反馈时采纳率和估算人天为空。
 
@@ -181,7 +188,7 @@ aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，�
 
 所有报告指标增加 `total_tokens` 和 `model_usage[]`，后者包含 `model_id`、`model`、`input_tokens`、`output_tokens`、`total_tokens`，按模型集成 ID 和调用时的模型名排序，无数据返回 `[]`。`ai_usage_daily` 主键扩展为 `(date, user_id, skill_id, model_id, model_name)`；调用次数、耗时及 Token 从该次 `ai_run` 的模型快照写入对应模型行，任务终态、完成耗时和反馈继续写入空模型维度。修正任务贡献时仅更新空模型行，汇总时跨模型求和并对用户去重，不能按模型重复计算任务数。模型信息随日聚合保留三百六十五天，不依赖已到期的运行记录或当前模型配置，不增加表。
 
-概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。SQL、连接等待与 user 查询共用三秒请求预算。分类和排行的模型明细仅查询报告实际返回的分组。
+概览 `total_users` 通过现有 user SDK 查询系统当前用户总数，与 `metrics.active_users` 配合计算团队渗透率；它是当前用户数，不是上期历史用户数。排行批量查询最多二十名用户的当前名称，返回 `user_name`；已删除或名称为空的用户回退为 `user_id`。user 查询失败返回统计失败，不能把系统用户总数默认为零或将查询故障当成用户已删除。分类和排行的模型明细仅查询报告实际返回的分组。
 
 
 内置 Skill 完整定义及设置保存在 MySQL `ai_skill`，不保存到 MongoDB。`core/skill/<skill_id>.md` 通过 `go:embed` 打包作为发布源，启动时事务同步名称、分类、说明及正文，保留启停和追加规则，定义未变不更新；未来自定义来源不被覆盖。表包含 `id`、`source`、`name`、`category`、`description`、`content`、`enabled`、`custom_rules`、`created_at`、`updated_at`，没有默认提问字段，也不参与聊天到期清理。

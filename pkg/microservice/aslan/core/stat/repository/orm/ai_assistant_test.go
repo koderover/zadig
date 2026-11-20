@@ -13,6 +13,7 @@ import (
 )
 
 func TestAIAssistantStatsDatabaseIsLazyAndDoesNotInitializeSchema(t *testing.T) {
+	t.Setenv(setting.ENVAslanAIAssistantStatsDBMaxConnections, "")
 	CloseAIAssistantStatsStore()
 	oldHost, oldUser := viper.Get(setting.ENVMysqlHost), viper.Get(setting.ENVMysqlUser)
 	t.Cleanup(func() {
@@ -28,7 +29,7 @@ func TestAIAssistantStatsDatabaseIsLazyAndDoesNotInitializeSchema(t *testing.T) 
 	// 此地址无需运行 MySQL；初始化过程中不得连接或执行建表 SQL。
 	viper.Set(setting.ENVMysqlHost, "127.0.0.1:1")
 	store, err := GetAIAssistantStatsStore()
-	if err != nil || store.SQLDB.Stats().OpenConnections != 0 || store.SQLDB.Stats().MaxOpenConnections != 3 {
+	if err != nil || store.SQLDB.Stats().OpenConnections != 0 || store.SQLDB.Stats().MaxOpenConnections != 5 {
 		t.Fatalf("首次初始化必须延迟连接且限制连接预算: %v", err)
 	}
 	again, err := GetAIAssistantStatsStore()
@@ -57,9 +58,6 @@ func mockStatsStore(t *testing.T) (*AIAssistantStatsStore, sqlmock.Sqlmock) {
 		}
 		db.Close()
 	})
-	if db.Stats().MaxOpenConnections != 3 {
-		t.Fatal("统计连接池必须限制为三个连接")
-	}
 	return store, mock
 }
 
