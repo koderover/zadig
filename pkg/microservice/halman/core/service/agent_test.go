@@ -29,8 +29,18 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 	wantMaxTokens := 8192
 	previous := model.DefaultNewHTTPClient
 	t.Cleanup(func() { model.DefaultNewHTTPClient = previous })
-	model.DefaultNewHTTPClient = func(...model.HTTPClientOption) model.HTTPClient {
+	model.DefaultNewHTTPClient = func(options ...model.HTTPClientOption) model.HTTPClient {
+		var clientOptions model.HTTPClientOptions
+		for _, option := range options {
+			option(&clientOptions)
+		}
+		if clientOptions.Timeout != 0 {
+			t.Errorf("模型客户端应使用运行上下文控制超时，实际 HTTP 超时为 %s", clientOptions.Timeout)
+		}
 		return &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if _, ok := r.Context().Deadline(); !ok {
+				t.Error("模型请求必须继承运行时限")
+			}
 			modelCalls++
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -71,7 +81,12 @@ func TestConfiguredModelStreamsAndPersistsFinalAnswer(t *testing.T) {
 			if !strings.Contains(string(body), "多项摘要、补问或逐项结果使用 Markdown 无序列表") {
 				t.Error("模型请求缺少多项回复的 Markdown 列表规则")
 			}
-			if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
+			if modelCalls == 4 {
+				if strings.Contains(string(body), "诊断正文") || strings.Contains(string(body), `"name":"service_diagnosis"`) ||
+					!strings.Contains(string(body), "初始化正文") || !strings.Contains(string(body), `"name":"project_onboarding"`) {
+					t.Error("初始化续接只应包含当前 Skill 的说明和业务工具")
+				}
+			} else if !strings.Contains(string(body), "本轮追加规则") || strings.Contains(string(body), `"name":"workflow_diagnosis"`) {
 				t.Error("模型应收到数据库规则快照，且停用 Skill 的工具声明必须移除")
 			}
 			if strings.Contains(string(body), `"name":"environment_service_evidence"`) != inspectionStarted {
@@ -133,6 +148,7 @@ data: [DONE]
 		{ID: "workflow_diagnosis", Source: "builtin", Enabled: false},
 		{ID: "service_diagnosis", Source: "builtin", Enabled: true, Content: "诊断正文", CustomRules: "本轮追加规则"},
 		{ID: "environment_inspection", Source: "builtin", Enabled: true},
+		{ID: "project_onboarding", Source: "builtin", Enabled: true, Content: "初始化正文"},
 	}}
 	ctx = context.WithValue(ctx, executionKey{}, exec)
 	events, err := r.Run(ctx, "user-1", "conversation-1", model.NewUserMessage("你好"), agent.WithRequestID("run-1"))

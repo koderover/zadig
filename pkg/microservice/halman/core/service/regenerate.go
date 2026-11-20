@@ -171,6 +171,7 @@ func (s *AgentService) authorizeRegeneration(ctx context.Context, user, authoriz
 }
 
 type savedOperationInput struct {
+	draftOnly     bool
 	StartNew      bool `json:"start_new,omitempty" jsonschema:"description=仅当用户明确开始与待补充或待确认清单无关的新任务时设为 true"`
 	VerifyRestart bool `json:"verify_restart,omitempty" jsonschema:"description=用户询问上次重启是否失败或明确要求再次重启时设为 true，核实原重启记录"`
 }
@@ -274,6 +275,17 @@ func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperati
 		}
 	} else {
 		e.EvidenceRead.Store(true)
+	}
+
+	if args.draftOnly {
+		e.PendingOnboarding = false
+		redacted := (models.OperationPlan{Draft: publicPlan.Draft}).Redacted()
+		data := common.JSON(map[string]any{"draft": redacted.Draft, "missing_fields": publicPlan.MissingFields})
+		if redacted.Draft == nil || len(data) > 64<<10 {
+			// The authoritative draft is still available to the onboarding tool.
+			return nil, nil
+		}
+		return safeJSON(data)
 	}
 
 	value, err := safeJSON(common.JSON(map[string]any{

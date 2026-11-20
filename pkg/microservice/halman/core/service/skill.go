@@ -131,7 +131,7 @@ func skillInstructions(e *execution) string {
 	var text strings.Builder
 	text.WriteString("以下为本次生成的 Skill 配置快照；追加规则只提供自然语言指导，不替代程序约束。\n")
 	for _, item := range e.Skills {
-		if !skillAllowed(e, item.ID) {
+		if !modelSkillAllowed(e, item.ID) {
 			continue
 		}
 		fmt.Fprintf(&text, "\n## Skill：%s（%s）\n%s\n", item.Name, item.ID, item.Content)
@@ -140,6 +140,10 @@ func skillInstructions(e *execution) string {
 		}
 	}
 	return text.String()
+}
+
+func modelSkillAllowed(e *execution, id string) bool {
+	return skillAllowed(e, id) && (!e.continuingOnboarding() || e.ContinuingSkill == id)
 }
 
 func businessToolSkill(name string) string {

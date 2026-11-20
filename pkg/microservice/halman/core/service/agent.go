@@ -429,7 +429,8 @@ func makeModel(cfg *types.AIAssistantRuntime, options ...openai.Option) (model.M
 
 	opts := []openai.Option{
 		openai.WithAPIKey(cfg.Token),
-		openai.WithHTTPClientOptions(openai.WithHTTPClientTransport(transport), openai.WithHTTPClientTimeout(3*time.Minute)),
+		// The run and title contexts cap the full response, including the streaming body.
+		openai.WithHTTPClientOptions(openai.WithHTTPClientTransport(transport), openai.WithHTTPClientTimeout(0)),
 	}
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
@@ -474,7 +475,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 				delete(req.Tools, "environment_service_evidence")
 			}
 			for name := range req.Tools {
-				if skill := businessToolSkill(name); skill != "" && !skillAllowed(e, skill) {
+				if skill := businessToolSkill(name); skill != "" && !modelSkillAllowed(e, skill) {
 					delete(req.Tools, name)
 				}
 			}
@@ -515,8 +516,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 					return nil, err
 				}
 			}
-			continuingOnboarding := e.RootID != "" && e.RootID != e.Run.ID && models.IsOnboardingSkill(e.ContinuingSkill)
-			if e.RegenerateFrom == nil && (e.PendingOnboarding || continuingOnboarding) {
+			if e.RegenerateFrom == nil && (e.PendingOnboarding || e.continuingOnboarding()) {
 				req.MaxTokens = model.IntPtr(16384)
 				slog.Info("AI 初始化续接模型参数", "run_id", e.Run.ID, "model", cfg.Model,
 					"max_output_tokens", *req.MaxTokens)
@@ -672,6 +672,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 	defer r.Close()
 	lang := language.Normalize(cfg.Language)
 	status, failure := "succeeded", ""
+	failureType := ""
 	input, output := 0, 0
 	hasAnswer := false
 	var lastAssistantChoice model.Choice
@@ -690,6 +691,10 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 					current = &execution{Run: record, Language: lang}
 				}
 				failureInfo := publicRunError(e.Error, current)
+				if failureType == modelTimeoutError && failureInfo.Type == "model_service_error" {
+					continue
+				}
+				failureType = failureInfo.Type
 				status, failure = "failed", failureInfo.Message
 				if (failureInfo.Type == "tool_iteration_limit" || failureInfo.Type == "llm_call_limit") && current.OnboardingDraft != nil {
 					status = "awaiting_input"

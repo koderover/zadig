@@ -449,6 +449,22 @@ func testSavedDraftRecovery(t *testing.T, discover bool, status string, authoriz
 		e.RootID = ""
 	}
 	ctx := context.WithValue(context.Background(), executionKey{}, e)
+	if !discover {
+		e.ContinuingSkill = "project_onboarding"
+		req := &model.Request{}
+		if err := s.applyOnboardingContinuation(ctx, e, req); err != nil {
+			t.Fatal(err)
+		}
+		prompt := string(common.JSON(req.Messages))
+		if e.OnboardingDraft == nil || e.Outcome != "awaiting_input" || e.SkillID != "project_onboarding" || reads != 1 ||
+			!strings.Contains(prompt, "已验权并加载原草稿") || !strings.Contains(prompt, "missing_fields") || !strings.Contains(prompt, "replicas") {
+			t.Fatalf("显式续接应在首个模型请求前验权并加载已有草稿: %s", prompt)
+		}
+		if err := s.applyOnboardingContinuation(ctx, e, &model.Request{}); err != nil || reads != 1 {
+			t.Fatalf("续接后续请求不应再次恢复草稿: %v", err)
+		}
+		return
+	}
 	if discover && status == "pending_confirmation" {
 		e.Message = "replicas 设为 1"
 		req := &model.Request{Tools: make(map[string]tool.Tool)}

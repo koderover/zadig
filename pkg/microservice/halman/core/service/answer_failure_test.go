@@ -69,6 +69,8 @@ func TestExecutePersistsMissingAnswerCauseFromLastCompleteResponse(t *testing.T)
 	empty := &model.Response{Choices: []model.Choice{{FinishReason: model.StringPtr("stop"), Message: model.Message{Role: model.RoleAssistant}}}}
 	partial := length.Clone()
 	partial.IsPartial = true
+	timeout := &model.Response{Error: &model.ResponseError{Type: model.ErrorTypeStreamError, Message: "context deadline exceeded (Client.Timeout or context cancellation while reading body)"}}
+	genericError := &model.Response{Error: &model.ResponseError{Type: "model_service_error", Message: "模型服务调用失败，请稍后重试"}}
 	for _, tc := range []struct {
 		name      string
 		responses []*model.Response
@@ -77,6 +79,7 @@ func TestExecutePersistsMissingAnswerCauseFromLastCompleteResponse(t *testing.T)
 		{"length", []*model.Response{length}, "模型输出已达到长度上限，未能生成完整回答，请简化问题后重试"},
 		{"last response replaces earlier cause", []*model.Response{length, empty}, "模型未返回回答内容，请重试"},
 		{"partial does not replace final cause", []*model.Response{empty, partial}, "模型未返回回答内容，请重试"},
+		{"timeout survives generic model error", []*model.Response{timeout, genericError}, "模型响应超时，请继续当前对话重试"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store, mock := mockStore(t)
