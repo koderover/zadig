@@ -179,7 +179,7 @@ func (m *JobLogManager) IsJobRunning(key string) bool {
 }
 
 func (m *JobLogManager) SetJobStatusRunning(key string, timeout time.Duration) {
-	err := cache.NewRedisCache(pkgconfig.RedisCommonCacheTokenDB()).SetNX(key, "1", timeout+2*time.Minute)
+	_, err := cache.NewRedisCache(pkgconfig.RedisCommonCacheTokenDB()).SetNX(key, "1", timeout+2*time.Minute)
 	if err != nil {
 		log.Errorf("redis setNX err: %s for key: %s", err, key)
 	}
