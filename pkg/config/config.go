@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -275,6 +276,14 @@ func Namespace() string {
 
 func PodIP() string {
 	return viper.GetString(setting.ENVPodIP)
+}
+
+func HubServerWebSocketPingWriteTimeout() time.Duration {
+	timeout, err := time.ParseDuration(viper.GetString(setting.ENVHubServerWebSocketPingWriteTimeout))
+	if err != nil || timeout <= 0 {
+		return 15 * time.Second
+	}
+	return timeout
 }
 
 func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamespace string) string {

@@ -52,6 +52,9 @@ const (
 	ENVDisableKubeClientKeepAlive = "DISABLE_KUBE_CLIENT_KEEP_ALIVE"
 	ENVKubeInformerIdleTimeout    = "KUBE_INFORMER_IDLE_TIMEOUT_MINUTES"
 
+	// Hubserver
+	ENVHubServerWebSocketPingWriteTimeout = "HUBSERVER_WEBSOCKET_PING_WRITE_TIMEOUT"
+
 	// Aslan
 	ENVLogLevel                  = "LOG_LEVEL"
 	ENVExecutorLogLevel          = "EXECUTOR_LOG_LEVEL"
