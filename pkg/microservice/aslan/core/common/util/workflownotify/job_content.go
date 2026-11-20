@@ -308,9 +308,6 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 }
 
 func testingHTMLReportURL(baseURI string, task *models.WorkflowTask, job *models.JobTask) string {
-	if task.Type != config.WorkflowTaskTypeWorkflow {
-		return ""
-	}
 	switch job.Status {
 	case config.StatusPassed, config.StatusFailed, config.StatusUnstable, config.StatusManualApproval:
 	default:
