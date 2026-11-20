@@ -97,6 +97,7 @@ func TestAssistantErrorsUseExistingBusinessErrorContract(t *testing.T) {
 		{"许可证", e.ErrLicenseInvalid, 400, 7050},
 		{"开关", common.ErrAIDisabled, 400, 7214},
 		{"用户忙碌", common.ErrBusy, 400, 7215},
+		{"会话操作结果待核实", common.ErrResultUnknown, 400, 7221},
 		{"冲突", common.ErrRequestConflict, 400, 7216},
 		{"清单过期", common.ErrPlanExpired, 400, 7216},
 		{"清单变化", common.ErrPlanChanged, 400, 7216},
@@ -126,6 +127,9 @@ func TestAssistantErrorsUseExistingBusinessErrorContract(t *testing.T) {
 			}
 			if input.err == common.ErrPlanExpired && body.Description != common.ErrPlanExpired.Error() {
 				t.Fatalf("过期确认应返回取消原因: %s", recorder.Body)
+			}
+			if input.err == common.ErrResultUnknown && body.Description != common.ErrResultUnknown.Error() {
+				t.Fatalf("待核实会话应提示核实后再删除: %s", recorder.Body)
 			}
 		})
 	}

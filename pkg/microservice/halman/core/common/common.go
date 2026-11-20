@@ -18,6 +18,7 @@ var (
 	ErrInvalidRequest   = errors.New("请求参数不正确")
 	ErrNotFound         = errors.New("会话或运行不存在")
 	ErrBusy             = errors.New("用户有正在处理的运行，请等待或取消后重试")
+	ErrResultUnknown    = errors.New("此会话有待核实的操作结果，请核实后再删除")
 	ErrRequestConflict  = errors.New("请求标识已用于其他参数")
 	ErrPlanChanged      = errors.New("确认清单已变化，请打开最新的清单后再确认")
 	ErrPlanUnavailable  = errors.New("确认清单已取消或尚未准备完成")

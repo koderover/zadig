@@ -67,16 +67,36 @@ func TestHistoryKeepsVisibleReasoningWithLatestAnswer(t *testing.T) {
 	}
 }
 
-func TestDeleteProtectsUnknownResult(t *testing.T) {
+func TestDeleteProtectsOnlyConversationWithUnknownResult(t *testing.T) {
 	s, mock := mockStore(t)
+	ctx := context.Background()
+	const blockersQuery = "SELECT COUNT.*status IN .*status='unknown' OR plan_status='unknown'.*FROM ai_run WHERE conversation_id="
 	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WillReturnRows(sqlmock.NewRows([]string{"id"}).
-		AddRow("c"))
-	mock.ExpectQuery("SELECT COUNT.*status IN .*'unknown'.*OR plan_status='unknown'").WillReturnRows(sqlmock.NewRows([]string{"count"}).
-		AddRow(1))
+	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("blocked", "u").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("blocked"))
+	mock.ExpectQuery(blockersQuery).WithArgs("blocked").
+		WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).AddRow(0, 1))
 	mock.ExpectRollback()
-	if err := s.DeleteConversation(context.Background(), "u", "c"); !errors.Is(err, common.ErrBusy) {
-		t.Fatalf("未核实写结果不能删除: %v", err)
+	if err := s.DeleteConversation(ctx, "u", "blocked"); !errors.Is(err, common.ErrResultUnknown) {
+		t.Fatalf("未核实写结果应返回专用错误: %v", err)
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM ai_conversation .*FOR UPDATE").WithArgs("other", "u").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("other"))
+	mock.ExpectQuery(blockersQuery).WithArgs("other").
+		WillReturnRows(sqlmock.NewRows([]string{"active", "unknown"}).AddRow(0, 0))
+	mock.ExpectExec("INSERT INTO ai_usage_daily").WithArgs(sqlmock.AnyArg(), "u", "other").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("UPDATE ai_run r JOIN ai_conversation").WithArgs(sqlmock.AnyArg(), "u", "other").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("UPDATE ai_run SET plan_status='cancelled'").WithArgs("other").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("UPDATE ai_conversation SET deleted_at").WithArgs(sqlmock.AnyArg(), "other").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	if err := s.DeleteConversation(ctx, "u", "other"); err != nil {
+		t.Fatalf("同一用户的其他会话仍应可删除: %v", err)
 	}
 }
 
