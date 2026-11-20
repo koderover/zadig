@@ -114,11 +114,12 @@ type AvailableNamespace struct {
 	Used bool `json:"used_by_other_env"`
 }
 
-func ListKubeEvents(env string, productName string, name string, rtype string, log *zap.SugaredLogger) ([]*resource.Event, error) {
+func ListKubeEvents(env string, productName string, name string, rtype string, production bool, log *zap.SugaredLogger) ([]*resource.Event, error) {
 	res := make([]*resource.Event, 0)
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: env,
+		Name:       productName,
+		EnvName:    env,
+		Production: &production,
 	})
 	if err != nil {
 		return res, err

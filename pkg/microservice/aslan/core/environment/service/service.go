@@ -106,7 +106,11 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
+	return getService(env, serviceName, workLoadType, log)
+}
 
+func getService(env *commonmodels.Product, serviceName, workLoadType string, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
 	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 	if err != nil {
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)

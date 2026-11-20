@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -82,7 +83,7 @@ func ListKubeEvents(c *gin.Context) {
 			}
 		}
 	}
-	ctx.Resp, ctx.RespErr = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListKubeEvents(envName, productName, name, rtype, production, ctx.Logger)
 }
 
 func ListAvailableNamespaces(c *gin.Context) {
@@ -839,16 +840,86 @@ type OpenAPIListKubeEventResponse struct {
 	Type string `json:"type,omitempty"`
 }
 
+// @Summary 获取 Kubernetes 资源事件
+// @Description 获取指定环境中一个 Kubernetes 资源的事件
+// @Tags OpenAPI
+// @Produce json
+// @Param projectKey query string true "项目标识"
+// @Param envName query string true "环境标识"
+// @Param name query string true "资源名称"
+// @Param type query string true "资源类型"
+// @Param production query bool false "是否为生产环境"
+// @Success 200 {array} OpenAPIListKubeEventResponse
+// @Router /openapi/environments/kube/events [get]
 func OpenAPIListKubeEvents(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	envName := c.Query("envName")
 	productName := c.Query("projectKey")
 	name := c.Query("name")
 	rtype := c.Query("type")
+	if productName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName is empty")
+		return
+	}
+	if name == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name is empty")
+		return
+	}
+	if rtype == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("type is empty")
+		return
+	}
 
-	origResp, err := service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
+	production := false
+	if value := c.Query("production"); value != "" {
+		production, err = strconv.ParseBool(value)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("production must be a boolean")
+			return
+		}
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		projectAuth, ok := ctx.Resources.ProjectAuthInfo[productName]
+		if !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !projectAuth.IsProjectAdmin && !projectAuth.ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else if !projectAuth.IsProjectAdmin && !projectAuth.Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.RespErr = err
+			return
+		}
+	}
+
+	origResp, err := service.ListKubeEvents(envName, productName, name, rtype, production, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = err
 		return
