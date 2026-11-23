@@ -239,6 +239,30 @@ func (c *WorkflowV4Coll) FindByOptions(opts WorkFlowOptions) (*models.WorkflowV4
 	return workflow, nil
 }
 
+// FindReferencingBuild returns one workflow that directly references the build.
+func (c *WorkflowV4Coll) FindReferencingBuild(projectName, buildName string) (*models.WorkflowV4, error) {
+	jobFilter := bson.M{
+		"type": config.JobZadigBuild,
+		"$or": bson.A{
+			bson.M{"spec.service_and_builds.build_name": buildName},
+			bson.M{"spec.default_service_and_builds.build_name": buildName},
+			bson.M{"spec.service_and_builds_options.build_name": buildName},
+		},
+	}
+	filter := bson.M{
+		"project": projectName,
+		"stages": bson.M{"$elemMatch": bson.M{
+			"jobs": bson.M{"$elemMatch": jobFilter},
+		}},
+	}
+	opts := options.FindOne().SetProjection(bson.M{"_id": 0, "name": 1, "display_name": 1})
+	workflow := &models.WorkflowV4{}
+	if err := c.FindOne(context.TODO(), filter, opts).Decode(workflow); err != nil {
+		return nil, err
+	}
+	return workflow, nil
+}
+
 func (c *WorkflowV4Coll) Count() (int64, error) {
 	query := bson.M{}
 

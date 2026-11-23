@@ -369,6 +369,22 @@ func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 	if len(name) == 0 {
 		return e.ErrDeleteBuildModule.AddDesc("empty name")
 	}
+	if len(productName) == 0 {
+		return e.ErrDeleteBuildModule.AddDesc("项目不能为空")
+	}
+
+	workflow, err := commonrepo.NewWorkflowV4Coll().FindReferencingBuild(productName, name)
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		log.Errorf("[Build.Delete] check workflow references for %s/%s: %v", productName, name, err)
+		return e.ErrDeleteBuildModule.AddDesc("检查构建的工作流引用失败")
+	}
+	if workflow != nil {
+		workflowName := workflow.DisplayName
+		if workflowName == "" {
+			workflowName = workflow.Name
+		}
+		return e.ErrDeleteBuildModule.AddDesc(fmt.Sprintf("该构建被工作流 [%s] 引用，请解除引用之后再删除", workflowName))
+	}
 
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{BuildName: name, ProductName: productName})
 	serviceNames := make([]string, 0)
