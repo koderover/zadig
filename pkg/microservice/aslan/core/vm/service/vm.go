@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -311,15 +312,6 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		}
 	}
 
-	if vm.Agent != nil {
-		vm.Agent.AgentVersion = version
-	}
-	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
-	if err != nil {
-		logger.Errorf("failed to upgrade vm agent %s, error: %s", vm.ID.Hex(), err)
-		return nil, e.ErrUpgradeZadigVMAgent.AddErr(fmt.Errorf("failed to upgrade vm agent %s, error: %s", vm.ID.Hex(), err))
-	}
-
 	return cmd, nil
 }
 
@@ -414,7 +406,13 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 		vm.Agent.AgentVersion = args.Parameters.AgentVersion
 		updateAgentVersionStatus(vm.Agent, logger)
 	}
-	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
+	fields := bson.M{"status": vm.Status, "vm_info": vm.VMInfo, "ip": vm.IP}
+	if vm.Agent != nil {
+		fields["agent.agent_version"] = vm.Agent.AgentVersion
+		fields["agent.zadig_version"] = vm.Agent.ZadigVersion
+		fields["agent.need_update"] = vm.Agent.NeedUpdate
+	}
+	err = commonrepo.NewPrivateKeyColl().UpdateAgentFields(vm.ID, fields)
 	if err != nil {
 		logger.Errorf("failed to update vm %s, error: %s", args.Token, err)
 		return nil, err
@@ -501,10 +499,27 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	}
 	updateAgentVersionStatus(vm.Agent, logger)
 
-	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
-	if err != nil {
-		logger.Errorf("failed to update vm %s, error: %s", args.Token, err)
-		return nil, fmt.Errorf("failed to update vm %s, error: %s", args.Token, err)
+	fields := bson.M{
+		"agent.last_heartbeat_time": vm.Agent.LastHeartbeatTime,
+		"agent.agent_version":       vm.Agent.AgentVersion,
+		"agent.zadig_version":       vm.Agent.ZadigVersion,
+		"agent.need_update":         vm.Agent.NeedUpdate,
+		"update_by":                 vm.UpdateBy, "update_time": vm.UpdateTime,
+	}
+	if vm.VMInfo != nil {
+		fields["vm_info.memery_total"] = vm.VMInfo.MemeryTotal
+		fields["vm_info.used_memery"] = vm.VMInfo.UsedMemery
+		fields["vm_info.disk_space"] = vm.VMInfo.DiskSpace
+		fields["vm_info.free_disk_space"] = vm.VMInfo.FreeDiskSpace
+	}
+	if args.Parameters != nil {
+		fields["agent.upgrade_supported"] = args.Parameters.UpgradeSupported
+	}
+	if err := commonrepo.NewPrivateKeyColl().UpdateAgentHeartbeat(vm.ID, fields); err != nil {
+		return nil, err
+	}
+	if err := heartbeatAgentUpgrade(vm, args.Parameters, resp); err != nil {
+		return nil, err
 	}
 
 	if vm.Agent.NeedUpdate {

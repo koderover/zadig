@@ -17,7 +17,9 @@ limitations under the License.
 package handler
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/gin-gonic/gin"
 
@@ -107,7 +109,25 @@ func UpgradeAgent(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	var request struct {
+		Mode string `json:"mode"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil && !errors.Is(err, io.EOF) {
+		ctx.RespErr = fmt.Errorf("invalid upgrade request: %w", err)
+		return
+	}
+	switch request.Mode {
+	case "":
+		ctx.Resp, ctx.RespErr = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	case "self":
+		task, err := service.RequestAgentUpgrade(c.Request.Context(), c.Param("vmid"), ctx.UserName, ctx.Logger)
+		ctx.RespErr = err
+		if err == nil {
+			ctx.Resp = map[string]interface{}{"upgrade_id": task.ID, "from_version": task.FromVersion, "target_version": task.TargetVersion, "status": task.Status}
+		}
+	default:
+		ctx.RespErr = fmt.Errorf("unsupported upgrade mode")
+	}
 }
 
 func ListVMs(c *gin.Context) {

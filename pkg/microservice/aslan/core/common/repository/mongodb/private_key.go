@@ -181,7 +181,28 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 			"error":  args.Error,
 		}}
 	} else {
-		change = bson.M{"$set": args}
+		data, err := bson.Marshal(args)
+		if err != nil {
+			return err
+		}
+		fields := bson.M{}
+		if err := bson.Unmarshal(data, &fields); err != nil {
+			return err
+		}
+		delete(fields, "_id")
+		// Agent runtime and upgrade state are owned by registration/heartbeat.
+		agent, ok := fields["agent"].(bson.M)
+		delete(fields, "agent")
+		if ok {
+			for key, value := range agent {
+				switch key {
+				case "upgrade", "upgrade_supported", "last_heartbeat_time", "agent_version", "zadig_version", "need_update":
+					continue
+				}
+				fields["agent."+key] = value
+			}
+		}
+		change = bson.M{"$set": fields}
 	}
 
 	_, err = c.UpdateOne(context.TODO(), query, change)

@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/monitor"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 )
 
 type Agent struct {
@@ -56,10 +57,14 @@ func (a *Agent) start(stop chan struct{}) {
 
 	// Start the agent core service
 	agentCtl := agent.NewAgentController()
-	go agentCtl.Start(a.Ctx)
+	manager, err := updater.NewManager(agentCtl, stop)
+	if err != nil {
+		log.Panicf("initialize agent updater: %v", err)
+	}
+	agentCtl.Start(a.Ctx)
 
 	// Start the heartbeat service
-	go monitor.NewHeartbeatService(agentCtl, 3, 10, stop).Start(a.Ctx)
+	go monitor.NewHeartbeatService(agentCtl, manager, 3, 10, stop).Start(a.Ctx)
 }
 
 func (a *Agent) handleSignals() {
@@ -67,7 +72,7 @@ func (a *Agent) handleSignals() {
 
 	// Listen for system signals
 	sigCh := make(chan os.Signal, 1)
-	defer close(sigCh)
+	defer signal.Stop(sigCh)
 
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 

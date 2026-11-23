@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 )
@@ -41,6 +42,9 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 				continue
 			}
 
+			if upgrade := hostElem.Agent.Upgrade; upgrade != nil && (upgrade.Status == agentupgrade.Restarting || upgrade.Status == agentupgrade.Verifying) && time.Since(time.Unix(upgrade.UpdateTime, 0)) < 3*time.Minute {
+				continue
+			}
 			var newStatus setting.PMHostStatus
 			if time.Unix(hostElem.Agent.LastHeartbeatTime, 0).Add(time.Duration(setting.AgentDefaultHeartbeatTimeout) * time.Second).Before(time.Now()) {
 				newStatus = setting.VMAbnormal

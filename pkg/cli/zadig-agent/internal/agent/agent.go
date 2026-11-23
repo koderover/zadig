@@ -18,12 +18,15 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	jobexecutor "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/job"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/reporter"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
@@ -36,7 +39,6 @@ func NewAgentController() *AgentController {
 		StopPollingJobChan:   make(chan struct{}, 1),
 		StopRunJobChan:       make(chan struct{}, 1),
 		ConcurrencyBlockTime: common.DefaultAgentConcurrencyBlockTime,
-		CurrentJobNum:        0,
 	}
 }
 
@@ -47,7 +49,13 @@ type AgentController struct {
 	StopRunJobChan       chan struct{}
 	Concurrency          int
 	ConcurrencyBlockTime int
-	CurrentJobNum        int
+	mu                   sync.Mutex
+	currentJobNum        int
+	paused               bool
+	polling              bool
+	jobError             error
+	stopPollingOnce      sync.Once
+	stopRunOnce          sync.Once
 	WorkingDirectory     string
 }
 
@@ -60,15 +68,46 @@ func (c *AgentController) Start(ctx context.Context) {
 }
 
 func (c *AgentController) StopPollingJob() {
-	defer close(c.StopPollingJobChan)
-
-	c.StopPollingJobChan <- struct{}{}
+	c.stopPollingOnce.Do(func() { close(c.StopPollingJobChan) })
 }
 
 func (c *AgentController) StopRunJob() {
-	defer close(c.StopRunJobChan)
+	c.stopRunOnce.Do(func() { close(c.StopRunJobChan) })
+}
 
-	c.StopRunJobChan <- struct{}{}
+func (c *AgentController) SetPaused(paused bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.paused = paused
+}
+
+func (c *AgentController) PauseAndDrain(ctx context.Context) error {
+	c.SetPaused(true)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		c.mu.Lock()
+		done, err := !c.polling && c.currentJobNum == 0, c.jobError
+		c.mu.Unlock()
+		if done {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (c *AgentController) beginPoll() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.paused || c.currentJobNum >= config.GetConcurrency() {
+		return false
+	}
+	c.polling = true
+	return true
 }
 
 func (c *AgentController) PollingJob(ctx context.Context) {
@@ -86,8 +125,14 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 			log.Infof("stop polling job, received stop signal.")
 			return
 		default:
-			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.CurrentJobNum < config.GetConcurrency() {
+			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.beginPoll() {
 				job, err := c.Client.RequestJob()
+				c.mu.Lock()
+				if job != nil && job.ID != "" {
+					c.currentJobNum++
+				}
+				c.polling = false
+				c.mu.Unlock()
 				if err != nil {
 					log.Errorf("failed to request job from zadig server, error: %s", err)
 					time.Sleep(common.DefaultAgentPollingInterval * time.Second)
@@ -96,7 +141,6 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 
 				if job != nil && job.ID != "" {
 					c.JobChan <- job
-					c.CurrentJobNum++
 					log.Infof("PollingJob: received job workflow name: %v, task id: %v, project name: %v, job name: %v",
 						job.WorkflowName, job.TaskID, job.ProjectName, job.JobName)
 					if config.GetEnableDebug() {
@@ -106,9 +150,6 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 
 				time.Sleep(common.DefaultAgentPollingInterval * time.Second)
 			} else {
-				if c.CurrentJobNum >= config.GetConcurrency() {
-					log.Infof("current job num %d is equal to concurrency %d, will block %d seconds to request job again.", c.CurrentJobNum, config.GetConcurrency(), c.ConcurrencyBlockTime)
-				}
 				time.Sleep(time.Duration(c.ConcurrencyBlockTime) * time.Second)
 			}
 		}
@@ -131,14 +172,18 @@ func (c *AgentController) RunJob(ctx context.Context) {
 				return
 			}
 
-			go func() {
-				defer func() {
-					c.CurrentJobNum--
-				}()
-				if err := c.RunSingleJob(ctx, job); err != nil {
+			go func(job *types.ZadigJobTask) {
+				err := c.RunSingleJob(ctx, job)
+				c.mu.Lock()
+				c.currentJobNum--
+				if errors.Is(err, reporter.ErrFinalReport) {
+					c.jobError = fmt.Errorf("cannot upgrade after an incomplete job: %w", err)
+				}
+				c.mu.Unlock()
+				if err != nil {
 					log.Errorf("failed to run job, error: %s", err)
 				}
-			}()
+			}(job)
 		}
 	}
 }
@@ -156,7 +201,7 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 
 		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
-			return fmt.Errorf("failed to report job status when BeforeExecute failed, error: %s", err)
+			return fmt.Errorf("failed to report job status when BeforeExecute failed: %w", err)
 		}
 		return fmt.Errorf("failed to execute workflow %s job %s, error: %s", job.WorkflowName, job.JobName, err)
 	}

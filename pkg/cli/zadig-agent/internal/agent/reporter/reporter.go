@@ -29,6 +29,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
 )
 
+var ErrFinalReport = errors.New("failed to report job finished result")
+
 type JobReporter struct {
 	Seq       int
 	Ctx       context.Context
@@ -158,7 +160,7 @@ func (r *JobReporter) FinishedJobReport(status common.Status, err error) error {
 	}
 
 	if retry == 0 {
-		return fmt.Errorf("failed to report job finished result, error: %s", err)
+		return fmt.Errorf("%w: %v", ErrFinalReport, err)
 	}
 	return nil
 }

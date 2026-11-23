@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
 
 type CreateVMRequest struct {
@@ -109,12 +111,14 @@ type VerifyAgentResponse struct {
 }
 
 type HeartbeatParameters struct {
-	MemTotal      uint64 `json:"mem_total"`
-	UsedMem       uint64 `json:"used_mem"`
-	DiskSpace     uint64 `json:"disk_space"`
-	FreeDiskSpace uint64 `json:"free_disk_space"`
-	VMname        string `json:"vm_name"`
-	AgentVersion  string `json:"agent_version"`
+	UpgradeSupported bool                 `json:"upgrade_supported"`
+	UpgradeReport    *agentupgrade.Report `json:"upgrade_report,omitempty"`
+	MemTotal         uint64               `json:"mem_total"`
+	UsedMem          uint64               `json:"used_mem"`
+	DiskSpace        uint64               `json:"disk_space"`
+	FreeDiskSpace    uint64               `json:"free_disk_space"`
+	VMname           string               `json:"vm_name"`
+	AgentVersion     string               `json:"agent_version"`
 }
 
 type HeartbeatRequest struct {
@@ -123,19 +127,21 @@ type HeartbeatRequest struct {
 }
 
 type HeartbeatResponse struct {
-	NeedOffline            bool         `json:"need_offline"`
-	NeedUpdateAgentVersion bool         `json:"need_update_agent_version"`
-	AgentVersion           string       `json:"agent_version"`
-	ScheduleWorkflow       bool         `json:"schedule_workflow"`
-	WorkDir                string       `json:"work_dir"`
-	Concurrency            int          `json:"concurrency"`
-	CacheType              string       `json:"cache_type"`
-	CachePath              string       `json:"cache_path"`
-	Object                 ObjectConfig `json:"object"`
-	ServerURL              string       `json:"server_url"`
-	VmName                 string       `json:"vm_name"`
-	Description            string       `json:"description"`
-	ZadigVersion           string       `json:"zadig_version"`
+	Upgrade                *agentupgrade.Instruction `json:"upgrade,omitempty"`
+	UpgradeAccepted        *agentupgrade.Report      `json:"upgrade_accepted,omitempty"`
+	NeedOffline            bool                      `json:"need_offline"`
+	NeedUpdateAgentVersion bool                      `json:"need_update_agent_version"`
+	AgentVersion           string                    `json:"agent_version"`
+	ScheduleWorkflow       bool                      `json:"schedule_workflow"`
+	WorkDir                string                    `json:"work_dir"`
+	Concurrency            int                       `json:"concurrency"`
+	CacheType              string                    `json:"cache_type"`
+	CachePath              string                    `json:"cache_path"`
+	Object                 ObjectConfig              `json:"object"`
+	ServerURL              string                    `json:"server_url"`
+	VmName                 string                    `json:"vm_name"`
+	Description            string                    `json:"description"`
+	ZadigVersion           string                    `json:"zadig_version"`
 }
 
 type ObjectConfig struct {

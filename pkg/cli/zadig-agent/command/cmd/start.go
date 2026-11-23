@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -45,6 +46,7 @@ func init() {
 }
 
 var ExistCh chan struct{} = make(chan struct{})
+var instanceLease *os.File
 
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -66,12 +68,23 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to get token: %v", err)
 		}
 
-		if err := startPreRun(serverUrl, token, workDir); err != nil {
-			fmt.Printf("Start pre run failed: %v.", err)
+		lease, err := updater.AcquireInstance()
+		if err != nil {
+			return fmt.Errorf("agent is already running or cannot acquire instance lock: %w", err)
 		}
+		if err := updater.CheckStartup(); err != nil {
+			lease.Close()
+			return err
+		}
+		if err := startPreRun(serverUrl, token, workDir); err != nil {
+			lease.Close()
+			return err
+		}
+		instanceLease = lease
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		defer instanceLease.Close()
 		startRun()
 	},
 	PostRun: func(cmd *cobra.Command, args []string) {
