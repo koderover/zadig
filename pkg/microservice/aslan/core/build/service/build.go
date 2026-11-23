@@ -373,17 +373,22 @@ func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 		return e.ErrDeleteBuildModule.AddDesc("项目不能为空")
 	}
 
-	workflow, err := commonrepo.NewWorkflowV4Coll().FindReferencingBuild(productName, name)
-	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+	workflows, err := commonrepo.NewWorkflowV4Coll().ListReferencingBuild(productName, name)
+	if err != nil {
 		log.Errorf("[Build.Delete] check workflow references for %s/%s: %v", productName, name, err)
 		return e.ErrDeleteBuildModule.AddDesc("检查构建的工作流引用失败")
 	}
-	if workflow != nil {
-		workflowName := workflow.DisplayName
-		if workflowName == "" {
-			workflowName = workflow.Name
+	if len(workflows) > 0 {
+		workflowNames := make([]string, 0, len(workflows))
+		for _, workflow := range workflows {
+			workflowName := workflow.Name
+			if workflow.DisplayName != "" && workflow.DisplayName != workflow.Name {
+				workflowName = fmt.Sprintf("%s（%s）", workflow.DisplayName, workflow.Name)
+			}
+			workflowNames = append(workflowNames, workflowName)
 		}
-		return e.ErrDeleteBuildModule.AddDesc(fmt.Sprintf("该构建被工作流 [%s] 引用，请解除引用之后再删除", workflowName))
+		desc := fmt.Sprintf("该构建被工作流 [%s] 引用，请解除引用之后再删除", strings.Join(workflowNames, "、"))
+		return e.NewHTTPError(e.ErrDeleteBuildModule.Code(), e.ErrDeleteBuildModule.Message(), desc)
 	}
 
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{BuildName: name, ProductName: productName})

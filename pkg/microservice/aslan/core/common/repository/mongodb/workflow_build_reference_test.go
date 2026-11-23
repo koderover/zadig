@@ -1,23 +1,27 @@
 package mongodb
 
 import (
-	"errors"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 )
 
-func TestFindReferencingBuild(t *testing.T) {
+func TestListReferencingBuild(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-	mt.Run("current project and build job", func(mt *mtest.T) {
-		mt.AddMockResponses(mtest.CreateCursorResponse(0, mt.DB.Name()+"."+mt.Coll.Name(), mtest.FirstBatch,
-			bson.D{{Key: "name", Value: "release"}, {Key: "display_name", Value: "Release"}}))
+	mt.Run("all matching workflows in the current project", func(mt *mtest.T) {
+		namespace := mt.DB.Name() + "." + mt.Coll.Name()
+		mt.AddMockResponses(
+			mtest.CreateCursorResponse(1, namespace, mtest.FirstBatch,
+				bson.D{{Key: "name", Value: "nightly"}}),
+			mtest.CreateCursorResponse(0, namespace, mtest.NextBatch,
+				bson.D{{Key: "name", Value: "release"}, {Key: "display_name", Value: "Release"}}),
+		)
 
-		workflow, err := (&WorkflowV4Coll{Collection: mt.Coll}).FindReferencingBuild("project-a", "build-a")
-		if err != nil || workflow == nil || workflow.Name != "release" || workflow.DisplayName != "Release" {
-			mt.Fatalf("expected matching workflow names, got %+v, %v", workflow, err)
+		workflows, err := (&WorkflowV4Coll{Collection: mt.Coll}).ListReferencingBuild("project-a", "build-a")
+		if err != nil || len(workflows) != 2 || workflows[0].Name != "nightly" ||
+			workflows[1].Name != "release" || workflows[1].DisplayName != "Release" {
+			mt.Fatalf("expected both matching workflow names, got %+v, %v", workflows, err)
 		}
 		command := mt.GetStartedEvent().Command
 		filter := command.Lookup("filter").Document()
@@ -38,15 +42,22 @@ func TestFindReferencingBuild(t *testing.T) {
 				mt.Fatalf("expected exact build name in %s", path)
 			}
 		}
-		if command.Lookup("limit").AsInt64() != 1 || command.Lookup("projection").Document().Lookup("name").AsInt64() != 1 {
-			mt.Fatal("expected at most one matching workflow, with name projected")
+		if _, err := command.LookupErr("limit"); err == nil {
+			mt.Fatal("expected all matching workflows without a limit")
+		}
+		projection := command.Lookup("projection").Document()
+		if projection.Lookup("name").AsInt64() != 1 || projection.Lookup("display_name").AsInt64() != 1 {
+			mt.Fatal("expected both name fields to be projected")
+		}
+		if command.Lookup("sort").Document().Lookup("name").AsInt64() != 1 {
+			mt.Fatal("expected workflows in name order")
 		}
 	})
 	mt.Run("no reference", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateCursorResponse(0, mt.DB.Name()+"."+mt.Coll.Name(), mtest.FirstBatch))
-		workflow, err := (&WorkflowV4Coll{Collection: mt.Coll}).FindReferencingBuild("project-a", "build-a")
-		if workflow != nil || !errors.Is(err, mongo.ErrNoDocuments) {
-			mt.Fatalf("expected no reference, got %+v, %v", workflow, err)
+		workflows, err := (&WorkflowV4Coll{Collection: mt.Coll}).ListReferencingBuild("project-a", "build-a")
+		if len(workflows) != 0 || err != nil {
+			mt.Fatalf("expected no reference, got %+v, %v", workflows, err)
 		}
 	})
 }

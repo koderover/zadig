@@ -239,8 +239,8 @@ func (c *WorkflowV4Coll) FindByOptions(opts WorkFlowOptions) (*models.WorkflowV4
 	return workflow, nil
 }
 
-// FindReferencingBuild returns one workflow that directly references the build.
-func (c *WorkflowV4Coll) FindReferencingBuild(projectName, buildName string) (*models.WorkflowV4, error) {
+// ListReferencingBuild returns the names of workflows that directly reference the build.
+func (c *WorkflowV4Coll) ListReferencingBuild(projectName, buildName string) ([]*models.WorkflowV4, error) {
 	jobFilter := bson.M{
 		"type": config.JobZadigBuild,
 		"$or": bson.A{
@@ -255,12 +255,19 @@ func (c *WorkflowV4Coll) FindReferencingBuild(projectName, buildName string) (*m
 			"jobs": bson.M{"$elemMatch": jobFilter},
 		}},
 	}
-	opts := options.FindOne().SetProjection(bson.M{"_id": 0, "name": 1, "display_name": 1})
-	workflow := &models.WorkflowV4{}
-	if err := c.FindOne(context.TODO(), filter, opts).Decode(workflow); err != nil {
+	ctx := context.TODO()
+	opts := options.Find().
+		SetProjection(bson.M{"_id": 0, "name": 1, "display_name": 1}).
+		SetSort(bson.D{{Key: "name", Value: 1}})
+	cursor, err := c.Collection.Find(ctx, filter, opts)
+	if err != nil {
 		return nil, err
 	}
-	return workflow, nil
+	var workflows []*models.WorkflowV4
+	if err := cursor.All(ctx, &workflows); err != nil {
+		return nil, err
+	}
+	return workflows, nil
 }
 
 func (c *WorkflowV4Coll) Count() (int64, error) {
