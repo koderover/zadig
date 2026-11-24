@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
@@ -67,10 +66,10 @@ func RegisterAgent() error {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
 	if resp.NeedOffline {
-		if err := daemon.SetConnectionAllowed(false); err != nil {
+		if err := agentconfig.SetConnectionAllowed(false); err != nil {
 			return err
 		}
-		return daemon.ErrDisconnected
+		return agentconfig.ErrDisconnected
 	}
 	log.Infof("agent registered successfully!!!")
 

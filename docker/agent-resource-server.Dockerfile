@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/gocache \
       zadig-agent-darwin-amd64 zadig-agent-darwin-arm64 zadig-agent-windows-amd64 \
       ZADIG_AGENT_VERSION="$ZADIG_AGENT_VERSION" \
       BUILD_COMMIT="$BUILD_COMMIT" && \
-    go run ./cmd/zadig-agent-release --format binary \
+    go run ./cmd/zadig-agent-release \
       --version "$ZADIG_AGENT_VERSION" --dir cmd/zadig-agent/out && \
     printf 'ok\n' > cmd/zadig-agent/out/healthz
 

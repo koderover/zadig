@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +48,7 @@ func stopPreRun() error {
 }
 
 func stopRun() error {
-	if err := daemon.SetConnectionAllowed(false); err != nil {
+	if err := config.SetConnectionAllowed(false); err != nil {
 		return err
 	}
 	stop, err := config.GetStopFilePath()

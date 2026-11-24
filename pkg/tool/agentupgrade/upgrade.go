@@ -98,15 +98,13 @@ func CanTransition(from, to Status) bool {
 	return okA && okB && b > a
 }
 
-var versionPattern = regexp.MustCompile(`^[0-9][0-9A-Za-z.+-]{0,63}$`)
 var digits = regexp.MustCompile(`^[0-9]+$`)
 
 func Version(v string) (string, error) {
-	v = strings.TrimPrefix(v, "v")
-	if !versionPattern.MatchString(v) {
-		return "", fmt.Errorf("invalid agent version")
+	if v == "" {
+		return "", fmt.Errorf("agent version not found")
 	}
-	return v, nil
+	return strings.TrimPrefix(v, "v"), nil
 }
 
 func Newer(target, current string) bool {
@@ -155,10 +153,6 @@ func SecureURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-func AssetName(osName, arch, version string) string {
-	return fmt.Sprintf("zadig-agent-%s-%s-v%s.tar.gz", osName, arch, version)
-}
-
 func BinaryName(osName, arch, version string) string {
 	name := fmt.Sprintf("zadig-agent-%s-%s-v%s", osName, arch, version)
 	if osName == "windows" {
@@ -185,7 +179,7 @@ func (m *Manifest) Asset(osName, arch string) (*Asset, error) {
 		return nil, fmt.Errorf("no upgrade asset for %s/%s", osName, arch)
 	}
 	digest, err := hex.DecodeString(result.SHA256)
-	if err != nil || len(digest) != 32 || result.Size <= 0 || result.Size > MaxAssetSize || (result.Filename != AssetName(osName, arch, m.Version) && result.Filename != BinaryName(osName, arch, m.Version)) {
+	if err != nil || len(digest) != 32 || result.Size <= 0 || result.Size > MaxAssetSize || result.Filename != BinaryName(osName, arch, m.Version) {
 		return nil, fmt.Errorf("invalid upgrade asset")
 	}
 	return result, nil

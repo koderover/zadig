@@ -1,8 +1,6 @@
 package updater
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,7 +21,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -44,7 +41,7 @@ func Supported() bool {
 	if runtime.GOOS == "windows" && runtime.GOARCH != "amd64" {
 		return false
 	}
-	if (managedService() || daemon.RunningBackend() != "") && !daemon.CanUpgrade() {
+	if managedService() {
 		return false
 	}
 	_, err := agentupgrade.SecureURL(config.GetServerURL())
@@ -112,9 +109,9 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 			return fmt.Errorf("upgrade state changed during health confirmation")
 		}
 		if current.Status == agentupgrade.Verifying {
-			if helper, err := launchUpgradeHelper(ctx, s); err != nil {
+			if helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment); err != nil {
 				return err
-			} else if helper != nil {
+			} else {
 				helper.Process.Release()
 			}
 			select {
@@ -189,7 +186,7 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 	if err != nil {
 		return err
 	}
-	st := &state{ServiceBackend: daemon.RunningBackend(), Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), daemon.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
+	st := &state{Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), config.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
 	if err := changeState(func(old *state) (*state, error) {
 		if old != nil && !old.Status.Terminal() {
 			return nil, fmt.Errorf("another upgrade is active")
@@ -255,13 +252,8 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err != nil {
 		return err
 	}
-	destination := s.candidate()
-	archived := strings.HasSuffix(asset.Filename, ".tar.gz")
-	if archived {
-		destination = filepath.Join(s.Directory, "release.tar.gz")
-	}
 	for attempt := 0; attempt < 3; attempt++ {
-		err = download(ctx, client, url, destination, asset)
+		err = download(ctx, client, url, s.candidate(), asset)
 		if err == nil {
 			break
 		}
@@ -272,11 +264,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err != nil {
 		return err
 	}
-	if archived {
-		if err := extract(destination, s.candidate(), strings.TrimSuffix(asset.Filename, ".tar.gz")+extension()); err != nil {
-			return err
-		}
-	} else if err := os.Chmod(s.candidate(), 0700); err != nil {
+	if err := os.Chmod(s.candidate(), 0700); err != nil {
 		return err
 	}
 	probeCtx, probeCancel := context.WithTimeout(ctx, 15*time.Second)
@@ -314,13 +302,11 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err := reportHandoff(s.ID); err != nil {
 		return err
 	}
-	helper, err := launchUpgradeHelper(ctx, s)
+	helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment)
 	if err != nil {
 		return err
 	}
-	if helper != nil {
-		defer helper.Process.Release()
-	}
+	defer helper.Process.Release()
 	deadline := time.NewTimer(15 * time.Second)
 	defer deadline.Stop()
 	for {
@@ -328,7 +314,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		if err != nil {
 			return err
 		}
-		if current != nil && current.ID == s.ID && current.HelperPID > 0 && (helper == nil || current.HelperPID == helper.Process.Pid) {
+		if current != nil && current.ID == s.ID && current.HelperPID > 0 && current.HelperPID == helper.Process.Pid {
 			select {
 			case m.stop <- struct{}{}:
 				return nil
@@ -338,14 +324,10 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		}
 		select {
 		case <-deadline.C:
-			if helper != nil {
-				helper.Process.Kill()
-			}
+			helper.Process.Kill()
 			return fmt.Errorf("upgrade helper did not acknowledge handoff")
 		case <-ctx.Done():
-			if helper != nil {
-				helper.Process.Kill()
-			}
+			helper.Process.Kill()
 			return ctx.Err()
 		case <-time.After(100 * time.Millisecond):
 		}
@@ -407,51 +389,4 @@ func download(ctx context.Context, client *http.Client, url, path string, asset 
 		return fmt.Errorf("agent asset size or checksum mismatch")
 	}
 	return f.Sync()
-}
-
-func extract(archive, destination, expected string) error {
-	f, err := os.Open(archive)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer gz.Close()
-	tr := tar.NewReader(gz)
-	found := false
-	for {
-		h, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if found || h.Name != expected || h.Typeflag != tar.TypeReg || h.Size <= 0 || h.Size > agentupgrade.MaxAssetSize {
-			return fmt.Errorf("unexpected file in agent archive")
-		}
-		out, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0700)
-		if err != nil {
-			return err
-		}
-		_, copyErr := io.CopyN(out, tr, h.Size)
-		if copyErr == nil {
-			copyErr = out.Sync()
-		}
-		closeErr := out.Close()
-		if copyErr != nil {
-			return copyErr
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		found = true
-	}
-	if !found {
-		return fmt.Errorf("agent archive is empty")
-	}
-	return nil
 }

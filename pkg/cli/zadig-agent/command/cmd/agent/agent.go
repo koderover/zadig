@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/monitor"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 )
@@ -62,7 +61,7 @@ func (a *Agent) start(stop chan struct{}) error {
 	return nil
 }
 
-func StartAgent(ctx context.Context, ready func()) error {
+func StartAgent(ctx context.Context) error {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 	agentCtx, cancel := context.WithCancel(ctx)
@@ -70,12 +69,11 @@ func StartAgent(ctx context.Context, ready func()) error {
 	defer zadigAgent.Cancel()
 	stopAgentChan := make(chan struct{}, 1)
 	if err := zadigAgent.start(stopAgentChan); err != nil {
-		if errors.Is(err, daemon.ErrDisconnected) {
+		if errors.Is(err, config.ErrDisconnected) {
 			return nil
 		}
 		return err
 	}
-	ready()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -84,11 +82,11 @@ func StartAgent(ctx context.Context, ready func()) error {
 			zadigAgent.Stop("agent stopped by platform or upgrade")
 			return nil
 		case <-ctx.Done():
-			zadigAgent.Stop("agent stopped by signal or service manager")
+			zadigAgent.Stop("agent stopped by signal")
 			return nil
 		case <-ticker.C:
 			if checkStopSignalFile() {
-				if err := daemon.SetConnectionAllowed(false); err != nil {
+				if err := config.SetConnectionAllowed(false); err != nil {
 					return err
 				}
 				zadigAgent.Stop("agent stopped by user")

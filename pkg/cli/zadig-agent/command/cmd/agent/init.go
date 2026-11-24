@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
@@ -88,10 +87,10 @@ func verifyAgent() error {
 		return err
 	}
 	if resp.NeedOffline {
-		if err := daemon.SetConnectionAllowed(false); err != nil {
+		if err := agentconfig.SetConnectionAllowed(false); err != nil {
 			return err
 		}
-		return daemon.ErrDisconnected
+		return agentconfig.ErrDisconnected
 	}
 	if !resp.Verified {
 		return errAgentMismatch

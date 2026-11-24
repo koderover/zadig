@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +42,7 @@ func init() {
 			if !filepath.IsAbs(home) {
 				return fmt.Errorf("home must be an absolute path")
 			}
-			return os.Setenv(daemon.HomeEnv, filepath.Clean(home))
+			return os.Setenv(config.HomeEnv, filepath.Clean(home))
 		}
 		return nil
 	}
