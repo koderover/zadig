@@ -160,7 +160,12 @@ func UpdatePrivateKey(c *gin.Context) {
 
 	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
 	detailEn := fmt.Sprintf("Host Name: %s, IP: %s", args.Name, args.IP)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	shouldLog := true
+	defer func() {
+		if shouldLog {
+			internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+		}
+	}()
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -183,7 +188,9 @@ func UpdatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
+	updated, err := service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = err
+	shouldLog = updated || err != nil
 }
 
 // @Summary 验证主机 SSH 连接
