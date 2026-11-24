@@ -72,7 +72,7 @@ BUILD_TIME := $(shell TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S %Z')
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 BUILD_GO_VERSION := $(shell go version | awk '{print $$3}')
 ZADIG_AGENT_VERSION ?= $(shell date +'%Y%m%d%H%M%S')
-override ZADIG_AGENT_VERSION := $(patsubst v%,%,$(ZADIG_AGENT_VERSION))
+ZADIG_AGENT_VERSION := $(ZADIG_AGENT_VERSION)
 ZADIG_AGENT_OUT_DIR := cmd/zadig-agent/out
 
 zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),zadig-agent-$(platform)-$(arch)))

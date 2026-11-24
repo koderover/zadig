@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -11,19 +9,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
-	"text/template"
 
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
 
-//go:embed install.sh.tmpl install.ps1.tmpl
-var installers embed.FS
-
 func main() {
 	version := flag.String("version", "", "agent release version")
 	dir := flag.String("dir", "", "directory containing release files")
-	format := flag.String("format", "archive", "asset format: archive or binary (binary also emits installation scripts)")
+	format := flag.String("format", "archive", "asset format: archive or binary")
 	flag.Parse()
 	if err := run(*version, *dir, *format); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -98,26 +91,6 @@ func run(version, dir, format string) error {
 	path := filepath.Join(dir, "zadig-agent-v"+version+".manifest.json")
 	if err := create(path, data, 0644); err != nil {
 		return err
-	}
-	if format == "binary" {
-		for _, file := range []string{"install.sh", "install.ps1"} {
-			source, err := installers.ReadFile(file + ".tmpl")
-			if err != nil {
-				return err
-			}
-			t, err := template.New(file).Parse(string(source))
-			if err != nil {
-				return err
-			}
-			var output bytes.Buffer
-			if err := t.Execute(&output, manifest); err != nil {
-				return err
-			}
-			name := strings.Replace(file, "install.", "install-v"+version+".", 1)
-			if err := create(filepath.Join(dir, name), output.Bytes(), 0644); err != nil {
-				return err
-			}
-		}
 	}
 	fmt.Println(path)
 	return nil
