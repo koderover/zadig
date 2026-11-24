@@ -17,9 +17,8 @@ limitations under the License.
 package config
 
 var (
-	BuildAgentVersion     = ""
-	BuildUpgradePublicKey = ""
-	BuildGoVersion        = ""
-	BuildCommit           = ""
-	BuildTime             = ""
+	BuildAgentVersion = ""
+	BuildGoVersion    = ""
+	BuildCommit       = ""
+	BuildTime         = ""
 )

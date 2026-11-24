@@ -9,17 +9,15 @@ COPY cmd cmd
 COPY pkg pkg
 COPY Makefile ./
 ARG ZADIG_AGENT_VERSION
-ARG ZADIG_AGENT_UPGRADE_PUBLIC_KEY
 ARG BUILD_COMMIT=unknown
 RUN --mount=type=cache,target=/gocache \
-    --mount=type=secret,id=agent_release_private_key,required=true \
-    test -n "$ZADIG_AGENT_VERSION" && test -n "$ZADIG_AGENT_UPGRADE_PUBLIC_KEY" && \
-    make zadig-agent ZADIG_AGENT_VERSION="$ZADIG_AGENT_VERSION" \
-      ZADIG_AGENT_UPGRADE_PUBLIC_KEY="$ZADIG_AGENT_UPGRADE_PUBLIC_KEY" BUILD_COMMIT="$BUILD_COMMIT" && \
+    test -n "$ZADIG_AGENT_VERSION" && \
+    make zadig-agent-linux-amd64 zadig-agent-linux-arm64 \
+      zadig-agent-darwin-amd64 zadig-agent-darwin-arm64 zadig-agent-windows-amd64 \
+      ZADIG_AGENT_VERSION="$ZADIG_AGENT_VERSION" \
+      BUILD_COMMIT="$BUILD_COMMIT" && \
     go run ./cmd/zadig-agent-release --format binary \
-      --version "$ZADIG_AGENT_VERSION" --dir cmd/zadig-agent/out \
-      --public-key "$ZADIG_AGENT_UPGRADE_PUBLIC_KEY" \
-      --private-key /run/secrets/agent_release_private_key && \
+      --version "$ZADIG_AGENT_VERSION" --dir cmd/zadig-agent/out && \
     printf 'ok\n' > cmd/zadig-agent/out/healthz
 
 FROM nginx:alpine

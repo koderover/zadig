@@ -26,11 +26,10 @@ import (
 )
 
 var (
-	BuildAgentVersion     = ""
-	BuildUpgradePublicKey = ""
-	BuildGoVersion        = ""
-	BuildCommit           = ""
-	BuildTime             = ""
+	BuildAgentVersion = ""
+	BuildGoVersion    = ""
+	BuildCommit       = ""
+	BuildTime         = ""
 )
 
 func main() {
@@ -43,7 +42,6 @@ func main() {
 	}()
 
 	config.BuildAgentVersion = BuildAgentVersion
-	config.BuildUpgradePublicKey = BuildUpgradePublicKey
 	config.BuildGoVersion = BuildGoVersion
 	config.BuildCommit = BuildCommit
 	config.BuildTime = BuildTime

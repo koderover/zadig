@@ -30,23 +30,24 @@ import (
 )
 
 type Probe struct {
-	Version   string `json:"version"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
-	Protocol  int    `json:"protocol"`
-	PublicKey string `json:"public_key"`
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	Arch     string `json:"arch"`
+	Protocol int    `json:"protocol"`
 }
 
 func CurrentProbe() Probe {
-	return Probe{config.BuildAgentVersion, runtime.GOOS, runtime.GOARCH, 1, config.BuildUpgradePublicKey}
+	return Probe{config.BuildAgentVersion, runtime.GOOS, runtime.GOARCH, 1}
 }
 
 func Supported() bool {
-	_, err := agentupgrade.PublicKey(config.BuildUpgradePublicKey)
-	if err != nil || (managedService() && !daemon.CanUpgrade()) || (daemon.RunningBackend() != "" && !daemon.CanUpgrade()) {
+	if runtime.GOOS == "windows" && runtime.GOARCH != "amd64" {
 		return false
 	}
-	_, err = agentupgrade.SecureURL(config.GetServerURL())
+	if (managedService() || daemon.RunningBackend() != "") && !daemon.CanUpgrade() {
+		return false
+	}
+	_, err := agentupgrade.SecureURL(config.GetServerURL())
 	return err == nil
 }
 
@@ -227,15 +228,11 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err := syncDirectory(filepath.Dir(s.Directory)); err != nil {
 		return err
 	}
-	key, err := agentupgrade.PublicKey(config.BuildUpgradePublicKey)
-	if err != nil {
-		return err
-	}
 	client, err := agentupgrade.HTTPClient()
 	if err != nil {
 		return err
 	}
-	manifest, err := agentupgrade.FetchManifest(ctx, client, instruction.ManifestURL, instruction.TargetVersion, key)
+	manifest, err := agentupgrade.FetchManifest(ctx, client, instruction.ManifestURL, instruction.TargetVersion)
 	if err != nil {
 		return err
 	}
@@ -292,7 +289,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err := json.Unmarshal(output, &probe); err != nil {
 		return err
 	}
-	if strings.TrimPrefix(probe.Version, "v") != s.TargetVersion || probe.OS != runtime.GOOS || probe.Arch != runtime.GOARCH || probe.Protocol != 1 || probe.PublicKey != config.BuildUpgradePublicKey {
+	if strings.TrimPrefix(probe.Version, "v") != s.TargetVersion || probe.OS != runtime.GOOS || probe.Arch != runtime.GOARCH || probe.Protocol != 1 {
 		return fmt.Errorf("new agent version, platform or upgrade protocol mismatch")
 	}
 	if err := copyFile(s.Executable, s.helper(), 0700); err != nil {

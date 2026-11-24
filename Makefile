@@ -73,7 +73,6 @@ BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 BUILD_GO_VERSION := $(shell go version | awk '{print $$3}')
 ZADIG_AGENT_VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 override ZADIG_AGENT_VERSION := $(patsubst v%,%,$(ZADIG_AGENT_VERSION))
-ZADIG_AGENT_UPGRADE_PUBLIC_KEY ?=
 ZADIG_AGENT_OUT_DIR := cmd/zadig-agent/out
 
 zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),zadig-agent-$(platform)-$(arch)))
@@ -81,7 +80,7 @@ zadig-agent-%:
 	@$(eval GOOS=$(firstword $(subst -, ,$*)))
 	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
 	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)-v$(ZADIG_AGENT_VERSION)$(if $(findstring windows,$(GOOS)),.exe))
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags '-X "main.BuildAgentVersion=$(ZADIG_AGENT_VERSION)" -X "main.BuildUpgradePublicKey=$(ZADIG_AGENT_UPGRADE_PUBLIC_KEY)" -X "main.BuildGoVersion=$(BUILD_GO_VERSION)" -X "main.BuildTime=$(BUILD_TIME)" -X "main.BuildCommit=$(BUILD_COMMIT)"' -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags '-X "main.BuildAgentVersion=$(ZADIG_AGENT_VERSION)" -X "main.BuildGoVersion=$(BUILD_GO_VERSION)" -X "main.BuildTime=$(BUILD_TIME)" -X "main.BuildCommit=$(BUILD_COMMIT)"' -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go
 
 tar-zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),tar-zadig-agent-$(platform)-$(arch)))
 tar-zadig-agent-%: zadig-agent-%
@@ -97,9 +96,8 @@ agent-resource-server.image:
 	docker buildx build --platform linux/amd64,linux/arm64 -f docker/agent-resource-server.Dockerfile \
 		-t $(IMAGE_REPOSITORY)/agent-resource-server:$(VERSION) \
 		--build-arg ZADIG_AGENT_VERSION=$(ZADIG_AGENT_VERSION) \
-		--build-arg ZADIG_AGENT_UPGRADE_PUBLIC_KEY=$(ZADIG_AGENT_UPGRADE_PUBLIC_KEY) \
 		--build-arg BUILD_COMMIT=$(BUILD_COMMIT) \
-		--secret id=agent_release_private_key,src=$(ZADIG_AGENT_RELEASE_PRIVATE_KEY_FILE) $(AGENT_RESOURCE_SERVER_OUTPUT) .
+		$(AGENT_RESOURCE_SERVER_OUTPUT) .
 
 agent-resource-server.push: AGENT_RESOURCE_SERVER_OUTPUT=--push
 agent-resource-server.push: agent-resource-server.image

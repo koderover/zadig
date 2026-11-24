@@ -42,6 +42,10 @@ func shellQuote(s string) string      { return "'" + strings.ReplaceAll(s, "'", 
 func powershellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 
 func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, upgrade bool) (map[string]string, error) {
+	if (platform != "linux" && platform != "darwin" && platform != "windows") ||
+		(arch != "amd64" && arch != "arm64") || (platform == "windows" && arch != "amd64") {
+		return nil, fmt.Errorf("unsupported platform %s/%s", platform, arch)
+	}
 	if vm.Agent == nil || vm.Agent.Token == "" {
 		return nil, fmt.Errorf("agent registration token is missing")
 	}
@@ -64,9 +68,6 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 	if err := validateAgentInstallURL(server); err != nil {
 		return nil, err
 	}
-	if arch != "amd64" && arch != "arm64" {
-		return nil, fmt.Errorf("unsupported architecture %s", arch)
-	}
 	if platform == "windows" {
 		url := base + "/install-v" + version + ".ps1"
 		command := "$installer = Join-Path $env:TEMP ('zadig-agent-' + [guid]::NewGuid().ToString('N') + '.ps1'); " +
@@ -88,9 +89,6 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 		}
 		cmdCommand := "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded)
 		return map[string]string{"powershell": command, "cmd": cmdCommand}, nil
-	}
-	if (platform != "linux" && platform != "darwin") || (arch != "amd64" && arch != "arm64") {
-		return nil, fmt.Errorf("unsupported platform %s/%s", platform, arch)
 	}
 	url := base + "/install-v" + version + ".sh"
 	protocols := "=https"

@@ -2,10 +2,8 @@ package agentupgrade
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -136,14 +134,6 @@ func Newer(target, current string) bool {
 	return err == nil && a.GT(b)
 }
 
-func PublicKey(encoded string) (ed25519.PublicKey, error) {
-	key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
-	if err != nil || len(key) != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("invalid agent upgrade public key")
-	}
-	return ed25519.PublicKey(key), nil
-}
-
 func ManifestURL(base, version string) (string, error) {
 	v, err := Version(version)
 	if err != nil {
@@ -178,6 +168,9 @@ func BinaryName(osName, arch, version string) string {
 }
 
 func (m *Manifest) Asset(osName, arch string) (*Asset, error) {
+	if osName == "windows" && arch != "amd64" {
+		return nil, fmt.Errorf("unsupported upgrade platform %s/%s", osName, arch)
+	}
 	var result *Asset
 	for i := range m.Assets {
 		a := &m.Assets[i]
@@ -258,24 +251,17 @@ func Get(ctx context.Context, client *http.Client, raw string, limit int64) ([]b
 	return data, nil
 }
 
-func FetchManifest(ctx context.Context, client *http.Client, raw, version string, key ed25519.PublicKey) (*Manifest, error) {
-	if len(key) != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("agent upgrade signing key is not configured")
-	}
+func FetchManifest(ctx context.Context, client *http.Client, raw, version string) (*Manifest, error) {
 	data, err := Get(ctx, client, raw, 1<<20)
 	if err != nil {
 		return nil, err
 	}
-	signature, err := Get(ctx, client, raw+".sig", ed25519.SignatureSize)
-	if err != nil {
-		return nil, err
-	}
-	return VerifyManifest(data, signature, version, key)
+	return ParseManifest(data, version)
 }
 
-func VerifyManifest(data, signature []byte, version string, key ed25519.PublicKey) (*Manifest, error) {
-	if len(key) != ed25519.PublicKeySize || len(data) > 1<<20 || !ed25519.Verify(key, data, signature) {
-		return nil, fmt.Errorf("invalid upgrade manifest signature")
+func ParseManifest(data []byte, version string) (*Manifest, error) {
+	if len(data) > 1<<20 {
+		return nil, fmt.Errorf("upgrade manifest exceeds size limit")
 	}
 	var manifest Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {

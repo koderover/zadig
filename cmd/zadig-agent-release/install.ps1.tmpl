@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory=$true)][string]$ServerUrl,
     [Parameter(Mandatory=$true)][string]$ResourceUrl,
     [Parameter(Mandatory=$true)][string]$Token,
-    [ValidateSet('amd64','arm64')][string]$Arch,
+    [ValidateSet('amd64')][string]$Arch,
     [string]$ServiceUser,
     [PSCredential]$ServiceCredential,
     [string]$WorkDir,
@@ -17,12 +17,12 @@ $nativeArch = $env:PROCESSOR_ARCHITEW6432
 if (-not $nativeArch) { $nativeArch = $env:PROCESSOR_ARCHITECTURE }
 switch ($nativeArch.ToUpperInvariant()) {
     'AMD64' { $detected = 'amd64' }
-    'ARM64' { $detected = 'arm64' }
+    'ARM64' { throw 'Windows arm64 is not supported' }
     default { throw 'Unsupported CPU architecture' }
 }
 if ($Arch -and $Arch -ne $detected) { throw 'Selected architecture does not match this host' }
 switch ($detected) {
-{{range .Assets}}{{if eq .OS "windows"}}    '{{.Arch}}' { $file = '{{.Filename}}'; $sha = '{{.SHA256}}' }
+{{range .Assets}}{{if and (eq .OS "windows") (eq .Arch "amd64")}}    '{{.Arch}}' { $file = '{{.Filename}}' }
 {{end}}{{end}}    default { throw 'No release for this host' }
 }
 if ($AutoStart -and $ServiceUser -ne 'LocalSystem') {
@@ -42,12 +42,6 @@ $staged = "$destination.install-$([Guid]::NewGuid().ToString('N')).exe"
 try {
     $candidate = Join-Path $tmp 'zadig-agent.exe'
     Invoke-WebRequest -UseBasicParsing -Uri "$($ResourceUrl.TrimEnd('/'))/$file" -OutFile $candidate
-    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $candidate).Hash.ToLowerInvariant() -ne $sha) { throw 'Agent checksum mismatch' }
-    $manifest = Join-Path $tmp 'manifest.json'
-    Invoke-WebRequest -UseBasicParsing -Uri "$($ResourceUrl.TrimEnd('/'))/zadig-agent-v{{.Version}}.manifest.json" -OutFile $manifest
-    Invoke-WebRequest -UseBasicParsing -Uri "$($ResourceUrl.TrimEnd('/'))/zadig-agent-v{{.Version}}.manifest.json.sig" -OutFile "$manifest.sig"
-    & $candidate verify-release --manifest $manifest
-    if ($LASTEXITCODE -ne 0) { throw 'Signed release verification failed' }
     if (Test-Path -LiteralPath $destination) {
         if (-not $Upgrade) { throw 'Agent already exists. Use Zadig self upgrade, or the manual upgrade command.' }
         if ((Get-Item -LiteralPath $destination).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing to replace a linked agent file' }
@@ -55,7 +49,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Could not stop the existing agent' }
         $service = Get-Service -Name zadig-agent -ErrorAction SilentlyContinue
         if ($service -and $service.Status -ne 'Stopped') { Stop-Service -Name zadig-agent; $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(60)) }
-        & $candidate verify-release --manifest $manifest --wait-for-stop
+        & $candidate wait-for-stop
         if ($LASTEXITCODE -ne 0) { throw 'Existing agent has not stopped' }
         $backup = "$destination.previous-$([Guid]::NewGuid().ToString('N'))"
         $deadline = [DateTime]::UtcNow.AddSeconds(60)

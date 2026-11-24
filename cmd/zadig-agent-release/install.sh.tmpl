@@ -28,7 +28,7 @@ case "$(uname -m)" in x86_64|amd64) detected_arch=amd64 ;; aarch64|arm64) detect
 [ -z "$platform" ] || [ "$platform" = "$detected_os" ] || { echo "Selected operating system does not match this host" >&2; exit 1; }
 [ -z "$architecture" ] || [ "$architecture" = "$detected_arch" ] || { echo "Selected architecture does not match this host" >&2; exit 1; }
 case "$detected_os/$detected_arch" in
-{{range .Assets}}{{if ne .OS "windows"}}  {{.OS}}/{{.Arch}}) file='{{.Filename}}'; sha='{{.SHA256}}' ;;
+{{range .Assets}}{{if ne .OS "windows"}}  {{.OS}}/{{.Arch}}) file='{{.Filename}}' ;;
 {{end}}{{end}}  *) echo "No release for this host" >&2; exit 1 ;;
 esac
 [ "$(id -u)" -eq 0 ] || { echo "Run this installer with sudo/root to configure boot startup" >&2; exit 1; }
@@ -45,18 +45,7 @@ fetch() {
   fi
 }
 fetch "${resource%/}/$file" "$tmp/zadig-agent"
-if command -v sha256sum >/dev/null 2>&1; then
-  actual=$(sha256sum "$tmp/zadig-agent" | cut -d ' ' -f 1)
-elif command -v shasum >/dev/null 2>&1; then
-  actual=$(shasum -a 256 "$tmp/zadig-agent" | cut -d ' ' -f 1)
-else
-  echo "sha256sum or shasum is required" >&2; exit 1
-fi
-[ "$actual" = "$sha" ] || { echo "Agent checksum mismatch" >&2; exit 1; }
-fetch "${resource%/}/zadig-agent-v{{.Version}}.manifest.json" "$tmp/manifest.json"
-fetch "${resource%/}/zadig-agent-v{{.Version}}.manifest.json.sig" "$tmp/manifest.json.sig"
 chmod 700 "$tmp/zadig-agent"
-"$tmp/zadig-agent" verify-release --manifest "$tmp/manifest.json"
 destination=/usr/local/bin/zadig-agent
 backup=
 if [ -e "$destination" ] || [ -L "$destination" ]; then
@@ -64,7 +53,7 @@ if [ -e "$destination" ] || [ -L "$destination" ]; then
   [ -f "$destination" ] && [ ! -L "$destination" ] || { echo "Refusing to replace a non-regular agent file" >&2; exit 1; }
   "$destination" stop
   sleep 6
-  "$tmp/zadig-agent" verify-release --manifest "$tmp/manifest.json" --wait-for-stop
+  "$tmp/zadig-agent" wait-for-stop
   backup="$destination.previous-$(date +%s)-$$"
 fi
 mkdir -p /usr/local/bin

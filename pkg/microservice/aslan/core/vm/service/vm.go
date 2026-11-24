@@ -607,11 +607,14 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 		if err != nil {
 			return nil, err
 		}
-		arm64, err := agentInstallCommands(vm, platform, "arm64", false)
-		if err != nil {
-			return nil, err
+		commands := &AgentAccessCmd{AMD64: amd64}
+		if platform != "windows" {
+			commands.ARM64, err = agentInstallCommands(vm, platform, "arm64", false)
+			if err != nil {
+				return nil, err
+			}
 		}
-		platforms = append(platforms, &AgentAccessCmd{AMD64: amd64, ARM64: arm64})
+		platforms = append(platforms, commands)
 	}
 	return &AgentAccessCmds{LinuxPlatform: platforms[0], MacOSPlatform: platforms[1], WinPlatform: platforms[2]}, nil
 }

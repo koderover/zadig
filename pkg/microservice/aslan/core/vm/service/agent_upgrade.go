@@ -11,7 +11,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -78,17 +77,13 @@ func RequestAgentUpgrade(ctx context.Context, id, user string, force bool, logge
 	if err != nil {
 		return nil, err
 	}
-	key, err := agentupgrade.PublicKey(viper.GetString("ZADIG_AGENT_UPGRADE_PUBLIC_KEY"))
-	if err != nil {
-		return nil, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	client, err := agentupgrade.HTTPClient()
 	if err != nil {
 		return nil, err
 	}
-	manifest, err := agentupgrade.FetchManifest(ctx, client, manifestURL, version, key)
+	manifest, err := agentupgrade.FetchManifest(ctx, client, manifestURL, version)
 	if err != nil {
 		return nil, fmt.Errorf("validate agent release: %w", err)
 	}
