@@ -45,7 +45,7 @@ func Supported() bool {
 	if (managedService() || daemon.RunningBackend() != "") && !daemon.CanUpgrade() {
 		return false
 	}
-	_, err := agentupgrade.SecureURL(config.GetServerURL())
+	_, err := agentupgrade.ValidateURL(config.GetServerURL())
 	return err == nil
 }
 
@@ -289,7 +289,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if !agentupgrade.Newer(instruction.TargetVersion, config.BuildAgentVersion) {
 		return fmt.Errorf("upgrade target is not newer than running version")
 	}
-	if _, err := agentupgrade.SecureURL(instruction.ManifestURL); err != nil {
+	if _, err := agentupgrade.ValidateURL(instruction.ManifestURL); err != nil {
 		return err
 	}
 

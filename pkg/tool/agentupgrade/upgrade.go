@@ -137,7 +137,7 @@ func ManifestURL(base, version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	u, err := SecureURL(base)
+	u, err := ValidateURL(base)
 	if err != nil {
 		return "", err
 	}
@@ -145,10 +145,10 @@ func ManifestURL(base, version string) (string, error) {
 	return u.String(), nil
 }
 
-func SecureURL(raw string) (*url.URL, error) {
+func ValidateURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return nil, fmt.Errorf("agent upgrade requires an HTTPS URL without credentials, query or fragment")
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return nil, fmt.Errorf("agent upgrade requires an HTTP(S) URL without credentials, query or fragment")
 	}
 	return u, nil
 }
@@ -212,15 +212,18 @@ func HTTPClient() (*http.Client, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlsConfig
 	return &http.Client{Transport: transport, Timeout: 5 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 5 || req.URL.Scheme != "https" {
+		if len(via) >= 5 || (req.URL.Scheme != "http" && req.URL.Scheme != "https") {
 			return fmt.Errorf("unsafe upgrade redirect")
+		}
+		if len(via) > 0 && via[len(via)-1].URL.Scheme == "https" && req.URL.Scheme == "http" {
+			return fmt.Errorf("agent upgrade redirect cannot downgrade HTTPS to HTTP")
 		}
 		return nil
 	}}, nil
 }
 
 func Get(ctx context.Context, client *http.Client, raw string, limit int64) ([]byte, error) {
-	if _, err := SecureURL(raw); err != nil {
+	if _, err := ValidateURL(raw); err != nil {
 		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
@@ -268,7 +271,7 @@ func ParseManifest(data []byte, version string) (*Manifest, error) {
 }
 
 func AssetURL(manifestURL, filename string) (string, error) {
-	u, err := SecureURL(manifestURL)
+	u, err := ValidateURL(manifestURL)
 	if err != nil {
 		return "", err
 	}

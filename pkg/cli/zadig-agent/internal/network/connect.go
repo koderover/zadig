@@ -19,7 +19,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
@@ -182,15 +181,19 @@ func Heartbeat(ctx context.Context, config *AgentConfig, parameters *HeartbeatPa
 	}
 	resp := new(HeartbeatServerResponse)
 	options := []httpclient.ClientFunc{}
-	if parameters.UpgradeSupported || parameters.UpgradeReport != nil || (parameters.UpgradeError != "" && strings.HasPrefix(config.URL, "https://")) {
-		if _, err := agentupgrade.SecureURL(config.URL); err != nil {
-			return nil, err
-		}
-		tlsConfig, err := agentupgrade.TLSConfig()
+	if parameters.UpgradeSupported || parameters.UpgradeReport != nil || parameters.UpgradeError != "" {
+		u, err := agentupgrade.ValidateURL(config.URL)
 		if err != nil {
 			return nil, err
 		}
-		options = append(options, httpclient.SetTLSClientConfig(tlsConfig), func(client *httpclient.Client) { client.SetRedirectPolicy(resty.NoRedirectPolicy()) })
+		if u.Scheme == "https" {
+			tlsConfig, err := agentupgrade.TLSConfig()
+			if err != nil {
+				return nil, err
+			}
+			options = append(options, httpclient.SetTLSClientConfig(tlsConfig))
+		}
+		options = append(options, func(client *httpclient.Client) { client.SetRedirectPolicy(resty.NoRedirectPolicy()) })
 	}
 	body, err := httpclient.New(options...).Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetContext(ctx), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {
