@@ -19,14 +19,14 @@ import (
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Probe struct {
@@ -43,7 +43,7 @@ func CurrentProbe() Probe {
 
 func Supported() bool {
 	_, err := agentupgrade.PublicKey(config.BuildUpgradePublicKey)
-	if err != nil || managedService() {
+	if err != nil || (managedService() && !daemon.CanUpgrade()) || (daemon.RunningBackend() != "" && !daemon.CanUpgrade()) {
 		return false
 	}
 	_, err = agentupgrade.SecureURL(config.GetServerURL())
@@ -111,8 +111,10 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 			return fmt.Errorf("upgrade state changed during health confirmation")
 		}
 		if current.Status == agentupgrade.Verifying {
-			if _, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment); err != nil {
+			if helper, err := launchUpgradeHelper(ctx, s); err != nil {
 				return err
+			} else if helper != nil {
+				helper.Process.Release()
 			}
 			select {
 			case m.stop <- struct{}{}:
@@ -186,7 +188,7 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 	if err != nil {
 		return err
 	}
-	st := &state{Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: cleanEnvironment(os.Environ()), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
+	st := &state{ServiceBackend: daemon.RunningBackend(), Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), daemon.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
 	if err := changeState(func(old *state) (*state, error) {
 		if old != nil && !old.Status.Terminal() {
 			return nil, fmt.Errorf("another upgrade is active")
@@ -256,9 +258,13 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err != nil {
 		return err
 	}
-	archive := filepath.Join(s.Directory, "release.tar.gz")
+	destination := s.candidate()
+	archived := strings.HasSuffix(asset.Filename, ".tar.gz")
+	if archived {
+		destination = filepath.Join(s.Directory, "release.tar.gz")
+	}
 	for attempt := 0; attempt < 3; attempt++ {
-		err = download(ctx, client, url, archive, asset)
+		err = download(ctx, client, url, destination, asset)
 		if err == nil {
 			break
 		}
@@ -269,7 +275,11 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err != nil {
 		return err
 	}
-	if err := extract(archive, s.candidate(), strings.TrimSuffix(asset.Filename, ".tar.gz")+extension()); err != nil {
+	if archived {
+		if err := extract(destination, s.candidate(), strings.TrimSuffix(asset.Filename, ".tar.gz")+extension()); err != nil {
+			return err
+		}
+	} else if err := os.Chmod(s.candidate(), 0700); err != nil {
 		return err
 	}
 	probeCtx, probeCancel := context.WithTimeout(ctx, 15*time.Second)
@@ -293,7 +303,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	}
 	drainCtx, drainCancel := context.WithTimeout(ctx, time.Hour)
 	defer drainCancel()
-	if err := m.controller.PauseAndDrain(drainCtx); err != nil {
+	if err := m.controller.PauseAndDrain(drainCtx, instruction.Force); err != nil {
 		return fmt.Errorf("drain agent jobs: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -307,11 +317,13 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if err := reportHandoff(s.ID); err != nil {
 		return err
 	}
-	helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment)
+	helper, err := launchUpgradeHelper(ctx, s)
 	if err != nil {
 		return err
 	}
-	defer helper.Process.Release()
+	if helper != nil {
+		defer helper.Process.Release()
+	}
 	deadline := time.NewTimer(15 * time.Second)
 	defer deadline.Stop()
 	for {
@@ -319,7 +331,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		if err != nil {
 			return err
 		}
-		if current != nil && current.ID == s.ID && current.HelperPID == helper.Process.Pid {
+		if current != nil && current.ID == s.ID && current.HelperPID > 0 && (helper == nil || current.HelperPID == helper.Process.Pid) {
 			select {
 			case m.stop <- struct{}{}:
 				return nil
@@ -329,10 +341,14 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		}
 		select {
 		case <-deadline.C:
-			helper.Process.Kill()
+			if helper != nil {
+				helper.Process.Kill()
+			}
 			return fmt.Errorf("upgrade helper did not acknowledge handoff")
 		case <-ctx.Done():
-			helper.Process.Kill()
+			if helper != nil {
+				helper.Process.Kill()
+			}
 			return ctx.Err()
 		case <-time.After(100 * time.Millisecond):
 		}
@@ -391,7 +407,7 @@ func download(ctx context.Context, client *http.Client, url, path string, asset 
 		return err
 	}
 	if n != asset.Size || !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), asset.SHA256) {
-		return fmt.Errorf("agent archive size or checksum mismatch")
+		return fmt.Errorf("agent asset size or checksum mismatch")
 	}
 	return f.Sync()
 }

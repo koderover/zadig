@@ -48,13 +48,19 @@ func (args *CreateVMRequest) Validate() error {
 }
 
 type AgentBriefListResp struct {
-	Name         string `json:"name"`
-	Label        string `json:"label"`
-	Status       string `json:"status"`
-	Error        string `json:"error"`
-	Platform     string `json:"platform"`
-	Architecture string `json:"architecture"`
-	IP           string `json:"ip"`
+	ID                 string             `json:"id"`
+	AgentVersion       string             `json:"agent_version"`
+	RecommendedVersion string             `json:"recommended_version"`
+	UpgradeSupported   bool               `json:"upgrade_supported"`
+	Disconnected       bool               `json:"disconnected"`
+	Upgrade            *agentupgrade.Task `json:"upgrade,omitempty"`
+	Name               string             `json:"name"`
+	Label              string             `json:"label"`
+	Status             string             `json:"status"`
+	Error              string             `json:"error"`
+	Platform           string             `json:"platform"`
+	Architecture       string             `json:"architecture"`
+	IP                 string             `json:"ip"`
 }
 
 type RegisterAgentParameters struct {
@@ -73,6 +79,7 @@ type RegisterAgentParameters struct {
 }
 
 type RegisterAgentResponse struct {
+	NeedOffline      bool   `json:"need_offline"`
 	Token            string `json:"token"`
 	Description      string `json:"description"`
 	VmName           string `json:"vm_name"`
@@ -107,7 +114,8 @@ type VerifyAgentRequest struct {
 }
 
 type VerifyAgentResponse struct {
-	Verified bool `json:"verified"`
+	NeedOffline bool `json:"need_offline"`
+	Verified    bool `json:"verified"`
 }
 
 type HeartbeatParameters struct {

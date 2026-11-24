@@ -19,36 +19,35 @@ package register
 import (
 	"fmt"
 	"os"
-
-	"gopkg.in/yaml.v2"
+	"path/filepath"
 
 	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
-	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
-func RegisterAgent() {
+func RegisterAgent() error {
 	agentConfig := agentconfig.NewAgentConfig()
 	args := &network.RegisterAgentParameters{}
 
 	parameters, err := osutil.GetPlatformParameters()
 	if err != nil {
-		panic(fmt.Errorf("failed to get platform parameters: %v", err))
+		return fmt.Errorf("failed to get platform parameters: %w", err)
 	}
 	err = osutil.IToi(parameters, args)
 	if err != nil {
-		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
+		return fmt.Errorf("failed to convert platform parameters: %w", err)
 	}
 
 	args.AgentVersion = agentconfig.BuildAgentVersion
 	if agentConfig.Token == "" {
-		log.Panicf("agent token is empty, please use zadig-agent --token=xxx to start agent.")
+		return fmt.Errorf("agent token is empty")
 	}
 	if agentConfig.ServerURL == "" {
-		log.Panicf("zadig-server url is empty, please use zadig-agent --server-url=xxx to start agent.")
+		return fmt.Errorf("zadig server URL is empty")
 	}
 	if agentConfig.WorkDirectory != "" {
 		args.WorkDir = agentConfig.WorkDirectory
@@ -60,20 +59,26 @@ func RegisterAgent() {
 	}
 
 	if config.URL == "" || config.Token == "" {
-		return
+		return fmt.Errorf("server URL and token are required")
 	}
 	// register agent to zadig-server
 	resp, err := network.RegisterAgent(config, args)
 	if err != nil {
-		log.Panicf("failed to register agent: %v", err)
+		return fmt.Errorf("failed to register agent: %w", err)
+	}
+	if resp.NeedOffline {
+		if err := daemon.SetConnectionAllowed(false); err != nil {
+			return err
+		}
+		return daemon.ErrDisconnected
 	}
 	log.Infof("agent registered successfully!!!")
 
 	// write agent token and status to config file
-	afterRegister(resp, agentConfig)
+	return afterRegister(resp, agentConfig)
 }
 
-func afterRegister(resp *network.RegisterAgentResponse, config *agentconfig.AgentConfig) {
+func afterRegister(resp *network.RegisterAgentResponse, config *agentconfig.AgentConfig) error {
 	log.Infof("agent to write agent config file to local disk.")
 	// load all Environment variables
 	config.Status = common.AGENT_STATUS_REGISTERED
@@ -97,39 +102,16 @@ func afterRegister(resp *network.RegisterAgentResponse, config *agentconfig.Agen
 	config.AgentPlatform = osutil.GetOSName()
 	config.AgentArchitecture = osutil.GetOSArch()
 
-	// 序列化配置结构体为YAML格式
-	yamlData, err := yaml.Marshal(config)
-	if err != nil {
-		log.Fatalf("unable to serialize configuration into YAML format: %v", err)
-	}
-
 	path, err := agentconfig.GetAgentConfigFilePath()
 	if err != nil {
-		log.Panicf("failed to get agent config file path: %v", err)
+		return err
 	}
-
-	if exists, err := fileutil.FileExists(path); err != nil {
-		log.Panicf("failed to check if agent config file exists: %v", err)
-	} else if exists {
-		// 如果文件存在，删除它
-		err = os.Remove(path)
-		if err != nil {
-			log.Panicf("failed to remove existing agent config file: %v", err)
-		}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
 	}
-
-	agentFile, err := os.Create(path)
-	if err != nil {
-		log.Panicf("failed to create agent config file: %v", err)
+	if err := agentconfig.UpdateAgentConfigFile(config, path); err != nil {
+		return err
 	}
-	defer agentFile.Close()
-
-	// 写入YAML数据到文件
-	_, err = agentFile.Write(yamlData)
-	if err != nil {
-		log.Panicf("failed to write agent config file: %v", err)
-	}
-
 	agentconfig.SetAgentConfig(config)
-	log.Infof("agent config file written local disk successfully!!!")
+	return nil
 }

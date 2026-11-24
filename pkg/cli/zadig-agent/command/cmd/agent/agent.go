@@ -18,6 +18,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -28,90 +29,71 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/monitor"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 )
 
 type Agent struct {
-	Ctx             context.Context
-	Cancel          context.CancelFunc
-	SignalsStopChan chan struct{}
+	Ctx    context.Context
+	Cancel context.CancelFunc
 }
 
-func newAgent() *Agent {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Agent{
-		Ctx:             ctx,
-		Cancel:          cancel,
-		SignalsStopChan: make(chan struct{}, 1),
-	}
-}
-
-func (a *Agent) start(stop chan struct{}) {
+func (a *Agent) start(stop chan struct{}) error {
 	log.Infof("================================ Zadig Agent  ================================")
 
 	log.Infof("OS PATH: %v", os.Getenv("PATH"))
 
 	// Initialize the agent
-	InitAgent()
+	if err := InitAgent(); err != nil {
+		return err
+	}
 
 	// Start the agent core service
 	agentCtl := agent.NewAgentController()
 	manager, err := updater.NewManager(agentCtl, stop)
 	if err != nil {
-		log.Panicf("initialize agent updater: %v", err)
+		return fmt.Errorf("initialize agent updater: %w", err)
 	}
 	agentCtl.Start(a.Ctx)
 
 	// Start the heartbeat service
 	go monitor.NewHeartbeatService(agentCtl, manager, 3, 10, stop).Start(a.Ctx)
+	return nil
 }
 
-func (a *Agent) handleSignals() {
-	defer close(a.SignalsStopChan)
-
-	// Listen for system signals
-	sigCh := make(chan os.Signal, 1)
-	defer signal.Stop(sigCh)
-
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// Wait for signals in another goroutine
-	sig := <-sigCh
-	log.Infof("Received signal: %v", sig)
-
-	a.SignalsStopChan <- struct{}{}
-}
-
-func StartAgent() {
-	zadigAgent := newAgent()
+func StartAgent(ctx context.Context, ready func()) error {
+	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
+	agentCtx, cancel := context.WithCancel(ctx)
+	zadigAgent := &Agent{Ctx: agentCtx, Cancel: cancel}
+	defer zadigAgent.Cancel()
 	stopAgentChan := make(chan struct{}, 1)
-
-	// Start the agent
-	go zadigAgent.start(stopAgentChan)
-
-	// Handle system signals
-	go zadigAgent.handleSignals()
-
-	// Wait for the agent to exit
+	if err := zadigAgent.start(stopAgentChan); err != nil {
+		if errors.Is(err, daemon.ErrDisconnected) {
+			return nil
+		}
+		return err
+	}
+	ready()
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-stopAgentChan:
-			msg := fmt.Sprintf("agent stopped by stop agent channel, time: %s", time.Now().Format("2006-01-02 15:04:05"))
-			zadigAgent.Stop(msg)
-			time.Sleep(5 * time.Second)
-			return
-		case <-zadigAgent.SignalsStopChan:
-			msg := fmt.Sprintf("agent stopped by signal, time: %s", time.Now().Format("2006-01-02 15:04:05"))
-			zadigAgent.Stop(msg)
-			return
-		default:
+			zadigAgent.Stop("agent stopped by platform or upgrade")
+			return nil
+		case <-ctx.Done():
+			zadigAgent.Stop("agent stopped by signal or service manager")
+			return nil
+		case <-ticker.C:
 			if checkStopSignalFile() {
-				msg := fmt.Sprintf("agent stopped by stop signal file, time: %s", time.Now().Format("2006-01-02 15:04:05"))
-				zadigAgent.Stop(msg)
-				return
+				if err := daemon.SetConnectionAllowed(false); err != nil {
+					return err
+				}
+				zadigAgent.Stop("agent stopped by user")
+				return nil
 			}
-			time.Sleep(1 * time.Second)
 		}
 	}
 }

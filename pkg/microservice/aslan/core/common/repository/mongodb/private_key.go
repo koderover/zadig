@@ -21,15 +21,14 @@ import (
 	"errors"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PrivateKeyArgs struct {
@@ -196,7 +195,7 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		if ok {
 			for key, value := range agent {
 				switch key {
-				case "upgrade", "upgrade_supported", "last_heartbeat_time", "agent_version", "zadig_version", "need_update":
+				case "disconnected", "upgrade", "upgrade_supported", "last_heartbeat_time", "agent_version", "zadig_version", "need_update":
 					continue
 				}
 				fields["agent."+key] = value

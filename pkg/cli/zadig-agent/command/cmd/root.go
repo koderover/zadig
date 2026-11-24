@@ -17,6 +17,11 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +29,23 @@ var rootCmd = &cobra.Command{
 	Use:   "zadig-agent",
 	Short: "An workflow job executor for Zadig",
 	Long:  `zadig-agent is a workflow job executor, it supports different architectures of multiple operating systems and mainly performs construction and common tasks in work tasks. Support for other tasks will continue to be added in the future.`,
+}
+
+func init() {
+	rootCmd.PersistentFlags().String("home", "", "Agent home directory containing .zadig-agent")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		home, err := cmd.Flags().GetString("home")
+		if err != nil {
+			return err
+		}
+		if home != "" {
+			if !filepath.IsAbs(home) {
+				return fmt.Errorf("home must be an absolute path")
+			}
+			return os.Setenv(daemon.HomeEnv, filepath.Clean(home))
+		}
+		return nil
+	}
 }
 
 // Execute executes the root command.

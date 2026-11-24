@@ -54,6 +54,8 @@ type AgentController struct {
 	paused               bool
 	polling              bool
 	jobError             error
+	forceDrain           bool
+	jobCancels           map[string]context.CancelCauseFunc
 	stopPollingOnce      sync.Once
 	stopRunOnce          sync.Once
 	WorkingDirectory     string
@@ -79,10 +81,22 @@ func (c *AgentController) SetPaused(paused bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.paused = paused
+	if !paused {
+		c.forceDrain = false
+	}
 }
 
-func (c *AgentController) PauseAndDrain(ctx context.Context) error {
-	c.SetPaused(true)
+var errUpgradeCancelled = errors.New("job interrupted by forced agent upgrade")
+
+func (c *AgentController) PauseAndDrain(ctx context.Context, force bool) error {
+	c.mu.Lock()
+	c.paused, c.forceDrain = true, force
+	if force {
+		for _, cancel := range c.jobCancels {
+			cancel(errUpgradeCancelled)
+		}
+	}
+	c.mu.Unlock()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -190,14 +204,37 @@ func (c *AgentController) RunJob(ctx context.Context) {
 
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {
 	var err error
+	ctx, stop := context.WithCancelCause(ctx)
+	c.mu.Lock()
+	if c.jobCancels == nil {
+		c.jobCancels = make(map[string]context.CancelCauseFunc)
+	}
+	c.jobCancels[job.ID] = stop
+	if c.forceDrain {
+		stop(errUpgradeCancelled)
+	}
+	c.mu.Unlock()
+	defer func() {
+		stop(nil)
+		c.mu.Lock()
+		delete(c.jobCancels, job.ID)
+		c.mu.Unlock()
+	}()
 	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	executor := jobexecutor.NewJobExecutor(jobCtx, job, c.Client, cancel)
+	if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+		return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+	}
 
 	// execute some init job before execute zadig job
 	err = executor.BeforeExecute()
 	if err != nil {
 		log.Errorf("failed to execute BeforeExecute, error: %s", err)
 		executor.CleanupTempFileAndDir()
+		if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+			return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+		}
 
 		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
@@ -240,10 +277,16 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 			log.Infof("stop running job, received context cancel signal.")
 			cancel()
 			<-executor.FinishedChan
+			if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+				return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+			}
 			return nil
 		// TODO: how to deal with job cancel by better way, if restart the same job after cancel immediately?
 		case <-executor.FinishedChan:
 			log.Infof("workflow %s job %s finished.", job.WorkflowName, job.JobName)
+			if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+				return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+			}
 
 			if e := executor.JobResult.GetError(); e != nil {
 				log.Errorf("workflow %s job %s failed, error: %v", job.WorkflowName, job.JobName, e)

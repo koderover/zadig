@@ -6,3 +6,5 @@
 !/resource-server-nginx.conf
 !/version
 !/docker
+!/Makefile
+/cmd/zadig-agent/out

@@ -19,11 +19,10 @@ package models
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -84,6 +83,7 @@ type VMInfo struct {
 }
 
 type VMAgent struct {
+	Disconnected      bool               `bson:"disconnected" json:"disconnected"`
 	UpgradeSupported  bool               `bson:"upgrade_supported" json:"upgrade_supported"`
 	Upgrade           *agentupgrade.Task `bson:"upgrade,omitempty" json:"upgrade,omitempty"`
 	Token             string             `bson:"token"                json:"-"`

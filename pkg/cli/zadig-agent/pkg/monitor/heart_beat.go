@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
@@ -103,6 +104,9 @@ func (h *HeartbeatService) heartbeat(ctx context.Context) error {
 		return err
 	}
 	if resp.NeedOffline {
+		if err := daemon.SetConnectionAllowed(false); err != nil {
+			return err
+		}
 		log.Infof("agent is offline")
 		select {
 		case h.StopAgentChan <- struct{}{}:

@@ -37,6 +37,7 @@ const (
 )
 
 type Task struct {
+	Force         bool   `bson:"force" json:"force"`
 	ID            string `bson:"id" json:"id"`
 	FromVersion   string `bson:"from_version" json:"from_version"`
 	TargetVersion string `bson:"target_version" json:"target_version"`
@@ -56,6 +57,7 @@ type Report struct {
 }
 
 type Instruction struct {
+	Force         bool   `json:"force"`
 	ID            string `json:"id"`
 	TargetVersion string `json:"target_version"`
 	ManifestURL   string `json:"manifest_url"`
@@ -167,6 +169,14 @@ func AssetName(osName, arch, version string) string {
 	return fmt.Sprintf("zadig-agent-%s-%s-v%s.tar.gz", osName, arch, version)
 }
 
+func BinaryName(osName, arch, version string) string {
+	name := fmt.Sprintf("zadig-agent-%s-%s-v%s", osName, arch, version)
+	if osName == "windows" {
+		name += ".exe"
+	}
+	return name
+}
+
 func (m *Manifest) Asset(osName, arch string) (*Asset, error) {
 	var result *Asset
 	for i := range m.Assets {
@@ -182,7 +192,7 @@ func (m *Manifest) Asset(osName, arch string) (*Asset, error) {
 		return nil, fmt.Errorf("no upgrade asset for %s/%s", osName, arch)
 	}
 	digest, err := hex.DecodeString(result.SHA256)
-	if err != nil || len(digest) != 32 || result.Size <= 0 || result.Size > MaxAssetSize || result.Filename != AssetName(osName, arch, m.Version) {
+	if err != nil || len(digest) != 32 || result.Size <= 0 || result.Size > MaxAssetSize || (result.Filename != AssetName(osName, arch, m.Version) && result.Filename != BinaryName(osName, arch, m.Version)) {
 		return nil, fmt.Errorf("invalid upgrade asset")
 	}
 	return result, nil
@@ -260,7 +270,11 @@ func FetchManifest(ctx context.Context, client *http.Client, raw, version string
 	if err != nil {
 		return nil, err
 	}
-	if !ed25519.Verify(key, data, signature) {
+	return VerifyManifest(data, signature, version, key)
+}
+
+func VerifyManifest(data, signature []byte, version string, key ed25519.PublicKey) (*Manifest, error) {
+	if len(key) != ed25519.PublicKeySize || len(data) > 1<<20 || !ed25519.Verify(key, data, signature) {
 		return nil, fmt.Errorf("invalid upgrade manifest signature")
 	}
 	var manifest Manifest

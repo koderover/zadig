@@ -18,12 +18,11 @@ package network
 
 import (
 	"fmt"
+
 	"github.com/go-resty/resty/v2"
-
-	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
-
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	httpclient "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/client"
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
 
 const (
@@ -51,6 +50,7 @@ type RegisterAgentParameters struct {
 }
 
 type RegisterAgentResponse struct {
+	NeedOffline      bool   `json:"need_offline"`
 	AgentID          string `json:"agent_id"`
 	VmName           string `json:"vm_name"`
 	Token            string `json:"token"`
@@ -112,7 +112,8 @@ type VerifyAgentRequest struct {
 }
 
 type VerifyAgentResponse struct {
-	Verified bool `json:"verified"`
+	NeedOffline bool `json:"need_offline"`
+	Verified    bool `json:"verified"`
 }
 
 func VerifyAgent(config *AgentConfig, parameters *VerifyAgentParameters) (*VerifyAgentResponse, error) {

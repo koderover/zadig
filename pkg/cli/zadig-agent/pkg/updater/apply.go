@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -79,6 +80,15 @@ func validateState(s *state) error {
 	if !filepath.IsAbs(s.Executable) || !filepath.IsAbs(s.Directory) || s.Directory != filepath.Join(filepath.Dir(s.Executable), ".zadig-upgrade-"+s.ID) {
 		return fmt.Errorf("invalid local upgrade paths")
 	}
+	if s.ServiceBackend != "" {
+		saved, err := daemon.Load()
+		if err != nil {
+			return err
+		}
+		if saved.Backend != s.ServiceBackend || saved.Executable != s.Executable {
+			return fmt.Errorf("upgrade service configuration does not match the running agent")
+		}
+	}
 	if len(s.Arguments) != 1 || s.Arguments[0] != "start" {
 		return fmt.Errorf("invalid agent restart arguments")
 	}
@@ -120,6 +130,22 @@ func Apply() error {
 	}
 	if err := updateState(s.ID, func(s *state) { s.HelperPID = os.Getpid() }); err != nil {
 		return err
+	}
+	if s.ServiceBackend != "" {
+		if err := daemon.PrepareUpgrade(); err != nil {
+			return err
+		}
+		defer func() {
+			if err := daemon.FinishUpgrade(); err != nil {
+				fmt.Fprintf(os.Stderr, "restore service recovery policy: %v\n", err)
+			}
+		}()
+		stopCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		err := daemon.Stop(stopCtx)
+		cancel()
+		if err != nil {
+			return markFailure(s.ID, fmt.Errorf("stop old agent service: %w", err))
+		}
 	}
 	instance, err := instancePath()
 	if err != nil {
@@ -176,22 +202,30 @@ func Apply() error {
 	lease.Close()
 	lease = nil
 	env := append(cleanEnvironment(s.Environment), "ZADIG_AGENT_UPGRADE_ID="+s.ID)
-	child, err := launch(s.Executable, s.Arguments, s.WorkingDirectory, env)
+	child, err := startAgent(s, env)
 	if err != nil {
 		return rollback(s, &lease, fmt.Errorf("start new agent: %w", err))
 	}
-	done := make(chan error, 1)
-	go func() { done <- child.Wait() }()
-	if err := updateState(s.ID, func(s *state) { s.ChildPID = child.Process.Pid }); err != nil {
-		child.Process.Kill()
-		<-done
-		return rollback(s, &lease, err)
+	defer child.close()
+	done := child.done
+	if child.command != nil {
+		if err := updateState(s.ID, func(s *state) { s.ChildPID = child.command.Process.Pid }); err != nil {
+			_ = child.stop()
+			<-done
+			return rollback(s, &lease, err)
+		}
 	}
+
 	timer := time.NewTimer(90 * time.Second)
 	defer timer.Stop()
 	for {
 		current, err := readState()
 		if err == nil && current.ID == s.ID && current.Status == agentupgrade.Verifying && current.Healthy {
+			if s.ServiceBackend != "" {
+				if err := daemon.FinishUpgrade(); err != nil {
+					return markFailure(s.ID, fmt.Errorf("restore service recovery policy: %w", err))
+				}
+			}
 			err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Succeeded; s.Error = "" })
 			if err == nil {
 				cleanup(s)
@@ -200,12 +234,19 @@ func Apply() error {
 		}
 		select {
 		case childErr := <-done:
+			if child.managed {
+				if err := child.stop(); err != nil {
+					return markFailure(s.ID, fmt.Errorf("stop failed service before rollback: %w", err))
+				}
+			}
 			return rollback(s, &lease, fmt.Errorf("new agent exited before health confirmation: %v", childErr))
 		case <-timer.C:
-			if err := child.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			if err := child.stop(); err != nil && !errors.Is(err, os.ErrProcessDone) {
 				return markFailure(s.ID, fmt.Errorf("stop unhealthy new agent: %w", err))
 			}
-			<-done
+			if !child.managed {
+				<-done
+			}
 			return rollback(s, &lease, fmt.Errorf("new agent health confirmation timed out"))
 		case <-time.After(200 * time.Millisecond):
 		}
@@ -274,20 +315,28 @@ func rollback(s *state, lease **os.File, cause error) error {
 	}
 	(*lease).Close()
 	*lease = nil
-	child, err := launch(s.Executable, s.Arguments, s.WorkingDirectory, cleanEnvironment(s.Environment))
+	child, err := startAgent(s, cleanEnvironment(s.Environment))
 	if err != nil {
 		return markFailure(s.ID, fmt.Errorf("%v; restart old agent: %w", cause, err))
 	}
-	if err := updateState(s.ID, func(s *state) { s.ChildPID = child.Process.Pid }); err != nil {
-		return err
+	defer child.close()
+	if child.command != nil {
+		if err := updateState(s.ID, func(s *state) { s.ChildPID = child.command.Process.Pid }); err != nil {
+			return err
+		}
 	}
-	done := make(chan error, 1)
-	go func() { done <- child.Wait() }()
+	done := child.done
+
 	deadline := time.NewTimer(30 * time.Second)
 	defer deadline.Stop()
 	for {
 		current, err := readState()
 		if err == nil && current.ID == s.ID && current.Healthy {
+			if s.ServiceBackend != "" {
+				if err := daemon.FinishUpgrade(); err != nil {
+					return markFailure(s.ID, fmt.Errorf("restore service recovery policy after rollback: %w", err))
+				}
+			}
 			cleanup(s)
 			return nil
 		}

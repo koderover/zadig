@@ -17,8 +17,8 @@ limitations under the License.
 package agent
 
 import (
+	"errors"
 	"fmt"
-	"os"
 
 	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	errhelper "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/error"
@@ -26,28 +26,27 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
-func InitAgent() {
+var errAgentMismatch = errors.New("agent platform needs registration")
+
+func InitAgent() error {
 	// init agent config
 	if !agentconfig.InitConfig() {
-		log.Panicf("failed to init agent config")
+		return fmt.Errorf("failed to init agent config")
 	}
 
 	log.Infof("start to verify agent, this action is executed every time the agent starts.")
 	err := verifyAgent()
 	if err != nil {
-		if err == errhelper.ErrVerrifyAgentFailedWithNoConfig {
-			log.Errorf("failed to verify agent: %s, please use zadig-agent --server-url=xxx --token=xxx to start agent, "+
-				"if you not first time to start agent, the reason for this error may be that you started the agent in sudo instead of the previous non-sudo mode. "+
-				"This behavior will affect the default configuration file path, which is stored under the $HOME/.zadig-agent/ directory. "+
-				"Please use the zadig-agent --help command to view the specific usage.", err.Error())
-			os.Exit(1)
+		if !errors.Is(err, errAgentMismatch) {
+			return err
 		}
-		log.Errorf("failed to verify agent: %s, attempt to register agent again.", err.Error())
-		// attempt to register agent again
-		register.RegisterAgent()
+		if err := register.RegisterAgent(); err != nil {
+			return err
+		}
 	}
 
 	// deal with old agent status
@@ -56,10 +55,10 @@ func InitAgent() {
 		agentconfig.SetAgentErrMsg("")
 	}
 
-	// TODO: 初始化服务，将服务注册到系统中, 能否用它来实现github.com/kardianos/service
 	log.Infof("initializing agent config successfully!!!")
 
 	log.Infof("agent version: %v, build commit: %v, build go version: %v, build time: %v", agentconfig.GetAgentVersion(), agentconfig.GetBuildCommit(), agentconfig.GetBuildGoVersion(), agentconfig.GetBuildTime())
+	return nil
 }
 
 func verifyAgent() error {
@@ -67,11 +66,11 @@ func verifyAgent() error {
 
 	parameters, err := osutil.GetPlatformParameters()
 	if err != nil {
-		panic(fmt.Errorf("failed to get platform parameters: %v", err))
+		return fmt.Errorf("failed to get platform parameters: %w", err)
 	}
 	err = osutil.IToi(parameters, args)
 	if err != nil {
-		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
+		return fmt.Errorf("failed to convert platform parameters: %w", err)
 	}
 
 	log.Infof("start to verify agent to zadig-server. url:%s", agentconfig.GetServerURL())
@@ -88,8 +87,14 @@ func verifyAgent() error {
 	if err != nil {
 		return err
 	}
+	if resp.NeedOffline {
+		if err := daemon.SetConnectionAllowed(false); err != nil {
+			return err
+		}
+		return daemon.ErrDisconnected
+	}
 	if !resp.Verified {
-		return fmt.Errorf("failed to verify agent: %v", err)
+		return errAgentMismatch
 	}
 	log.Infof("agent verified successfully!!!")
 	return nil

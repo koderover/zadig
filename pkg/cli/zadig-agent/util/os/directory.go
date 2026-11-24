@@ -39,6 +39,12 @@ func Mkdir(dir string) error {
 }
 
 func GetUserHomeDir() (string, error) {
+	if home := os.Getenv("ZADIG_AGENT_HOME"); home != "" {
+		if !filepath.IsAbs(home) {
+			return "", fmt.Errorf("ZADIG_AGENT_HOME must be an absolute path")
+		}
+		return filepath.Clean(home), nil
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current user: %s", err)

@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
 
 var errLocked = errors.New("agent lock is held by another process")
 
 type state struct {
+	ServiceBackend string `json:"service_backend,omitempty"`
 	agentupgrade.Report
 	FromVersion      string   `json:"from_version"`
 	TargetVersion    string   `json:"target_version"`
@@ -58,6 +60,14 @@ func AcquireInstance() (*os.File, error) {
 		return nil, err
 	}
 	return tryLock(p)
+}
+
+func WaitForInstance(ctx context.Context) (*os.File, error) {
+	p, err := instancePath()
+	if err != nil {
+		return nil, err
+	}
+	return waitLock(ctx, p)
 }
 
 func waitLock(ctx context.Context, path string) (*os.File, error) {
@@ -180,7 +190,7 @@ func CheckStartup() error {
 	}
 	lock, err := tryLock(p + ".helper.lock")
 	if errors.Is(err, errLocked) {
-		if os.Getenv("ZADIG_AGENT_UPGRADE_ID") == s.ID && s.Status == agentupgrade.Verifying {
+		if (os.Getenv("ZADIG_AGENT_UPGRADE_ID") == s.ID || (s.ServiceBackend != "" && daemon.RunningBackend() == s.ServiceBackend)) && s.Status == agentupgrade.Verifying {
 			return nil
 		}
 		return fmt.Errorf("agent upgrade is being applied")
@@ -192,8 +202,10 @@ func CheckStartup() error {
 	if err := validateState(s); err != nil {
 		return err
 	}
-	if _, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment); err != nil {
+	if helper, err := launchUpgradeHelper(context.Background(), s); err != nil {
 		return fmt.Errorf("restart upgrade helper: %w", err)
+	} else if helper != nil {
+		helper.Process.Release()
 	}
 	return fmt.Errorf("recovering interrupted agent upgrade; helper will restart the agent")
 }
