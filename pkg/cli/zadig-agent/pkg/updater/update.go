@@ -21,6 +21,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -41,7 +42,7 @@ func Supported() bool {
 	if runtime.GOOS == "windows" && runtime.GOARCH != "amd64" {
 		return false
 	}
-	if managedService() {
+	if (managedService() || daemon.RunningBackend() != "") && !daemon.CanUpgrade() {
 		return false
 	}
 	_, err := agentupgrade.SecureURL(config.GetServerURL())
@@ -53,32 +54,87 @@ type Manager struct {
 	stop       chan struct{}
 	mu         sync.Mutex
 	active     bool
+	stateError error
 }
 
 func NewManager(controller *agent.AgentController, stop chan struct{}) (*Manager, error) {
 	s, err := readState()
-	if err != nil {
-		return nil, err
-	}
-	if s != nil && (!s.Status.Terminal() || (s.Status == agentupgrade.RolledBack && !s.Healthy) || s.needsManualRecovery(config.BuildAgentVersion)) {
+	manager := &Manager{controller: controller, stop: stop, stateError: err}
+	if err != nil || (s != nil && (!s.Status.Terminal() || (s.Status == agentupgrade.RolledBack && !s.Healthy) || s.needsManualRecovery(config.BuildAgentVersion))) {
 		controller.SetPaused(true)
 	}
-	return &Manager{controller: controller, stop: stop}, nil
+	return manager, nil
+}
+
+func (m *Manager) StateError() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.stateError
+}
+
+func (m *Manager) setStateError(err error) {
+	m.mu.Lock()
+	m.stateError = err
+	m.mu.Unlock()
+	if err != nil {
+		m.controller.SetPaused(true)
+	}
 }
 
 func (m *Manager) Report() (*agentupgrade.Report, error) {
 	s, err := readState()
-	if err != nil || s == nil {
+	if err != nil {
+		m.setStateError(err)
 		return nil, err
+	}
+	if s == nil {
+		return nil, nil
 	}
 	r := s.Report
 	return &r, nil
 }
 
 func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerResponse) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s, err := readState()
 	if err != nil {
+		m.setStateError(err)
 		return err
+	}
+	if m.StateError() != nil {
+		// Missing metadata cannot prove that an interrupted replacement is safe.
+		if s == nil {
+			err := fmt.Errorf("upgrade state is missing after a read failure; restore its backup or recover the agent manually")
+			m.setStateError(err)
+			return err
+		}
+		m.mu.Lock()
+		active := m.active
+		m.mu.Unlock()
+		if !active {
+			if err := checkStartupState(s); err != nil {
+				if errors.Is(err, errRecoveringUpgrade) {
+					select {
+					case m.stop <- struct{}{}:
+					default:
+					}
+					return nil
+				}
+				m.setStateError(err)
+				return err
+			}
+			s, err = readState()
+			if err == nil && s == nil {
+				err = fmt.Errorf("upgrade state disappeared during recovery")
+			}
+			if err != nil {
+				m.setStateError(err)
+				return err
+			}
+		}
+		m.setStateError(nil)
 	}
 	if s != nil && s.Status == agentupgrade.Verifying {
 		accepted := response.UpgradeAccepted
@@ -103,15 +159,16 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 		current, readErr := readState()
 		lease.Close()
 		if readErr != nil {
+			m.setStateError(readErr)
 			return readErr
 		}
 		if current == nil || current.ID != s.ID {
 			return fmt.Errorf("upgrade state changed during health confirmation")
 		}
 		if current.Status == agentupgrade.Verifying {
-			if helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment); err != nil {
+			if helper, err := launchUpgradeHelper(ctx, s); err != nil {
 				return err
-			} else {
+			} else if helper != nil {
 				helper.Process.Release()
 			}
 			select {
@@ -186,7 +243,7 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 	if err != nil {
 		return err
 	}
-	st := &state{Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), config.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
+	st := &state{ServiceBackend: daemon.RunningBackend(), Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), config.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
 	if err := changeState(func(old *state) (*state, error) {
 		if old != nil && !old.Status.Terminal() {
 			return nil, fmt.Errorf("another upgrade is active")
@@ -199,11 +256,30 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 	go func() {
 		defer func() { m.mu.Lock(); m.active = false; m.mu.Unlock() }()
 		if err := m.prepare(ctx, instruction, st); err != nil {
+			// Service shutdown can cancel the old agent immediately after the
+			// helper takes over. The old process must not overwrite its state.
+			if current, readErr := readState(); readErr == nil && current != nil && current.ID == st.ID && current.HelperPID > 0 && (current.Status == agentupgrade.Restarting || current.Status == agentupgrade.Verifying) {
+				if p, pathErr := statePath(); pathErr == nil {
+					lock, lockErr := tryLock(p + ".helper.lock")
+					if errors.Is(lockErr, errLocked) {
+						select {
+						case m.stop <- struct{}{}:
+						default:
+						}
+						return
+					}
+					if lock != nil {
+						lock.Close()
+					}
+				}
+			}
 			log.Errorf("agent upgrade %s failed: %v", st.ID, err)
 			if stateErr := updateState(st.ID, func(s *state) { s.Status = agentupgrade.Failed; s.Error = err.Error() }); stateErr != nil {
 				log.Errorf("save upgrade failure: %v", stateErr)
+				m.setStateError(stateErr)
+			} else {
+				m.controller.SetPaused(false)
 			}
-			m.controller.SetPaused(false)
 		}
 	}()
 	return nil
@@ -299,14 +375,16 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	}
 	// Persist the handoff on the server before the old agent exits, so a
 	// rollback can be acknowledged even if no intermediate heartbeat was sent.
-	if err := reportHandoff(s.ID); err != nil {
+	if err := reportHandoff(ctx, s.ID); err != nil {
 		return err
 	}
-	helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment)
+	helper, err := launchUpgradeHelper(ctx, s)
 	if err != nil {
 		return err
 	}
-	defer helper.Process.Release()
+	if helper != nil {
+		defer helper.Process.Release()
+	}
 	deadline := time.NewTimer(15 * time.Second)
 	defer deadline.Stop()
 	for {
@@ -314,7 +392,7 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		if err != nil {
 			return err
 		}
-		if current != nil && current.ID == s.ID && current.HelperPID > 0 && current.HelperPID == helper.Process.Pid {
+		if current != nil && current.ID == s.ID && current.HelperPID > 0 && (helper == nil || current.HelperPID == helper.Process.Pid) {
 			select {
 			case m.stop <- struct{}{}:
 				return nil
@@ -324,17 +402,21 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 		}
 		select {
 		case <-deadline.C:
-			helper.Process.Kill()
+			if helper != nil {
+				helper.Process.Kill()
+			}
 			return fmt.Errorf("upgrade helper did not acknowledge handoff")
 		case <-ctx.Done():
-			helper.Process.Kill()
+			if helper != nil {
+				helper.Process.Kill()
+			}
 			return ctx.Err()
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
 }
 
-func reportHandoff(id string) error {
+func reportHandoff(ctx context.Context, id string) error {
 	platform, err := osutil.GetPlatformParameters()
 	if err != nil {
 		return err
@@ -345,8 +427,11 @@ func reportHandoff(id string) error {
 	}
 	params.AgentVersion, params.UpgradeSupported = config.BuildAgentVersion, Supported()
 	params.UpgradeReport = &agentupgrade.Report{ID: id, Status: agentupgrade.Restarting}
-	resp, err := network.Heartbeat(&network.AgentConfig{Token: config.GetAgentToken(), URL: config.GetServerURL()}, params)
+	resp, err := network.Heartbeat(ctx, &network.AgentConfig{Token: config.GetAgentToken(), URL: config.GetServerURL()}, params)
 	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if resp.NeedOffline || resp.UpgradeAccepted == nil || resp.UpgradeAccepted.ID != id || resp.UpgradeAccepted.Status != agentupgrade.Restarting {

@@ -53,6 +53,9 @@ func RequestAgentUpgrade(ctx context.Context, id, user string, force bool, logge
 	if err != nil {
 		return nil, err
 	}
+	if vm.Agent != nil && vm.Agent.UpgradeError != "" {
+		return nil, fmt.Errorf("agent upgrade unavailable: %s", vm.Agent.UpgradeError)
+	}
 	if vm.Agent == nil || vm.VMInfo == nil || !vm.Agent.UpgradeSupported {
 		return nil, fmt.Errorf("agent does not support self upgrade; migrate the agent first")
 	}

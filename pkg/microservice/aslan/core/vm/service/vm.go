@@ -186,6 +186,7 @@ func ListVMs(logger *zap.SugaredLogger) ([]*AgentBriefListResp, error) {
 			AgentVersion:       vm.Agent.AgentVersion,
 			RecommendedVersion: recommended,
 			UpgradeSupported:   vm.Agent.UpgradeSupported,
+			UpgradeError:       vm.Agent.UpgradeError,
 			Upgrade:            vm.Agent.Upgrade,
 			Disconnected:       vm.Agent.Disconnected,
 			Name:               vm.Name,
@@ -385,6 +386,11 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	}
 	if args.Parameters != nil {
 		fields["agent.upgrade_supported"] = args.Parameters.UpgradeSupported
+		upgradeError := args.Parameters.UpgradeError
+		if len(upgradeError) > 2048 {
+			upgradeError = upgradeError[:2048]
+		}
+		fields["agent.upgrade_error"] = upgradeError
 	}
 	if err := commonrepo.NewPrivateKeyColl().UpdateAgentHeartbeat(vm.ID, fields); err != nil {
 		return nil, err

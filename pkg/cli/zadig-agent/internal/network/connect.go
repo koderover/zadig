@@ -17,7 +17,9 @@ limitations under the License.
 package network
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
@@ -141,6 +143,7 @@ func VerifyAgent(config *AgentConfig, parameters *VerifyAgentParameters) (*Verif
 }
 
 type HeartbeatParameters struct {
+	UpgradeError     string               `json:"upgrade_error,omitempty"`
 	UpgradeSupported bool                 `json:"upgrade_supported"`
 	UpgradeReport    *agentupgrade.Report `json:"upgrade_report,omitempty"`
 	MemTotal         uint64               `json:"mem_total"`
@@ -172,14 +175,14 @@ type HeartbeatServerResponse struct {
 	ZadigVersion           string                    `json:"zadig_version"`
 }
 
-func Heartbeat(config *AgentConfig, parameters *HeartbeatParameters) (*HeartbeatServerResponse, error) {
+func Heartbeat(ctx context.Context, config *AgentConfig, parameters *HeartbeatParameters) (*HeartbeatServerResponse, error) {
 	request := &HeartbeatServerRequest{
 		Token:      config.Token,
 		Parameters: parameters,
 	}
 	resp := new(HeartbeatServerResponse)
 	options := []httpclient.ClientFunc{}
-	if parameters.UpgradeSupported || parameters.UpgradeReport != nil {
+	if parameters.UpgradeSupported || parameters.UpgradeReport != nil || (parameters.UpgradeError != "" && strings.HasPrefix(config.URL, "https://")) {
 		if _, err := agentupgrade.SecureURL(config.URL); err != nil {
 			return nil, err
 		}
@@ -189,7 +192,7 @@ func Heartbeat(config *AgentConfig, parameters *HeartbeatParameters) (*Heartbeat
 		}
 		options = append(options, httpclient.SetTLSClientConfig(tlsConfig), func(client *httpclient.Client) { client.SetRedirectPolicy(resty.NoRedirectPolicy()) })
 	}
-	body, err := httpclient.New(options...).Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetBody(request), httpclient.SetResult(resp))
+	body, err := httpclient.New(options...).Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetContext(ctx), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {
 		return nil, err
 	}

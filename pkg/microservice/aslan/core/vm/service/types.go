@@ -48,6 +48,7 @@ func (args *CreateVMRequest) Validate() error {
 }
 
 type AgentBriefListResp struct {
+	UpgradeError       string             `json:"upgrade_error,omitempty"`
 	ID                 string             `json:"id"`
 	AgentVersion       string             `json:"agent_version"`
 	RecommendedVersion string             `json:"recommended_version"`
@@ -119,6 +120,7 @@ type VerifyAgentResponse struct {
 }
 
 type HeartbeatParameters struct {
+	UpgradeError     string               `json:"upgrade_error,omitempty"`
 	UpgradeSupported bool                 `json:"upgrade_supported"`
 	UpgradeReport    *agentupgrade.Report `json:"upgrade_report,omitempty"`
 	MemTotal         uint64               `json:"mem_total"`

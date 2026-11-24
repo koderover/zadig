@@ -26,11 +26,11 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/start"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 	globalconfig "github.com/koderover/zadig/v2/pkg/config"
@@ -44,11 +44,15 @@ func init() {
 	startCmd.Flags().StringP("server-url", "s", "", "zadig-server url")
 	startCmd.Flags().StringP("token", "t", "", "agent token")
 	startCmd.Flags().StringP("work-dir", "d", "", "agent work directory")
+	startCmd.Flags().Bool("auto-start", true, "Configure boot startup on first registration; failure falls back to ordinary execution")
+	startCmd.Flags().String("service-user", "", "Service account (defaults to current account; Windows LocalSystem must be explicit)")
+	startCmd.Flags().Bool("password-stdin", false, "Read the Windows service account password from standard input")
 }
 
 var ExistCh chan struct{} = make(chan struct{})
 var instanceLease *os.File
 var skipStart bool
+var startManaged bool
 
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -70,7 +74,7 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to get token: %v", err)
 		}
 
-		skipStart = false
+		skipStart, startManaged = false, false
 		background := os.Getenv(agentconfig.BackgroundEnv) == "1"
 		allowed, err := agentconfig.ConnectionAllowed()
 		if err != nil {
@@ -84,6 +88,15 @@ var startCmd = &cobra.Command{
 			if err := agentconfig.SetConnectionAllowed(true); err != nil {
 				return err
 			}
+		}
+		path, err := agentconfig.GetAgentConfigFilePath()
+		if err != nil {
+			return err
+		}
+		_, statErr := os.Stat(path)
+		firstRegistration := errors.Is(statErr, os.ErrNotExist)
+		if statErr != nil && !firstRegistration {
+			return statErr
 		}
 		lease, err := updater.AcquireInstance()
 		if err != nil {
@@ -102,6 +115,31 @@ var startCmd = &cobra.Command{
 			return err
 		}
 		instanceLease = lease
+		if !background {
+			requested, _ := cmd.Flags().GetBool("auto-start")
+			if requested && (firstRegistration || cmd.Flags().Changed("auto-start")) {
+				account, _ := cmd.Flags().GetString("service-user")
+				options, err := serviceInstallOptions(cmd, account, true)
+				if err == nil {
+					_, err = installAgentService(cmd, options)
+				}
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Automatic boot startup could not be configured: %v. Continuing ordinary agent execution; after reboot, run start again.\n", err)
+				}
+			} else if !requested && cmd.Flags().Changed("auto-start") {
+				if _, err := daemon.Load(); err == nil {
+					if err := serviceOperation(cmd, "disable", func(context.Context) error { return daemon.SetAutoStart(false) }); err != nil {
+						lease.Close()
+						return err
+					}
+				}
+			}
+			if s, err := daemon.Load(); err == nil && s.Backend != daemon.Cron {
+				startManaged = true
+				lease.Close()
+				instanceLease = nil
+			}
+		}
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -111,7 +149,10 @@ var startCmd = &cobra.Command{
 		if skipStart {
 			return nil
 		}
-		return startRun(cmd.Context())
+		if startManaged {
+			return serviceOperation(cmd, "start", daemon.Start)
+		}
+		return startRun(cmd.Context(), func() {})
 	},
 	PostRun: func(cmd *cobra.Command, args []string) {
 		if err := startPostRun(); err != nil {
@@ -132,7 +173,7 @@ func startPreRun(serverURL, token, workDir string) error {
 
 	if !agentconfig.InitConfig() {
 		if os.Getenv(agentconfig.BackgroundEnv) == "1" {
-			return fmt.Errorf("agent configuration is missing; upgrade restart cannot perform interactive registration")
+			return fmt.Errorf("agent configuration is missing; background startup cannot perform interactive registration")
 		}
 		log.Infof("agent config file not found, start to register agent to zadig-server.")
 
@@ -167,7 +208,7 @@ func startPreRun(serverURL, token, workDir string) error {
 	return nil
 }
 
-func startRun(ctx context.Context) error { return agent.StartAgent(ctx) }
+func startRun(ctx context.Context, ready func()) error { return agent.StartAgent(ctx, ready) }
 
 func startPostRun() error {
 	return nil
@@ -187,7 +228,7 @@ func resetAgentRunningFile() {
 }
 
 func initPkgLog() {
-	path, err := config.GetAgentLogPath()
+	path, err := agentconfig.GetAgentLogPath()
 	if err != nil {
 		panic(err)
 	}

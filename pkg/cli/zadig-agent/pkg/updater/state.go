@@ -11,12 +11,17 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/daemon"
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var errLocked = errors.New("agent lock is held by another process")
+var errRecoveringUpgrade = errors.New("recovering interrupted agent upgrade; helper will restart the agent")
 
 type state struct {
+	ServiceBackend string `json:"service_backend,omitempty"`
 	agentupgrade.Report
 	FromVersion      string   `json:"from_version"`
 	TargetVersion    string   `json:"target_version"`
@@ -82,23 +87,87 @@ func waitLock(ctx context.Context, path string) (*os.File, error) {
 	}
 }
 
+func readStateFile(path string) (*state, []byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	var s state
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, nil, err
+	}
+	if err := s.validateMetadata(); err != nil {
+		return nil, nil, err
+	}
+	return &s, data, nil
+}
+
+func (s *state) validateMetadata() error {
+	if _, err := primitive.ObjectIDFromHex(s.ID); err != nil {
+		return fmt.Errorf("invalid local upgrade ID")
+	}
+	if !filepath.IsAbs(s.Executable) || s.Directory != filepath.Join(filepath.Dir(s.Executable), ".zadig-upgrade-"+s.ID) || !filepath.IsAbs(s.WorkingDirectory) {
+		return fmt.Errorf("invalid local upgrade paths")
+	}
+	if s.FromVersion == "" || s.TargetVersion == "" || len(s.Arguments) != 1 || s.Arguments[0] != "start" {
+		return fmt.Errorf("incomplete local upgrade metadata")
+	}
+	switch s.Status {
+	case agentupgrade.Pending, agentupgrade.Downloading, agentupgrade.Draining, agentupgrade.Restarting, agentupgrade.Verifying, agentupgrade.Succeeded, agentupgrade.Failed, agentupgrade.RolledBack:
+		return nil
+	default:
+		return fmt.Errorf("unknown local upgrade status %q", s.Status)
+	}
+}
+
 func readState() (*state, error) {
 	p, err := statePath()
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(p)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+	s, _, err := readStateFile(p)
+	if err == nil {
+		return s, nil
 	}
+	if errors.Is(err, os.ErrNotExist) {
+		if _, backupErr := os.Lstat(p + ".backup"); errors.Is(backupErr, os.ErrNotExist) {
+			return nil, nil
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	lock, err := waitLock(ctx, p+".lock")
 	if err != nil {
 		return nil, err
 	}
-	var s state
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, err
+	defer lock.Close()
+	return readStateLocked(p)
+}
+
+// The caller holds the state write lock, including while restoring a backup.
+func readStateLocked(p string) (*state, error) {
+	s, _, primaryErr := readStateFile(p)
+	if primaryErr == nil {
+		return s, nil
 	}
-	return &s, nil
+	backup, data, backupErr := readStateFile(p + ".backup")
+	if errors.Is(primaryErr, os.ErrNotExist) && errors.Is(backupErr, os.ErrNotExist) {
+		return nil, nil
+	}
+	if backupErr != nil {
+		return nil, fmt.Errorf("read upgrade state: %v; read backup: %w", primaryErr, backupErr)
+	}
+	if !errors.Is(primaryErr, os.ErrNotExist) {
+		archived := fmt.Sprintf("%s.corrupt-%d", p, time.Now().UnixNano())
+		if err := os.Rename(p, archived); err != nil {
+			return nil, fmt.Errorf("preserve unreadable upgrade state: %w", err)
+		}
+	}
+	if err := atomicWrite(p, data, 0600); err != nil {
+		return nil, fmt.Errorf("restore upgrade state backup: %w", err)
+	}
+	log.Warnf("restored agent upgrade state from backup after: %v", primaryErr)
+	return backup, nil
 }
 
 func changeState(update func(*state) (*state, error)) error {
@@ -113,7 +182,7 @@ func changeState(update func(*state) (*state, error)) error {
 		return err
 	}
 	defer lock.Close()
-	s, err := readState()
+	s, err := readStateLocked(p)
 	if err != nil {
 		return err
 	}
@@ -121,8 +190,19 @@ func changeState(update func(*state) (*state, error)) error {
 	if err != nil {
 		return err
 	}
+	if s == nil {
+		return fmt.Errorf("upgrade state update returned no metadata")
+	}
+	if err := s.validateMetadata(); err != nil {
+		return err
+	}
 	data, err := json.Marshal(s)
 	if err != nil {
+		return err
+	}
+	// Write the same new snapshot to the backup first. A stale pre-replacement
+	// snapshot must never be the only recovery record after files are replaced.
+	if err := atomicWrite(p+".backup", data, 0600); err != nil {
 		return err
 	}
 	return atomicWrite(p, data, 0600)
@@ -170,8 +250,16 @@ func (s *state) helper() string    { return filepath.Join(s.Directory, "helper"+
 // agent configuration. Interrupted replacements are recovered by the helper.
 func CheckStartup() error {
 	s, err := readState()
-	if err != nil || s == nil {
-		return err
+	if err != nil {
+		log.Errorf("upgrade state unavailable; task scheduling will remain paused: %v", err)
+		return nil
+	}
+	return checkStartupState(s)
+}
+
+func checkStartupState(s *state) error {
+	if s == nil {
+		return nil
 	}
 	if s.Status.Terminal() {
 		if s.needsManualRecovery(config.BuildAgentVersion) {
@@ -188,7 +276,7 @@ func CheckStartup() error {
 	}
 	lock, err := tryLock(p + ".helper.lock")
 	if errors.Is(err, errLocked) {
-		if os.Getenv("ZADIG_AGENT_UPGRADE_ID") == s.ID && s.Status == agentupgrade.Verifying {
+		if (os.Getenv("ZADIG_AGENT_UPGRADE_ID") == s.ID || (s.ServiceBackend != "" && daemon.RunningBackend() == s.ServiceBackend)) && s.Status == agentupgrade.Verifying {
 			return nil
 		}
 		return fmt.Errorf("agent upgrade is being applied")
@@ -200,12 +288,12 @@ func CheckStartup() error {
 	if err := validateState(s); err != nil {
 		return err
 	}
-	if helper, err := launch(s.helper(), []string{"upgrade-apply"}, s.WorkingDirectory, s.Environment); err != nil {
+	if helper, err := launchUpgradeHelper(context.Background(), s); err != nil {
 		return fmt.Errorf("restart upgrade helper: %w", err)
-	} else {
+	} else if helper != nil {
 		helper.Process.Release()
 	}
-	return fmt.Errorf("recovering interrupted agent upgrade; helper will restart the agent")
+	return errRecoveringUpgrade
 }
 
 func (s *state) needsManualRecovery(version string) bool {

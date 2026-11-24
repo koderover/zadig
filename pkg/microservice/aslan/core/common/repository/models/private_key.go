@@ -83,6 +83,7 @@ type VMInfo struct {
 }
 
 type VMAgent struct {
+	UpgradeError      string             `bson:"upgrade_error,omitempty" json:"upgrade_error,omitempty"`
 	Disconnected      bool               `bson:"disconnected" json:"disconnected"`
 	UpgradeSupported  bool               `bson:"upgrade_supported" json:"upgrade_supported"`
 	Upgrade           *agentupgrade.Task `bson:"upgrade,omitempty" json:"upgrade,omitempty"`

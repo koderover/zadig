@@ -61,7 +61,7 @@ func (a *Agent) start(stop chan struct{}) error {
 	return nil
 }
 
-func StartAgent(ctx context.Context) error {
+func StartAgent(ctx context.Context, ready func()) error {
 	ctx, stopSignals := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stopSignals()
 	agentCtx, cancel := context.WithCancel(ctx)
@@ -74,6 +74,7 @@ func StartAgent(ctx context.Context) error {
 		}
 		return err
 	}
+	ready()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -82,7 +83,7 @@ func StartAgent(ctx context.Context) error {
 			zadigAgent.Stop("agent stopped by platform or upgrade")
 			return nil
 		case <-ctx.Done():
-			zadigAgent.Stop("agent stopped by signal")
+			zadigAgent.Stop("agent stopped by signal or service manager")
 			return nil
 		case <-ticker.C:
 			if checkStopSignalFile() {

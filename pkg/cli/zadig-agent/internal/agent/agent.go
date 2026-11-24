@@ -53,7 +53,9 @@ type AgentController struct {
 	currentJobNum        int
 	paused               bool
 	polling              bool
-	jobError             error
+	pendingReports       map[string]*types.ReportJobParameters
+	reportMu             sync.Mutex
+	nextReportRetry      time.Time
 	forceDrain           bool
 	jobCancels           map[string]context.CancelCauseFunc
 	stopPollingOnce      sync.Once
@@ -100,15 +102,18 @@ func (c *AgentController) PauseAndDrain(ctx context.Context, force bool) error {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
+		if err := c.retryFinalReports(ctx); err != nil {
+			log.Errorf("retry final job reports before upgrade: %v", err)
+		}
 		c.mu.Lock()
-		done, err := !c.polling && c.currentJobNum == 0, c.jobError
+		done := !c.polling && c.currentJobNum == 0 && len(c.pendingReports) == 0
 		c.mu.Unlock()
 		if done {
-			return err
+			return nil
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("wait for jobs and final result reports: %w", ctx.Err())
 		case <-ticker.C:
 		}
 	}
@@ -139,6 +144,9 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 			log.Infof("stop polling job, received stop signal.")
 			return
 		default:
+			if err := c.retryFinalReports(ctx); err != nil {
+				log.Errorf("retry final job reports: %v", err)
+			}
 			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.beginPoll() {
 				job, err := c.Client.RequestJob()
 				c.mu.Lock()
@@ -190,8 +198,12 @@ func (c *AgentController) RunJob(ctx context.Context) {
 				err := c.RunSingleJob(ctx, job)
 				c.mu.Lock()
 				c.currentJobNum--
-				if errors.Is(err, reporter.ErrFinalReport) {
-					c.jobError = fmt.Errorf("cannot upgrade after an incomplete job: %w", err)
+				var pending *reporter.FinalReportError
+				if errors.As(err, &pending) {
+					if c.pendingReports == nil {
+						c.pendingReports = make(map[string]*types.ReportJobParameters)
+					}
+					c.pendingReports[job.ID] = &pending.Parameters
 				}
 				c.mu.Unlock()
 				if err != nil {
@@ -200,6 +212,45 @@ func (c *AgentController) RunJob(ctx context.Context) {
 			}(job)
 		}
 	}
+}
+
+// Retry only retained terminal reports; another job finishing cannot clear them.
+func (c *AgentController) retryFinalReports(ctx context.Context) error {
+	if !c.reportMu.TryLock() {
+		return nil
+	}
+	defer c.reportMu.Unlock()
+	c.mu.Lock()
+	if len(c.pendingReports) == 0 || time.Now().Before(c.nextReportRetry) {
+		c.mu.Unlock()
+		return nil
+	}
+	pending := make(map[string]*types.ReportJobParameters, len(c.pendingReports))
+	for id, report := range c.pendingReports {
+		pending[id] = report
+	}
+	c.nextReportRetry = time.Now().Add(5 * time.Second)
+	c.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var firstErr error
+	for id, report := range pending {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := c.Client.ReportJobContext(ctx, report); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("job %s: %w", id, err)
+			}
+			continue
+		}
+		c.mu.Lock()
+		if c.pendingReports[id] == report {
+			delete(c.pendingReports, id)
+		}
+		c.mu.Unlock()
+	}
+	return firstErr
 }
 
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {

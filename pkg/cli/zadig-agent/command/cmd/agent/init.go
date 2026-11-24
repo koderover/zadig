@@ -29,8 +29,6 @@ import (
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
-var errAgentMismatch = errors.New("agent platform needs registration")
-
 func InitAgent() error {
 	// init agent config
 	if !agentconfig.InitConfig() {
@@ -40,9 +38,17 @@ func InitAgent() error {
 	log.Infof("start to verify agent, this action is executed every time the agent starts.")
 	err := verifyAgent()
 	if err != nil {
-		if !errors.Is(err, errAgentMismatch) {
+		if errors.Is(err, errhelper.ErrVerrifyAgentFailedWithNoConfig) {
+			log.Errorf("failed to verify agent: %s, please use zadig-agent --server-url=xxx --token=xxx to start agent, "+
+				"if you not first time to start agent, the reason for this error may be that you started the agent in sudo instead of the previous non-sudo mode. "+
+				"This behavior will affect the default configuration file path, which is stored under the $HOME/.zadig-agent/ directory. "+
+				"Please use the zadig-agent --help command to view the specific usage.", err.Error())
 			return err
 		}
+		if errors.Is(err, agentconfig.ErrDisconnected) {
+			return err
+		}
+		log.Errorf("failed to verify agent: %s, attempt to register agent again.", err.Error())
 		if err := register.RegisterAgent(); err != nil {
 			return err
 		}
@@ -93,7 +99,7 @@ func verifyAgent() error {
 		return agentconfig.ErrDisconnected
 	}
 	if !resp.Verified {
-		return errAgentMismatch
+		return fmt.Errorf("failed to verify agent")
 	}
 	log.Infof("agent verified successfully!!!")
 	return nil

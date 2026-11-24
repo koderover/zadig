@@ -54,6 +54,9 @@ func (h *HeartbeatService) Start(ctx context.Context) {
 			return
 		case <-timer.C:
 			if err := h.heartbeat(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				log.Errorf("failed to ping zadig server: %v", err)
 				h.FailedTime++
 				if h.FailedTime > 3 {
@@ -64,6 +67,9 @@ func (h *HeartbeatService) Start(ctx context.Context) {
 					agentconfig.SetAgentStatus(common.AGENT_STATUS_ABNORMAL)
 				}
 			} else {
+				if ctx.Err() != nil {
+					return
+				}
 				h.FailedTime = 0
 				h.Interval = h.minInterval
 				if agentconfig.GetAgentStatus() != common.AGENT_STATUS_RUNNING {
@@ -87,19 +93,25 @@ func (h *HeartbeatService) heartbeat(ctx context.Context) error {
 		return fmt.Errorf("failed to convert platform parameters to heartbeat parameters: %v", err)
 	}
 	params.AgentVersion = agentconfig.GetAgentVersion()
-	params.UpgradeSupported = updater.Supported()
 	params.UpgradeReport, err = h.Updater.Report()
 	if err != nil {
-		return err
+		log.Errorf("agent upgrade state unavailable; continuing heartbeat with task scheduling paused: %v", err)
 	}
+	if stateErr := h.Updater.StateError(); stateErr != nil {
+		params.UpgradeError = stateErr.Error()
+	}
+	params.UpgradeSupported = updater.Supported() && params.UpgradeError == ""
 
 	config := &network.AgentConfig{
 		Token: agentconfig.GetAgentToken(),
 		URL:   agentconfig.GetServerURL(),
 	}
 
-	resp, err := network.Heartbeat(config, params)
+	resp, err := network.Heartbeat(ctx, config, params)
 	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if resp.NeedOffline {
@@ -145,5 +157,8 @@ func (h *HeartbeatService) heartbeat(ctx context.Context) error {
 		log.Errorf("failed to update agent config: %v", err)
 	}
 
-	return h.Updater.Handle(ctx, resp)
+	if err := h.Updater.Handle(ctx, resp); err != nil {
+		log.Errorf("handle agent upgrade response: %v", err)
+	}
+	return nil
 }

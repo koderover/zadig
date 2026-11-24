@@ -6,10 +6,7 @@ import (
 	"path/filepath"
 )
 
-const (
-	HomeEnv       = "ZADIG_AGENT_HOME"
-	BackgroundEnv = "ZADIG_AGENT_BACKGROUND"
-)
+const BackgroundEnv = "ZADIG_AGENT_BACKGROUND"
 
 var ErrDisconnected = errors.New("agent was deliberately disconnected")
 
@@ -20,7 +17,7 @@ func ConnectionAllowed() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, err = os.Stat(filepath.Join(filepath.Dir(p), ".disconnected"))
+	_, err = os.Lstat(filepath.Join(filepath.Dir(p), ".disconnected"))
 	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	}

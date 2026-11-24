@@ -111,11 +111,11 @@ func unixAgentInstallCommand(url, server, token, workspace, platform string, upg
 		`agent_stage=$("$@" mktemp /usr/local/bin/.zadig-agent-install-XXXXXX) &&`,
 		`"$@" install -m 755 "$agent_file" "$agent_stage" && "$@" mv -f "$agent_stage" /usr/local/bin/zadig-agent &&`,
 	)
-	start := runner + `env PATH="$PATH" nohup /usr/local/bin/zadig-agent start --server-url ` + shellQuote(server) + " --token " + shellQuote(token)
+	start := runner + `/usr/local/bin/zadig-agent install --server-url ` + shellQuote(server) + " --token " + shellQuote(token)
 	if workspace != "" {
 		start += " --work-dir " + shellQuote(workspace)
 	}
-	lines = append(lines, "{ "+start+` > ./zadig-agent-start.log 2>&1 < /dev/null & })`)
+	lines = append(lines, start+")")
 	return strings.Join(lines, "\n")
 }
 
@@ -123,6 +123,8 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 	lines := []string{
 		`& {`,
 		`$ErrorActionPreference = 'Stop'`,
+		`$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())`,
+		`if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run PowerShell as administrator' }`,
 		`[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
 		`$agent = Join-Path $HOME 'zadig-agent.exe'`,
 		`$download = "$agent.download-$([guid]::NewGuid().ToString('N')).exe"`,
@@ -131,6 +133,12 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 		lines = append(lines, `if (Test-Path -LiteralPath $agent) { throw 'Agent already exists; use the recovery or upgrade command' }`)
 	}
 	lines = append(lines,
+		`$service = Get-Service -Name zadig-agent -ErrorAction SilentlyContinue`,
+		`$credential = $null`,
+		`if (-not $service) {`,
+		`  $credential = Get-Credential -UserName ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -Message 'Windows Service account credentials'`,
+		`  if (-not $credential) { throw 'Service account credentials are required' }`,
+		`}`,
 		`try {`,
 		"  Invoke-WebRequest -UseBasicParsing -Uri "+powershellQuote(url)+" -OutFile $download",
 	)
@@ -140,6 +148,7 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 			`    if ((Get-Item -LiteralPath $agent).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing to replace a linked agent file' }`,
 			`    & $agent stop`,
 			`    if ($LASTEXITCODE -ne 0) { throw 'Could not stop the existing agent' }`,
+			`    if ($service -and $service.Status -ne 'Stopped') { Stop-Service -Name zadig-agent; $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(60)) }`,
 			`    Start-Sleep -Seconds 6`,
 			`    & $download wait-for-stop`,
 			`    if ($LASTEXITCODE -ne 0) { throw 'Existing agent has not stopped' }`,
@@ -149,43 +158,24 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 			`  }`,
 		)
 	}
-
-	args := []string{"start", "--server-url", server, "--token", token}
-	if workspace != "" {
-		args = append(args, "--work-dir", workspace)
-	}
-	for i, arg := range args {
-		args[i] = windowsAgentArgument(arg)
-	}
 	lines = append(lines,
 		`  Move-Item -LiteralPath $download -Destination $agent`,
-		"  Start-Process -FilePath $agent -ArgumentList "+powershellQuote(strings.Join(args, " ")),
+		"  $agentArgs = @('install', '--server-url', "+powershellQuote(server)+", '--token', "+powershellQuote(token)+")",
+	)
+	if workspace != "" {
+		lines = append(lines, "  $agentArgs += @('--work-dir', "+powershellQuote(workspace)+")")
+	}
+	lines = append(lines,
+		`  if ($credential) {`,
+		`    $previousEncoding = $OutputEncoding`,
+		`    try {`,
+		`      $OutputEncoding = [System.Text.UTF8Encoding]::new($false)`,
+		`      $credential.GetNetworkCredential().Password | & $agent @agentArgs --service-user $credential.UserName --password-stdin`,
+		`    } finally { $credential = $null; $OutputEncoding = $previousEncoding }`,
+		`  } else { & $agent @agentArgs }`,
+		`  if ($LASTEXITCODE -ne 0) { throw 'Agent installation/start failed' }`,
 		`} finally { Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue }`,
 		`}`,
 	)
 	return strings.Join(lines, "\n")
-}
-
-// Start-Process joins ArgumentList into a Windows command line. Quote each
-// argument before passing it through PowerShell, including trailing backslashes.
-func windowsAgentArgument(value string) string {
-	var result strings.Builder
-	result.WriteByte('"')
-	backslashes := 0
-	for _, ch := range value {
-		if ch == '\\' {
-			backslashes++
-			continue
-		}
-		if ch == '"' {
-			result.WriteString(strings.Repeat("\\", backslashes*2+1))
-		} else {
-			result.WriteString(strings.Repeat("\\", backslashes))
-		}
-		result.WriteRune(ch)
-		backslashes = 0
-	}
-	result.WriteString(strings.Repeat("\\", backslashes*2))
-	result.WriteByte('"')
-	return result.String()
 }
