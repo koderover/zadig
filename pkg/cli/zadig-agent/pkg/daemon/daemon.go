@@ -29,19 +29,21 @@ const (
 )
 
 type Settings struct {
-	Backend     string   `json:"backend"`
-	Executable  string   `json:"executable"`
-	Home        string   `json:"home"`
-	Directory   string   `json:"directory"`
-	User        string   `json:"user"`
-	AutoStart   bool     `json:"auto_start"`
-	Environment []string `json:"environment"`
+	UpgradeBroker bool     `json:"upgrade_broker,omitempty"`
+	Backend       string   `json:"backend"`
+	Executable    string   `json:"executable"`
+	Home          string   `json:"home"`
+	Directory     string   `json:"directory"`
+	User          string   `json:"user"`
+	AutoStart     bool     `json:"auto_start"`
+	Environment   []string `json:"environment"`
 }
 
 type Options struct {
-	User      string
-	Password  string
-	AutoStart bool
+	UpgradePublicKey string
+	User             string
+	Password         string
+	AutoStart        bool
 }
 
 func directory() (string, error) {
@@ -146,6 +148,12 @@ func Install(options Options) (*Settings, error) {
 			return nil, err
 		}
 		old.AutoStart = options.AutoStart
+		if err := installUpgradeBroker(old, options.UpgradePublicKey); err != nil {
+			return nil, err
+		}
+		if options.UpgradePublicKey != "" {
+			old.UpgradeBroker = true
+		}
 		return old, save(old)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -201,6 +209,15 @@ func Install(options Options) (*Settings, error) {
 		_ = os.Remove(p)
 		return nil, err
 	}
+	if err := installUpgradeBroker(s, options.UpgradePublicKey); err != nil {
+		return nil, err
+	}
+	if options.UpgradePublicKey != "" {
+		s.UpgradeBroker = true
+		if err := save(s); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -221,12 +238,20 @@ func Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if UsesUpgradeBroker() {
+		_, err := BrokerOperation(ctx, "start", "")
+		return err
+	}
 	return startNative(ctx, s)
 }
 
 func Stop(ctx context.Context) error {
 	s, err := Load()
 	if err != nil {
+		return err
+	}
+	if UsesUpgradeBroker() {
+		_, err := BrokerOperation(ctx, "stop", "")
 		return err
 	}
 	return stopNative(ctx, s)
@@ -251,6 +276,9 @@ func Status(ctx context.Context) (map[string]interface{}, error) {
 func Uninstall(ctx context.Context) error {
 	s, err := Load()
 	if err != nil {
+		return err
+	}
+	if err := uninstallUpgradeBroker(ctx, s); err != nil {
 		return err
 	}
 	if err := uninstallNative(ctx, s); err != nil {
@@ -370,12 +398,19 @@ func CanUpgrade() bool {
 	if err != nil || s.Backend != backend {
 		return false
 	}
+	if UsesUpgradeBroker() {
+		return brokerAvailable(s)
+	}
 	return canUpgradeNative(s)
 }
 
 func LaunchUpgradeHelper(ctx context.Context, executable, id string) error {
 	s, err := Load()
 	if err != nil {
+		return err
+	}
+	if UsesUpgradeBroker() {
+		_, err := BrokerOperation(ctx, "launch", id)
 		return err
 	}
 	if !canUpgradeNative(s) {

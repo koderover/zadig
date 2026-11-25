@@ -67,6 +67,7 @@ func init() {
 	install.Flags().String("token", "", "Agent registration token")
 	install.Flags().String("work-dir", "", "Agent working directory")
 	install.Flags().Bool("auto-start", true, "Enable boot startup; unavailable managers fall back to ordinary execution")
+	install.Flags().String("upgrade-public-key", "", "Base64 Ed25519 publisher public key for the restricted Unix upgrade helper")
 	install.Flags().String("service-user", "", "Service account (defaults to current account)")
 	install.Flags().Bool("password-stdin", false, "Read the Windows service account password from stdin")
 	rootCmd.AddCommand(install)

@@ -11,13 +11,17 @@ COPY Makefile ./
 ARG ZADIG_AGENT_VERSION
 ARG BUILD_COMMIT=unknown
 RUN --mount=type=cache,target=/gocache \
+    --mount=type=secret,id=agent_release_signing_key \
     test -n "$ZADIG_AGENT_VERSION" && \
     make zadig-agent-linux-amd64 zadig-agent-linux-arm64 \
       zadig-agent-darwin-amd64 zadig-agent-darwin-arm64 zadig-agent-windows-amd64 \
       ZADIG_AGENT_VERSION="$ZADIG_AGENT_VERSION" \
       BUILD_COMMIT="$BUILD_COMMIT" && \
-    go run ./cmd/zadig-agent-release \
-      --version "$ZADIG_AGENT_VERSION" --dir cmd/zadig-agent/out && \
+    set -- --version "$ZADIG_AGENT_VERSION" --dir cmd/zadig-agent/out && \
+    if [ -f /run/secrets/agent_release_signing_key ]; then \
+      set -- "$@" --signing-key-file /run/secrets/agent_release_signing_key; \
+    fi && \
+    go run ./cmd/zadig-agent-release "$@" && \
     printf 'ok\n' > cmd/zadig-agent/out/healthz
 
 FROM nginx:alpine

@@ -187,11 +187,17 @@ func Apply() error {
 		s.ConfigSaved = true
 	}
 
-	if err := replaceFile(s.Executable, s.backup()); err != nil {
-		return rollback(s, &lease, err)
-	}
-	if err := replaceFile(s.candidate(), s.Executable); err != nil {
-		return rollback(s, &lease, err)
+	if s.PrivilegedHelper {
+		if _, err := daemon.BrokerOperation(context.Background(), "apply", s.ID); err != nil {
+			return rollback(s, &lease, err)
+		}
+	} else {
+		if err := replaceFile(s.Executable, s.backup()); err != nil {
+			return rollback(s, &lease, err)
+		}
+		if err := replaceFile(s.candidate(), s.Executable); err != nil {
+			return rollback(s, &lease, err)
+		}
 	}
 	if err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Verifying; s.Healthy = false }); err != nil {
 		return rollback(s, &lease, err)
@@ -222,6 +228,11 @@ func Apply() error {
 			if s.ServiceBackend != "" {
 				if err := daemon.FinishUpgrade(); err != nil {
 					return markFailure(s.ID, fmt.Errorf("restore service recovery policy: %w", err))
+				}
+			}
+			if s.PrivilegedHelper {
+				if _, err := daemon.BrokerOperation(context.Background(), "commit", s.ID); err != nil {
+					return err
 				}
 			}
 			err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Succeeded; s.Error = "" })
@@ -277,7 +288,11 @@ func rollback(s *state, lease **os.File, cause error) error {
 		*lease = lock
 	}
 
-	if _, err := os.Stat(s.backup()); err == nil {
+	if s.PrivilegedHelper {
+		if _, err := daemon.BrokerOperation(context.Background(), "rollback", s.ID); err != nil {
+			return markFailure(s.ID, fmt.Errorf("%v; privileged rollback: %w", cause, err))
+		}
+	} else if _, err := os.Stat(s.backup()); err == nil {
 		if err := replaceFile(s.backup(), s.Executable); err != nil {
 			return markFailure(s.ID, fmt.Errorf("%v; restore old executable: %w", cause, err))
 		}

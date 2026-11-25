@@ -45,6 +45,7 @@ func init() {
 	startCmd.Flags().StringP("token", "t", "", "agent token")
 	startCmd.Flags().StringP("work-dir", "d", "", "agent work directory")
 	startCmd.Flags().Bool("auto-start", true, "Configure boot startup on first registration; failure falls back to ordinary execution")
+	startCmd.Flags().String("upgrade-public-key", "", "Base64 Ed25519 publisher public key for the restricted Unix upgrade helper")
 	startCmd.Flags().String("service-user", "", "Service account (defaults to current account; Windows LocalSystem must be explicit)")
 	startCmd.Flags().Bool("password-stdin", false, "Read the Windows service account password from standard input")
 }

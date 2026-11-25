@@ -137,6 +137,9 @@ func launchPlist(s *Settings, label, executable string, arguments []string, keep
 		b.WriteString("<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>5</integer>")
 	}
 	logPath := filepath.Join(s.Home, ".zadig-agent", "log", "service.log")
+	if s.UpgradeBroker {
+		logPath = filepath.Join(brokerDirectory(), "agent.log")
+	}
 	b.WriteString("<key>StandardOutPath</key>" + xmlString(logPath) + "<key>StandardErrorPath</key>" + xmlString(logPath) + "</dict></plist>\n")
 	return []byte(b.String())
 }
@@ -437,7 +440,7 @@ func canUpgradeNative(s *Settings) bool {
 
 func launchHelperNative(ctx context.Context, s *Settings, executable, id string) error {
 	if s.Backend == Systemd {
-		_, err := runCommand(ctx, "systemd-run", "--unit="+Name+"-upgrade-"+id, "--property=Type=simple", "--property=Restart=no", strings.ReplaceAll(executable, "$", "$$"), "upgrade-apply", "--service-settings", strings.ReplaceAll(s.path(), "$", "$$"))
+		_, err := runCommand(ctx, "systemd-run", "--unit="+Name+"-upgrade-"+id, "--property=Type=simple", "--property=Restart=no", "--uid="+s.User, strings.ReplaceAll(executable, "$", "$$"), "upgrade-apply", "--service-settings", strings.ReplaceAll(s.path(), "$", "$$"))
 		return err
 	}
 	if s.Backend == Launchd {

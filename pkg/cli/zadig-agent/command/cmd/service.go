@@ -20,7 +20,8 @@ import (
 )
 
 func serviceInstallOptions(cmd *cobra.Command, account string, auto bool) (daemon.Options, error) {
-	options := daemon.Options{User: account, AutoStart: auto}
+	key, _ := cmd.Flags().GetString("upgrade-public-key")
+	options := daemon.Options{User: account, AutoStart: auto, UpgradePublicKey: key}
 	readPassword, _ := cmd.Flags().GetBool("password-stdin")
 	if readPassword {
 		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), 4097))
@@ -52,6 +53,7 @@ func init() {
 		fmt.Fprintf(cmd.OutOrStdout(), "Installed %s boot startup for %s (auto-start=%t). Use service start to connect now.\n", s.Backend, s.User, s.AutoStart)
 		return nil
 	}}
+	install.Flags().String("upgrade-public-key", "", "Base64 Ed25519 publisher public key; installs the restricted Unix upgrade helper")
 	install.Flags().String("user", "", "Service account; defaults to the current account")
 	install.Flags().Bool("auto-start", true, "Enable startup on boot")
 	install.Flags().Bool("password-stdin", false, "Read the Windows service account password from stdin; it is never saved")
@@ -157,7 +159,11 @@ func installAgentService(cmd *cobra.Command, options daemon.Options) (*daemon.Se
 		}
 		account = current.Username
 	}
-	if err := runElevatedService(cmd, "install", "--user", account, fmt.Sprintf("--auto-start=%t", options.AutoStart)); err != nil {
+	arguments := []string{"install", "--user", account, fmt.Sprintf("--auto-start=%t", options.AutoStart)}
+	if options.UpgradePublicKey != "" {
+		arguments = append(arguments, "--upgrade-public-key", options.UpgradePublicKey)
+	}
+	if err := runElevatedService(cmd, arguments...); err != nil {
 		return nil, err
 	}
 	return daemon.Load()
