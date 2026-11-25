@@ -1972,7 +1972,40 @@ func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job,
 		}
 		newSpec.NamespaceID = p.NamespaceID
 	}
-	if len(p.NacosDatas) == 0 && !newSpec.DataFixed {
+	rangeSet := sets.NewString(newSpec.NacosDataRange...)
+	fixedSet := sets.NewString()
+	for _, data := range newSpec.DefaultNacosDatas {
+		fixedSet.Insert(data.Group + "/" + data.DataID)
+	}
+
+	inputs := make(map[string]*NacosJobDataInput, len(p.NacosDatas))
+	selected := make([]types.NacosDataID, 0, len(p.NacosDatas))
+	for _, input := range p.NacosDatas {
+		if input == nil || input.Group == "" || input.DataID == "" {
+			return nil, errors.New("group and data_id are required for each nacos config")
+		}
+		key := input.Group + "/" + input.DataID
+		if _, ok := inputs[key]; ok {
+			return nil, fmt.Errorf("duplicate nacos config: %s", key)
+		}
+		if newSpec.DataFixed && !fixedSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is not one of the configs fixed by the workflow", key)
+		}
+		if rangeSet.Len() > 0 && !rangeSet.Has("*") && !rangeSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is outside the config range of the workflow", key)
+		}
+		inputs[key] = input
+		selected = append(selected, types.NacosDataID{Group: input.Group, DataID: input.DataID})
+	}
+
+	// Fixed configs are always updated together, as in the UI; configs left out keep their content.
+	if newSpec.DataFixed {
+		selected = make([]types.NacosDataID, 0, len(newSpec.DefaultNacosDatas))
+		for _, data := range newSpec.DefaultNacosDatas {
+			selected = append(selected, types.NacosDataID{Group: data.Group, DataID: data.DataID})
+		}
+	}
+	if len(selected) == 0 {
 		return nil, errors.New("nacos_datas is required")
 	}
 
@@ -1980,59 +2013,36 @@ func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nacos client: %w", err)
 	}
+	namespaces, err := client.ListNamespaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nacos namespaces: %w", err)
+	}
 	namespaceName := ""
-	if len(p.NacosDatas) > 0 {
-		namespaces, err := client.ListNamespaces()
-		if err != nil {
-			return nil, fmt.Errorf("failed to list nacos namespaces: %w", err)
-		}
-		for _, namespace := range namespaces {
-			if namespace.NamespaceID == newSpec.NamespaceID {
-				namespaceName = namespace.NamespacedName
-				break
-			}
+	for _, namespace := range namespaces {
+		if namespace.NamespaceID == newSpec.NamespaceID {
+			namespaceName = namespace.NamespacedName
+			break
 		}
 	}
 
-	rangeSet := sets.NewString(newSpec.NacosDataRange...)
-	fixedSet := sets.NewString()
-	for _, data := range newSpec.DefaultNacosDatas {
-		fixedSet.Insert(data.Group + "/" + data.DataID)
-	}
-
-	seen := sets.NewString()
-	newSpec.NacosDatas = make([]*types.NacosConfig, 0, len(p.NacosDatas))
-	for _, input := range p.NacosDatas {
-		if input == nil || input.Group == "" || input.DataID == "" {
-			return nil, errors.New("group and data_id are required for each nacos config")
-		}
-		key := input.Group + "/" + input.DataID
-		if seen.Has(key) {
-			return nil, fmt.Errorf("duplicate nacos config: %s", key)
-		}
-		seen.Insert(key)
-
-		if newSpec.DataFixed && !fixedSet.Has(key) {
-			return nil, fmt.Errorf("nacos config %s is not one of the configs fixed by the workflow", key)
-		}
-		if rangeSet.Len() > 0 && !rangeSet.Has("*") && !rangeSet.Has(key) {
-			return nil, fmt.Errorf("nacos config %s is outside the config range of the workflow", key)
-		}
+	newSpec.NacosDatas = make([]*types.NacosConfig, 0, len(selected))
+	for _, id := range selected {
+		key := id.Group + "/" + id.DataID
 		// Listing configs does not return content or format, so read each selected config.
-		current, err := client.GetConfig(input.DataID, input.Group, newSpec.NamespaceID)
+		current, err := client.GetConfig(id.DataID, id.Group, newSpec.NamespaceID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get nacos config %s in namespace %s: %w", key, newSpec.NamespaceID, err)
 		}
 
 		data := &types.NacosConfig{
-			NacosDataID:     types.NacosDataID{DataID: input.DataID, Group: input.Group},
+			NacosDataID:     id,
 			Format:          current.Format,
 			Content:         current.Content,
 			OriginalContent: current.Content,
 			NamespaceID:     newSpec.NamespaceID,
 			NamespaceName:   namespaceName,
 		}
-		if input.Content != nil {
+		if input, ok := inputs[key]; ok && input.Content != nil {
 			data.Content = *input.Content
 		}
 		newSpec.NacosDatas = append(newSpec.NacosDatas, data)

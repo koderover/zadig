@@ -859,6 +859,21 @@ func fillOpenAPINacosOptionContents(workflow *commonmodels.WorkflowV4) error {
 			if err := commonmodels.IToi(job.Spec, spec); err != nil {
 				return fmt.Errorf("failed to decode nacos job %s: %w", job.Name, err)
 			}
+			// A workflow with fixed configs runs only those configs, so do not offer the rest of the range.
+			if spec.DataFixed {
+				fixedSet := sets.NewString()
+				for _, data := range spec.DefaultNacosDatas {
+					fixedSet.Insert(data.Group + "/" + data.DataID)
+				}
+				options := make([]*types.NacosConfig, 0, len(spec.NacosDataOptions))
+				for _, option := range spec.NacosDataOptions {
+					if fixedSet.Has(option.Group + "/" + option.DataID) {
+						options = append(options, option)
+					}
+				}
+				spec.NacosDataOptions = options
+				job.Spec = spec
+			}
 			if len(spec.NacosDataOptions) == 0 {
 				continue
 			}
