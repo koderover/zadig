@@ -110,6 +110,11 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	data, err := internalhandler.GetRawData(c)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 	args := new(commonmodels.WorkflowV4)
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
@@ -119,7 +124,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 	if triggerName == "" {
 		triggerName = setting.DefaultTaskRevoker
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流任务", args.Name, args.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "工作流任务", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
