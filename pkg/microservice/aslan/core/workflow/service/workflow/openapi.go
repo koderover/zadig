@@ -596,6 +596,10 @@ func getInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 		updater := new(TapdJobInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobNacos:
+		updater := new(NacosJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}

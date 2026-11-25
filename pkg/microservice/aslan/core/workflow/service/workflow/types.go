@@ -30,10 +30,12 @@ import (
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Workflow struct {
@@ -1941,6 +1943,83 @@ func (p *TapdJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, 
 			StartDate:     iterationInfo.StartDate,
 			EndDate:       iterationInfo.EndDate,
 		})
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type NacosJobInput struct {
+	NamespaceID string               `json:"namespace_id"`
+	NacosDatas  []*NacosJobDataInput `json:"nacos_datas"`
+}
+
+type NacosJobDataInput struct {
+	Group   string  `json:"group"`
+	DataID  string  `json:"data_id"`
+	Content *string `json:"content"`
+}
+
+func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.NacosJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, fmt.Errorf("failed to convert job.Spec to commonmodels.NacosJobSpec, err: %w", err)
+	}
+
+	if p.NamespaceID != "" && p.NamespaceID != newSpec.NamespaceID {
+		if newSpec.Source == config.ParamSourceFixed {
+			return nil, fmt.Errorf("namespace_id is fixed to %s by the workflow", newSpec.NamespaceID)
+		}
+		newSpec.NamespaceID = p.NamespaceID
+	}
+	if len(p.NacosDatas) == 0 && !newSpec.DataFixed {
+		return nil, errors.New("nacos_datas is required")
+	}
+
+	configs, err := commonservice.ListNacosConfig(newSpec.NacosID, newSpec.NamespaceID, newSpec.GroupName, log.SugaredLogger())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nacos configs: %w", err)
+	}
+	configMap := make(map[string]*types.NacosConfig, len(configs))
+	for _, cfg := range configs {
+		configMap[cfg.Group+"/"+cfg.DataID] = cfg
+	}
+
+	rangeSet := sets.NewString(newSpec.NacosDataRange...)
+	fixedSet := sets.NewString()
+	for _, data := range newSpec.DefaultNacosDatas {
+		fixedSet.Insert(data.Group + "/" + data.DataID)
+	}
+
+	seen := sets.NewString()
+	newSpec.NacosDatas = make([]*types.NacosConfig, 0, len(p.NacosDatas))
+	for _, input := range p.NacosDatas {
+		if input == nil || input.Group == "" || input.DataID == "" {
+			return nil, errors.New("group and data_id are required for each nacos config")
+		}
+		key := input.Group + "/" + input.DataID
+		if seen.Has(key) {
+			return nil, fmt.Errorf("duplicate nacos config: %s", key)
+		}
+		seen.Insert(key)
+
+		if newSpec.DataFixed && !fixedSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is not one of the configs fixed by the workflow", key)
+		}
+		if rangeSet.Len() > 0 && !rangeSet.Has("*") && !rangeSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is outside the config range of the workflow", key)
+		}
+		current, ok := configMap[key]
+		if !ok {
+			return nil, fmt.Errorf("nacos config %s is not found in namespace %s", key, newSpec.NamespaceID)
+		}
+
+		data := *current
+		if input.Content != nil {
+			data.Content = *input.Content
+		}
+		newSpec.NacosDatas = append(newSpec.NacosDatas, &data)
 	}
 
 	job.Spec = newSpec
