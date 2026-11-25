@@ -30,7 +30,6 @@ import (
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -1977,13 +1976,22 @@ func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job,
 		return nil, errors.New("nacos_datas is required")
 	}
 
-	configs, err := commonservice.ListNacosConfig(newSpec.NacosID, newSpec.NamespaceID, newSpec.GroupName, log.SugaredLogger())
+	client, err := commonservice.GetNacosClient(newSpec.NacosID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list nacos configs: %w", err)
+		return nil, fmt.Errorf("failed to get nacos client: %w", err)
 	}
-	configMap := make(map[string]*types.NacosConfig, len(configs))
-	for _, cfg := range configs {
-		configMap[cfg.Group+"/"+cfg.DataID] = cfg
+	namespaceName := ""
+	if len(p.NacosDatas) > 0 {
+		namespaces, err := client.ListNamespaces()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list nacos namespaces: %w", err)
+		}
+		for _, namespace := range namespaces {
+			if namespace.NamespaceID == newSpec.NamespaceID {
+				namespaceName = namespace.NamespacedName
+				break
+			}
+		}
 	}
 
 	rangeSet := sets.NewString(newSpec.NacosDataRange...)
@@ -2010,16 +2018,24 @@ func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job,
 		if rangeSet.Len() > 0 && !rangeSet.Has("*") && !rangeSet.Has(key) {
 			return nil, fmt.Errorf("nacos config %s is outside the config range of the workflow", key)
 		}
-		current, ok := configMap[key]
-		if !ok {
-			return nil, fmt.Errorf("nacos config %s is not found in namespace %s", key, newSpec.NamespaceID)
+		// Listing configs does not return content or format, so read each selected config.
+		current, err := client.GetConfig(input.DataID, input.Group, newSpec.NamespaceID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get nacos config %s in namespace %s: %w", key, newSpec.NamespaceID, err)
 		}
 
-		data := *current
+		data := &types.NacosConfig{
+			NacosDataID:     types.NacosDataID{DataID: input.DataID, Group: input.Group},
+			Format:          current.Format,
+			Content:         current.Content,
+			OriginalContent: current.Content,
+			NamespaceID:     newSpec.NamespaceID,
+			NamespaceName:   namespaceName,
+		}
 		if input.Content != nil {
 			data.Content = *input.Content
 		}
-		newSpec.NacosDatas = append(newSpec.NacosDatas, &data)
+		newSpec.NacosDatas = append(newSpec.NacosDatas, data)
 	}
 
 	job.Spec = newSpec
