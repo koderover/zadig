@@ -8,16 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
-
-	"github.com/blang/semver/v4"
 )
 
 type Status string
@@ -98,8 +94,6 @@ func CanTransition(from, to Status) bool {
 	return okA && okB && b > a
 }
 
-var digits = regexp.MustCompile(`^[0-9]+$`)
-
 func Version(v string) (string, error) {
 	if v == "" {
 		return "", fmt.Errorf("agent version not found")
@@ -107,29 +101,10 @@ func Version(v string) (string, error) {
 	return strings.TrimPrefix(v, "v"), nil
 }
 
-func Newer(target, current string) bool {
-	target, err := Version(target)
-	if err != nil {
-		return false
-	}
-	current, err = Version(current)
-	if err != nil {
-		return false
-	}
-	if digits.MatchString(target) || digits.MatchString(current) {
-		if !digits.MatchString(target) || !digits.MatchString(current) {
-			return false
-		}
-		a, _ := new(big.Int).SetString(target, 10)
-		b, _ := new(big.Int).SetString(current, 10)
-		return a.Cmp(b) > 0
-	}
-	a, err := semver.ParseTolerant(target)
-	if err != nil {
-		return false
-	}
-	b, err := semver.ParseTolerant(current)
-	return err == nil && a.GT(b)
+func NeedsUpdate(target, current string) bool {
+	target = strings.TrimPrefix(target, "v")
+	current = strings.TrimPrefix(current, "v")
+	return target != "" && current != "" && target != current
 }
 
 func ManifestURL(base, version string) (string, error) {

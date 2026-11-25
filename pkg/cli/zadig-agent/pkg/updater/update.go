@@ -286,8 +286,8 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 }
 
 func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruction, s *state) error {
-	if !agentupgrade.Newer(instruction.TargetVersion, config.BuildAgentVersion) {
-		return fmt.Errorf("upgrade target is not newer than running version")
+	if !agentupgrade.NeedsUpdate(instruction.TargetVersion, config.BuildAgentVersion) {
+		return fmt.Errorf("upgrade target must differ from running version")
 	}
 	if _, err := agentupgrade.ValidateURL(instruction.ManifestURL); err != nil {
 		return err

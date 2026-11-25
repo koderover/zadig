@@ -69,8 +69,8 @@ func RequestAgentUpgrade(ctx context.Context, id, user string, force bool, logge
 	if err != nil {
 		return nil, err
 	}
-	if !agentupgrade.Newer(version, vm.Agent.AgentVersion) {
-		return nil, fmt.Errorf("target must be newer than the running agent version")
+	if !agentupgrade.NeedsUpdate(version, vm.Agent.AgentVersion) {
+		return nil, fmt.Errorf("target version must differ from the running agent version")
 	}
 	base, err := agentResourceURL()
 	if err != nil {

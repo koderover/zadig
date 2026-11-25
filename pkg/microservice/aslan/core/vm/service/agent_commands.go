@@ -97,10 +97,10 @@ func unixAgentInstallCommand(url, server, token, workspace, platform string, upg
 	if upgrade {
 		lines = append(lines,
 			`if [ -e /usr/local/bin/zadig-agent ] || [ -L /usr/local/bin/zadig-agent ]; then`,
-			`  [ -f /usr/local/bin/zadig-agent ] && [ ! -L /usr/local/bin/zadig-agent ] || { echo 'Refusing to replace a non-regular agent file' >&2; exit 1; }`,
+			`  [ -f /usr/local/bin/zadig-agent ] && [ ! -L /usr/local/bin/zadig-agent ] || { echo 'Refusing to replace a non-regular agent file' >&2; exit 1; };`,
 			"  "+runner+`/usr/local/bin/zadig-agent stop && sleep 6 &&`,
 			"  chmod 700 \"$agent_file\" && "+runner+`"$agent_file" wait-for-stop &&`,
-			`  "$@" cp -p /usr/local/bin/zadig-agent "/usr/local/bin/zadig-agent.previous-$(date +%s)-$$" || exit 1`,
+			`  "$@" cp -p /usr/local/bin/zadig-agent "/usr/local/bin/zadig-agent.previous-$(date +%s)-$$" || exit 1;`,
 			`fi &&`,
 		)
 	} else {
@@ -116,7 +116,7 @@ func unixAgentInstallCommand(url, server, token, workspace, platform string, upg
 		start += " --work-dir " + shellQuote(workspace)
 	}
 	lines = append(lines, start+")")
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, " ")
 }
 
 func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bool) string {
