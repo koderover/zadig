@@ -180,12 +180,9 @@ func UpdatePMHost(c *gin.Context) {
 	}
 
 	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
-	shouldLog := true
-	defer func() {
-		if shouldLog {
-			internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "项目资源-主机管理", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
-		}
-	}()
+	if !args.UpdateStatus {
+		internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "项目资源-主机管理", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -207,9 +204,7 @@ func UpdatePMHost(c *gin.Context) {
 		}
 	}
 
-	updated, err := systemservice.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
-	ctx.RespErr = err
-	shouldLog = updated || err != nil
+	ctx.RespErr = systemservice.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
 
 // TODO: add authorization to this

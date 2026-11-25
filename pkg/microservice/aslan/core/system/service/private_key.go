@@ -169,37 +169,31 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*C
 	}, nil
 }
 
-func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) (bool, error) {
+func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: id})
 	if err != nil {
 		log.Errorf("failed to find privateKey with id: %s, error: %s", id, err)
-		return false, e.ErrUpdatePrivateKey.AddErr(fmt.Errorf("failed to find privateKey with id: %s, err: %s", id, err))
+		return e.ErrUpdatePrivateKey.AddErr(fmt.Errorf("failed to find privateKey with id: %s, err: %s", id, err))
 	}
 
-	if args.UpdateStatus {
-		if vm.Status == args.Status && vm.Error == args.Error {
-			return false, nil
-		}
-	} else {
-		if args.IP != "" && !util.IsValidIPv4(args.IP) {
-			return false, e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
-		}
-		args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
+	if args.IP != "" && !util.IsValidIPv4(args.IP) {
+		return e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
+	}
+	args.Projects = normalizePrivateKeyProjects(args.ProjectName, args.Projects)
 
-		if vm.Agent != nil {
-			vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
-			vm.Agent.Workspace = args.Agent.Workspace
-			args.Agent = vm.Agent
-			args.Type = setting.NewVMType
-		}
+	if vm.Agent != nil {
+		vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
+		vm.Agent.Workspace = args.Agent.Workspace
+		args.Agent = vm.Agent
+		args.Type = setting.NewVMType
 	}
 
 	err = commonrepo.NewPrivateKeyColl().Update(id, args)
 	if err != nil {
 		log.Errorf("failed to update privateKey, error: %s", err)
-		return false, e.ErrUpdatePrivateKey.AddErr(err)
+		return e.ErrUpdatePrivateKey.AddErr(err)
 	}
-	return true, nil
+	return nil
 }
 
 func ValidatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {

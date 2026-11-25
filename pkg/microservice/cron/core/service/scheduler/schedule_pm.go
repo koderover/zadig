@@ -17,6 +17,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"errors"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
@@ -86,15 +87,11 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 					newStatus = setting.PMHostStatusNormal
 				}
 
-				newError := ""
-				if newStatus == setting.PMHostStatusAbnormal {
-					newError = "probe failed to connect to the host"
-				}
-				if hostPm.Status == newStatus && hostPm.Error == newError {
+				if hostPm.Status == newStatus {
 					return
 				}
 				hostPm.Status = newStatus
-				hostPm.Error = newError
+				hostPm.Error = errors.New("probe failed to connect to the host").Error()
 
 				err = c.AslanCli.UpdatePmHost(hostPm, log)
 				if err != nil {
