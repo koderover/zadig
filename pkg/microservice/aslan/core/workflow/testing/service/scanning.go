@@ -594,6 +594,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 
 	jobName := ""
 	isHasArtifact := false
+	htmlReport := false
 	var aiReviewReport *AIReviewReportResult
 	for _, step := range jobTaskSpec.Steps {
 		if step.Name == config.TestJobArchiveResultStepName {
@@ -602,6 +603,13 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			}
 			if workflowTask.Stages[0].Jobs[0].Status == config.StatusPassed || workflowTask.Stages[0].Jobs[0].Status == config.StatusFailed {
 				isHasArtifact = true
+			}
+			jobName = step.JobName
+		}
+		if step.Name == config.TestJobHTMLReportStepName {
+			switch workflowTask.Stages[0].Jobs[0].Status {
+			case config.StatusPassed, config.StatusFailed, config.StatusUnstable, config.StatusManualApproval:
+				htmlReport = true
 			}
 			jobName = step.JobName
 		}
@@ -679,6 +687,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		ResultLink:     resultAddr,
 		JobName:        jobName,
 		IsHasArtifact:  isHasArtifact,
+		HtmlReport:     htmlReport,
 		JobDisplayName: workflowTask.Stages[0].Jobs[0].DisplayName,
 		AIReviewReport: aiReviewReport,
 	}, nil

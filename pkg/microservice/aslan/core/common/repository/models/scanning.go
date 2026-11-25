@@ -73,6 +73,7 @@ func (s *Scanning) GetUpdatedAt() int64 {
 
 type ScanningAdvancedSetting struct {
 	ArtifactPaths     []string              `bson:"artifact_paths"    json:"artifact_paths"`
+	HtmlReportPath    string                `bson:"html_report_path"  json:"html_report_path"`
 	ClusterID         string                `bson:"cluster_id"        json:"cluster_id"`
 	ClusterSource     string                `bson:"cluster_source"    json:"cluster_source"`
 	StrategyID        string                `bson:"strategy_id"       json:"strategy_id"`

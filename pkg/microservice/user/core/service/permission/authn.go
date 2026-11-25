@@ -211,6 +211,9 @@ func IsPublicURL(reqPath, method string) bool {
 	if strings.HasPrefix(realPath, "/api/aslan/testing/report/html/testing") && method == http.MethodGet {
 		return true
 	}
+	if strings.HasPrefix(realPath, "/api/aslan/testing/report/html/scanning") && method == http.MethodGet {
+		return true
+	}
 
 	// the only possible error for MatchString is an invalid regular expression, which is not possible, so we will just ignore it
 	match, _ := regexp.MatchString(larkWebhookURLRegExp, realPath)

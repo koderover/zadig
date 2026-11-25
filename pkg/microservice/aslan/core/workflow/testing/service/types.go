@@ -232,6 +232,7 @@ type ScanningTaskDetail struct {
 	SonarMetrics   *step.SonarMetrics    `json:"sonar_metrics"`
 	ResultLink     string                `json:"result_link,omitempty"`
 	IsHasArtifact  bool                  `json:"is_has_artifact"`
+	HtmlReport     bool                  `json:"html_report"`
 	JobName        string                `json:"job_name"`
 	JobDisplayName string                `json:"job_display_name"`
 	AIReviewReport *AIReviewReportResult `json:"ai_review_report,omitempty"`
