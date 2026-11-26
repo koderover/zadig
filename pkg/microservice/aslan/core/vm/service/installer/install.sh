@@ -2,7 +2,10 @@
 set -eu
 
 fail() { echo "$*" >&2; exit 1; }
-server_url= token= download_url= workspace= upgrade=false
+server_url='__ZADIG_SERVER_URL__'
+resource_url='__ZADIG_RESOURCE_URL__'
+version='__ZADIG_AGENT_VERSION__'
+token= download_url= workspace= upgrade=false
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --upgrade) upgrade=true; shift; continue ;;
@@ -18,7 +21,21 @@ while [ "$#" -gt 0 ]; do
         *) fail "Unknown argument: $1" ;;
     esac
 done
-[ -n "$server_url" ] && [ -n "$token" ] && [ -n "$download_url" ] || fail 'server-url, token and download-url are required'
+[ -n "$server_url" ] && [ -n "$token" ] || fail 'server-url and token are required'
+case "$(uname -s)" in
+    Linux) platform=linux ;;
+    Darwin) platform=darwin ;;
+    *) fail 'Only Linux and macOS are supported by this installer; use PowerShell on Windows' ;;
+esac
+case "$(uname -m)" in
+    x86_64|amd64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) fail 'Unsupported CPU architecture; supported architectures are amd64 and arm64' ;;
+esac
+if [ -z "$download_url" ]; then
+    case "$version" in ''|*[!a-zA-Z0-9._+-]*) fail 'Invalid agent release version' ;; esac
+    download_url="${resource_url%/}/zadig-agent-$platform-$arch-v$version"
+fi
 for url in "$server_url" "$download_url"; do
     case "$url" in http://?*|https://?*) ;; *) fail 'Installation requires an HTTP(S) URL' ;; esac
     case "$url" in *\?*|*\#*|*[[:space:]]*) fail 'URLs must not contain whitespace, query or fragment' ;; esac

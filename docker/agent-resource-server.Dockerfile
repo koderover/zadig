@@ -23,8 +23,8 @@ RUN --mount=type=cache,target=/gocache \
 FROM nginx:alpine
 COPY docker/agent-resource-server-nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /src/cmd/zadig-agent/out/ /usr/share/nginx/html/agent-resources/
-COPY docker/agent-install.sh /usr/share/nginx/html/agent-resources/install.sh
-COPY docker/agent-install.ps1 /usr/share/nginx/html/agent-resources/install.ps1
+COPY pkg/microservice/aslan/core/vm/service/installer/install.sh /usr/share/nginx/html/agent-resources/install.sh
+COPY pkg/microservice/aslan/core/vm/service/installer/install.ps1 /usr/share/nginx/html/agent-resources/install.ps1
 USER 101
 EXPOSE 8080
 ENTRYPOINT ["nginx"]

@@ -34,6 +34,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	vmAgent := router.Group("agents")
 	{
+		vmAgent.GET("/install.sh", GetAgentUnixInstallScript)
+		vmAgent.GET("/install.ps1", GetAgentWindowsInstallScript)
 		vmAgent.POST("/register", RegisterAgent)
 		vmAgent.POST("/verify", VerifyAgent)
 		vmAgent.POST("/heartbeat", HeartbeatAgent)

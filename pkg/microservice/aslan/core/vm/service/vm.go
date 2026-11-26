@@ -607,22 +607,20 @@ func GenerateAgentToken() string {
 }
 
 func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, error) {
-	platforms := make([]*AgentAccessCmd, 0, 3)
-	for _, platform := range []string{"linux", "darwin", "windows"} {
-		amd64, err := agentInstallCommands(vm, platform, "amd64", false)
-		if err != nil {
-			return nil, err
-		}
-		commands := &AgentAccessCmd{AMD64: amd64}
-		if platform != "windows" {
-			commands.ARM64, err = agentInstallCommands(vm, platform, "arm64", false)
-			if err != nil {
-				return nil, err
-			}
-		}
-		platforms = append(platforms, commands)
+	unix, err := agentInstallCommands(vm, "linux", "amd64", false)
+	if err != nil {
+		return nil, err
 	}
-	return &AgentAccessCmds{LinuxPlatform: platforms[0], MacOSPlatform: platforms[1], WinPlatform: platforms[2]}, nil
+	windows, err := agentInstallCommands(vm, "windows", "amd64", false)
+	if err != nil {
+		return nil, err
+	}
+	return &AgentAccessCmds{
+		Commands:      map[string]string{"shell": unix["shell"], "powershell": windows["powershell"]},
+		LinuxPlatform: &AgentAccessCmd{AMD64: unix, ARM64: unix},
+		MacOSPlatform: &AgentAccessCmd{AMD64: unix, ARM64: unix},
+		WinPlatform:   &AgentAccessCmd{AMD64: windows},
+	}, nil
 }
 
 func DownloadTemporaryFile(fileID, token string, c *gin.Context, logger *zap.SugaredLogger) error {

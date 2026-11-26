@@ -7,11 +7,9 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	"github.com/spf13/viper"
 )
 
@@ -49,14 +47,6 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 	if vm.Agent == nil || vm.Agent.Token == "" {
 		return nil, fmt.Errorf("agent registration token is missing")
 	}
-	base, err := agentResourceURL()
-	if err != nil {
-		return nil, err
-	}
-	version, err := config.GetZadigAgentVersion()
-	if err != nil {
-		return nil, err
-	}
 	server, err := commonservice.GetSystemServerURL()
 	if err != nil {
 		return nil, err
@@ -64,94 +54,47 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 	if err := validateAgentInstallURL(server); err != nil {
 		return nil, err
 	}
-	downloadURL := base + "/" + agentupgrade.BinaryName(platform, arch, version)
+	base := strings.TrimRight(server, "/") + "/api/aslan/vm/agents/"
 	if platform == "windows" {
-		command := windowsAgentInstallCommand(base+"/install.ps1", downloadURL, server, vm.Agent.Token, vm.Agent.Workspace, upgrade)
-		var encoded []byte
-		for _, unit := range utf16.Encode([]rune(command)) {
-			encoded = append(encoded, byte(unit), byte(unit>>8))
-		}
-		cmdCommand := "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded)
-		if !upgrade {
-			if direct, ok := windowsAgentCMDInstallCommand(downloadURL, server, vm.Agent.Token, vm.Agent.Workspace); ok {
-				cmdCommand = direct
-			}
-		}
-		return map[string]string{"powershell": command, "cmd": cmdCommand}, nil
+		command := windowsAgentInstallCommand(base+"install.ps1", vm.Agent.Token, vm.Agent.Workspace, upgrade)
+		return map[string]string{"powershell": command, "cmd": command}, nil
 	}
-	return map[string]string{"shell": unixAgentInstallCommand(base+"/install.sh", downloadURL, server, vm.Agent.Token, vm.Agent.Workspace, upgrade)}, nil
+	return map[string]string{"shell": unixAgentInstallCommand(base+"install.sh", vm.Agent.Token, vm.Agent.Workspace, upgrade)}, nil
 }
 
-func unixAgentInstallCommand(scriptURL, downloadURL, server, token, workspace string, upgrade bool) string {
-	if !upgrade {
-		start := "sudo -H /usr/local/bin/zadig-agent install --server-url " + shellQuote(server) + " --token " + shellQuote(token)
-		if workspace != "" {
-			start += " --work-dir " + shellQuote(workspace)
-		}
-		return strings.Join([]string{
-			"curl -fL " + shellQuote(downloadURL) + " -o zadig-agent.download",
-			"sudo install -m 755 zadig-agent.download /usr/local/bin/zadig-agent",
-			start,
-		}, "\n")
-	}
-	args := []string{"--server-url " + shellQuote(server), "--token " + shellQuote(token), "--download-url " + shellQuote(downloadURL)}
+func unixAgentInstallCommand(scriptURL, token, workspace string, upgrade bool) string {
+	args := " --token " + shellQuote(token)
 	if workspace != "" {
-		args = append(args, "--work-dir "+shellQuote(workspace))
+		args += " --work-dir " + shellQuote(workspace)
 	}
-	args = append(args, "--upgrade")
+	if upgrade {
+		args += " --upgrade"
+	}
 	protocols := "=https"
 	if strings.HasPrefix(scriptURL, "http://") {
 		protocols = "=http,https"
 	}
-	// The frontend joins command lines; set -e also makes direct multiline execution safe.
-	return strings.Join([]string{
-		`(set -e`,
-		`f=$(mktemp)`,
-		`trap 'rm -f "$f"' EXIT`,
-		"curl --proto " + shellQuote(protocols) + " --proto-redir " + shellQuote(protocols) +
-			" -fsSL " + shellQuote(scriptURL) + ` -o "$f"`,
-		`sh "$f" ` + strings.Join(args, " ") + ")",
-	}, "\n")
+	return "curl -fsSL --proto-redir " + shellQuote(protocols) + " " + shellQuote(scriptURL) +
+		" -o zadig-agent-install.sh && sh zadig-agent-install.sh" + args
 }
 
-func windowsAgentInstallCommand(scriptURL, downloadURL, server, token, workspace string, upgrade bool) string {
-	if !upgrade {
-		start := `& "$HOME\zadig-agent.exe" install --service-user LocalSystem --auto-start=true --server-url ` + powershellQuote(server) + " --token " + powershellQuote(token)
-		if workspace != "" {
-			start += " --work-dir " + powershellQuote(workspace)
-		}
-		return strings.Join([]string{
-			"Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(downloadURL) + ` -OutFile "$HOME\zadig-agent.exe" -ErrorAction Stop`,
-			start,
-		}, "\n")
-	}
-	args := " -ServerUrl " + powershellQuote(server) + " -Token " + powershellQuote(token) + " -DownloadUrl " + powershellQuote(downloadURL)
+func windowsAgentInstallCommand(scriptURL, token, workspace string, upgrade bool) string {
+	args := " -Token " + powershellQuote(token)
 	if workspace != "" {
 		args += " -WorkDir " + powershellQuote(workspace)
 	}
-	args += " -Upgrade"
-	return "& { $ErrorActionPreference = 'Stop'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " +
-		"& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(scriptURL) +
-		" -ErrorAction Stop).Content))" + args + " }"
-}
-
-func windowsAgentCMDInstallCommand(downloadURL, server, token, workspace string) (string, bool) {
-	// Keep the encoded PowerShell fallback for values that CMD would expand or reinterpret.
-	for _, value := range []string{downloadURL, server, token, workspace} {
-		if strings.ContainsAny(value, "%!\"\r\n\x00") {
-			return "", false
+	if upgrade {
+		args += " -Upgrade"
+	}
+	script := "& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(scriptURL) +
+		" -ErrorAction Stop).Content))" + args
+	// Both CMD and a parent PowerShell parse this launcher before the child executes it.
+	if strings.ContainsAny(scriptURL+token+workspace, "%!$`\"\r\n\x00") {
+		var encoded []byte
+		for _, unit := range utf16.Encode([]rune(script)) {
+			encoded = append(encoded, byte(unit), byte(unit>>8))
 		}
+		return "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded)
 	}
-	quote := func(value string) string {
-		trailingSlashes := len(value) - len(strings.TrimRight(value, `\`))
-		return `"` + value + strings.Repeat(`\`, trailingSlashes) + `"`
-	}
-	start := `"%USERPROFILE%\zadig-agent.exe" install --service-user LocalSystem --auto-start=true --server-url ` + quote(server) + " --token " + quote(token)
-	if workspace != "" {
-		start += " --work-dir " + quote(workspace)
-	}
-	return strings.Join([]string{
-		"curl.exe -fL " + quote(downloadURL) + ` -o "%USERPROFILE%\zadig-agent.exe"`,
-		start,
-	}, "\n"), true
+	return `powershell.exe -NoProfile -Command "` + script + `"`
 }

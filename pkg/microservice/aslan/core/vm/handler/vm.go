@@ -26,6 +26,23 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
+func GetAgentUnixInstallScript(c *gin.Context) { getAgentInstallScript(c, "unix") }
+
+func GetAgentWindowsInstallScript(c *gin.Context) { getAgentInstallScript(c, "windows") }
+
+func getAgentInstallScript(c *gin.Context, platform string) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	script, err := service.GetAgentInstallScript(platform)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("agent installer is unavailable: %w", err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Data(200, "text/plain; charset=utf-8", []byte(script))
+}
+
 func GetAgentAccessCmd(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

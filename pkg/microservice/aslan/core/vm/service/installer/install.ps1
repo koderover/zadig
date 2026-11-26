@@ -1,12 +1,21 @@
 param(
-    [Parameter(Mandatory = $true)][string]$ServerUrl,
     [Parameter(Mandatory = $true)][string]$Token,
-    [Parameter(Mandatory = $true)][string]$DownloadUrl,
+    [string]$ServerUrl = '__ZADIG_SERVER_URL__',
+    [string]$DownloadUrl,
+    [string]$ResourceUrl = '__ZADIG_RESOURCE_URL__',
+    [string]$Version = '__ZADIG_AGENT_VERSION__',
     [string]$WorkDir,
     [switch]$Upgrade
 )
 
 $ErrorActionPreference = 'Stop'
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This installer requires Windows; use install.sh on Linux or macOS' }
+$architecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+if ($architecture -ne 'AMD64') { throw "Unsupported Windows CPU architecture: $architecture; this release supports amd64" }
+if (-not $DownloadUrl) {
+  if ($Version -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._+-]*$') { throw 'Invalid agent release version' }
+  $DownloadUrl = $ResourceUrl.TrimEnd('/') + '/zadig-agent-windows-amd64-v' + $Version + '.exe'
+}
 foreach ($rawUrl in @($ServerUrl, $DownloadUrl)) {
     $parsed = $null
     if (-not [Uri]::TryCreate($rawUrl, [UriKind]::Absolute, [ref]$parsed) -or $parsed.Scheme -notin @('http', 'https') -or -not $parsed.Host -or $parsed.UserInfo -or $parsed.Query -or $parsed.Fragment) { throw 'Installation requires an HTTP(S) URL without credentials, query or fragment' }
