@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"os/user"
-	"runtime"
 	"strings"
 	"time"
 
@@ -20,8 +17,7 @@ import (
 )
 
 func serviceInstallOptions(cmd *cobra.Command, account string, auto bool) (daemon.Options, error) {
-	key, _ := cmd.Flags().GetString("upgrade-public-key")
-	options := daemon.Options{User: account, AutoStart: auto, UpgradePublicKey: key}
+	options := daemon.Options{User: account, AutoStart: auto}
 	readPassword, _ := cmd.Flags().GetBool("password-stdin")
 	if readPassword {
 		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), 4097))
@@ -46,15 +42,18 @@ func init() {
 		if err != nil {
 			return err
 		}
-		s, err := installAgentService(cmd, options)
-		if err != nil {
+		var s *daemon.Settings
+		if err := serviceOperation(cmd, "install", func(context.Context) error {
+			var err error
+			s, err = daemon.Install(options)
+			return err
+		}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Installed %s boot startup for %s (auto-start=%t). Use service start to connect now.\n", s.Backend, s.User, s.AutoStart)
 		return nil
 	}}
-	install.Flags().String("upgrade-public-key", "", "Base64 Ed25519 publisher public key; installs the restricted Unix upgrade helper")
-	install.Flags().String("user", "", "Service account; defaults to the current account")
+	install.Flags().String("user", "", "Service account; Unix requires root")
 	install.Flags().Bool("auto-start", true, "Enable startup on boot")
 	install.Flags().Bool("password-stdin", false, "Read the Windows service account password from stdin; it is never saved")
 	service.AddCommand(install)
@@ -144,57 +143,12 @@ func runBackgroundAgent(ctx context.Context, ready func()) error {
 	return startRun(ctx, ready)
 }
 
-// Elevate service management only; registration and ordinary execution retain
-// the original account and HOME. The public CLI has no home override.
-func installAgentService(cmd *cobra.Command, options daemon.Options) (*daemon.Settings, error) {
-	settings, err := daemon.Install(options)
-	if !errors.Is(err, daemon.ErrPermission) || runtime.GOOS == "windows" {
-		return settings, err
-	}
-	account := options.User
-	if account == "" {
-		current, err := user.Current()
-		if err != nil {
-			return nil, err
-		}
-		account = current.Username
-	}
-	arguments := []string{"install", "--user", account, fmt.Sprintf("--auto-start=%t", options.AutoStart)}
-	if options.UpgradePublicKey != "" {
-		arguments = append(arguments, "--upgrade-public-key", options.UpgradePublicKey)
-	}
-	if err := runElevatedService(cmd, arguments...); err != nil {
-		return nil, err
-	}
-	return daemon.Load()
-}
-
 func serviceOperation(cmd *cobra.Command, action string, operation func(context.Context) error) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), time.Minute)
 	defer cancel()
 	err := operation(ctx)
-	if errors.Is(err, daemon.ErrPermission) && runtime.GOOS != "windows" {
-		return runElevatedService(cmd, action)
+	if errors.Is(err, daemon.ErrPermission) {
+		return fmt.Errorf("%s requires administrator/root privileges; on Unix use sudo -H: %w", action, err)
 	}
 	return err
-}
-
-func runElevatedService(cmd *cobra.Command, args ...string) error {
-	executable, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(cmd.Context(), time.Minute)
-	defer cancel()
-	arguments := append([]string{"-E", "env", "HOME=" + home, executable, "service"}, args...)
-	process := exec.CommandContext(ctx, "sudo", arguments...)
-	process.Stdin, process.Stdout, process.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
-	if err := process.Run(); err != nil {
-		return fmt.Errorf("manage agent service with elevated privileges: %w", err)
-	}
-	return nil
 }

@@ -45,8 +45,7 @@ func init() {
 	startCmd.Flags().StringP("token", "t", "", "agent token")
 	startCmd.Flags().StringP("work-dir", "d", "", "agent work directory")
 	startCmd.Flags().Bool("auto-start", true, "Configure boot startup on first registration; failure falls back to ordinary execution")
-	startCmd.Flags().String("upgrade-public-key", "", "Base64 Ed25519 publisher public key for the restricted Unix upgrade helper")
-	startCmd.Flags().String("service-user", "", "Service account (defaults to current account; Windows LocalSystem must be explicit)")
+	startCmd.Flags().String("service-user", "", "Service account (Unix requires root; Windows LocalSystem must be explicit)")
 	startCmd.Flags().Bool("password-stdin", false, "Read the Windows service account password from standard input")
 }
 
@@ -58,7 +57,7 @@ var startManaged bool
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Zadig-agent",
-	Long:  `Start Zadig-agent, if you use sudo zadig.`,
+	Long:  `Start Zadig-agent. On Unix, use sudo -H zadig-agent start to run as root with self-upgrade support.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		workDir, err := cmd.Flags().GetString("work-dir")
 		if err != nil {
@@ -117,14 +116,16 @@ var startCmd = &cobra.Command{
 		}
 		instanceLease = lease
 		if !background {
+			bootStartupFailed := false
 			requested, _ := cmd.Flags().GetBool("auto-start")
 			if requested && (firstRegistration || cmd.Flags().Changed("auto-start")) {
 				account, _ := cmd.Flags().GetString("service-user")
 				options, err := serviceInstallOptions(cmd, account, true)
 				if err == nil {
-					_, err = installAgentService(cmd, options)
+					_, err = daemon.Install(options)
 				}
 				if err != nil {
+					bootStartupFailed = true
 					fmt.Fprintf(cmd.ErrOrStderr(), "Automatic boot startup could not be configured: %v. Continuing ordinary agent execution; after reboot, run start again.\n", err)
 				}
 			} else if !requested && cmd.Flags().Changed("auto-start") {
@@ -135,7 +136,7 @@ var startCmd = &cobra.Command{
 					}
 				}
 			}
-			if s, err := daemon.Load(); err == nil && s.Backend != daemon.Cron {
+			if s, err := daemon.Load(); !bootStartupFailed && err == nil && s.Backend != daemon.Cron {
 				startManaged = true
 				lease.Close()
 				instanceLease = nil

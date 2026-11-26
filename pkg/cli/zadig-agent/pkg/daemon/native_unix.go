@@ -132,14 +132,11 @@ func launchPlist(s *Settings, label, executable string, arguments []string, keep
 	for _, argument := range arguments {
 		b.WriteString(xmlString(argument))
 	}
-	b.WriteString("</array><key>UserName</key>" + xmlString(s.User) + "<key>WorkingDirectory</key>" + xmlString(s.Directory) + "<key>RunAtLoad</key><true/>")
+	b.WriteString("</array><key>EnvironmentVariables</key><dict><key>HOME</key>" + xmlString(s.Home) + "</dict><key>UserName</key>" + xmlString(s.User) + "<key>WorkingDirectory</key>" + xmlString(s.Directory) + "<key>RunAtLoad</key><true/>")
 	if keepAlive {
 		b.WriteString("<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>5</integer>")
 	}
 	logPath := filepath.Join(s.Home, ".zadig-agent", "log", "service.log")
-	if s.UpgradeBroker {
-		logPath = filepath.Join(brokerDirectory(), "agent.log")
-	}
 	b.WriteString("<key>StandardOutPath</key>" + xmlString(logPath) + "<key>StandardErrorPath</key>" + xmlString(logPath) + "</dict></plist>\n")
 	return []byte(b.String())
 }

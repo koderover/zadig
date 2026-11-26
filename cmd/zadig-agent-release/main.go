@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -11,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
@@ -19,9 +16,8 @@ import (
 func main() {
 	version := flag.String("version", "", "agent release version")
 	dir := flag.String("dir", "", "directory containing release files")
-	signingKey := flag.String("signing-key-file", "", "file containing a base64 Ed25519 private key; never put the key on the command line")
 	flag.Parse()
-	if err := runSigned(*version, *dir, *signingKey); err != nil {
+	if err := run(*version, *dir); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -44,21 +40,7 @@ func create(path string, data []byte, mode os.FileMode) error {
 	return closeErr
 }
 
-func run(version, dir string) error { return runSigned(version, dir, "") }
-
-func runSigned(version, dir, signingKeyFile string) error {
-	var key ed25519.PrivateKey
-	if signingKeyFile != "" {
-		data, err := os.ReadFile(signingKeyFile)
-		if err != nil {
-			return err
-		}
-		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(data)))
-		if err != nil || len(decoded) != ed25519.PrivateKeySize {
-			return fmt.Errorf("invalid release signing private key")
-		}
-		key = ed25519.PrivateKey(decoded)
-	}
+func run(version, dir string) error {
 	if version == "" {
 		return fmt.Errorf("version is required")
 	}
@@ -95,12 +77,6 @@ func runSigned(version, dir, signingKeyFile string) error {
 	path := filepath.Join(dir, "zadig-agent-v"+version+".manifest.json")
 	if err := create(path, data, 0644); err != nil {
 		return err
-	}
-	if key != nil {
-		if err := create(path+".sig", ed25519.Sign(key, data), 0644); err != nil {
-			os.Remove(path)
-			return err
-		}
 	}
 	fmt.Println(path)
 	return nil

@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
 )
 
 func GetCurrentDirectory() (string, error) {
@@ -39,6 +41,14 @@ func Mkdir(dir string) error {
 }
 
 func GetUserHomeDir() (string, error) {
+	// sudo may preserve the caller's HOME; root must not load that user's config.
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		account, err := user.LookupId("0")
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve root home: %w", err)
+		}
+		return account.HomeDir, nil
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current user: %s", err)

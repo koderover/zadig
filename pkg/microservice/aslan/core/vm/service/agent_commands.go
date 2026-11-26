@@ -76,14 +76,11 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 			"cmd":        "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded),
 		}, nil
 	}
-	return map[string]string{"shell": unixAgentInstallCommand(url, server, vm.Agent.Token, vm.Agent.Workspace, platform, upgrade)}, nil
+	return map[string]string{"shell": unixAgentInstallCommand(url, server, vm.Agent.Token, vm.Agent.Workspace, upgrade)}, nil
 }
 
-func unixAgentInstallCommand(url, server, token, workspace, platform string, upgrade bool) string {
-	runner := ""
-	if platform == "linux" {
-		runner = `"$@" `
-	}
+func unixAgentInstallCommand(url, server, token, workspace string, upgrade bool) string {
+	runner := `"$@" `
 	protocols := "=https"
 	if strings.HasPrefix(url, "http://") {
 		protocols = "=http,https"
@@ -91,7 +88,7 @@ func unixAgentInstallCommand(url, server, token, workspace, platform string, upg
 	lines := []string{
 		`(agent_file=$(mktemp) && agent_stage= &&`,
 		`trap 'rm -f "$agent_file"; if [ -n "${agent_stage:-}" ]; then "$@" rm -f "$agent_stage"; fi' EXIT &&`,
-		`if [ "$(id -u)" -eq 0 ]; then set --; else set -- sudo; fi &&`,
+		`if [ "$(id -u)" -eq 0 ]; then set --; else set -- sudo -H; fi &&`,
 		"curl --proto " + shellQuote(protocols) + " --proto-redir " + shellQuote(protocols) + " -fsSL " + shellQuote(url) + ` -o "$agent_file" &&`,
 	}
 	if upgrade {
@@ -123,8 +120,6 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 	lines := []string{
 		`& {`,
 		`$ErrorActionPreference = 'Stop'`,
-		`$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())`,
-		`if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run PowerShell as administrator' }`,
 		`[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
 		`$agent = Join-Path $HOME 'zadig-agent.exe'`,
 		`$download = "$agent.download-$([guid]::NewGuid().ToString('N')).exe"`,
@@ -134,11 +129,7 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 	}
 	lines = append(lines,
 		`$service = Get-Service -Name zadig-agent -ErrorAction SilentlyContinue`,
-		`$credential = $null`,
-		`if (-not $service) {`,
-		`  $credential = Get-Credential -UserName ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -Message 'Windows Service account credentials'`,
-		`  if (-not $credential) { throw 'Service account credentials are required' }`,
-		`}`,
+		`$autoStart = [bool]($service -and $service.StartType -eq 'Automatic')`,
 		`try {`,
 		"  Invoke-WebRequest -UseBasicParsing -Uri "+powershellQuote(url)+" -OutFile $download",
 	)
@@ -160,19 +151,13 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 	}
 	lines = append(lines,
 		`  Move-Item -LiteralPath $download -Destination $agent`,
-		"  $agentArgs = @('install', '--server-url', "+powershellQuote(server)+", '--token', "+powershellQuote(token)+")",
+		`  $agentArgs = @('install', "--auto-start=$autoStart", '--server-url', `+powershellQuote(server)+", '--token', "+powershellQuote(token)+")",
 	)
 	if workspace != "" {
 		lines = append(lines, "  $agentArgs += @('--work-dir', "+powershellQuote(workspace)+")")
 	}
 	lines = append(lines,
-		`  if ($credential) {`,
-		`    $previousEncoding = $OutputEncoding`,
-		`    try {`,
-		`      $OutputEncoding = [System.Text.UTF8Encoding]::new($false)`,
-		`      $credential.GetNetworkCredential().Password | & $agent @agentArgs --service-user $credential.UserName --password-stdin`,
-		`    } finally { $credential = $null; $OutputEncoding = $previousEncoding }`,
-		`  } else { & $agent @agentArgs }`,
+		`  & $agent @agentArgs`,
 		`  if ($LASTEXITCODE -ne 0) { throw 'Agent installation/start failed' }`,
 		`} finally { Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue }`,
 		`}`,

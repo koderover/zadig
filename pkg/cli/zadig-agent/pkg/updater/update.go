@@ -28,18 +28,20 @@ import (
 )
 
 type Probe struct {
-	Version        string `json:"version"`
-	OS             string `json:"os"`
-	Arch           string `json:"arch"`
-	Protocol       int    `json:"protocol"`
-	BrokerProtocol int    `json:"broker_protocol,omitempty"`
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	Arch     string `json:"arch"`
+	Protocol int    `json:"protocol"`
 }
 
 func CurrentProbe() Probe {
-	return Probe{Version: config.BuildAgentVersion, OS: runtime.GOOS, Arch: runtime.GOARCH, Protocol: 1, BrokerProtocol: 1}
+	return Probe{config.BuildAgentVersion, runtime.GOOS, runtime.GOARCH, 1}
 }
 
 func Supported() bool {
+	if runtime.GOOS != "windows" && os.Geteuid() != 0 {
+		return false
+	}
 	if runtime.GOOS == "windows" && runtime.GOARCH != "amd64" {
 		return false
 	}
@@ -245,10 +247,6 @@ func (m *Manager) Handle(ctx context.Context, response *network.HeartbeatServerR
 		return err
 	}
 	st := &state{ServiceBackend: daemon.RunningBackend(), Report: agentupgrade.Report{ID: instruction.ID, Status: agentupgrade.Downloading}, FromVersion: config.BuildAgentVersion, TargetVersion: instruction.TargetVersion, Executable: executable, WorkingDirectory: workingDir, Arguments: []string{"start"}, Environment: append(cleanEnvironment(os.Environ()), config.BackgroundEnv+"=1"), Directory: filepath.Join(filepath.Dir(executable), ".zadig-upgrade-"+instruction.ID)}
-	if daemon.UsesUpgradeBroker() {
-		st.PrivilegedHelper = true
-		st.Directory = filepath.Join(filepath.Dir(p), "staging", instruction.ID)
-	}
 	if err := changeState(func(old *state) (*state, error) {
 		if old != nil && !old.Status.Terminal() {
 			return nil, fmt.Errorf("another upgrade is active")
@@ -300,11 +298,6 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 
 	ctx, cancel := context.WithTimeout(ctx, 70*time.Minute)
 	defer cancel()
-	if s.PrivilegedHelper {
-		if err := os.MkdirAll(filepath.Dir(s.Directory), 0700); err != nil {
-			return err
-		}
-	}
 	if err := os.Mkdir(s.Directory, 0700); err != nil {
 		return fmt.Errorf("create upgrade staging directory: %w", err)
 	}
@@ -366,9 +359,6 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	if strings.TrimPrefix(probe.Version, "v") != s.TargetVersion || probe.OS != runtime.GOOS || probe.Arch != runtime.GOARCH || probe.Protocol != 1 {
 		return fmt.Errorf("new agent version, platform or upgrade protocol mismatch")
 	}
-	if s.PrivilegedHelper && probe.BrokerProtocol != 1 {
-		return fmt.Errorf("target agent does not support the privileged upgrade helper")
-	}
 	if err := copyFile(s.Executable, s.helper(), 0700); err != nil {
 		return err
 	}
@@ -382,11 +372,6 @@ func (m *Manager) prepare(ctx context.Context, instruction *agentupgrade.Instruc
 	}
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	if s.PrivilegedHelper {
-		if err := daemon.PrepareBrokerUpgrade(ctx, s.ID, s.TargetVersion, instruction.ManifestURL, s.candidate()); err != nil {
-			return err
-		}
 	}
 	if err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Restarting }); err != nil {
 		return err

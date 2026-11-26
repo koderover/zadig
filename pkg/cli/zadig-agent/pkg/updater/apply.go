@@ -187,17 +187,8 @@ func Apply() error {
 		s.ConfigSaved = true
 	}
 
-	if s.PrivilegedHelper {
-		if _, err := daemon.BrokerOperation(context.Background(), "apply", s.ID); err != nil {
-			return rollback(s, &lease, err)
-		}
-	} else {
-		if err := replaceFile(s.Executable, s.backup()); err != nil {
-			return rollback(s, &lease, err)
-		}
-		if err := replaceFile(s.candidate(), s.Executable); err != nil {
-			return rollback(s, &lease, err)
-		}
+	if err := replaceExecutable(s); err != nil {
+		return rollback(s, &lease, err)
 	}
 	if err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Verifying; s.Healthy = false }); err != nil {
 		return rollback(s, &lease, err)
@@ -230,11 +221,6 @@ func Apply() error {
 					return markFailure(s.ID, fmt.Errorf("restore service recovery policy: %w", err))
 				}
 			}
-			if s.PrivilegedHelper {
-				if _, err := daemon.BrokerOperation(context.Background(), "commit", s.ID); err != nil {
-					return err
-				}
-			}
 			err := updateState(s.ID, func(s *state) { s.Status = agentupgrade.Succeeded; s.Error = "" })
 			if err == nil {
 				cleanup(s)
@@ -263,6 +249,21 @@ func Apply() error {
 	}
 }
 
+func replaceExecutable(s *state) error {
+	info, err := os.Stat(s.Executable)
+	if err != nil {
+		return err
+	}
+	// Staging files are private; retain the installed command's permissions.
+	if err := os.Chmod(s.candidate(), info.Mode().Perm()); err != nil {
+		return fmt.Errorf("preserve agent executable permissions: %w", err)
+	}
+	if err := replaceFile(s.Executable, s.backup()); err != nil {
+		return err
+	}
+	return replaceFile(s.candidate(), s.Executable)
+}
+
 func markFailure(id string, cause error) error {
 	if err := updateState(id, func(s *state) { s.Status = agentupgrade.Failed; s.Error = cause.Error() }); err != nil {
 		return fmt.Errorf("%v; persist failure: %w", cause, err)
@@ -288,11 +289,7 @@ func rollback(s *state, lease **os.File, cause error) error {
 		*lease = lock
 	}
 
-	if s.PrivilegedHelper {
-		if _, err := daemon.BrokerOperation(context.Background(), "rollback", s.ID); err != nil {
-			return markFailure(s.ID, fmt.Errorf("%v; privileged rollback: %w", cause, err))
-		}
-	} else if _, err := os.Stat(s.backup()); err == nil {
+	if _, err := os.Stat(s.backup()); err == nil {
 		if err := replaceFile(s.backup(), s.Executable); err != nil {
 			return markFailure(s.ID, fmt.Errorf("%v; restore old executable: %w", cause, err))
 		}

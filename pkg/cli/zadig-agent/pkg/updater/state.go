@@ -21,8 +21,7 @@ var errLocked = errors.New("agent lock is held by another process")
 var errRecoveringUpgrade = errors.New("recovering interrupted agent upgrade; helper will restart the agent")
 
 type state struct {
-	ServiceBackend   string `json:"service_backend,omitempty"`
-	PrivilegedHelper bool   `json:"privileged_helper,omitempty"`
+	ServiceBackend string `json:"service_backend,omitempty"`
 	agentupgrade.Report
 	FromVersion      string   `json:"from_version"`
 	TargetVersion    string   `json:"target_version"`
@@ -107,15 +106,7 @@ func (s *state) validateMetadata() error {
 	if _, err := primitive.ObjectIDFromHex(s.ID); err != nil {
 		return fmt.Errorf("invalid local upgrade ID")
 	}
-	expectedDirectory := filepath.Join(filepath.Dir(s.Executable), ".zadig-upgrade-"+s.ID)
-	if s.PrivilegedHelper {
-		p, err := statePath()
-		if err != nil {
-			return err
-		}
-		expectedDirectory = filepath.Join(filepath.Dir(p), "staging", s.ID)
-	}
-	if !filepath.IsAbs(s.Executable) || s.Directory != expectedDirectory || !filepath.IsAbs(s.WorkingDirectory) {
+	if !filepath.IsAbs(s.Executable) || s.Directory != filepath.Join(filepath.Dir(s.Executable), ".zadig-upgrade-"+s.ID) || !filepath.IsAbs(s.WorkingDirectory) {
 		return fmt.Errorf("invalid local upgrade paths")
 	}
 	if s.FromVersion == "" || s.TargetVersion == "" || len(s.Arguments) != 1 || s.Arguments[0] != "start" {
@@ -262,15 +253,6 @@ func CheckStartup() error {
 	if err != nil {
 		log.Errorf("upgrade state unavailable; task scheduling will remain paused: %v", err)
 		return nil
-	}
-	if s != nil && s.PrivilegedHelper {
-		if err := reconcileBroker(s); err != nil {
-			return err
-		}
-		s, err = readState()
-		if err != nil {
-			return err
-		}
 	}
 	return checkStartupState(s)
 }

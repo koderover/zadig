@@ -12,7 +12,6 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(&cobra.Command{Use: "upgrade-broker", Hidden: true, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error { return daemon.RunUpgradeBroker(cmd.Context()) }})
 	rootCmd.AddCommand(&cobra.Command{Use: "wait-for-stop", Hidden: true, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(cmd.Context(), time.Minute)
 		defer cancel()

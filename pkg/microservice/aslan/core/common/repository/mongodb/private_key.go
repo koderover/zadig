@@ -195,7 +195,7 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		if ok {
 			for key, value := range agent {
 				switch key {
-				case "disconnected", "upgrade", "upgrade_supported", "last_heartbeat_time", "agent_version", "zadig_version", "need_update":
+				case "disconnected", "upgrade", "upgrade_supported", "upgrade_error", "last_heartbeat_time", "agent_version", "zadig_version", "need_update":
 					continue
 				}
 				fields["agent."+key] = value
