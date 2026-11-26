@@ -71,10 +71,13 @@ func agentInstallCommands(vm *commonmodels.PrivateKey, platform, arch string, up
 		for _, unit := range utf16.Encode([]rune(command)) {
 			encoded = append(encoded, byte(unit), byte(unit>>8))
 		}
-		return map[string]string{
-			"powershell": command,
-			"cmd":        "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded),
-		}, nil
+		cmdCommand := "powershell.exe -NoProfile -EncodedCommand " + base64.StdEncoding.EncodeToString(encoded)
+		if !upgrade {
+			if direct, ok := windowsAgentCMDInstallCommand(downloadURL, server, vm.Agent.Token, vm.Agent.Workspace); ok {
+				cmdCommand = direct
+			}
+		}
+		return map[string]string{"powershell": command, "cmd": cmdCommand}, nil
 	}
 	return map[string]string{"shell": unixAgentInstallCommand(base+"/install.sh", downloadURL, server, vm.Agent.Token, vm.Agent.Workspace, upgrade)}, nil
 }
@@ -113,13 +116,12 @@ func unixAgentInstallCommand(scriptURL, downloadURL, server, token, workspace st
 
 func windowsAgentInstallCommand(scriptURL, downloadURL, server, token, workspace string, upgrade bool) string {
 	if !upgrade {
-		start := "& $agent install --service-user LocalSystem --auto-start=true --server-url " + powershellQuote(server) + " --token " + powershellQuote(token)
+		start := `& "$HOME\zadig-agent.exe" install --service-user LocalSystem --auto-start=true --server-url ` + powershellQuote(server) + " --token " + powershellQuote(token)
 		if workspace != "" {
 			start += " --work-dir " + powershellQuote(workspace)
 		}
 		return strings.Join([]string{
-			`$agent = Join-Path $HOME 'zadig-agent.exe'`,
-			"Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(downloadURL) + " -OutFile $agent -ErrorAction Stop",
+			"Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(downloadURL) + ` -OutFile "$HOME\zadig-agent.exe" -ErrorAction Stop`,
 			start,
 		}, "\n")
 	}
@@ -131,4 +133,25 @@ func windowsAgentInstallCommand(scriptURL, downloadURL, server, token, workspace
 	return "& { $ErrorActionPreference = 'Stop'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " +
 		"& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri " + powershellQuote(scriptURL) +
 		" -ErrorAction Stop).Content))" + args + " }"
+}
+
+func windowsAgentCMDInstallCommand(downloadURL, server, token, workspace string) (string, bool) {
+	// Keep the encoded PowerShell fallback for values that CMD would expand or reinterpret.
+	for _, value := range []string{downloadURL, server, token, workspace} {
+		if strings.ContainsAny(value, "%!\"\r\n\x00") {
+			return "", false
+		}
+	}
+	quote := func(value string) string {
+		trailingSlashes := len(value) - len(strings.TrimRight(value, `\`))
+		return `"` + value + strings.Repeat(`\`, trailingSlashes) + `"`
+	}
+	start := `"%USERPROFILE%\zadig-agent.exe" install --service-user LocalSystem --auto-start=true --server-url ` + quote(server) + " --token " + quote(token)
+	if workspace != "" {
+		start += " --work-dir " + quote(workspace)
+	}
+	return strings.Join([]string{
+		"curl.exe -fL " + quote(downloadURL) + ` -o "%USERPROFILE%\zadig-agent.exe"`,
+		start,
+	}, "\n"), true
 }
