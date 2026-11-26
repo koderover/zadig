@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +32,67 @@ func replaceFile(from, to string) error {
 	return windows.MoveFileEx(a, b, windows.MOVEFILE_REPLACE_EXISTING|windows.MOVEFILE_WRITE_THROUGH)
 }
 
-func protectSettings(s *Settings, path string) error { return nil }
+func protectSettings(s *Settings, path string) error {
+	if !strings.EqualFold(s.User, "LocalSystem") {
+		return nil
+	}
+	// Limit permission changes to the agent executable and its private state.
+	// The user's profile and workflow workspace retain their existing ACLs.
+	paths := []string{s.Executable}
+	if err := filepath.WalkDir(filepath.Dir(path), func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		name, err := windows.UTF16PtrFromString(path)
+		if err != nil {
+			return err
+		}
+		attributes, err := windows.GetFileAttributes(name)
+		if err != nil {
+			return err
+		}
+		if attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			return fmt.Errorf("refusing linked agent path: %s", path)
+		}
+		paths = append(paths, path)
+		return nil
+	}); err != nil {
+		return err
+	}
+	for _, path := range paths {
+		name, err := windows.UTF16PtrFromString(path)
+		if err != nil {
+			return err
+		}
+		attributes, err := windows.GetFileAttributes(name)
+		if err != nil {
+			return err
+		}
+		if attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			return fmt.Errorf("refusing linked agent path: %s", path)
+		}
+		sddl := "O:BAG:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)"
+		if attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
+			sddl = "O:BAG:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+		}
+		sd, err := windows.SecurityDescriptorFromString(sddl)
+		if err != nil {
+			return err
+		}
+		owner, _, err := sd.Owner()
+		if err != nil {
+			return err
+		}
+		dacl, _, err := sd.DACL()
+		if err != nil {
+			return err
+		}
+		if err := windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, owner, nil, dacl, nil); err != nil {
+			return fmt.Errorf("protect agent path %s: %w", path, err)
+		}
+	}
+	return nil
+}
 
 func detectBackend() (string, error) {
 	m, err := mgr.Connect()

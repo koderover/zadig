@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 )
 
 var ErrPermission = errors.New("administrator/root privileges are required to manage the agent service")
@@ -310,6 +311,9 @@ func PrepareRuntime(path string) (*Settings, error) {
 		return nil, err
 	}
 	if err := os.Chdir(s.Directory); err != nil {
+		return nil, err
+	}
+	if err := log.InitFile(); err != nil {
 		return nil, err
 	}
 	return s, nil

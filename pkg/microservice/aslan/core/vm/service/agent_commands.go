@@ -120,46 +120,79 @@ func windowsAgentInstallCommand(url, server, token, workspace string, upgrade bo
 	lines := []string{
 		`& {`,
 		`$ErrorActionPreference = 'Stop'`,
+		`$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())`,
+		`if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run PowerShell as administrator' }`,
 		`[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
-		`$agent = Join-Path $HOME 'zadig-agent.exe'`,
+		`$agentHome = $HOME`,
+		`$agent = Join-Path $agentHome 'zadig-agent.exe'`,
+		`$settings = Join-Path $agentHome '.zadig-agent\service.json'`,
+		`$service = Get-Service -Name zadig-agent -ErrorAction SilentlyContinue`,
+		`if ($service) {`,
+		`  $config = Get-CimInstance Win32_Service -Filter "Name = 'zadig-agent'"`,
+		`  if ($config.StartName -notin @('LocalSystem', 'NT AUTHORITY\SYSTEM')) { throw 'Existing service uses another account; configure LocalSystem before updating, keeping its executable and agent configuration' }`,
+		`  $agent = if ($config.PathName -match '^"([^"]+)"') { $Matches[1] } else { ($config.PathName -split '\s+', 2)[0] }`,
+		`  $settingsArg = [regex]::Match($config.PathName, '(?:^|\s)--settings\s+(?:"([^"]+)"|(\S+))')`,
+		`  if (-not $settingsArg.Success) { throw 'Existing service settings path is missing; repair the service command before updating' }`,
+		`  $settings = if ($settingsArg.Groups[1].Success) { $settingsArg.Groups[1].Value } else { $settingsArg.Groups[2].Value }`,
+		`  if (-not [IO.Path]::IsPathRooted($agent) -or -not [IO.Path]::IsPathRooted($settings)) { throw 'Existing service paths must be absolute' }`,
+		`  if ((Get-Item -Force -LiteralPath $settings).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing linked service settings' }`,
+		`  $registered = Get-Content -Raw -LiteralPath $settings | ConvertFrom-Json`,
+		`  $agentHome = $registered.home`,
+		`  if (-not [IO.Path]::IsPathRooted($agentHome) -or $registered.user -ne 'LocalSystem' -or $registered.backend -ne 'windows' -or -not [string]::Equals($registered.executable, $agent, [StringComparison]::OrdinalIgnoreCase) -or -not [string]::Equals((Join-Path $agentHome '.zadig-agent\service.json'), $settings, [StringComparison]::OrdinalIgnoreCase)) { throw 'Existing service settings do not match the service command; repair them before updating' }`,
+		`}`,
+		`$autoStart = if ($service) { $service.StartType -eq 'Automatic' } else { $true }`,
 		`$download = "$agent.download-$([guid]::NewGuid().ToString('N')).exe"`,
+		`foreach ($path in @($agentHome, (Split-Path -Parent $agent), (Split-Path -Parent $settings))) {`,
+		`  if ((Test-Path -LiteralPath $path) -and ((Get-Item -Force -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Refusing linked agent directory: $path" }`,
+		`}`,
+		`if ((Test-Path -LiteralPath $agent) -and ((Get-Item -Force -LiteralPath $agent).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Refusing linked agent executable' }`,
 	}
 	if !upgrade {
-		lines = append(lines, `if (Test-Path -LiteralPath $agent) { throw 'Agent already exists; use the recovery or upgrade command' }`)
+		lines = append(lines, `if ($service -or (Test-Path -LiteralPath $agent)) { throw 'Agent already exists; use the recovery or upgrade command' }`)
 	}
 	lines = append(lines,
-		`$service = Get-Service -Name zadig-agent -ErrorAction SilentlyContinue`,
-		`$autoStart = [bool]($service -and $service.StartType -eq 'Automatic')`,
+		`$previousProfile = $env:USERPROFILE`,
+		`Push-Location -LiteralPath $agentHome`,
 		`try {`,
+		`  $env:USERPROFILE = $agentHome`,
 		"  Invoke-WebRequest -UseBasicParsing -Uri "+powershellQuote(url)+" -OutFile $download",
 	)
 	if upgrade {
 		lines = append(lines,
-			`  if (Test-Path -LiteralPath $agent) {`,
-			`    if ((Get-Item -LiteralPath $agent).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing to replace a linked agent file' }`,
-			`    & $agent stop`,
+			`  if ($service -or (Test-Path -LiteralPath $agent)) {`,
+			`    & $download stop`,
 			`    if ($LASTEXITCODE -ne 0) { throw 'Could not stop the existing agent' }`,
 			`    if ($service -and $service.Status -ne 'Stopped') { Stop-Service -Name zadig-agent; $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(60)) }`,
 			`    Start-Sleep -Seconds 6`,
 			`    & $download wait-for-stop`,
 			`    if ($LASTEXITCODE -ne 0) { throw 'Existing agent has not stopped' }`,
-			`    $backup = "$agent.previous-$([guid]::NewGuid().ToString('N'))"`,
-			`    Move-Item -LiteralPath $agent -Destination $backup`,
-			`    Write-Host "Previous executable: $backup"`,
+			`    if (Test-Path -LiteralPath $agent) {`,
+			`      $backup = "$agent.previous-$([guid]::NewGuid().ToString('N'))"`,
+			`      Move-Item -LiteralPath $agent -Destination $backup`,
+			`      Write-Host "Previous executable: $backup"`,
+			`    }`,
 			`  }`,
 		)
 	}
 	lines = append(lines,
 		`  Move-Item -LiteralPath $download -Destination $agent`,
-		`  $agentArgs = @('install', "--auto-start=$autoStart", '--server-url', `+powershellQuote(server)+", '--token', "+powershellQuote(token)+")",
+		`  $agentArgs = @('install', '--service-user', 'LocalSystem', "--auto-start=$autoStart", '--server-url', `+powershellQuote(server)+", '--token', "+powershellQuote(token)+")",
 	)
 	if workspace != "" {
-		lines = append(lines, "  $agentArgs += @('--work-dir', "+powershellQuote(workspace)+")")
+		if upgrade {
+			lines = append(lines, "  if (-not (Test-Path -LiteralPath (Join-Path $agentHome '.zadig-agent\\agent_config.yaml'))) { $agentArgs += @('--work-dir', "+powershellQuote(workspace)+") }")
+		} else {
+			lines = append(lines, "  $agentArgs += @('--work-dir', "+powershellQuote(workspace)+")")
+		}
 	}
 	lines = append(lines,
 		`  & $agent @agentArgs`,
 		`  if ($LASTEXITCODE -ne 0) { throw 'Agent installation/start failed' }`,
-		`} finally { Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue }`,
+		`} finally {`,
+		`  $env:USERPROFILE = $previousProfile`,
+		`  Pop-Location`,
+		`  Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue`,
+		`}`,
 		`}`,
 	)
 	return strings.Join(lines, "\n")

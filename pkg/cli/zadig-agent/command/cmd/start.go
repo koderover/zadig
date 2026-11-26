@@ -164,6 +164,9 @@ var startCmd = &cobra.Command{
 }
 
 func startPreRun(serverURL, token, workDir string) error {
+	if err := log.InitFile(); err != nil {
+		return err
+	}
 	// remove some running garbage
 	resetAgentRunningFile()
 
