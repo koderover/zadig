@@ -27,7 +27,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
     apk del tzdata
 
 RUN apk update
-RUN apk --no-cache add curl curl-dev
+RUN apk --no-cache upgrade && apk --no-cache add curl curl-dev
 
 WORKDIR /app
 
