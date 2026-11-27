@@ -55,7 +55,7 @@ PY
 helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" --version "$ZADIG_CHART_VERSION" \
   --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
   -f "$SYNC_DIR/values.current.json" -f "$SYNC_DIR/rotation-values.json" \
-  --wait --timeout 10m > "$SYNC_DIR/helm-dex.out"
+  --no-hooks --wait --timeout 10m > "$SYNC_DIR/helm-dex.out"
 
 helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$SYNC_DIR/values.after.json"
 python3 - "$SYNC_DIR" <<'PY'
