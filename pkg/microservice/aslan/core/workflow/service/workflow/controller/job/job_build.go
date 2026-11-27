@@ -111,6 +111,10 @@ func (j BuildJobController) Validate(isExecution bool) error {
 		optionMap[key] = build
 	}
 
+	if err := j.validateBuildProject(); err != nil {
+		return err
+	}
+
 	if isExecution {
 		latestJob, err := j.workflow.FindJob(j.name, j.jobType)
 		if err != nil {
@@ -140,6 +144,35 @@ func (j BuildJobController) Validate(isExecution bool) error {
 		}
 	}
 
+	return nil
+}
+
+// validateBuildProject rejects builds that belong to another project, e.g. from a workflow YAML copied across projects.
+// Workflow templates have no project and are skipped.
+func (j BuildJobController) validateBuildProject() error {
+	if j.workflow.Project == "" {
+		return nil
+	}
+
+	// check both options and selections, since ToTask builds with the selections
+	builds := make([]*commonmodels.ServiceAndBuild, 0, len(j.jobSpec.ServiceAndBuildsOptions)+len(j.jobSpec.ServiceAndBuilds))
+	builds = append(builds, j.jobSpec.ServiceAndBuildsOptions...)
+	builds = append(builds, j.jobSpec.ServiceAndBuilds...)
+
+	buildSvc := commonservice.NewBuildService()
+	for _, build := range builds {
+		if build.BuildName == "" {
+			continue
+		}
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			// a missing build is reported when the job is updated before execution
+			continue
+		}
+		if buildInfo.ProductName != j.workflow.Project {
+			return fmt.Errorf("job %s: build %s belongs to project %s, not project %s", j.name, build.BuildName, buildInfo.ProductName, j.workflow.Project)
+		}
+	}
 	return nil
 }
 
@@ -260,10 +293,11 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 				continue
 			}
 
+			// the build is decided by the configured option, not by user input
 			item := &commonmodels.ServiceAndBuild{
 				ServiceName:      configuredSelection.ServiceName,
 				ServiceModule:    configuredSelection.ServiceModule,
-				BuildName:        configuredSelection.BuildName,
+				BuildName:        newOptionMap[key].BuildName,
 				Image:            configuredSelection.Image,
 				Package:          configuredSelection.Package,
 				ImageName:        configuredSelection.ImageName,
