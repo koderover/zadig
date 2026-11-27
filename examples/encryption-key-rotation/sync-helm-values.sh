@@ -14,10 +14,17 @@ ZADIG_RELEASE=$4
 ZADIG_CHART=$5
 ZADIG_CHART_VERSION=$6
 
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.current.json"
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" --all -o json > "$ROTATION_DIR/values.computed.json"
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get secret zadig-aes-key -o json > "$ROTATION_DIR/aes.current.json"
-python3 - "$ROTATION_DIR" <<'PY'
+# Keep the first attempt intact, including after a failed or interrupted upgrade.
+SYNC_DIR="$ROTATION_DIR/helm-values-sync"
+if ! mkdir -m 700 "$SYNC_DIR"; then
+  printf 'Cannot create sync directory; inspect the previous attempt before retrying: %s\n' "$SYNC_DIR" >&2
+  exit 1
+fi
+
+helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$SYNC_DIR/values.current.json"
+helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" --all -o json > "$SYNC_DIR/values.computed.json"
+kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get secret zadig-aes-key -o json > "$SYNC_DIR/aes.current.json"
+python3 - "$SYNC_DIR" <<'PY'
 import base64
 import json
 import secrets
@@ -26,8 +33,8 @@ from pathlib import Path
 
 folder = Path(sys.argv[1])
 values = json.loads((folder / "values.current.json").read_text()) or {}
-old = base64.b64decode(json.loads((folder / "aes.before.json").read_text())["data"]["aesKey"], validate=True).decode()
-new = (folder / "aes-next").read_text()
+old = base64.b64decode(json.loads((folder.parent / "aes.before.json").read_text())["data"]["aesKey"], validate=True).decode()
+new = (folder.parent / "aes-next").read_text()
 actual = base64.b64decode(json.loads((folder / "aes.current.json").read_text())["data"]["aesKey"], validate=True).decode()
 if actual != new:
     sys.exit("AES Secret does not match the rotated key")
@@ -47,11 +54,11 @@ PY
 
 helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" --version "$ZADIG_CHART_VERSION" \
   --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
-  -f "$ROTATION_DIR/values.current.json" -f "$ROTATION_DIR/rotation-values.json" \
-  --wait --timeout 10m > "$ROTATION_DIR/helm-dex.out"
+  -f "$SYNC_DIR/values.current.json" -f "$SYNC_DIR/rotation-values.json" \
+  --wait --timeout 10m > "$SYNC_DIR/helm-dex.out"
 
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.after.json"
-python3 - "$ROTATION_DIR" <<'PY'
+helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$SYNC_DIR/values.after.json"
+python3 - "$SYNC_DIR" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -59,7 +66,7 @@ from pathlib import Path
 folder = Path(sys.argv[1])
 before = json.loads((folder / "values.current.json").read_text()) or {}
 after = json.loads((folder / "values.after.json").read_text())
-new = (folder / "aes-next").read_text()
+new = (folder.parent / "aes-next").read_text()
 configured = before.get("global", {}).get("encryption", {}).get("key")
 expected = new if configured else configured
 if after.get("global", {}).get("encryption", {}).get("key") != expected:

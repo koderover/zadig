@@ -293,7 +293,7 @@ AES 轮转并验收通过后，在有目标集群权限的运维终端运行同�
 3. 从包含默认值的完整 Dex 客户端列表中更换 Zadig 客户端密钥，保留其他配置。
 4. 使用指定的同一版本 Chart 执行升级、等待服务就绪，并读回 Helm values 验证 AES 和 Dex 配置。
 
-从仓库根目录执行，Chart 必须与当前部署一致；脚本依赖前面维护步骤生成的 `aes.before.json` 和 `aes-next`，不能在 AES 切换前执行。每次执行都会生成新的 Dex 密钥，不要在未核实上次结果时重复运行。
+从仓库根目录执行，Chart 必须与当前部署一致；脚本依赖前面维护步骤生成的 `aes.before.json` 和 `aes-next`，不能在 AES 切换前执行。脚本独占创建维护目录下的 `helm-values-sync` 子目录保存备份和执行结果；已有该目录时直接退出，不覆盖上次记录或再次更换 Dex 密钥。失败或中断后先核对 release 实际状态；确需重试时，将原 `aes.before.json` 和同一个 `aes-next` 复制到新的维护目录后再执行，不要重新生成 AES key。
 
 ```bash
 ZADIG_CHART='<当前已部署的 Chart，例如 koderover-chart/zadig>'
