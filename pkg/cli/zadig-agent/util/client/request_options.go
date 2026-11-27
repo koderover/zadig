@@ -17,6 +17,7 @@ limitations under the License.
 package httpclient
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
@@ -83,4 +84,8 @@ func SetFormData(data map[string]string) RequestFunc {
 	return func(r *resty.Request) {
 		r.SetFormData(data)
 	}
+}
+
+func SetContext(ctx context.Context) RequestFunc {
+	return func(r *resty.Request) { r.SetContext(ctx) }
 }

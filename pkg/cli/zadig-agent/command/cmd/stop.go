@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -36,11 +35,7 @@ var stopCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		return stopPreRun()
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := stopRun(); err != nil {
-			fmt.Printf("Stop failed: %v.", err)
-		}
-	},
+	RunE: func(cmd *cobra.Command, args []string) error { return stopRun() },
 	PostRun: func(cmd *cobra.Command, args []string) {
 		if err := stopPostRun(); err != nil {
 			fmt.Printf("Stop post run failed: %v.", err)
@@ -53,6 +48,9 @@ func stopPreRun() error {
 }
 
 func stopRun() error {
+	if err := config.SetConnectionAllowed(false); err != nil {
+		return err
+	}
 	stop, err := config.GetStopFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get stop file path: %v", err)

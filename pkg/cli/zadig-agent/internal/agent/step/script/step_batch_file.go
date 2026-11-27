@@ -27,11 +27,10 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-	"gopkg.in/yaml.v2"
-
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"gopkg.in/yaml.v2"
 )
 
 type BatchFileStep struct {
@@ -75,6 +74,7 @@ func (s *BatchFileStep) Run(ctx context.Context) error {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
 	cmd := exec.CommandContext(ctx, userScriptFile)
+	configureCancellation(cmd)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 

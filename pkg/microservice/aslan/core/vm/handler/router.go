@@ -27,12 +27,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		vm.PUT("/:vmid/agent/offline", OfflineVM)
 		vm.PUT("/:vmid/agent/recovery", RecoveryVM)
 		vm.PUT("/:vmid/agent/upgrade", UpgradeAgent)
+		vm.POST("/agents/upgrade", BatchUpgradeAgents)
 		vm.GET("/vms", ListVMs)
 		vm.GET("/labels", ListVMLabels)
 	}
 
 	vmAgent := router.Group("agents")
 	{
+		vmAgent.GET("/install.sh", GetAgentUnixInstallScript)
+		vmAgent.GET("/install.ps1", GetAgentWindowsInstallScript)
 		vmAgent.POST("/register", RegisterAgent)
 		vmAgent.POST("/verify", VerifyAgent)
 		vmAgent.POST("/heartbeat", HeartbeatAgent)

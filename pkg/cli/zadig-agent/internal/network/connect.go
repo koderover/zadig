@@ -17,10 +17,13 @@ limitations under the License.
 package network
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	httpclient "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/client"
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 )
 
 const (
@@ -48,6 +51,7 @@ type RegisterAgentParameters struct {
 }
 
 type RegisterAgentResponse struct {
+	NeedOffline      bool   `json:"need_offline"`
 	AgentID          string `json:"agent_id"`
 	VmName           string `json:"vm_name"`
 	Token            string `json:"token"`
@@ -109,7 +113,8 @@ type VerifyAgentRequest struct {
 }
 
 type VerifyAgentResponse struct {
-	Verified bool `json:"verified"`
+	NeedOffline bool `json:"need_offline"`
+	Verified    bool `json:"verified"`
 }
 
 func VerifyAgent(config *AgentConfig, parameters *VerifyAgentParameters) (*VerifyAgentResponse, error) {
@@ -137,12 +142,15 @@ func VerifyAgent(config *AgentConfig, parameters *VerifyAgentParameters) (*Verif
 }
 
 type HeartbeatParameters struct {
-	MemTotal      uint64 `json:"mem_total"`
-	UsedMem       uint64 `json:"used_mem"`
-	DiskSpace     uint64 `json:"disk_space"`
-	FreeDiskSpace uint64 `json:"free_disk_space"`
-	Hostname      string `json:"hostname"`
-	AgentVersion  string `json:"agent_version"`
+	UpgradeError     string               `json:"upgrade_error,omitempty"`
+	UpgradeSupported bool                 `json:"upgrade_supported"`
+	UpgradeReport    *agentupgrade.Report `json:"upgrade_report,omitempty"`
+	MemTotal         uint64               `json:"mem_total"`
+	UsedMem          uint64               `json:"used_mem"`
+	DiskSpace        uint64               `json:"disk_space"`
+	FreeDiskSpace    uint64               `json:"free_disk_space"`
+	Hostname         string               `json:"hostname"`
+	AgentVersion     string               `json:"agent_version"`
 }
 
 type HeartbeatServerRequest struct {
@@ -151,26 +159,43 @@ type HeartbeatServerRequest struct {
 }
 
 type HeartbeatServerResponse struct {
-	NeedOffline            bool   `json:"need_offline"`
-	NeedUpdateAgentVersion bool   `json:"need_update_agent_version"`
-	AgentVersion           string `json:"agent_version"`
-	ScheduleWorkflow       bool   `json:"schedule_workflow"`
-	WorkDir                string `json:"work_dir"`
-	Concurrency            int    `json:"concurrency"`
-	CacheType              string `json:"cache_type"`
-	ServerURL              string `json:"server_url"`
-	VmName                 string `json:"vm_name"`
-	Description            string `json:"description"`
-	ZadigVersion           string `json:"zadig_version"`
+	Upgrade                *agentupgrade.Instruction `json:"upgrade,omitempty"`
+	UpgradeAccepted        *agentupgrade.Report      `json:"upgrade_accepted,omitempty"`
+	NeedOffline            bool                      `json:"need_offline"`
+	NeedUpdateAgentVersion bool                      `json:"need_update_agent_version"`
+	AgentVersion           string                    `json:"agent_version"`
+	ScheduleWorkflow       bool                      `json:"schedule_workflow"`
+	WorkDir                string                    `json:"work_dir"`
+	Concurrency            int                       `json:"concurrency"`
+	CacheType              string                    `json:"cache_type"`
+	ServerURL              string                    `json:"server_url"`
+	VmName                 string                    `json:"vm_name"`
+	Description            string                    `json:"description"`
+	ZadigVersion           string                    `json:"zadig_version"`
 }
 
-func Heartbeat(config *AgentConfig, parameters *HeartbeatParameters) (*HeartbeatServerResponse, error) {
+func Heartbeat(ctx context.Context, config *AgentConfig, parameters *HeartbeatParameters) (*HeartbeatServerResponse, error) {
 	request := &HeartbeatServerRequest{
 		Token:      config.Token,
 		Parameters: parameters,
 	}
 	resp := new(HeartbeatServerResponse)
-	body, err := httpclient.Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetBody(request), httpclient.SetResult(resp))
+	options := []httpclient.ClientFunc{}
+	if parameters.UpgradeSupported || parameters.UpgradeReport != nil || parameters.UpgradeError != "" {
+		u, err := agentupgrade.ValidateURL(config.URL)
+		if err != nil {
+			return nil, err
+		}
+		if u.Scheme == "https" {
+			tlsConfig, err := agentupgrade.TLSConfig()
+			if err != nil {
+				return nil, err
+			}
+			options = append(options, httpclient.SetTLSClientConfig(tlsConfig))
+		}
+		options = append(options, func(client *httpclient.Client) { client.SetRedirectPolicy(resty.NoRedirectPolicy()) })
+	}
+	body, err := httpclient.New(options...).Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetContext(ctx), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {
 		return nil, err
 	}

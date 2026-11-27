@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusenterprise"
+	"github.com/koderover/zadig/v2/pkg/tool/agentupgrade"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -82,16 +83,20 @@ type VMInfo struct {
 }
 
 type VMAgent struct {
-	Token             string `bson:"token"                json:"-"`
-	Workspace         string `bson:"workspace"            json:"workspace"`
-	TaskConcurrency   int    `bson:"task_concurrency"     json:"task_concurrency"`
-	CacheType         string `bson:"cache_type"           json:"cache_type"`
-	CachePath         string `bson:"cache_path"           json:"cache_path"`
-	ObjectID          string `bson:"object_id"            json:"object_id"`
-	NeedUpdate        bool   `bson:"need_update"          json:"need_update"`
-	AgentVersion      string `bson:"agent_version"        json:"agent_version"`
-	ZadigVersion      string `bson:"zadig_version"        json:"zadig_version"`
-	LastHeartbeatTime int64  `bson:"last_heartbeat_time"  json:"last_heartbeat_time"`
+	UpgradeError      string             `bson:"upgrade_error,omitempty" json:"upgrade_error,omitempty"`
+	Disconnected      bool               `bson:"disconnected" json:"disconnected"`
+	UpgradeSupported  bool               `bson:"upgrade_supported" json:"upgrade_supported"`
+	Upgrade           *agentupgrade.Task `bson:"upgrade,omitempty" json:"upgrade,omitempty"`
+	Token             string             `bson:"token"                json:"-"`
+	Workspace         string             `bson:"workspace"            json:"workspace"`
+	TaskConcurrency   int                `bson:"task_concurrency"     json:"task_concurrency"`
+	CacheType         string             `bson:"cache_type"           json:"cache_type"`
+	CachePath         string             `bson:"cache_path"           json:"cache_path"`
+	ObjectID          string             `bson:"object_id"            json:"object_id"`
+	NeedUpdate        bool               `bson:"need_update"          json:"need_update"`
+	AgentVersion      string             `bson:"agent_version"        json:"agent_version"`
+	ZadigVersion      string             `bson:"zadig_version"        json:"zadig_version"`
+	LastHeartbeatTime int64              `bson:"last_heartbeat_time"  json:"last_heartbeat_time"`
 }
 
 func (PrivateKey) TableName() string {

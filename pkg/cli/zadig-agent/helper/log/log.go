@@ -19,7 +19,9 @@ package log
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -43,20 +45,34 @@ type Config struct {
 	MaxBackups  int
 }
 
+var fileLoggerOnce sync.Once
+var fileLoggerErr error
+
 func init() {
-	path, err := config.GetAgentLogPath()
-	if err != nil {
-		panic(err)
+	initLogger(&Config{Level: "debug"})
+	if runtime.GOOS != "windows" {
+		if err := InitFile(); err != nil {
+			panic(err)
+		}
 	}
+}
 
-	cfg := &Config{
-		Level:      "debug",
-		Filename:   filepath.Join(path, "zadig-agent.log"),
-		SendToFile: true,
-	}
+// Windows service settings establish USERPROFILE before binding the file logger.
+func InitFile() error {
+	fileLoggerOnce.Do(func() {
+		path, err := config.GetAgentLogPath()
+		if err != nil {
+			fileLoggerErr = err
+			return
+		}
+		initLogger(&Config{Level: "debug", Filename: filepath.Join(path, "zadig-agent.log"), SendToFile: true})
+	})
+	return fileLoggerErr
+}
 
+func initLogger(cfg *Config) {
 	var l = new(zapcore.Level)
-	err = l.UnmarshalText([]byte(cfg.Level))
+	err := l.UnmarshalText([]byte(cfg.Level))
 	if err != nil {
 		panic(err)
 	}

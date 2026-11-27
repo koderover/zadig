@@ -31,12 +31,16 @@ import (
 
 var (
 	agentConfigRWMutex sync.RWMutex
+	agentStateMu       sync.RWMutex
 	agentConfig        *AgentConfig
 )
 
 func NewAgentConfig() *AgentConfig {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	if agentConfig != nil && agentConfig.Token != "" && agentConfig.ServerURL != "" {
-		return agentConfig
+		copy := *agentConfig
+		return &copy
 	}
 	return &AgentConfig{
 		Token:         viper.GetString(common.AGENT_TOKEN),
@@ -52,7 +56,10 @@ func SetAgentConfig(config *AgentConfig) {
 	if config == nil {
 		config = NewAgentConfig()
 	}
-	agentConfig = config
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
+	copy := *config
+	agentConfig = &copy
 }
 
 type AgentConfig struct {
@@ -80,6 +87,8 @@ type AgentConfig struct {
 }
 
 func InitConfig() bool {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	path, err := GetAgentConfigFilePath()
 	log.Printf("default agent config file path is %s\n", path)
 	if err != nil {
@@ -112,10 +121,14 @@ func InitConfig() bool {
 }
 
 func GetZadigVersion() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.ZadigVersion
 }
 
 func SetZadigVersion(version string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -136,6 +149,8 @@ func SetZadigVersion(version string) {
 }
 
 func SetAgentStatus(status string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -156,10 +171,14 @@ func SetAgentStatus(status string) {
 }
 
 func GetScheduleWorkflow() bool {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.ScheduleWorkflow
 }
 
 func SetScheduleWorkflow(scheduleWorkflow bool) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -180,6 +199,8 @@ func SetScheduleWorkflow(scheduleWorkflow bool) {
 }
 
 func SetAgentToken(token string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -201,6 +222,8 @@ func SetAgentToken(token string) {
 }
 
 func SetServerURL(serverURL string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -222,6 +245,8 @@ func SetServerURL(serverURL string) {
 }
 
 func SetAgentErrMsg(errMsg string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -243,6 +268,8 @@ func SetAgentErrMsg(errMsg string) {
 }
 
 func SetAgentWorkDirectory(workDirectory string) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -264,22 +291,32 @@ func SetAgentWorkDirectory(workDirectory string) {
 }
 
 func GetAgentVmName() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.VmName
 }
 
 func GetAgentToken() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.Token
 }
 
 func GetServerURL() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.ServerURL
 }
 
 func GetAgentStatus() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.Status
 }
 
 func GetConcurrency() int {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	if agentConfig.Concurrency > 0 {
 		return agentConfig.Concurrency
 	}
@@ -287,6 +324,8 @@ func GetConcurrency() int {
 }
 
 func SetConcurrency(concurrency int) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		log.Panicf("agent config is nil")
 	}
@@ -306,30 +345,44 @@ func SetConcurrency(concurrency int) {
 }
 
 func GetWorkDirectory() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.WorkDirectory
 }
 
 func GetEnableDebug() bool {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.EnableDebug
 }
 
 func GetAgentVersion() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.AgentVersion
 }
 
 func GetBuildCommit() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.BuildCommit
 }
 
 func GetBuildGoVersion() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.BuildGoVersion
 }
 
 func GetBuildTime() string {
+	agentStateMu.RLock()
+	defer agentStateMu.RUnlock()
 	return agentConfig.BuildTime
 }
 
 func GetAgentConfig() (*AgentConfig, error) {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if agentConfig == nil {
 		path, err := GetAgentConfigFilePath()
 		if err != nil {
@@ -349,12 +402,14 @@ func GetAgentConfig() (*AgentConfig, error) {
 			agentConfig.BuildCommit = BuildCommit
 			agentConfig.BuildGoVersion = BuildGoVersion
 			agentConfig.BuildTime = BuildTime
-			return config, nil
+			copy := *config
+			return &copy, nil
 		} else {
 			return nil, fmt.Errorf("agent config file not found")
 		}
 	}
-	return agentConfig, nil
+	copy := *agentConfig
+	return &copy, nil
 }
 
 func GetAgentConfigFile(path string) *AgentConfig {
@@ -392,6 +447,8 @@ func UpdateAgentConfigFile(config *AgentConfig, path string) error {
 }
 
 func BatchUpdateAgentConfig(config *AgentConfig) error {
+	agentStateMu.Lock()
+	defer agentStateMu.Unlock()
 	if config == nil {
 		return nil
 	}

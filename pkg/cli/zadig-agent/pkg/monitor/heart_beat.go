@@ -19,7 +19,6 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
@@ -27,12 +26,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-var HeartbeatMonitor *HeartbeatService
-var once sync.Once
 
 type HeartbeatService struct {
 	minInterval   int
@@ -41,105 +37,93 @@ type HeartbeatService struct {
 	FailedTime    int
 	StopAgentChan chan struct{}
 	AgentCtl      *agent.AgentController
+	Updater       *updater.Manager
 }
 
-func NewHeartbeatService(agentCtl *agent.AgentController, interval, maxInterval int, stop chan struct{}) *HeartbeatService {
-	once.Do(func() {
-		HeartbeatMonitor = &HeartbeatService{
-			AgentCtl:      agentCtl,
-			Interval:      interval,
-			MaxInterval:   maxInterval,
-			StopAgentChan: stop,
-		}
-	})
-	return HeartbeatMonitor
+func NewHeartbeatService(agentCtl *agent.AgentController, manager *updater.Manager, interval, maxInterval int, stop chan struct{}) *HeartbeatService {
+	return &HeartbeatService{AgentCtl: agentCtl, Updater: manager, Interval: interval, MaxInterval: maxInterval, StopAgentChan: stop}
 }
 
 func (h *HeartbeatService) Start(ctx context.Context) {
 	h.minInterval = h.Interval
-	ticker := time.NewTicker(time.Duration(h.Interval) * time.Second) // 3秒检查一次心跳
-	defer ticker.Stop()
-
-	errChan := make(chan error, 1)
-	successChan := make(chan struct{}, 1)
-
-	log.Infof("start to heartbeat")
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 	for {
 		select {
-		case <-ticker.C:
-			if h.FailedTime > 3 {
-				// TODO: how to deal with this situation
-				h.Interval *= 2
-				if h.Interval > h.MaxInterval {
-					h.Interval = h.MaxInterval
-				}
-				agentconfig.SetAgentStatus(common.AGENT_STATUS_ABNORMAL)
-			}
-			// execute heartbeat detection logic
-			util.Go(func() {
-				Heartbeat(h.AgentCtl, errChan, successChan, h.StopAgentChan)
-			})
-		case err := <-errChan:
-			log.Errorf("failed to ping zadig server, err: %v", err)
-			h.FailedTime++
-			ticker.Reset(time.Duration(h.Interval) * time.Second)
-		case _ = <-successChan:
-			h.FailedTime = 0
-			h.Interval = h.minInterval
-			ticker.Reset(time.Duration(h.Interval) * time.Second)
-
-			// update agent status
-			if agentconfig.GetAgentStatus() != common.AGENT_STATUS_RUNNING {
-				agentconfig.SetAgentStatus(common.AGENT_STATUS_RUNNING)
-			}
-		case <-h.StopAgentChan:
-			log.Infof("stop heartbeat testing with the zadig service")
-			// stop heatbeat with zadig
-			return
 		case <-ctx.Done():
-			log.Infof("stop heartbeat testing with the zadig service, received context cancel signal.")
 			return
+		case <-timer.C:
+			if err := h.heartbeat(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				log.Errorf("failed to ping zadig server: %v", err)
+				h.FailedTime++
+				if h.FailedTime > 3 {
+					h.Interval *= 2
+					if h.Interval > h.MaxInterval {
+						h.Interval = h.MaxInterval
+					}
+					agentconfig.SetAgentStatus(common.AGENT_STATUS_ABNORMAL)
+				}
+			} else {
+				if ctx.Err() != nil {
+					return
+				}
+				h.FailedTime = 0
+				h.Interval = h.minInterval
+				if agentconfig.GetAgentStatus() != common.AGENT_STATUS_RUNNING {
+					agentconfig.SetAgentStatus(common.AGENT_STATUS_RUNNING)
+				}
+			}
+			timer.Reset(time.Duration(h.Interval) * time.Second)
 		}
 	}
-
 }
 
-func Heartbeat(agentCtl *agent.AgentController, errChan chan error, successChan chan struct{}, stopChan chan struct{}) {
+func (h *HeartbeatService) heartbeat(ctx context.Context) error {
 	parameters, err := osutil.GetPlatformParameters()
 	if err != nil {
-		panic(fmt.Errorf("failed to get platform parameters: %v", err))
+		return fmt.Errorf("failed to get platform parameters: %v", err)
 	}
 
 	params := new(network.HeartbeatParameters)
 	err = osutil.IToi(parameters, params)
 	if err != nil {
-		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
+		return fmt.Errorf("failed to convert platform parameters to heartbeat parameters: %v", err)
 	}
 	params.AgentVersion = agentconfig.GetAgentVersion()
+	params.UpgradeReport, err = h.Updater.Report()
+	if err != nil {
+		log.Errorf("agent upgrade state unavailable; continuing heartbeat with task scheduling paused: %v", err)
+	}
+	if stateErr := h.Updater.StateError(); stateErr != nil {
+		params.UpgradeError = stateErr.Error()
+	}
+	params.UpgradeSupported = updater.Supported() && params.UpgradeError == ""
 
 	config := &network.AgentConfig{
 		Token: agentconfig.GetAgentToken(),
 		URL:   agentconfig.GetServerURL(),
 	}
 
-	resp, err := network.Heartbeat(config, params)
+	resp, err := network.Heartbeat(ctx, config, params)
 	if err != nil {
-		errChan <- err
-		return
+		return err
 	}
-	// if resp.NeedUpdateAgentVersion {
-	// 	err = updater.UpdateAgent(agentCtl, resp.AgentVersion)
-	// 	if err != nil {
-	// 		log.Errorf("failed to update agent: %v", err)
-	// 		errChan <- err
-	// 		return
-	// 	}
-	// }
-
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if resp.NeedOffline {
+		if err := agentconfig.SetConnectionAllowed(false); err != nil {
+			return err
+		}
 		log.Infof("agent is offline")
-		stopChan <- struct{}{}
-		close(stopChan)
+		select {
+		case h.StopAgentChan <- struct{}{}:
+		default:
+		}
+		return nil
 	}
 
 	agentConfig := new(agentconfig.AgentConfig)
@@ -173,5 +157,8 @@ func Heartbeat(agentCtl *agent.AgentController, errChan chan error, successChan 
 		log.Errorf("failed to update agent config: %v", err)
 	}
 
-	successChan <- struct{}{}
+	if err := h.Updater.Handle(ctx, resp); err != nil {
+		log.Errorf("handle agent upgrade response: %v", err)
+	}
+	return nil
 }

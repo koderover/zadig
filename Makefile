@@ -18,7 +18,7 @@ GIT_BRANCH := $(GIT_BRANCH)
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 BUILD_DATE := $(BUILD_DATE)
 IMAGE_BUILD_ARGS = --build-arg BUILD_VERSION="$(VERSION)" --build-arg BUILD_COMMIT="$(GIT_COMMIT)" --build-arg BUILD_BRANCH="$(GIT_BRANCH)" --build-arg BUILD_DATE="$(BUILD_DATE)"
-MICROSERVICE_TARGETS = aslan cron executor halman hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
+MICROSERVICE_TARGETS = aslan cron executor halman hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive agent-resource-server
 BUILD_BASE_TARGETS = focal bionic
 DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
 
@@ -90,6 +90,17 @@ tar-zadig-agent-%: zadig-agent-%
 
 zadig-agent-clean:
 	@rm -rf $(ZADIG_AGENT_OUT_DIR)/*
+
+.PHONY: agent-resource-server.image agent-resource-server.push
+agent-resource-server.image:
+	docker buildx build --platform linux/amd64,linux/arm64 -f docker/agent-resource-server.Dockerfile \
+		-t $(IMAGE_REPOSITORY)/agent-resource-server:$(VERSION) \
+		--build-arg ZADIG_AGENT_VERSION=$(ZADIG_AGENT_VERSION) \
+		--build-arg BUILD_COMMIT=$(BUILD_COMMIT) \
+		$(AGENT_RESOURCE_SERVER_OUTPUT) .
+
+agent-resource-server.push: AGENT_RESOURCE_SERVER_OUTPUT=--push
+agent-resource-server.push: agent-resource-server.image
 
 # debug scripts
 %.build:

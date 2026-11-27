@@ -29,6 +29,17 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
 )
 
+var ErrFinalReport = errors.New("failed to report job finished result")
+
+// Retain an immutable terminal report so the controller can retry this job.
+type FinalReportError struct {
+	Parameters types.ReportJobParameters
+	Cause      error
+}
+
+func (e *FinalReportError) Error() string { return fmt.Sprintf("%v: %v", ErrFinalReport, e.Cause) }
+func (e *FinalReportError) Unwrap() error { return ErrFinalReport }
+
 type JobReporter struct {
 	Seq       int
 	Ctx       context.Context
@@ -147,18 +158,17 @@ func (r *JobReporter) FinishedJobReport(status common.Status, err error) error {
 	r.Result.SetEndTime(time.Now().Unix())
 	r.Result.SetLog("")
 
-	retry := 3
-	for retry > 0 {
-		_, err = r.ReportWithData(r.Result)
-		if err == nil {
+	parameters := types.ReportJobParameters{
+		JobID:     r.Result.JobInfo.JobID,
+		JobStatus: status.String(),
+		JobError:  errhelper.ErrHandler(err),
+		JobLog:    "",
+		JobOutput: append([]byte(nil), r.Result.OutputsJsonBytes...),
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		if _, err = r.Client.ReportJob(&parameters); err == nil {
 			return nil
 		}
-
-		retry--
 	}
-
-	if retry == 0 {
-		return fmt.Errorf("failed to report job finished result, error: %s", err)
-	}
-	return nil
+	return &FinalReportError{Parameters: parameters, Cause: err}
 }

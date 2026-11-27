@@ -17,13 +17,31 @@ limitations under the License.
 package handler
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
+
+func GetAgentUnixInstallScript(c *gin.Context) { getAgentInstallScript(c, "unix") }
+
+func GetAgentWindowsInstallScript(c *gin.Context) { getAgentInstallScript(c, "windows") }
+
+func getAgentInstallScript(c *gin.Context, platform string) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	script, err := service.GetAgentInstallScript(platform)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("agent installer is unavailable: %w", err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Data(200, "text/plain; charset=utf-8", []byte(script))
+}
 
 func GetAgentAccessCmd(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -107,7 +125,52 @@ func UpgradeAgent(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	var request struct {
+		Mode  string `json:"mode"`
+		Force bool   `json:"force"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil && !errors.Is(err, io.EOF) {
+		ctx.RespErr = fmt.Errorf("invalid upgrade request: %w", err)
+		return
+	}
+	switch request.Mode {
+	case "":
+		if request.Force {
+			ctx.RespErr = fmt.Errorf("force requires mode=self")
+			return
+		}
+		ctx.Resp, ctx.RespErr = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	case "self":
+		task, err := service.RequestAgentUpgrade(c.Request.Context(), c.Param("vmid"), ctx.UserName, request.Force, ctx.Logger)
+		ctx.RespErr = err
+		if err == nil {
+			ctx.Resp = map[string]interface{}{"upgrade_id": task.ID, "from_version": task.FromVersion, "target_version": task.TargetVersion, "status": task.Status, "force": task.Force}
+		}
+	default:
+		ctx.RespErr = fmt.Errorf("unsupported upgrade mode")
+	}
+}
+
+func BatchUpgradeAgents(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil || !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+	var request struct {
+		VMIDs []string `json:"vm_ids"`
+		Force bool     `json:"force"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		ctx.RespErr = fmt.Errorf("invalid upgrade request: %w", err)
+		return
+	}
+	if len(request.VMIDs) == 0 || len(request.VMIDs) > 100 {
+		ctx.RespErr = fmt.Errorf("select between 1 and 100 hosts")
+		return
+	}
+	ctx.Resp = service.BatchRequestAgentUpgrades(c.Request.Context(), request.VMIDs, ctx.UserName, request.Force, ctx.Logger)
 }
 
 func ListVMs(c *gin.Context) {

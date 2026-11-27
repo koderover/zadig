@@ -18,12 +18,15 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	jobexecutor "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/job"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/reporter"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
@@ -36,7 +39,6 @@ func NewAgentController() *AgentController {
 		StopPollingJobChan:   make(chan struct{}, 1),
 		StopRunJobChan:       make(chan struct{}, 1),
 		ConcurrencyBlockTime: common.DefaultAgentConcurrencyBlockTime,
-		CurrentJobNum:        0,
 	}
 }
 
@@ -47,7 +49,17 @@ type AgentController struct {
 	StopRunJobChan       chan struct{}
 	Concurrency          int
 	ConcurrencyBlockTime int
-	CurrentJobNum        int
+	mu                   sync.Mutex
+	currentJobNum        int
+	paused               bool
+	polling              bool
+	pendingReports       map[string]*types.ReportJobParameters
+	reportMu             sync.Mutex
+	nextReportRetry      time.Time
+	forceDrain           bool
+	jobCancels           map[string]context.CancelCauseFunc
+	stopPollingOnce      sync.Once
+	stopRunOnce          sync.Once
 	WorkingDirectory     string
 }
 
@@ -60,15 +72,61 @@ func (c *AgentController) Start(ctx context.Context) {
 }
 
 func (c *AgentController) StopPollingJob() {
-	defer close(c.StopPollingJobChan)
-
-	c.StopPollingJobChan <- struct{}{}
+	c.stopPollingOnce.Do(func() { close(c.StopPollingJobChan) })
 }
 
 func (c *AgentController) StopRunJob() {
-	defer close(c.StopRunJobChan)
+	c.stopRunOnce.Do(func() { close(c.StopRunJobChan) })
+}
 
-	c.StopRunJobChan <- struct{}{}
+func (c *AgentController) SetPaused(paused bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.paused = paused
+	if !paused {
+		c.forceDrain = false
+	}
+}
+
+var errUpgradeCancelled = errors.New("job interrupted by forced agent upgrade")
+
+func (c *AgentController) PauseAndDrain(ctx context.Context, force bool) error {
+	c.mu.Lock()
+	c.paused, c.forceDrain = true, force
+	if force {
+		for _, cancel := range c.jobCancels {
+			cancel(errUpgradeCancelled)
+		}
+	}
+	c.mu.Unlock()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if err := c.retryFinalReports(ctx); err != nil {
+			log.Errorf("retry final job reports before upgrade: %v", err)
+		}
+		c.mu.Lock()
+		done := !c.polling && c.currentJobNum == 0 && len(c.pendingReports) == 0
+		c.mu.Unlock()
+		if done {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for jobs and final result reports: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (c *AgentController) beginPoll() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.paused || c.currentJobNum >= config.GetConcurrency() {
+		return false
+	}
+	c.polling = true
+	return true
 }
 
 func (c *AgentController) PollingJob(ctx context.Context) {
@@ -86,8 +144,17 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 			log.Infof("stop polling job, received stop signal.")
 			return
 		default:
-			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.CurrentJobNum < config.GetConcurrency() {
+			if err := c.retryFinalReports(ctx); err != nil {
+				log.Errorf("retry final job reports: %v", err)
+			}
+			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.beginPoll() {
 				job, err := c.Client.RequestJob()
+				c.mu.Lock()
+				if job != nil && job.ID != "" {
+					c.currentJobNum++
+				}
+				c.polling = false
+				c.mu.Unlock()
 				if err != nil {
 					log.Errorf("failed to request job from zadig server, error: %s", err)
 					time.Sleep(common.DefaultAgentPollingInterval * time.Second)
@@ -96,7 +163,6 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 
 				if job != nil && job.ID != "" {
 					c.JobChan <- job
-					c.CurrentJobNum++
 					log.Infof("PollingJob: received job workflow name: %v, task id: %v, project name: %v, job name: %v",
 						job.WorkflowName, job.TaskID, job.ProjectName, job.JobName)
 					if config.GetEnableDebug() {
@@ -106,9 +172,6 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 
 				time.Sleep(common.DefaultAgentPollingInterval * time.Second)
 			} else {
-				if c.CurrentJobNum >= config.GetConcurrency() {
-					log.Infof("current job num %d is equal to concurrency %d, will block %d seconds to request job again.", c.CurrentJobNum, config.GetConcurrency(), c.ConcurrencyBlockTime)
-				}
 				time.Sleep(time.Duration(c.ConcurrencyBlockTime) * time.Second)
 			}
 		}
@@ -131,32 +194,102 @@ func (c *AgentController) RunJob(ctx context.Context) {
 				return
 			}
 
-			go func() {
-				defer func() {
-					c.CurrentJobNum--
-				}()
-				if err := c.RunSingleJob(ctx, job); err != nil {
+			go func(job *types.ZadigJobTask) {
+				err := c.RunSingleJob(ctx, job)
+				c.mu.Lock()
+				c.currentJobNum--
+				var pending *reporter.FinalReportError
+				if errors.As(err, &pending) {
+					if c.pendingReports == nil {
+						c.pendingReports = make(map[string]*types.ReportJobParameters)
+					}
+					c.pendingReports[job.ID] = &pending.Parameters
+				}
+				c.mu.Unlock()
+				if err != nil {
 					log.Errorf("failed to run job, error: %s", err)
 				}
-			}()
+			}(job)
 		}
 	}
 }
 
+// Retry only retained terminal reports; another job finishing cannot clear them.
+func (c *AgentController) retryFinalReports(ctx context.Context) error {
+	if !c.reportMu.TryLock() {
+		return nil
+	}
+	defer c.reportMu.Unlock()
+	c.mu.Lock()
+	if len(c.pendingReports) == 0 || time.Now().Before(c.nextReportRetry) {
+		c.mu.Unlock()
+		return nil
+	}
+	pending := make(map[string]*types.ReportJobParameters, len(c.pendingReports))
+	for id, report := range c.pendingReports {
+		pending[id] = report
+	}
+	c.nextReportRetry = time.Now().Add(5 * time.Second)
+	c.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var firstErr error
+	for id, report := range pending {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := c.Client.ReportJobContext(ctx, report); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("job %s: %w", id, err)
+			}
+			continue
+		}
+		c.mu.Lock()
+		if c.pendingReports[id] == report {
+			delete(c.pendingReports, id)
+		}
+		c.mu.Unlock()
+	}
+	return firstErr
+}
+
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {
 	var err error
+	ctx, stop := context.WithCancelCause(ctx)
+	c.mu.Lock()
+	if c.jobCancels == nil {
+		c.jobCancels = make(map[string]context.CancelCauseFunc)
+	}
+	c.jobCancels[job.ID] = stop
+	if c.forceDrain {
+		stop(errUpgradeCancelled)
+	}
+	c.mu.Unlock()
+	defer func() {
+		stop(nil)
+		c.mu.Lock()
+		delete(c.jobCancels, job.ID)
+		c.mu.Unlock()
+	}()
 	jobCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	executor := jobexecutor.NewJobExecutor(jobCtx, job, c.Client, cancel)
+	if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+		return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+	}
 
 	// execute some init job before execute zadig job
 	err = executor.BeforeExecute()
 	if err != nil {
 		log.Errorf("failed to execute BeforeExecute, error: %s", err)
 		executor.CleanupTempFileAndDir()
+		if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+			return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+		}
 
 		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
-			return fmt.Errorf("failed to report job status when BeforeExecute failed, error: %s", err)
+			return fmt.Errorf("failed to report job status when BeforeExecute failed: %w", err)
 		}
 		return fmt.Errorf("failed to execute workflow %s job %s, error: %s", job.WorkflowName, job.JobName, err)
 	}
@@ -195,10 +328,16 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 			log.Infof("stop running job, received context cancel signal.")
 			cancel()
 			<-executor.FinishedChan
+			if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+				return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+			}
 			return nil
 		// TODO: how to deal with job cancel by better way, if restart the same job after cancel immediately?
 		case <-executor.FinishedChan:
 			log.Infof("workflow %s job %s finished.", job.WorkflowName, job.JobName)
+			if errors.Is(context.Cause(ctx), errUpgradeCancelled) {
+				return executor.Reporter.FinishedJobReport(common.StatusCancelled, errUpgradeCancelled)
+			}
 
 			if e := executor.JobResult.GetError(); e != nil {
 				log.Errorf("workflow %s job %s failed, error: %v", job.WorkflowName, job.JobName, e)

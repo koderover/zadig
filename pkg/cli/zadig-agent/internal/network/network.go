@@ -17,6 +17,7 @@ limitations under the License.
 package network
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,6 +80,10 @@ type ReportJobRequest struct {
 }
 
 func (c *ZadigClient) ReportJob(parameters *types.ReportJobParameters) (*types.ReportAgentJobResp, error) {
+	return c.ReportJobContext(context.Background(), parameters)
+}
+
+func (c *ZadigClient) ReportJobContext(ctx context.Context, parameters *types.ReportJobParameters) (*types.ReportAgentJobResp, error) {
 	request := &ReportJobRequest{
 		Token: c.AgentConfig.Token,
 	}
@@ -92,7 +97,7 @@ func (c *ZadigClient) ReportJob(parameters *types.ReportJobParameters) (*types.R
 	}
 	resp := new(types.ReportAgentJobResp)
 
-	body, err := httpclient.Post(GetFullURL(c.AgentConfig.URL, ReportJobBaseUrl), httpclient.SetBody(request), httpclient.SetResult(resp))
+	body, err := httpclient.Post(GetFullURL(c.AgentConfig.URL, ReportJobBaseUrl), httpclient.SetContext(ctx), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {
 		return nil, err
 	}
