@@ -188,7 +188,9 @@ func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperati
 		}
 		e.CheckedOnboarding = true
 		e.PendingOnboarding = false
-		e.Run.RepliedCardRunID = ""
+		if e.Run != nil {
+			e.Run.RepliedCardRunID = ""
+		}
 		return map[string]string{"status": "new_task"}, nil
 	}
 

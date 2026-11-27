@@ -744,6 +744,7 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 	if record.RepliedCardRunID != "" {
 		// The user's latest message determines whether to resume this draft.
 		e.RootID, e.ContinuingSkill = "", ""
+		e.CheckedOnboarding = true
 	}
 	if req.RegenerateFrom != nil {
 		e.SkillID = req.RegenerateFrom.SkillID
