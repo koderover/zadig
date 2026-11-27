@@ -2361,12 +2361,42 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 	productResp.ServiceRenders = updatedSvcs
+	productResp.DefaultValues = defaultValue
+	productResp.YamlData = yamlData
+
+	deploySvcs := make([]*templatemodels.ServiceRender, 0, len(updatedSvcs))
+	for _, rc := range updatedSvcs {
+		if commonutil.GetChartDeployed(rc, newDeployStrategyMap) != setting.ServiceDeployStrategyDraft {
+			deploySvcs = append(deploySvcs, rc)
+			continue
+		}
+		productSvc := productResp.GetServiceMap()[rc.ServiceName]
+		if !rc.DeployedFromZadig() {
+			productSvc = productResp.GetChartServiceMap()[rc.ReleaseName]
+		}
+		if productSvc == nil {
+			if syncLock != nil {
+				syncLock.Unlock()
+			}
+			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("service %s/%s not found", rc.ServiceName, rc.ReleaseName))
+		}
+		productSvc.Render = rc
+		// Saving values does not change the strategy of an existing deployment.
+		productSvc.DeployStrategy = ""
+		if err := helmservice.UpdateServiceInEnv(productResp, productSvc, username, config.EnvOperationDefault, "", ""); err != nil {
+			if syncLock != nil {
+				syncLock.Unlock()
+			}
+			return e.ErrUpdateEnv.AddErr(err)
+		}
+	}
+	productResp.ServiceRenders = deploySvcs
 
 	if productResp.ServiceDeployStrategy == nil {
 		productResp.ServiceDeployStrategy = make(map[string]setting.ServiceDeployStrategy)
 	}
 	needUpdateStrategy := false
-	for _, rc := range updatedSvcs {
+	for _, rc := range deploySvcs {
 		// update deploy strategy if deploy strategy map is not nil
 		// compatible with old code
 		if newDeployStrategyMap != nil {
@@ -2404,10 +2434,8 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
-	productResp.DefaultValues = defaultValue
-	productResp.YamlData = yamlData
 	// only update renderset value to db, no need to upgrade chart release
-	if len(updatedSvcs) == 0 {
+	if len(deploySvcs) == 0 {
 		log.Infof("no need to update svc")
 		if syncLock != nil {
 			syncLock.Unlock()

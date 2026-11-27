@@ -578,6 +578,25 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 	}
 }
 
+func checkHelmServiceNameConflict(projectName, serviceName string, production, force bool) error {
+	if force {
+		return nil
+	}
+	current, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:         projectName,
+		ServiceName:         serviceName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		IgnoreNoDocumentErr: true,
+	}, production)
+	if err != nil {
+		return err
+	}
+	if current != nil {
+		return fmt.Errorf("service:%s already exists", serviceName)
+	}
+	return nil
+}
+
 func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	chartRepoArgs, ok := args.CreateFrom.(*CreateFromChartRepo)
 	if !ok {
@@ -598,6 +617,9 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	var svc *models.Service
 	lockKey := fmt.Sprintf("helm_service_edit:%s:%s:%t", projectName, chartRepoArgs.ChartName, args.Production)
 	err = cache.WithRedisLock(lockKey, func(serviceCtx context.Context) error {
+		if err := checkHelmServiceNameConflict(projectName, chartRepoArgs.ChartName, args.Production, force); err != nil {
+			return e.ErrCreateTemplate.AddErr(err)
+		}
 		chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartRepoArgs.ChartName)
 		localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName, args.Production)
 
@@ -752,6 +774,9 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 
 	// NOTE we may need a better way to handle service name with spaces
 	args.Name = strings.TrimSpace(args.Name)
+	if err := checkHelmServiceNameConflict(projectName, args.Name, args.Production, force); err != nil {
+		return nil, err
+	}
 
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
@@ -954,6 +979,10 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				return
 			}
 
+			if err := checkHelmServiceNameConflict(projectName, serviceName, args.Production, force); err != nil {
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
 			log.Info("Found valid chart, Starting to save and upload files")
 			rev, err := getNextServiceRevision(projectName, serviceName, args.Production)
 			if err != nil {
@@ -1131,6 +1160,10 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				return
 			}
 
+			if err := checkHelmServiceNameConflict(projectName, serviceName, args.Production, force); err != nil {
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
 			log.Info("Found valid chart, Starting to save and upload files")
 
 			rev, err := getNextServiceRevision(projectName, serviceName, args.Production)
@@ -1328,6 +1361,9 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
 	serviceName = strings.TrimSpace(serviceName)
 	serviceName = strings.ToLower(serviceName)
+	if err := checkHelmServiceNameConflict(projectName, serviceName, args.Production, force); err != nil {
+		return nil, nil, err
+	}
 
 	var to string
 	if args.Production {
