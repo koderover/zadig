@@ -283,91 +283,27 @@ kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" delete secret zadig-aes
 
 JWT、API Token、MFA 恢复码将失效，用户需要重新登录/签发；本 Job 不删除其哈希。历史 pipeline `storage_uri` 只计数、不重写。
 
-## 更换 Dex 客户端密钥
+## 同步 Helm values 并更换 Dex 客户端密钥
 
-Dex 客户端密钥与 AES 密钥无关，不需要停服务。在上述轮转验收通过后，用一次 Helm upgrade 同步 AES values 并更换 Dex 密钥。Dex 和 user 服务会自动重启，用户需要重新登录。以下步骤只用于显式轮转，不加入普通升级流程。
+AES 轮转并验收通过后，在有目标集群权限的运维终端运行同目录的 `sync-helm-values.sh`。脚本复用一次 Helm upgrade，同步显式保存的旧 AES key 并更换 Dex 客户端密钥；普通升级不调用它，UA 迁移 Job 和 admin 流程不变。
 
-脚本作用：
-1. 导出 release 当前的用户 values 和合并默认值后的 values；后者只用于读取完整的 Dex 客户端列表。
-2. 核对当前 AES Secret 与本次轮转的新密钥一致。仅当用户 values 中的 `global.encryption.key` 非空且仍是本次旧密钥时，生成新密钥覆盖项；为空、未配置或已经是新值时不生成该覆盖项，出现其他值则中止。
-3. 把 Dex 第一个静态客户端（Zadig）的 `secret` 换成随机生成的 64 位十六进制串，其余客户端和字段保留。将本次 AES/Dex 覆盖项写入 `rotation-values.json`，不要重复生成。
+脚本会：
+1. 备份 release 当前用户 values，并核对当前 AES Secret 等于维护目录中的 `aes-next`。
+2. 仅将 values 中显式保存的本次旧 AES key 替换为新值；为空、未配置或已是新值时保持原样，遇到其他值则中止。
+3. 从包含默认值的完整 Dex 客户端列表中更换 Zadig 客户端密钥，保留其他配置。
+4. 使用指定的同一版本 Chart 执行升级、等待服务就绪，并读回 Helm values 验证 AES 和 Dex 配置。
 
-```bash
-(
-set -eu
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.current.json"
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" --all -o json > "$ROTATION_DIR/values.computed.json"
-kubectl --context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" get secret zadig-aes-key -o json > "$ROTATION_DIR/aes.current.json"
-python3 - "$ROTATION_DIR" <<'PY'
-import base64
-import json
-import secrets
-import sys
-from pathlib import Path
-
-folder = Path(sys.argv[1])
-values = json.loads((folder / "values.current.json").read_text()) or {}
-old = base64.b64decode(json.loads((folder / "aes.before.json").read_text())["data"]["aesKey"], validate=True).decode()
-new = (folder / "aes-next").read_text()
-actual = base64.b64decode(json.loads((folder / "aes.current.json").read_text())["data"]["aesKey"], validate=True).decode()
-assert actual == new, "AES Secret does not match the rotated key"
-overrides = {}
-configured = values.get("global", {}).get("encryption", {}).get("key")
-if configured and configured != new:
-    assert configured == old, "configured AES key is neither the old nor the new key"
-    overrides["global"] = {"encryption": {"key": new}}
-clients = json.loads((folder / "values.computed.json").read_text())["dex"]["config"]["staticClients"]
-assert clients and clients[0]["id"], "missing Zadig Dex client"
-clients[0]["secret"] = secrets.token_hex(32)
-overrides["dex"] = {"config": {"staticClients": clients}}
-(folder / "rotation-values.json").write_text(json.dumps(overrides))
-PY
-)
-```
-
-使用当前已部署的同一版本 Chart，把用户 values 和本次覆盖项一起提交。升级成功后 Helm 会保存合并后的 values，原文件 `values.current.json` 继续作为更新前备份。
+从仓库根目录执行，Chart 必须与当前部署一致；脚本依赖前面维护步骤生成的 `aes.before.json` 和 `aes-next`，不能在 AES 切换前执行。每次执行都会生成新的 Dex 密钥，不要在未核实上次结果时重复运行。
 
 ```bash
 ZADIG_CHART='<当前已部署的 Chart，例如 koderover-chart/zadig>'
 ZADIG_CHART_VERSION='<helm history 中当前的 Chart 版本>'
-(
-set -eu
-helm upgrade "$ZADIG_RELEASE" "$ZADIG_CHART" --version "$ZADIG_CHART_VERSION" \
-  --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" \
-  -f "$ROTATION_DIR/values.current.json" -f "$ROTATION_DIR/rotation-values.json" \
-  --wait --timeout 10m > "$ROTATION_DIR/helm-dex.out"
-)
+bash examples/encryption-key-rotation/sync-helm-values.sh \
+  "$ROTATION_DIR" "$ZADIG_CONTEXT" "$ZADIG_NAMESPACE" "$ZADIG_RELEASE" \
+  "$ZADIG_CHART" "$ZADIG_CHART_VERSION"
 ```
 
-### 更新后校验
-
-导出 Helm 用户 values，确认原来显式保存的 AES 密钥已更新、原来为空或未配置的保持原样，并校验 Dex 客户端密钥等于本次生成值。
-
-```bash
-(
-set -eu
-helm get values "$ZADIG_RELEASE" --kube-context "$ZADIG_CONTEXT" -n "$ZADIG_NAMESPACE" -o json > "$ROTATION_DIR/values.after.json"
-python3 - "$ROTATION_DIR" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-folder = Path(sys.argv[1])
-before = json.loads((folder / "values.current.json").read_text()) or {}
-after = json.loads((folder / "values.after.json").read_text())
-new = (folder / "aes-next").read_text()
-configured = before.get("global", {}).get("encryption", {}).get("key")
-expected = new if configured else configured
-assert after.get("global", {}).get("encryption", {}).get("key") == expected, "unexpected AES key in Helm values"
-clients = json.loads((folder / "rotation-values.json").read_text())["dex"]["config"]["staticClients"]
-actual = {client["id"]: client["secret"] for client in after["dex"]["config"]["staticClients"]}
-assert actual[clients[0]["id"]] == clients[0]["secret"], "Helm values contain a different Dex client secret"
-print("Helm key values verified")
-PY
-)
-```
-
-完成后验收 Dex 授权回调和登录。维护目录中的 values 文件包含明文密钥，与维护目录一起按客户密钥管理要求保管或销毁。
+Dex 和 user 服务会自动重启，用户需要重新登录。完成后验收 Dex 授权回调和登录。维护目录中的 values 文件包含明文密钥，与维护目录一起按客户密钥管理要求保管或销毁。
 
 ## 限制与开发验证
 
