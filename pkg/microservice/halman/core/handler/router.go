@@ -11,6 +11,9 @@ type Router struct{ Service *service.AgentService }
 func (r *Router) Inject(router *gin.RouterGroup) {
 	a := &API{Agent: r.Service}
 	api := router.Group("/api/halman", a.authenticate)
+	api.GET("/models", a.requireEnabled, a.listModels)
+	api.GET("/preferences", a.getPreferences)
+	api.PUT("/preferences", a.putPreferences)
 	api.GET("/skills", a.requireSkillManagementPermission, a.listSkills)
 	api.PUT("/skills/:skill_id", a.requireSkillManagementPermission, a.updateSkill)
 	api.POST("/conversations", a.requireEnabled, a.createConversation)
@@ -19,6 +22,10 @@ func (r *Router) Inject(router *gin.RouterGroup) {
 	api.GET("/conversations/:id/messages", a.messages)
 	api.POST("/conversations/:id/runs", a.requireEnabled, a.agui)
 	api.GET("/runs/:id", a.getRun)
+	api.GET("/conversations/:id/cards", a.uiCards)
+	api.GET("/runs/:id/cards/:card_id/options", a.uiOptions)
+	api.POST("/runs/:id/cards/:card_id/submissions", a.uiSubmit)
+	api.POST("/runs/:id/cards/:card_id/submissions/:submission_id/retry", a.uiRetry)
 	api.POST("/runs/:id/cancel", a.cancelRun)
 	api.POST("/runs/:id/confirmation", a.confirm)
 	api.POST("/runs/:id/feedback", a.feedback)

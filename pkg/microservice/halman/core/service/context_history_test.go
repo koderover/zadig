@@ -56,7 +56,9 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 				result.Choices[0].Message.ToolID = "call"
 				state.Events = append(state.Events, call, result)
 			}
-			state.Events = append(state.Events, historyEvent("past", "assistant", "诊断回答", now))
+			answer := historyEvent("past", "assistant", "诊断回答", now)
+			answer.Choices[0].Message.ReasoningContent = "模型的历史推理"
+			state.Events = append(state.Events, answer)
 			want := len(state.Events)
 			if tc.userOnly {
 				want = 1
@@ -65,6 +67,7 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 				want = 0
 			}
 			e := &execution{Run: &models.Run{ID: "current", ConversationID: "conversation", Context: tc.page}, User: "user", Authorization: token("user"), Cutoff: now.Add(-time.Hour)}
+			e.MultipleModels = tc.name == "plain_chat_with_page"
 			s := &AgentService{Store: store, Platform: platform}
 			got, err := s.sessionContext(&session.GetSessionContext{Context: context.WithValue(context.Background(), executionKey{}, e)}, func() (*session.Session, error) { return state, nil })
 			if err != nil {
@@ -72,6 +75,9 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 			}
 			if len(got.Events) != want {
 				t.Fatalf("页面变化不应丢失已授权的完整对话: got=%d want=%d", len(got.Events), want)
+			}
+			if e.MultipleModels && (got.Events[want-1].Choices[0].Message.ReasoningContent != "" || answer.Choices[0].Message.ReasoningContent == "") {
+				t.Fatal("多模型历史回放不得转发旧推理或修改历史快照")
 			}
 			if tc.keep && tc.userOnly && (!userEvent(got.Events[0]) || got.Events[0].Choices[0].Message.Content != "看下 api 日志") {
 				t.Fatal("目录轮次只能保留用户原话，不能复用工具结果或助手转述")
@@ -83,5 +89,18 @@ func TestSessionHistoryDoesNotRequireMatchingPage(t *testing.T) {
 				t.Fatalf("权限复查次数错误: %d", checks)
 			}
 		})
+	}
+}
+
+func TestSessionHistoryZeroBudget(t *testing.T) {
+	state := session.NewSession("halman", "user", "conversation")
+	state.Events = []event.Event{historyEvent("old", "user", "earlier question", time.Now())}
+	e := &execution{HistoryContextTokens: model.IntPtr(0)}
+	s := &AgentService{}
+	got, err := s.sessionContext(&session.GetSessionContext{Context: context.WithValue(context.Background(), executionKey{}, e)}, func() (*session.Session, error) {
+		return state, nil
+	})
+	if err != nil || len(got.Events) != 0 || len(e.HistoryRunIDs) != 0 {
+		t.Fatalf("zero history budget should skip prior turns: %v, %v", got, err)
 	}
 }

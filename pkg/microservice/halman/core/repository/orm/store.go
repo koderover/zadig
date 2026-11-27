@@ -320,6 +320,10 @@ func (s *Store) BeginRun(ctx context.Context, user, conversation string, req mod
 		return nil, false, err
 	}
 
+	if err := saveUIRun(tx.WithContext(ctx), user, req, r); err != nil {
+		return nil, false, err
+	}
+
 	if err = tx.Commit().Error; err != nil {
 		return nil, false, err
 	}
@@ -591,6 +595,11 @@ func (s *Store) FinishRun(ctx context.Context, user string, r *models.Run, statu
 		return err
 	}
 
+	if r.HasUICards {
+		if err := finishUICards(ctx, tx, r, status); err != nil {
+			return err
+		}
+	}
 	return tx.Commit().Error
 }
 

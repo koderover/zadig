@@ -42,6 +42,8 @@ func NewLLMClient(llmIntegration *models.LLMIntegration) (llm.ILLM, error) {
 		Token:        llmIntegration.Token,
 		BaseURL:      llmIntegration.BaseURL,
 		Model:        llmIntegration.Model,
+
+		ModelParameters: llmIntegration.ModelParameters,
 	}
 	if llmIntegration.EnableProxy {
 		llmConfig.Proxy = config.ProxyHTTPSAddr()

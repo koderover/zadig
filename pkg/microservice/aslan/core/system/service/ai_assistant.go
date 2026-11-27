@@ -26,11 +26,18 @@ func UpdateAIAssistantConfig(ctx context.Context, args *types.AIAssistantConfig)
 	if err := args.Validate(); err != nil {
 		return e.NewWithDesc(e.ErrInvalidParam, err.Error())
 	}
+	*args = args.WithRunDefaults()
 
 	// 关闭功能不依赖模型仍然存在，失效的模型配置也必须能被停用。
-	if args.Enabled && args.LLMIntegrationID != "" {
-		if _, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, args.LLMIntegrationID); err != nil {
+	if ids := args.ModelIDs(); args.Enabled && len(ids) > 0 {
+		models, err := commonrepo.NewLLMIntegrationColl().FindByIDs(ctx, ids)
+		if err != nil || len(models) != len(ids) {
 			return e.NewWithDesc(e.ErrInvalidParam, "所选模型集成不存在")
+		}
+		for _, model := range models {
+			if len(args.LLMIntegrationIDs) != 0 && !model.SupportsAIAssistant() {
+				return e.NewWithDesc(e.ErrInvalidParam, "AI 助手仅支持非 Azure 的 OpenAI 兼容模型")
+			}
 		}
 	}
 

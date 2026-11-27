@@ -131,10 +131,10 @@ require (
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.6.0
-	trpc.group/trpc-go/trpc-agent-go v1.11.2
-	trpc.group/trpc-go/trpc-agent-go/server/agui v1.11.1-0.20260820040323-5a0030b628a5 // 与核心 v1.11.2 使用相同提交。
-	trpc.group/trpc-go/trpc-agent-go/session/mysql v1.11.2
-	trpc.group/trpc-go/trpc-agent-go/storage/mysql v0.5.0
+	trpc.group/trpc-go/trpc-agent-go v1.12.0
+	trpc.group/trpc-go/trpc-agent-go/server/agui v1.12.0
+	trpc.group/trpc-go/trpc-agent-go/session/mysql v1.12.0
+	trpc.group/trpc-go/trpc-agent-go/storage/mysql v1.12.0
 )
 
 require (

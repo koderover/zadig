@@ -71,6 +71,23 @@ func cutoff(c *gin.Context) time.Time {
 	return time.Now().UTC().AddDate(0, 0, -requestConfig(c).HistoryRetentionDays)
 }
 
+// listModels godoc
+// @Summary 查询 AI 助手可选模型与思考强度
+// @Tags AI助手
+// @Produce json
+// @Param Authorization header string true "Bearer 用户登录令牌"
+// @Success 200 {object} types.AIAssistantModelOptions
+// @Router /api/halman/models [get]
+func (a *API) listModels(c *gin.Context) {
+	cfg := requestConfig(c)
+	options, err := a.Agent.Platform.ModelOptions(c.Request.Context(), cfg.AIAssistantConfig)
+	if err != nil {
+		respondError(c, e.ErrAIAssistantRuntime)
+		return
+	}
+	c.JSON(http.StatusOK, options)
+}
+
 func respondError(c *gin.Context, err error) {
 	var httpError *e.HTTPError
 	if errors.As(err, &httpError) {
@@ -107,6 +124,8 @@ func respondError(c *gin.Context, err error) {
 		template, description = e.ErrAIAssistantConflict, lang.Text(common.ErrInvalidCluster.Error(), "The plan contains an invalid cluster ID. Select the cluster again and regenerate the plan.")
 	case errors.Is(err, common.ErrCapacity):
 		template, description = e.ErrAIAssistantCapacity, lang.Text(common.ErrCapacity.Error(), "The assistant is busy; please try again shortly")
+	case errors.Is(err, common.ErrInvalidModelPreference):
+		template, description = e.ErrAIAssistantModel, lang.Text(common.ErrInvalidModelPreference.Error(), "Your saved AI assistant model is unavailable. Change or clear your preferences.")
 	case errors.Is(err, common.ErrModelUnavailable):
 		template, description = e.ErrAIAssistantModel, lang.Text(common.ErrModelUnavailable.Error(), "The AI assistant model is unavailable")
 	case errors.Is(err, common.ErrInvalidCursor), errors.Is(err, common.ErrInvalidRequest):
@@ -286,6 +305,12 @@ func (a *API) getRun(c *gin.Context) {
 		return
 	}
 
+	cards, err := a.Agent.AuthorizedUICards(c.Request.Context(), requestUser(c), c.GetHeader("Authorization"), item.ID, cutoff(c))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	item.Cards = &cards
 	c.JSON(http.StatusOK, item)
 }
 
@@ -488,7 +513,7 @@ func (a *API) recommendations(c *gin.Context) {
 // @Produce json
 // @Param Authorization header string true "Bearer 用户登录令牌"
 // @Param id path string true "需要替换的最新回答运行 ID"
-// @Param body body RequestIDRequest true "新请求标识，重复提交同一请求时保持不变"
+// @Param body body RequestIDRequest true "新请求标识，重复提交时保持不变"
 // @Success 202 {object} models.Run "重新回答的运行快照"
 // @Failure 400 {object} e.ErrorResponse "参数错误 code=400、许可证无效 code=7050，或 AI 助手业务错误 code=7213～7221"
 // @Failure 401 {object} e.ErrorResponse "登录态无效或已失效"
@@ -497,8 +522,19 @@ func (a *API) recommendations(c *gin.Context) {
 // @Failure 500 {object} e.ErrorResponse "AI 许可证查询失败"
 // @Router /api/halman/runs/{id}/regenerate [post]
 func (a *API) regenerate(c *gin.Context) {
-	var req RequestIDRequest
-	if c.ShouldBindJSON(&req) != nil || common.ValidateRequest(models.RunRequest{RequestID: req.RequestID, Message: "重新回答"}) != nil {
+	var req struct {
+		RequestIDRequest
+		modelOverrides
+	}
+	if c.ShouldBindJSON(&req) != nil {
+		respondError(c, e.NewWithDesc(e.ErrInvalidParam, "需要有效的 request_id"))
+		return
+	}
+	if req.modelOverrides.present() {
+		respondError(c, e.NewWithDesc(e.ErrInvalidParam, modelOverrideMessage))
+		return
+	}
+	if common.ValidateRequest(models.RunRequest{RequestID: req.RequestID, Message: "重新回答"}) != nil {
 		respondError(c, e.NewWithDesc(e.ErrInvalidParam, "需要有效的 request_id"))
 		return
 	}

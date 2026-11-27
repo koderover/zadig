@@ -57,6 +57,8 @@ func TestAGUIRequestRejectsUnsupportedOrInvalidInputs(t *testing.T) {
 		`{"threadId":"c","runId":"r","resume":[{}],"messages":[{"id":"m","role":"user","content":"你好"}]}`,
 		`{"threadId":"c","runId":"r","forwardedProps":{"page_context":{"task_id":-1}},"messages":[{"id":"m","role":"user","content":"你好"}]}`,
 		`{"threadId":"c","runId":"r","forwardedProps":"invalid","messages":[{"id":"m","role":"user","content":"你好"}]}`,
+		`{"threadId":"c","runId":"r","forwardedProps":{"llm_integration_id":""},"messages":[{"id":"m","role":"user","content":"你好"}]}`,
+		`{"threadId":"c","runId":"r","forwardedProps":{"reasoning_effort":null},"messages":[{"id":"m","role":"user","content":"你好"}]}`,
 		`{"threadId":"c","runId":"r","messages":[{"id":"m","role":"user","content":"你好","toolCallId":"call"}]}`,
 	} {
 		var input aguitypes.RunAgentInput

@@ -68,6 +68,72 @@ func assertAssistantErrorCode(t *testing.T, w *httptest.ResponseRecorder, code i
 	}
 }
 
+func TestHTTPModelPreferences(t *testing.T) {
+	store, mock := mockStore(t)
+	cfg := types.AIAssistantConfig{Enabled: true, HistoryRetentionDays: 90, LLMIntegrationID: "default", LLMIntegrationIDs: []string{"alternate"}}
+	platform := &service.PlatformClient{
+		CheckAILicense: func() error { return nil },
+		Auth: fakeAuth{CheckFunc: func(*authv3.CheckRequest) (*authv3.CheckResponse, error) {
+			return &authv3.CheckResponse{Status: &rpcstatus.Status{}, HttpResponse: &authv3.CheckResponse_OkResponse{OkResponse: &authv3.OkHttpResponse{}}}, nil
+		}},
+		LoadRuntime: func(context.Context) (*types.AIAssistantRuntime, error) {
+			return &types.AIAssistantRuntime{AIAssistantConfig: cfg}, nil
+		},
+		ListModels: func(_ context.Context, ids []string) ([]types.AIAssistantModelOption, error) {
+			var result []types.AIAssistantModelOption
+			for _, id := range ids {
+				result = append(result, types.AIAssistantModelOption{ID: id, ReasoningEfforts: []string{"high"}})
+			}
+			return result, nil
+		},
+	}
+	engine := NewEngine(&service.AgentService{Store: store, Platform: platform})
+	request := func(method, path, user, body string, status int) string {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", token(user))
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, req)
+		if w.Code != status {
+			t.Fatalf("%s %s 返回 %d，预期 %d: %s", method, path, w.Code, status, w.Body)
+		}
+		return w.Body.String()
+	}
+	const path = "/api/halman/preferences"
+	const saved = `{"llm_integration_id":"alternate","reasoning_effort":"high"}`
+	request(http.MethodPut, path, "alice", saved, http.StatusForbidden)
+	request(http.MethodPut, path, "alice", `{}`, http.StatusForbidden)
+	if body := request(http.MethodGet, "/api/halman/models", "alice", "", http.StatusOK); strings.Contains(body, "alternate") || !strings.Contains(body, `"reasoning_efforts":[]`) {
+		t.Fatalf("关闭时应只返回默认模型和空强度选项: %s", body)
+	}
+
+	cfg.AllowUserModelSelection = true
+	for _, invalid := range []string{`null`, `{"user_id":"bob"}`, `{"reasoning_effort":"high"}`} {
+		request(http.MethodPut, path, "alice", invalid, http.StatusBadRequest)
+	}
+	mock.ExpectExec("INSERT INTO ai_user_preference").WithArgs("alice", "alternate", "high", "alternate", "high").WillReturnResult(sqlmock.NewResult(0, 1))
+	request(http.MethodPut, path, "alice", saved, http.StatusOK)
+	mock.ExpectQuery("SELECT model_id,reasoning_effort").WithArgs("bob").WillReturnRows(sqlmock.NewRows([]string{"model_id", "reasoning_effort"}))
+	if body := request(http.MethodGet, path, "bob", "", http.StatusOK); body != "{}" {
+		t.Fatalf("不能读取其他用户的偏好: %s", body)
+	}
+	cfg.AllowUserModelSelection = false
+	mock.ExpectQuery("SELECT model_id,reasoning_effort").WithArgs("alice").WillReturnRows(sqlmock.NewRows([]string{"model_id", "reasoning_effort"}).AddRow("alternate", "high"))
+	if body := request(http.MethodGet, path, "alice", "", http.StatusOK); body != saved {
+		t.Fatalf("关闭后应保留本人偏好: %s", body)
+	}
+	cfg.AllowUserModelSelection = true
+	mock.ExpectExec("INSERT INTO ai_user_preference").WithArgs("alice", "default", "", "default", "").WillReturnResult(sqlmock.NewResult(0, 1))
+	request(http.MethodPut, path, "alice", `{"llm_integration_id":"default"}`, http.StatusOK)
+	mock.ExpectExec("DELETE FROM ai_user_preference").WithArgs("alice").WillReturnResult(sqlmock.NewResult(0, 1))
+	request(http.MethodPut, path, "alice", `{}`, http.StatusOK)
+	for _, body := range []string{`{"request_id":"new","llm_integration_id":null}`, `{"request_id":"new","reasoning_effort":""}`} {
+		if response := request(http.MethodPost, "/api/halman/runs/run/regenerate", "alice", body, http.StatusBadRequest); !strings.Contains(response, path) {
+			t.Fatalf("重答应提示通过偏好接口修改: %s", response)
+		}
+	}
+}
+
 func TestHTTPDoesNotAcceptBodyUserIDAsIdentity(t *testing.T) {
 	s, mock := mockStore(t)
 	platform := &service.PlatformClient{

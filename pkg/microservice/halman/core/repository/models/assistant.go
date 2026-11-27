@@ -20,11 +20,19 @@ type RunRequest struct {
 	// 请求标识，1～64 位字母、数字、横线或下划线，用于幂等去重。
 	RequestID string `json:"request_id" validate:"required" example:"chat-20261103-001"`
 	// 用户问题，最多 16000 字节。
-	Message          string      `json:"message" validate:"required" example:"帮我检查这次工作流为什么失败"`
-	Context          PageContext `json:"context"`
-	SkillExecutionID string      `json:"skill_execution_id,omitempty"`
-	RegenerateFrom   *Run        `json:"-"`
-	RetryFrom        string      `json:"-"`
+	Message          string          `json:"message" validate:"required" example:"帮我检查这次工作流为什么失败"`
+	Context          PageContext     `json:"context"`
+	SkillExecutionID string          `json:"skill_execution_id,omitempty"`
+	RegenerateFrom   *Run            `json:"-"`
+	RetryFrom        string          `json:"-"`
+	UIContinuation   *UIContinuation `json:"-"`
+	CardReply        *UICardReply    `json:"-"`
+	ChatMessage      bool            `json:"-"`
+}
+
+type ModelSelection struct {
+	LLMIntegrationID string `json:"llm_integration_id,omitempty"`
+	ReasoningEffort  string `json:"reasoning_effort,omitempty"`
 }
 
 type Conversation struct {
@@ -35,6 +43,9 @@ type Conversation struct {
 }
 
 type Run struct {
+	HasUICards          bool            `json:"-"`
+	Cards               *[]UICard       `json:"cards,omitempty"`
+	RepliedCardRunID    string          `json:"-"`
 	ID                  string          `json:"id"`
 	RequestID           string          `json:"request_id"`
 	ConversationID      string          `json:"conversation_id"`
@@ -59,6 +70,7 @@ type Run struct {
 
 // AGUIForwardedProps 描述协议透传字段中的 Zadig 页面候选及补问关联。
 type AGUIForwardedProps struct {
-	PageContext      PageContext `json:"page_context"`
-	SkillExecutionID string      `json:"skill_execution_id,omitempty"`
+	CardReply        *UICardReply `json:"card_reply,omitempty"`
+	PageContext      PageContext  `json:"page_context"`
+	SkillExecutionID string       `json:"skill_execution_id,omitempty"`
 }

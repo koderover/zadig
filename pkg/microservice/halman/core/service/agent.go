@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -60,10 +61,19 @@ type execution struct {
 	ToolFailures       map[string]string
 	ToolErrorCount     int
 	ToolErrorTarget    map[string]string
+	UICardsEnabled     bool
+	UIPending          bool
+	UIContinuation     *models.UIContinuation
+	UIFallback         string
+	UICatalogOptions   map[string][]models.UIOption
 	Message            string
 	CatalogNeedsInput  bool
 	PersistingSnapshot bool
 	HistoryRunIDs      []string
+
+	HistoryContextTokens *int
+	ModelCalls           int
+	MultipleModels       bool
 }
 
 // maxRunSubscribers 是单个运行同时保留的事件流连接数。
@@ -162,6 +172,13 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 	if e.PersistingSnapshot {
 		return state, nil
 	}
+	// 摘要缺少来源范围和有效期，不能绕过历史权限过滤。
+	state.State = session.StateMap{}
+	state.Summaries = nil
+	if e.HistoryContextTokens != nil && *e.HistoryContextTokens == 0 {
+		state.Events = nil
+		return state, nil
+	}
 	// 只查询本次窗口涉及的运行，不扫描整个会话的运行历史或 JSON。
 	ids := make(map[string]bool)
 	runIDs := []string{}
@@ -241,11 +258,19 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 			continue
 		}
 		if item.RequestID == version.LatestID || (!version.Regenerated && userEvent(item)) {
+			// 已结束轮次的推理字段可能由另一模型生成，仅回放问题、回答和工具消息。
+			if e.MultipleModels && item.RequestID != e.Run.ID && item.Response != nil &&
+				slices.ContainsFunc(item.Choices, func(choice model.Choice) bool { return choice.Message.ReasoningContent != "" }) {
+				item.Response = item.Response.Clone()
+				for i := range item.Choices {
+					item.Choices[i].Message.ReasoningContent = ""
+				}
+			}
 			filtered = append(filtered, item)
 		}
 	}
 
-	state.Events = contextEvents(filtered, allowed, e.Cutoff, 64<<10, groups)
+	state.Events = contextEvents(h.Context, filtered, allowed, e.Cutoff, e.HistoryContextTokens, groups)
 	state.Events = completeContextTurns(state.Events, groups)
 	kept := map[string]bool{}
 	for _, id := range e.HistoryRunIDs {
@@ -257,9 +282,6 @@ func (s *AgentService) sessionContext(h *session.GetSessionContext, next func() 
 			e.HistoryRunIDs = append(e.HistoryRunIDs, item.RequestID)
 		}
 	}
-	// 暂不启用摘要，避免缺少来源范围和有效期的框架状态绕过历史过滤。
-	state.State = session.StateMap{}
-	state.Summaries = nil
 	return state, nil
 }
 
@@ -313,7 +335,7 @@ func userEvent(item event.Event) bool {
 	return item.Response != nil && len(item.Choices) == 1 && item.Choices[0].Message.Role == model.RoleUser
 }
 
-func contextEvents(events []event.Event, allowed map[string]bool, cutoff time.Time, budget int, groups map[string]string) []event.Event {
+func contextEvents(ctx context.Context, events []event.Event, allowed map[string]bool, cutoff time.Time, maxTokens *int, groups map[string]string) []event.Event {
 	group := func(id string) string {
 		if groups[id] != "" {
 			return groups[id]
@@ -322,12 +344,29 @@ func contextEvents(events []event.Event, allowed map[string]bool, cutoff time.Ti
 		return id
 	}
 	sizes := make(map[string]int)
+	// 省略 Token 配额时沿用按事件 JSON 字节计算的历史窗口。
+	budget := 64 << 10
+	if maxTokens != nil {
+		budget = *maxTokens
+	}
+	counter := model.NewSimpleTokenCounter()
 	for _, item := range events {
-		if allowed[item.RequestID] && !item.Timestamp.Before(cutoff) {
-			raw, err := json.Marshal(item)
-			if err == nil {
-				sizes[group(item.RequestID)] += len(raw)
+		if !allowed[item.RequestID] || item.Timestamp.Before(cutoff) {
+			continue
+		}
+		id := group(item.RequestID)
+		if maxTokens == nil {
+			if raw, err := json.Marshal(item); err == nil {
+				sizes[id] += len(raw)
 			}
+			continue
+		}
+		if item.Response == nil {
+			continue
+		}
+		for _, choice := range item.Choices {
+			tokens, _ := counter.CountTokens(ctx, choice.Message)
+			sizes[id] += tokens + 3
 		}
 	}
 
@@ -395,27 +434,46 @@ func (s *AgentService) beforePersist(h *session.AppendEventContext, next func() 
 	return next()
 }
 
-func makeModel(cfg *types.AIAssistantRuntime, options ...openai.Option) (model.Model, error) {
+func modelEndpoint(cfg *types.AIAssistantRuntime) (string, error) {
 	if cfg.ModelError != "" {
-		return nil, fmt.Errorf("%s", cfg.ModelError)
+		return "", fmt.Errorf("%s", cfg.ModelError)
 	}
 
 	if cfg.LLMIntegrationID == "" || strings.TrimSpace(cfg.Model) == "" {
-		return nil, fmt.Errorf("请先在系统设置中选择 AI 助手模型")
+		return "", fmt.Errorf("请先在系统设置中选择 AI 助手模型")
 	}
 
 	if cfg.Token == "" {
-		return nil, fmt.Errorf("所选模型缺少访问凭据")
+		return "", fmt.Errorf("所选模型缺少访问凭据")
 	}
 
 	if cfg.Protocol != "" && cfg.Protocol != "openai" {
-		return nil, fmt.Errorf("当前聊天接入仅支持 OpenAI 兼容协议，请选择兼容模型")
+		return "", fmt.Errorf("当前聊天接入仅支持 OpenAI 兼容协议，请选择兼容模型")
 	}
 
 	if cfg.Provider == "azure_openai" || cfg.Provider == "azure_ad_openai" {
-		return nil, fmt.Errorf("当前聊天接入尚未支持 Azure 模型协议")
+		return "", fmt.Errorf("当前聊天接入尚未支持 Azure 模型协议")
 	}
 
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		if cfg.Provider != "openai" {
+			return "", fmt.Errorf("所选模型缺少接口地址")
+		}
+		baseURL = "https://api.openai.com/v1"
+	}
+	endpoint, err := url.Parse(baseURL)
+	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil {
+		return "", fmt.Errorf("模型接口地址无效")
+	}
+	return baseURL, nil
+}
+
+func makeModel(cfg *types.AIAssistantRuntime, options ...openai.Option) (model.Model, error) {
+	baseURL, err := modelEndpoint(cfg)
+	if err != nil {
+		return nil, err
+	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	transport.DisableKeepAlives = true
@@ -432,23 +490,20 @@ func makeModel(cfg *types.AIAssistantRuntime, options ...openai.Option) (model.M
 		openai.WithAPIKey(cfg.Token),
 		// The run and title contexts cap the full response, including the streaming body.
 		openai.WithHTTPClientOptions(openai.WithHTTPClientTransport(transport), openai.WithHTTPClientTimeout(0)),
+		openai.WithBaseURL(baseURL),
 	}
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		if cfg.Provider == "openai" {
-			baseURL = "https://api.openai.com/v1"
-		} else {
-			return nil, fmt.Errorf("所选模型缺少接口地址")
-		}
+	if cfg.ContextWindow > 0 {
+		opts = append(opts, openai.WithContextWindow(cfg.ContextWindow), openai.WithEnableTokenTailoring(true))
 	}
-
-	endpoint, err := url.Parse(baseURL)
-	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil {
-		return nil, fmt.Errorf("模型接口地址无效")
-	}
-
-	opts = append(opts, openai.WithBaseURL(baseURL))
 	return openai.New(cfg.Model, append(opts, options...)...), nil
+}
+
+func generationConfig(cfg *types.AIAssistantRuntime, stream bool, maxTokens int) model.GenerationConfig {
+	config := model.GenerationConfig{Stream: stream, MaxTokens: model.IntPtr(maxTokens)}
+	if cfg.ReasoningEffort != "" {
+		config.ReasoningEffort = &cfg.ReasoningEffort
+	}
+	return config
 }
 
 func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platform *PlatformClient, authorization string, services ...*AgentService) (runner.Runner, error) {
@@ -468,6 +523,12 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 		}
 		if !current.Enabled {
 			return nil, common.ErrAIDisabled
+		}
+		if !platform.modelPreferenceAllowed(ctx, cfg, current) {
+			return nil, common.ErrInvalidModelPreference
+		}
+		if len(cfg.LLMIntegrationIDs) > 0 && !current.AllowsModel(cfg.LLMIntegrationID) {
+			return nil, common.ErrModelUnavailable
 		}
 
 		if e, ok := ctx.Value(executionKey{}).(*execution); ok {
@@ -517,13 +578,19 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 					return nil, err
 				}
 			}
-			if e.RegenerateFrom == nil && (e.PendingOnboarding || e.continuingOnboarding()) {
+			if cfg.MaxOutputTokens == 0 && e.RegenerateFrom == nil && (e.PendingOnboarding || e.continuingOnboarding()) {
 				req.MaxTokens = model.IntPtr(16384)
 				slog.Info("AI 初始化续接模型参数", "run_id", e.Run.ID, "model", cfg.Model,
 					"max_output_tokens", *req.MaxTokens)
 			}
+			if len(services) > 0 {
+				if response, err := services[0].prepareUIModelRequest(ctx, e, req); response != nil || err != nil {
+					return response, err
+				}
+			}
 			applyCatalogClarification(e, req)
 			applyToolFailureLimit(e, req)
+			e.ModelCalls++
 
 			candidate, _ := json.Marshal(e.Run.Context)
 			req.Messages = append([]model.Message{model.NewSystemMessage("本轮页面上下文（可用于只读查询和准备待确认清单；用户明确目标及原草稿优先，业务写入仍须权限校验和确认）：" + string(candidate))}, req.Messages...)
@@ -534,16 +601,23 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 		req.Messages = append([]model.Message{model.NewSystemMessage(outputLanguageInstruction(cfg.Language))}, req.Messages...)
 		return nil, nil
 	})
+	runConfig := cfg.WithRunDefaults()
+	maxTokens := cfg.MaxOutputTokens
+	if maxTokens == 0 {
+		maxTokens = 8192
+	}
+	finalization := callLimitFinalizationInstruction(cfg.Language)
 	agentOptions := []llmagent.Option{
 		llmagent.WithModel(chatModel),
-		llmagent.WithInstruction(builtinInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
-		llmagent.WithGenerationConfig(model.GenerationConfig{Stream: true, MaxTokens: model.IntPtr(8192)}),
-		llmagent.WithMaxLLMCalls(8),
-		llmagent.WithMaxToolIterations(6),
-		llmagent.WithToolIterationLimitFinalization(callLimitFinalizationInstruction(cfg.Language)),
+		llmagent.WithInstruction(builtinInstructions + "\n" + uiCardInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
+		llmagent.WithGenerationConfig(generationConfig(cfg, true, maxTokens)),
+		llmagent.WithMaxLLMCalls(*runConfig.MaxLLMCalls),
+		llmagent.WithMaxToolIterations(*runConfig.MaxToolIterations),
+		llmagent.WithLLMCallLimitFinalization(finalization),
+		llmagent.WithToolIterationLimitFinalization(finalization),
 		llmagent.WithEnableParallelTools(false),
 		llmagent.WithModelCallbacks(callbacks),
-		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure)),
+		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure).RegisterAfterTool(uiToolCallback)),
 	}
 	if len(services) > 0 {
 		tools := services[0].tools()
@@ -584,6 +658,9 @@ func (s *AgentService) subscription(record *models.Run, subscribe bool) (*RunSub
 
 func (s *AgentService) start(ctx context.Context, user, conversation, authorization string, req models.RunRequest, cfg *types.AIAssistantRuntime, subscribe bool) (*RunSubscription, error) {
 	if err := common.ValidateRequest(req); err != nil {
+		if req.UIContinuation != nil {
+			return nil, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
+		}
 		return nil, err
 	}
 
@@ -596,6 +673,24 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 
 	if !cfg.Enabled {
 		return nil, common.ErrAIDisabled
+	}
+	if u := req.UIContinuation; u != nil {
+		if err := s.prepareUICardRun(ctx, authorization, u); err != nil {
+			return nil, err
+		}
+	}
+	if cfg.AllowUserModelSelection {
+		preference, err := s.Store.ModelPreference(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		cfg, err = s.Platform.selectModel(ctx, cfg, preference)
+		if errors.Is(err, common.ErrInvalidRequest) {
+			return nil, common.ErrInvalidModelPreference
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := s.admit(ctx); err != nil {
 		// 等待期间同一请求可能已由另一调用接收，超时前再核对一次。
@@ -635,9 +730,12 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 		return s.subscription(record, subscribe)
 	}
 
-	runCtx, cancel := context.WithTimeout(s.Context, 10*time.Minute)
+	runConfig := cfg.WithRunDefaults()
+	runCtx, cancel := context.WithTimeout(s.Context, time.Duration(*runConfig.RunTimeoutSeconds)*time.Second)
 	e := &execution{
 		Message:         req.Message,
+		UIContinuation:  req.UIContinuation,
+		UICardsEnabled:  true,
 		Language:        language.Normalize(cfg.Language),
 		Run:             record,
 		User:            user,
@@ -647,6 +745,14 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 		RegenerateFrom:  req.RegenerateFrom,
 		Skills:          skills,
 		ContinuingSkill: continuingSkill,
+
+		HistoryContextTokens: runConfig.HistoryContextTokens,
+		MultipleModels:       len(cfg.LLMIntegrationIDs) > 0,
+	}
+	if record.RepliedCardRunID != "" {
+		// The user's latest message determines whether to resume this draft.
+		e.RootID, e.ContinuingSkill = "", ""
+		e.CheckedOnboarding = true
 	}
 	if req.RegenerateFrom != nil {
 		e.SkillID = req.RegenerateFrom.SkillID
@@ -753,7 +859,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 		status, failure = "failed", lang.Text("消息保存失败，请查询运行状态", "Failed to save messages; check the run status")
 	}
 
-	if status == "succeeded" && !hasAnswer {
+	if status == "succeeded" && !hasAnswer && !record.HasUICards {
 		status, failure = "failed", missingAnswerFailure(lastAssistantChoice, lang)
 	}
 

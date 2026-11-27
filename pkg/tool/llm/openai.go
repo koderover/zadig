@@ -42,9 +42,13 @@ type OpenAIClient struct {
 	model           string
 	client          *openai.Client
 	apiType         string
+	parameters      ModelParameters
 }
 
 func (c *OpenAIClient) Configure(config LLMConfig) error {
+	if err := config.ModelParameters.Validate(ProtocolOpenAI); err != nil {
+		return err
+	}
 	token := config.GetToken()
 	var defaultConfig openai.ClientConfig
 	if config.GetProviderName() == ProviderAzure || config.GetProviderName() == ProviderAzureAD {
@@ -84,6 +88,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 	c.name = string(config.GetProviderName())
 	c.integrationName = config.GetIntegrationName()
 	c.model = config.GetModel()
+	c.parameters = config.ModelParameters
 	return nil
 }
 
@@ -100,6 +105,10 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
+	maxTokens := c.parameters.limitOutputTokens(opts.MaxTokens)
+	if err := c.parameters.checkPromptBudget(requestCtx, prompt, maxTokens); err != nil {
+		return "", err
+	}
 
 	model := opts.Model
 	if model == "" {
@@ -120,10 +129,16 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	request := openai.ChatCompletionRequest{
 		Model:       model,
 		Messages:    messages,
-		MaxTokens:   opts.MaxTokens,
+		MaxTokens:   maxTokens,
 		Temperature: opts.Temperature,
 		Stop:        opts.StopWords,
 		LogitBias:   opts.LogitBias,
+
+		ReasoningEffort: c.parameters.ReasoningEffort,
+	}
+	if (c.parameters.MaxOutputTokens > 0 || c.parameters.ReasoningEffort != "") &&
+		(c.name == string(ProviderOpenAI) || c.apiType == string(openai.APITypeAzure)) {
+		request.MaxCompletionTokens, request.MaxTokens = request.MaxTokens, 0
 	}
 
 	now := time.Now()
@@ -213,7 +228,7 @@ func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICa
 	if opts.Model != "" {
 		model = opts.Model
 	}
-	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolOpenAI, a.integrationName, Provider(a.GetName())), model, prompt)
+	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolOpenAI, a.integrationName, Provider(a.GetName()), a.parameters), model, prompt)
 
 	if !cache.IsCacheDisabled() && cache.Exists(cacheKey) {
 		response, err := cache.Load(cacheKey)

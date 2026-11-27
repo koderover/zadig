@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS ai_conversation (
     KEY idx_conversation_deleted (deleted_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS ai_user_preference (
+    user_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
+    model_id VARCHAR(128) NOT NULL,
+    reasoning_effort VARCHAR(16) NOT NULL,
+    PRIMARY KEY (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS ai_skill (
     id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
     source VARCHAR(16) CHARACTER SET ascii NOT NULL,
@@ -92,4 +99,40 @@ CREATE TABLE IF NOT EXISTS ai_usage_daily (
     positive_count BIGINT NOT NULL DEFAULT 0,
     negative_count BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (date, user_id, skill_id, model_id, model_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ai_ui_card (
+ id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ user_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
+ conversation_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ run_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ answer_version INT NOT NULL,
+ source_key CHAR(64) CHARACTER SET ascii NOT NULL,
+ sequence INT NOT NULL,
+ revision INT NOT NULL,
+ status VARCHAR(32) CHARACTER SET ascii NOT NULL,
+ draft_fields BOOLEAN NOT NULL DEFAULT FALSE,
+ payload JSON NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ run_created_at DATETIME(6) NOT NULL,
+ expires_at DATETIME(6) NULL,
+ UNIQUE KEY idx_ui_card_source (run_id,answer_version,source_key),
+ KEY idx_ui_card_page (user_id,conversation_id,run_created_at,run_id,sequence,id),
+ KEY idx_ui_card_run (run_id,status),
+ KEY idx_ui_card_expiry (created_at),
+ CONSTRAINT fk_ai_ui_card_source FOREIGN KEY (run_id) REFERENCES ai_run (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ai_ui_submission (
+ id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+ card_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ revision INT NOT NULL,
+ action_id VARCHAR(64) CHARACTER SET ascii NOT NULL,
+ values_json JSON NOT NULL,
+ continuation_run_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ current_attempt_run_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ UNIQUE KEY idx_ui_submission_card (card_id),
+ KEY idx_ui_submission_attempt (current_attempt_run_id),
+ CONSTRAINT fk_ai_ui_submission_card FOREIGN KEY (card_id) REFERENCES ai_ui_card (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

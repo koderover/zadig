@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -187,6 +188,9 @@ func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperati
 		}
 		e.CheckedOnboarding = true
 		e.PendingOnboarding = false
+		if e.Run != nil {
+			e.Run.RepliedCardRunID = ""
+		}
 		return map[string]string{"status": "new_task"}, nil
 	}
 
@@ -194,6 +198,11 @@ func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperati
 	var err error
 	if e.RegenerateFrom != nil {
 		r, err = s.Store.GetRun(ctx, e.User, e.RegenerateFrom.ID, e.Cutoff)
+	} else if e.Run.RepliedCardRunID != "" {
+		r, err = s.readCardReplySource(ctx, e)
+		if errors.Is(err, common.ErrNotFound) {
+			e.Run.RepliedCardRunID = ""
+		}
 	} else {
 		if e.RootID == "" || e.RootID == e.Run.ID {
 			r, err = s.Store.LatestSavedSkillRun(ctx, e.User, e.Run.ConversationID, e.Cutoff, e.Run.CreatedAt)
@@ -210,6 +219,7 @@ func (s *AgentService) readSavedOperation(ctx context.Context, args savedOperati
 		return nil, err
 	}
 
+	e.Run.RepliedCardRunID = ""
 	var publicPlan models.OperationPlan
 	if err := json.Unmarshal(r.Plan, &publicPlan); err != nil {
 		return nil, common.ErrRequestConflict

@@ -73,6 +73,8 @@ func TestAGUIHTTPDuplicateAndResubscriptionOnlyReadExistingRun(t *testing.T) {
 				AddRow("run", "request", "conversation", "succeeded", "{}", now, now, "", 1, 1, "", nil, nil, nil, 0, nil, nil, 1, nil, true)
 			mock.ExpectQuery("SELECT r.id,.*JOIN ai_conversation").WithArgs("run", "user", "user", sqlmock.AnyArg()).WillReturnRows(rows)
 		}
+		mock.ExpectQuery("SELECT c.payload,c.status,c.revision").WithArgs("user", "user", sqlmock.AnyArg(), sqlmock.AnyArg(), "run", 51).
+			WillReturnRows(sqlmock.NewRows([]string{"payload"}))
 		path, method, body := "/api/halman/conversations/conversation/runs", http.MethodPost, `{"threadId":"conversation","runId":"request","messages":[{"id":"message","role":"user","content":"你好"}]}`
 		if subscribe {
 			path, method, body = "/api/halman/runs/run/events", http.MethodGet, ""
@@ -90,6 +92,9 @@ func TestAGUIHTTPDuplicateAndResubscriptionOnlyReadExistingRun(t *testing.T) {
 		frames := strings.Split(strings.TrimSpace(w.Body.String()), "\n\n")
 		if len(frames) != 3 {
 			t.Fatalf("已有终态运行只发送开始、快照和结束: %s", w.Body)
+		}
+		if !strings.Contains(frames[1], `"cards":[]`) {
+			t.Fatalf("运行快照应明确返回空卡片集合: %s", frames[1])
 		}
 		for i, kind := range []string{"RUN_STARTED", "STATE_SNAPSHOT", "RUN_FINISHED"} {
 			data := strings.SplitN(frames[i], "data: ", 2)

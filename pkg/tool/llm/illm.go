@@ -20,7 +20,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
+
+	"trpc.group/trpc-go/trpc-agent-go/model"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
@@ -75,6 +78,55 @@ type LLMConfig struct {
 	BaseURL      string
 	Proxy        string
 	Headers      map[string]string
+	ModelParameters
+}
+
+type ModelParameters struct {
+	ContextWindow   int    `bson:"context_window" json:"context_window"`
+	MaxOutputTokens int    `bson:"max_output_tokens" json:"max_output_tokens"`
+	ReasoningEffort string `bson:"reasoning_effort" json:"reasoning_effort"`
+}
+
+func ReasoningEfforts(protocol Protocol) []string {
+	if protocol == "" || protocol == ProtocolOpenAI {
+		return []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+	}
+	return []string{"low", "medium", "high", "xhigh", "max"}
+}
+
+func (p ModelParameters) Validate(protocol Protocol) error {
+	if p.ContextWindow < 0 || p.MaxOutputTokens < 0 {
+		return fmt.Errorf("context_window and max_output_tokens must be non-negative")
+	}
+	if p.ContextWindow > 0 && (p.MaxOutputTokens == 0 || p.MaxOutputTokens >= p.ContextWindow) {
+		return fmt.Errorf("context_window requires a positive max_output_tokens smaller than context_window")
+	}
+	if p.ReasoningEffort == "" || slices.Contains(ReasoningEfforts(protocol), p.ReasoningEffort) {
+		return nil
+	}
+	return fmt.Errorf("reasoning_effort %q is invalid for %s", p.ReasoningEffort, protocol)
+}
+
+func (p ModelParameters) limitOutputTokens(requested int) int {
+	if p.MaxOutputTokens > 0 && (requested <= 0 || requested > p.MaxOutputTokens) {
+		return p.MaxOutputTokens
+	}
+	return requested
+}
+
+func (p ModelParameters) checkPromptBudget(ctx context.Context, prompt string, outputTokens int) error {
+	if p.ContextWindow == 0 {
+		return nil
+	}
+	tokens, err := model.NewSimpleTokenCounter().CountTokens(ctx, model.NewUserMessage(prompt))
+	if err != nil {
+		return err
+	}
+	inputBudget := p.ContextWindow - outputTokens
+	if tokens > inputBudget {
+		return fmt.Errorf("prompt exceeds the configured model input budget of %d tokens", inputBudget)
+	}
+	return nil
 }
 
 func (p *LLMConfig) GetIntegrationName() string {
@@ -113,9 +165,13 @@ func GetCacheKeyWithModel(provider, model, sEnc string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func cacheNamespace(protocol Protocol, integrationName string, provider Provider) string {
+func cacheNamespace(protocol Protocol, integrationName string, provider Provider, parameters ModelParameters) string {
 	if integrationName == "" {
 		integrationName = string(provider)
 	}
-	return string(protocol) + ":" + integrationName
+	namespace := string(protocol) + ":" + integrationName
+	if parameters != (ModelParameters{}) {
+		return fmt.Sprintf("%s\x00%d\x00%d\x00%s", namespace, parameters.ContextWindow, parameters.MaxOutputTokens, parameters.ReasoningEffort)
+	}
+	return namespace
 }

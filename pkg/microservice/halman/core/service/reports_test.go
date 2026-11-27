@@ -125,7 +125,7 @@ func TestEfficiencyReportUsesOnlyInsightPermissionAndAnswer(t *testing.T) {
 	expectSkillInputSave(mock, e, nil)
 	value, err := s.diagnoseEfficiency(context.WithValue(context.Background(), executionKey{}, e), models.EfficiencyDiagnosisInput{Projects: []string{"指定项目"}})
 	text := string(common.JSON(value))
-	if err != nil || posts != 1 || !e.EvidenceRead.Load() || e.Run.Context.ProjectKey != "" || !strings.Contains(text, "优化缓存") || strings.Contains(text, "private") || strings.Contains(text, "999") {
+	if err != nil || posts != 1 || !e.EvidenceRead.Load() || e.Run.Context.ProjectKey != "" || !strings.Contains(text, "优化缓存") || strings.Contains(text, "private") || strings.Contains(text, `"token_num"`) {
 		t.Fatalf("只应返回原报告，不包含内部输入和估算用量: %s %v", text, err)
 	}
 	expectReportScope(mock, true)

@@ -34,8 +34,15 @@ type LLMIntegration struct {
 	IsDefault    bool               `bson:"is_default"     json:"is_default"`
 	UpdatedBy    string             `bson:"updated_by"     json:"updated_by"`
 	UpdateTime   int64              `bson:"update_time"    json:"update_time"`
+
+	llm.ModelParameters `bson:",inline"`
 }
 
 func (llm LLMIntegration) TableName() string {
 	return "llm_integration"
+}
+
+func (m LLMIntegration) SupportsAIAssistant() bool {
+	return (m.Protocol == "" || m.Protocol == llm.ProtocolOpenAI) &&
+		m.ProviderName != llm.ProviderAzure && m.ProviderName != llm.ProviderAzureAD
 }

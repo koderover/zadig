@@ -9,6 +9,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	builtins "github.com/koderover/zadig/v2/pkg/microservice/halman/core/skill"
 	"github.com/koderover/zadig/v2/pkg/tool/language"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func TestRecommendationsFollowSystemLanguage(t *testing.T) {
@@ -33,7 +34,12 @@ func TestRecommendationsFollowSystemLanguage(t *testing.T) {
 
 func TestTitleAndInstructionsFollowSystemLanguage(t *testing.T) {
 	m := &titleModel{text: "Workflow failure analysis"}
-	title, _, _ := generateTitle(context.Background(), m, "帮我检查工作流报错", "en-us")
+	title, _, _ := generateTitle(context.Background(), m, "帮我检查工作流报错", &types.AIAssistantRuntime{
+		Language: "en-us", MaxOutputTokens: 64, ReasoningEffort: "low",
+	})
+	if *m.request.MaxTokens != 64 || m.request.ReasoningEffort == nil || *m.request.ReasoningEffort != "low" {
+		t.Fatal("标题请求应沿用模型推理等级并遵守输出上限")
+	}
 	if title != m.text || !strings.Contains(m.request.Messages[0].Content, "English") || strings.Contains(builtinInstructions, "所有交互使用中文") {
 		t.Fatal("英文系统语言应控制标题，内置指令不能强制中文")
 	}
